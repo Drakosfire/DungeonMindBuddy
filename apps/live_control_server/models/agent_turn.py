@@ -11,6 +11,8 @@ from application_state.agent_conversation.context_trace import TurnContextTraceV
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 
 from application_state.agent_conversation.types import (
+    BuildGraphCompletionV1,
+    BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
     PlanWorldGraphCompletionV2,
     PlanWorldGraphContextReceiptV1,
@@ -617,6 +619,18 @@ class AgentTurnResponseV2(AgentTurnResponse):
     plan_context: AgentPlanWorldGraphContextResponseV2
 
 
+class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
+    schema_: Literal["dmb_build_graph_context_response_v1"] = Field(
+        default="dmb_build_graph_context_response_v1", alias="schema"
+    )
+    receipt: BuildGraphContextReceiptV1
+    completion: BuildGraphCompletionV1 | None
+
+
+class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
+    knowledge_context: AgentBuildGraphContextResponseV1
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -640,6 +654,14 @@ class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
     plan_context: AgentPlanWorldGraphContextResponseV2
+
+
+class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
+    knowledge_context: AgentBuildGraphContextResponseV1
+
+
+class AgentConversationHistoryBuildTurnV3(AgentConversationHistoryTurnV3):
+    knowledge_context: AgentBuildGraphContextResponseV1
 
 
 class AgentConversationHistoryResponse(BaseModel):
@@ -677,14 +699,14 @@ class AgentConversationHistoryResponseV2(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v2"] = Field(
         default="dmb_agent_conversation_history_v2", alias="schema"
     )
-    turns: list[AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+    turns: list[AgentConversationHistoryBuildTurnV2 | AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
 
 
 class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v3"] = Field(
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
-    turns: list[AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+    turns: list[AgentConversationHistoryBuildTurnV3 | AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
 
 
 class AgentTurnContextTraceResponseV1(BaseModel):

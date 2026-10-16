@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -23,6 +23,8 @@ from apps.live_control_server.config import (
 )
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
+    AgentConversationHistoryBuildTurnV2,
+    AgentConversationHistoryBuildTurnV3,
     AgentConversationHistoryResponseV2,
     AgentConversationHistoryResponseV3,
     AgentConversationHistoryPlanTurnV3,
@@ -743,7 +745,8 @@ def _plan_context_resolver(
         or owner.get("kind") != "world"
         or not managed_world_id
         or work is None
-        or work.kind != "plan"
+        or work.kind not in {"plan", "build"}
+        or (work.kind == "build" and work.build_source is None)
         or work.world_id != managed_world_id
     ):
         raise AgentTurnServiceError(
@@ -1334,7 +1337,11 @@ def get_world_conversation_history(
                     },
                 )
             values["idempotency_key"] = persisted_key
-        if turn.graph_context_receipt is not None:
+        if isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
+            build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
+            history_turns.append(build_model(**values,
+                knowledge_context=project_plan_turn_context(turn, delivery_replay=False)))
+        elif turn.graph_context_receipt is not None:
             history_turns.append(
                 (
                     AgentConversationHistoryPlanTurnV3

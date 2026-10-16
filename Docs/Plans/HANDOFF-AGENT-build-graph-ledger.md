@@ -1,7 +1,10 @@
 # AGENT: governed Build Graph ledger
 
-Status ACTIVE under the operator's Mirathorn lifecycle goal. PRIME implements;
-ARCHITECTURE independently reviews. Base `990d229d6f131985b830fabc2a6598a5b12f61a5`.
+Status SETTLED: accepted in #1216 at `ad7e6661802598e8598ef2b080753ffc152ceed6`
+after independent ARCHITECTURE PASS on `5968af8deed6996e9e989777f314270505f7f882`.
+The producer write lease ended. Ordinary Build consumer adoption is ACTIVE under
+`HANDOFF-AGENT-build-governed-conversation.md`; retained migration/live acceptance
+remain separate. PRIME implemented; ARCHITECTURE independently reviewed. Base `990d229d6f131985b830fabc2a6598a5b12f61a5`.
 Lane `codex/build-graph-ledger`, `/tmp/prime-recap-mention-boundaries`.
 Topology serial producer prerequisite; one PR. Buddy consumer follows acceptance.
 

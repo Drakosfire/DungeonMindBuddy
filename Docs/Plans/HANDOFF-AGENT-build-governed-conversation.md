@@ -53,3 +53,24 @@ Verify timeout preserves source/lifecycle trace and no uncertain replay. Preserv
 Plan and graphless Build behavior. Inspect cumulative diff, push one PR and obtain
 independent exact-head review. Matched migration/preview and ordinary Mirathorn
 question remain post-review acceptance, not inferred from helper tests.
+
+## Implementation evidence for review
+
+Seven real disposable-APP consumer tests pass: exact saved source through actual
+Harness wire serialization; parent provider admission; durable Build history and
+completed replay without current-source/Graph/provider work; interrupted timeout
+with retained execution/trace; rejected forged source attribution; changed retry
+intent/hash rejection; stale source refusal before dispatch; and a Graph answer
+with a parent-brokered source read, producing-envelope citation, captured passage
+and correctly pinned source-open target. External provider/Graph bytes are
+synthetic; APP storage, broker authorization and history projection are real.
+
+Mounted shared conversation suite: 40 pass, including Build passage opening and
+foreign-source context rejection. TypeScript, Ruff and cumulative diff checks
+pass. Shared service/route/source/continuity run: 217 pass, six failures reproduced
+unchanged on exact base `9dbc958d`: two pre-freeze continuity fixture expectations,
+one native initial-evidence expectation, two V2/V3 policy digest expectations and
+one V2 source-cap fixture. These inherited failures are not a live acceptance.
+
+No inference, retained migration, publication or serving replacement occurred.
+Independent review and matched preview/ordinary Mirathorn acceptance remain open.

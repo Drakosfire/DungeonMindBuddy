@@ -25,6 +25,10 @@ import type {
   WorldCommandResolutionRequestV1,
   WorldCommandResolutionRecordV1,
   WorldPlanAgentPlanContextV2,
+  WorldBuildKnowledgeContextV1,
+  WorldBuildGraphReceiptV1,
+  WorldBuildGraphCompletionV1,
+  WorldBuildGraphAnswerStatus,
   WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
   WorldGraphRecapContextReadResponseV2,
@@ -1074,16 +1078,17 @@ function isWorldPlanGraphReceipt(
 
 function isWorldPlanGraphCompletion(
   value: unknown,
-  receipt: WorldPlanGraphContextReceiptV1,
-): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 {
-  const version = isRecord(value) && value.schema === "dmb_plan_world_graph_completion_v2" ? 2 : 1;
+  receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
+): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 {
+  const build = receipt.schema === "dmb_build_graph_context_receipt_v1";
+  const version = build || (isRecord(value) && value.schema === "dmb_plan_world_graph_completion_v2") ? 2 : 1;
   if (!hasExactKeys(value, [
     "schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map",
   ])
-    || value.schema !== `dmb_plan_world_graph_completion_v${version}`
+    || value.schema !== (build ? "dmb_build_graph_completion_v1" : `dmb_plan_world_graph_completion_v${version}`)
     || value.context_receipt_sha256 !== receipt.context_receipt_sha256
-    || !["committed_plan", "committed_plan_plus_world_graph"].includes(String(value.answer_basis))
-    || !["graph_grounded", "graph_grounded_partial", "plan_only_insufficient_evidence", "plan_only_graph_unused"]
+    || !(build ? ["saved_source", "saved_source_plus_world_graph"] : ["committed_plan", "committed_plan_plus_world_graph"]).includes(String(value.answer_basis))
+    || !["graph_grounded", "graph_grounded_partial", ...(build ? ["source_only_insufficient_evidence", "source_only_graph_unused"] : ["plan_only_insufficient_evidence", "plan_only_graph_unused"])]
       .includes(String(value.answer_context_status))
     || !Array.isArray(value.answer_segments)
     || value.answer_segments.length < 1 || value.answer_segments.length > 128) return false;
@@ -1100,11 +1105,15 @@ function isWorldPlanGraphCompletion(
         || segment.graph_revision !== receipt.graph_authority.graph_revision
         || !isNonEmptyStringList(segment.evidence_ref_ids) || segment.evidence_ref_ids.length > 64) return false;
       graphClaims.push(segment as unknown as Extract<WorldPlanGraphAnswerSegmentV1, { kind: "graph_claim" }>);
-    } else if (segment.kind === "plan_claim") {
+    } else if (segment.kind === "saved_source_claim" && build) {
+      if (!hasExactKeys(segment, ["kind", "text", "content_sha256"])
+        || typeof segment.text !== "string" || !segment.text.trim()
+        || segment.content_sha256 !== receipt.source_basis.content_sha256) return false;
+    } else if (segment.kind === "plan_claim" && !build) {
       if (!hasExactKeys(segment, ["kind", "text", "plan_content_sha256"])
         || typeof segment.text !== "string" || !segment.text.trim()
         || segment.plan_content_sha256 !== receipt.plan_basis.content_sha256) return false;
-    } else if (segment.kind === "proposal") {
+    } else if (segment.kind === "proposal" && !build) {
       if (!hasExactKeys(segment, ["kind", "text", "label"])
         || typeof segment.text !== "string" || !segment.text.trim() || segment.label !== "invented_idea") return false;
     } else if (segment.kind === "connective") {
@@ -1113,7 +1122,9 @@ function isWorldPlanGraphCompletion(
   }
   if (new Set(graphClaims.map((claim) => claim.claim_id)).size !== graphClaims.length) return false;
 
-  const expectedBasis = graphClaims.length > 0 ? "committed_plan_plus_world_graph" : "committed_plan";
+  const sourceBasis = build ? "saved_source" : "committed_plan";
+  const graphBasis = build ? "saved_source_plus_world_graph" : "committed_plan_plus_world_graph";
+  const expectedBasis = graphClaims.length > 0 ? graphBasis : sourceBasis;
   if (value.answer_basis !== expectedBasis) return false;
 
   const citationMap = value.citation_map;
@@ -1158,17 +1169,17 @@ function isWorldPlanGraphCompletion(
     }
   }
 
-  const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1;
-  if (status === "plan_only_insufficient_evidence") {
+  const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus;
+  if (status === (build ? "source_only_insufficient_evidence" : "plan_only_insufficient_evidence")) {
     return receipt.graph_packet.evidence_sufficiency_status === "insufficient"
       && receipt.assembled_input.packet_disposition === "omitted_insufficient"
       && graphClaims.length === 0 && citationMap === null
-      && value.answer_basis === "committed_plan";
+      && value.answer_basis === sourceBasis;
   }
-  if (status === "plan_only_graph_unused") {
-    return graphClaims.length === 0 && citationMap === null && value.answer_basis === "committed_plan";
+  if (status === (build ? "source_only_graph_unused" : "plan_only_graph_unused")) {
+    return graphClaims.length === 0 && citationMap === null && value.answer_basis === sourceBasis;
   }
-  return graphClaims.length > 0 && citationMap !== null && value.answer_basis === "committed_plan_plus_world_graph";
+  return graphClaims.length > 0 && citationMap !== null && value.answer_basis === graphBasis;
 }
 
 function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecutionProjectionV1 {
@@ -1183,8 +1194,8 @@ function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecu
 
 function isWorldPlanSourceOpenTargets(
   value: unknown,
-  receipt: WorldPlanGraphContextReceiptV1,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+  receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
 ): value is WorldPlanSourceOpenTargetV2[] {
   if (!Array.isArray(value) || value.length > 64) return false;
   const citations = completion?.citation_map?.entries ?? [];
@@ -1206,7 +1217,7 @@ function isWorldPlanSourceOpenTargets(
       || typeof target.claim_id !== "string" || !target.claim_id
       || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
       || typeof target.source_revision_id !== "string" || !target.source_revision_id
-      || target.managed_world_id !== receipt.plan_basis.world_id
+      || target.managed_world_id !== (receipt.schema === "dmb_build_graph_context_receipt_v1" ? receipt.source_basis.world_id : receipt.plan_basis.world_id)
       || target.managed_world_id !== receipt.graph_authority.managed_world_id
       || target.native_world_id !== receipt.graph_authority.native_world_id
       || target.binding_version !== receipt.graph_authority.binding_version
@@ -1247,7 +1258,7 @@ function isWorldPlanSourceOpenTargets(
 
 function isWorldPlanRelatedRecapStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -1269,7 +1280,7 @@ function isWorldPlanRelatedRecapStatuses(
 
 function isWorldPlanEvidenceAnchorStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -1317,6 +1328,58 @@ function isWorldPlanContextProjection(
   return true;
 }
 
+function graphContextForTurn(turn: WorldAgentConversationHistoryTurn) {
+  return turn.knowledge_context ?? ("plan_context" in turn ? turn.plan_context : undefined);
+}
+
+function isBuildKnowledgeContext(value: unknown, worldId: string): value is WorldBuildKnowledgeContextV1 {
+  if (!hasExactKeys(value, ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"])
+    || value.schema !== "dmb_build_graph_context_response_v1" || !isRecord(value.receipt)
+    || value.receipt.schema !== "dmb_build_graph_context_receipt_v1"
+    || !isRecord(value.receipt.source_basis) || !isRecord(value.receipt.graph_authority)
+    || !isRecord(value.receipt.graph_packet) || !isRecord(value.receipt.assembled_input)
+    || typeof value.receipt.context_receipt_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(value.receipt.context_receipt_sha256)
+    || typeof value.delivery_replay !== "boolean") return false;
+  const source = value.receipt.source_basis;
+  const authority = value.receipt.graph_authority;
+  if (!hasExactKeys(source, ["world_id", "document_id", "registry_revision", "content_sha256", "visibility"])
+    || source.world_id !== worldId || typeof source.document_id !== "string" || !source.document_id
+    || !isPositiveRevision(source.registry_revision) || typeof source.content_sha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(source.content_sha256) || !["internal", "player_safe"].includes(String(source.visibility))
+    || authority.managed_world_id !== worldId || typeof authority.native_world_id !== "string" || !authority.native_world_id
+    || !isPositiveRevision(authority.binding_version) || authority.scope_mode !== "world" || authority.campaign_id !== null
+    || typeof authority.graph_revision !== "string" || !authority.graph_revision
+    || authority.admissibility_version !== "gm-v1") return false;
+  const receipt = value.receipt as unknown as WorldBuildGraphReceiptV1;
+  if ((value.completion !== null && !isWorldPlanGraphCompletion(value.completion, receipt))
+    || (value.execution !== null && !isWorldPlanGraphExecution(value.execution))) return false;
+  const completion = value.completion as WorldBuildGraphCompletionV1 | null;
+  return isWorldPlanSourceOpenTargets(value.source_open_targets, receipt, completion)
+    && isWorldPlanEvidenceAnchorStatuses(value.evidence_anchor_statuses, completion)
+    && isWorldPlanRelatedRecapStatuses(value.related_recap_context_statuses, completion);
+}
+
+function isHistoryBuildContextBound(context: WorldBuildKnowledgeContextV1, provenance: Record<string, unknown>, worldId: string): boolean {
+  if (!isRecord(provenance.primary_work) || !Array.isArray(provenance.supporting_work)) return false;
+  const source = context.receipt.source_basis;
+  const authority = context.receipt.graph_authority;
+  const ref = provenance.primary_work;
+  const bindings: [string, string, string][] = [
+    ["dmb_build_source_visibility_v1", source.visibility, "1"],
+    ["dmb_build_graph_binding_v1", authority.native_world_id, String(authority.binding_version)],
+    ["world_graph_revision", authority.native_world_id, authority.graph_revision],
+  ];
+  return provenance.world_id === worldId && provenance.surface_id === "build" && provenance.surface_resolution === "resolved"
+    && ref.resolution === "resolved" && ref.kind === "build" && ref.object_id === source.document_id
+    && ref.revision === String(source.registry_revision) && ref.content_sha256 === source.content_sha256
+    && ref.object_revision === null && ref.work_revision_id === null && ref.revision_n === null
+    && bindings.every(([kind, objectId, revision]) => {
+      const matches = (provenance.supporting_work as unknown[]).filter(item => isRecord(item) && item.kind === kind);
+      return matches.length === 1 && isRecord(matches[0]) && matches[0].resolution === "resolved"
+        && matches[0].object_id === objectId && matches[0].revision === revision;
+    });
+}
+
 function isHistoryReference(value: unknown): boolean {
   return hasExactKeys(value, [
     "resolution", "kind", "object_id", "revision", "content_sha256", "object_revision", "work_revision_id", "revision_n",
@@ -1338,12 +1401,15 @@ function isHistoryTurn(
 ): boolean {
   if (!isRecord(value)) return false;
   const hasPlanContext = Object.prototype.hasOwnProperty.call(value, "plan_context");
+  const hasBuildContext = Object.prototype.hasOwnProperty.call(value, "knowledge_context");
+  if (hasPlanContext && hasBuildContext) return false;
   const keys = ["turn_id", "sequence", "lifecycle_status", "user_text", "assistant_text", "provenance"];
   if (schema === "dmb_agent_conversation_history_v2" && hasPlanContext) keys.push("plan_context");
   if (schema === "dmb_agent_conversation_history_v3") {
     keys.push("idempotency_key");
     if (hasPlanContext) keys.push("plan_context");
   }
+  if (hasBuildContext && schema !== "dmb_agent_conversation_history_v1") keys.push("knowledge_context");
   if (!hasExactKeys(value, keys)
     || typeof value.turn_id !== "string" || !value.turn_id.trim()
     || !isPositiveRevision(value.sequence)
@@ -1365,6 +1431,14 @@ function isHistoryTurn(
     || !Array.isArray(provenance.supporting_work)
     || !provenance.supporting_work.every(isHistoryReference)
     || !isHistoryReference(provenance.selected_object)) return false;
+  if (hasBuildContext) {
+    if (schema === "dmb_agent_conversation_history_v1" || !isBuildKnowledgeContext(value.knowledge_context, worldId)
+      || !isHistoryBuildContextBound(value.knowledge_context, provenance, worldId)) return false;
+    const completion = value.knowledge_context.completion;
+    return value.lifecycle_status === "completed"
+      ? completion !== null && value.assistant_text === completion.answer_segments.map(segment => segment.text).join("\n")
+      : completion === null;
+  }
   if (!hasPlanContext) return true;
   if (schema === "dmb_agent_conversation_history_v1") return false;
   if (!isWorldPlanContextProjection(value.plan_context, undefined, true)
@@ -1552,7 +1626,7 @@ export async function confirmedNewConversationStatus(value: unknown, worldId: st
     && typeof receipt.recorded_at === "string" && Number.isFinite(Date.parse(receipt.recorded_at));
 }
 
-async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1): Promise<boolean> {
+async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1): Promise<boolean> {
   try {
     const { context_receipt_sha256: expected, ...payload } = receipt;
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(payload)));
@@ -1564,7 +1638,15 @@ async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1): Pr
 }
 
 async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
-  if (!isRecord(turn) || !isRecord(turn.plan_context)) return true;
+  if (!isRecord(turn)) return true;
+  if (Object.prototype.hasOwnProperty.call(turn, "knowledge_context")) {
+    const context = turn.knowledge_context;
+    return isRecord(context) && isRecord(context.receipt) && isRecord(context.receipt.source_basis)
+      && typeof context.receipt.source_basis.world_id === "string"
+      && isBuildKnowledgeContext(context, context.receipt.source_basis.world_id)
+      && isReceiptDigestBound(context.receipt);
+  }
+  if (!isRecord(turn.plan_context)) return true;
   const context = turn.plan_context;
   return isWorldPlanContextProjection(context, undefined, true)
     && isReceiptDigestBound(context.receipt);
@@ -3467,6 +3549,18 @@ export function WorldPlanAgentConversation({
         || !matchesPlayGraphResponse(response.graph, request)) {
         throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
+      if (request.primary_work.kind === "build" && request.graph_request.mode === "world") {
+        const context = response.knowledge_context;
+        if (!isBuildKnowledgeContext(context, request.owner_scope.world_id)
+          || !await isReceiptDigestBound(context.receipt)
+          || context.receipt.source_basis.document_id !== request.primary_work.object_id
+          || context.receipt.source_basis.registry_revision !== request.primary_work.expected_revision
+          || context.receipt.source_basis.content_sha256 !== request.primary_work.expected_content_sha256
+          || context.receipt.graph_authority.native_world_id !== response.graph.world_id
+          || context.receipt.graph_authority.graph_revision !== response.graph.revision_id) {
+          throw new Error("The reply did not match the saved Build source and World Graph. Check World history before continuing.");
+        }
+      }
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
@@ -3671,12 +3765,14 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus): string {
     switch (status) {
       case "graph_grounded":
         return "Grounded in World Graph evidence.";
       case "graph_grounded_partial":
         return "Partially grounded in World Graph evidence; coverage was incomplete.";
+      case "source_only_insufficient_evidence": return "This answer uses the saved source; no sufficient World Graph evidence was available.";
+      case "source_only_graph_unused": return "This answer uses the saved source; available Graph facts were not used.";
       case "plan_only_insufficient_evidence":
         return "No sufficient World Graph evidence was available; this answer uses the saved Plan context only.";
       case "plan_only_graph_unused":
@@ -3684,11 +3780,13 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1, surface: string | null): string | null {
-    const work = surface === "play" ? "Run" : "Plan";
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus, surface: string | null): string | null {
+    const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
       case "graph_grounded": return `World + ${work}`;
       case "graph_grounded_partial": return `World + ${work} · partial`;
+      case "source_only_insufficient_evidence":
+      case "source_only_graph_unused":
       case "plan_only_insufficient_evidence":
       case "plan_only_graph_unused": return `${work} only`;
       default: return null;
@@ -3832,7 +3930,7 @@ export function WorldPlanAgentConversation({
       && historySnapshotRef.current?.world_id === target.managed_world_id
       && historySnapshotRef.current?.conversation_id === conversationId
       && historySnapshotRef.current?.turns.some((item) => {
-        const context = "plan_context" in item ? item.plan_context : null;
+        const context = graphContextForTurn(item);
         return item.turn_id === turn.turn_id && isRecord(context)
           && Array.isArray(context.source_open_targets)
           && context.source_open_targets.some((current: unknown) => JSON.stringify(current) === JSON.stringify(target));
@@ -4080,8 +4178,8 @@ export function WorldPlanAgentConversation({
   };
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
-    const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
-    const planContext = "plan_context" in turn ? turn.plan_context : null;
+    const planContext = graphContextForTurn(turn);
+    const targets = planContext?.source_open_targets ?? [];
     const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = planContext?.completion?.citation_map?.entries ?? [];
     const citationByClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
@@ -4204,8 +4302,9 @@ export function WorldPlanAgentConversation({
   }
 
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
-    if (!("plan_context" in turn) || !turn.plan_context) return null;
-    const { completion, execution } = turn.plan_context;
+    const context = graphContextForTurn(turn);
+    if (!context) return null;
+    const { completion, execution } = context;
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
@@ -5018,18 +5117,18 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
             <div className="world-plan-agent-conversation__reply-heading">
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
-              {"plan_context" in turn && turn.lifecycle_status === "completed" && turn.plan_context?.completion
-                && replySourceLabel(turn.plan_context.completion.answer_context_status, turn.provenance.surface_id) ? (
+              {turn.lifecycle_status === "completed" && graphContextForTurn(turn)?.completion
+                && replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id) ? (
                 <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
-                  title={graphContextStatusLabel(turn.plan_context.completion.answer_context_status)}>
-                  {replySourceLabel(turn.plan_context.completion.answer_context_status, turn.provenance.surface_id)}
+                  title={graphContextStatusLabel(graphContextForTurn(turn)!.completion!.answer_context_status)}>
+                  {replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
                 </span>
               ) : null}
             </div>
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
-              displaySegments={"plan_context" in turn && turn.plan_context?.completion
-                ? turn.plan_context.completion.answer_segments.map((segment) => segment.text)
+              displaySegments={graphContextForTurn(turn)?.completion
+                ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />
             {renderSourceActions(turn)}
