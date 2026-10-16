@@ -38,7 +38,9 @@ Factual retrieval rules:
   search with the topic words and zero seeds before following unrelated named
   individuals or falling back to the saved document. Relevant reviewed-source
   observations may be attached to a place or institution rather than a topic node.
-  Inspect the returned supporting assertions; do not infer general properties
+  In governed Build, follow search pointers with object on subjectNodeId and
+  observationIds containing the relevant assertionId values. Inspect the returned
+  supporting assertions; do not infer general properties
   from one individual. Stop when the question has adequate supporting evidence.
 - Use read_graph_source only for quotation, exact detail, conflict checks, or when
   claim policy requires source verification. Accepted graph claims may be stated as

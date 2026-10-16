@@ -37,3 +37,19 @@ integrity. Focused tests must exercise actual native publication/readback where 
 No provider, retained Graph/APP/source writes, serving changes or migrations authorized
 by this implementation lease. Unique disposable tests only. Actual fresh Mirathorn
 publication, ordinary live Agent and operator acceptance remain later gates.
+
+Author evidence:38 owning selected-observation and governed Build ledger tests pass
+against freshly created unique Core/APP databases (native create/bind, selection,
+exact pins, ordinary source-open answer, durable execution). An additional focused
+transport/search/consumer regression set passes51, with4 native-only skips in that
+non-native invocation. The older test_graph_retrieval_interaction suite cannot
+collect because it imports digest_audit, absent on accepted main; not caused here.
+Final selection-continuation check is included in the review packet. No lint findings
+on changed Python files; diff check passes. No provider or retained writes occurred.
+
+Selection does not enlarge the total bound: canonical object anchors still consume
+capacity. If a selected record cannot fit with that base result, the entire record
+remains omitted and coverage reports the bound. This implementation prevents unrelated
+reviewed observations consuming the budget first; it does not guarantee arbitrary
+objects or giant historical records can fit. Fresh Mirathorn1.11 live evidence remains
+required, including its17-ref Float Goat definition and the ordinary object anchors.

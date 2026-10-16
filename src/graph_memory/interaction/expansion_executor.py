@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services import world_graph_retrieval as retrieval_service
@@ -87,6 +87,21 @@ class ExpandGraphRetrievalRequest(BaseModel):
         max_length=_MAX_EXPAND_TARGETS,
     )
     query_text: str | None = Field(default=None, alias="queryText")
+    observation_ids: list[str] = Field(
+        default_factory=list, alias="observationIds", max_length=8,
+        description="Object-only reviewed assertion IDs from search pointers; governed Build only.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_observation_ids(self):
+        if self.observation_ids and (
+            self.operation != "object"
+            or len(set(self.observation_ids)) != len(self.observation_ids)
+            or any(not value.strip() or value != value.strip() for value in self.observation_ids)
+        ):
+            raise ValueError("observationIds require object and distinct nonblank IDs")
+        return self
+
     depth: Literal[1, 2] = 1
     historical_revision_id: str | None = Field(
         default=None,
@@ -303,6 +318,11 @@ def _dispatch_expansion(
     # Mounted Graph authority comes from server configuration, never the
     # Harness code/source repository. World and revision remain frozen in ctx.
     del focus  # focus already embedded in ctx
+    if request.observation_ids:
+        raise WorldGraphRetrievalServiceError(
+            "Selected observations require the governed Build parent broker.",
+            code="selected_observations_unavailable", status_code=422,
+        )
     if request.operation == "object":
         obj_req = WorldGraphObjectRequest.model_validate(
             {
