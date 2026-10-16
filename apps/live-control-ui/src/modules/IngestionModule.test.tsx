@@ -1887,6 +1887,132 @@ describe("IngestionModule", () => {
     );
   });
 
+  it("clears prior-recap loading when the selected session changes", async () => {
+    const user = userEvent.setup();
+    const artifact = {
+      schema_version: "dmb_recap_artifact_record_v1" as const,
+      artifact_id: "artifact:recap:longmont-c2:session-23",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      source_recap_path:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      run_bundle_uri: "bundle",
+      run_manifest_uri: "manifest",
+      source_span_index_uri: "index",
+      graph_run_refs: [],
+      default_projection_mode: "preview_union" as const,
+      registered_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      registry_source: "scan" as const,
+    };
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [artifact],
+    });
+    let finishSource!: (source: Awaited<ReturnType<typeof liveApi.postCitationSource>>) => void;
+    vi.spyOn(liveApi, "postCitationSource").mockImplementation(async () =>
+      new Promise((resolve) => { finishSource = resolve; }),
+    );
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) =>
+      makeStatus({
+        campaign_id: request.campaign_id,
+        session: request.session,
+        status: request.operation === "inspect_status" ? "recap_applied" : "initialized",
+        states: request.operation === "inspect_status"
+          ? ["normalized_reused", "ingest_status_inspected"]
+          : ["ingest_status_inspected"],
+      }),
+    );
+
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+    await screen.findByRole("option", { name: /Session 23/ });
+    await user.selectOptions(screen.getByLabelText("Prior processed recap"), artifact.artifact_id);
+    await user.click(screen.getByRole("button", { name: "Load processed recap" }));
+    await waitFor(() => expect(finishSource).toBeTypeOf("function"));
+    expect(screen.getByLabelText("Prior processed recap")).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "24" } });
+
+    expect(screen.getByLabelText("Prior processed recap")).toBeEnabled();
+    expect(screen.getByLabelText("Prior processed recap")).toHaveValue("");
+    await act(async () => finishSource({
+      schema_version: "dmb_citation_source_v1",
+      path: artifact.source_recap_path,
+      content_type: "text/markdown",
+      content: "A late saved recap response.",
+      truncated: false,
+      highlight: { match_source: "none" },
+      diagnostics: [],
+    }));
+    expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Prior processed recap")).toBeEnabled();
+  });
+
+  it("clears reconciliation loading when the selected session changes", async () => {
+    const user = userEvent.setup();
+    const candidates = [
+      {
+        basename: "Session 23 - Mireward Gate Battle",
+        relpath: "Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+        size_bytes: 9000,
+        modified_at: "2026-06-21T23:44:00+00:00",
+        is_generic: false,
+        recommended: true,
+      },
+      {
+        basename: "Session 23 - ingest",
+        relpath: "Session Recaps/_normalized/Session 23 - ingest.md",
+        size_bytes: 10000,
+        modified_at: "2026-06-21T23:44:00+00:00",
+        is_generic: true,
+        recommended: false,
+      },
+    ];
+    let finishReconcile!: (result: RecapIngestStatus) => void;
+    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) => {
+      if (request.operation === "reconcile_normalized_recap") {
+        return new Promise((resolve) => { finishReconcile = resolve; });
+      }
+      return makeStatus({
+        campaign_id: request.campaign_id,
+        session: request.session,
+        status: "initialized",
+        states: ["ingest_status_inspected", "normalized_recap_duplicates"],
+        ingest_report: { normalized_recap_candidates: request.session === 23 ? candidates : [] },
+        entity_spelling_audit: [],
+      });
+    });
+
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-23");
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+    await screen.findByText("Resolve duplicate normalized recaps");
+    await user.click(screen.getByRole("button", { name: "Repair and Prove" }));
+    await waitFor(() => expect(finishReconcile).toBeTypeOf("function"));
+    expect(screen.getByRole("button", { name: "Repairing..." })).toBeDisabled();
+
+    const sessionInput = screen.getByLabelText("Recap/source session");
+    fireEvent.change(sessionInput, { target: { value: "24" } });
+    fireEvent.blur(sessionInput);
+    fireEvent.change(sessionInput, { target: { value: "23" } });
+    fireEvent.blur(sessionInput);
+    await screen.findByText("Resolve duplicate normalized recaps");
+
+    expect(screen.getByRole("button", { name: "Repair and Prove" })).toBeEnabled();
+    await act(async () => finishReconcile(makeStatus({
+      session: 23,
+      status: "breadcrumb_required",
+      states: ["normalized_recap_reconciled", "recap_reused"],
+    })));
+    expect(screen.getByRole("button", { name: "Repair and Prove" })).toBeEnabled();
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "reconcile_normalized_recap",
+      campaign_id: "longmont-c2",
+      session: 23,
+    }));
+  });
+
   it("loads a prior processed recap and enables graph extraction without raw paste", async () => {
     const user = userEvent.setup();
     const artifact = {

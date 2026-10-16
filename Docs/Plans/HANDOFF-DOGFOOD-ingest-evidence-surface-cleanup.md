@@ -275,3 +275,15 @@ authorized by this amendment. This remains the single serial implementation PR
   warnings remain in the IngestionModule suite. No live ingestion or write
   action was used; 5202 and 5204 remain untouched. A fresh Bugbot review of the
   updated exact PR head is required before dogfood.
+- Fresh Bugbot found that target changes also need to clear loading indicators
+  for saved-recap reads and duplicate reconciliation. Campaign/session changes
+  now clear both flags alongside the previous source selection, while stale
+  request cleanup remains generation-bound so it cannot reset a newer load.
+  Regressions change sessions during deferred saved-source loading and
+  reconciliation, then verify the source picker and repair action recover.
+- Final verification after these target-change cleanup fixes:
+  `IngestionModule.test.tsx` 76 passed and `MemoryIngestPage.test.tsx` 13
+  passed (89 total); `npm run build` (including TypeScript project build) and
+  `git diff --check` pass. The existing Vite large-chunk warning and React
+  `act(...)` warnings remain. Fresh Bugbot review of the updated exact PR head
+  is required before dogfood.
