@@ -7,24 +7,28 @@
 
 from __future__ import annotations
 
-
 import hashlib
 import json
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping
-
+from typing import Any
 
 from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services.graph_ingest_run_registry import (
-    GraphIngestRunSummary,
     UNUSABLE_SOURCE_RECAP_DIGEST,
+    GraphIngestRunSummary,
     discover_graph_ingest_runs,
     graph_ingest_output_root,
 )
 from apps.live_control_server.services.graph_preview_runner import (
     run_recap_production_extraction,
+)
+from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+from graph_memory.ingestion.graph_ingest_run import (
+    GraphIngestArtifactKind,
+    GraphIngestRunStatus,
 )
 from src.graph_memory.extraction.graph_ingest_packaging import (
     GraphPreviewRunnerOptions,
@@ -35,12 +39,6 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
-from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-from graph_memory.ingestion.graph_ingest_run import (
-    GraphIngestArtifactKind,
-    GraphIngestRunStatus,
-)
-
 
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 logger = logging.getLogger(__name__)
@@ -160,6 +158,15 @@ def inspect_recap_graph_preview_status(
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
     )
+    if source_recap_sha256 == UNUSABLE_SOURCE_RECAP_DIGEST:
+        source_match_mode = "unusable"
+    elif source_recap_sha256:
+        source_match_mode = "content_digest"
+    elif source_recap_path:
+        source_match_mode = "path_only"
+    else:
+        source_match_mode = "unavailable"
+
     runs = discover_graph_ingest_runs(
         repo,
         campaign_id=campaign_id,
@@ -168,8 +175,33 @@ def inspect_recap_graph_preview_status(
         source_recap_sha256=source_recap_sha256,
     )
     if not runs:
-        return _missing_status(normalized_recap_path)
-    return _status_from_summary(repo, runs[0], normalized_recap_path=normalized_recap_path)
+        status = _missing_status(normalized_recap_path)
+        status["source_match_mode"] = source_match_mode
+        if source_match_mode in {"path_only", "unavailable"}:
+            status["blocked_reason"] = (
+                "The normalized recap is missing. Restore or load the verified source before building a graph candidate."
+            )
+            status["next_actions"] = ["restore_or_load_verified_source"]
+        elif source_match_mode == "unusable":
+            status["blocked_reason"] = (
+                "The normalized recap could not be read or is empty. Repair or load verified source before building a graph candidate."
+            )
+            status["next_actions"] = ["repair_or_load_verified_source"]
+        return status
+
+    status = _status_from_summary(
+        repo, runs[0], normalized_recap_path=normalized_recap_path
+    )
+    status["source_match_mode"] = source_match_mode
+    if source_match_mode != "content_digest":
+        status["artifact_status"] = status["status"]
+        status["status"] = "source_unverified"
+        status["artifact_next_actions"] = list(status.get("next_actions") or [])
+        status["next_actions"] = ["restore_or_load_verified_source"]
+        status["blocked_reason"] = (
+            "A saved graph run is preserved, but the selected normalized recap is unavailable for content verification. Restore or load the verified source before treating this output as current."
+        )
+    return status
 
 
 def build_recap_graph_preview_bundle(
@@ -1475,7 +1507,7 @@ def _candidate_graph_path(repo: Path, manifest_path: Path) -> str | None:
         if not isinstance(uri, str):
             return None
         return _repo_relative((repo / uri).resolve(), repo)
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError, AttributeError, ValueError):
         return None
 
 
