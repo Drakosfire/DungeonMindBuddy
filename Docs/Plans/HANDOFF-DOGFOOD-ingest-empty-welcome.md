@@ -5,7 +5,7 @@ Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`
 
-Current base: `origin/main@26a0a771b2b721865f8cd6f5bfb1633880358a95` (fetched 2026-10-16).
+Current base: `origin/main@c21feff20156fdd8c3c082cfa083895ceee5eef6` (fetched 2026-10-16).
 
 ## Objective
 
@@ -131,4 +131,22 @@ not claim to fix extraction quality or prove authenticated persistence.
 
 ## Current-main rebase — 2026-10-16
 
-Rebased the existing PR #1191 onto fetched `origin/main@26a0a771b2b721865f8cd6f5bfb1633880358a95`. No commits since the prior base touched the six leased paths, and the cumulative scope remains unchanged. The focused IngestionModule and MemoryIngestPage suites pass 69 tests; `npm --prefix apps/live-control-ui run build` passes with the existing large-chunk warning; cumulative `git diff --check` passes. This is still a presentation slice only. No recap, candidate, runtime, or persistence state was changed; extraction/linking quality, rerun semantics, and live persistence acceptance remain open Ingest-mandate work.
+Rebased the existing PR #1191 onto fetched `origin/main@c21feff20156fdd8c3c082cfa083895ceee5eef6`. No commits since the prior base touched the six leased paths, and the cumulative scope remains unchanged. The focused IngestionModule and MemoryIngestPage suites pass 69 tests; `npm --prefix apps/live-control-ui run typecheck` passes; `npm --prefix apps/live-control-ui run build` passes with the existing large-chunk warning; cumulative `git diff --check` passes. This is still a presentation slice only. No recap, candidate, runtime, or persistence state was changed; extraction/linking quality, rerun semantics, and live persistence acceptance remain open Ingest-mandate work.
+
+## Local-nav feedback follow-up — 2026-10-16
+
+The latest UX feedback asked to consolidate Ingest controls in its local nav and
+remove repeated content. That behavior is already part of this slice: the sticky
+toolbar holds campaign/session/title identity, source mode and prior-recap
+loading, extraction/review actions, and one live stage status. The body keeps the
+welcome or recap editor as the projected surface; the old heading, progress card,
+and separate prior-recap card are removed. No additional code change was needed
+for this feedback.
+
+Reverification on local HEAD `810a60a80194c08299eb6b96b4237cad147c351b`:
+focused suites pass 69 tests, typecheck passes, and production build passes with
+the existing large-chunk warning. Current rendered acceptance could not be
+repeated: `5204` refused connections, and a static preview bind on `5208` failed
+with `EPERM`. A fresh GitHub fetch also failed because this environment could
+not resolve `github.com`; the remote PR head/status is therefore unverified in
+this turn. No candidate, runtime, persistence, or 5202 state was changed.
