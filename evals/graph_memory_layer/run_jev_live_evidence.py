@@ -96,7 +96,7 @@ async def main():
     async def decide(request):
         return (await jev.decide(DecisionRequest.model_validate(request))).model_dump(mode='json')
     try:
-        result = await run_loop(catalog, decide, output=args.output/'retrieval', retrieve=reader.retrieve)
+        result = await run_loop(catalog, decide, output=args.output/'retrieval', retrieve_many=reader.retrieve_many)
     finally:
         await jev.aclose()
         (args.output/'live-read-trace.json').write_text(json.dumps(reader.trace, ensure_ascii=False, indent=2))

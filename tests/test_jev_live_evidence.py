@@ -118,3 +118,123 @@ def test_writer_terminal_status_preserves_raw_response(tmp_path, provider_status
     assert json.loads((tmp_path/'writer-citation-map.json').read_text())['u1']['scope']['world_id'] == 'synthetic'
     prompt = json.loads(calls[0]['input'])['evidence'][0]
     assert 'scope' not in prompt and 'provenance' not in prompt
+
+
+def batch_reader(monkeypatch, count=2, *, bad=False):
+    """Exercise the reader at its actual observation-selection/source-read seam."""
+    from types import SimpleNamespace as N
+    from pathlib import Path
+    import hashlib
+    from apps.live_control_server.integrations.dungeonmind import selected_observation_reads, world_graph_reads
+    markdown = '# Town\nAster leads the assembly.\n'
+    sha = hashlib.sha256(markdown.encode()).hexdigest()
+    discovery = {'status': 'complete', 'next_page_token': None, 'eligible_count': count,
+                 'source_artifact_id': 'artifact:test', 'source_revision_id': 'source:r1',
+                 'entries': [{'subject_object_id': f'node:{i:02}', 'assertion_id': f'assertion:{i:02}',
+                              'subject_label': f'Person {i}', 'excerpt': 'leads'} for i in range(count)]}
+    spec = {'world_id': 'synthetic', 'graph_revision': 'rev:test', 'source_sha256': sha,
+            'build_revision': 1, 'seed_patterns': ['Person'], 'question': 'Who leads?', 'requirements': []}
+    reader = LiveSourceReader(None, Path('/tmp'), spec, markdown, discovery)
+    selections, reads = [], []
+    def select(services, request):
+        ids = request.observation_ids
+        selections.append(list(ids))
+        # Deliberately shared evidence ref across distinct anchors/subjects.
+        return N(result=N(snapshot=N(revision_id='rev:test'), source_anchors=[
+                     N(anchor_id='anchor:' + key, supporting_assertion_ids=[key]) for key in ids]),
+                 observation_gap_codes=(), observation_missing_ids=(),
+                 reviewed_source_observations=[N(assertion_id=key, source_artifact_id='artifact:test',
+                     source_revision_id='source:r1', evidence_ref_ids=['shared-ref'], text=key,
+                     epistemic_kind='source_derived_candidate', temporal_scope='unspecified') for key in ids],
+                 source_pins=[N(anchor_id='anchor:' + key, evidence_ref_id='shared-ref') for key in ids])
+    def open_sources(services, requests, *, repo_root):
+        reads.append([r.anchor_id for r in requests])
+        return tuple(N(graph_revision='rev:test', source_artifact_id='artifact:test',
+                       source_revision_id='foreign' if bad else 'source:r1', evidence_ref_id='shared-ref',
+                       source_revision_sha256=sha, result=N(outcome='enough', truncated=False,
+                       line_start=i+1, line_end=i+1, content=r.anchor_id)) for i, r in enumerate(requests))
+    monkeypatch.setattr(selected_observation_reads, 'select_observations_direct', select)
+    monkeypatch.setattr(world_graph_reads, 'read_source_anchors_direct_v2', open_sources)
+    return reader, selections, reads
+
+
+def test_reader_combines_selected_actions_without_cross_subject_support(monkeypatch):
+    reader, selections, reads = batch_reader(monkeypatch)
+    actions = [a for a in reader.actions.values() if a['kind'] == 'graph_observations']
+    result = asyncio.run(reader.retrieve_many(actions))
+    assert len(selections) == len(reads) == 1
+    assert len(selections[0]) == len(reads[0]) == 2
+    for action in actions:
+        unit = result[action['id']][0]
+        assert [p['text'] for p in unit['opened_passages']] == ['anchor:' + unit['assertion_id']]
+    again = asyncio.run(reader.retrieve_many(actions))
+    assert again == result
+    assert len(reads) == 1  # Same source pins are opened once per reader.
+
+
+def test_reader_chunks_selection_at_existing_eight_id_boundary(monkeypatch):
+    reader, selections, reads = batch_reader(monkeypatch, count=9)
+    actions = [a for a in reader.actions.values() if a['kind'] == 'graph_observations']
+    result = asyncio.run(reader.retrieve_many(actions))
+    assert sorted(map(len, selections)) == [1, 8]
+    assert len(reads) == 1 and len(reads[0]) == 9
+    assert len(result) == 9
+
+
+def test_reader_rejects_foreign_source_and_non_catalog_actions(monkeypatch):
+    reader, _, _ = batch_reader(monkeypatch, bad=True)
+    actions = [a for a in reader.actions.values() if a['kind'] == 'graph_observations']
+    with pytest.raises(ValueError, match='Opened source proof'):
+        asyncio.run(reader.retrieve_many(actions))
+    assert not reader.trace
+    with pytest.raises(ValueError, match='catalog'):
+        asyncio.run(reader.retrieve_many([{**actions[0], 'unit_ids': ['foreign']}]))
+
+
+@pytest.mark.parametrize('failure', [None, 'partial', 'unavailable', 'bad_unit'])
+def test_loop_batches_only_selected_wave_and_stops_before_decision_on_failure(tmp_path, failure):
+    original, catalog = live_fixture()
+    catalog['initial_actions'] = ['a1', 'a2']
+    waves, calls = [], []
+    async def acquire(actions):
+        waves.append([a['id'] for a in actions])
+        if failure == 'unavailable':
+            raise TimeoutError()
+        result = {a['id']: [deepcopy(original['units'][uid]) for uid in a['unit_ids']] for a in actions}
+        if failure == 'partial':
+            result.pop('a2')
+        if failure == 'bad_unit':
+            result['a2'][0]['text'] = 'tampered'
+        return result
+    async def evaluate(request):
+        calls.append(request)
+        return decisions(request)
+    result = asyncio.run(run_loop(catalog, evaluate, output=tmp_path/'run', retrieve_many=acquire))
+    assert waves == [['a1', 'a2']]
+    assert result['status'] == ('retrieval_unavailable_or_invalid' if failure else 'provisionally_supported')
+    assert len(calls) == (0 if failure else 1)
+    if failure:
+        with pytest.raises(ValueError):
+            writer_request(result, 'question')
+
+
+def test_batch_heading_continuation_waits_for_parent_read(tmp_path):
+    snap = fixture()
+    snap['initial_actions'] = ['a3']
+    snap['actions']['a1']['kind'] = 'saved_build_section'
+    snap['units']['u1']['provenance'] = [{'start_line': 2, 'end_line': 2}]
+    snap['actions']['a3']['continuation_action_ids'] = ['a1']
+    snap['units']['u3']['text'] = '# Assembly\n'
+    import hashlib
+    snap['units']['u3']['content_sha256'] = hashlib.sha256(b'# Assembly\n').hexdigest()
+    waves = []
+    async def acquire(actions):
+        waves.append([a['id'] for a in actions])
+        return {a['id']: [snap['units'][uid] for uid in a['unit_ids']] for a in actions}
+    async def evaluate(request):
+        return decisions(request)
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', retrieve_many=acquire))
+    assert waves == [['a3'], ['a1'], ['a2']]
+    assert result['status'] == 'provisionally_supported'
+    assert [b['action_ids'] for b in result['acquisition_batches']] == waves
+    assert all(b['elapsed_seconds'] >= 0 for b in result['acquisition_batches'])

@@ -1,6 +1,6 @@
 # AGENT — live evidence acquisition and one-shot writer
 
-ACTIVE by operator: connect Jev to live retrieval, then let Luna write once; compare Float Goats and Council against the old loop. PRIME implements solo; ARCHITECTURE independently reviews code and measured answers. Base 3a70b3585744a42c2f5b97e68f3b7189513ab171; branch codex/jev-live-evidence-writer; checkout /tmp/prime-recap-mention-boundaries. Serial successor to accepted Jev replay. Open Ingest leases are disjoint.
+MERGED: Buddy #1268 at c6eacbbba94efdf8f6a0c1fad43b5a0c6bf709d1. This implementation lease ended; the bounded successor is HANDOFF-AGENT-jev-batched-acquisition.md. Original activation: connect Jev to live retrieval, then let Luna write once; compare Float Goats and Council against the old loop. PRIME implements solo; ARCHITECTURE independently reviews code and measured answers. Base 3a70b3585744a42c2f5b97e68f3b7189513ab171; branch codex/jev-live-evidence-writer; checkout /tmp/prime-recap-mention-boundaries. Serial successor to accepted Jev replay. Open Ingest leases are disjoint.
 
 One capability: non-serving live exact-source Graph/Build acquisition controlled by Jev, followed by one tool-free Luna writing invocation. Runtime adoption is subsequent work. Graph owns admission/revisions; Buddy owns source binding, controller and evidence packet. No new World knowledge, history writes, serving restart, ingestion or corpus edits.
 
