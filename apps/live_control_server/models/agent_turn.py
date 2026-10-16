@@ -558,7 +558,7 @@ class AgentEvidenceAnchorStatusV1(BaseModel):
     )
     claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     status: Literal["available", "no_anchor", "partial", "overflow"]
-    target_count: int = Field(strict=True, ge=0, le=8)
+    target_count: int = Field(strict=True, ge=0, le=64)
 
     @model_validator(mode="after")
     def validate_target_count(self) -> AgentEvidenceAnchorStatusV1:

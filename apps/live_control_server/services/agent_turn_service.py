@@ -4252,8 +4252,7 @@ def _evidence_anchor_open_projection(
          if entry.graph_revision == authority.graph_revision),
         key=lambda entry: (entry.claim_id, entry.target_kind, entry.target_id),
     )
-    for citation in citations:
-        counts.setdefault(citation.claim_id, 0)
+    def eligible_pins(citation: Any):
         for evidence_ref_id in sorted(set(citation.evidence_ref_ids)):
             for pin in sorted(
                 pins_by_evidence.get(evidence_ref_id, []),
@@ -4268,36 +4267,58 @@ def _evidence_anchor_open_projection(
                 if key in seen:
                     continue
                 seen.add(key)
-                if counts[citation.claim_id] >= 8 or len(targets) >= 64:
-                    omitted.add(citation.claim_id)
-                    continue
-                matching_reads = [
-                    reads_by_id[read_id]
-                    for read_id in citation.source_read_ids
-                    if read_id in reads_by_id
-                    and reads_by_id[read_id].anchor_id == pin.anchor_id
-                    and reads_by_id[read_id].evidence_ref_id == pin.evidence_ref_id
-                    and reads_by_id[read_id].source_artifact_id == pin.source_artifact_id
-                    and reads_by_id[read_id].source_revision_id == pin.source_revision_id
-                    and reads_by_id[read_id].outcome in {"enough", "partial", "truncated"}
-                    and reads_by_id[read_id].content_sha256 is not None
-                    and reads_by_id[read_id].returned_chars > 0
-                ]
-                read = matching_reads[0] if len(matching_reads) == 1 else None
-                targets.append(AgentEvidenceAnchorOpenTargetV1(
-                    claim_id=citation.claim_id,
-                    anchor_id=pin.anchor_id,
-                    evidence_ref_id=pin.evidence_ref_id,
-                    source_artifact_id=pin.source_artifact_id,
-                    source_revision_id=pin.source_revision_id,
-                    managed_world_id=authority.managed_world_id,
-                    native_world_id=authority.native_world_id,
-                    binding_version=authority.binding_version,
-                    graph_revision=authority.graph_revision,
-                    source_read_id=None if read is None else read.source_read_id,
-                    read_outcome=None if read is None else read.outcome,
-                ))
-                counts[citation.claim_id] += 1
+                yield evidence_ref_id, pin
+
+    # Share the existing global response budget. A single rich citation can
+    # expose all its pins; many claims get a choice before any gets another.
+    pending = []
+    for citation in citations:
+        counts.setdefault(citation.claim_id, 0)
+        pending.append((citation, iter(eligible_pins(citation))))
+    while pending and len(targets) < 64:
+        remaining = []
+        for citation, choices in pending:
+            if len(targets) >= 64:
+                remaining.append((citation, choices))
+                continue
+            choice = next(choices, None)
+            if choice is None:
+                continue
+            evidence_ref_id, pin = choice
+            matching_reads = [
+                reads_by_id[read_id]
+                for read_id in citation.source_read_ids
+                if read_id in reads_by_id
+                and reads_by_id[read_id].anchor_id == pin.anchor_id
+                and reads_by_id[read_id].evidence_ref_id == pin.evidence_ref_id
+                and reads_by_id[read_id].source_artifact_id == pin.source_artifact_id
+                and reads_by_id[read_id].source_revision_id == pin.source_revision_id
+                and reads_by_id[read_id].outcome in {"enough", "partial", "truncated"}
+                and reads_by_id[read_id].content_sha256 is not None
+                and reads_by_id[read_id].returned_chars > 0
+            ]
+            read = matching_reads[0] if len(matching_reads) == 1 else None
+            targets.append(AgentEvidenceAnchorOpenTargetV1(
+                claim_id=citation.claim_id,
+                anchor_id=pin.anchor_id,
+                evidence_ref_id=pin.evidence_ref_id,
+                source_artifact_id=pin.source_artifact_id,
+                source_revision_id=pin.source_revision_id,
+                managed_world_id=authority.managed_world_id,
+                native_world_id=authority.native_world_id,
+                binding_version=authority.binding_version,
+                graph_revision=authority.graph_revision,
+                source_read_id=None if read is None else read.source_read_id,
+                read_outcome=None if read is None else read.outcome,
+            ))
+            counts[citation.claim_id] += 1
+            remaining.append((citation, choices))
+        pending = remaining
+    # Reaching the limit alone is not truncation: only a further eligible,
+    # unique choice makes this claim partial/overflow.
+    for citation, choices in pending:
+        if next(choices, None) is not None:
+            omitted.add(citation.claim_id)
     statuses = [AgentEvidenceAnchorStatusV1(
         claim_id=claim_id,
         status=(

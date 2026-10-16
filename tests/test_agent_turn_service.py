@@ -1011,8 +1011,8 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         item.source_artifact_id, item.source_revision_id,
     ) for item in large_targets}) == 64
     assert [(item.claim_id, item.status, item.target_count) for item in large_statuses] == [
-        *((f"claim-{number:02d}", "partial", 8) for number in range(8)),
-        ("claim-08", "overflow", 0),
+        ("claim-00", "partial", 8),
+        *((f"claim-{number:02d}", "partial", 7) for number in range(1, 9)),
     ]
     with monkeypatch.context() as budget_scope:
         budget_scope.setattr(
@@ -6372,3 +6372,65 @@ def test_bundle_refusal_feedback_uses_existing_exact_parent_denial_boundary(monk
     assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == []
     body["input"][1]["output"] += " "
     assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == [reply["resultJson"] + " "]
+
+
+def _many_cited_source_projection_turn(claims=1, pins=24, *, empty_first=False, duplicate=False):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types as t
+    from tests.application_state.test_agent_conversation_service import _indexed_graph_completion_fixture
+
+    receipt, execution, completion, *_ = _indexed_graph_completion_fixture()
+    original = execution.policy.source_read_scope.admitted_anchors[0]
+    admitted = [original.model_copy(update={"anchor_id": f"anchor-{i:03}"}) for i in range(pins)]
+    if duplicate:
+        admitted += admitted
+    scope = execution.policy.source_read_scope.model_copy(update={"admitted_anchors": admitted})
+    execution = execution.model_copy(update={"policy": execution.policy.model_copy(update={"source_read_scope": scope})})
+    claim = completion.answer_segments[0]
+    citation = completion.citation_map.entries[0]
+    segments = []
+    entries = []
+    for i in range(claims):
+        key = f"claim-{i:03}"
+        refs = ["missing-ref"] if empty_first and i == 0 else claim.evidence_ref_ids
+        segments.append(claim.model_copy(update={"claim_id": key, "evidence_ref_ids": refs}))
+        entries.append(citation.model_copy(update={"claim_id": key, "evidence_ref_ids": refs}))
+    completion = t.PlanWorldGraphCompletionV2.model_validate(completion.model_dump(mode="json", by_alias=True) | {
+        "answer_segments": [s.model_dump(mode="json") for s in segments],
+        "citation_map": {**completion.citation_map.model_dump(mode="json", by_alias=True),
+            "entries": [c.model_dump(mode="json") for c in entries]},
+    })
+    return SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution, completion=completion)
+
+
+@pytest.mark.parametrize("pins,expected,status", [(24,24,"available"), (64,64,"available"), (65,64,"partial")])
+def test_cited_source_navigation_fills_existing_global_capacity(pins, expected, status):
+    from apps.live_control_server.services import agent_turn_service as owner
+    turn = _many_cited_source_projection_turn(pins=pins)
+    targets, statuses = owner._evidence_anchor_open_projection(turn)
+    assert len(targets) == expected
+    assert [(s.status,s.target_count) for s in statuses] == [(status,expected)]
+    assert targets == owner._evidence_anchor_open_projection(turn)[0]
+
+
+@pytest.mark.parametrize("claims,pins,empty_first,duplicate,expected_counts", [
+    (9,9,False,False,[8,*([7]*8)]),
+    (3,24,True,False,[0,24,24]),
+    (1,24,False,True,[24]),
+    (65,1,False,False,[*([1]*64),0]),
+])
+def test_cited_source_navigation_shares_budget_without_counting_empty_or_duplicate_choices(
+    claims,pins,empty_first,duplicate,expected_counts,
+):
+    from apps.live_control_server.services import agent_turn_service as owner
+    targets, statuses = owner._evidence_anchor_open_projection(_many_cited_source_projection_turn(
+        claims,pins,empty_first=empty_first,duplicate=duplicate))
+    assert [s.target_count for s in statuses] == expected_counts
+    assert len(targets) == sum(expected_counts)
+    assert len({(t.claim_id,t.anchor_id,t.evidence_ref_id,t.source_artifact_id,t.source_revision_id) for t in targets}) == len(targets)
+    if empty_first:
+        assert statuses[0].status == "no_anchor"
+    if claims == 65:
+        assert statuses[-1].status == "overflow"
+    if claims == 9:
+        assert all(s.status == "partial" for s in statuses)
