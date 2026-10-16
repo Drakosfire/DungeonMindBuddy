@@ -143,18 +143,44 @@ describe("IngestionModule", () => {
     vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
     const inspection = vi.spyOn(liveApi, "getHistoricalRecapInspection");
     const ingest = vi.mocked(recapIngestApi.postRecapIngest);
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [{
+        schema_version: "dmb_recap_artifact_record_v1",
+        artifact_id: "recap-session-29",
+        campaign_id: "longmont-c2",
+        session_id: "session-29",
+        source_recap_path: "corpus/eldyrwild-markdown/Session 29 - The Meat Mind.md",
+        run_bundle_uri: "bundle",
+        run_manifest_uri: "manifest",
+        source_span_index_uri: "index",
+        graph_run_refs: [],
+        default_projection_mode: "preview_union",
+        registered_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z",
+        registry_source: "scan",
+      }],
+    });
 
     render(<IngestionModule campaignId="longmont-c2" session={30} managedWorldId="elderwyld" initialSourceSession={29} />);
 
     expect(await screen.findByRole("heading", { name: "Bring your table’s story into the World." })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Start with a session recap" })).toBeInTheDocument();
     expect(screen.queryByText("Operator prep tool over the PR92 ingestion orchestrator.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Current next action")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next: Review the extracted candidate/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(null);
+    expect(screen.getByLabelText("Session title")).toHaveValue("");
+    await waitFor(() => expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Choose a processed recap"));
+    expect(ingest).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Write a recap" }));
     expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveFocus();
 
     await waitFor(() => expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument());
     expect(inspection).not.toHaveBeenCalled();
-    expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
+    expect(ingest).not.toHaveBeenCalled();
     expect(window.location.search).toBe("?world=elderwyld");
   });
 

@@ -48,6 +48,12 @@ function isIngestSurfacePath(): boolean {
   return window.location.pathname.replace(/\/+$/, "") === "/ingest";
 }
 
+function isFreshRecapEntryRoute(): boolean {
+  if (!isIngestSurfacePath()) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.has("world") && params.get("view") !== "recap" && !params.has("campaign") && !params.has("session");
+}
+
 function corpusCitationPath(relpath: string): string {
   const trimmed = relpath.trim().replace(/^\/+/, "");
   if (trimmed.startsWith("corpus/")) {
@@ -733,6 +739,7 @@ function previewSourceSignature(recapSession: number, rawText: string, slug: str
 
 export function IngestionModule({ campaignId: planCampaignId, session, managedWorldId, initialSourceSession }: IngestionModuleProps) {
   const projection = useOptionalProjection();
+  const [freshRecapEntry] = useState(isFreshRecapEntryRoute);
   const [ingestCampaignId, setIngestCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(planCampaignId),
   );
@@ -741,7 +748,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     [ingestCampaignId, session],
   );
   const [requestedRecapSession] = useState(requestedRecapSessionFromLocation);
-  const initialRecapSession = requestedRecapSession ?? initialSourceSession ?? defaultRecapSession(session);
+  const initialRecapSession = requestedRecapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
   const [activeStep, setActiveStep] = useState<number>(1);
   const [rawText, setRawText] = useState("");
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -790,11 +797,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
   const terminalCampaign = campaignNumberFromId(ingestCampaignId);
-  const blankRecapRoute = (() => {
-    const params = new URLSearchParams(window.location.search);
-    return isIngestSurfacePath() && params.get("view") !== "recap" && !params.has("campaign") && !params.has("session");
-  })();
-  const showRecapWelcome = blankRecapRoute && !readerMode && sourceMode === "raw" && loadedArtifact === null && !rawText.trim();
+  const showRecapWelcome = freshRecapEntry && !readerMode && sourceMode === "raw" && loadedArtifact === null && !rawText.trim() && recapSession === 0 && latestResult === null;
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
@@ -1008,7 +1011,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
           ? null
           : draft;
-      const defaultRecap = requestedRecapSession ?? usableDraft?.recapSession ?? initialSourceSession ?? defaultRecapSession(session);
+      const defaultRecap = requestedRecapSession ?? usableDraft?.recapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
       const restoredSlug = usableDraft?.slug ?? canonicalSlugTitleForRecapSession(defaultRecap)?.slug ?? "";
       const initialSlug =
         usableDraft?.showAdvanced && isNonGenericSlugOrTitle(restoredSlug, "") ? restoredSlug : "";
@@ -1044,55 +1047,57 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setIgnoreDiskResume(restoredIgnoreDiskResume);
       }
 
-      try {
-        const inspectGeneration = hydrateInspectGenerationRef.current;
-        const inspected = await postRecapIngest({
-          operation: "inspect_status",
-          campaign_id: ingestCampaignId,
-          session: defaultRecap,
-          slug: initialSlug.trim() || undefined,
-          title: initialTitle.trim() || undefined,
-        });
-        if (cancelled || inspectGeneration !== hydrateInspectGenerationRef.current) {
-          return;
-        }
-        if (!restoredIgnoreDiskResume) {
-          const mergedWithDraft = mergeInspectResult(usableDraft?.latestResult ?? null, inspected);
-          const sanitizedResult = sanitizeLatestResult(mergedWithDraft) ?? mergedWithDraft;
-          setLatestResult((prev) => {
-            const merged = mergeInspectResult(prev ?? usableDraft?.latestResult ?? null, inspected);
-            return sanitizeLatestResult(merged) ?? merged;
+      if (!freshRecapEntry || usableDraft) {
+        try {
+          const inspectGeneration = hydrateInspectGenerationRef.current;
+          const inspected = await postRecapIngest({
+            operation: "inspect_status",
+            campaign_id: ingestCampaignId,
+            session: defaultRecap,
+            slug: initialSlug.trim() || undefined,
+            title: initialTitle.trim() || undefined,
           });
-          const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
-          if (synced) {
-            setSlug(synced.slug);
-            setTitle(synced.title);
-            if (previewSignature != null && hasState(sanitizedResult, "recap_preview_created")) {
-              setPreviewSignature(
-                previewSourceSignature(recapSession, rawText, synced.slug),
-              );
-            }
+          if (cancelled || inspectGeneration !== hydrateInspectGenerationRef.current) {
+            return;
           }
-          setActiveStep((prev) => Math.max(prev, deriveStepFromResult(sanitizedResult)));
-          setState((prev) => {
-            if (
-              prev.status === "previewing" ||
-              prev.status === "running_full_ingest" ||
-              prev.status === "applying" ||
-              prev.status === "building_frontmatter_seed" ||
-              prev.status === "running_breadcrumb_ingest" ||
-              prev.status === "materializing" ||
-              prev.status === "preview_ready" ||
-              prev.status === "applied" ||
-              prev.status === "ready_for_planning_activation"
-            ) {
-              return prev;
+          if (!restoredIgnoreDiskResume) {
+            const mergedWithDraft = mergeInspectResult(usableDraft?.latestResult ?? null, inspected);
+            const sanitizedResult = sanitizeLatestResult(mergedWithDraft) ?? mergedWithDraft;
+            setLatestResult((prev) => {
+              const merged = mergeInspectResult(prev ?? usableDraft?.latestResult ?? null, inspected);
+              return sanitizeLatestResult(merged) ?? merged;
+            });
+            const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
+            if (synced) {
+              setSlug(synced.slug);
+              setTitle(synced.title);
+              if (previewSignature != null && hasState(sanitizedResult, "recap_preview_created")) {
+                setPreviewSignature(
+                  previewSourceSignature(recapSession, rawText, synced.slug),
+                );
+              }
             }
-            return derivePaneStateFromResult(sanitizedResult);
-          });
+            setActiveStep((prev) => Math.max(prev, deriveStepFromResult(sanitizedResult)));
+            setState((prev) => {
+              if (
+                prev.status === "previewing" ||
+                prev.status === "running_full_ingest" ||
+                prev.status === "applying" ||
+                prev.status === "building_frontmatter_seed" ||
+                prev.status === "running_breadcrumb_ingest" ||
+                prev.status === "materializing" ||
+                prev.status === "preview_ready" ||
+                prev.status === "applied" ||
+                prev.status === "ready_for_planning_activation"
+              ) {
+                return prev;
+              }
+              return derivePaneStateFromResult(sanitizedResult);
+            });
+          }
+        } catch {
+          // Disk probe is best-effort; local draft still applies.
         }
-      } catch {
-        // Disk probe is best-effort; local draft still applies.
       }
 
       if (!cancelled) {
@@ -1106,7 +1111,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     return () => {
       cancelled = true;
     };
-  }, [storageKey, session, ingestCampaignId, requestedRecapSession, initialSourceSession]);
+  }, [storageKey, session, ingestCampaignId, requestedRecapSession, initialSourceSession, freshRecapEntry]);
 
   useEffect(() => {
     if (!hydrated || recapSession !== 22) {
@@ -1126,7 +1131,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         if (cancelled) return;
         const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
         setPriorIngestionArtifacts(records);
-        setSelectedPriorArtifactId((current) => current || records.at(-1)?.artifact_id || "");
+        setSelectedPriorArtifactId((current) => current || (freshRecapEntry ? "" : records.at(-1)?.artifact_id || ""));
       })
       .catch(() => {
         if (!cancelled) {
@@ -1136,7 +1141,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     return () => {
       cancelled = true;
     };
-  }, [ingestCampaignId, hydrated]);
+  }, [ingestCampaignId, hydrated, freshRecapEntry]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -1999,8 +2004,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const previewDiff = typeof report.preview_diff === "string" ? report.preview_diff : "";
   const sessionMemoryRecordCount = String(report.session_memory_record_count ?? "-");
   const sessionMemoryCheck = String(report.session_memory_check ?? "-");
-  const titlePlaceholder =
-    inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
+  const titlePlaceholder = freshRecapEntry
+    ? "e.g., Mireward Gate Battle"
+    : inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
   const proofRows =
@@ -2100,13 +2106,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         </section>
       ) : null}
 
-      <section className="ingestion-flow-card" aria-label="Ingestion workflow progress">
-        <div>
-          <p className="ingestion-flow-kicker">Readiness from on-disk inspect</p>
-          <h3>Current next action</h3>
-          <p role="status" aria-live="polite">{workflowNextAction}</p>
-        </div>
-      </section>
+      {!(freshRecapEntry && latestResult === null && state.status === "idle") ? (
+        <section className="ingestion-flow-card" aria-label="Ingestion workflow progress">
+          <div>
+            <p className="ingestion-flow-kicker">Readiness from on-disk inspect</p>
+            <h3>Current next action</h3>
+            <p role="status" aria-live="polite">{workflowNextAction}</p>
+          </div>
+        </section>
+      ) : null}
 
       <div className="ingestion-command-grid">
         <section className="ingestion-controls-pane" aria-label="Ingestion source and controls">
@@ -2129,18 +2137,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     {priorIngestionArtifacts.length === 0 ? (
                       <option value="">No prior ingestions found</option>
                     ) : (
-                      priorIngestionArtifacts.map((record) => (
-                        <option key={record.artifact_id} value={record.artifact_id}>
-                          {recapArtifactSessionLabel(record)}
-                        </option>
-                      ))
+                      <>
+                        <option value="">Choose a processed recap</option>
+                        {priorIngestionArtifacts.map((record) => (
+                          <option key={record.artifact_id} value={record.artifact_id}>
+                            {recapArtifactSessionLabel(record)}
+                          </option>
+                        ))}
+                      </>
                     )}
                   </select>
                 </label>
                 <button
                   type="button"
                   onClick={() => void loadSelectedPriorIngestion()}
-                  disabled={loadingPriorIngestion || priorIngestionArtifacts.length === 0}
+                  disabled={loadingPriorIngestion || priorIngestionArtifacts.length === 0 || !selectedPriorArtifactId}
                 >
                   {loadingPriorIngestion ? "Loading…" : "Load processed recap"}
                 </button>
@@ -2199,7 +2210,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 type="number"
                 min={1}
                 step={1}
-                value={recapSession}
+                value={recapSession > 0 ? recapSession : ""}
                 onChange={(event) => {
                   const nextValue = Number.parseInt(event.target.value, 10);
                   setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);

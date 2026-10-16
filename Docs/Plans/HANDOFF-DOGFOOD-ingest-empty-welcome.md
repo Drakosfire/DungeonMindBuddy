@@ -39,13 +39,19 @@ ingestion implicitly.
 - A managed World with no exact extraction run gets a calm, useful landing and a
   route to Build; it does not infer or fabricate a run.
 - Elderwyld's plain `/ingest?world=elderwyld` route is a normal new-recap entry:
-  show a guided blank welcome and do not attempt to restore a saved-recap route
-  unless `view=recap` was explicitly requested.
+  show a guided blank welcome, do not inherit a session number/title or on-disk
+  readiness from the surrounding surface, and do not inspect an arbitrary
+  session unless the operator explicitly selects it. Prior processed recaps
+  remain unselected until the operator chooses one. A saved local draft still
+  restores; a saved-recap URL still restores only when `view=recap` was explicit.
 - An explicit recap deep-link with valid campaign/session/run identity still
   restores the exact saved recap; malformed explicit routes keep a visible
   route error.
 - The blank welcome only focuses the raw recap field. It must not prepare,
   ingest, save, or otherwise mutate data.
+- The blank entry does not imply a previously selected session or saved recap;
+  no historical status is presented as the next action until a session is
+  intentionally selected or loaded.
 - Elderwyld's established recap entry and exact-run review flows remain intact.
 - No state change may admit, import, publish, or associate source evidence.
 
@@ -55,6 +61,9 @@ Run focused `MemoryIngestPage` tests, UI typecheck, production build, and
 `git diff --check`. Inspect the cumulative `origin/main`→HEAD diff. Rendered
 acceptance is required before calling the UX finished. Keep 5202 unchanged and
 report API/auth limitations without claiming live ingestion acceptance.
+The blank-route regression must prove no implicit `inspect_status` call or
+prior-artifact selection, while explicit routes and locally saved drafts still
+restore correctly.
 
 ## Completion
 
