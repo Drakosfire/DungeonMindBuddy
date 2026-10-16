@@ -1,7 +1,7 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
 **Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16), amended to align workflow actions with verified source proof.
-**Base:** GitHub's current `main` is `eac0861351c4965797233f5d7543d4cb537552c9` (2026-10-16), three commits after the last shell-fetched snapshot `f92a3e9e151742f80c77fbadbfa2b723712d1906`. The shell cannot resolve github.com, so use the connected GitHub API for re-anchoring. Those newer commits touch Agent/server evidence paths and handoffs, disjoint from this UI lease. Before this update, #1259 head `cc768839ee6e24fe4511201d71698fb735ac5210` shared merge base `b309616302225f2d84e08514eb39eb81f49f414d`; compare reports main 12 commits ahead and the old PR 18 commits ahead of main. Preserve the PR's five Ingest files while re-anchoring to current main. The original UI work merged by #1256 is included in the PR.
+**Base:** fetched origin/main@3a70b3585744a42c2f5b97e68f3b7189513ab171 (2026-10-16). Re-anchored by a clean merge from PR head 2d96496250ae2e63affbb1a22fc685729909abf9, whose merge base was eac0861351c4965797233f5d7543d4cb537552c9; the eight intervening main commits add only JEV evaluator/handoff files, disjoint from this UI lease. The product diff remains confined to the five Ingest files.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
 **PR checkout:** `/tmp/dmb-ingest-pr1259-review` is an isolated content mirror of the open PR tree used for review and verification. Its local branch name/commit metadata differ from the GitHub head; compare the tree, not the local SHA. `/tmp/dmb-ingest-local-nav-refresh` is a stale, dirty precursor checkout at `6c3bf566` with overlapping uncommitted changes; do not treat it as the PR source without reconciliation.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
@@ -287,3 +287,5 @@ authorized by this amendment. This remains the single serial implementation PR
   `git diff --check` pass. The existing Vite large-chunk warning and React
   `act(...)` warnings remain. Fresh Bugbot review of the updated exact PR head
   is required before dogfood.
+
+- Re-anchored cleanly on origin/main@3a70b3585744a42c2f5b97e68f3b7189513ab171. The current PR checkout has no Vitest installation, so the focused UI suites were not rerun after this history-only re-anchor; the existing product diff is unchanged.
