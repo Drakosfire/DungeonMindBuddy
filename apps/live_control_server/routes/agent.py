@@ -1140,6 +1140,15 @@ def _plan_context_resolver(
             diagnostic_codes=[diagnostic.code for diagnostic in result.diagnostics],
         )
     )
+    build_discovery = None
+    if work.build_source is not None:
+        from apps.live_control_server.services.build_source_discovery import discover_build_source
+        try:
+            build_discovery = discover_build_source(services, work.build_source,
+                native_world_id=native_world_id, graph_revision=revision_id)
+        except Exception as exc:
+            raise AgentTurnServiceError("The exact saved source discovery could not be resolved.",
+                code="graph_unavailable", status_code=503, provider_dispatched=False) from exc
     # Source-index construction can outlive the earlier binding check. Reject
     # a retargeted World before creating a durable retrieval session.
     try:
@@ -1168,6 +1177,7 @@ def _plan_context_resolver(
         session, reusable_source_session=source_session_id is not None,
     )
     bootstrap = AgentPlanWorldGraphBootstrap(
+        build_source_discovery=build_discovery,
         graph_envelope={
             "world_id": native_world_id,
             "campaign_id": "",

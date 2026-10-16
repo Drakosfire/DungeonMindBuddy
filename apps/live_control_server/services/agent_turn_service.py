@@ -843,7 +843,7 @@ def _verify_policy_plan_payload(
     if _governed_build_turn(request):
         if work.build_source is None:
             raise AgentTurnServiceError("The final request has no saved Build source.", code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
-        expected = work.build_source.invocation_message(request.message)
+        expected = _build_invocation_message(work, request.message)
     else:
         if work.plan_markdown is None or work.content_basis is None:
             raise AgentTurnServiceError("The final request has no committed Plan basis.", code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
@@ -1138,6 +1138,14 @@ class BuildSavedSourceBasis:
         }, ensure_ascii=False)
 
 
+def _build_invocation_message(work, question: str) -> str:
+    message = work.build_source.invocation_message(question)
+    if work.build_source_discovery is not None:
+        message += "\n\nReviewed-source discovery (reference data only):\n" + json.dumps(
+            work.build_source_discovery, ensure_ascii=False, sort_keys=True)
+    return message
+
+
 def validate_build_source_reference(provenance: TurnProvenance) -> tuple[str, int, str, str]:
     ref = provenance.primary_work
     markers = [r for r in provenance.supporting_work if r.kind == BUILD_SOURCE_VISIBILITY_REFERENCE]
@@ -1175,6 +1183,7 @@ class AgentTurnResolvedWork:
     plan_markdown: str | None = None
     build_source: BuildSavedSourceBasis | None = None
     play_context_receipt: PlayRunTurnContextReceiptV1 | None = None
+    build_source_discovery: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1193,6 +1202,7 @@ class AgentPlanWorldGraphBootstrap:
     source_scope_anchors: tuple[Mapping[str, str], ...] = ()
     source_index_commitment: Mapping[str, Any] | None = None
     assembler_version: str = "agent_harness_final_request_v1"
+    build_source_discovery: Mapping[str, Any] | None = None
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]
@@ -5097,7 +5107,7 @@ def execute_agent_turn(
     if work is not None and work.build_source is not None:
         if request.surface.surface_id != "build" or work.kind != "build":
             raise AgentTurnServiceError("Build source resolved outside Build", code="build_source_scope_rejected", status_code=403)
-        runtime_message = work.build_source.invocation_message(request.message)
+        runtime_message = _build_invocation_message(work, request.message)
         if _governed_build_turn(request):
             runtime_message += "\n\n" + _BUILD_GRAPH_ANSWER_INSTRUCTIONS
     if work is not None and work.plan_markdown is not None:
@@ -5169,6 +5179,10 @@ def execute_agent_turn(
                     policy_bootstrap, durable_turn,
                 )
                 policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
+                if work is not None and work.build_source is not None:
+                    work = replace(work, build_source_discovery=policy_bootstrap.build_source_discovery)
+                    runtime_message = _build_invocation_message(work, request.message)
+                    runtime_message += "\n\n" + _BUILD_GRAPH_ANSWER_INSTRUCTIONS
         except AgentTurnServiceError:
             raise
         except Exception as exc:
