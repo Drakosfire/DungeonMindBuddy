@@ -11,6 +11,8 @@ from .worldbuilding_gazetteer_scenario_scope import GAZETTEER_PREPARED_SCENARIO_
 from .worldbuilding_gazetteer_governance import GAZETTEER_GOVERNANCE_PROFILE
 from .worldbuilding_gazetteer_trade_context import GAZETTEER_TRADE_CONTEXT_PROFILE
 
+from .worldbuilding_definition_observations import GAZETTEER_DEFINITION_OBSERVATION_PROFILE
+
 PUBLISHABLE_WORLDBUILDING_PROFILES = {
     f"{p.profile_id}@{p.profile_version}": p
     for p in (
@@ -21,5 +23,6 @@ PUBLISHABLE_WORLDBUILDING_PROFILES = {
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
         GAZETTEER_GOVERNANCE_PROFILE,
         GAZETTEER_TRADE_CONTEXT_PROFILE,
+        GAZETTEER_DEFINITION_OBSERVATION_PROFILE,
     )
 }

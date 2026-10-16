@@ -17,7 +17,7 @@ def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version(
         "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2",
         "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4",
         "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@1.6",
-        "worldbuilding_gazetteer_v1@1.7", "worldbuilding_gazetteer_v1@1.8", "worldbuilding_gazetteer_v1@1.9", "worldbuilding_gazetteer_v1@1.10"}
+        "worldbuilding_gazetteer_v1@1.7", "worldbuilding_gazetteer_v1@1.8", "worldbuilding_gazetteer_v1@1.9", "worldbuilding_gazetteer_v1@1.10", "worldbuilding_gazetteer_v1@1.11"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 

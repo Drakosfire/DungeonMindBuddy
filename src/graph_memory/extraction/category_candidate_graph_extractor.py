@@ -689,6 +689,7 @@ def materialize_promote_evidence_ref(
 
 
 _EVIDENCE_COLLECTIONS = (
+    "source_observations",
     "nodes",
     "edges",
     "beats",

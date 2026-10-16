@@ -546,7 +546,7 @@ def _candidate_counts(
     resolvable_count = 0
     paragraph_evidence_ref_count = 0
     full_text_fallback_ref_count = 0
-    for key in (nodes_key, edges_key, beats_key):
+    for key in (nodes_key, edges_key, beats_key, "source_observations"):
         for obj in candidate_graph.get(key, []) if isinstance(candidate_graph.get(key), list) else []:
             if not isinstance(obj, dict):
                 continue
@@ -650,7 +650,7 @@ def _write_validation_report(
             warnings.append(f"evidence ref {ref_id} missing span_id")
         elif known_span_ids and span_id not in known_span_ids:
             warnings.append(f"unresolved evidence ref span_id: {span_id}")
-    for field in (nodes_key, edges_key, beats_key):
+    for field in (nodes_key, edges_key, beats_key, "source_observations"):
         for obj in candidate_graph.get(field, []) if isinstance(candidate_graph.get(field), list) else []:
             if not isinstance(obj, dict):
                 continue
@@ -674,7 +674,7 @@ def _write_validation_report(
                         ):
                             warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
     nested_refs = [ref
-                   for field in (nodes_key, edges_key, beats_key)
+                   for field in (nodes_key, edges_key, beats_key, "source_observations")
                    for obj in (candidate_graph.get(field) if isinstance(candidate_graph.get(field), list) else [])
                    if isinstance(obj, dict)
                    for ref in (obj.get("evidence_refs") if isinstance(obj.get("evidence_refs"), list) else [])
