@@ -172,10 +172,10 @@ index b93dcf6..a8c5b73 100644
          msg["codex_reasoning_items"] = codex_items
 
 diff --git a/agent/codex_runtime.py b/agent/codex_runtime.py
-index c1e46e8..9857b42 100644
+index c1e46e8..86640a2 100644
 --- a/agent/codex_runtime.py
 +++ b/agent/codex_runtime.py
-@@ -848,9 +848,65 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -848,9 +848,68 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
      the terminal event's ``output`` field.
      """
      import httpx as _httpx
@@ -222,6 +222,7 @@ index c1e46e8..9857b42 100644
 +        *,
 +        exc: BaseException | None = None,
 +        response_status: str | None = None,
++        incomplete_reason: str | None = None,
 +    ) -> None:
 +        from agent.api_request_budget import ApiRequestBudgetVeto
 +
@@ -237,12 +238,14 @@ index c1e46e8..9857b42 100644
 +                diagnostic["transport_exception_class"] = exception_class
 +        if response_status is not None:
 +            diagnostic["response_status"] = response_status
++        if incomplete_reason is not None:
++            diagnostic["incomplete_reason"] = incomplete_reason
 +        agent._api_request_budget_terminal_failure = diagnostic
 +        raise ApiRequestBudgetVeto(code="provider_lifecycle_unavailable")
      # Accumulate streamed text so callers / compat shims can read it.
      agent._codex_streamed_text_parts: list = []
 
-@@ -878,7 +934,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -878,7 +937,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
 
          try:
              event_stream = active_client.responses.create(**stream_kwargs)
@@ -264,7 +267,7 @@ index c1e46e8..9857b42 100644
              if attempt < max_stream_retries:
                  logger.debug(
                      "Codex Responses stream connect failed (attempt %s/%s); retrying. %s error=%s",
-@@ -887,11 +957,18 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -887,11 +960,18 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                  )
                  continue
              raise
@@ -283,7 +286,7 @@ index c1e46e8..9857b42 100644
                  return event_stream
 
              try:
-@@ -905,6 +982,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -905,6 +985,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      interrupt_check=_interrupt_check,
                  )
              except (_httpx.RemoteProtocolError, _httpx.ReadTimeout, _httpx.ConnectError, ConnectionError) as exc:
@@ -293,7 +296,7 @@ index c1e46e8..9857b42 100644
                  if attempt < max_stream_retries:
                      logger.debug(
                          "Codex Responses stream transport failed mid-iteration "
-@@ -915,6 +995,17 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -915,6 +998,26 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      continue
                  raise
 
@@ -301,9 +304,18 @@ index c1e46e8..9857b42 100644
 +                lifecycle("outcome_unknown")
 +                if callable(getattr(agent, "api_request_budget_guard", None)):
 +                    response_status = final.status if final.status in {"incomplete", "failed"} else "other"
++                    incomplete_reason = None
++                    if response_status == "incomplete":
++                        details = final.incomplete_details
++                        reason = details.get("reason") if isinstance(details, dict) else getattr(details, "reason", None)
++                        incomplete_reason = (
++                            reason if isinstance(reason, str) and reason in {"max_output_tokens", "length", "content_filter"}
++                            else "unspecified" if reason is None else "other"
++                        )
 +                    abort_guarded_attempt(
 +                        "provider_response_incomplete",
 +                        response_status=response_status,
++                        incomplete_reason=incomplete_reason,
 +                    )
 +            elif not lifecycle("response_received"):
 +                abort_guarded_attempt("lifecycle_ack_denied")
@@ -513,10 +525,10 @@ index fe378f3..ebef233 100644
          disabled_toolsets: List[str] = None,
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 0000000..7f2dfb4
+index 0000000..d7efd16
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,600 @@
+@@ -0,0 +1,608 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -801,7 +813,14 @@ index 0000000..7f2dfb4
 +    assert "private prompt" not in repr(agent._api_request_budget_terminal_failure)
 +
 +
-+def test_guarded_codex_noncompleted_response_has_bounded_status_diagnostic(agent_factory):
++@pytest.mark.parametrize("details, expected", [
++    ({"reason": "max_output_tokens"}, "max_output_tokens"),
++    (SimpleNamespace(reason="content_filter"), "content_filter"),
++    ({"reason": "length"}, "length"),
++    ({"reason": "PRIVATE_RESPONSE secret"}, "other"),
++    (None, "unspecified"),
++])
++def test_guarded_codex_noncompleted_response_has_bounded_status_diagnostic(agent_factory, details, expected):
 +    from agent.api_request_budget import ApiRequestBudgetVeto
 +
 +    agent = agent_factory(
@@ -814,7 +833,7 @@ index 0000000..7f2dfb4
 +            create=lambda **_kwargs: iter([
 +                SimpleNamespace(
 +                    type="response.incomplete",
-+                    response=SimpleNamespace(status="incomplete"),
++                    response=SimpleNamespace(status="incomplete", incomplete_details=details),
 +                )
 +            ])
 +        )
@@ -831,6 +850,7 @@ index 0000000..7f2dfb4
 +        "transition": "outcome_unknown",
 +        "acknowledged": True,
 +        "response_status": "incomplete",
++        "incomplete_reason": expected,
 +    }
 +
 +

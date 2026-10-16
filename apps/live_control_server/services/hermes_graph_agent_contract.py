@@ -126,6 +126,7 @@ _TERMINAL_FAILURE_ALLOWED_KEYS = frozenset(
         "acknowledged",
         "transportExceptionClass",
         "responseStatus",
+        "incompleteReason",
     }
 )
 _TERMINAL_FAILURE_REASONS = frozenset(
@@ -143,6 +144,7 @@ _SAFE_TRANSPORT_EXCEPTION_CLASSES = frozenset(
     {"RemoteProtocolError", "ReadTimeout", "ConnectError", "ConnectionError"}
 )
 _SAFE_PROVIDER_RESPONSE_STATUSES = frozenset({"incomplete", "failed", "other"})
+_SAFE_INCOMPLETE_REASONS = frozenset({"max_output_tokens", "length", "content_filter", "unspecified", "other"})
 _MODEL_CALL_ALLOWED_KEYS = frozenset(
     {
         "call_id",
@@ -1426,6 +1428,15 @@ def _serialize_terminal_failure(value: Any) -> dict[str, Any]:
             raise ValueError("terminalFailure.responseStatus is unsupported")
         result["responseStatus"] = response_status
 
+    incomplete_reason = value.get("incompleteReason")
+    if incomplete_reason is not None:
+        if (not isinstance(incomplete_reason, str)
+                or incomplete_reason not in _SAFE_INCOMPLETE_REASONS
+                or reason != "provider_response_incomplete"
+                or response_status != "incomplete"):
+            raise ValueError("terminalFailure.incompleteReason is unsupported")
+        result["incompleteReason"] = incomplete_reason
+
     if reason == "provider_response_incomplete" and response_status is None:
         raise ValueError("terminalFailure.responseStatus is required")
     if reason != "provider_response_incomplete" and response_status is not None:
@@ -1453,6 +1464,8 @@ def sanitize_terminal_failure_diagnostic(value: Any) -> dict[str, Any] | None:
         candidate["transportExceptionClass"] = value.get("transport_exception_class")
     if "response_status" in value:
         candidate["responseStatus"] = value.get("response_status")
+    if "incomplete_reason" in value:
+        candidate["incompleteReason"] = value.get("incomplete_reason")
     return validate_terminal_failure_record(candidate)
 
 
