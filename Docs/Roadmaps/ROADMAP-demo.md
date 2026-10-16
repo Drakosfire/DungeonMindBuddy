@@ -23,6 +23,23 @@ with representative NPC, Threat/statblock, choice, encounter and roll table.
 The final journey includes image selection and editable generated statblocks.
 PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
+## Immediate foundation — MIND retrieval efficiency and Jev, 2026-10-16
+
+The Mirathorn lifecycle below remains the product acceptance journey. Its immediate
+foundation is responsive, source-faithful acquisition: MIND #130 and #131 are merged
+(#131 at 637364c647da475d766cfba0b7eebed66d1182f4). Reviewed operation-local ancestry
+reuse preserves source authority without a global admitted-result cache. Next,
+Buddy adopts that exact dependency and batches independent selected actions in the
+non-serving Jev evaluator under HANDOFF-AGENT-jev-batched-acquisition.md.
+
+Deterministic read-only evidence parity precedes additional inference. Jev owns
+relevance and missing-evidence judgments; code owns legal retrieval, uniqueness,
+caching and stopping. The pilot one-shot writer is implemented, but ordinary
+Agent Harness adoption, unseen/contradictory cases and replacing human requirements
+and seeds remain open. Pilot gold coverage does not establish general accuracy.
+No evaluator or dependency merge alone updates a serving runtime or completes the
+Mirathorn journey. Independent review and DOGFOOD/operator inspection remain.
+
 ## Primary priority — Mirathorn worldbuilding in Build, 2026-10-14
 
 Operator-authorized delivery priority: reuse the existing local Markdown hierarchy,

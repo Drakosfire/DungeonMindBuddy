@@ -122,9 +122,11 @@ def validate_answers(request: dict, result: dict) -> dict:
 
 async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], *,
                    output: Path, relevant_min: float = 0.5,
-                   retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None) -> dict:
+                   retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None,
+                   retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None) -> dict:
     """Acquire legal actions; optional live reader owns immutable source proof."""
-    validate_snapshot(snapshot, live=retrieve is not None)
+    live = retrieve is not None or retrieve_many is not None
+    validate_snapshot(snapshot, live=live)
     if not 0 <= relevant_min <= 1:
         raise ValueError("Invalid experimental relevance threshold")
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -132,13 +134,27 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
     (output / "snapshot.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2))
     visited, seen, selected = set(), {}, set()
     pending = list(snapshot["initial_actions"])
-    events, observations, rounds, requests = [], [], [], set()
+    events, observations, rounds, requests, batches = [], [], [], set(), []
     status, gaps = "retrieval_exhausted", [r["id"] for r in snapshot["requirements"]]
     while pending:
         acquired = []
         queue = [(aid, "initial_seed" if not rounds else "jev_missing_requirement")
                  for aid in sorted(set(pending))]
+        batch_loaded = {}
         while queue:
+            if retrieve_many is not None and queue[0][0] not in batch_loaded:
+                wave = list(dict.fromkeys(aid for aid, _ in queue if aid not in visited))
+                batch_started = time.perf_counter()
+                try:
+                    batch_loaded = await retrieve_many([snapshot["actions"][aid] for aid in wave]) if wave else {}
+                    batches.append({"action_ids": wave, "elapsed_seconds": time.perf_counter() - batch_started})
+                    if set(batch_loaded) != set(wave):
+                        raise ValueError("Batch read returned different action identities")
+                except Exception as exc:
+                    status = "retrieval_unavailable_or_invalid"
+                    events.append({"action_ids": wave, "reason": status,
+                                   "exception_type": type(exc).__name__, "retry": False})
+                    break
             aid, reason = queue.pop(0)
             if aid in visited:
                 continue
@@ -148,7 +164,8 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
             visited.add(aid)
             read_started = time.perf_counter()
             try:
-                loaded = (await retrieve(action) if retrieve is not None else
+                loaded = (batch_loaded[aid] if retrieve_many is not None else
+                          await retrieve(action) if retrieve is not None else
                           [snapshot["units"][uid] for uid in action["unit_ids"]])
                 if {u["id"] for u in loaded} != set(action["unit_ids"]):
                     raise ValueError("Live read returned different evidence identities")
@@ -156,7 +173,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                     if unit.get("unretrieved"):
                         raise ValueError("Unretrieved descriptor is not evidence")
                     validate_snapshot({**snapshot, "units": {**snapshot["units"], unit["id"]: unit}},
-                                      live=retrieve is not None)
+                                      live=live)
             except Exception as exc:
                 status = "retrieval_unavailable_or_invalid"
                 events.append({"action_id": aid, "reason": status,
@@ -248,7 +265,8 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
         row["continue_reason"] = "specific_requirements_missing_and_legal_actions_selected"
     known = all(o.get("input_tokens") is not None and o.get("output_tokens") is not None for o in observations) and bool(observations)
     result = {"schema": "dmb_jev_loop_result_v1", "status": status, "unresolved_requirements": gaps,
-              "mode": "live_revision_bound_source_acquisition" if retrieve else "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
+              "mode": "live_revision_bound_source_acquisition" if live else "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
+              "acquisition_batches": batches,
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,
@@ -257,7 +275,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "output_tokens_reported": sum(o.get("output_tokens") or 0 for o in observations),
               "luna_calls": 0, "relevance_threshold": relevant_min,
               "accuracy": "requires_separate_gold_evaluation",
-              "limitations": ["Live acquisition includes selected DB/source reads; replay excludes them." if retrieve else "Replay retrieval timing excludes live database/source I/O.",
+              "limitations": ["Live acquisition includes selected DB/source reads; replay excludes them." if live else "Replay retrieval timing excludes live database/source I/O.",
                              "Requirement templates and entry seeds are human-authored pilot inputs.",
                              "Semantic support is provisional; no answer writer or retained World change."]}
     (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))

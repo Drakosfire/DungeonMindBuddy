@@ -84,14 +84,27 @@ class LiveSourceReader:
                 "units": self.units, "actions": self.actions, "initial_actions": seeds}
 
     async def retrieve(self, action):
-        if action["kind"] == "saved_build_section":
-            return [self.units[uid] for uid in action["unit_ids"]]
+        return (await self.retrieve_many([action]))[action["id"]]
+
+    async def retrieve_many(self, actions):
+        """Acquire only the selected independent wave, using bounded native reads."""
+        if len({a["id"] for a in actions}) != len(actions):
+            raise ValueError("Duplicate batch action")
+        for action in actions:
+            if action != self.actions.get(action["id"]):
+                raise ValueError("Action differs from revision-bound catalog")
+        graph_actions = [a for a in actions if a["kind"] == "graph_observations"]
+        output = {a["id"]: [self.units[uid] for uid in a["unit_ids"]]
+                  for a in actions if a["kind"] == "saved_build_section"}
+        if not graph_actions:
+            return output
         from apps.live_control_server.integrations.dungeonmind.selected_observation_reads import select_observations_direct
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_source_anchors_direct_v2
         from graph_memory.retrieval.models import WorldGraphObservationSelectionRequest, WorldGraphSourceAnchorReadRequest
-        requested = {self.units[uid]["assertion_id"]: uid for uid in action["unit_ids"]}
+        requested = {self.units[uid]["assertion_id"]: uid
+                     for action in graph_actions for uid in action["unit_ids"]}
         t = time.perf_counter()
-        observations, pins, attempts = [], {}, []
+        observations, pins, attempts, supporters = [], {}, [], {}
         def acquire(ids):
             request = WorldGraphObservationSelectionRequest(**{"schema": "dmb_world_graph_observation_selection_v1"},
                 **self.common, sourceArtifactId=self.discovery["source_artifact_id"],
@@ -112,6 +125,8 @@ class LiveSourceReader:
                 raise ValueError("Selected observations differ from source discovery")
             attempts.append({"ids": ids, "outcome": "complete"})
             observations.extend(selected.reviewed_source_observations)
+            for anchor in selected.result.source_anchors:
+                supporters.setdefault(anchor.anchor_id, set()).update(anchor.supporting_assertion_ids)
             for pin in selected.source_pins:
                 if pin.anchor_id in pins and pins[pin.anchor_id] != pin:
                     raise ValueError("Source pin identity changed")
@@ -125,6 +140,7 @@ class LiveSourceReader:
                 **self.common, anchorId=key, maxChars=12000) for key in new), repo_root=self.root) if new else ()
         if len(reads) != len(new):
             raise ValueError("Source read count differs")
+        staged = {}
         for key, read in zip(new, reads, strict=True):
             if isinstance(read, Exception):
                 raise read
@@ -136,14 +152,25 @@ class LiveSourceReader:
                     or read.source_revision_sha256.removeprefix("sha256:") != self.spec["source_sha256"]
                     or read.result.outcome != "enough" or read.result.truncated):
                 raise ValueError("Opened source proof differs or is incomplete")
-            self.anchor_cache[key] = read
-        units = []
+            staged[key] = read
+        self.anchor_cache.update(staged)
+        # Anchor support is scoped back to each action before assembling units.
+        # An evidence reference shared by two subjects must not widen either read.
+        action_assertions = {a["id"]: {self.units[u]["assertion_id"] for u in a["unit_ids"]}
+                             for a in graph_actions}
+        action_pins = {aid: {key: pin for key, pin in pins.items()
+                            if supporters.get(key, set()) & ids}
+                       for aid, ids in action_assertions.items()}
+        units_by_assertion = {}
         for obs in observations:
             if (obs.source_artifact_id != self.discovery["source_artifact_id"]
                     or obs.source_revision_id != self.scope["source_revision"]):
                 raise ValueError("Observation source differs")
             refs = set(obs.evidence_ref_ids)
-            opened = [self.anchor_cache[key] for key, pin in pins.items() if pin.evidence_ref_id in refs]
+            # Use the observation's supporting anchors, preserving native anchor order.
+            owned = {key for key in pins if obs.assertion_id in supporters.get(key, set())}
+            opened = [self.anchor_cache[key] for key in sorted(pins)
+                      if key in owned and pins[key].evidence_ref_id in refs]
             if not opened:
                 raise ValueError("Observation has no admitted open support")
             passages, seen = [], set()
@@ -158,14 +185,24 @@ class LiveSourceReader:
                     "source_artifact_id": read.source_artifact_id, "evidence_ref_id": read.evidence_ref_id})
             uid = requested[obs.assertion_id]
             text = "Reviewed Graph observation:\n" + obs.text + "\nOpened source passages:\n" + "\n\n".join(p["text"] for p in passages)
-            units.append(evidence_unit(uid, self.units[uid]["subject"], text, self.scope,
+            units_by_assertion[obs.assertion_id] = evidence_unit(uid, self.units[uid]["subject"], text, self.scope,
                 "admitted_graph_observation_and_opened_passages", [{k: v for k, v in p.items() if k != "text"} for p in passages],
                 assertion_id=obs.assertion_id, observation_text=obs.text, opened_passages=passages,
-                epistemic_kind=obs.epistemic_kind, temporal_scope=obs.temporal_scope))
-        self.trace.append({"action_id": action["id"], "assertion_ids": sorted(requested),
-            "selection_attempts": attempts, "new_anchor_reads": new, "reused_anchor_count": len(pins) - len(new),
-            "elapsed_seconds": time.perf_counter() - t, "units": units})
-        return units
+                epistemic_kind=obs.epistemic_kind, temporal_scope=obs.temporal_scope)
+        attributed_new = set()
+        for index, action in enumerate(graph_actions):
+            fresh = (set(action_pins[action["id"]]) & set(new)) - attributed_new
+            attributed_new.update(fresh)
+            ids = action_assertions[action["id"]]
+            units = [units_by_assertion[key] for key in sorted(ids)]
+            output[action["id"]] = units
+            self.trace.append({"action_id": action["id"], "assertion_ids": sorted(ids),
+                "batch_action_ids": [a["id"] for a in graph_actions],
+                "selection_attempts": attempts if index == 0 else [],
+                "new_anchor_reads": sorted(fresh),
+                "reused_anchor_count": len(set(action_pins[action["id"]]) - fresh),
+                "elapsed_seconds": time.perf_counter() - t, "units": units})
+        return output
 
 
 def writer_request(result: dict, question: str) -> dict:

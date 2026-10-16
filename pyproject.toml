@@ -29,11 +29,11 @@ dependencies = [
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
     "hermes-agent==0.18.2",
-    # Exact source consumer pin: reviewed Core #128 historical publication discovery.
+    # Exact source consumer pin: reviewed Core #131 operation-local verified ancestry.
     # Includes guarded review commitments and atomic identity/source admission.
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@d83689cda92691758bdb132fb5ffcd170abb86df",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@637364c647da475d766cfba0b7eebed66d1182f4",
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact source pin: GenerationEngine PR #19 merge (structured attempt evidence).
@@ -84,7 +84,7 @@ hermes-agent = { path = "out/hermes-agent", editable = false }
 # WorldKeeper's pinned metadata names an older DungeonMind Git commit. Normalize
 # only that dependency name so this repository's exact direct source below is
 # selected consistently at the Buddy-owned DungeonMind pin above.
-dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "d83689cda92691758bdb132fb5ffcd170abb86df" }
+dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "637364c647da475d766cfba0b7eebed66d1182f4" }
 
 # The pinned WorldKeeper release has one dependency, DungeonMind. Its package
 # metadata override drops the conflicting URL; tool.uv.sources above retains
