@@ -1,7 +1,7 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
 **Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16).
-**Base:** Re-anchored to current `main@b309616302225f2d84e08514eb39eb81f49f414d` after merged #1260 changed Agent source-read accounting. The UI branch rebased cleanly; #1260 owns disjoint server/Agent files. The original UI work merged by #1256 is included in this base.
+**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. Rechecked against current `main@50f6aee329dd38c2d429554f5d55a06ff9891605`: six later commits are confined to Agent/server evidence paths and tests, disjoint from this UI lease. GitHub reports PR #1259 mergeable; it is six commits behind current main and has not been rebased. The original UI work merged by #1256 is included in this base.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
 **Checkout:** `/tmp/dmb-ingest-local-nav-refresh`.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
@@ -132,6 +132,18 @@ slice rather than broadening this UI lease.
   recommendations, and persistent local-nav guidance after its transient toast
   is dismissed. Fresh inspection-only status still keeps the empty nav quiet.
   Existing React `act(...)` warnings remain.
+- Bugbot review found two UI issues: incomplete file proof could be presented as
+  confirmed, and the Evidence nav shortcut targeted a collapsed disclosure.
+  The current patch distinguishes explicit Missing from Unverified, keeps the
+  recovery cue cautious unless both source files are confirmed, and opens the
+  disclosure when Evidence is activated. Four regression cases cover partial,
+  omitted, malformed, and pathless proof; the nav-link test confirms the target
+  opens. No follow-up Bugbot review has been run.
+- Latest verification: `IngestionModule.test.tsx` 68 passed;
+  `MemoryIngestPage.test.tsx` 13 passed; `npm run typecheck`, `npm run build`,
+  and `git diff --check` passed. The build retains the existing large-chunk
+  warning and the IngestionModule tests retain existing React `act(...)`
+  warnings.
 - Loading the existing Session 27 processed recap in the isolated preview
   displayed “Local Graph session was revoked. Reconnect explicitly.” I did not
   reconnect or run another graph action. The tab's temporary UI state was
