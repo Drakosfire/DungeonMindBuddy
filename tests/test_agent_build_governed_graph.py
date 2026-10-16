@@ -105,7 +105,7 @@ class SyntheticHarness:
         if self.graph:
             assert source_read_enabled
             operation = None
-            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen'}:
+            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen'}:
                 operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
                     'schema': 'dmb_expand_graph_retrieval_request_v1',
                     'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
@@ -117,8 +117,7 @@ class SyntheticHarness:
                     'targets': [{'kind': 'node', 'id': 'frank'}]}
                 operation_pages = []
                 result = json.loads(operation['resultJson'])
-                if self.graph in {'paged', 'paged-mutated', 'paged-unseen'}:
-                    assert result['schema'] == 'dmb_graph_tool_overview_v1'
+                if self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and result.get('schema') == 'dmb_graph_tool_overview_v1':
                     overview_body = json.loads(payload)
                     overview_body['input'].extend([
                         {'type': 'function_call', 'name': 'expand_graph_retrieval', 'call_id': 'overview', 'arguments': json.dumps(operation_args)},
@@ -142,6 +141,12 @@ class SyntheticHarness:
                             if self.mutation != 'multi-ref':
                                 assert token, 'fixture must leave unrelated pages unread'
                             break
+                elif self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and result.get('schema') == 'dmb_graph_tool_page_v1':
+                    assert result['nextPageToken'] is None
+                    assert self.mutation == 'multi-ref'
+                elif self.graph in {'initial-small', 'initial-small-unseen'}:
+                    assert result['schema'] == 'dmb_graph_tool_overview_v1'
+                    assert result['completeRecordCounts']['included'] == 1
                 elif 'reviewedSourceObservations' not in result:
                     return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
                 if self.graph == 'observation':
@@ -210,7 +215,7 @@ class SyntheticHarness:
                 segment['target_id'] = 'unadmitted-target'
             elif self.mutation == 'revision':
                 segment['graph_revision'] = 'different-revision'
-            if self.graph == 'paged-unseen':
+            if self.graph in {'paged-unseen', 'initial-small-unseen'}:
                 segment['target_id'] = 'unrelated-observation'
             final = {'answer_context_status': 'graph_grounded', 'answer_segments': [segment]}
             if self.mutation == 'citation-map':
@@ -287,8 +292,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation', 'initial-small', 'initial-small-unseen'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation', 'initial-small', 'initial-small-unseen'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -346,7 +351,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             native_observation = native_observation.model_copy(update={
                 'evidence_ref_ids': sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two'])})
         observations = (native_observation,)
-        if observation in {'paged', 'paged-mutated', 'paged-unseen'}:
+        if observation in {'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen'}:
             observations += (native_observation.model_copy(update={
                 'assertion_id': 'unrelated-observation', 'text': 'Unrelated qualified description. ' * 1500}),)
         result = WorldGraphRetrievalResult.model_validate({
@@ -394,10 +399,10 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert turn.completion is None
         return
     harness = SyntheticHarness(source, bootstrap,
-        graph='selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
+        graph=observation if observation in {'initial-small', 'initial-small-unseen'} else 'selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
         mutation={'model-map':'citation-map','model-open':'source-open','forged-target':'target',
             'forged-revision':'revision', 'multi-ref':'multi-ref'}.get(observation), omit_source=observation == 'omitted-source')
-    if observation in {'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision'}:
+    if observation in {'paged-unseen', 'initial-small-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision'}:
         with pytest.raises(svc.AgentTurnServiceError) as error:
             execute((source, request, bootstrap), tmp_path, harness)
         assert error.value.code == 'answer_validation_failed'
@@ -439,8 +444,13 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert len(citation.source_read_ids) == 1
     if observation:
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
-        assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation == 'paged' else {'observation-one'})
+        assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation in {'paged', 'initial-small', 'initial-small-unseen'} else {'observation-one'})
         assert event.returned_source_pins[0].source_revision_id == 'source-rev-one'
+        if observation == 'initial-small':
+            attempts = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3']
+            assert set(attempts[-1].included_assertion_ids) == {'observation-one'}
+            assert 'unrelated-observation' not in attempts[-1].included_assertion_ids
+            assert len(attempts[-1].included_source_read_event_ids) == 1
         if observation == 'paged':
             attempts = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3']
             assert len(attempts) == 3
