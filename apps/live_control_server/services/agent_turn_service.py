@@ -1378,10 +1378,22 @@ class _PolicyExecutionAdapter:
         self.producing_provider_attempt_id: UUID | None = None
         self.failure: AgentTurnServiceError | None = None
         self.deterministic_guard_exhausted = False
+        self.presentation = None
         self.operation_payloads: dict[UUID, str] = {}
         self.source_payloads: dict[UUID, str] = {}
         self.context_payloads: dict[UUID, str] = {}
         self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
+
+    def _tool_presentation(self):
+        from .graph_tool_presentation import GraphToolPresentation
+        from .graph_tool_transport import TransportScope
+        if self.presentation is None:
+            self.presentation = GraphToolPresentation(TransportScope(
+                self.bootstrap.retrieval_session.id,
+                self.bootstrap.world_scope.world_id,
+                self.bootstrap.world_scope.revision_id,
+            ))
+        return self.presentation
 
     def _denied_tool_result(
         self, tool_name: str, code: str, status: int, response_message: str,
@@ -1653,72 +1665,38 @@ class _PolicyExecutionAdapter:
                     code="graph_evidence_invalid", status_code=502,
                     provider_dispatched=False,
                 ) from exc
-            known_payloads = list(self.operation_payloads.values())
-            if (
-                len(included_payloads) != len(set(included_payloads))
-                or any(known_payloads.count(payload) != 1 for payload in included_payloads)
-            ):
+            try:
+                presenter = self._tool_presentation()
+                graph_exposure = presenter.inclusion("expand_graph_retrieval", included_payloads)
+                source_exposure = presenter.inclusion("read_graph_source", included_source_payloads)
+                context_exposure = presenter.inclusion("read_related_recap_context", included_context_payloads)
+            except ValueError as exc:
                 raise AgentTurnServiceError(
-                    "The final provider request has ambiguous Graph evidence.",
+                    "The final provider request has unknown Graph presentation bytes.",
                     code="graph_evidence_invalid", status_code=502,
                     provider_dispatched=False,
-                )
-            included_operations = [
-                event for event in execution.events
-                if getattr(event, "kind", None) in {
-                    "validated_graph_operation", "validated_graph_operation_v3",
-                }
-                and (
-                    payload := self.operation_payloads.get(event.event_id)
-                ) is not None
-                and included_payloads.count(payload) == 1
-            ]
-            known_source_payloads = list(self.source_payloads.values())
-            if (
-                len(included_source_payloads) != len(set(included_source_payloads))
-                or any(
-                    known_source_payloads.count(payload) != 1
-                    for payload in included_source_payloads
-                )
-            ):
-                raise AgentTurnServiceError(
-                    "The final provider request has ambiguous source evidence.",
-                    code="graph_evidence_invalid", status_code=502,
-                    provider_dispatched=False,
-                )
-            included_source_events = [
-                event for event in execution.events
-                if getattr(event, "kind", None) == "validated_source_read_v2"
-                and (payload := self.source_payloads.get(event.event_id)) is not None
-                and included_source_payloads.count(payload) == 1
-            ]
-            known_context_payloads = list(self.context_payloads.values())
-            if (
-                len(included_context_payloads) != len(set(included_context_payloads))
-                or any(
-                    known_context_payloads.count(payload) != 1
-                    for payload in included_context_payloads
-                )
-            ):
-                raise AgentTurnServiceError(
-                    "The final provider request has ambiguous recap context.",
-                    code="graph_evidence_invalid", status_code=502,
-                    provider_dispatched=False,
-                )
-            included_context_events = [
-                event for event in execution.events
-                if getattr(event, "kind", None) == "validated_related_recap_context_v2"
-                and (payload := self.context_payloads.get(event.event_id)) is not None
-                and included_context_payloads.count(payload) == 1
-            ]
+                ) from exc
+            exposed = {item.event_id: item for item in graph_exposure}
+            included_operations = [event for event in execution.events
+                if getattr(event, "kind", None) in {"validated_graph_operation", "validated_graph_operation_v3"}
+                and event.event_id in exposed]
+            source_ids = {item.event_id for item in source_exposure if item.complete}
+            included_source_events = [event for event in execution.events
+                if getattr(event, "kind", None) == "validated_source_read_v2" and event.event_id in source_ids]
+            context_ids = {item.event_id for item in context_exposure if item.complete}
+            included_context_events = [event for event in execution.events
+                if getattr(event, "kind", None) == "validated_related_recap_context_v2" and event.event_id in context_ids]
             assertions = sorted(set(assertions) | {
                 item for event in included_operations for item in event.assertion_ids
+                if item in exposed[event.event_id].assertion_ids
             })
             relationships = sorted(set(relationships) | {
                 item for event in included_operations for item in event.relationship_ids
+                if item in exposed[event.event_id].relationship_ids
             })
             evidence = sorted(set(evidence) | {
                 item for event in included_operations for item in event.evidence_ref_ids
+                if item in exposed[event.event_id].evidence_ref_ids
             })
             event_fields = dict(
                 event_id=uuid4(), sequence=len(execution.events),
@@ -1867,6 +1845,19 @@ class _PolicyExecutionAdapter:
                 except (ValueError, TypeError):
                     self.context_compaction_unavailable = True
             return {"resultJson": '{"schema":"dmb_context_compaction_ack_v1"}', "retrievalSession": None}
+        arguments = message.get("arguments")
+        if isinstance(arguments, Mapping) and "resultPageToken" in arguments:
+            tool = message.get("toolName")
+            try:
+                if self.fence is None or self.last_provider_attempt_id is None:
+                    raise ValueError("graph_operation_before_authorization")
+                if arguments.get("retrievalSessionId") != self.bootstrap.retrieval_session.id:
+                    raise ValueError("foreign_graph_result_page")
+                payload = self._tool_presentation().continuation(tool, dict(arguments))
+                return {"resultJson": payload, "retrievalSession": None}
+            except ValueError as exc:
+                return self._denied_tool_result(tool, str(exc), 409,
+                    "Graph result page unavailable; the original read was not repeated.", arguments=arguments)
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
         if message.get("toolName") == "read_related_recap_context":
@@ -2153,7 +2144,7 @@ class _PolicyExecutionAdapter:
             }, ensure_ascii=False, separators=(",", ":"))
             self.operation_payloads[event_id] = result_json
             return {
-                "resultJson": result_json,
+                "resultJson": self._tool_presentation().present("expand_graph_retrieval", dict(message["arguments"]), result_json, event_id),
                 "retrievalSession": session.project_for_hermes(),
             }
         except Exception as exc:
@@ -2475,7 +2466,7 @@ class _PolicyExecutionAdapter:
             )
             result_json = json.dumps(public, ensure_ascii=False, separators=(",", ":"))
             self.source_payloads[event.event_id] = result_json
-            return {"resultJson": result_json, "retrievalSession": session.project_for_hermes()}
+            return {"resultJson": self._tool_presentation().present("read_graph_source", dict(message["arguments"]), result_json, event.event_id), "retrievalSession": session.project_for_hermes()}
         except Exception:
             self.failure = AgentTurnServiceError(
                 "The parent source read could not be durably validated.",
@@ -2933,7 +2924,7 @@ class _PolicyExecutionAdapter:
             }
             result_json = json.dumps(public, ensure_ascii=False, separators=(",", ":"))
             self.context_payloads[event.event_id] = result_json
-            return {"resultJson": result_json, "retrievalSession": None}
+            return {"resultJson": self._tool_presentation().present("read_related_recap_context", dict(message["arguments"]), result_json, event.event_id), "retrievalSession": None}
         except Exception:
             self.failure = AgentTurnServiceError(
                 "The parent related recap read could not be durably validated.",

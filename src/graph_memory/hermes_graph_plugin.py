@@ -466,6 +466,19 @@ def _handler_for(tool_name: str):
             if denied is not None:
                 return denied
             assert payload is not None
+            if _parent_graph_broker_required.get():
+                if tool_name not in PAGED_TOOLS:
+                    return _policy_denied_error(code="plan_graph_tool_not_permitted",
+                        message="Only parent-brokered Graph interactions are permitted.")
+                broker = _active_parent_graph_broker.get()
+                if not callable(broker):
+                    return _policy_denied_error(code="plan_graph_broker_unavailable",
+                        message="Parent Graph-operation broker is unavailable.")
+                result_json, retrieval_packet = broker(tool_name, payload)
+                if isinstance(retrieval_packet, Mapping):
+                    _parent_retrieval_session_packet.set(dict(retrieval_packet))
+                # Parent owns pagination and delivered evidence membership.
+                return result_json
             cache = _graph_page_cache.get()
             policy = get_active_capability_policy()
             scope = None
@@ -504,29 +517,9 @@ def _handler_for(tool_name: str):
                     message="Active Graph scope unavailable.",
                 )
             clean_payload = {k: v for k, v in payload.items() if k != "resultPageToken"}
-            if _parent_graph_broker_required.get():
-                if tool_name not in {
-                    "expand_graph_retrieval",
-                    "read_graph_source",
-                    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
-                }:
-                    return _policy_denied_error(
-                        code="plan_graph_tool_not_permitted",
-                        message="Only parent-brokered Graph interactions are permitted.",
-                    )
-                broker = _active_parent_graph_broker.get()
-                if not callable(broker):
-                    return _policy_denied_error(
-                        code="plan_graph_broker_unavailable",
-                        message="Parent Graph-operation broker is unavailable.",
-                    )
-                result_json, retrieval_packet = broker(tool_name, clean_payload)
-                if isinstance(retrieval_packet, Mapping):
-                    _parent_retrieval_session_packet.set(dict(retrieval_packet))
-            else:
-                result_json = execute_hermes_graph_interaction_tool_json(
-                    tool_name, clean_payload, root=_graph_root_override.get()
-                )
+            result_json = execute_hermes_graph_interaction_tool_json(
+                tool_name, clean_payload, root=_graph_root_override.get()
+            )
             if scope is not None and cache is not None:
                 return cache.present(tool_name, payload, scope, result_json)
             if tool_name in PAGED_TOOLS and len(result_json.encode()) > PAGE_BYTES:
