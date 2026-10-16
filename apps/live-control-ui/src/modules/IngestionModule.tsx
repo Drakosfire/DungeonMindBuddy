@@ -1014,8 +1014,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hasPriorIngestWork = Boolean(
     resultOwnsSelection && latestResult?.states.some((item) => item !== "ingest_status_inspected"),
   );
-  const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
-  const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
+  const canBuildGraphPreview = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun);
+  const canMaterializePreviewSupergraph = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
     extractGraphWithModel ||
     candidateGraphPath.trim() ||
     graphPreview?.candidate_graph_path ||
@@ -1083,7 +1083,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         : null;
   const graphDisabledReason = !hasNormalizedRecap
     ? "Build Graph Preview waits for a normalized recap (Apply + Normalize)."
-    : null;
+    : !hasCurrentNormalizedSource
+      ? "Build Graph Preview waits for confirmed recap files and current normalized lineage."
+      : null;
   const previewUnionSizeHint =
     typeof graphPreview?.node_count === "number"
       ? ` (${graphPreview.node_count} nodes${
@@ -1094,6 +1096,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     ? `Preview union on disk${previewUnionSizeHint}. Check "Replace existing graph" then Run ingest.`
     : !hasNormalizedRecap
       ? "Materialize Preview Supergraph waits for a normalized recap."
+      : !hasCurrentNormalizedSource
+        ? "Materialize Preview Supergraph waits for confirmed recap files and current normalized lineage."
       : !canMaterializePreviewSupergraph
         ? "Candidate graph path or Run ingest is required before preview union materialization."
         : null;
@@ -1949,6 +1953,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function buildGraphPreview() {
+    if (!canBuildGraphPreview) return;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "building_graph_preview" });
@@ -1975,6 +1980,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function materializePreviewSupergraph() {
+    if (!canMaterializePreviewSupergraph) return;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "materializing_preview_supergraph" });

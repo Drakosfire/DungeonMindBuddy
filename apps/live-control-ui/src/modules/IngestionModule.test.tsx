@@ -445,6 +445,51 @@ describe("IngestionModule", () => {
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
+  it("blocks advanced graph extraction and materialization when reused status has no file proof", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 1,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: ["ingest_status_inspected", "breadcrumb_required", "recap_reused", "normalized_reused"],
+      ingest_report: { corpus_impact: [] },
+    }));
+
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    await waitFor(() => expect(screen.getByText(/recap file presence is unverified/i)).toBeInTheDocument());
+    await user.click(screen.getByText("Evidence & details"));
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+
+    const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
+    const materializePreview = screen.getByRole("button", { name: "Materialize Preview Supergraph" });
+    expect(buildPreview).toBeDisabled();
+    expect(materializePreview).toBeDisabled();
+
+    // Exercise both handler guards independently of the disabled-button affordance.
+    buildPreview.removeAttribute("disabled");
+    materializePreview.removeAttribute("disabled");
+    fireEvent.click(buildPreview);
+    fireEvent.click(materializePreview);
+    expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
+  });
+
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({

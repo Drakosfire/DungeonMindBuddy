@@ -88,8 +88,10 @@ states; readiness lanes repeat the current next action already shown in the nav.
   missing, stale, or provenance-unknown, hide workflow actions and keep the
   recovery guidance; stale `recap_reused` / `normalized_reused` tokens cannot
   authorize Prepare or Extract. User-provided raw text may authorize Prepare,
-  but Extract waits for a prepared, current normalized source. Exercise both
-  the visible controls and handler/API-call boundary in regression tests.
+  but graph extraction waits for a prepared, current normalized source across
+  the navbar and Advanced graph preview/materialization paths. Exercise the
+  visible controls and handler/API-call boundary for each path in regression
+  tests.
 - Render the branch on isolated `127.0.0.1:5205` and verify the restored empty
   landing, loaded-source navigation, and responsive layout at desktop and
   narrow widths.
@@ -113,7 +115,11 @@ invite writes/extraction after it has told the user to restore or load source.
 The same leased UI module and regression suite now also own a narrow action
 eligibility fix: require verified canonical+normalized source proof and current
 normalized lineage for disk-backed extraction; require actual raw/loaded source
-for Prepare. The API contract and backend write behavior remain out of scope.
+for Prepare. Bugbot then identified that Advanced Build Graph Preview and
+Materialize Preview Supergraph also invoke saved-recap extraction while checking
+only stale reuse tokens. The same source-proof invariant therefore covers those
+two UI controls and handlers; they now require confirmed current normalized
+source too. The API contract and backend write behavior remain out of scope.
 No other ingestion gates, pipeline behavior, or publication behavior are
 authorized by this amendment. This remains the single serial implementation PR
 #1259; no successor PR is opened.
@@ -208,4 +214,13 @@ authorized by this amendment. This remains the single serial implementation PR
   write actions. No Prepare, Extract, Review mutation, Graph admission,
   persistence write, or publication action was used. 5202 and 5204 remain
   untouched. Run a fresh Bugbot review on the final re-anchored PR head before
+  dogfood.
+- Bugbot on re-anchored head `e262bdb3c4a556abc75f396e072a319efce59b93`
+  found a remaining P2 bypass: Advanced Build Graph Preview and Materialize
+  Preview Supergraph could call recap-backed extraction using stale reuse
+  tokens. Both controls and handlers now require the same confirmed current
+  normalized-source proof as navbar Extract. A regression forces those handlers
+  after simulating enabled controls and confirms no write/API operation runs.
+  The focused Ingest suites now pass 83/83; UI typecheck, production build, and
+  `git diff --check` pass. Run fresh Bugbot on the updated exact PR head before
   dogfood.
