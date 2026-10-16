@@ -105,7 +105,24 @@ class SyntheticHarness:
         if self.graph:
             assert source_read_enabled
             operation = None
-            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen'}:
+            if self.graph == 'recover-selected':
+                bad_args = {'schema': 'dmb_expand_graph_retrieval_request_v1',
+                    'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
+                    'targets': [{'kind': 'node', 'id': 'frank'}], 'observationIds': ['unavailable']}
+                denial = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': bad_args})
+                refusal = json.loads(denial['resultJson'])
+                assert refusal['code'] == 'selected_observation_unavailable' and refusal['statusCode'] == 422
+                denied_body = json.loads(payload)
+                denied_body['input'].extend([
+                    {'type': 'function_call', 'name': 'expand_graph_retrieval', 'call_id': 'rejected', 'arguments': json.dumps(bad_args)},
+                    {'type': 'function_call_output', 'call_id': 'rejected', 'output': denial['resultJson']}])
+                payload = json.dumps(denied_body)
+                assert authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
+                    'apiMode': request_budget['apiMode'], 'payloadJson': payload,
+                    'payloadSha256': sha256(payload.encode()).hexdigest(), 'payloadUtf8Bytes': len(payload.encode())})
+                assert on_provider_lifecycle({'transition': 'sdk_entered'})
+                assert on_provider_lifecycle({'transition': 'response_received'})
+            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'}:
                 operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
                     'schema': 'dmb_expand_graph_retrieval_request_v1',
                     'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
@@ -292,8 +309,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation', 'initial-small', 'initial-small-unseen'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation', 'initial-small', 'initial-small-unseen'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -376,6 +393,10 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, tuple(sorted(pins, key=lambda pin: pin.anchor_id)), observations, (), ())
         monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
         def read_reviewed(*_args, **kwargs):
+            if kwargs.get('observation_ids') == ('unavailable',) or observation == 'fatal-native':
+                raise direct.DirectWorldGraphReadError('Synthetic native refusal',
+                    code='source_integrity_error' if observation == 'fatal-native' else 'selected_observation_unavailable',
+                    status_code=422)
             assert kwargs == ({'observation_ids': ('observation-one',)} if observation == 'selected-observation' else {})
             return resolved
         monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', read_reviewed)
@@ -399,9 +420,17 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert turn.completion is None
         return
     harness = SyntheticHarness(source, bootstrap,
-        graph=observation if observation in {'initial-small', 'initial-small-unseen'} else 'selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
+        graph=observation if observation in {'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'} else 'selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
         mutation={'model-map':'citation-map','model-open':'source-open','forged-target':'target',
             'forged-revision':'revision', 'multi-ref':'multi-ref'}.get(observation), omit_source=observation == 'omitted-source')
+    if observation == 'fatal-native':
+        with pytest.raises(svc.AgentTurnServiceError):
+            execute((source, request, bootstrap), tmp_path, harness)
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert turn.completion is None and turn.status != 'completed'
+        return
     if observation in {'paged-unseen', 'initial-small-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision'}:
         with pytest.raises(svc.AgentTurnServiceError) as error:
             execute((source, request, bootstrap), tmp_path, harness)

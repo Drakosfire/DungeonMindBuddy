@@ -1877,7 +1877,7 @@ class _PolicyExecutionAdapter:
             WorldGraphObjectRequest, WorldGraphSearchRequest,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
-            direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
+            DirectWorldGraphReadError, direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
             get_object_direct, search_world_graph_direct,
             get_evidence_direct_v3, get_neighborhood_direct_v3,
             get_object_direct_v3, search_world_graph_direct_v3, get_object_with_reviewed_sources_direct_v3,
@@ -2154,6 +2154,17 @@ class _PolicyExecutionAdapter:
                 "retrievalSession": session.project_for_hermes(),
             }
         except Exception as exc:
+            # This lookup refusal is wholly before durable Graph admission.
+            # Preserve it as ordinary tool feedback, never as an uncertain
+            # publication/read outcome. All other native failures stay fatal.
+            if (stage == "native_retrieval" and isinstance(exc, DirectWorldGraphReadError)
+                    and exc.code == "selected_observation_unavailable" and exc.status_code == 422):
+                return self._denied_tool_result(
+                    "expand_graph_retrieval", "selected_observation_unavailable", 422,
+                    "The selected observation is unavailable on this object at the pinned revision. "
+                    "Use its subjectNodeId from discovery, or read the object without an observation selection.",
+                    arguments=message.get("arguments"),
+                )
             category = _safe_graph_failure_category(exc)
             _LOG.warning(
                 "plan_graph_parent_failure stage=%s error_code=%s",
