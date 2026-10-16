@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Mapping
@@ -10,7 +11,8 @@ from uuid import uuid4
 from pydantic import TypeAdapter, ValidationError
 
 from application_state.agent_conversation.context_trace import (
-    ContextTraceObservation, TraceSourcePassage,
+    ContextTraceObservation, TraceSourcePassage, MAX_CONTEXT_TRACE_BYTES,
+    CONTEXT_TRACE_TERMINAL_RESERVE_BYTES,
 )
 from application_state.errors import ApplicationStateValidationError
 from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
@@ -53,6 +55,8 @@ class ContextTraceCollector:
         self.started = monotonic()
         with fence.renewer._lock:
             turn = fence.renewer._turn
+            self.bound_context_receipt_sha256 = getattr(getattr(turn, "graph_context_receipt", None),
+                                                       "context_receipt_sha256", None)
             self.trace = fence.service.start_context_trace(
                 world_id=turn.world_id, conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision,
@@ -263,6 +267,58 @@ class ContextTraceCollector:
                                   "source_reads": refs})
         self.observe({"kind": "context_snapshot", "stage": "before", "materials": materials})
         self.current_provider_materials = materials
+
+    def answer_draft(self, answer: str, *, producing_provider_attempt_id: Any) -> None:
+        """Retain exact unvalidated output; it never supplies answer authority."""
+        with self.fence.renewer._lock:
+            turn = self.fence.renewer._turn
+            execution = turn.graph_context_execution
+            authorizations = [event for event in execution.events if event.kind in {
+                "provider_attempt_authorized", "provider_attempt_authorized_v2",
+                "provider_attempt_authorized_v3"}]
+            if (not authorizations or authorizations[-1].provider_attempt_id != producing_provider_attempt_id
+                or not any(event.kind == "provider_outcome" and event.provider_attempt_id == producing_provider_attempt_id
+                    and event.outcome == "response_received" for event in execution.events)):
+                raise ApplicationStateValidationError("answer draft lacks its producing provider response")
+            receipt_sha = turn.graph_context_receipt.context_receipt_sha256
+            if (receipt_sha != self.bound_context_receipt_sha256 or self.trace.world_id != turn.world_id
+                or self.trace.turn_id != turn.turn_id or self.trace.conversation_id != turn.conversation_id):
+                raise ApplicationStateValidationError("answer draft differs from its frozen trace context")
+            item_id = f"unvalidated-provider-answer:{producing_provider_attempt_id}:{receipt_sha}"
+            prior = [material for observation in self.trace.observations
+                if observation.kind == "context_snapshot" for material in observation.materials
+                if material.item_id == item_id]
+            if prior:
+                if len(prior) != 1 or prior[0].text != answer:
+                    raise ApplicationStateValidationError("answer draft identity already has different bytes")
+                return
+            if self._capture_exhausted():
+                return
+            try:
+                answer.encode("utf-8")
+            except UnicodeEncodeError:
+                self._mark_incomplete_locked("answer_draft_encoding_unavailable")
+                return
+            if len(self.trace.observations) >= 2048:
+                self._mark_incomplete_locked("answer_draft_event_limit")
+                return
+            observation = _OBSERVATION.validate_python({
+                "kind": "context_snapshot", "stage": "after",
+                "sequence": len(self.trace.observations), "elapsed_ms": self.elapsed_ms,
+                "materials": [{"item_id": item_id, "state": "model_context",
+                    "role": "assistant", "text": answer}],
+            })
+            candidate = self.trace.model_copy(update={"observations": [*self.trace.observations, observation]})
+            encoded = json.dumps(candidate.model_dump(mode="json", by_alias=True),
+                                 ensure_ascii=True, sort_keys=True, allow_nan=False).encode("utf-8")
+            reserve = (CONTEXT_TRACE_TERMINAL_RESERVE_BYTES if self.trace.capture_status == "recording"
+                       else CONTEXT_TRACE_TERMINAL_RESERVE_BYTES // 2)
+            if len(encoded) > MAX_CONTEXT_TRACE_BYTES - reserve:
+                self._mark_incomplete_locked("answer_draft_size_limit")
+                return
+            # Identity/fencing/transport failures propagate; unlike a known
+            # observation cap they must never be mistaken for successful capture.
+            self.trace = self.fence.service.append_context_trace(**self._binding(), observation=observation)
 
     def answer_context(self, answer: str) -> None:
         """Record the validated visible answer and producing request's material."""

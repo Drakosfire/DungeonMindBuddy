@@ -54,8 +54,10 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 class SyntheticHarness:
     descriptor = AgentRuntimeDescriptor('synthetic', 'fake', 'test', 'graph')
 
-    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False, refuse=False, tamper_evidence=False):
+    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False, refuse=False, tamper_evidence=False, malformed=False):
         self.source, self.bootstrap = source, bootstrap
+        self.malformed = malformed
+        self.final_text = None
         self.calls = 0
         self.refuse = refuse
         self.tamper_evidence = tamper_evidence
@@ -196,9 +198,12 @@ class SyntheticHarness:
         segment = {'kind': 'saved_source_claim', 'text': 'Frank and Sara operate the Rocky Talkie.'}
         if self.forged:
             segment['content_sha256'] = 'f' * 64
-        return AgentRuntimeResult(status='ok', final_text=json.dumps({
-            'answer_context_status': 'source_only_insufficient_evidence', 'answer_segments': [segment], 'citation_map': None,
-        }), runtime_session_id='synthetic-build-session')
+        self.final_text = json.dumps({
+            'answer_context_status': 'source_only_insufficient_evidence', 'answer_segments': [segment],
+            'citation_map': {'wrong-citation-shape': []} if self.malformed else None,
+        })
+        return AgentRuntimeResult(status='ok', final_text=self.final_text,
+            runtime_session_id='synthetic-build-session')
 
 
 def execute(case, tmp_path, runtime, **overrides):
@@ -413,3 +418,46 @@ def test_over_limit_native_evidence_refuses_before_provider_dispatch(build_case,
         execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, refuse=True))
     assert error.value.provider_dispatched is False
     assert AgentConversationService().get_active_conversation('elderwyld') is None
+
+
+def test_rejected_build_answer_survives_only_in_protected_trace(build_case, tmp_path):
+    source, _, bootstrap = build_case
+    harness = SyntheticHarness(source, bootstrap, malformed=True)
+    with pytest.raises(svc.AgentTurnServiceError) as error:
+        execute(build_case, tmp_path, harness)
+    assert error.value.code == 'answer_validation_failed'
+    service = AgentConversationService()
+    conversation = service.get_active_conversation('elderwyld')
+    turn, = service.list_turns('elderwyld', conversation.conversation_id)
+    assert turn.status == 'failed' and turn.failure_code == 'answer_validation_failed'
+    assert turn.assistant_text is None and turn.completion is None
+    assert harness.final_text not in turn.model_dump_json()
+    traces = service.list_context_trace_attempts(world_id='elderwyld',turn_id=turn.turn_id)
+    drafts = [material for trace in traces for observation in trace.observations
+        if observation.kind == 'context_snapshot' for material in observation.materials
+        if material.item_id.startswith('unvalidated-provider-answer:')]
+    assert len(drafts) == 1 and drafts[0].text == harness.final_text
+    producer = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3'][-1]
+    assert str(producer.provider_attempt_id) in drafts[0].item_id
+    assert turn.graph_context_receipt.context_receipt_sha256 in drafts[0].item_id
+    assert all(not hasattr(material, 'claim_id') for material in drafts)
+
+
+@pytest.mark.parametrize('malformed', [True, False])
+def test_answer_capture_persistence_error_cannot_publish_or_mask_parse_failure(build_case,tmp_path,monkeypatch,malformed):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    def failed_capture(*args,**kwargs):
+        raise ApplicationStateConflictError('synthetic fenced capture')
+    monkeypatch.setattr(ContextTraceCollector,'answer_draft',failed_capture)
+    source,_,bootstrap=build_case
+    harness=SyntheticHarness(source,bootstrap,malformed=malformed)
+    with pytest.raises(svc.AgentTurnServiceError) as error:
+        execute(build_case,tmp_path,harness)
+    assert error.value.code == ('answer_validation_failed' if malformed else 'turn_persistence_indeterminate')
+    service=AgentConversationService()
+    conversation=service.get_active_conversation('elderwyld')
+    turn,=service.list_turns('elderwyld',conversation.conversation_id)
+    assert turn.completion is None and turn.assistant_text is None
+    if malformed:
+        assert turn.status == 'failed' and turn.failure_code == 'answer_validation_failed'

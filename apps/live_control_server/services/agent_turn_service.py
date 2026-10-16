@@ -5577,10 +5577,19 @@ def execute_agent_turn(
                 code="plan_context_delivery_failure", status_code=503,
             )
         try:
+            capture_error = None
+            if adapter.context_capture is not None:
+                try:
+                    adapter.context_capture.answer_draft(policy_result.final_text,
+                        producing_provider_attempt_id=adapter.producing_provider_attempt_id)
+                except (ApplicationStateError, psycopg.OperationalError) as exc:
+                    capture_error = exc
             completion, bindings, answer_text = _parse_policy_completion(
                 policy_result.final_text, policy_turn,
                 adapter.producing_provider_attempt_id,
             )
+            if capture_error is not None:
+                raise capture_error
             if adapter.context_capture is not None:
                 adapter.context_capture.answer_context(answer_text)
             completed_turn = conversation_service.complete_turn(TurnResult(

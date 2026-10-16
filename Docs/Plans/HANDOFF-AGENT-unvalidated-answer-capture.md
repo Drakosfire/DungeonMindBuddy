@@ -50,3 +50,16 @@ answers remain unchanged. Inspect cumulative diff, commit/push/open assigned PR,
 independent exact-head review. After accepted preview rollout, a future fresh
 question may supply diagnostic output; no unchanged replay. Full ordinary-answer,
 source-open, restart/historical-source and operator acceptance remain required.
+
+## Review evidence
+
+60 collector/real APP Build/protected trace-consumer tests pass. The malformed
+citation payload is retained exactly under producer+frozen-receipt identity in a
+fresh service readback; failed turn/history have no answer or completion. Same
+capture is idempotent, changed bytes/wrong or earlier producer/mismatched frozen
+context reject. Size/event/encoding gaps are explicit without prefixes. APP's
+actual JSON serialization and terminal reserve govern byte preflight. Persistence
+failure never enables completion and does not mask the original parse failure.
+Existing successful Build Graph/source-open/trace readback remains green.
+Log `/tmp/answer-draft-regression.log`; Ruff/cumulative diff checks pass. No
+provider inference, retained DB/source/World writes or serving changes occurred.
