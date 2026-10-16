@@ -2624,7 +2624,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         for event in self.events:
             if isinstance(event, BuildSectionReadAuthorizationV1):
                 if (latest_attempt is None or latest_outcome != "response_received"
-                        or event.read_id in section_auths):
+                        or event.read_id in section_auths
+                        or event.max_chars > self.policy.max_chars_per_source_read):
                     raise ValueError("Build section requires a resolved controller and unique authorization")
                 section_auths[event.read_id] = event
             elif isinstance(event, ValidatedBuildSectionReadV1):

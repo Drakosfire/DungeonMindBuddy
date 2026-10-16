@@ -22,7 +22,10 @@ readback. A resolved controller response must precede acquisition; pending/unkno
 post-writer, stale claim, unavailable/mismatched body, malformed or oversized range
 cannot expose a validated passage. Unresolved section authorization prevents
 later provider authorization. Preserve existing event/storage and per-read text
-size bounds; no new authorization call cap. Preserve Unicode and CRLF with
+size bounds; no new authorization call cap. Saved Build passages are a distinct
+source category and do not consume native-anchor max_source_read_chars settlement
+accounting; the actual frozen per-read maximum and aggregate execution storage
+bound still apply. Preserve Unicode and CRLF with
 splitlines(keepends=True); no normalization or latest-workspace fallback.
 
 Exclusive writes: this handoff; predecessor

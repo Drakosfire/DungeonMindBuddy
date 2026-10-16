@@ -221,3 +221,25 @@ def test_read_authority_does_not_depend_on_trace_collector(build_case,monkeypatc
     result=json.loads(adapter.read_build_section(line_start=2,line_end=2))
     assert result['text']==adapter.work.build_source.markdown.splitlines(keepends=True)[1]
     assert isinstance(fresh(adapter).graph_context_execution.events[-1],t.ValidatedBuildSectionReadV1)
+
+
+def test_app_enforces_smaller_frozen_policy_and_accepts_equality(build_case,monkeypatch):
+    original=owner._freeze_policy_receipt
+    limit=len(exact_saved_section(build_case[0].markdown,build_case[0].content_sha256,1,2))
+    def freeze(*args,**kwargs):
+        receipt,execution,membership=original(*args,**kwargs)
+        policy=execution.policy.model_copy(update={'max_chars_per_source_read':limit})
+        execution=execution.model_copy(update={'policy':policy,
+            'execution_policy_sha256':t.graph_execution_policy_digest_v3(receipt.context_receipt_sha256,policy)})
+        return receipt,type(execution).model_validate(execution.model_dump(mode='json',by_alias=True)),membership
+    monkeypatch.setattr(owner,'_freeze_policy_receipt',freeze)
+    adapter,_,_=_start(build_case,monkeypatch)
+    assert fresh(adapter).graph_context_execution.policy.max_chars_per_source_read==limit
+    with pytest.raises(ApplicationStateError):
+        append_authorization(adapter,authorization(adapter,max_chars=limit+1))
+    auth=authorization(adapter,max_chars=limit)
+    turn,_=append_authorization(adapter,auth)
+    body=adapter.work.build_source.markdown
+    receipt=read_receipt(auth,body)
+    completed,created=append_receipt(turn,receipt,body)
+    assert created and completed.graph_context_execution.events[-1].text==receipt.text
