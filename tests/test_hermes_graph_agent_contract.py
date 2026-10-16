@@ -500,3 +500,29 @@ def test_explicit_uncapped_budget_ipc_requires_all_null_counts():
             serialize_hermes_graph_agent_turn_request(replace(request, request_budget={k: v for k, v in budget.items() if k != key}))
     with pytest.raises(ValueError):
         serialize_hermes_graph_agent_turn_request(replace(request, request_budget=budget | {"schema": "dmb_hermes_request_budget_policy_v1"}))
+
+
+@pytest.mark.parametrize("reason", ["max_output_tokens", "length", "content_filter", "unspecified", "other"])
+def test_incomplete_reason_safe_projection_and_result_roundtrip(reason):
+    from apps.live_control_server.services.hermes_graph_agent_contract import sanitize_terminal_failure_diagnostic
+    diagnostic = sanitize_terminal_failure_diagnostic({
+        "reason": "provider_response_incomplete", "transition": "outcome_unknown",
+        "acknowledged": True, "response_status": "incomplete", "incomplete_reason": reason,
+        "response_body": "PRIVATE_RESPONSE", "details": "PRIVATE_DETAILS",
+    })
+    assert diagnostic["incompleteReason"] == reason
+    assert "PRIVATE" not in str(diagnostic)
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], error_code="provider_lifecycle_unavailable", terminal_failure=diagnostic,
+    )
+    assert deserialize_hermes_graph_agent_turn_result(serialize_hermes_graph_agent_turn_result(result)).terminal_failure == diagnostic
+
+
+@pytest.mark.parametrize("status, reason", [("incomplete", "PRIVATE_REASON"), ("failed", "max_output_tokens"), ("other", "content_filter")])
+def test_incomplete_reason_rejects_unbounded_or_wrong_status(status, reason):
+    from apps.live_control_server.services.hermes_graph_agent_contract import sanitize_terminal_failure_diagnostic
+    assert sanitize_terminal_failure_diagnostic({
+        "reason": "provider_response_incomplete", "transition": "outcome_unknown",
+        "acknowledged": True, "response_status": status, "incomplete_reason": reason,
+    }) is None

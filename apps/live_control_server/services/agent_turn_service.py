@@ -5521,6 +5521,8 @@ def execute_agent_turn(
             lifecycle_transition = "none"
             lifecycle_acknowledged = "none"
             transport_exception_class = "none"
+            response_status = "none"
+            incomplete_reason = "none"
             terminal_failure = validate_terminal_failure_record(
                 policy_result.runtime_metadata.get("terminal_failure")
             )
@@ -5533,6 +5535,8 @@ def execute_agent_turn(
                 transport_exception_class = terminal_failure.get(
                     "transportExceptionClass", "none"
                 )
+                response_status = terminal_failure.get("responseStatus", "none")
+                incomplete_reason = terminal_failure.get("incompleteReason", "none")
             spans = policy_result.runtime_metadata.get("host_phase_spans")
             if terminal_failure is None and isinstance(spans, list):
                 for span in reversed(spans):
@@ -5549,7 +5553,7 @@ def execute_agent_turn(
             if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", parent_code):
                 parent_code = "invalid"
             _LOG.warning(
-                "plan_graph_runtime_failure status=%s error_code=%s phase=%s phase_status=%s terminal_reason=%s lifecycle_transition=%s lifecycle_acknowledged=%s transport_exception_class=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
+                "plan_graph_runtime_failure status=%s error_code=%s phase=%s phase_status=%s terminal_reason=%s lifecycle_transition=%s lifecycle_acknowledged=%s transport_exception_class=%s response_status=%s incomplete_reason=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
                 policy_result.status if policy_result.status in ("ok", "error") else "invalid",
                 safe_code,
                 phase,
@@ -5558,6 +5562,8 @@ def execute_agent_turn(
                 lifecycle_transition,
                 lifecycle_acknowledged,
                 transport_exception_class,
+                response_status,
+                incomplete_reason,
                 adapter.last_provider_attempt_id is not None,
                 policy_turn is not None,
                 parent_code,

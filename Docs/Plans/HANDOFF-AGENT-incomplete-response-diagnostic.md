@@ -25,3 +25,14 @@ known/missing/unknown/private reasons and strict wire projection. Preserve
 terminal outcome_unknown and no replay. Verify parent logging uses only sanitized
 fields. No provider, serving, schema/corpus/World actions. Independent review
 before merge; any runtime adoption requires a separate exact pinned handoff.
+
+Author evidence: exact pinned-source prepare/verify passes (tree
+0e67a85bc3cc8fe4bf258b37a67fbac588b455f6). Strict contract + offline patched
+Harness suite:34 pass; two real-worker fixture failures reproduce unchanged on
+accepted8f54 main under the same test runtime. Four parent-policy fixture cases
+also reproduce on unchanged main before the modified log branch. No fixtures
+were weakened to hide these failures. New bounded-reason tests and actual
+synthetic incomplete-stream cases pass. Ruff/cumulative diff check pass.
+Storage exhaustion interrupted a scratch clone; restored the untouched base patch,
+removed only reproducible PRIME caches/archive tar, then regenerated/verified the
+patch from exact pinned source. Serving runtimes/World data were untouched.
