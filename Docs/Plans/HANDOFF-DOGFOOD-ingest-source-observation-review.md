@@ -2,10 +2,10 @@
 
 Status: ACTIVE  
 Owner: DOGFOOD  
-Base: `origin/main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`  
-Branch: `codex/ingest-source-observation-review`  
-Checkout: `/tmp/dmb-ingest-empty-welcome`  
-Topology: serial; one implementation PR after merged #1191 and #1232/#1234.
+Base: `origin/main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`
+Branch: `codex/ingest-source-observation-review`
+Checkout: `/tmp/dmb-ingest-empty-welcome`
+Topology: serial; assigned implementation PR #1235 remains the sole PR for this slice after merged #1191 and #1232/#1234.
 
 ## Objective
 
@@ -18,8 +18,12 @@ ingestion acceptance; those remain separate Ingest-mandate work.
 
 ## Re-anchoring and evidence
 
-- Current main was fetched locally as `b2c76cb6` and independently confirmed as
-  the latest repository commit through GitHub on 2026-10-16.
+- GitHub confirmed current `main` at
+  `80dd7a2a54a2677953c1fa8443df156717d04861` on 2026-10-16, 13 commits beyond
+  the PR's `b2c76cb6` base. Compare shows the intervening changes are in server
+  graph-context code and tests; none touch this UI write lease. GitHub currently
+  reports PR #1235 mergeable, so this bounded update retains the established
+  base and commit ancestry.
 - PR #1191 (Ingest local toolbar) is merged at that base. The current exact-run
   review endpoint already returns `source_observation` assertions for the
   Gazetteer 1.11 profile, and the worldbuilding prepare/confirm service and
@@ -66,6 +70,11 @@ provider, database, serving configuration, external runtime, or 5202 writes.
 - Prepare sends every candidate disposition once, with the exact run ID and
   expected parent revision. Render the server-prepared effect and provenance;
   never infer a graph write from a successful prepare.
+- Every asynchronous prepare result, error, and finalizer is scoped to the
+  selected exact run, source artifact/revision, World binding, graph revision,
+  and a monotonic request generation. A late response cannot repopulate an old
+  plan after selection changes (including A→B→A), and an old finalizer cannot
+  clear a newer request's pending state.
 - The current API response model says `confirmable: false` with an
   inert-plan reason, despite a server confirm endpoint and native service
   tests. Respect that response: this UI slice must not show or invoke Confirm.
@@ -83,7 +92,9 @@ provider, database, serving configuration, external runtime, or 5202 writes.
 - Unit and mounted Graph Review tests cover explicit decisions, missing subject
   decisions, relationship endpoint gates, stale target revision, evidence
   failure, exact run/source identity, inert prepare preview, and the absence of
-  a confirm action when the server response is non-confirmable.
+  a confirm action when the server response is non-confirmable. Deferred-prepare
+  regression tests cover old success, A→B→A World changes, and old failure or
+  finalizer behavior while a newer request is pending.
 - Run focused UI suites, `npm --prefix apps/live-control-ui run typecheck`, the
   production build, and `git diff --check`.
 - Inspect the complete `origin/main`→HEAD diff and verify no leased backend or
@@ -94,7 +105,7 @@ provider, database, serving configuration, external runtime, or 5202 writes.
 
 ## Completion evidence
 
-- 2026-10-16: focused UI verification passed — 71 tests across
+- 2026-10-16: focused UI verification passed — 74 tests across
   `extractPromoteApi.test.ts`, `GraphReviewWorldbuildingObservationReview.test.tsx`,
   `GraphReviewGenericRun.test.tsx`, and `GraphReviewWorkbenchModule.test.tsx`.
 - `npm --prefix apps/live-control-ui run typecheck` passed.
@@ -111,8 +122,11 @@ provider, database, serving configuration, external runtime, or 5202 writes.
 
 ## Completion
 
-Implementation is complete in draft PR #1235 at GitHub head
-`a9fadb5314d27cd339697ef1de0a81ca88d4842f`, based on
-`main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`. Do not merge without explicit
-merge authority. The server confirmation-contract mismatch and real
-source-observation publication/readback remain open gates.
+Implementation remains in draft PR #1235 on
+`codex/ingest-source-observation-review`, now based on
+`main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`. GitHub currently reports the
+PR mergeable against latest `main@80dd7a2a54a2677953c1fa8443df156717d04861`.
+The PR branch is authoritative for the current head SHA. Do not merge without
+explicit merge authority. The server confirmation-contract mismatch and real
+source-observation publication/readback remain open gates; live Ingest
+acceptance is still outstanding.
