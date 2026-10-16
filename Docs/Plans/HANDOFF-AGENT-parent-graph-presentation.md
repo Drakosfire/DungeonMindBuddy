@@ -1,6 +1,10 @@
 # AGENT: parent-owned Graph presentation and evidence inclusion
 
-Status ACTIVE under PRIME's Mirathorn lifecycle goal. Serial successor to #1218,
+Status SETTLED: #1220 independently reviewed at b34faa69 and merged at
+`f4e3ab68025e08abfe229e96add852631f29ce1b`. Matched preview deployed. Fresh
+ordinary question exposed the worker reservation's raw-schema-only recognition;
+its indeterminate guard stops before provider two. Successor:
+`HANDOFF-AGENT-parent-page-reservation.md`. Original scope: Serial successor to #1218,
 accepted merge `5d14ed96b0a7b93b84c58cd21c2cabf9489935e8` (base).
 Lane `codex/agent-parent-graph-presentation`, `/tmp/prime-recap-mention-boundaries`.
 PRIME implements solo; ARCHITECTURE reviews independently before merge.
