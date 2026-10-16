@@ -348,7 +348,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         observations = (native_observation,)
         if observation in {'paged', 'paged-mutated', 'paged-unseen'}:
             observations += (native_observation.model_copy(update={
-                'assertion_id': 'unrelated-observation', 'text': 'Unrelated qualified description. ' * 300}),)
+                'assertion_id': 'unrelated-observation', 'text': 'Unrelated qualified description. ' * 1500}),)
         result = WorldGraphRetrievalResult.model_validate({
             'operation': 'object', 'outcome': 'enough', 'requestedNodeId': 'frank',
             'snapshot': {'worldId': 'native-build-world', 'campaignId': '', 'scopeMode': 'world',

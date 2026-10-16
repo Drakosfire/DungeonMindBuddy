@@ -320,6 +320,7 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         "apiMode",
         "estimator",
         "contextLimitTokens",
+        "graphToolPageBytes",
         "outputReserveTokens",
         "maxProviderAttempts",
         "maxToolCapableAttempts",
@@ -349,6 +350,11 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         result[key] = raw
     if result["outputReserveTokens"] >= result["contextLimitTokens"]:
         raise ValueError("requestBudget output reserve must be below the context limit")
+    if "graphToolPageBytes" in value:
+        page_bytes = value["graphToolPageBytes"]
+        if isinstance(page_bytes, bool) or not isinstance(page_bytes, int) or not 8_000 <= page_bytes <= 32_000:
+            raise ValueError("requestBudget.graphToolPageBytes is outside its supported range")
+        result["graphToolPageBytes"] = page_bytes
     reservation_keys = (
         "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
     )

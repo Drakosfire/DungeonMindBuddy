@@ -29,3 +29,5 @@ record reconstruction, no IO on continuation. Finish to independent-reviewed PR.
 No serving/provider/schema/retained publication changes in this implementation.
 Fresh ordinary-turn acceptance follows a separately pinned accepted-code rollout;
 never replay the uncertain final provider call from the failed trial.
+
+Owning pagination fixture adjustment also leases tests/test_agent_build_governed_graph.py: make the unrelated observation exceed the new32KB detail envelope so unseen-record rejection remains exercised rather than assuming an8KB page.

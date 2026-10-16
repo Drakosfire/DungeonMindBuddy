@@ -1387,13 +1387,13 @@ class _PolicyExecutionAdapter:
 
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
-        from .graph_tool_transport import TransportScope
+        from .graph_tool_transport import GraphToolPageCache, TransportScope
         if self.presentation is None:
             self.presentation = GraphToolPresentation(TransportScope(
                 self.bootstrap.retrieval_session.id,
                 self.bootstrap.world_scope.world_id,
                 self.bootstrap.world_scope.revision_id,
-            ))
+            ), cache=GraphToolPageCache(page_bytes=self.budget.get("graphToolPageBytes", 8_000)))
         return self.presentation
 
     def _denied_tool_result(
@@ -3208,6 +3208,7 @@ def _policy_request_budget() -> dict[str, Any]:
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 1_050_000,
+        "graphToolPageBytes": 32_000,
         "outputReserveTokens": 2048,
         "maxProviderAttempts": None,
         "maxToolCapableAttempts": None,
