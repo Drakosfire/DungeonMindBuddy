@@ -1945,6 +1945,8 @@ def get_object_with_reviewed_sources_direct(
 def _get_object_with_reviewed_sources_direct(
     services: DirectWorldGraphReadServices,
     request: WorldGraphObjectRequest,
+    *,
+    observation_ids: tuple[str, ...] = (),
 ) -> tuple[
     WorldGraphRetrievalResult,
     list[WorldGraphObjectReviewedSourceObservation],
@@ -1960,6 +1962,15 @@ def _get_object_with_reviewed_sources_direct(
     their admitted anchors. No contribution records are inspected in Buddy.
     """
     try:
+        if (
+            len(observation_ids) > 8
+            or any(not isinstance(value, str) or not value.strip() or value != value.strip()
+                   for value in observation_ids)
+            or len(set(observation_ids)) != len(observation_ids)
+        ):
+            raise DirectWorldGraphReadError(
+                "Selected observation IDs are invalid", code="invalid_request", status_code=422
+            )
         native_request = _map_retrieval_context(request, services.binding)
         if native_request.revision_pin is None:
             raise ValueError("Harness object expansion requires an exact revision pin")
@@ -2000,7 +2011,18 @@ def _get_object_with_reviewed_sources_direct(
         anchors = {row.anchor_id: row for row in result.source_anchors}
         accepted: list[WorldGraphObjectReviewedSourceObservation] = []
         truncated = False
-        for observation in complete.reviewed_source_observations:
+        observations = complete.reviewed_source_observations
+        selection_partial = False
+        if observation_ids:
+            available = {row.assertion_id for row in observations}
+            if not set(observation_ids).issubset(available):
+                raise DirectWorldGraphReadError(
+                    "Selected observations are unavailable on this object at the pinned revision",
+                    code="selected_observation_unavailable", status_code=422,
+                )
+            selection_partial = bool(available - set(observation_ids))
+            observations = tuple(row for row in observations if row.assertion_id in observation_ids)
+        for observation in observations:
             if len(accepted) >= request.bounds.max_attributes:
                 truncated = True
                 continue
@@ -2040,6 +2062,11 @@ def _get_object_with_reviewed_sources_direct(
                     )
             accepted.append(_reviewed_source_observation_view(observation))
         coverage = result.coverage
+        if selection_partial:
+            gaps.append("reviewed_source_observation_selection")
+            coverage = coverage.model_copy(update={
+                "truncated_fields": sorted(set(coverage.truncated_fields) | {"reviewed_source_observations"}),
+            })
         if truncated:
             gaps.append("reviewed_source_observation_anchor_bound")
             coverage = coverage.model_copy(
@@ -2054,7 +2081,7 @@ def _get_object_with_reviewed_sources_direct(
             update={
                 "source_anchors": list(anchors.values()),
                 "coverage": coverage,
-                "outcome": "truncated" if truncated else result.outcome,
+                "outcome": "truncated" if truncated else ("partial" if selection_partial and result.outcome == "enough" else result.outcome),
                 "diagnostics": [
                     *result.diagnostics,
                     *(
@@ -2719,9 +2746,11 @@ class ResolvedWorldGraphReviewedObjectV3(ResolvedWorldGraphOperationV3):
 def get_object_with_reviewed_sources_direct_v3(
     services: DirectWorldGraphReadServices,
     request: WorldGraphObjectRequest,
+    *,
+    observation_ids: tuple[str, ...] = (),
 ) -> ResolvedWorldGraphReviewedObjectV3:
     """Preserve bounded reviewed observations with the exact returned anchor pins."""
-    result, observations, gaps, missing, bounded, complete = _get_object_with_reviewed_sources_direct(services, request)
+    result, observations, gaps, missing, bounded, complete = _get_object_with_reviewed_sources_direct(services, request, observation_ids=observation_ids)
     returned = {anchor.anchor_id for anchor in result.source_anchors}
     pins: dict[str, ResolvedSourceAnchorMetadataV2] = {}
     for native in (bounded, complete):

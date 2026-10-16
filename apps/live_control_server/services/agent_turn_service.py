@@ -423,6 +423,7 @@ def _safe_graph_request_validation_message(exc: ValidationError) -> str:
         "retrievalSessionId": "Use the retrievalSessionId supplied for this turn.",
         "operation": "operation must be object, neighborhood, search, or support.",
         "targets": "targets must be a list of at most 8 node targets with nonempty id.",
+        "observationIds": "observationIds require object and distinct nonblank assertion IDs.",
         "queryText": "queryText must be text or null.",
         "depth": "depth must be 1 or 2.",
         "historicalRevisionId": "historicalRevisionId must be text or null.",
@@ -1929,6 +1930,8 @@ class _PolicyExecutionAdapter:
                 and request.historical_revision_id != self.bootstrap.world_scope.revision_id
             ):
                 return denied("graph_revision_conflict", 409)
+            if request.observation_ids and not _governed_build_turn(self.request):
+                return denied("selected_observations_unavailable", 422)
             target_ids = resolve_expansion_target_ids(request, session)
             common = {
                 "worldId": self.bootstrap.world_scope.world_id,
@@ -1948,7 +1951,10 @@ class _PolicyExecutionAdapter:
                     "nodeId": target_ids[0],
                 })
                 if _governed_build_turn(self.request):
-                    reviewed = get_object_with_reviewed_sources_direct_v3(services, effective_request)
+                    reviewed = get_object_with_reviewed_sources_direct_v3(
+                        services, effective_request,
+                        **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),
+                    )
                     resolved = reviewed
                 else:
                     resolved = (
