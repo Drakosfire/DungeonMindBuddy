@@ -1011,8 +1011,8 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         item.source_artifact_id, item.source_revision_id,
     ) for item in large_targets}) == 64
     assert [(item.claim_id, item.status, item.target_count) for item in large_statuses] == [
-        *((f"claim-{number:02d}", "partial", 8) for number in range(8)),
-        ("claim-08", "overflow", 0),
+        ("claim-00", "partial", 8),
+        *((f"claim-{number:02d}", "partial", 7) for number in range(1, 9)),
     ]
     with monkeypatch.context() as budget_scope:
         budget_scope.setattr(
@@ -5859,13 +5859,16 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
     )
 
 
-@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support"])
+@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support", "bundle", "bundle_build"])
 def test_mounted_v3_traversal_source_route_real_pg_and_history(
     application_state_dsn,
     tmp_path,
     monkeypatch, operation,
 ):
     """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
+    is_build = operation == "bundle_build"
+    use_bundle = operation in {"bundle", "bundle_build"}
+    operation = "object" if use_bundle else operation
     import asyncio
     import httpx
     import fastapi.routing as routing
@@ -5956,6 +5959,22 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
         plan_context_policy={"policy": "auto_plan_world"},
         message="Summarize the entire prior recap while preserving its context boundary.",
     )
+    if is_build:
+        from dataclasses import replace
+        build_basis = parent.BuildSavedSourceBasis(
+            document_id=basis.document_id, world_id=world, revision=1,
+            content_sha256=basis.content_sha256, title='Synthetic source',
+            source_domain='worldbuilding', document_class='reference',
+            authority_state='authored', visibility_state='internal', markdown=plan,
+        )
+        work = replace(work, kind='build', build_source=build_basis, content_basis=None, plan_markdown=None)
+        body = _request(surface={'surface_id':'build','instance_id':'synthetic-build-pane'},
+            owner_scope={'kind':'world','world_id':world}, client_work_state='saved_clean',
+            primary_work={'kind':'build','object_id':basis.document_id,'expected_revision':1,
+                'expected_content_sha256':basis.content_sha256},
+            graph_request={'mode':'world','world_id':world,'campaign_id':None,'revision_pin':None,
+                'focus':{'kind':'none','session_id':None,'campaign_id':None}},
+            turn_id=str(uuid4()),message='What does the graph say about the tavern?')
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id=native, campaign_id='', focus={'kind': 'none'}, admissibility='gm',
@@ -6046,9 +6065,8 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     },
                     {
                         "role": "user",
-                        "content": parent._plan_message(
-                            body.message, plan, content_basis=basis
-                        ),
+                        "content": (parent._build_invocation_message(work, body.message) + "\n\n" + parent._BUILD_GRAPH_ANSWER_INSTRUCTIONS
+                            if is_build else parent._plan_message(body.message, plan, content_basis=basis)),
                     },
                 ],
                 "tools": [],
@@ -6076,24 +6094,45 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
             graph_reply = on_graph_operation({
                 'toolName': 'expand_graph_retrieval', 'arguments': {
                     'retrievalSessionId': session.id, 'operation': operation,
+                    **({'includeSources':True} if use_bundle else {}),
                     'queryText': 'The Prancing Tavern',
                     'targets': [{'kind':'node','id':'obj:tavern'}],
                 },
             })
             graph_packet = json.loads(graph_reply['resultJson'])
-            origin, extension = adapter._broker_execution().events[-2:]
+            events = adapter._broker_execution().events
+            origin = next(e for e in events if e.kind == "validated_graph_operation_v3")
+            extension = next(e for e in events if e.kind == "source_scope_extension_v3")
             assert origin.kind == 'validated_graph_operation_v3', graph_packet
             assert extension.kind == 'source_scope_extension_v3'
             assert extension.origin_graph_event_id == origin.event_id
             pin = next(pin for pin in origin.returned_source_pins if pin.evidence_ref_id == 'ev:tavern')
             assert pin in extension.pins
-            response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
-                'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
-            }})
-            page = json.loads(response['resultJson'])
-            assert page.get('content') == ANCHOR_CONTENT.rstrip(), json.dumps({'page':page,'core':core_results})
-            for call_id, name, reply in [('graph','expand_graph_retrieval',graph_reply),
-                                          ('source','read_graph_source',response)]:
+            if use_bundle:
+                assert graph_packet['schema'] == 'dmb_graph_evidence_packet_v1'
+                assert any(item['content'] == ANCHOR_CONTENT.rstrip() for item in graph_packet['sources']), graph_packet
+                assert graph_packet['coverage']['openedSources'] >= 1
+                if is_build:
+                    assert all('evidenceRefIds' not in r['record'] for r in graph_packet['records'])
+                else:
+                    assert any('ev:tavern' in r['record'].get('evidenceRefIds', []) for r in graph_packet['records'])
+                # Repeating the completed immutable bundle must not reacquire.
+                before_count = len(core_reads)
+                cached = on_graph_operation({'toolName':'expand_graph_retrieval', 'arguments': {
+                    'retrievalSessionId': session.id, 'operation': operation,
+                    'queryText':'The Prancing Tavern', 'targets':[{'kind':'node','id':'obj:tavern'}],
+                    'includeSources':True,
+                }})
+                assert cached['resultJson'] == graph_reply['resultJson'] and len(core_reads) == before_count
+                replies = [('bundle','expand_graph_retrieval',graph_reply)]
+            else:
+                response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
+                    'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
+                }})
+                page = json.loads(response['resultJson'])
+                assert page.get('content') == ANCHOR_CONTENT.rstrip(), json.dumps({'page':page,'core':core_results})
+                replies = [('graph','expand_graph_retrieval',graph_reply), ('source','read_graph_source',response)]
+            for call_id, name, reply in replies:
                 payload['input'].extend([
                     {'type':'function_call','call_id':call_id,'name':name,'arguments':'{}'},
                     {'type':'function_call_output','call_id':call_id,'output':reply['resultJson']},
@@ -6137,6 +6176,11 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     ]
                 },
             }
+            if is_build:
+                answer = {'answer_context_status':'graph_grounded','answer_segments':[{
+                    'kind':'graph_claim','claim_id':'claim:population',
+                    'text':'The keeper guards the gate.','target_kind':'assertion','target_id':'asrt:population',
+                }]}
             return AgentRuntimeResult(
                 status="ok",
                 final_text=json.dumps(answer),
@@ -6183,12 +6227,15 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
     assert extension.pins == origin.returned_source_pins
     assert read.event_id in producing.included_source_read_event_ids
     citation = saved.completion.citation_map.entries[0]
-    assert citation.source_opened and citation.source_read_ids == [read.receipts[0].source_read_id]
-    assert core_reads == [read.receipts[0].anchor_id]
+    admitted_read = next(r for r in read.receipts if r.evidence_ref_id == 'ev:tavern' and r.returned_chars > 0)
+    assert citation.source_opened and citation.source_read_ids == [admitted_read.source_read_id]
+    assert sorted(core_reads) == sorted(r.anchor_id for r in read.receipts)
     before = saved.model_dump_json()
     rebuilt = project_plan_turn_context(saved, delivery_replay=True)
-    assert rebuilt.schema_ == "dmb_agent_plan_world_graph_context_response_v2"
-    target = next(t for t in rebuilt.source_open_targets if t.kind == 'evidence_anchor')
+    expected_schema = "dmb_build_graph_context_response_v1" if is_build else "dmb_agent_plan_world_graph_context_response_v2"
+    assert rebuilt.schema_ == expected_schema
+    target = next(t for t in rebuilt.source_open_targets if t.kind == 'evidence_anchor'
+                  and t.source_read_id in citation.source_read_ids)
     assert target.source_read_id == citation.source_read_ids[0]
     assert (
         service.list_turns(world, conversation.conversation_id)[0].model_dump_json()
@@ -6220,9 +6267,9 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
     )
     readback = json.loads(child)
     assert readback["turn"] == saved.model_dump(mode="json", by_alias=True)
-    assert readback["view_schema"] == "dmb_agent_plan_world_graph_context_response_v2"
+    assert readback["view_schema"] == expected_schema
     assert (
-        delivered["plan_context"]["source_open_targets"]
+        delivered["knowledge_context" if is_build else "plan_context"]["source_open_targets"]
         == rebuilt.model_dump(mode="json", by_alias=True)["source_open_targets"]
     )
 
@@ -6290,3 +6337,100 @@ def test_parent_uncapped_related_context_can_read_ninth_passage(monkeypatch):
     events = fixture.adapter.fence.turn.graph_context_execution.events
     assert sum(event.kind == 'related_recap_context_authorized_v2' for event in events) == 9
     assert sum(event.kind == 'validated_related_recap_context_v2' for event in events) == 9
+
+
+@pytest.mark.parametrize("failure,code,status", [
+    ("known", "evidence_bundle_unsupported_operation", 409),
+    ("unknown", "evidence_bundle_unavailable", 409),
+    ("overflow", "evidence_bundle_overflow", 413),
+])
+def test_bundle_refusal_feedback_uses_existing_exact_parent_denial_boundary(monkeypatch, failure, code, status):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import graph_evidence_bundle as bundles
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    adapter = fixture.adapter
+    observations = []
+    adapter.context_capture = SimpleNamespace(observe=observations.append)
+    args = {"retrievalSessionId": fixture.session.id, "operation": "neighborhood", "includeSources": True}
+    def reject(*_):
+        if failure == "known":
+            raise bundles.EvidenceBundleRefusal(code, "Omit includeSources for neighborhood.")
+        raise ValueError("evidence_bundle_overflow" if failure == "overflow" else "private exception payload")
+    monkeypatch.setattr(bundles, "acquire_evidence_bundle", reject)
+    reply = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": args})
+    result = json.loads(reply["resultJson"])
+    assert result["code"] == code and result["statusCode"] == status
+    assert "private exception payload" not in reply["resultJson"]
+    assert observations == [{"kind": "failure", "code": code, "phase": "graph_retrieval"}]
+    assert fixture.calls == []
+    body = {"input": [
+        {"type": "function_call", "name": "expand_graph_retrieval", "call_id": "call", "arguments": json.dumps(args)},
+        {"type": "function_call_output", "call_id": "call", "output": reply["resultJson"]},
+    ]}
+    assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == []
+    body["input"][1]["output"] += " "
+    assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == [reply["resultJson"] + " "]
+
+
+def _many_cited_source_projection_turn(claims=1, pins=24, *, empty_first=False, duplicate=False):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types as t
+    from tests.application_state.test_agent_conversation_service import _indexed_graph_completion_fixture
+
+    receipt, execution, completion, *_ = _indexed_graph_completion_fixture()
+    original = execution.policy.source_read_scope.admitted_anchors[0]
+    admitted = [original.model_copy(update={"anchor_id": f"anchor-{i:03}"}) for i in range(pins)]
+    if duplicate:
+        admitted += admitted
+    scope = execution.policy.source_read_scope.model_copy(update={"admitted_anchors": admitted})
+    execution = execution.model_copy(update={"policy": execution.policy.model_copy(update={"source_read_scope": scope})})
+    claim = completion.answer_segments[0]
+    citation = completion.citation_map.entries[0]
+    segments = []
+    entries = []
+    for i in range(claims):
+        key = f"claim-{i:03}"
+        refs = ["missing-ref"] if empty_first and i == 0 else claim.evidence_ref_ids
+        segments.append(claim.model_copy(update={"claim_id": key, "evidence_ref_ids": refs}))
+        entries.append(citation.model_copy(update={"claim_id": key, "evidence_ref_ids": refs}))
+    completion = t.PlanWorldGraphCompletionV2.model_validate(completion.model_dump(mode="json", by_alias=True) | {
+        "answer_segments": [s.model_dump(mode="json") for s in segments],
+        "citation_map": {**completion.citation_map.model_dump(mode="json", by_alias=True),
+            "entries": [c.model_dump(mode="json") for c in entries]},
+    })
+    return SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution, completion=completion)
+
+
+@pytest.mark.parametrize("pins,expected,status", [(24,24,"available"), (64,64,"available"), (65,64,"partial")])
+def test_cited_source_navigation_fills_existing_global_capacity(pins, expected, status):
+    from apps.live_control_server.services import agent_turn_service as owner
+    turn = _many_cited_source_projection_turn(pins=pins)
+    targets, statuses = owner._evidence_anchor_open_projection(turn)
+    assert len(targets) == expected
+    assert [(s.status,s.target_count) for s in statuses] == [(status,expected)]
+    assert targets == owner._evidence_anchor_open_projection(turn)[0]
+
+
+@pytest.mark.parametrize("claims,pins,empty_first,duplicate,expected_counts", [
+    (9,9,False,False,[8,*([7]*8)]),
+    (3,24,True,False,[0,24,24]),
+    (1,24,False,True,[24]),
+    (65,1,False,False,[*([1]*64),0]),
+])
+def test_cited_source_navigation_shares_budget_without_counting_empty_or_duplicate_choices(
+    claims,pins,empty_first,duplicate,expected_counts,
+):
+    from apps.live_control_server.services import agent_turn_service as owner
+    targets, statuses = owner._evidence_anchor_open_projection(_many_cited_source_projection_turn(
+        claims,pins,empty_first=empty_first,duplicate=duplicate))
+    assert [s.target_count for s in statuses] == expected_counts
+    assert len(targets) == sum(expected_counts)
+    assert len({(t.claim_id,t.anchor_id,t.evidence_ref_id,t.source_artifact_id,t.source_revision_id) for t in targets}) == len(targets)
+    if empty_first:
+        assert statuses[0].status == "no_anchor"
+    if claims == 65:
+        assert statuses[-1].status == "overflow"
+    if claims == 9:
+        assert all(s.status == "partial" for s in statuses)

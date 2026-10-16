@@ -536,6 +536,7 @@ function recapSourceProof(result: RecapIngestStatus | null): {
   missing: boolean;
   hasProofRows: boolean;
   actionStateConfirmed: boolean;
+  normalizedCurrent: boolean;
 } {
   const sourceRows = corpusImpactRows(result).filter(
     (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
@@ -554,6 +555,11 @@ function recapSourceProof(result: RecapIngestStatus | null): {
       result &&
         (result.states.includes("recap_reused") || result.states.includes("recap_applied")) &&
         (result.states.includes("normalized_reused") || result.states.includes("normalized_created")),
+    ),
+    normalizedCurrent: Boolean(
+      result?.states.includes("normalized_current") &&
+        !result.states.includes("normalized_stale") &&
+        !result.states.includes("normalized_provenance_unknown"),
     ),
   };
 }
@@ -916,11 +922,25 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     hasState(latestResult, "recap_reused") ||
     hasState(latestResult, "normalized_created") ||
     hasState(latestResult, "normalized_reused");
+  const recapSourceNavigationProof = recapSourceProof(latestResult);
+  const hasCurrentNormalizedSource =
+    hasApplied &&
+    recapSourceNavigationProof.confirmed &&
+    recapSourceNavigationProof.normalizedCurrent &&
+    (!rawTextSatisfied ||
+      (previewSignature === currentPreviewSignature && !previewInvalidated));
   const hasFrontmatterSeed = hasState(latestResult, "frontmatter_seed_found");
   const hasBreadcrumb = hasState(latestResult, "breadcrumb_found");
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
-  const processedSourceReady = sourceMode === "processed" && hasApplied;
-  const sourceInputSatisfied = rawTextSatisfied || processedSourceReady || canResumeFromDisk;
+  const processedSourceReady =
+    sourceMode === "processed" &&
+    loadedArtifact !== null &&
+    processedPreviewText.trim().length > 0 &&
+    hasCurrentNormalizedSource;
+  const sourceInputSatisfied =
+    rawTextSatisfied ||
+    processedSourceReady ||
+    (canResumeFromDisk && hasCurrentNormalizedSource);
   const canMaterialize =
     !busy &&
     !!latestResult &&
@@ -967,24 +987,23 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
-  const recapSourceNavigationProof = recapSourceProof(latestResult);
   const sourcePresentButUnverified =
     sourceMode === "raw" &&
     !rawTextSatisfied &&
     hasNormalizedRecap &&
-    !recapSourceNavigationProof.confirmed;
+    !hasCurrentNormalizedSource;
   const showPreparedSourceNotice =
     sourceMode === "raw" &&
     !rawTextSatisfied &&
     hasNormalizedRecap &&
-    recapSourceNavigationProof.confirmed &&
+    hasCurrentNormalizedSource &&
     recapSession > 0 &&
     !priorSourceReadFailed;
   const hasLoadedRecapContent =
     sourceMode !== "raw" ||
     loadedArtifact !== null ||
     Boolean(rawText.trim()) ||
-    (resultOwnsSelection && (recapSourceNavigationProof.confirmed || hasPreview));
+    (resultOwnsSelection && (hasCurrentNormalizedSource || hasPreview));
   const showRecapWelcome =
     hydrated &&
     !readerMode &&
@@ -1030,7 +1049,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (sourcePresentButUnverified) {
       return recapSourceNavigationProof.missing
         ? "Recap files are reported missing. Inspect Evidence or load/paste the source to continue."
-        : "Recap file presence is unverified. Inspect Evidence or load the recap to continue.";
+        : recapSourceNavigationProof.confirmed && !recapSourceNavigationProof.normalizedCurrent
+          ? "The normalized recap is stale or its source lineage is unverified. Inspect Evidence or load the source to continue."
+          : "Recap file presence is unverified. Inspect Evidence or load the recap to continue.";
     }
     return ingestReadiness.nextAction;
   })();
@@ -1080,10 +1101,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const canRunIngest =
     !busy &&
     validRecapSession &&
-    hasNormalizedRecap &&
+    hasCurrentNormalizedSource &&
     (!hasPreviewUnionStore || forceGraphRun) &&
-    genericGuardPass &&
-    (sourceMode === "processed" || canResumeFromDisk || hasNormalizedRecap);
+    genericGuardPass;
   // Prep = package session files only (no LLM graph extract).
   const canPrepForIngest =
     !busy &&
@@ -1515,6 +1535,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function runIngest() {
+    if (!canRunIngest) return;
     setReaderRun(null);
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1624,6 +1645,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function prepForIngest() {
+    if (!canPrepForIngest) return;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setPrimaryOp("prep");
@@ -2134,12 +2156,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     missing: recapSourceMissing,
     hasProofRows: hasRecapSourceProofRows,
     actionStateConfirmed: recapSourceActionConfirmed,
+    normalizedCurrent: recapSourceNormalizedCurrent,
   } = recapSourceProof(latestResult);
+  const recapSourceActionsUnverified = Boolean(
+    hasNormalizedRecap &&
+      (!recapSourceConfirmed || !recapSourceNormalizedCurrent),
+  );
   const recapSourceUnconfirmed = Boolean(
     recapSourceMissing ||
       ((latestResult?.states.includes("ingest_status_inspected") || hasRecapSourceProofRows) &&
         !recapSourceConfirmed) ||
-      (!recapSourceConfirmed && !recapSourceActionConfirmed),
+      (!recapSourceConfirmed && !recapSourceActionConfirmed) ||
+      recapSourceActionsUnverified,
   );
   const proofRows: CorpusImpactRow[] = latestResult
     ? [
@@ -2167,8 +2195,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
   const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
   const showEvidenceShortcut = latestResult !== null;
-  const showWorkflowActions =
-    sourceInputSatisfied || hasNormalizedRecap || busy;
+  const showWorkflowActions = sourceInputSatisfied || busy;
   const showWorkflowFeedback =
     showWorkflowActions ||
     Boolean(toast) ||

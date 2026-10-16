@@ -11,7 +11,7 @@ import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/wor
 import { IngestionModule } from "./IngestionModule";
 
 function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStatus {
-  return {
+  const result: RecapIngestStatus = {
     schema: "dmb_raw_recap_ingest_status_v1",
     campaign_id: "longmont-c2",
     session: 22,
@@ -59,6 +59,41 @@ function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStat
     ],
     ...overrides,
   };
+  const hasNormalizedSourceState = result.states.some((state) =>
+    ["recap_applied", "recap_reused", "normalized_created", "normalized_reused"].includes(state),
+  );
+  const lineageBlocked = result.states.some((state) =>
+    ["normalized_stale", "normalized_provenance_unknown"].includes(state),
+  );
+  const proofRows = Array.isArray(result.ingest_report?.corpus_impact)
+    ? result.ingest_report.corpus_impact.filter(
+        (row): row is Record<string, unknown> => typeof row === "object" && row !== null,
+      )
+    : [];
+  const canonicalConfirmed = proofRows.some(
+    (row) => row.key === "canonical_recap" && row.exists === true,
+  );
+  const normalizedConfirmed = proofRows.some(
+    (row) => row.key === "normalized_recap" && row.exists === true,
+  );
+  if (hasNormalizedSourceState && !lineageBlocked) {
+    if (proofRows.length === 0 && !Object.prototype.hasOwnProperty.call(overrides.ingest_report ?? {}, "corpus_impact")) {
+      result.ingest_report = {
+        ...result.ingest_report,
+        corpus_impact: [
+          { key: "canonical_recap", relpath: result.paths.canonical_recap, exists: true },
+          { key: "normalized_recap", relpath: result.paths.normalized_recap, exists: true },
+        ],
+      };
+    }
+    const hasCurrentProof =
+      (proofRows.length === 0 && !Object.prototype.hasOwnProperty.call(overrides.ingest_report ?? {}, "corpus_impact")) ||
+      (canonicalConfirmed && normalizedConfirmed);
+    if (hasCurrentProof && !result.states.includes("normalized_current")) {
+      result.states = [...result.states, "normalized_current"];
+    }
+  }
+  return result;
 }
 
 function mockRecapIngestWithInspect(
@@ -340,7 +375,7 @@ describe("IngestionModule", () => {
       session: 29,
       status: "breadcrumb_required",
       states: ["ingest_status_inspected", "breadcrumb_required", "recap_reused", "normalized_reused"],
-      ingest_report: corpusImpact ? { corpus_impact: corpusImpact } : {},
+      ingest_report: { corpus_impact: corpusImpact ?? [] },
     }));
 
     render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
@@ -348,6 +383,10 @@ describe("IngestionModule", () => {
     const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     await waitFor(() => expect(within(nav).getByRole("status")).toHaveTextContent("Recap source needs confirmation"));
     expect(within(nav).getByRole("status")).not.toHaveTextContent("Recap source missing");
+    expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Prep for ingest" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Run ingest" })).not.toBeInTheDocument();
+    expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
     expect(screen.queryByRole("note", { name: "Prepared recap source" })).not.toBeInTheDocument();
     await userEvent.setup().click(within(nav).getByRole("button", { name: "Dismiss ingestion toast" }));
     expect(within(nav).getByRole("status")).toHaveTextContent("Recap file presence is unverified");
@@ -359,6 +398,51 @@ describe("IngestionModule", () => {
     );
     expect(recapProofRows.some((row) => row?.textContent?.includes("Unverified"))).toBe(true);
     expect(recapProofRows.every((row) => !row?.textContent?.includes("Missing"))).toBe(true);
+  });
+
+  it("blocks disk-backed actions when recap files exist but normalized lineage is stale", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 1,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: [
+        "ingest_status_inspected",
+        "breadcrumb_required",
+        "recap_reused",
+        "normalized_reused",
+        "normalized_stale",
+        "derivative_reconciliation_required",
+      ],
+      ingest_report: {
+        corpus_impact: [
+          { key: "canonical_recap", relpath: "corpus/session-29.md", exists: true },
+          { key: "normalized_recap", relpath: "corpus/normalized-session-29.md", exists: true },
+        ],
+      },
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await waitFor(() => expect(within(nav).getByRole("status")).toHaveTextContent(/normalized recap is stale/i));
+    expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("note", { name: "Prepared recap source" })).not.toBeInTheDocument();
+    expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
@@ -381,7 +465,7 @@ describe("IngestionModule", () => {
     vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
       session: 29,
       status: "breadcrumb_required",
-      states: ["normalized_reused", "ingest_status_inspected"],
+      states: ["normalized_reused", "normalized_current", "ingest_status_inspected"],
       ingest_report: {
         corpus_impact: [
           { key: "canonical_recap", relpath: "corpus/session-29.md", exists: true },
@@ -416,6 +500,7 @@ describe("IngestionModule", () => {
     expect(preparedSource).not.toHaveTextContent("Use Review above");
     expect(screen.queryByRole("textbox", { name: "Raw recap text" })).not.toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /Session 29/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Ingest workspace navigation" })).getByRole("button", { name: "Run ingest" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Review recap canvas" })).toBeEnabled();
     expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Load a processed recap…");
   });
@@ -991,7 +1076,7 @@ describe("IngestionModule", () => {
         return makeStatus({
           session: 23,
           status: "breadcrumb_required",
-          states: ["staged_raw_notes_reused", "normalized_reused", "frontmatter_seed_required", "breadcrumb_required", "ingest_status_inspected"],
+          states: ["staged_raw_notes_reused", "normalized_reused", "normalized_current", "frontmatter_seed_required", "breadcrumb_required", "ingest_status_inspected"],
           paths: {
             ...makeStatus().paths,
             canonical_recap: "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Recap.md",
@@ -999,6 +1084,12 @@ describe("IngestionModule", () => {
           },
           ingest_report: {
             corpus_impact: [
+              {
+                key: "canonical_recap",
+                relpath: "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Recap.md",
+                exists: true,
+                size_bytes: 768,
+              },
               {
                 key: "normalized_recap",
                 relpath: "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - session-23-mireward.md",

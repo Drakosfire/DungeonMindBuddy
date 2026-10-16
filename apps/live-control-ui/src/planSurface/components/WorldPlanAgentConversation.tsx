@@ -1150,7 +1150,7 @@ function isWorldPlanGraphCompletion(
         || (version === 2 && (
           typeof entry.source_opened !== "boolean"
           || !Array.isArray(readIds)
-          || readIds.length > 8
+          || readIds.length > 16_384
           || readIds.some((id: unknown) => typeof id !== "string" || !id.trim() || id !== id.trim())
           || readIds.some((id: string, index: number) => index > 0 && id <= readIds[index - 1])
           || entry.source_opened !== (readIds.length > 0)
@@ -1249,7 +1249,7 @@ function isWorldPlanSourceOpenTargets(
     const identity = `${target.kind}\u001f${target.claim_id}\u001f${evidence ? target.anchor_id : target.context_anchor_id}`;
     if (seen.has(identity)) return false;
     const count = (perClaim.get(target.claim_id) ?? 0) + 1;
-    if (count > 8) return false;
+    if (count > 64) return false;
     perClaim.set(target.claim_id, count);
     seen.add(identity);
   }
@@ -1289,7 +1289,7 @@ function isWorldPlanEvidenceAnchorStatuses(
     if (!hasExactKeys(row, ["schema", "claim_id", "status", "target_count"])
       || row.schema !== "dmb_agent_evidence_anchor_status_v1"
       || typeof row.claim_id !== "string" || !claims.has(row.claim_id) || seen.has(row.claim_id)
-      || !Number.isSafeInteger(row.target_count) || (row.target_count as number) < 0 || (row.target_count as number) > 8
+      || !Number.isSafeInteger(row.target_count) || (row.target_count as number) < 0 || (row.target_count as number) > 64
       || !(["available", "partial"].includes(String(row.status))
         ? (row.target_count as number) > 0
         : ["no_anchor", "overflow"].includes(String(row.status)) && row.target_count === 0)) return false;

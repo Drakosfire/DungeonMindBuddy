@@ -252,3 +252,53 @@ def test_v3_expired_authorized_claim_preserves_version_and_admission(v3_turn, ap
     assert settled.graph_context_execution.effective_source_pins()[extension.pins[0].anchor_id] == extension.pins[0]
     with pytest.raises(ApplicationStateConflictError):
         _append(service, settled, "extend_source_scope", "extension", extension)
+
+
+def test_v3_completion_preserves_24_reads_for_one_claim_and_fresh_process(v3_turn):
+    import os
+    import subprocess
+    import sys
+
+    service, turn, receipt, initial, origin, extension, trace_id = v3_turn
+    target = "assertion-many-source-passages"
+    origin = origin.model_copy(update={"assertion_ids": [target]})
+    service, turn, receipt, _, origin, extension, _ = _admit(
+        (service, turn, receipt, initial, origin, extension, trace_id))
+    reads = []
+    for _ in range(24):
+        authorization = _authorization(turn, extension.pins[0])
+        turn, _ = _append(service, turn, "authorize_source_read", "authorization", authorization)
+        read, passage = _read_event(turn, authorization)
+        turn, _ = _append(service, turn, "record_validated_source_read", "receipt", read, source_passages=[passage])
+        reads.append(read)
+    attempt = _provider(turn, receipt, origin, reads).model_copy(update={"included_assertion_ids": [target]})
+    turn, _ = _append(service, turn, "authorize_provider_attempt", "provider_attempt_event", attempt)
+    for outcome in ("sdk_entered", "response_received"):
+        event = t.ProviderOutcomeEventV1(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+            kind="provider_outcome", provider_attempt_id=attempt.provider_attempt_id, outcome=outcome)
+        turn, _ = _append(service, turn, "record_provider_outcome", "outcome", event)
+    read_ids = sorted(read.receipts[0].source_read_id for read in reads)
+    refs = [extension.pins[0].evidence_ref_id]
+    claim = t.PlanWorldGraphClaimSegmentV1(kind="graph_claim", claim_id="claim-many", text="Source-backed statement.",
+        target_kind="assertion", target_id=target, graph_revision=extension.graph_revision, evidence_ref_ids=refs)
+    citation = t.PlanWorldGraphCitationV2(claim_id=claim.claim_id, target_kind=claim.target_kind,
+        target_id=target, graph_revision=claim.graph_revision, evidence_ref_ids=refs,
+        source_read_ids=read_ids, source_opened=True)
+    completion = t.PlanWorldGraphCompletionV2(context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph", answer_context_status="graph_grounded",
+        answer_segments=[claim], citation_map=t.PlanWorldGraphCitationMapV2(
+            context_receipt_sha256=receipt.context_receipt_sha256, entries=[citation]))
+    completed = service.complete_turn(t.TurnResult(world_id=turn.world_id, conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id, expected_revision=turn.revision, assistant_text=claim.text,
+        completion=completion, producing_provider_attempt_id=attempt.provider_attempt_id,
+        claim_graph_event_ids={claim.claim_id: [origin.event_id]}))
+    fresh = AgentConversationService().list_turns(turn.world_id, turn.conversation_id)[0]
+    assert fresh == completed and fresh.completion.citation_map.entries[0].source_read_ids == read_ids
+    child = subprocess.check_output([sys.executable, "-c", """
+import json,sys
+from uuid import UUID
+from application_state.agent_conversation import AgentConversationService
+turn = AgentConversationService().list_turns(sys.argv[1], UUID(sys.argv[2]))[0]
+print(json.dumps(turn.model_dump(mode="json",by_alias=True)))
+""", turn.world_id, str(turn.conversation_id)], env=os.environ.copy(), text=True)
+    assert json.loads(child) == completed.model_dump(mode="json", by_alias=True)

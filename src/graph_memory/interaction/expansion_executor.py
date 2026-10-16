@@ -107,6 +107,8 @@ class ExpandGraphRetrievalRequest(BaseModel):
             raise ValueError("observations requires IDs only, without targets or query")
         return self
 
+    include_sources: bool = Field(default=False, alias="includeSources", strict=True)
+
     depth: Literal[1, 2] = 1
     historical_revision_id: str | None = Field(
         default=None,
@@ -387,6 +389,12 @@ def execute_expand_graph_retrieval(
             "message": "Invalid expand_graph_retrieval arguments",
             "statusCode": 422,
             "diagnostics": [{"code": "invalid_arguments", "message": str(exc), "severity": "error"}],
+        }
+
+    if request.include_sources:
+        return {
+            "schema": "dmb_world_graph_retrieval_error_v1", "code": "parent_evidence_bundle_required",
+            "message": "Source bundles require the governed parent broker.", "statusCode": 403, "diagnostics": [],
         }
 
     session = _session_or_raise(request.retrieval_session_id)

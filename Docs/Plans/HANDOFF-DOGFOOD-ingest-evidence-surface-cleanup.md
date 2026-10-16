@@ -1,9 +1,9 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
-**Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16).
-**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. The last locally fetched `main` snapshot is `f92a3e9e151742f80c77fbadbfa2b723712d1906`; it showed nine later commits in disjoint Agent/server evidence paths and handoffs, and `git merge-tree` completed cleanly. GitHub's latest PR read on 2026-10-16 reports #1259 open, unmerged, and mergeable. The shell cannot currently resolve github.com, so refresh refs before rebasing or moving to dogfood. The original UI work merged by #1256 is included in this base.
+**Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16), amended to align workflow actions with verified source proof.
+**Base:** GitHub's current `main` is `eac0861351c4965797233f5d7543d4cb537552c9` (2026-10-16), three commits after the last shell-fetched snapshot `f92a3e9e151742f80c77fbadbfa2b723712d1906`. The shell cannot resolve github.com, so use the connected GitHub API for re-anchoring. Those newer commits touch Agent/server evidence paths and handoffs, disjoint from this UI lease. Before this update, #1259 head `cc768839ee6e24fe4511201d71698fb735ac5210` shared merge base `b309616302225f2d84e08514eb39eb81f49f414d`; compare reports main 12 commits ahead and the old PR 18 commits ahead of main. Preserve the PR's five Ingest files while re-anchoring to current main. The original UI work merged by #1256 is included in the PR.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
-**PR checkout:** `/tmp/dmb-ingest-pr1259-review` at the current PR head. `/tmp/dmb-ingest-local-nav-refresh` is a stale, dirty precursor checkout at `6c3bf566` with overlapping uncommitted changes; do not treat it as the PR source without reconciliation.
+**PR checkout:** `/tmp/dmb-ingest-pr1259-review` is an isolated content mirror of the open PR tree used for review and verification. Its local branch name/commit metadata differ from the GitHub head; compare the tree, not the local SHA. `/tmp/dmb-ingest-local-nav-refresh` is a stale, dirty precursor checkout at `6c3bf566` with overlapping uncommitted changes; do not treat it as the PR source without reconciliation.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
 **Runtime/data:** UI-only. 5202 and 5204 stay read-only. A local frontend preview of this checkout may run on `127.0.0.1:5205` for rendered desktop/narrow-width acceptance; it can use existing read-only surface/artifact/status endpoints, including `inspect_status`. Do not call Prepare, Extract, Review mutations, Graph admission, publication, provider/model actions, or any endpoint that writes source, candidate, Corpus, graph, or persistence data.
 
@@ -50,7 +50,9 @@ states; readiness lanes repeat the current next action already shown in the nav.
   relevant file row, but no proof may be silently discarded.
 - Do not expose duplicate summary states: the navbar owns the current status and
   next action; one per-file row owns that file's existence and preview evidence.
-- Do not change ingestion gates, API contracts, or write behavior.
+- Do not change ingestion API contracts or backend write behavior. On the UI,
+  workflow actions must require authoritative source proof; stale status tokens
+  alone never grant permission to prepare or extract.
 
 ## Exclusive write set
 
@@ -81,6 +83,13 @@ states; readiness lanes repeat the current next action already shown in the nav.
   per-file evidence, plus empty and ready nav states. Run the focused Ingest
   suites, UI typecheck/build where dependencies permit, and cumulative
   `git diff --check`.
+- Treat the canonical and normalized recap proof plus normalized-lineage state
+  as the authority for disk-backed actions. When proof is absent, partial,
+  missing, stale, or provenance-unknown, hide workflow actions and keep the
+  recovery guidance; stale `recap_reused` / `normalized_reused` tokens cannot
+  authorize Prepare or Extract. User-provided raw text may authorize Prepare,
+  but Extract waits for a prepared, current normalized source. Exercise both
+  the visible controls and handler/API-call boundary in regression tests.
 - Render the branch on isolated `127.0.0.1:5205` and verify the restored empty
   landing, loaded-source navigation, and responsive layout at desktop and
   narrow widths.
@@ -92,6 +101,22 @@ states; readiness lanes repeat the current next action already shown in the nav.
 Stop if proof rows require API changes, new persistence state, or a shared
 cross-surface component. Return that exact contract need for a separate bounded
 slice rather than broadening this UI lease.
+
+## Scope amendment — 2026-10-16
+
+The user-authorized Ingest-first objective requires safe, understandable
+recovery when saved source proof and status claims disagree. Fresh Bugbot review
+found that `sourceInputSatisfied`, `canPrepForIngest`, and `canRunIngest` can
+trust stale `recap_reused` / `normalized_reused` tokens while the same result
+reports missing or unverified canonical/normalized files. This makes the UI
+invite writes/extraction after it has told the user to restore or load source.
+The same leased UI module and regression suite now also own a narrow action
+eligibility fix: require verified canonical+normalized source proof and current
+normalized lineage for disk-backed extraction; require actual raw/loaded source
+for Prepare. The API contract and backend write behavior remain out of scope.
+No other ingestion gates, pipeline behavior, or publication behavior are
+authorized by this amendment. This remains the single serial implementation PR
+#1259; no successor PR is opened.
 
 ## Verification
 
@@ -160,3 +185,27 @@ slice rather than broadening this UI lease.
   isolated to 5205; 5202 and 5204 were not changed.
 - No Prepare, Extract, Review, graph publication, or persistence-write action
   was used for verification.
+- Fresh Bugbot review on the pre-amendment PR tree found that stale
+  `recap_reused` / `normalized_reused` states could leave Prepare and Extract
+  available when recap proof was missing or incomplete. The scope amendment
+  above authorizes the same leased UI module and test suite to close that gap;
+  backend write/API behavior remains unchanged.
+- After the amendment, `IngestionModule.test.tsx` and
+  `MemoryIngestPage.test.tsx` pass 82/82; UI typecheck, production build, and
+  `git diff --check` pass. The suite retains its existing React `act(...)`
+  warnings and the build its existing large-chunk warning. Added cases prove
+  missing/partial file proof and stale normalized lineage hide workflow actions,
+  while confirmed current source remains usable.
+- Rendered action-gating acceptance on isolated 5206: at 390x844 with stale
+  reused-state tokens and missing file proof, Prepare/Extract/Review are absent,
+  recovery guidance is visible, and the page has no horizontal overflow. At
+  1280x720 with canonical+normalized files and `normalized_current`, the current
+  prepared-source notice and Prepare/Extract/Review controls are visible, with
+  no horizontal overflow. The captured requests were read-only `inspect_status`
+  responses only; the API-call boundary was also asserted in tests.
+- Re-opened the actual Session 29 surface on isolated 5206 in read-only mode;
+  it reports the source missing and offers the recovery path without workflow
+  write actions. No Prepare, Extract, Review mutation, Graph admission,
+  persistence write, or publication action was used. 5202 and 5204 remain
+  untouched. Run a fresh Bugbot review on the final re-anchored PR head before
+  dogfood.
