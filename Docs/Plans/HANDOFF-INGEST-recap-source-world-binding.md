@@ -58,6 +58,9 @@ PRIME expands the same capability's expected write set after verifying the direc
 - tests/test_graph_object_authoring_routes.py
 - tests/test_graph_object_authoring_published_recap_write.py
 - tests/test_session28_retained_package_registration.py
+- tests/test_registered_known_entity_context.py
+- tests/test_recap_generationengine_default.py
+- tests/test_bounded_recap_execution.py
 
 The authoring and retained-package owning tests are explicitly included for the already-leased creator callers. Change campaign-as-World fallback only where needed to enforce this source contract; do not redesign unrelated authoring or Worldbuilding workflows.
 
