@@ -1,10 +1,10 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@b5a0f290acd42d6115307b8ff0c877f18c149259` after #1236 merged.
+**Base:** fetched `origin/main@64e659248c9d40681b33df2c29a9a2573dfd6a8f` after #1243 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/ingest-manual-source-load/DungeonMindBuddy`.
-**Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `f896a4a17f52b636e41ab42685a7745c374a2af3`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes API extraction/promote and Graph Review files, with no overlap in this lease. The #1236 main merge changed no leased UI files.
+**Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 changes graph packaging and its handoff, also with no overlap. The #1243 main merge changed no leased UI files.
 **Runtime:** UI-only. Do not change 5202, 5204, APIs, graph/corpus data, or extraction state.
 
 ## Objective
@@ -57,15 +57,47 @@ provider files are leased.
 
 ## Verification
 
-- Add/adjust mounted tests for the simplified source controls, New recap reset,
-  successful prior recap load from the blank route, visible source-read failure,
-  and preservation of invalid explicit-route validation.
-- Run the focused IngestionModule suite, UI typecheck, production build, and
-  `git diff --check`.
-- Inspect the cumulative `origin/main`→HEAD diff. Render the changed UI at
-  desktop and narrow widths without triggering Prepare, Extract, Review, or any
-  data write. Do not claim end-to-end ingestion acceptance from presentation
-  evidence.
+- Mounted `IngestionModule` suite: 58/58 passed. Coverage includes the single
+  source/extraction controls, New recap reset, blank-route load, visible
+  source-read failure, invalid explicit-route rejection, and one Replace graph
+  checkbox.
+- UI typecheck and production build passed. Build retains the existing Vite
+  large-chunk warning.
+- `git diff --check` passed.
+- Rendered the production bundle in an isolated preview at 1280px and 390px.
+  The local navigation stayed usable at both sizes; at 390px, document width
+  matched viewport width (390px). No Prepare, Extract, Review, or data write was
+  triggered. 5202 and 5204 were untouched.
+- The successful and failing source-load paths were exercised with mocked API
+  responses. This is not live ingestion acceptance and does not prove source
+  admission or extraction correctness.
+
+## Current-main rebase and acceptance — 2026-10-16
+
+Rebased the existing PR onto fetched `origin/main@64e659248c9d40681b33df2c29a9a2573dfd6a8f`.
+The cumulative diff remains limited to the nine leased paths. The focused
+IngestionModule and MemoryIngestPage suites pass 71 tests; UI typecheck and
+production build pass (with the existing Vite large-chunk warning); and
+`git diff --check` passes.
+
+The rebased production preview was rendered at desktop and 390px. At desktop,
+campaign/session/title and source/workflow actions sit in one local toolbar
+above the blank welcome. At 390px, those fields stack without horizontal
+overflow and the welcome remains readable. No prepare, extract, review, save,
+or ingestion-data action was performed. 5202 and 5204 were not changed; 5204
+still serves the pre-nav implementation until this PR is reviewed and deployed.
+
+## Implementation notes
+
+- Removed the visible Paste recap / Processed toggles, Unload button, group
+  headings, repeated source instructions, repeated graph-replacement prompt,
+  and duplicate advanced Replace graph checkbox. New recap remains the sole
+  reset action.
+- The live status now carries the source/session/title next action; the blank
+  welcome no longer repeats the toolbar's draft state.
+- Manual prior-recap load now writes a valid recap route after source content
+  is read, bypasses route-restoration validation for the manual selection, and
+  displays failures instead of a success state when the source is missing.
 
 ## Completion
 

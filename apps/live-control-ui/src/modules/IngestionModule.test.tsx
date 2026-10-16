@@ -262,11 +262,9 @@ describe("IngestionModule", () => {
 
   it("disables stage preview with empty raw text", async () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
-    expect(screen.getByRole("button", { name: "Stage + Preview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
     await waitFor(() =>
-      expect(
-        screen.getByText(/paste or load a recap|Inspect or load a session/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText("Add recap text below or load a saved recap above.")).toBeInTheDocument(),
     );
   });
 
@@ -367,7 +365,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
     expect(screen.getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
-    expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Add a specific session title before preparing this recap.")).toBeInTheDocument();
   });
 
   it("invalidates preview when raw text changes", async () => {
@@ -1383,12 +1381,29 @@ describe("IngestionModule", () => {
       return makeStatus({ session: 23, entity_spelling_audit: [] });
     });
 
+    window.history.pushState({}, "", "/ingest?world=elderwyld");
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    const routeSpy = vi.spyOn(window.history, "replaceState");
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
     await screen.findByLabelText("Prior processed recap");
+    await screen.findByRole("option", { name: /Session 23/ });
+    await user.selectOptions(screen.getByLabelText("Prior processed recap"), artifact.artifact_id);
     await user.click(screen.getByRole("button", { name: "Load processed recap" }));
 
     const preview = await screen.findByLabelText("Normalized recap preview");
     expect((preview as HTMLTextAreaElement).value).toContain("The party held the gate.");
+    expect(await screen.findByLabelText("Saved extraction source review")).toBeInTheDocument();
+    expect(routeSpy.mock.calls.some((call) => String(call[2]).includes("view=recap"))).toBe(true);
+    expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Paste recap" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Processed" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unload processed recap" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New recap" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Run ingest" }));
@@ -1409,7 +1424,57 @@ describe("IngestionModule", () => {
     });
   });
 
-  it("unloads a processed recap and returns to raw paste without losing prior-load options", async () => {
+  it("shows a failed saved-source read instead of claiming the recap loaded", async () => {
+    const user = userEvent.setup();
+    const artifact = {
+      schema_version: "dmb_recap_artifact_record_v1" as const,
+      artifact_id: "artifact:recap:longmont-c2:session-23",
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      source_recap_path:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
+      run_bundle_uri: "out/graph_memory/runs/longmont-c2/session-23/run",
+      run_manifest_uri: "out/graph_memory/runs/longmont-c2/session-23/run/manifest.json",
+      source_span_index_uri: "out/graph_memory/runs/longmont-c2/session-23/run/source_span_index.json",
+      graph_run_refs: [],
+      default_projection_mode: "preview_union",
+      registered_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      registry_source: "scan" as const,
+    };
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [artifact],
+    });
+    vi.spyOn(liveApi, "postCitationSource").mockRejectedValue(new Error("source host is unavailable"));
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
+      makeStatus({
+        session: 23,
+        status: "recap_applied",
+        states: ["normalized_reused", "ingest_status_inspected"],
+        entity_spelling_audit: [],
+      }),
+    );
+
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    render(<IngestionModule campaignId="longmont-c2" session={24} />);
+    await screen.findByLabelText("Prior processed recap");
+    await screen.findByRole("option", { name: /Session 23/ });
+    await user.selectOptions(screen.getByLabelText("Prior processed recap"), artifact.artifact_id);
+    await user.click(screen.getByRole("button", { name: "Load processed recap" }));
+
+    expect(await screen.findByText("Could not load prior ingestion")).toBeInTheDocument();
+    expect(screen.getByText("source host is unavailable")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Raw recap text")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Saved extraction source review")).not.toBeInTheDocument();
+    expect(screen.queryByText("Loaded processed recap")).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("view")).not.toBe("recap");
+    expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument();
+  });
+
+  it("starts a new recap from a loaded processed recap without losing prior-load options", async () => {
     const user = userEvent.setup();
     const artifact = {
       schema_version: "dmb_recap_artifact_record_v1" as const,
@@ -1460,12 +1525,13 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
     await screen.findByLabelText("Prior processed recap");
+    await screen.findByRole("option", { name: /Session 23/ });
     await user.click(screen.getByRole("button", { name: "Load processed recap" }));
 
     expect(await screen.findByLabelText("Normalized recap preview")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Unload processed recap" }));
+    await user.click(screen.getByRole("button", { name: "New recap" }));
 
     expect(await screen.findByLabelText("Raw recap text")).toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
@@ -1474,7 +1540,7 @@ describe("IngestionModule", () => {
     expect((screen.getByLabelText("Raw recap text") as HTMLTextAreaElement).value).toBe("");
   });
 
-  it("ignores disk inspect resume after unload until operator loads processed recap again", async () => {
+  it("ignores disk inspect resume after New recap until operator loads a processed recap again", async () => {
     const user = userEvent.setup();
     const artifact = {
       schema_version: "dmb_recap_artifact_record_v1" as const,
@@ -1584,14 +1650,17 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
 
-    await waitFor(() =>
-      expect(screen.getByText(/A graph already exists for this session/)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("Graph exists · choose Replace graph to run a fresh extraction.")).toBeInTheDocument());
+    expect(screen.queryByText(/A graph already exists for this session/)).not.toBeInTheDocument();
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    expect(screen.queryByText(/Check "Replace existing graph"/)).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Replace graph")).toHaveLength(1);
     const reextractButton = screen.getByRole("button", { name: /^Run ingest$/ });
     expect(reextractButton).toBeDisabled();
 
-    const replaceBoxes = screen.getAllByLabelText(/Replace existing graph/);
-    await user.click(replaceBoxes[0]!);
+    const replaceGraph = screen.getByLabelText("Replace graph");
+    expect(screen.getAllByLabelText("Replace graph")).toHaveLength(1);
+    await user.click(replaceGraph);
 
     expect(screen.getByRole("button", { name: /Run ingest \(replace graph\)/ })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: /Run ingest \(replace graph\)/ }));

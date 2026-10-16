@@ -48,6 +48,10 @@ function isIngestSurfacePath(): boolean {
   return window.location.pathname.replace(/\/+$/, "") === "/ingest";
 }
 
+function ingestRoutePath(): string {
+  return window.location.pathname.replace(/\/+$/, "") || "/ingest";
+}
+
 function isFreshRecapEntryRoute(): boolean {
   if (!isIngestSurfacePath()) return false;
   const params = new URLSearchParams(window.location.search);
@@ -909,6 +913,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
   const readinessLanes = [ingestReadiness.memory, ingestReadiness.graph, ingestReadiness.attention];
   const workflowNextAction = (() => {
+    if (!sourceInputSatisfied && !hasNormalizedRecap) {
+      return "Add recap text below or load a saved recap above.";
+    }
+    if (!validRecapSession) return "Choose a session number before preparing this recap.";
+    if (!genericGuardPass) return "Add a specific session title before preparing this recap.";
     if (state.status === "running_full_ingest") {
       return primaryOp === "ingest"
         ? "Working: running ingest (LLM graph extract + party fill)."
@@ -923,6 +932,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (state.status === "materializing_preview_supergraph") return "Working: materializing the preview union supergraph.";
     if (hasPreviewUnionStore && forceGraphRun) {
       return "Ready to replace the existing graph: Run ingest to start a fresh extraction.";
+    }
+    if (hasPreviewUnionStore) {
+      return "Graph exists · choose Replace graph to run a fresh extraction.";
     }
     return ingestReadiness.nextAction;
   })();
@@ -992,15 +1004,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           : !genericGuardPass
             ? "Session title is required before running ingest."
             : null;
-  const prepDisabledReason =
-    !sourceInputSatisfied && !hasMaterialized
-      ? "Paste raw recap text or load a prior processed ingestion."
-      : !validRecapSession
-        ? "Prep needs a valid session number."
-        : !genericGuardPass
-          ? "Session title is required. Use a clear table title, like \"Mireward Gate Battle\"."
-          : null;
-
   useEffect(() => {
     let cancelled = false;
 
@@ -1236,7 +1239,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     const params = new URLSearchParams(window.location.search);
     params.delete("view");
     params.delete("recapReviewRunId");
-    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
   }
 
   function resetWizardFlow(nextStep = 1) {
@@ -1330,15 +1333,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         inspected.paths?.normalized_recap ??
         record.source_recap_path;
       const citationPath = corpusCitationPath(normalizedPath);
-      try {
-        const source = await postCitationSource({ path: citationPath });
-        setProcessedPreviewText(source.content);
-      } catch {
-        setProcessedPreviewText("");
-      }
+      const source = await postCitationSource({ path: citationPath });
+      if (!source.content.trim()) throw new Error("The saved recap source was empty.");
+      setProcessedPreviewText(source.content);
 
+      const route = new URLSearchParams(window.location.search);
+      route.set("campaign", record.campaign_id);
+      route.set("session", record.session_id);
+      route.set("view", "recap");
+      route.delete("recapReviewRunId");
+      window.history.replaceState({}, "", `${ingestRoutePath()}?${route.toString()}`);
       setIgnoreDiskResume(false);
       readerAttempt.current = null;
+      restoreReaderRoute.current = false;
       setReaderMode(true);
       setToast({
         tone: "info",
@@ -1347,6 +1354,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         nextSteps: [],
       });
     } catch (error) {
+      closeSavedReader();
       setSourceMode("raw");
       setLoadedArtifact(null);
       setProcessedPreviewText("");
@@ -1879,7 +1887,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     params.set("session", `session-${recapSession}`);
     params.set("view", "recap");
     if (runId) params.set("recapReviewRunId", runId); else params.delete("recapReviewRunId");
-    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
     readerAttempt.current = reviewIdentity;
     setReaderMode(true);
     const identity = reviewIdentity;
@@ -2080,32 +2088,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
         <div className="ingest-local-nav__workflow">
           <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
-            <span className="ingest-local-nav__group-label">Source</span>
-            <div className="ingestion-source-mode-toggle">
-              <button
-                type="button"
-                className={sourceMode === "raw" ? "active" : undefined}
-                aria-pressed={sourceMode === "raw"}
-                onClick={() => {
-                  if (loadedArtifact || sourceMode === "processed") {
-                    startNewRecap(1);
-                  } else {
-                    setSourceMode("raw");
-                  }
-                }}
-              >
-                Paste recap
-              </button>
-              <button
-                type="button"
-                className={sourceMode === "processed" ? "active" : undefined}
-                aria-pressed={sourceMode === "processed"}
-                disabled={!loadedArtifact}
-                onClick={() => setSourceMode("processed")}
-              >
-                Processed
-              </button>
-            </div>
             <label className="ingest-local-nav__prior" htmlFor="ingestion-prior-artifact">
               <span className="sr-only">Prior processed recap</span>
               <select
@@ -2137,15 +2119,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             >
               {loadingPriorIngestion ? "Loading…" : "Load"}
             </button>
-            {loadedArtifact || sourceMode === "processed" ? (
-              <button type="button" aria-label="Unload processed recap" onClick={() => startNewRecap(1)}>
-                Unload
-              </button>
-            ) : null}
           </div>
 
           <div className="ingest-local-nav__stages" role="group" aria-label="Extraction actions">
-            <span className="ingest-local-nav__group-label">Extraction</span>
             <button
               type="button"
               aria-label={primaryOp === "prep" ? "Preparing recap" : "Prep for ingest"}
@@ -2218,7 +2194,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           >
             Write a recap <span aria-hidden="true">↓</span>
           </button>
-          <p className="ingest-welcome-footnote">This is only a draft. Nothing is prepared or ingested until you choose those steps.</p>
         </section>
       ) : null}
 
@@ -2283,16 +2258,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </div>
 
           <div className="ingestion-action-explainer">
-            {hasPreviewUnionStore && !forceGraphRun ? (
-              <p>
-                A graph already exists for this session. Check &quot;Replace existing graph&quot; before
-                Run ingest to rebuild it.
-              </p>
-            ) : null}
-            {hasNormalizedRecap && runIngestDisabledReason ? (
+            {hasNormalizedRecap && runIngestDisabledReason && !(hasPreviewUnionStore && !forceGraphRun) ? (
               <p>{runIngestDisabledReason}</p>
             ) : null}
-            {!hasNormalizedRecap && prepDisabledReason ? <p>{prepDisabledReason}</p> : null}
             {previewInvalidated ? (
               <p>Preview invalidated by raw text/title edits. Prep for ingest again.</p>
             ) : null}
@@ -2408,14 +2376,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           <details className="ingestion-advanced-fold">
             <summary>Advanced graph dogfood</summary>
             <p className="module-muted">Manual artifact controls for testing graph extraction/materialization outside Prep → Run ingest.</p>
-            <label className="ingestion-checkbox-row">
-              <input
-                type="checkbox"
-                checked={forceGraphRun}
-                onChange={(event) => setForceGraphRun(event.target.checked)}
-              />
-              Replace existing graph before building or materializing
-            </label>
             <label htmlFor="ingestion-candidate-graph-path">Candidate graph path</label>
             <input
               id="ingestion-candidate-graph-path"
@@ -2454,7 +2414,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </div>
             <div className="ingestion-action-explainer">
               {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}
-              {previewSupergraphDisabledReason ? <p>{previewSupergraphDisabledReason}</p> : null}
+              {previewSupergraphDisabledReason && !(hasPreviewUnionStore && !forceGraphRun) ? (
+                <p>{previewSupergraphDisabledReason}</p>
+              ) : null}
             </div>
           </details>
 

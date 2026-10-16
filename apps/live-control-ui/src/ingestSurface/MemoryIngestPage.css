@@ -278,25 +278,6 @@ button.ingest-welcome-action {
   min-width: 0;
 }
 
-.ingest-local-nav__group-label {
-  margin-right: 0.15rem;
-  color: #e2b75f;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.ingest-local-nav__source .ingestion-source-mode-toggle {
-  display: flex;
-  gap: 0.25rem;
-  margin: 0;
-}
-
-.ingest-local-nav__source .ingestion-source-mode-toggle button {
-  padding: 0.38rem 0.58rem;
-}
-
 .ingest-local-nav__prior {
   min-width: 0;
 }
