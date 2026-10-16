@@ -1,7 +1,7 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
 **Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16), amended to align workflow actions with verified source proof.
-**Base:** fetched origin/main@3a70b3585744a42c2f5b97e68f3b7189513ab171 (2026-10-16). Re-anchored by a clean merge from PR head 2d96496250ae2e63affbb1a22fc685729909abf9, whose merge base was eac0861351c4965797233f5d7543d4cb537552c9; the eight intervening main commits add only JEV evaluator/handoff files, disjoint from this UI lease. The product diff remains confined to the five Ingest files.
+**Base:** fetched origin/main@c6eacbbba94efdf8f6a0c1fad43b5a0c6bf709d1 (2026-10-16). Re-anchored from the existing PR head through a merge commit; main’s four intervening commits touch only JEV evaluator/handoff paths and are disjoint from this UI lease. The product diff remains confined to the five Ingest files.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
 **PR checkout:** `/tmp/dmb-ingest-pr1259-review` is an isolated content mirror of the open PR tree used for review and verification. Its local branch name/commit metadata differ from the GitHub head; compare the tree, not the local SHA. `/tmp/dmb-ingest-local-nav-refresh` is a stale, dirty precursor checkout at `6c3bf566` with overlapping uncommitted changes; do not treat it as the PR source without reconciliation.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
@@ -289,3 +289,21 @@ authorized by this amendment. This remains the single serial implementation PR
   is required before dogfood.
 
 - Re-anchored cleanly on origin/main@3a70b3585744a42c2f5b97e68f3b7189513ab171. The current PR checkout has no Vitest installation, so the focused UI suites were not rerun after this history-only re-anchor; the existing product diff is unchanged.
+
+- The restored empty-source canvas now keeps the identity and recovery status in
+  the sticky local nav. After dismissing the transient warning, the nav still
+  says saved ingest work is preserved, no graph changes were written, and how
+  to load or paste a verified source. The main canvas no longer repeats the
+  selected session number and missing-source warning; it stays a worldbuilding
+  welcome. Added assertions to the restored-session regression. `IngestionModule.test.tsx`
+  passes 76/76 and `MemoryIngestPage.test.tsx` passes 13/13. UI typecheck and
+  production build pass; the typecheck used a temporary `/tmp` build-info path
+  because this sandbox mounts `node_modules/.tmp` read-only. The existing Vite
+  large-chunk warning and React `act(...)` warnings remain.
+- Rendered acceptance of this text refinement is blocked: the authorized local
+  preview port 5205 was already occupied. The strict launch returned “Port
+  5205 is already in use”; I did not inspect, stop, or replace the existing
+  server. 5202 and 5204 were untouched. Current main is c6eacbb, four commits
+  after 3a70b358 through #1268. Its five changed paths are disjoint from this
+  UI write set. This update re-anchors the UI branch to c6eacbb with a
+  fast-forwardable merge commit while preserving the existing PR head.

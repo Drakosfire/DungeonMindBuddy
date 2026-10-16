@@ -309,7 +309,9 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
 
-    expect(await screen.findByRole("heading", { name: "This recap’s source isn’t loaded." })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Bring your table’s story into the World." })).toBeInTheDocument();
+    expect(screen.queryByText("SESSION 29 · PRIOR WORK FOUND")).not.toBeInTheDocument();
+    expect(screen.getByText("Your recap will become a growing map of the people, places, events, and ties that shape your World.")).toBeInTheDocument();
     expect(screen.getByLabelText("Recap/source session")).toHaveValue(29);
     expect(screen.getByLabelText("Session title")).toHaveValue("Session 29 - The Meat Mind of Mireward Reach");
     expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveValue("");
@@ -319,7 +321,6 @@ describe("IngestionModule", () => {
     expect(within(nav).getByRole("status")).toHaveTextContent("Recap source missing");
     expect(within(nav).getByRole("status")).not.toHaveTextContent("No recap source loaded");
     expect(within(nav).getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "#ingestion-evidence-details");
-    expect(screen.getByText("Your earlier ingest work is preserved. No graph changes have been written.")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Continue this recap safely" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
     expect(screen.getByText(/disk check found one or both recap files missing/i)).toBeInTheDocument();
@@ -327,8 +328,8 @@ describe("IngestionModule", () => {
     expect(screen.queryByText(/Canonical recap and normalized recap are on disk/i)).not.toBeInTheDocument();
     const dismissStatus = within(nav).queryByRole("button", { name: "Dismiss ingestion toast" });
     if (dismissStatus) await user.click(dismissStatus);
-    expect(within(nav).getByRole("status")).toHaveTextContent("Load a processed recap or paste the verified source to continue.");
-    expect(screen.getAllByText("Load a processed recap or paste the verified source to continue.")).toHaveLength(1);
+    expect(within(nav).getByRole("status")).toHaveTextContent("Saved ingest work is preserved. No graph changes were written; load a recap or paste the verified source to continue.");
+    expect(screen.queryByText("Load a processed recap or paste the verified source to continue.")).not.toBeInTheDocument();
 
     await user.click(within(nav).getByRole("link", { name: "Evidence" }));
     const evidenceDetails = screen.getByText("Evidence & details").closest("details");

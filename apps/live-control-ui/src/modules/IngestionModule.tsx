@@ -2428,11 +2428,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
   const showEvidenceShortcut = latestResult !== null;
   const showWorkflowActions = sourceInputSatisfied || busy;
+  const showSourceProofRecovery = Boolean(
+    hydrated &&
+      showRecapWelcome &&
+      matchingResult?.status === "breadcrumb_required" &&
+      recapSourceUnconfirmed,
+  );
+  const showSavedWorkRecovery = showSourceProofRecovery && hasPriorIngestWork && recapSourceMissing;
   const showWorkflowFeedback =
     showWorkflowActions ||
     Boolean(toast) ||
     state.status === "error" ||
-    (hydrated && showRecapWelcome && latestResult?.status === "breadcrumb_required" && recapSourceUnconfirmed);
+    showSourceProofRecovery;
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -2602,6 +2609,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                               </>
                             ) : null}
                           </>
+                        : showSavedWorkRecovery
+                          ? "Saved ingest work is preserved. No graph changes were written; load a recap or paste the verified source to continue."
                         : workflowNextAction}
             </p>
             {toast ? (
@@ -2639,15 +2648,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
           <p className="ingest-welcome-kicker">
-            {hasPriorIngestWork ? `SESSION ${recapSession} · PRIOR WORK FOUND` : "A NEW STORY STARTS HERE"}
+            {hasPriorIngestWork ? "YOUR SESSION CANVAS" : "A NEW STORY STARTS HERE"}
           </p>
           <h2 id="ingest-first-recap-title">
-            {hasPriorIngestWork ? "This recap’s source isn’t loaded." : "Bring your table’s story into the World."}
+            Bring your table’s story into the World.
           </h2>
           <p className="ingest-welcome-intro">
-            {hasPriorIngestWork
-              ? "Your earlier ingest work is preserved. No graph changes have been written."
-              : "Paste or write a session recap, or load a processed recap from the bar above. Buddy shows proposed people, places, and connections before anything joins the World."}
+            Your recap will become a growing map of the people, places, events, and ties that shape your World.
           </p>
         </section>
       ) : null}
