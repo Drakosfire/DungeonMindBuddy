@@ -927,3 +927,79 @@ def test_normalize_allows_world_scoped_corpus_source_target() -> None:
         f"corpus/eldyrwild-markdown/_dungeonbuddy/sources/{document_id}/source.md"
     )
     assert normalize_tiptap_target_relpath(relpath) == relpath
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_worldbuilding_preserves_existing_yaml_while_saving_body(tmp_path, newline):
+    record = _create_world_scoped_source(tmp_path)
+    envelope = newline.join(["--- ", "title: Mirathorn", "source_class: seed_reference", "---", ""])
+    target = tmp_path / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes((envelope + "# Lore" + newline + "Old body." + newline).encode())
+    changed = envelope + "# Lore" + newline + "Edited body." + newline
+    prepared = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id, markdown=changed, expected_revision=1))
+    assert prepared.writer_ok and prepared.writer_confirm_token
+    assert not any("unsupported" in item for item in prepared.diagnostics + prepared.warnings)
+    commit_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWriteCommitRequest(
+        document_id=record.document_id, markdown=changed, expected_revision=1,
+        writer_confirm_token=prepared.writer_confirm_token))
+    assert target.read_bytes() == changed.encode()
+    reopened = get_workspace_document_snapshot(tmp_path, record.document_id)
+    assert get_workspace_document(tmp_path, record.document_id).revision == 2
+    assert reopened.markdown == changed.replace("\r\n", "\n")
+    assert reopened.loaded_revision == 2
+
+
+@pytest.mark.parametrize("case", ["changed", "removed", "added", "malformed", "unclosed", "thematic", "html", "table", "line-endings"])
+def test_worldbuilding_yaml_exception_does_not_admit_lossy_or_metadata_changes(tmp_path, case):
+    record = _create_world_scoped_source(tmp_path)
+    envelope = "---\ntitle: Mirathorn\n---\n"
+    original = envelope + "# Lore\nBody.\n"
+    target = tmp_path / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(original.encode())
+    proposed = {
+        "changed": original.replace("title: Mirathorn", "title: Other"),
+        "removed": "# Lore\nBody.\n",
+        "added": original,
+        "malformed": "---\nno YAML key\n---\n# Lore\n",
+        "unclosed": "---\ntitle: Mirathorn\n# Lore\n",
+        "thematic": original + "---\n",
+        "html": original + "<div>Unsupported</div>\n",
+        "table": original + "| a | b |\n",
+        "line-endings": original.replace("\n", "\r\n"),
+    }[case]
+    if case == "added":
+        target.write_bytes(b"# Lore\nBody.\n")
+    before = target.read_bytes()
+    prepared = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id, markdown=proposed, expected_revision=1))
+    assert not prepared.writer_ok and prepared.writer_confirm_token is None
+    if case in {"thematic", "html", "table"}:
+        assert "line 6: unsupported Markdown block would be lossy on commit" in prepared.diagnostics
+    assert target.read_bytes() == before
+    assert get_workspace_document(tmp_path, record.document_id).revision == 1
+
+
+@pytest.mark.parametrize("intervening", ["file", "revision"])
+def test_preserved_yaml_authoring_still_requires_exact_save_basis(tmp_path, intervening):
+    record = _create_world_scoped_source(tmp_path)
+    target = tmp_path / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = "---\ntitle: Lore\n---\n# Lore\nOld.\n"
+    target.write_text(original)
+    changed = original.replace("Old.", "Edited.")
+    prepared = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id, markdown=changed, expected_revision=1))
+    assert prepared.writer_ok
+    request = TiptapMarkdownWriteCommitRequest(document_id=record.document_id,
+        markdown=changed, expected_revision=1, writer_confirm_token=prepared.writer_confirm_token)
+    if intervening == "file":
+        target.write_text(original.replace("Old.", "Concurrent."))
+    else:
+        commit_tiptap_markdown_write(root=tmp_path, request=request)
+    before = target.read_bytes()
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        commit_tiptap_markdown_write(root=tmp_path, request=request)
+    assert target.read_bytes() == before
