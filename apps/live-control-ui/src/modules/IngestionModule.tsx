@@ -602,8 +602,14 @@ function buildToastForResult(
     result.states.includes("recap_reused") || result.states.includes("recap_applied");
   const normalizedRecapConfirmed =
     result.states.includes("normalized_reused") || result.states.includes("normalized_created");
+  const sourceArtifactProof = corpusImpactRows(result).filter(
+    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
+  );
+  const sourceArtifactsNotBothFound =
+    sourceArtifactProof.length === 2 && sourceArtifactProof.some((row) => !row.exists);
   const breadcrumbSourceIncomplete =
-    result.status === "breadcrumb_required" && !(canonicalRecapConfirmed && normalizedRecapConfirmed);
+    result.status === "breadcrumb_required" &&
+    (!(canonicalRecapConfirmed && normalizedRecapConfirmed) || sourceArtifactsNotBothFound);
   const nextSteps = breadcrumbSourceIncomplete ? [] : [...result.next_actions];
   const stagedRawConflict = result.states.includes("staged_raw_notes_conflict");
   const frontmatterSeedReady =
@@ -654,7 +660,9 @@ function buildToastForResult(
   if (result.status === "breadcrumb_required") {
     if (breadcrumbSourceIncomplete) {
       nextSteps.unshift(
-        "The latest status did not confirm both canonical and normalized recap files. Restore or load the source before continuing.",
+        sourceArtifactsNotBothFound
+          ? "The disk check did not find both canonical and normalized recap files. Restore or load the verified source before continuing."
+          : "The latest status did not confirm both canonical and normalized recap files. Restore or load the source before continuing.",
       );
     } else {
       nextSteps.unshift(
@@ -716,7 +724,9 @@ function buildToastForResult(
         ? "Session packaged. Next: Run ingest to extract the graph."
       : result.status === "breadcrumb_required"
       ? breadcrumbSourceIncomplete
-        ? "Retrieval is waiting for breadcrumb + session memory, but the latest status did not confirm canonical and normalized recap files. Check the per-file evidence before proceeding."
+        ? sourceArtifactsNotBothFound
+          ? "The disk check found one or both recap files missing. Restore or load the verified recap before continuing."
+          : "The latest status did not confirm both recap files. Restore or load the verified recap before continuing."
         : "Retrieval is waiting for breadcrumb + session memory. Check the per-file evidence for the next safe step."
       : result.errors.length > 0
         ? result.errors.join("; ")
@@ -734,7 +744,11 @@ function buildToastForResult(
         : frontmatterSeedReady
           ? "Frontmatter seed ready"
         : result.status === "breadcrumb_required"
-        ? "Breadcrumb required before retrieval"
+        ? breadcrumbSourceIncomplete
+          ? sourceArtifactsNotBothFound
+            ? "Recap source missing"
+            : "Recap source needs confirmation"
+          : "Breadcrumb required before retrieval"
         : result.status === "ready_for_planning_activation" && graphMaterialized
           ? "Ingest ready"
         : result.status === "ready_for_planning_activation"
@@ -2065,6 +2079,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     : inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
+  const sourceArtifactProof = corpusImpact.filter(
+    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
+  );
+  const sourceArtifactsNotBothFound =
+    sourceArtifactProof.length === 2 && sourceArtifactProof.some((row) => !row.exists);
   const proofRows: CorpusImpactRow[] =
     corpusImpact.length > 0
       ? corpusImpact
@@ -2650,16 +2669,23 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
           {latestResult?.status === "breadcrumb_required" ? (
             <div className="ingestion-boundary-card" role="status">
-              <strong>Expected v1 boundary: breadcrumb required</strong>
-              <p>
-                Retrieval is not retrieval-ready until a blessed breadcrumb and session memory records
-                exist. The per-file evidence below is the source of truth for canonical and normalized
-                recap availability.
-              </p>
-              <p>
-                Restore or load the recap first if either source artifact is missing, then follow the
-                next action from the latest status.
-              </p>
+              <strong>
+                {sourceArtifactsNotBothFound
+                  ? "Canonical and normalized recap files are not both present"
+                  : "Expected v1 boundary: breadcrumb required"}
+              </strong>
+              {sourceArtifactsNotBothFound ? (
+                <p>
+                  Restore the verified recap or load/paste its source before continuing. Breadcrumb
+                  routing and session-memory steps come after both recap files are present.
+                </p>
+              ) : (
+                <p>
+                  Retrieval is not retrieval-ready until a blessed breadcrumb and session memory records
+                  exist. The per-file evidence below is the source of truth for canonical and normalized
+                  recap availability.
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -2803,11 +2829,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     </>
                   )}
                 </div>
-                <div>
-                  <h5>Next actions</h5>
-                  <ul>{evidenceRows(latestResult.next_actions)}</ul>
-                </div>
               </div>
+              {latestResult.next_actions.length > 0 ? (
+                <details className="ingestion-status-diagnostics">
+                  <summary>Raw server recommendations</summary>
+                  {sourceArtifactsNotBothFound ? (
+                    <p className="module-muted">
+                      These were returned by the status service. The recap-file proof above takes
+                      precedence: restore or load the source before following breadcrumb steps.
+                    </p>
+                  ) : null}
+                  <ul>{evidenceRows(latestResult.next_actions)}</ul>
+                </details>
+              ) : null}
 
               <details>
                 <summary>Canonical preview</summary>
