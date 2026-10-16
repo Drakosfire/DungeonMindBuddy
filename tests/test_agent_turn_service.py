@@ -1582,7 +1582,7 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         assert changed_scope.value.code == "turn_receipt_unverifiable"
 
     provider_body = json.dumps({"input": [], "tools": []})
-    budget = service_module._policy_request_budget()
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
     view = {
         "provider": budget["provider"], "model": budget["model"],
         "apiMode": budget["apiMode"], "payloadJson": provider_body,
@@ -1964,7 +1964,7 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={}, source_scope_anchors=(),
     )
-    budget = service_module._policy_request_budget()
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id=receipt.graph_authority.managed_world_id,
         work=None, bootstrap=bootstrap, playable_target=None, submitted_intent=None,
@@ -2275,7 +2275,7 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
         )
 
     monkeypatch.setattr(source_reads, "read_recap_context_v2", read_source)
-    budget = service_module._policy_request_budget()
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id=turn.world_id, work=None,
         bootstrap=service_module.AgentPlanWorldGraphBootstrap(
@@ -3334,7 +3334,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     budget = service_module._policy_request_budget()
     assert budget["contextLimitTokens"] == 1_050_000
     assert (budget["maxProviderAttempts"], budget["maxToolCapableAttempts"],
-            budget["maxGraphOperations"]) == (4, 3, 8)
+            budget["maxGraphOperations"]) == (None, None, None)
     source_receipt, source_execution, membership = service_module._freeze_policy_receipt(
         request, work, replace(bootstrap, source_scope_anchors=({
             "anchor_id": "anchor:one", "evidence_ref_id": "ev:one",
@@ -3948,7 +3948,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             assert request_budget["contextLimitTokens"] == 1_050_000
             assert (request_budget["maxProviderAttempts"],
                     request_budget["maxToolCapableAttempts"],
-                    request_budget["maxGraphOperations"]) == (4, 3, 8)
+                    request_budget["maxGraphOperations"]) == (None, None, None)
             if self.authorize_first:
                 adjusted = dict(view)
                 adjusted["model"] = request_budget["model"]
@@ -6254,3 +6254,25 @@ def test_v3_source_batch_denied_before_io_for_both_consumers(tmp_path, monkeypat
         'retrievalSessionId':session.id, 'anchorIds':anchor_ids}})
     assert json.loads(reply['resultJson'])['code'] == (
         'graph_revision_conflict' if failure in {'foreign','stale'} else 'source_anchor_not_admitted')
+
+
+def test_parent_uncapped_related_context_can_read_ninth_passage(monkeypatch):
+    from application_state.agent_conversation.types import graph_execution_policy_digest_v2
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    turn = fixture.adapter.fence.turn
+    execution = turn.graph_context_execution
+    policy = type(execution.policy).model_validate(execution.policy.model_dump(mode='json', by_alias=True) | {
+        'policy_version': 'world_graph_execution_uncapped_v1',
+        **dict.fromkeys(('max_provider_attempts', 'max_graph_operations',
+            'max_total_provider_input_tokens', 'max_total_provider_output_tokens'))})
+    updated = type(execution)(context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(execution.context_receipt_sha256, policy),
+        policy=policy, events=[])
+    fixture.adapter.fence.turn = turn.model_copy(update={'graph_context_execution': updated})
+    for _ in range(9):
+        output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture, maxChars=100))
+        value = json.loads(output['resultJson'])
+        assert value['schema'] != 'dmb_world_graph_retrieval_error_v1', value
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert sum(event.kind == 'related_recap_context_authorized_v2' for event in events) == 9
+    assert sum(event.kind == 'validated_related_recap_context_v2' for event in events) == 9

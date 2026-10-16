@@ -3249,3 +3249,23 @@ def test_explicit_uncapped_policy_retains_ledger_and_historical_enforcement(vers
                 type(policy).model_validate(policy_data | {field: wrong})
         with pytest.raises(ValueError, match="explicit uncapped"):
             type(policy).model_validate(original.policy.model_dump(by_alias=True) | {field: None})
+
+
+def test_uncapped_related_context_records_more_than_eight_calls():
+    from application_state.agent_conversation.types import (
+        RelatedRecapContextAuthorizationEventV2, graph_execution_policy_digest_v2,
+    )
+    _, finite = _related_recap_execution_fixture()
+    policy = type(finite.policy).model_validate(finite.policy.model_dump(mode="json", by_alias=True) | _UNCAPPED_LIMITS | {"policy_version": "world_graph_execution_uncapped_v1"})
+    digest = graph_execution_policy_digest_v2(finite.context_receipt_sha256, policy)
+    events = [RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=i, kind="related_recap_context_authorized_v2", read_call_id=uuid4(),
+        context_receipt_sha256=finite.context_receipt_sha256, execution_policy_sha256=digest,
+        admission=_related_recap_admission_fixture(), max_chars=1,
+    ) for i in range(9)]
+    payload = finite.model_dump(mode="json", by_alias=True) | {"policy": policy.model_dump(mode="json", by_alias=True),
+        "execution_policy_sha256": digest, "events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+    assert len(type(finite).model_validate(payload).events) == 9
+    old = finite.model_dump(mode="json", by_alias=True) | {"events": [e.model_copy(update={"execution_policy_sha256": finite.execution_policy_sha256}).model_dump(mode="json", by_alias=True) for e in events]}
+    with pytest.raises(ValueError, match="read call budget"):
+        type(finite).model_validate(old)

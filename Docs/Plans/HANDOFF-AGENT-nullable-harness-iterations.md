@@ -1,6 +1,6 @@
 # AGENT: explicit uncapped Harness iteration support
 
-Status: ACTIVE under PRIME's Mirathorn ordinary-conversation goal and operator instruction that calls/Graph operations need no fixed count cap. ARCHITECTURE independently reviews.
+Status: MERGED — PR #1225 at `f4f3cfb5e4e9ba75100cc41058d4f3ca3ad1ba3e`; bounded implementation lease ended. Previous activation: ACTIVE under PRIME's Mirathorn ordinary-conversation goal and operator instruction that calls/Graph operations need no fixed count cap. ARCHITECTURE independently reviews.
 
 Base `fc2807af1df456f47c71592a7fe404a1852e3048`, branch `codex/harness-nullable-iterations`, isolated non-serving checkout `/tmp/prime-recap-mention-boundaries`. Pinned first before implementation. Serial prerequisite to the ordinary Agent consumer. Current open PRs inspected; no active patch/dependency/iteration owner. Solo implementation; no serving, provider or retained database operations.
 

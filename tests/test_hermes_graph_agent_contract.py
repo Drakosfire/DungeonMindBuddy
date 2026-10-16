@@ -483,3 +483,20 @@ def test_parent_broker_requires_final_answer_reservation_limits():
     )
     with pytest.raises(ValueError, match="final-answer reservation"):
         serialize_hermes_graph_agent_turn_request(request)
+
+
+def test_explicit_uncapped_budget_ipc_requires_all_null_counts():
+    budget = _budget() | {"schema": "dmb_agent_request_budget_uncapped_v1", **dict.fromkeys((
+        "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+    ))}
+    request = _request(request_budget=budget, provider_authorization_required=True, parent_graph_broker_required=True, retrieval_session_id="session-1", retrieval_session={"id": "session-1"})
+    encoded = serialize_hermes_graph_agent_turn_request(request)
+    assert deserialize_hermes_graph_agent_turn_request(encoded).request_budget == budget
+    for key in ("maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations"):
+        for value in (True, "4", 4):
+            with pytest.raises(ValueError, match="explicit null"):
+                serialize_hermes_graph_agent_turn_request(replace(request, request_budget=budget | {key: value}))
+        with pytest.raises(ValueError, match="explicit null"):
+            serialize_hermes_graph_agent_turn_request(replace(request, request_budget={k: v for k, v in budget.items() if k != key}))
+    with pytest.raises(ValueError):
+        serialize_hermes_graph_agent_turn_request(replace(request, request_budget=budget | {"schema": "dmb_hermes_request_budget_policy_v1"}))
