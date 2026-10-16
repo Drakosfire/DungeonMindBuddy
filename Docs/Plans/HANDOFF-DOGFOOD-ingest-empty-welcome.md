@@ -182,3 +182,22 @@ Verification on this change: both focused suites pass 70 tests;
 TypeScript and production build pass (with the existing large-chunk warning);
 `git diff --check` passes. This remains a presentation-only change; no ingestion
 or persistence behavior was exercised.
+
+## Re-anchored on source-observation merge — 2026-10-16
+
+After PR #1232 merged, fetched and rebased this PR onto
+`origin/main@b285e4fd1ab61139b66b461730ee7b058a909994`. The current cumulative
+diff remains the same six leased paths; the source-observation backend contract
+is now present in main but this presentation PR does not implement its review
+UI. Current rebased head: `75ac2e52237fca00e88f0b1f40ca928f6dd613a5`.
+
+The two focused suites pass 70 tests, UI typecheck passes, production build
+passes with the existing large-chunk warning, and `git diff --check
+origin/main...HEAD` passes. The last visual acceptance was on the earlier head
+`28d61482525a2ce7b62839829bb548b33726ed4e`; attempts to inspect this rebased
+head in the browser timed out while setting focus. The local preview endpoint
+on 5204 returned HTTP 200, but current-head visual acceptance is not claimed.
+No prepare, extract, review, save, retained-candidate, database, publication,
+or 5202 action was performed. Extraction/linking quality, rerun semantics,
+source-observation review, and real persistence acceptance remain open under
+the larger Ingest mandate.
