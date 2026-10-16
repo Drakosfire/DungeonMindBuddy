@@ -114,8 +114,8 @@ interface IngestionToast {
 
 interface CorpusImpactRow {
   key: string;
-  relpath: string;
-  exists: boolean;
+  relpath: string | null;
+  exists: boolean | null;
   size_bytes?: number;
   modified_at?: string;
   record_count?: number;
@@ -513,16 +513,55 @@ function corpusImpactRows(result: RecapIngestStatus | null): CorpusImpactRow[] {
   }
   return raw
     .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
+    .filter(
+      (row) =>
+        typeof row.key === "string" &&
+        row.key.trim().length > 0 &&
+        typeof row.relpath === "string" &&
+        row.relpath.trim().length > 0,
+    )
     .map((row) => ({
-      key: String(row.key ?? ""),
-      relpath: String(row.relpath ?? ""),
-      exists: Boolean(row.exists),
+      key: (row.key as string).trim(),
+      relpath: row.relpath as string,
+      exists: typeof row.exists === "boolean" ? row.exists : null,
       size_bytes: typeof row.size_bytes === "number" ? row.size_bytes : undefined,
       modified_at: typeof row.modified_at === "string" ? row.modified_at : undefined,
       record_count: typeof row.record_count === "number" ? row.record_count : undefined,
       preview: typeof row.preview === "string" ? row.preview : undefined,
-    }))
-    .filter((row) => row.key.length > 0 && row.relpath.length > 0);
+    }));
+}
+
+function recapSourceProof(result: RecapIngestStatus | null): {
+  confirmed: boolean;
+  missing: boolean;
+  hasProofRows: boolean;
+  actionStateConfirmed: boolean;
+  normalizedCurrent: boolean;
+} {
+  const sourceRows = corpusImpactRows(result).filter(
+    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
+  );
+  const canonical = sourceRows.filter((row) => row.key === "canonical_recap");
+  const normalized = sourceRows.filter((row) => row.key === "normalized_recap");
+  return {
+    confirmed:
+      canonical.length === 1 &&
+      canonical[0].exists === true &&
+      normalized.length === 1 &&
+      normalized[0].exists === true,
+    missing: sourceRows.some((row) => row.exists === false),
+    hasProofRows: sourceRows.length > 0,
+    actionStateConfirmed: Boolean(
+      result &&
+        (result.states.includes("recap_reused") || result.states.includes("recap_applied")) &&
+        (result.states.includes("normalized_reused") || result.states.includes("normalized_created")),
+    ),
+    normalizedCurrent: Boolean(
+      result?.states.includes("normalized_current") &&
+        !result.states.includes("normalized_stale") &&
+        !result.states.includes("normalized_provenance_unknown"),
+    ),
+  };
 }
 
 function formatBytes(bytes: number): string {
@@ -598,7 +637,19 @@ function buildToastForResult(
   }
 
   const warningSet = new Set(result.warnings);
-  const nextSteps = [...result.next_actions];
+  const {
+    confirmed: recapSourceConfirmed,
+    missing: recapSourceMissing,
+    hasProofRows: hasRecapSourceProofRows,
+    actionStateConfirmed: recapSourceActionConfirmed,
+  } = recapSourceProof(result);
+  const inspectedDiskStatus = result.states.includes("ingest_status_inspected");
+  const breadcrumbSourceIncomplete =
+    result.status === "breadcrumb_required" &&
+    (recapSourceMissing ||
+      ((inspectedDiskStatus || hasRecapSourceProofRows) && !recapSourceConfirmed) ||
+      (!inspectedDiskStatus && !recapSourceConfirmed && !recapSourceActionConfirmed));
+  const nextSteps = breadcrumbSourceIncomplete ? [] : [...result.next_actions];
   const stagedRawConflict = result.states.includes("staged_raw_notes_conflict");
   const frontmatterSeedReady =
     result.states.includes("frontmatter_seed_built") ||
@@ -646,11 +697,18 @@ function buildToastForResult(
   }
 
   if (result.status === "breadcrumb_required") {
-    nextSteps.unshift(
-      "Canonical + normalized recap exist on disk.",
-      "Breadcrumb + session memory are not retrieval-ready yet.",
-      "Bless the frontmatter seed and breadcrumb artifact, then inspect status before materializing session memory.",
-    );
+    if (breadcrumbSourceIncomplete) {
+      nextSteps.unshift(
+        recapSourceMissing
+          ? "The disk check did not find both canonical and normalized recap files. Restore or load the verified source before continuing."
+          : "The latest status did not confirm both canonical and normalized recap files. Restore or load the source before continuing.",
+      );
+    } else {
+      nextSteps.unshift(
+        "Breadcrumb + session memory are not retrieval-ready yet.",
+        "Bless the frontmatter seed and breadcrumb artifact, then inspect status before materializing session memory.",
+      );
+    }
   }
 
   if (result.status === "ready_for_planning_activation") {
@@ -704,7 +762,11 @@ function buildToastForResult(
       : result.status === "ready_for_planning_activation"
         ? "Session packaged. Next: Run ingest to extract the graph."
       : result.status === "breadcrumb_required"
-      ? "Expected v1 stop: canonical recap and normalized recap are prepared; retrieval activation waits for breadcrumb + session memory."
+      ? breadcrumbSourceIncomplete
+        ? recapSourceMissing
+          ? "The disk check found one or both recap files missing. Restore or load the verified recap before continuing."
+          : "The latest status did not confirm both recap files. Restore or load the verified recap before continuing."
+        : "Retrieval is waiting for breadcrumb + session memory. Check the per-file evidence for the next safe step."
       : result.errors.length > 0
         ? result.errors.join("; ")
         : result.warnings.length > 0
@@ -721,7 +783,11 @@ function buildToastForResult(
         : frontmatterSeedReady
           ? "Frontmatter seed ready"
         : result.status === "breadcrumb_required"
-        ? "Breadcrumb required before retrieval"
+        ? breadcrumbSourceIncomplete
+          ? recapSourceMissing
+            ? "Recap source missing"
+            : "Recap source needs confirmation"
+          : "Breadcrumb required before retrieval"
         : result.status === "ready_for_planning_activation" && graphMaterialized
           ? "Ingest ready"
         : result.status === "ready_for_planning_activation"
@@ -757,6 +823,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [rawText, setRawText] = useState("");
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
+  const selectedIngestTarget = JSON.stringify([ingestCampaignId, recapSession]);
+  const selectedIngestTargetRef = useRef(selectedIngestTarget);
+  selectedIngestTargetRef.current = selectedIngestTarget;
+  const recapDraftEpochRef = useRef(0);
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -764,6 +834,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [readerMode, setReaderMode] = useState(() => new URLSearchParams(window.location.search).get("view") === "recap");
   const readerAttempt = useRef<string | null>(null);
   const restoreReaderRoute = useRef(true);
+  const evidenceDetailsRef = useRef<HTMLDetailsElement>(null);
   const [readerRun, setReaderRun] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("view") === "recap" && params.get("recapReviewRunId")
@@ -795,22 +866,61 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
   const [ignoreDiskResume, setIgnoreDiskResume] = useState(false);
+  const inspectedTargetRef = useRef("");
   const lastToastKeyRef = useRef<string | null>(null);
   /** When set, the result→toast effect skips one cycle so Prep/Run can own the toast. */
   const suppressResultToastRef = useRef(false);
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
   const terminalCampaign = campaignNumberFromId(ingestCampaignId);
-  const showRecapWelcome = freshRecapEntry && !readerMode && sourceMode === "raw" && loadedArtifact === null && !rawText.trim() && recapSession === 0 && latestResult === null;
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
+    invalidateInFlightRecapOperations();
+    selectedIngestTargetRef.current = JSON.stringify([nextCampaignId, recapSession]);
     invalidateInFlightHydrateInspect();
     setIngestCampaignId(nextCampaignId);
     syncReviewCampaignUrl(nextCampaignId);
     setHydrated(false);
     setIgnoreDiskResume(false);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    setPreviewSignature(null);
+    setSourceMode("raw");
+    setLoadedArtifact(null);
+    setProcessedPreviewText("");
+    setSelectedPriorArtifactId("");
+    setPriorSourceReadFailed(false);
+    setPrimaryOp(null);
+    setLoadingPriorIngestion(false);
+    setReconciling(false);
+    setToast(null);
+    lastToastKeyRef.current = null;
+    inspectedTargetRef.current = "";
     window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+  }
+
+  function handleRecapSessionChange(nextSession: number) {
+    if (nextSession === recapSession) return;
+    invalidateInFlightRecapOperations();
+    selectedIngestTargetRef.current = JSON.stringify([ingestCampaignId, nextSession]);
+    invalidateInFlightHydrateInspect();
+    setRecapSession(nextSession);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    setPreviewSignature(null);
+    setSourceMode("raw");
+    setLoadedArtifact(null);
+    setProcessedPreviewText("");
+    setSelectedPriorArtifactId("");
+    setPriorSourceReadFailed(false);
+    setIgnoreDiskResume(false);
+    setPrimaryOp(null);
+    setLoadingPriorIngestion(false);
+    setReconciling(false);
+    setToast(null);
+    lastToastKeyRef.current = null;
+    inspectedTargetRef.current = "";
   }
 
   function invalidateInFlightHydrateInspect() {
@@ -818,6 +928,99 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     // The operator's newer action now owns this draft; do not keep it behind
     // the stale disk-inspection request's hydration gate.
     setHydrated(true);
+  }
+
+  function invalidateInFlightRecapOperations() {
+    recapDraftEpochRef.current += 1;
+  }
+
+  async function postForSelectedIngestTarget(
+    request: Parameters<typeof postRecapIngest>[0],
+    targetIdentity: string,
+  ): Promise<RecapIngestStatus | null> {
+    const draftEpoch = recapDraftEpochRef.current;
+    let result: RecapIngestStatus;
+    try {
+      result = await postRecapIngest(request);
+    } catch (error) {
+      // Resetting the draft invalidates pending responses and their failures.
+      // Do not let an older request publish an error into the new draft.
+      if (recapDraftEpochRef.current !== draftEpoch) return null;
+      throw error;
+    }
+    if (
+      recapDraftEpochRef.current !== draftEpoch ||
+      selectedIngestTargetRef.current !== targetIdentity
+    ) return null;
+    if (result.campaign_id !== request.campaign_id || result.session !== request.session) {
+      const message = "The service returned a result for a different campaign or session. Inspect this recap before retrying.";
+      setState({ status: "error", message });
+      setToast({
+        tone: "error",
+        title: "Response did not match this recap",
+        detail: message,
+        nextSteps: [],
+        sticky: true,
+      });
+      return null;
+    }
+    return result;
+  }
+
+  async function inspectSelectedRecapStatus(
+    campaignId = ingestCampaignId,
+    sessionNumber = recapSession,
+  ) {
+    if (!Number.isInteger(sessionNumber) || sessionNumber <= 0 || ignoreDiskResume) return;
+    const identity = JSON.stringify([campaignId, sessionNumber]);
+    if (inspectedTargetRef.current === identity) return;
+    const inspectGeneration = ++hydrateInspectGenerationRef.current;
+    setToast(null);
+    try {
+      const inspected = await postRecapIngest({
+        operation: "inspect_status",
+        campaign_id: campaignId,
+        session: sessionNumber,
+        slug: slug.trim() || undefined,
+        title: title.trim() || undefined,
+      });
+      if (
+        inspectGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== identity ||
+        inspected.campaign_id !== campaignId ||
+        inspected.session !== sessionNumber
+      ) return;
+      const sanitizedResult = sanitizeLatestResult(inspected) ?? inspected;
+      setLatestResult(sanitizedResult);
+      inspectedTargetRef.current = identity;
+      const synced = syncSlugTitleFromResult(sanitizedResult);
+      if (synced) {
+        setSlug(synced.slug);
+        setTitle(synced.title);
+      }
+      setActiveStep((current) => Math.max(current, deriveStepFromResult(sanitizedResult)));
+      setState(derivePaneStateFromResult(sanitizedResult));
+    } catch {
+      if (
+        inspectGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === identity
+      ) {
+        setLatestResult(null);
+        setState({ status: "idle" });
+        setToast({
+          tone: "warning",
+          title: "Could not verify saved ingest status",
+          detail: "The current recap files could not be checked. This browser's saved status may be out of date.",
+          nextSteps: ["Refresh the page to check the saved files again before continuing."],
+          sticky: true,
+        });
+      }
+    } finally {
+      if (
+        inspectGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === identity
+      ) setHydrated(true);
+    }
   }
 
   const inferredTitle = useMemo(
@@ -835,6 +1038,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const previewInvalidated =
     previewSignature != null && previewSignature !== currentPreviewSignature;
   const rawTextSatisfied = rawText.trim().length > 0;
+  const matchingResult =
+    latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession
+      ? latestResult
+      : null;
+  const resultOwnsSelection =
+    hydrated &&
+    matchingResult !== null;
+  // Transient wizard actions require a result for the current selection;
+  // saved-file proof additionally requires hydrated status for that selection.
+  const proofResult = resultOwnsSelection ? matchingResult : null;
   const busy = [
     "running_full_ingest",
     "previewing",
@@ -846,46 +1059,60 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     "materializing_preview_supergraph",
   ].includes(state.status);
   const hasPreview =
-    (hasState(latestResult, "recap_preview_created") &&
+    (hasState(matchingResult, "recap_preview_created") &&
       !previewInvalidated &&
       previewSignature === currentPreviewSignature) ||
-    hasState(latestResult, "staged_raw_notes_reused");
+    hasState(matchingResult, "staged_raw_notes_reused");
   const genericGuardPass = isNonGenericSlugOrTitle(effectiveSlug, effectiveTitle);
   const hasApplied =
-    hasState(latestResult, "recap_applied") ||
-    hasState(latestResult, "recap_reused") ||
-    hasState(latestResult, "normalized_created") ||
-    hasState(latestResult, "normalized_reused");
-  const hasFrontmatterSeed = hasState(latestResult, "frontmatter_seed_found");
-  const hasBreadcrumb = hasState(latestResult, "breadcrumb_found");
+    hasState(matchingResult, "recap_applied") ||
+    hasState(matchingResult, "recap_reused") ||
+    hasState(matchingResult, "normalized_created") ||
+    hasState(matchingResult, "normalized_reused");
+  const recapSourceNavigationProof = recapSourceProof(proofResult);
+  const hasCurrentNormalizedSource =
+    resultOwnsSelection &&
+    hasApplied &&
+    recapSourceNavigationProof.confirmed &&
+    recapSourceNavigationProof.normalizedCurrent &&
+    (!rawTextSatisfied ||
+      (previewSignature === currentPreviewSignature && !previewInvalidated));
+  const hasFrontmatterSeed = hasState(matchingResult, "frontmatter_seed_found");
+  const hasBreadcrumb = hasState(matchingResult, "breadcrumb_found");
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
-  const processedSourceReady = sourceMode === "processed" && hasApplied;
-  const sourceInputSatisfied = rawTextSatisfied || processedSourceReady || canResumeFromDisk;
+  const processedSourceReady =
+    sourceMode === "processed" &&
+    loadedArtifact !== null &&
+    processedPreviewText.trim().length > 0 &&
+    hasCurrentNormalizedSource;
+  const sourceInputSatisfied =
+    rawTextSatisfied ||
+    processedSourceReady ||
+    (canResumeFromDisk && hasCurrentNormalizedSource);
   const canMaterialize =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasBreadcrumb;
   const canBuildFrontmatterSeed =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasApplied &&
     !hasFrontmatterSeed;
   const canRunBreadcrumbIngest =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasFrontmatterSeed &&
     !hasBreadcrumb;
   const hasMaterialized =
-    hasState(latestResult, "session_memory_materialized") ||
-    state.status === "ready_for_planning_activation";
+    hasState(matchingResult, "session_memory_materialized") ||
+    (resultOwnsSelection && state.status === "ready_for_planning_activation");
   const isBuildingFrontmatterSeed = state.status === "building_frontmatter_seed";
   const isRunningBreadcrumbIngest = state.status === "running_breadcrumb_ingest";
   const isMaterializing = state.status === "materializing";
   const isRunningFullIngest = state.status === "running_full_ingest";
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
-  const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const resultOwnsSelection = latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession;
+  const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
   const reviewIdentity = JSON.stringify([ingestCampaignId, recapSession, selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null]);
   useLayoutEffect(() => {
@@ -907,20 +1134,44 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
+  const sourcePresentButUnverified =
+    sourceMode === "raw" &&
+    !rawTextSatisfied &&
+    hasNormalizedRecap &&
+    !hasCurrentNormalizedSource;
   const showPreparedSourceNotice =
-    sourceMode === "raw" && !rawTextSatisfied && hasNormalizedRecap && recapSession > 0 && !priorSourceReadFailed;
-  const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
-  const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
+    sourceMode === "raw" &&
+    !rawTextSatisfied &&
+    hasNormalizedRecap &&
+    hasCurrentNormalizedSource &&
+    recapSession > 0 &&
+    !priorSourceReadFailed;
+  const hasLoadedRecapContent =
+    sourceMode !== "raw" ||
+    loadedArtifact !== null ||
+    Boolean(rawText.trim()) ||
+    (resultOwnsSelection && (hasCurrentNormalizedSource || hasPreview));
+  const showRecapWelcome =
+    hydrated &&
+    !readerMode &&
+    !hasLoadedRecapContent &&
+    !busy &&
+    state.status !== "error" &&
+    !matchingResult?.errors?.length;
+  const hasPriorIngestWork = Boolean(
+    resultOwnsSelection && matchingResult?.states.some((item) => item !== "ingest_status_inspected"),
+  );
+  const canBuildGraphPreview = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun);
+  const canMaterializePreviewSupergraph = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
     extractGraphWithModel ||
     candidateGraphPath.trim() ||
     graphPreview?.candidate_graph_path ||
     graphPreview?.status === "candidate_validation_ready",
   );
-  const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
-  const readinessLanes = [ingestReadiness.memory, ingestReadiness.graph, ingestReadiness.attention];
+  const ingestReadiness = useMemo(() => buildIngestReadiness(matchingResult), [matchingResult]);
   const workflowNextAction = (() => {
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
-      return "No recap source loaded.";
+      return "Load a processed recap or paste the verified source to continue.";
     }
     if (!validRecapSession) return "Choose a session number before preparing this recap.";
     if (!genericGuardPass) return "Add a specific session title before preparing this recap.";
@@ -941,6 +1192,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
     if (hasPreviewUnionStore) {
       return "Graph exists · choose Replace graph to run a fresh extraction.";
+    }
+    if (sourcePresentButUnverified) {
+      return recapSourceNavigationProof.missing
+        ? "Recap files are reported missing. Inspect Evidence or load/paste the source to continue."
+        : recapSourceNavigationProof.confirmed && !recapSourceNavigationProof.normalizedCurrent
+          ? "The normalized recap is stale or its source lineage is unverified. Inspect Evidence or load the source to continue."
+          : "Recap file presence is unverified. Inspect Evidence or load the recap to continue.";
     }
     return ingestReadiness.nextAction;
   })();
@@ -972,7 +1230,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         : null;
   const graphDisabledReason = !hasNormalizedRecap
     ? "Build Graph Preview waits for a normalized recap (Apply + Normalize)."
-    : null;
+    : !hasCurrentNormalizedSource
+      ? "Build Graph Preview waits for confirmed recap files and current normalized lineage."
+      : null;
   const previewUnionSizeHint =
     typeof graphPreview?.node_count === "number"
       ? ` (${graphPreview.node_count} nodes${
@@ -983,6 +1243,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     ? `Preview union on disk${previewUnionSizeHint}. Check "Replace existing graph" then Run ingest.`
     : !hasNormalizedRecap
       ? "Materialize Preview Supergraph waits for a normalized recap."
+      : !hasCurrentNormalizedSource
+        ? "Materialize Preview Supergraph waits for confirmed recap files and current normalized lineage."
       : !canMaterializePreviewSupergraph
         ? "Candidate graph path or Run ingest is required before preview union materialization."
         : null;
@@ -990,10 +1252,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const canRunIngest =
     !busy &&
     validRecapSession &&
-    hasNormalizedRecap &&
+    hasCurrentNormalizedSource &&
     (!hasPreviewUnionStore || forceGraphRun) &&
-    genericGuardPass &&
-    (sourceMode === "processed" || canResumeFromDisk || hasNormalizedRecap);
+    genericGuardPass;
   // Prep = package session files only (no LLM graph extract).
   const canPrepForIngest =
     !busy &&
@@ -1069,12 +1330,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             return;
           }
           if (!restoredIgnoreDiskResume) {
-            const mergedWithDraft = mergeInspectResult(usableDraft?.latestResult ?? null, inspected);
+            const savedResult =
+              usableDraft?.latestResult?.campaign_id === ingestCampaignId &&
+              usableDraft.latestResult.session === defaultRecap
+                ? usableDraft.latestResult
+                : null;
+            const mergedWithDraft = mergeInspectResult(savedResult, inspected);
             const sanitizedResult = sanitizeLatestResult(mergedWithDraft) ?? mergedWithDraft;
             setLatestResult((prev) => {
-              const merged = mergeInspectResult(prev ?? usableDraft?.latestResult ?? null, inspected);
+              const matchingPrevious =
+                prev?.campaign_id === ingestCampaignId && prev.session === defaultRecap
+                  ? prev
+                  : savedResult;
+              const merged = mergeInspectResult(matchingPrevious, inspected);
               return sanitizeLatestResult(merged) ?? merged;
             });
+            if (inspected.campaign_id === ingestCampaignId && inspected.session === defaultRecap) {
+              inspectedTargetRef.current = JSON.stringify([ingestCampaignId, defaultRecap]);
+            }
             const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
             if (synced) {
               setSlug(synced.slug);
@@ -1266,6 +1539,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   function resetWizardFlow(nextStep = 1) {
+    invalidateInFlightRecapOperations();
+    hydrateInspectGenerationRef.current += 1;
     closeSavedReader();
     lastToastKeyRef.current = null;
     window.localStorage.removeItem(storageKey);
@@ -1285,6 +1560,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setState({ status: "idle" });
     setLatestResult(null);
     setPreviewSignature(null);
+    setPrimaryOp(null);
+    setReconciling(false);
+    setLoadingPriorIngestion(false);
     jumpToStep(nextStep);
   }
 
@@ -1332,13 +1610,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       return;
     }
 
+    const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+    invalidateInFlightRecapOperations();
+    selectedIngestTargetRef.current = targetIdentity;
     invalidateInFlightHydrateInspect();
+    const requestGeneration = hydrateInspectGenerationRef.current;
     setLoadingPriorIngestion(true);
     setPriorSourceReadFailed(false);
     setSourceMode("processed");
     setLoadedArtifact(record);
     setRawText("");
     setRecapSession(sessionNumber);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    inspectedTargetRef.current = "";
     setTitle(titleFromArtifact(record));
     setSlug("");
     setPreviewSignature(null);
@@ -1347,11 +1632,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     try {
       const inspected = await postRecapIngest({
         operation: "inspect_status",
-        campaign_id: ingestCampaignId,
+        campaign_id: record.campaign_id,
         session: sessionNumber,
         title: titleFromArtifact(record) || undefined,
       });
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity ||
+        inspected.campaign_id !== record.campaign_id ||
+        inspected.session !== sessionNumber
+      ) return;
       applyResultAndSyncSlug(inspected);
+      inspectedTargetRef.current = targetIdentity;
       setActiveStep(Math.max(1, deriveStepFromResult(inspected)));
       setState(derivePaneStateFromResult(inspected));
 
@@ -1360,6 +1652,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         record.source_recap_path;
       const citationPath = corpusCitationPath(normalizedPath);
       const source = await postCitationSource({ path: citationPath });
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity
+      ) return;
       if (!source.content.trim()) throw new Error("The saved recap source was empty.");
       setProcessedPreviewText(source.content);
 
@@ -1380,6 +1676,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         nextSteps: [],
       });
     } catch (error) {
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity
+      ) return;
       closeSavedReader();
       setSourceMode("raw");
       setLoadedArtifact(null);
@@ -1393,7 +1693,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setLoadingPriorIngestion(false);
+      if (
+        requestGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setLoadingPriorIngestion(false);
     }
   }
 
@@ -1425,6 +1728,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function runIngest() {
+    if (!canRunIngest) return;
+    const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     setReaderRun(null);
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1439,8 +1745,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     jumpToStep(2);
 
     try {
-      const result = applyAutomatedResult(
-        await postRecapIngest({
+      const response = await postForSelectedIngestTarget({
           operation: "generate_recap_memory",
           campaign_id: ingestCampaignId,
           managed_world_id: managedWorldId,
@@ -1452,8 +1757,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           include_legacy_breadcrumb: false,
           graph_model_id: "deepseek/deepseek-v4.1-flash",
           force_graph_run: forceGraphRun || undefined,
-        }),
-      );
+        }, targetIdentity);
+      if (!response) return;
+      const result = applyAutomatedResult(response);
 
       if (result.status === "error") {
         setState({ status: "error", result, message: resultErrorMessage(result, "Ingest failed") });
@@ -1515,6 +1821,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         });
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       const message = error instanceof Error ? error.message : "Ingest failed";
       setState({
         status: "error",
@@ -1529,11 +1836,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setPrimaryOp(null);
+      if (
+        recapDraftEpochRef.current === draftEpoch &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setPrimaryOp(null);
     }
   }
 
   async function prepForIngest() {
+    if (!canPrepForIngest) return;
+    const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setPrimaryOp("prep");
@@ -1547,8 +1860,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     jumpToStep(2);
 
     try {
-      const result = applyAutomatedResult(
-        await postRecapIngest({
+      const response = await postForSelectedIngestTarget({
           operation: "generate_recap_memory",
           campaign_id: ingestCampaignId,
           session: recapSession,
@@ -1560,8 +1872,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           check: true,
           include_graph_extraction: false,
           include_legacy_breadcrumb: false,
-        }),
-      );
+        }, targetIdentity);
+      if (!response) return;
+      const result = applyAutomatedResult(response);
       const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
       setPreviewSignature(
         previewSourceSignature(
@@ -1609,22 +1922,27 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setState(derivePaneStateFromResult(result));
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
         message: error instanceof Error ? error.message : "Prep failed",
       });
     } finally {
-      setPrimaryOp(null);
+      if (
+        recapDraftEpochRef.current === draftEpoch &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setPrimaryOp(null);
     }
   }
 
   async function stagePreview() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "previewing" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "stage_preview",
         campaign_id: ingestCampaignId,
         session: recapSession,
@@ -1632,7 +1950,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         force_stage: forceStage || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       const cleanResult = sanitizeLatestResult(result) ?? result;
       const synced = cleanResult.session === recapSession ? syncSlugTitleFromResult(cleanResult) : null;
@@ -1656,6 +1975,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(2);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1665,18 +1985,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function applyNormalize() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "applying" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "apply_normalize",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         force_recap: forceRecap || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1695,6 +2017,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1704,6 +2027,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function buildFrontmatterSeed() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "building_frontmatter_seed" });
@@ -1714,13 +2038,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "build_frontmatter_seed",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1737,6 +2062,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setState(derivePaneStateFromResult(result));
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1746,6 +2072,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function runBreadcrumbIngest() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "running_breadcrumb_ingest" });
@@ -1756,13 +2083,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "run_breadcrumb_ingest",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1779,6 +2107,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setState(derivePaneStateFromResult(result));
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1788,6 +2117,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function materializeSessionMemory() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "materializing" });
@@ -1798,14 +2128,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "materialize_session_memory",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         check: true,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1828,6 +2159,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1837,11 +2169,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function buildGraphPreview() {
+    if (!canBuildGraphPreview) return;
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "building_graph_preview" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "build_graph_preview_bundle",
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
@@ -1850,10 +2184,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         extract_graph: extractGraphWithModel,
         graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
         force_graph_run: forceGraphRun || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       setState(derivePaneStateFromResult(result));
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1863,11 +2199,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function materializePreviewSupergraph() {
+    if (!canMaterializePreviewSupergraph) return;
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "materializing_preview_supergraph" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "materialize_preview_supergraph",
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
@@ -1877,7 +2215,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
         materialize_after_extract: extractGraphWithModel,
         force_graph_run: forceGraphRun || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.states.includes("preview_union_store_ready")) {
         setState({ status: "preview_supergraph_ready", result });
@@ -1885,6 +2224,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setState(derivePaneStateFromResult(result));
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1979,6 +2319,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function reconcileNormalizedRecap(keepBasename: string) {
+    const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setReconciling(true);
@@ -1989,12 +2331,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "reconcile_normalized_recap",
         campaign_id: ingestCampaignId,
         session: recapSession,
         keep_basename: keepBasename,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       setReconcileChoice(null);
       if (result.status === "error") {
@@ -2016,6 +2359,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       const message = error instanceof Error ? error.message : "Reconcile failed";
       setState({ status: "error", result: latestResult ?? undefined, message });
       setToast({
@@ -2026,7 +2370,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setReconciling(false);
+      if (recapDraftEpochRef.current === draftEpoch) setReconciling(false);
     }
   }
 
@@ -2039,20 +2383,37 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     : inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
-  const proofRows =
-    corpusImpact.length > 0
-      ? corpusImpact.map((row) => ({
-          key: row.key,
-          relpath: row.relpath,
-          exists: row.exists,
-          record_count: row.record_count,
-        }))
-      : proofPathKeys(latestResult).map((key) => ({
+  const {
+    confirmed: recapSourceConfirmed,
+    missing: recapSourceMissing,
+    hasProofRows: hasRecapSourceProofRows,
+    actionStateConfirmed: recapSourceActionConfirmed,
+    normalizedCurrent: recapSourceNormalizedCurrent,
+  } = recapSourceProof(latestResult);
+  const recapSourceActionsUnverified = Boolean(
+    hasNormalizedRecap &&
+      (!recapSourceConfirmed || !recapSourceNormalizedCurrent),
+  );
+  const recapSourceUnconfirmed = Boolean(
+    recapSourceMissing ||
+      ((latestResult?.states.includes("ingest_status_inspected") || hasRecapSourceProofRows) &&
+        !recapSourceConfirmed) ||
+      (!recapSourceConfirmed && !recapSourceActionConfirmed) ||
+      recapSourceActionsUnverified,
+  );
+  const proofRows: CorpusImpactRow[] = latestResult
+    ? [
+        ...corpusImpact,
+        ...proofPathKeys(latestResult)
+          .filter((key) => !corpusImpact.some((row) => row.key === key))
+          .map((key) => ({
           key,
           relpath: latestResult?.paths?.[key] ?? null,
-          exists: false,
+          exists: null,
           record_count: undefined as number | undefined,
-        }));
+          })),
+      ]
+    : [];
   const hasNormalizedDuplicates = normalizedDuplicates.length > 1;
   const recommendedKeep =
     normalizedDuplicates.find((row) => row.recommended)?.basename ?? null;
@@ -2064,10 +2425,25 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
+  const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
+  const showEvidenceShortcut = latestResult !== null;
+  const showWorkflowActions = sourceInputSatisfied || busy;
+  const showSourceProofRecovery = Boolean(
+    hydrated &&
+      showRecapWelcome &&
+      matchingResult?.status === "breadcrumb_required" &&
+      recapSourceUnconfirmed,
+  );
+  const showSavedWorkRecovery = showSourceProofRecovery && hasPriorIngestWork && recapSourceMissing;
+  const showWorkflowFeedback =
+    showWorkflowActions ||
+    Boolean(toast) ||
+    state.status === "error" ||
+    showSourceProofRecovery;
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
-      <section className="ingest-local-nav" aria-label="Ingest workspace toolbar">
+      <nav className="ingest-local-nav" aria-label="Ingest workspace navigation">
         <div className="ingest-local-nav__identity">
           <ReviewCampaignPicker
             selectedCampaignId={ingestCampaignId}
@@ -2086,9 +2462,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 value={recapSession > 0 ? recapSession : ""}
                 onChange={(event) => {
                   const nextValue = Number.parseInt(event.target.value, 10);
-                  setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);
-                  setIgnoreDiskResume(false);
+                  handleRecapSessionChange(Number.isNaN(nextValue) ? 0 : nextValue);
                 }}
+                onBlur={() => void inspectSelectedRecapStatus()}
               />
               <RequiredBadge satisfied={validRecapSession} />
             </span>
@@ -2106,86 +2482,106 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <RequiredBadge satisfied={genericGuardPass} />
             </span>
           </label>
-          {!showRecapWelcome ? (
-            <button type="button" className="ingest-local-nav__new" onClick={() => startNewRecap(1)}>
-              New recap
+          {hydrated ? (
+            <button
+              type="button"
+              className="ingest-local-nav__primary-action"
+              onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap(1)}
+            >
+              {showRecapWelcome ? "Paste recap" : "New recap"}
             </button>
           ) : null}
         </div>
 
-        <div className="ingest-local-nav__workflow">
-          <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
-            <label className="ingest-local-nav__prior" htmlFor="ingestion-prior-artifact">
-              <span className="sr-only">Prior processed recap</span>
-              <select
-                id="ingestion-prior-artifact"
-                aria-label="Prior processed recap"
-                value={selectedPriorArtifactId}
-                onChange={(event) => setSelectedPriorArtifactId(event.target.value)}
-                disabled={priorIngestionArtifacts.length === 0 || loadingPriorIngestion}
-              >
-                {priorIngestionArtifacts.length === 0 ? (
-                  <option value="">No processed recaps yet</option>
-                ) : (
-                  <>
+        {showSourceActions || showWorkflowActions || showEvidenceShortcut ? (
+          <div className="ingest-local-nav__workflow">
+            {showSourceActions ? (
+              <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
+                <label className="ingest-local-nav__prior" htmlFor="ingestion-prior-artifact">
+                  <span className="sr-only">Prior processed recap</span>
+                  <select
+                    id="ingestion-prior-artifact"
+                    aria-label="Prior processed recap"
+                    value={selectedPriorArtifactId}
+                    onChange={(event) => setSelectedPriorArtifactId(event.target.value)}
+                    disabled={loadingPriorIngestion}
+                  >
                     <option value="">Load a processed recap…</option>
                     {priorIngestionArtifacts.map((record) => (
                       <option key={record.artifact_id} value={record.artifact_id}>
                         {recapArtifactSessionLabel(record)}
                       </option>
                     ))}
-                  </>
-                )}
-              </select>
-            </label>
-            <button
-              type="button"
-              aria-label="Load processed recap"
-              onClick={() => void loadSelectedPriorIngestion()}
-              disabled={loadingPriorIngestion || priorIngestionArtifacts.length === 0 || !selectedPriorArtifactId}
-            >
-              {loadingPriorIngestion ? "Loading…" : "Load"}
-            </button>
-          </div>
+                  </select>
+                </label>
+                {selectedPriorArtifactId ? (
+                  <button
+                    type="button"
+                    aria-label="Load processed recap"
+                    onClick={() => void loadSelectedPriorIngestion()}
+                    disabled={loadingPriorIngestion}
+                  >
+                    {loadingPriorIngestion ? "Loading…" : "Load"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
-          <div className="ingest-local-nav__stages" role="group" aria-label="Extraction actions">
-            <button
-              type="button"
-              aria-label={primaryOp === "prep" ? "Preparing recap" : "Prep for ingest"}
-              className={hasNormalizedRecap ? undefined : "primary"}
-              onClick={() => void prepForIngest()}
-              disabled={!canPrepForIngest}
-            >
-              {primaryOp === "prep" ? <><span className="button-inline-spinner" aria-hidden="true" /> Prepping…</> : "Prepare"}
-            </button>
-            {hasPreviewUnionStore ? (
-              <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
-                <input
-                  type="checkbox"
-                  checked={forceGraphRun}
-                  onChange={(event) => setForceGraphRun(event.target.checked)}
-                />
-                Replace graph
-              </label>
+            {showEvidenceShortcut ? (
+              <a
+                className="ingest-local-nav__evidence"
+                href="#ingestion-evidence-details"
+                onClick={() => {
+                  if (evidenceDetailsRef.current) evidenceDetailsRef.current.open = true;
+                }}
+              >
+                Evidence
+              </a>
             ) : null}
-            <button
-              type="button"
-              aria-label={primaryOp === "ingest" ? "Extracting graph" : forceGraphRun && hasPreviewUnionStore ? "Run ingest (replace graph)" : "Run ingest"}
-              className={hasNormalizedRecap ? "primary" : undefined}
-              onClick={() => void runIngest()}
-              disabled={!canRunIngest}
-            >
-              {primaryOp === "ingest" ? <><span className="button-inline-spinner" aria-hidden="true" /> Extracting…</> : "Extract"}
-            </button>
-            {hasNormalizedRecap ? (
-              <button type="button" aria-label={reviewLoading ? "Opening review…" : "Review recap canvas"} className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
-                {reviewLoading ? "Opening review…" : "Review"}
-              </button>
-            ) : null}
-            {isIngestSurfacePath() && hasPreviewUnionStore ? (
-              <button type="button" onClick={openGraphReviewWorkbench}>Review in workbench</button>
+
+            {showWorkflowActions ? (
+              <div className="ingest-local-nav__stages" role="group" aria-label="Extraction actions">
+                <button
+                  type="button"
+                  aria-label={primaryOp === "prep" ? "Preparing recap" : "Prep for ingest"}
+                  className={hasNormalizedRecap ? undefined : "primary"}
+                  onClick={() => void prepForIngest()}
+                  disabled={!canPrepForIngest}
+                >
+                  {primaryOp === "prep" ? <><span className="button-inline-spinner" aria-hidden="true" /> Prepping…</> : "Prepare"}
+                </button>
+                {hasPreviewUnionStore ? (
+                  <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
+                    <input
+                      type="checkbox"
+                      checked={forceGraphRun}
+                      onChange={(event) => setForceGraphRun(event.target.checked)}
+                    />
+                    Replace graph
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={primaryOp === "ingest" ? "Extracting graph" : forceGraphRun && hasPreviewUnionStore ? "Run ingest (replace graph)" : "Run ingest"}
+                  className={hasNormalizedRecap ? "primary" : undefined}
+                  onClick={() => void runIngest()}
+                  disabled={!canRunIngest}
+                >
+                  {primaryOp === "ingest" ? <><span className="button-inline-spinner" aria-hidden="true" /> Extracting…</> : "Extract"}
+                </button>
+                {hasNormalizedRecap ? (
+                  <button type="button" aria-label={reviewLoading ? "Opening review…" : "Review recap canvas"} className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
+                    {reviewLoading ? "Opening review…" : "Review"}
+                  </button>
+                ) : null}
+                {isIngestSurfacePath() && hasPreviewUnionStore ? (
+                  <button type="button" onClick={openGraphReviewWorkbench}>Review in workbench</button>
+                ) : null}
+              </div>
             ) : null}
           </div>
+        ) : null}
+        {showWorkflowFeedback ? (
           <div className={`ingest-local-nav__feedback ingest-local-nav__feedback--${toast?.tone ?? "neutral"}`}>
             <p
               className="ingest-local-nav__status"
@@ -2206,9 +2602,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       : toast
                         ? <>
                             <span className="ingest-local-nav__status-title">{toast.title}</span>
-                            <span aria-hidden="true"> · </span>
-                            <span>{workflowNextAction}</span>
+                            {sourceInputSatisfied || hasNormalizedRecap ? (
+                              <>
+                                <span aria-hidden="true"> · </span>
+                                <span>{workflowNextAction}</span>
+                              </>
+                            ) : null}
                           </>
+                        : showSavedWorkRecovery
+                          ? "Saved ingest work is preserved. No graph changes were written; load a recap or paste the verified source to continue."
                         : workflowNextAction}
             </p>
             {toast ? (
@@ -2240,28 +2642,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               </>
             ) : null}
           </div>
-        </div>
-      </section>
+        ) : null}
+      </nav>
 
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
-          <p className="ingest-welcome-kicker">A NEW STORY STARTS HERE</p>
-          <h2 id="ingest-first-recap-title">Bring your table’s story into the World.</h2>
-          <p className="ingest-welcome-intro">
-            Paste a session recap below. Buddy will prepare the notes and show you the evidence before anything joins the World.
+          <p className="ingest-welcome-kicker">
+            {hasPriorIngestWork ? "YOUR SESSION CANVAS" : "A NEW STORY STARTS HERE"}
           </p>
-          <ol className="ingest-welcome-steps" aria-label="From recap to World memory">
-            <li><span>01</span><div><strong>Bring the moments</strong><p>Paste the recap or load a processed one.</p></div></li>
-            <li><span>02</span><div><strong>See what Buddy found</strong><p>Inspect the proposed people, places, and connections.</p></div></li>
-            <li><span>03</span><div><strong>Choose what belongs</strong><p>Review every change before it enters the World.</p></div></li>
-          </ol>
-          <button
-            type="button"
-            className="ingest-welcome-action"
-            onClick={() => rawRecapTextAreaRef.current?.focus()}
-          >
-            Write a recap <span aria-hidden="true">↓</span>
-          </button>
+          <h2 id="ingest-first-recap-title">
+            Bring your table’s story into the World.
+          </h2>
+          <p className="ingest-welcome-intro">
+            Your recap will become a growing map of the people, places, events, and ties that shape your World.
+          </p>
         </section>
       ) : null}
 
@@ -2331,9 +2725,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 payload={{ ...reviewSource.projection, markdown: reviewSource.projection.markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "") }}
                 selectedSessionId={`session-${reviewSource.session}`}
                 sessionOptions={Array.from(new Set([`session-${reviewSource.session}`, ...priorIngestionArtifacts.filter((item) => item.campaign_id === ingestCampaignId).map((item) => item.session_id)])).sort((a, b) => Number(a.replace("session-", "")) - Number(b.replace("session-", "")))}
-                onSelectSession={(value) => setRecapSession(Number(value.replace("session-", "")))}
+                onSelectSession={(value) => {
+                  const nextSession = Number(value.replace("session-", ""));
+                  handleRecapSessionChange(nextSession);
+                  void inspectSelectedRecapStatus(ingestCampaignId, nextSession);
+                }}
                 selectedCampaignId={ingestCampaignId}
-                onSelectCampaign={setIngestCampaignId}
+                onSelectCampaign={handleIngestCampaignSelect}
               />
               </> : <article aria-label="Loaded recap">
                 <h3>Session {reviewSource.session}</h3>
@@ -2342,7 +2740,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={closeSavedReader}>Close review</button>
             </section>
           ) : null}
-          <details><summary>Advanced</summary>
+          <details id="ingestion-evidence-details" ref={evidenceDetailsRef}><summary>Evidence &amp; details</summary>
           <NativeGraphAccessControl onChanged={(available) => {
             reviewEpoch.current += 1;
             setReviewSource(null);
@@ -2351,26 +2749,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             if (available && readerMode) void reviewSavedSource(true);
           }} />
           {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection?.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
-        <ol className="ingestion-flow-steps ingestion-readiness-lanes">
-          {readinessLanes.map((lane) => (
-            <li
-              key={lane.id}
-              className={`ingestion-flow-step ingestion-flow-step-${lane.state === "ready" ? "done" : lane.state === "blocked" ? "active" : lane.state === "not_ready" ? "active" : "locked"}`}
-            >
-              <span>{lane.label}</span>
-              <strong>
-                {lane.state === "ready"
-                  ? "Ready"
-                  : lane.state === "blocked"
-                    ? "Blocked"
-                    : lane.state === "not_ready"
-                      ? "Not ready"
-                      : "Idle"}
-              </strong>
-              <p className="ingestion-readiness-detail">{lane.detail}</p>
-            </li>
-          ))}
-        </ol>
           <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
@@ -2632,15 +3010,25 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
           {latestResult?.status === "breadcrumb_required" ? (
             <div className="ingestion-boundary-card" role="status">
-              <strong>Expected v1 boundary: breadcrumb required</strong>
-              <p>
-                Canonical recap and normalized recap are on disk. Retrieval is not ready until a blessed
-                breadcrumb and session memory records exist.
-              </p>
-              <p>
-                Build the deterministic frontmatter seed, review it, run routing-only breadcrumb tagging,
-                then materialize session memory.
-              </p>
+              <strong>
+                {recapSourceUnconfirmed
+                  ? recapSourceMissing
+                    ? "Canonical and normalized recap files are not both present"
+                    : "Canonical and normalized recap files need verification"
+                  : "Expected v1 boundary: breadcrumb required"}
+              </strong>
+              {recapSourceUnconfirmed ? (
+                <p>
+                  Restore or load/paste the verified recap before continuing. Breadcrumb routing and
+                  session-memory steps come after both recap files are confirmed present.
+                </p>
+              ) : (
+                <p>
+                  Retrieval is not retrieval-ready until a blessed breadcrumb and session memory records
+                  exist. The per-file evidence below is the source of truth for canonical and normalized
+                  recap availability.
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -2731,50 +3119,33 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </div>
             <ul className="ingestion-proof-paths">
               {proofRows.map((row) => {
-                const statusLabel = row.exists ? "done" : "waiting";
+                const statusLabel = row.exists === true ? "done" : row.exists === false ? "waiting" : "unverified";
                 return (
                   <li key={row.key} className={`ingestion-proof-path ingestion-proof-path-${statusLabel}`}>
-                    <span>{pathLabel(row.key)}</span>
-                    <strong>{row.exists ? "Found" : "Missing"}</strong>
-                    <code>{row.relpath ?? "not reported yet"}</code>
-                    {typeof row.record_count === "number" ? (
-                      <span className="pill pill-neutral">records: {row.record_count}</span>
-                    ) : null}
+                    <details className="ingestion-proof-path__details">
+                      <summary>
+                        <span>{pathLabel(row.key)}</span>
+                        <strong>{row.exists === true ? "Found" : row.exists === false ? "Missing" : "Unverified"}</strong>
+                        {typeof row.record_count === "number" ? (
+                          <span className="pill pill-neutral">records: {row.record_count}</span>
+                        ) : null}
+                      </summary>
+                      <code>{row.relpath ?? "not reported yet"}</code>
+                      {row.exists === true && (typeof row.size_bytes === "number" || row.modified_at) ? (
+                        <p className="module-muted">
+                          {typeof row.size_bytes === "number" ? formatBytes(row.size_bytes) : null}
+                          {row.modified_at
+                            ? `${typeof row.size_bytes === "number" ? " · " : ""}${new Date(row.modified_at).toLocaleString()}`
+                            : null}
+                        </p>
+                      ) : null}
+                      {row.preview ? <pre>{row.preview}</pre> : null}
+                    </details>
                   </li>
                 );
               })}
             </ul>
           </section>
-
-          {corpusImpact.length > 0 ? (
-            <section className="ingestion-proof-card" aria-label="What was ingested">
-              <h4>What was ingested?</h4>
-              <p className="module-muted">
-                Read-only corpus impact previews from the latest ingest/status check.
-              </p>
-              <div className="ingestion-impact-list">
-                {corpusImpact.map((row) => (
-                  <details key={`${row.key}-${row.relpath}`} className="ingestion-impact-row">
-                    <summary>
-                      <span>{pathLabel(row.key)}</span>
-                      <strong>{row.exists ? "Found" : "Missing"}</strong>
-                      {typeof row.record_count === "number" ? (
-                        <span className="pill pill-neutral">records: {row.record_count}</span>
-                      ) : null}
-                    </summary>
-                    <code>{row.relpath}</code>
-                    {row.exists ? (
-                      <p className="module-muted">
-                        {formatBytes(row.size_bytes ?? 0)}
-                        {row.modified_at ? ` - ${new Date(row.modified_at).toLocaleString()}` : ""}
-                      </p>
-                    ) : null}
-                    {row.preview ? <pre>{row.preview}</pre> : null}
-                  </details>
-                ))}
-              </div>
-            </section>
-          ) : null}
 
           {latestResult ? (
             <section className="ingestion-status-panel">
@@ -2801,13 +3172,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     </>
                   )}
                 </div>
-                <div>
-                  <h5>Next actions</h5>
-                  <ul>{evidenceRows(latestResult.next_actions)}</ul>
-                </div>
               </div>
+              {latestResult.next_actions.length > 0 ? (
+                <details className="ingestion-status-diagnostics">
+                  <summary>Raw server recommendations</summary>
+                  {recapSourceUnconfirmed ? (
+                    <p className="module-muted">
+                      These were returned by the status service. The recap-file check above did not
+                      confirm both sources: restore or load the recap before following breadcrumb steps.
+                    </p>
+                  ) : null}
+                  <ul>{evidenceRows(latestResult.next_actions)}</ul>
+                </details>
+              ) : null}
 
-              <details open>
+              <details>
                 <summary>Canonical preview</summary>
                 <ul>
                   <li>title_line_stripped: {String(report.title_line_stripped ?? false)}</li>
@@ -2836,7 +3215,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <p className="module-muted">Roll tables are reference tools, not play facts.</p>
               </details>
 
-              <details open>
+              <details>
                 <summary>Spelling / Entity audit</summary>
                 <p className="module-muted">Review only. No auto-corrections are applied.</p>
                 {latestResult.entity_spelling_audit.length === 0 ? (

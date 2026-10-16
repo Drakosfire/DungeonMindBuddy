@@ -1267,17 +1267,6 @@ code {
   opacity: 0.64;
 }
 
-.ingestion-readiness-lanes {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ingestion-readiness-detail {
-  margin: 0.2rem 0 0;
-  color: #9aa3b5;
-  font-size: 0.72rem;
-  line-height: 1.35;
-}
-
 .wizard-step-chip {
   border-radius: 999px;
   font-size: 0.82rem;
@@ -1670,7 +1659,7 @@ code {
   gap: 0.25rem;
 }
 
-.ingestion-proof-path span {
+.ingestion-proof-path__details > summary > span:first-child {
   color: #9aa3b5;
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -1686,41 +1675,32 @@ code {
   font-size: 0.78rem;
 }
 
-.ingestion-impact-list {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.ingestion-impact-row {
-  border: 1px solid #2e3648;
-  border-radius: 8px;
-  background: rgba(20, 24, 33, 0.45);
-  padding: 0.45rem 0.55rem;
-}
-
-.ingestion-impact-row summary {
+.ingestion-proof-path__details > summary {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.45rem;
   cursor: pointer;
 }
 
-.ingestion-impact-row summary strong {
-  color: #a9f0c8;
+.ingestion-proof-path__details > summary > span:first-child {
+  flex: 1 1 12rem;
 }
 
-.ingestion-impact-row code {
+.ingestion-proof-path__details > code {
   display: block;
   margin-top: 0.45rem;
   color: #aeb8cc;
-  word-break: break-word;
 }
 
-.ingestion-impact-row pre {
+.ingestion-proof-path__details > pre {
   max-height: 14rem;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.ingestion-proof-path__details > .module-muted {
+  margin: 0.35rem 0 0;
 }
 
 .ingestion-proof-path-done {
@@ -1733,6 +1713,14 @@ code {
 
 .ingestion-proof-path-waiting {
   opacity: 0.66;
+}
+
+.ingestion-proof-path-unverified {
+  border-color: #59657a;
+}
+
+.ingestion-proof-path-unverified strong {
+  color: #bac3d1;
 }
 
 .ingestion-status-panel details {
