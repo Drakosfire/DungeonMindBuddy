@@ -1027,6 +1027,7 @@ describe("IngestionModule", () => {
     expect(toolbar).not.toHaveTextContent("The recap could not be prepared.");
     expect(within(errorToast).getByText("The recap could not be prepared.")).toBeInTheDocument();
     expect(within(errorToast).getAllByText("The recap could not be prepared.")).toHaveLength(1);
+    expect(within(screen.getByRole("region", { name: "Graph preview status" })).queryByText(/Last ingest error:/)).not.toBeInTheDocument();
     expect(screen.getByText("Error details").closest("details")).not.toHaveAttribute("open");
   });
 

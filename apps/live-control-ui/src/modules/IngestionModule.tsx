@@ -2661,7 +2661,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                         ? "extracting"
                         : graphPreview?.status ?? "pending"}
             </p>
-            {latestResult?.errors?.length ? (
+            {state.status !== "error" && latestResult?.errors?.length ? (
               <p className="module-muted" role="status">
                 Last ingest error: {latestResult.errors[0]}
               </p>

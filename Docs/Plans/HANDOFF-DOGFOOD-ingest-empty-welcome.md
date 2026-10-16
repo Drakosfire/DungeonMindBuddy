@@ -173,7 +173,10 @@ Bugbot found a repeated ingestion error message in the toolbar and recap editor.
 The toolbar now gives one concise attention status, the error remains in the
 single primary toast, and the raw error list in the status panel is collapsed
 until requested. Toast next steps omit a string already shown as the error
-detail. Added a regression test for the single-message presentation.
+detail. The Graph preview card also suppresses its duplicate "Last ingest
+error" line during a failed operation. Added a regression test for the
+single-message presentation and verified the diagnostic disclosure stays
+collapsed by default.
 
 Verification on this change: both focused suites pass 70 tests;
 TypeScript and production build pass (with the existing large-chunk warning);
