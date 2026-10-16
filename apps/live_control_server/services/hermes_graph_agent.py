@@ -1567,8 +1567,19 @@ class _GraphOperationReservation:
             wrapped = schema in {PAGE_SCHEMA, OVERVIEW_SCHEMA}
             if wrapped:
                 schema = self._presentation_schema(result, tool_name, arguments, result_json)
+            if schema == "dmb_graph_evidence_packet_v1":
+                if (tool_name != "expand_graph_retrieval" or arguments.get("includeSources", arguments.get("include_sources")) is not True
+                        or self.scope is None or len(result_json.encode()) > self.page_bytes
+                        or arguments.get("retrievalSessionId") != self.scope.retrieval_session_id
+                        or result.get("retrievalSessionId") != self.scope.retrieval_session_id
+                        or result.get("worldId") != self.scope.world_id
+                        or result.get("revisionId") != self.scope.revision_id
+                        or not isinstance(result.get("bundleId"), str)
+                        or not isinstance(result.get("records"), list)
+                        or not isinstance(result.get("sources"), list)):
+                    schema = None
             accepted = (
-                tool_name == "expand_graph_retrieval" and schema == "dmb_world_graph_retrieval_result_v1"
+                tool_name == "expand_graph_retrieval" and schema in {"dmb_world_graph_retrieval_result_v1", "dmb_graph_evidence_packet_v1"}
                 or tool_name == "read_graph_source" and schema in {
                     "dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1"}
                 or tool_name == "read_related_recap_context" and schema == "dmb_related_recap_context_read_v2"

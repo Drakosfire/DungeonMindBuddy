@@ -44,6 +44,7 @@ class GraphToolPresentation:
     def __init__(self, scope: TransportScope, *, cache=None):
         self.scope = scope
         self.cache = cache if cache is not None else GraphToolPageCache()
+        self._bundles: dict[str, tuple[Exposure, tuple[Exposure, ...]]] = {}
         self._results: dict[str, _Result] = {}
         self._delivered: dict[tuple[str, str], list[_Result]] = {}
 
@@ -100,6 +101,40 @@ class GraphToolPresentation:
         elif payload != raw:
             raise ValueError("Parent presentation did not preserve the result")
         return self._remember(tool, payload, result)
+
+    def present_bundle(self, graph_raw: str, event_id: UUID,
+                       sources: list[tuple[UUID, str]], *, compact_refs: bool = False, source_read_stop_code: str | None = None) -> str:
+        from .graph_evidence_bundle import build_evidence_packet
+        graph = json.loads(graph_raw)
+        snapshot = graph.get("snapshot", {})
+        if (snapshot.get("worldId") != self.scope.world_id
+                or snapshot.get("revisionId") != self.scope.revision_id):
+            raise ValueError("bundle Graph scope differs from parent")
+        source_results = []
+        source_exposures = []
+        for sid, raw in sources:
+            value = json.loads(raw)
+            source_results.extend(value.get("reads", [value]))
+            source_exposures.append(self._exposure(_Result("read_graph_source", sid, raw, value), [raw]))
+        packet = build_evidence_packet(graph, source_results, bundle_id=event_id,
+            session_id=self.scope.retrieval_session_id, world_id=self.scope.world_id,
+            revision_id=self.scope.revision_id, compact_refs=compact_refs,
+            source_read_stop_code=source_read_stop_code)
+        payload = json.dumps(packet, ensure_ascii=False, separators=(",", ":"))
+        if len(payload.encode()) > self.cache.page_bytes:
+            raise ValueError("evidence_bundle_overflow")
+        graph_exposure = self._exposure(_Result("expand_graph_retrieval", event_id, graph_raw, graph), [graph_raw])
+        self._bundles[payload] = (graph_exposure, tuple(source_exposures))
+        return payload
+
+    def bundled_source_inclusion(self, payloads: list[str]) -> list[Exposure]:
+        # Whole exact packets only: no substring/handle or old-envelope union.
+        by_id = {}
+        for payload in set(payloads):
+            if payload in self._bundles:
+                for item in self._bundles[payload][1]:
+                    by_id[item.event_id] = item
+        return list(by_id.values())
 
     @staticmethod
     def _initial_records(overview: dict, original: dict) -> str:
@@ -193,13 +228,17 @@ class GraphToolPresentation:
 
     def inclusion(self, tool: str, payloads: list[str]) -> list[Exposure]:
         groups: dict[UUID, tuple[_Result, list[str]]] = {}
+        bundles = []
         for payload in set(payloads):
+            if tool == "expand_graph_retrieval" and payload in self._bundles:
+                bundles.append(self._bundles[payload][0])
+                continue
             matches = self._delivered.get((tool, payload), [])
             if len(matches) != 1:
                 raise ValueError("Unknown or ambiguous parent presentation")
             result = matches[0]
             groups.setdefault(result.event_id, (result, []))[1].append(payload)
-        return [self._exposure(result, pages) for result, pages in groups.values()]
+        return [*bundles, *[self._exposure(result, pages) for result, pages in groups.values()]]
 
     @staticmethod
     def _exposure(result: _Result, pages: list[str]) -> Exposure:
