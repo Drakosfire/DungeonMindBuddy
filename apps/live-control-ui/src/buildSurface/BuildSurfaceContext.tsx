@@ -97,7 +97,7 @@ export function BuildSurfaceContext({
 
   const content = useMemo(
     () => (
-      <SurfaceContextModule label="DOCUMENT" className="build-surface-context">
+      <SurfaceContextModule label="" className="build-surface-context">
         <div className="build-surface-context__row">
           {activeDocumentId && liveRecord ? (
             <>
@@ -113,12 +113,6 @@ export function BuildSurfaceContext({
                 switching={documentMutationBusy}
                 onSelect={selectDocument}
               />
-              {campaignBadge ? (
-                <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge>
-              ) : null}
-              {documentClass ? (
-                <SurfaceContextBadge>{documentClass}</SurfaceContextBadge>
-              ) : null}
               {authoringStatusLabel ? (
                 <>
                   <SurfaceContextStatus
@@ -133,20 +127,9 @@ export function BuildSurfaceContext({
                   </span>
                 </>
               ) : null}
-              {session ? (
-                <BuildDocumentRenameControl
-                  currentTitle={displayTitle ?? ""}
-                  renaming={metadataBusy}
-                  disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
-                  onRename={async (title) => {
-                    const result = await session.updateDocumentMetadata({ title });
-                    if (result.ok) {
-                      refreshDocuments();
-                    }
-                    return result;
-                  }}
-                />
-              ) : null}
+              {session ? <button type="button" className="build-navbar-save" data-testid="build-navbar-save"
+                disabled={session.saveDisabled || documentMutationBusy}
+                onClick={() => void session.saveMarkdown()}>{saveBusy ? "Saving…" : "Save"}</button> : null}
             </>
           ) : (
             <>
@@ -162,6 +145,25 @@ export function BuildSurfaceContext({
               />
             </>
           )}
+          <details className="build-source-actions">
+            <summary>Source actions</summary>
+            <div className="build-source-actions__menu">
+              {campaignBadge ? <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge> : null}
+              {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
+              {session ? (
+                <BuildDocumentRenameControl
+                  currentTitle={displayTitle ?? ""}
+                  renaming={metadataBusy}
+                  disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
+                  onRename={async (title) => {
+                    const result = await session.updateDocumentMetadata({ title });
+                    if (result.ok) {
+                      refreshDocuments();
+                    }
+                    return result;
+                  }}
+                />
+              ) : null}
           <BuildDocumentCreateControl
             destinationOptions={destinationOptions}
             suggestedDestinationValue={suggestedDestinationValue}
@@ -176,6 +178,8 @@ export function BuildSurfaceContext({
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
           />
+            </div>
+          </details>
           {activeDocumentId && extractionTargetRef ? (
             <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
           ) : null}
@@ -220,6 +224,7 @@ export function BuildSurfaceContext({
       retryCreatedDocument,
       retryImportSource,
       selectDocument,
+      saveBusy,
       session,
       suggestedCreateCampaignId,
       suggestedDestinationValue,

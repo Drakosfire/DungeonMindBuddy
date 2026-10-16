@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
-import { existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,6 +54,10 @@ const DOC_ID = "11111111-1111-4111-8111-111111111111";
 const ARTIFACT_ID = "artifact-glass-hesta";
 const SPAN_ID = "span-hesta-gate-passage";
 const OTHER_DOC_ID = "22222222-2222-4222-8222-222222222222";
+
+function readBuildSurfaceCss() {
+  return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "buildSurface.css"), "utf8");
+}
 
 function buildExactSourceNavigationResult(
   overrides: Partial<BuildSourceNavigationResponse> = {},
@@ -162,13 +166,9 @@ function BuildDocumentHarness({ documentId }: { documentId: string }) {
   );
 }
 
-/** Non-empty clean sources default to Read; editor tests must switch explicitly. */
-async function enterEditMode() {
+/** Build sources mount the live editor directly; there is no Read/Edit mode switch. */
+async function waitForEditor() {
   const user = (await import("@testing-library/user-event")).default.setup();
-  await waitFor(() => {
-    expect(screen.getByTestId("build-source-mode-edit")).toBeInTheDocument();
-  });
-  await user.click(screen.getByTestId("build-source-mode-edit"));
   await waitFor(() => {
     expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
   });
@@ -176,6 +176,118 @@ async function enterEditMode() {
 }
 
 describe("BuildSurfaceShell", () => {
+  it("welcomes a blank worldbuilding source without adding starter text to it", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: "",
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    const prompt = await screen.findByTestId("build-empty-document-prompt");
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor.querySelector('[contenteditable="true"]')).not.toBeNull();
+    expect(buildShellTestEditor?.isEmpty).toBe(true);
+    expect(prompt).toHaveTextContent("Every world starts somewhere.");
+    expect(prompt).toHaveTextContent("skip the prompt and start typing below");
+    expect(screen.getByRole("button", { name: "A place" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "A person" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "A mystery" })).toBeEnabled();
+
+    act(() => buildShellTestEditor?.commands.insertContent("The road begins at dawn."));
+
+    await waitFor(() => expect(screen.queryByTestId("build-empty-document-prompt")).not.toBeInTheDocument());
+    expect(buildShellTestEditor?.getText()).toContain("The road begins at dawn.");
+  });
+
+  it("adds only the chosen heading when a writer picks a blank-page starter", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: "",
+    });
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    const user = await waitForEditor();
+
+    await screen.findByTestId("build-empty-document-prompt");
+    await user.click(screen.getByRole("button", { name: "A mystery" }));
+
+    await waitFor(() => expect(screen.queryByTestId("build-empty-document-prompt")).not.toBeInTheDocument());
+    expect(buildShellTestEditor?.getText().trim()).toBe("A mystery");
+    expect(buildShellTestEditor?.state.selection.$from.parent.type.name).toBe("paragraph");
+  });
+
+  it("keeps the Build conversation launcher in flow instead of covering projected documents", () => {
+    const buildCss = readBuildSurfaceCss();
+    const buildLauncherRule = buildCss.match(
+      /\.build-workspace-projection\s+\.conversation-dock__launcher\s*\{([^}]*)\}/,
+    );
+
+    expect(buildLauncherRule?.[1]).toMatch(/position:\s*static/);
+    expect(buildLauncherRule?.[1]).toMatch(/justify-self:\s*end/);
+  });
+
+  it("keeps the live Build editor on the paper projection surface", () => {
+    const buildCss = readBuildSurfaceCss();
+    const paperEditorRule = buildCss.match(
+      /\.build-workspace-projection\s+\.build-surface-editor\.tiptap-spike-editor\s*\{([^}]*)\}/,
+    );
+
+    expect(paperEditorRule).not.toBeNull();
+    expect(paperEditorRule?.[1]).toMatch(/--fg:\s*var\(--ui-text-on-paper/);
+    expect(paperEditorRule?.[1]).toMatch(/--fg-mute:\s*#75664e/);
+    expect(paperEditorRule?.[1]).toMatch(/background:\s*transparent/);
+    expect(paperEditorRule?.[1]).toMatch(/border:\s*0/);
+    expect(paperEditorRule?.[1]).toMatch(/padding:\s*0/);
+  });
+
+  it("scopes nonmodal companion overlays to Build and bounds narrow drawers", () => {
+    const buildCss = readBuildSurfaceCss();
+    const sharedCss = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../styles.css"),
+      "utf8",
+    );
+    const buildBackdropRule = buildCss.match(
+      /body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-backdrop\s*\{([^}]*)\}/,
+    );
+    const narrowDrawerRule = buildCss.match(
+      /@media\s*\(max-width:\s*42rem\)\s*\{[\s\S]*?body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-drawer\s*\{([^}]*)\}/,
+    );
+    const buildNarrowEditSelector = buildCss.match(
+      /body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer/,
+    )?.[0] ?? "";
+    const sharedOpenEditSelector = sharedCss.match(
+      /\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer/,
+    )?.[0] ?? "";
+
+    expect(buildBackdropRule).not.toBeNull();
+    expect(buildBackdropRule?.[1]).toMatch(/display:\s*none\s*!important/);
+    expect(buildBackdropRule?.[1]).toMatch(/pointer-events:\s*none\s*!important/);
+    expect(narrowDrawerRule?.[1]).toMatch(/top:\s*auto/);
+    expect(narrowDrawerRule?.[1]).toMatch(/bottom:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/left:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/right:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/width:\s*100%/);
+    expect(narrowDrawerRule?.[1]).toMatch(/height:\s*42dvh/);
+    expect(narrowDrawerRule?.[1]).toMatch(/max-height:\s*42dvh/);
+
+    // The Build selectors must outrank both shared open-dock geometry and the
+    // mobile backdrop override; :has() contributes its argument's specificity.
+    const buildEditSelector = buildBackdropRule?.[0].split(",")[0] ?? "";
+    const sharedMobileBackdropSelector = sharedCss.match(
+      /\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop\s*\{/
+    )?.[0].replace(/\s*\{$/, "") ?? "";
+    const classAndAttributeCount = (selector: string) => (selector.match(/[.[]/g) ?? []).length;
+    expect(classAndAttributeCount(buildEditSelector)).toBe(4);
+    expect(classAndAttributeCount(sharedMobileBackdropSelector)).toBe(3);
+    expect(buildNarrowEditSelector).not.toBe("");
+    expect(sharedOpenEditSelector).not.toBe("");
+    expect(classAndAttributeCount(buildNarrowEditSelector)).toBe(6);
+    expect(classAndAttributeCount(sharedOpenEditSelector)).toBe(5);
+    expect(classAndAttributeCount(buildNarrowEditSelector)).toBeGreaterThan(
+      classAndAttributeCount(sharedOpenEditSelector),
+    );
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -642,7 +754,7 @@ describe("BuildSurfaceShell", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
-    await enterEditMode();
+    await waitForEditor();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -705,7 +817,7 @@ describe("BuildSurfaceShell", () => {
     }));
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
-    await enterEditMode();
+    await waitForEditor();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -810,7 +922,7 @@ describe("BuildSurfaceShell", () => {
     });
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
-    await enterEditMode();
+    await waitForEditor();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -973,7 +1085,7 @@ describe("BuildSurfaceShell", () => {
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 
-  it("defaults clean non-empty sources to Read with exact snapshot Markdown", async () => {
+  it("opens clean saved sources directly in the editor without making them dirty", async () => {
     const snapshot = {
       ...buildWorldbuildingSnapshot(DOC_ID),
       markdown: [
@@ -993,17 +1105,17 @@ describe("BuildSurfaceShell", () => {
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
-    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Hesta" })).toHaveAttribute("href", "https://example.com/hesta");
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent("<section>raw</section>");
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor).toHaveTextContent("Gate Notes");
+    expect(editor).toHaveTextContent("Hesta");
+    expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
+    expect(screen.getByTestId("build-document-status")).not.toHaveTextContent("Unsaved local changes");
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
-  it("sealed lossy Read → Edit keeps Save guard and Read still shows exact source", async () => {
+  it("keeps the Save guard for lossy source content in the direct editor", async () => {
     const sealedLossyMarkdown = [
       "# Hesta's Apothecary",
       "",
@@ -1033,40 +1145,21 @@ describe("BuildSurfaceShell", () => {
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
-    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("heading", { level: 1, name: "Hesta's Apothecary" })).toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Tonic" })).toBeInTheDocument();
-    expect(screen.getAllByTestId("markdown-reader-unresolved-media").some((el) =>
-      el.textContent?.includes("assets/hesta-floor.png"),
-    )).toBe(true);
-    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent(
-      '<div class="gm-note">Hidden shelf</div>',
-    );
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor).toHaveTextContent("Hesta's Apothecary");
+    expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
 
-    const user = await enterEditMode();
+    await waitForEditor();
     expect(screen.getByTestId("build-reimport-authoritative-button")).toBeInTheDocument();
     const saveButton = screen.getByTestId("build-save-button");
     expect(saveButton).toBeDisabled();
 
-    if (!saveButton.hasAttribute("disabled")) {
-      await user.click(saveButton);
-    }
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
-
-    await user.click(screen.getByTestId("build-source-mode-read"));
-    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent(
-      '<div class="gm-note">Hidden shelf</div>',
-    );
-    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
-    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(screen.getByTestId("build-document-status")).not.toHaveTextContent("Unsaved local changes");
   });
 
-  it("defaults blank sources to Edit", async () => {
+  it("opens blank sources directly in the editable canvas", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       ...buildWorldbuildingSnapshot(DOC_ID),
       markdown: "   \n",
@@ -1075,11 +1168,11 @@ describe("BuildSurfaceShell", () => {
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
     expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
   });
 
-  it("defaults recovered dirty sources to Edit", async () => {
+  it("opens recovered dirty sources directly in the editable canvas", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
     const local = buildInitialWorkspaceDocumentLocalState({
       documentId: DOC_ID,
@@ -1090,7 +1183,10 @@ describe("BuildSurfaceShell", () => {
       surface: "build",
       baseRevision: 1,
       baseContentSha256: "sha-build",
-      starterContent: { type: "doc", content: [] },
+      starterContent: {
+        type: "doc",
+        content: [{ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Dirty local" }] }],
+      },
     });
     local.dirty = true;
     local.exported_markdown = "# Dirty local\n";
@@ -1098,18 +1194,20 @@ describe("BuildSurfaceShell", () => {
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByTestId("build-markdown-editor")).toHaveTextContent("Dirty local");
+    expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
   });
 
-  it("switches Read ↔ Edit without write APIs and shows dirty warning in Read", async () => {
+  it("keeps exact saved evidence separate from a dirty direct-edit draft", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(buildExactSourceNavigationResult());
+    pushBuildSourceNavigationUrl();
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
     expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
 
-    const user = await enterEditMode();
+    await waitForEditor();
     await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
     await act(async () => {
       await Promise.resolve();
@@ -1121,11 +1219,11 @@ describe("BuildSurfaceShell", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
     });
 
-    await user.click(screen.getByTestId("build-source-mode-read"));
-    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    const savedEvidence = screen.getByTestId("build-source-reader");
     expect(screen.getByTestId("build-source-reader-dirty-warning")).toHaveTextContent(/last saved source/i);
-    expect(screen.getByTestId("build-source-reader")).toHaveTextContent("Build Source");
-    expect(screen.queryByText("unsaved delta")).not.toBeInTheDocument();
+    expect(savedEvidence).toHaveTextContent("Build Source");
+    expect(savedEvidence).not.toHaveTextContent("unsaved delta");
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("unsaved delta");
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
@@ -1164,7 +1262,7 @@ describe("BuildSurfaceShell", () => {
     expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
   });
 
-  it("re-resolves A/S on arrival and highlights an exact source span in Read", async () => {
+  it("re-resolves A/S on arrival and highlights an exact saved evidence span", async () => {
     const markdown = [
       "---",
       "title: Gate Notes",
@@ -1195,7 +1293,8 @@ describe("BuildSurfaceShell", () => {
       });
     });
     await waitFor(() => {
-      expect(screen.getByText("Hesta watches the orchard gate at dusk.").closest("[data-source-block='true']"))
+      expect(within(screen.getByTestId("build-source-reader")).getByText("Hesta watches the orchard gate at dusk.")
+        .closest("[data-source-block='true']"))
         .not.toBeNull();
     });
     expect(screen.queryByTestId("build-source-reader-navigation-status")).not.toBeInTheDocument();
@@ -1264,13 +1363,10 @@ describe("BuildSurfaceShell", () => {
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
 
-    const user = (await import("@testing-library/user-event")).default.setup();
-    await user.click(screen.getByTestId("build-source-mode-read"));
     expect(await screen.findByTestId("build-source-reader-navigation-dirty-notice")).toHaveTextContent(
       /last saved source/i,
     );

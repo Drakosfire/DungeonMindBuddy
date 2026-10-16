@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
-import type { AgentInteractionTurn, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
+import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
@@ -12,14 +12,24 @@ import { useAgentInteraction } from "./useAgentInteraction";
 import { AskPluginSlotProvider } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
 import { WorldAgentConversation, WorldAgentConversationProvider, WorldPlanConversationRegistration, usePublishWorldPlayConversation, usePublishWorldBuildConversation, useWorldAgentConversationState } from "./WorldAgentConversation";
+import { BuildSurfacePage } from "../buildSurface/BuildSurfacePage";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
+import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
+import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import type { CapturedWorldPlanEditTarget, WorldPlanEditBridge } from "../planSurface/agentEdit/planAgentEditProposal";
 
 const selectedWorld = vi.hoisted(() => ({ id: "world-one" }));
-vi.mock("../selectedWorld/SelectedWorldContext", () => ({
+vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../selectedWorld/SelectedWorldContext")>()),
   useSelectedWorld: () => ({ kind: "managed", worldId: selectedWorld.id, name: "Test World", documentId: "plan-one" }),
 }));
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
+  createWorkspaceDocument: vi.fn(),
+  getWorkspaceDocumentSnapshot: vi.fn(),
+  listWorkspaceDocuments: vi.fn(),
+  listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
@@ -37,6 +47,38 @@ const WORLD = "world-one";
 const RUN = "run-one";
 const SHA = "a".repeat(64);
 const WORK_REVISION = "00000000-0000-4000-8000-000000000011";
+const BUILD_SOURCE_ID = "build-source-one";
+
+function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
+  const record: WorkspaceDocumentRecord = {
+    schema_version: "dmb_workspace_document_record_v1",
+    document_id: BUILD_SOURCE_ID,
+    title: "City of Mirathorn",
+    campaign_id: WORLD,
+    world_id: WORLD,
+    target_session: null,
+    kind: "worldbuilding_source",
+    target_relpath: `out/workspace/worldbuilding/${BUILD_SOURCE_ID}.md`,
+    status: "active",
+    content_status: "committed",
+    revision: 2,
+    created_at: "2026-10-01T00:00:00Z",
+    updated_at: "2026-10-02T00:00:00Z",
+    source_domain: "worldbuilding",
+    document_class: "lore",
+    authority_state: "draft",
+    visibility_state: "internal",
+  };
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "# City of Mirathorn\n\nA city of old walls and new plans.\n",
+    content_sha256: SHA,
+    file_fingerprint: "source-file-fingerprint",
+    file_exists: true,
+    loaded_revision: 2,
+  };
+}
 
 function history(turns: WorldAgentConversationHistoryResponseV1["turns"] = []): WorldAgentConversationHistoryResponseV1 {
   return { schema: "dmb_agent_conversation_history_v1", world_id: WORLD,
@@ -125,6 +167,20 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
       {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} />}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
+    </WorldAgentConversationProvider>
+  </AskPluginSlotProvider></AgentInteractionProvider>;
+}
+
+function RealBuildPageHarness() {
+  return <AgentInteractionProvider><AskPluginSlotProvider>
+    <WorldAgentConversationProvider worldId={WORLD}>
+      <SurfaceContextProvider><PeekRegionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </PeekRegionProvider></SurfaceContextProvider>
+      <AgentInteractionChrome />
+      <WorldAgentConversation surface="build" worldId={WORLD} worldName="Test World" />
     </WorldAgentConversationProvider>
   </AskPluginSlotProvider></AgentInteractionProvider>;
 }
@@ -333,6 +389,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     selectedWorld.id = WORLD;
     window.localStorage.clear();
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([turn("plan", 1, "Original Plan answer")]));
+    vi.mocked(listWorkspaceDocuments).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v1", records: [] });
+    vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [] });
     vi.mocked(getWorldOwnedPlanCommittedRevision).mockResolvedValue({
       schema_version: "dmb_workspace_committed_revision_v2", scope_mode: "world", world_id: WORLD,
       campaign_id: null, document_id: "plan-one", kind: "plan", status: "active", object_revision: 7,
@@ -470,6 +528,53 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     expect(await screen.findByLabelText("Message DungeonBuddy")).toBeDisabled();
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it("explains empty Build, enables only the selected saved source, and clears its context on return to empty", async () => {
+    const source = buildSourceSnapshot();
+    vi.mocked(listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [source.record],
+    });
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(source);
+    window.history.pushState({}, "", `/build?world=${WORLD}`);
+
+    render(<RealBuildPageHarness />);
+    const sourceSelector = await screen.findByRole("combobox", { name: "Worldbuilding source" });
+    await waitFor(() => expect(sourceSelector).toBeEnabled());
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+
+    const emptyComposer = await screen.findByLabelText("Message DungeonBuddy");
+    expect(emptyComposer).toBeDisabled();
+    expect(emptyComposer.getAttribute("aria-describedby")).toContain("world-plan-agent-build-source-required");
+    expect(screen.getByText(/Buddy needs a saved source before you can ask about your lore/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Choose a source" }));
+    expect(sourceSelector).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Open source actions" }));
+    expect(screen.getByText("Source actions", { selector: "summary" }).parentElement).toHaveAttribute("open");
+    fireEvent.submit(emptyComposer.closest("form")!);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(createWorkspaceDocument).not.toHaveBeenCalled();
+
+    fireEvent.change(sourceSelector, { target: { value: BUILD_SOURCE_ID } });
+    await screen.findByTestId("build-markdown-editor");
+    fireEvent.click(screen.getByRole("button", { name: /What Buddy sees/ }));
+    expect(await screen.findByText(/Buddy uses the saved source “City of Mirathorn”/)).toBeVisible();
+    const savedComposer = screen.getByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(savedComposer).toBeEnabled());
+
+    window.history.pushState({}, "", `/build?world=${WORLD}`);
+    fireEvent(window, new PopStateEvent("popstate"));
+    await screen.findByTestId("build-surface-empty");
+    fireEvent.click(screen.getByRole("button", { name: /What Buddy sees/ }));
+    expect(await screen.findByText(/Buddy needs a saved source before you can ask about your lore/)).toBeVisible();
+    expect(screen.queryByText(/Buddy uses the saved source “City of Mirathorn”/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.submit(screen.getByLabelText("Message DungeonBuddy").closest("form")!);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(createWorkspaceDocument).not.toHaveBeenCalled();
   });
 
   it.each(["failed", "interrupted", "wrong_key", "wrong_basis", "wrong_conversation", "duplicate", "changed_envelope", "newer_pending"] as const)("reconciles terminal Graph Ask safely: %s", async (scenario) => {

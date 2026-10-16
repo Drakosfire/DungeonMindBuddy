@@ -1,11 +1,15 @@
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
+import type { MarkdownCanvasSessionValue } from "../markdownCanvas/markdownCanvasTypes";
+import * as markdownCanvasSessionModule from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
@@ -28,16 +32,19 @@ import type { BuildReferenceContextBinding } from "./reference/buildBuildSurface
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
-function renderBuildPage() {
+function renderBuildPage({ withConversationDock = false }: { withConversationDock?: boolean } = {}) {
+  const page = <>
+    <SurfaceContextProvider>
+      <PeekRegionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </PeekRegionProvider>
+    </SurfaceContextProvider>
+  </>;
   return render(
     <AgentInteractionProvider>
-      <SurfaceContextProvider>
-        <PeekRegionProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
-        </PeekRegionProvider>
-      </SurfaceContextProvider>
+      {withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
     </AgentInteractionProvider>,
   );
 }
@@ -202,12 +209,22 @@ describe("BuildSurfacePage", () => {
     });
   });
 
-  it("E2: bare /build shows DOCUMENT context and empty state without creating", async () => {
+  it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {
     mockUntitledDraftCreate();
-    renderBuildPage();
+    const { container } = renderBuildPage({ withConversationDock: true });
 
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
-    expect(screen.getByText("DOCUMENT")).toBeInTheDocument();
+    const landing = await screen.findByTestId("build-surface-empty");
+    expect(landing).toHaveClass("build-empty-landing");
+    expect(landing.closest(".build-surface-shell")).toBe(landing);
+    expect(landing.closest('[data-document-surface="build"]')).not.toBeNull();
+    expect(landing).toHaveTextContent("Start with a spark.");
+    expect(landing).toHaveTextContent("Build a world around it.");
+    expect(landing).toHaveTextContent("Open a page");
+    expect(landing).toHaveTextContent("Start something new");
+    expect(landing).toHaveTextContent("Bring your lore");
+    expect(landing.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".plan-conversation-dock")).toBeInTheDocument();
+    expect(screen.getByText("Source actions")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
@@ -267,9 +284,108 @@ describe("BuildSurfacePage", () => {
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
     expect(screen.getAllByRole("button", { name: "Document", exact: true })).toHaveLength(1);
-    expect(screen.getByTestId("build-source-mode-edit")).toBeVisible();
-    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+  });
+
+  it("keeps navbar Save disabled until a new blank source has edits", async () => {
+    const user = userEvent.setup();
+    const createdId = "33333333-3333-4333-8333-333333333333";
+    let activeSession: MarkdownCanvasSessionValue | null = null;
+    const useSession = markdownCanvasSessionModule.useMarkdownCanvasSession;
+    const sessionSpy = vi.spyOn(markdownCanvasSessionModule, "useMarkdownCanvasSession").mockImplementation(() => {
+      activeSession = useSession();
+      return activeSession;
+    });
+    mockUntitledDraftCreate(createdId, "longmont-c2");
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: createdId,
+      title: "First notes",
+      campaign_id: "longmont-c2",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${createdId}.md`,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+
+    renderBuildPage();
+    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
+    await user.type(screen.getByTestId("build-document-create-title"), "First notes");
+    await user.click(screen.getByTestId("build-document-create-submit"));
+
+    await screen.findByTestId("build-markdown-editor");
+    await waitFor(() => expect(activeSession?.editor).not.toBeNull());
+    expect(activeSession?.phase).toBe("ready_clean");
+    expect(activeSession?.saveDisabled).toBe(true);
+    expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
+    act(() => activeSession!.editor!.chain().focus().insertContent("A first note").run());
+    await waitFor(() => expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes"));
+    expect(activeSession?.saveDisabled).toBe(false);
+    expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
+    sessionSpy.mockRestore();
+  });
+
+  it("keeps one editor usable with Tools open and navigates changed duplicate headings", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard\n\n## Guard\n");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    let current!: MarkdownCanvasSessionValue;
+    function Probe() { current = useMarkdownCanvasSession(); return null; }
+    function Workspace() {
+      const [tools, setTools] = useState<AppChromeToolsGeneration | null>(null);
+      return <AppChrome activeRoute="build" editorTools={tools} editToolboxLayout="dock" workspaceLayout="bounded">
+        <MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source" saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}>
+          <BuildReferenceCapability documentId={DOC_ID}><BuildSurfaceShell onEditorTools={setTools} /><Probe /></BuildReferenceCapability>
+        </MarkdownCanvasSessionProvider>
+      </AppChrome>;
+    }
+    render(<AgentInteractionProvider><SurfaceContextProvider><PeekRegionProvider><Workspace /><ToolHost /></PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>);
+    const mountedEditor = await screen.findByTestId("build-markdown-editor");
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    const outline = screen.getByRole("navigation", { name: "On this page" });
+    const guards = within(outline).getAllByRole("button", { name: "Guard", exact: true });
+    expect(guards).toHaveLength(2);
+    await user.click(guards[1]);
+    const secondHeadingPosition = current.editor!.state.selection.from;
+    await user.click(screen.getByRole("button", { name: "Tools", exact: true }));
+    await act(async () => { current.editor!.chain().focus().insertContentAt(1, "New ").run(); });
+    expect(screen.getByTestId("build-markdown-editor")).toBe(mountedEditor);
+    expect(current.dirty).toBe(true);
+    expect(current.editor!.getText()).toContain("New Mirathorn");
+    expect(within(screen.getByRole("navigation", { name: "On this page" })).getByRole("button", { name: "New Mirathorn", exact: true })).toBeInTheDocument();
+    const updatedGuards = within(screen.getByRole("navigation", { name: "On this page" })).getAllByRole("button", { name: "Guard", exact: true });
+    await user.click(updatedGuards[1]);
+    expect(current.editor!.state.selection.from).toBe(secondHeadingPosition + 4);
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("opens a saved source directly editable with live outline and formatting beside it", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard headquarters\n");
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor.querySelector("[contenteditable=\"true\"]")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    expect(within(screen.getByRole("navigation", { name: "On this page" })).getByRole("button", { name: "Guard headquarters" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Text formatting" })).toBeInTheDocument();
+    expect(editor.querySelector("[contenteditable=\"true\"]")).not.toBeNull();
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -939,7 +1055,7 @@ describe("BuildSurfacePage", () => {
     expect(after).toEqual(before);
   });
 
-  it("E3: shared Edit Save commits dirty document via prepare/commit", async () => {
+  it("E3: navbar Save commits dirty document via prepare/commit", async () => {
     const user = userEvent.setup();
     const dirtyMarkdown = "# Dirty faction draft\n";
     const editorJson = {
@@ -1018,7 +1134,7 @@ describe("BuildSurfacePage", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(
-      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+      screen.getByTestId("build-navbar-save"),
     );
 
     await waitFor(() => {
@@ -1458,7 +1574,7 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
       expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
     });
-    expect(await screen.findByTestId("build-source-reader")).toHaveTextContent(
+    expect(await screen.findByTestId("build-markdown-editor")).toHaveTextContent(
       /western warehouse is empty during festival season/i,
     );
 
@@ -1496,7 +1612,6 @@ describe("BuildSurfacePage", () => {
 
     await waitFor(() => expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
-    await user.click(screen.getByTestId("build-source-mode-edit"));
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /Find existing object/ }));

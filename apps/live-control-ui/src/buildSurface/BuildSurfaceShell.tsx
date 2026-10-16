@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
 import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { MarkdownDocumentOutline } from "../markdownReader/MarkdownDocumentOutline";
 import { getBuildSourceNavigation } from "../api/liveApi";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
@@ -25,34 +24,10 @@ import {
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
 
-export type BuildSourceViewMode = "read" | "edit";
-
 function isPresentableSourcePhase(phase: string): boolean {
-  return (
-    phase !== "unloaded"
-    && phase !== "loading"
-    && phase !== "load_error"
-    && phase !== "conflict"
-  );
+  return !["unloaded", "loading", "load_error", "conflict"].includes(phase);
 }
 
-function isEffectivelyEmptyMarkdown(markdown: string): boolean {
-  return markdown.trim().length === 0;
-}
-
-export function initialSourceViewMode(args: {
-  dirty: boolean;
-  markdown: string;
-}): BuildSourceViewMode {
-  if (args.dirty) return "edit";
-  if (isEffectivelyEmptyMarkdown(args.markdown)) return "edit";
-  return "read";
-}
-
-/**
- * Ephemeral Read/Edit chrome for one admitted document.
- * Mounted with `key={documentId}` so the initial mode decision runs once per document.
- */
 const IDLE_SOURCE_NAVIGATION_TARGET: BuildSourceNavigationTarget = { status: "none" };
 
 function BuildPresentableSourceView({
@@ -66,41 +41,86 @@ function BuildPresentableSourceView({
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
-  const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
-    initialSourceViewMode({
-      dirty: session.dirty,
-      markdown: session.snapshot?.markdown ?? "",
-    }),
-  );
+  const [outlineVersion, setOutlineVersion] = useState(0);
+  useEffect(() => {
+    const editor = session.editor;
+    if (!editor) return;
+    const update = () => setOutlineVersion(value => value + 1);
+    editor.on("update", update);
+    editor.on("selectionUpdate", update);
+    return () => { editor.off("update", update); editor.off("selectionUpdate", update); };
+  }, [session.editor]);
 
   useEffect(() => {
+    const editor = session.editor;
+    const headings: { position: number; level: number; text: string }[] = [];
+    editor?.state.doc.descendants((node, position) => {
+      if (node.type.name === "heading") headings.push({ position, level: node.attrs.level, text: node.textContent });
+    });
     onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
       tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
-        panel: <><div className="shared-document-mode" aria-label="Source view mode">
-          <button type="button" data-testid="build-source-mode-read" aria-label="Read source" aria-pressed={sourceViewMode === "read"}
-            onClick={() => setSourceViewMode("read")}>Read source</button>
-          <button type="button" data-testid="build-source-mode-edit" aria-label="Edit source" aria-pressed={sourceViewMode === "edit"}
-            onClick={() => setSourceViewMode("edit")}>Edit source</button>
-        </div>{sourceViewMode === "read" ? <MarkdownDocumentOutline markdown={session.snapshot!.markdown} />
-          : <p>Return to Read source to navigate the saved outline.</p>}</> }] } });
+        panel: <><div className="build-formatting" role="group" aria-label="Text formatting">
+          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("bold") ?? false}
+            onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
+          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("italic") ?? false}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
+          <button type="button" disabled={!editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>Heading</button>
+          <button type="button" disabled={!editor?.can().undo()} onClick={() => editor?.chain().focus().undo().run()}>Undo</button>
+          <button type="button" disabled={!editor?.can().redo()} onClick={() => editor?.chain().focus().redo().run()}>Redo</button>
+        </div><nav className="markdown-document-outline" aria-label="On this page">
+          {headings.length ? <ol>{headings.map(heading => <li key={heading.position}
+            style={{ paddingInlineStart: `${Math.min(heading.level - 1, 2) * 0.75}rem` }}>
+            <button type="button" onClick={() => editor?.chain().focus().setTextSelection(heading.position + 1).scrollIntoView().run()}>
+              {heading.text || "Untitled section"}
+            </button>
+          </li>)}</ol> : <p>No headings in this document.</p>}
+        </nav></> }] } });
     return () => onEditorTools?.(null);
-  }, [onEditorTools, sourceViewMode, session.record?.document_id, session.snapshot?.markdown]);
+  }, [onEditorTools, session.editor, session.record?.document_id, outlineVersion]);
 
-  return (
-    <div className="build-surface-shell" data-testid="build-surface-shell">
-      {sourceViewMode === "read" ? (
-        <BuildSourceReader
-          showOutline={false}
-          title={session.record!.title}
-          markdown={session.snapshot!.markdown}
-          dirty={session.dirty}
-          navigationTarget={navigationTarget}
-        />
-      ) : (
-        <MarkdownCanvas slots={editSlots} />
-      )}
-    </div>
-  );
+  const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
+    && navigationTarget.status === "none"
+    && (session.editor?.isEmpty ?? !session.snapshot?.markdown.trim());
+  const startWith = (heading: string) => {
+    const editor = session.editor;
+    if (!editor?.isEmpty) return;
+    editor.chain().focus().insertContent([
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: heading }] },
+      { type: "paragraph" },
+    ]).run();
+  };
+
+  return <div className="build-surface-shell" data-testid="build-surface-shell">
+    {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
+      <summary>Saved evidence passage</summary>
+      <BuildSourceReader showOutline={false} title={session.record!.title}
+        markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
+    </details> : null}
+    {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
+      <div className="build-empty-document-prompt__art" aria-hidden="true">
+        <svg viewBox="0 0 120 104" fill="none">
+          <path d="M7 83c17-13 29-13 43 0s26 13 42 0 17-12 21-10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 4" />
+          <path d="M17 24 34 9l14 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M29 14v14m-7-7h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+          <rect x="42" y="20" width="53" height="68" rx="4" fill="#fffaf0" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M52 34h32M52 42h24M52 58c8-7 15-7 22 0s13 7 18 1" stroke="#c8ad72" strokeWidth="1.4" strokeLinecap="round" />
+          <path d="m82 73 3.2 6.5 7.2 1-5.2 5 .9 7-6.1-3.4-6.3 3.4 1.2-7-5.3-5 7.1-1L82 73Z" fill="#e0b34d" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+          <circle cx="103" cy="22" r="2" fill="#c58b33" />
+          <circle cx="109" cy="32" r="1.25" fill="#c58b33" />
+        </svg>
+      </div>
+      <div className="build-empty-document-prompt__copy">
+        <p className="build-empty-document-prompt__eyebrow">A FRESH PAGE</p>
+        <h2>Every world starts somewhere.</h2>
+        <p>Pick a first thread—or skip the prompt and start typing below.</p>
+        <div className="build-empty-document-prompt__starters" role="group" aria-label="Choose a first heading">
+          {(["A place", "A person", "A mystery"] as const).map(heading =>
+            <button key={heading} type="button" onClick={() => startWith(heading)}>{heading}</button>)}
+        </div>
+      </div>
+    </section> : null}
+    <MarkdownCanvas slots={editSlots} />
+  </div>;
 }
 
 function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts }) {
@@ -108,10 +128,129 @@ function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildCo
   return null;
 }
 
+/** Build's no-document landing is still a framed projection with the same conversation dock. */
+export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loading" | "ready" | "empty" | "error" }) {
+  const isLoading = loadStatus === "idle" || loadStatus === "loading";
+  const hasError = loadStatus === "error";
+  const reader = (
+    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
+      <main
+        className={`build-surface-shell build-empty-landing${hasError ? " build-empty-landing--error" : ""}`}
+        data-testid="build-surface-empty"
+        aria-busy={isLoading}
+        aria-labelledby="build-empty-landing-title"
+      >
+        <div className="build-empty-landing__welcome">
+          <div className="build-empty-landing__hero">
+            <p className="build-empty-landing__eyebrow">YOUR WORLDBUILDING STUDIO</p>
+            <h1 id="build-empty-landing-title">
+              {hasError ? (
+                "That page took a wrong turn."
+              ) : (
+                <>
+                  Start with a spark.<br />
+                  <em>Build a world around it.</em>
+                </>
+              )}
+            </h1>
+            <p className="build-empty-landing__intro">
+              {hasError
+                ? "Choose another page from the Build bar, or start fresh from Source actions."
+                : "A place, a person, a strange rumor—give one idea a page, then let the rest of the world grow around it."}
+            </p>
+          </div>
+          <div className="build-empty-landing__illustration" aria-hidden="true">
+            <svg viewBox="0 0 420 240" role="presentation" aria-hidden="true" focusable="false">
+              <path
+                className="build-empty-landing__contour"
+                d="M31 178c43-58 85-59 120-32s57 32 87-2 75-43 151 3M22 202c51-41 94-41 129-16s59 24 92-5 78-39 150-2M70 145c30-39 57-40 83-20s45 23 66 0 52-31 96-10"
+              />
+              <path
+                className="build-empty-landing__route"
+                d="M75 106c47 0 49 52 100 52s54-74 107-74 53 50 88 50"
+              />
+              <circle className="build-empty-landing__node" cx="75" cy="106" r="7" />
+              <circle className="build-empty-landing__node" cx="175" cy="158" r="7" />
+              <circle className="build-empty-landing__node" cx="282" cy="84" r="7" />
+              <circle className="build-empty-landing__node" cx="370" cy="134" r="7" />
+              <g className="build-empty-landing__page" transform="translate(177 48) rotate(-5 34 43)">
+                <path d="M8 3h47l14 14v66H8z" />
+                <path d="M55 3v15h14M19 34h38M19 44h31M19 54h35M19 64h25" />
+                <path
+                  className="build-empty-landing__page-star"
+                  d="m18 20 2.2 4.5 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8-3.5-3.4 4.8-.7z"
+                />
+              </g>
+              <path
+                className="build-empty-landing__spark"
+                d="m328 37 3 7 7 3-7 3-3 7-3-7-7-3 7-3zM112 46l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"
+              />
+            </svg>
+            <div className="build-empty-landing__illustration-caption">
+              <span>PLACES</span><i /> <span>PEOPLE</span><i /> <span>WHAT-IFS</span>
+            </div>
+          </div>
+        </div>
+        {isLoading ? (
+          <p className="build-empty-landing__status" role="status">Finding your worldbuilding sources…</p>
+        ) : hasError ? (
+          <p className="build-empty-landing__status" role="alert">The requested source is unavailable. You can choose another from the Build bar.</p>
+        ) : (
+          <section className="build-empty-landing__begin" aria-labelledby="build-empty-landing-steps">
+            <p className="build-empty-landing__eyebrow" id="build-empty-landing-steps">CHOOSE YOUR FIRST STEP</p>
+            <div className="build-empty-landing__paths" aria-label="Ways to begin">
+              <section>
+                <span className="build-empty-landing__step">01</span>
+                <div>
+                  <p className="build-empty-landing__path-label">PICK UP WHERE YOU LEFT OFF</p>
+                  <h2>Open a page</h2>
+                  <p>Choose a saved worldbuilding source in the Build bar above.</p>
+                </div>
+              </section>
+              <section>
+                <span className="build-empty-landing__step">02</span>
+                <div>
+                  <p className="build-empty-landing__path-label">BEGIN WITH A CLEAN PAGE</p>
+                  <h2>Start something new</h2>
+                  <p>
+                    Choose <strong>New source</strong> in Source actions and give your idea a title.
+                  </p>
+                </div>
+              </section>
+              <section>
+                <span className="build-empty-landing__step">03</span>
+                <div>
+                  <p className="build-empty-landing__path-label">ALREADY HAVE NOTES?</p>
+                  <h2>Bring your lore</h2>
+                  <p>
+                    Choose <strong>Import source</strong> to continue from existing Markdown.
+                  </p>
+                </div>
+              </section>
+            </div>
+          </section>
+        )}
+        <p className="build-empty-landing__footnote">
+          <span aria-hidden="true">✦</span>
+          Nothing is created until you choose to begin. Your page and its world tools share this workspace.
+        </p>
+      </main>
+    </div>
+  );
+
+  return (
+    <div className="build-workspace-projection">
+      <DocumentConversationDock surface="build" contextLabel="Worldbuilding source" reader={reader}>
+        {hosts => <BuildConversationBinding source={null} hosts={hosts} />}
+      </DocumentConversationDock>
+    </div>
+  );
+}
+
 /**
- * Build document chrome: Agent Interaction publication + Read/Edit composition.
+ * Build document workspace: shared authoring and conversation publication.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
- * Read renders exact saved snapshot Markdown; Edit preserves MarkdownCanvas authoring.
+ * Saved evidence remains separate from the directly editable working document.
  */
 export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void }) {
   const session = useMarkdownCanvasSession();

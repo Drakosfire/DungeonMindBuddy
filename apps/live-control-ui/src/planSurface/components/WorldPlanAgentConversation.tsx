@@ -67,6 +67,24 @@ import {
 } from "./agentInteractionHistory";
 import "./WorldPlanAgentConversation.css";
 
+const BUILD_SOURCE_REQUIRED_DESCRIPTION_ID = "world-plan-agent-build-source-required";
+
+function focusBuildSourceSelector(): void {
+  document.querySelector<HTMLSelectElement>("[data-testid='build-document-select']")?.focus({ preventScroll: false });
+}
+
+function openBuildSourceActions(): void {
+  const actions = document.querySelector<HTMLDetailsElement>("details.build-source-actions");
+  const summary = actions?.querySelector<HTMLElement>("summary");
+  if (!actions || !summary) return;
+  if (!actions.open) summary.click();
+  summary.focus({ preventScroll: true });
+}
+
+function buildSourceRequiredMessage(): string {
+  return "Buddy needs a saved source before you can ask about your lore. Choose one, or create/import a source in Build and save it there.";
+}
+
 export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
@@ -4818,6 +4836,7 @@ export function WorldPlanAgentConversation({
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
+  const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const composerBusy = isReadOnly
     ? sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
@@ -5092,8 +5111,8 @@ export function WorldPlanAgentConversation({
             ) : null}
           </div>
   );
-  const buildContextDetails = <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts.</p>
-    <button type="button" aria-pressed={useWorldGraphForAsk} onClick={() => setUseWorldGraphForAsk(value => !value)}>
+  const buildContextDetails = <><LoadedWorldGraphExplorer />{buildMode?.savedSource ? <p>Buddy uses the saved source “{buildMode.savedSource.title}”. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts.</p> : <p role="note">No source context is loaded. World retrieval alone cannot start a Buddy turn.</p>}
+    <button type="button" aria-pressed={useWorldGraphForAsk} disabled={!buildMode?.savedSource} onClick={() => setUseWorldGraphForAsk(value => !value)}>
       Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></>;
   const contextDetails = isBuild ? buildContextDetails : (
     <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
@@ -5537,11 +5556,20 @@ export function WorldPlanAgentConversation({
           maxLength={8000}
           disabled={composerBusy || (isReadOnly ? !currentReadOnlyContext : !scopeMatches)}
           placeholder={isReadOnly ? (isBuild ? "Ask about this source or your World…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
-          aria-describedby="world-plan-agent-composer-hint"
+          aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         <div className="world-plan-agent-conversation__composer-footer">
+          {buildSourceMissing ? <>
+            <p id={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} className="world-plan-agent-conversation__notice" role="note" style={{ gridColumn: "1 / -1" }}>
+              {buildSourceRequiredMessage()}
+            </p>
+            <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={focusBuildSourceSelector}>Choose a source</button>
+            <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
+          </> : null}
           <p id="world-plan-agent-composer-hint">
-            {!isReadOnly && detectedComposerIntent === "propose"
+            {buildSourceMissing
+              ? "Sending is disabled until a saved source is available."
+              : !isReadOnly && detectedComposerIntent === "propose"
               ? `Plan change${effectiveEditTarget ? ` · ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id}` : editorSelectionActive ? " · selected text" : ""} · Buddy will show a preview before anything is applied.`
               : "Enter to send · Shift+Enter for a new line."}
           </p>
@@ -5561,6 +5589,7 @@ export function WorldPlanAgentConversation({
           <button
             type="submit"
             aria-label={!isReadOnly && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
+            aria-describedby={buildSourceMissing ? BUILD_SOURCE_REQUIRED_DESCRIPTION_ID : undefined}
             disabled={composerBusy || !composerMessage.trim() || messageTooLong
             || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)
             || (!isReadOnly && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
@@ -5592,11 +5621,10 @@ export function WorldPlanAgentConversation({
           headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
           </details></>}
-          contextDetails={isBuild ? <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts. World retrieval is available for this question.</p><button type="button" aria-pressed={useWorldGraphForAsk}
-            onClick={() => setUseWorldGraphForAsk(value => !value)}>Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></> : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
+          contextDetails={isBuild ? buildContextDetails : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
-            {!currentReadOnlyContext ? <p role="status">{isBuild ? "Save a World source to ask Buddy about it." : "Choose a verified World Run to ask about Play."}</p> : null}
+            {!currentReadOnlyContext && !isBuild ? <p role="status">Choose a verified World Run to ask about Play.</p> : null}
             {sharedConversation?.pendingTurn && !sending ? <p role="status">A turn is awaiting confirmation in World history.</p> : null}
             <details><summary>Advanced</summary>
               {admittedRun ? <p>Run {admittedRun.runId} · revision {admittedRun.runRevision}</p> : null}
