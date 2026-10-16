@@ -101,3 +101,10 @@ def test_ambiguous_or_damaged_boundaries_reject(mutation):
 
 def test_no_recognized_owned_layout_produces_no_invented_definitions():
     assert owned_livestock_definitions(rows('### Animals', 'Goats may be present.')) == []
+
+
+def test_blank_numbered_definition_title_rejects_even_with_body():
+    data = rows('#### Fantastic Livestock for the Coast', '#### 1.   ',
+                'A source-backed body does not supply a missing name.', '### Governance:')
+    with pytest.raises(SourceSectionRetentionError, match='title is empty'):
+        owned_livestock_definitions(data)

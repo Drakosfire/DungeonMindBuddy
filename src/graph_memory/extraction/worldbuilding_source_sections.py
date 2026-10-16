@@ -59,7 +59,6 @@ def owned_livestock_sections(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
     return sections
 
 
-
 def owned_livestock_definitions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Describe individual source definitions without creating Graph identities.
 
@@ -84,6 +83,8 @@ def owned_livestock_definitions(rows: list[dict[str, Any]]) -> list[dict[str, An
                 raise SourceSectionRetentionError("source definition has no body")
             evidence = [*shared, *body]
             title = re.sub(r"^####\s+\d+\.\s+", "", body[0]["text"]).strip()
+            if not title:
+                raise SourceSectionRetentionError("source definition title is empty")
             payload = {
                 "schema": "dmb_source_definition_v1",
                 "owner_label": section["owner_label"],
