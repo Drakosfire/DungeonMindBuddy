@@ -77,6 +77,7 @@ from apps.live_control_server.services.agent_plan_playable_target import (
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentRuntime,
+    SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS,
     AgentCurrentOwnerContext,
     AgentSurfaceContext,
     AgentWorldScope,
@@ -3255,6 +3256,7 @@ def _conversation_provenance(
     playable_target: PlanPlayableTargetReceiptV1 | None = None,
     graph_scope: AgentWorldScope | None = None,
     graph_envelope: Mapping[str, Any] | None = None,
+    selected_knowledge_context: Mapping[str, Any] | None = None,
 ) -> TurnProvenance:
     primary_work = HistoricalReference(resolution="absent")
     if work is not None:
@@ -3285,6 +3287,13 @@ def _conversation_provenance(
             revision_n=None if content_basis is None else content_basis.revision_n,
         )
     supporting_work: list[HistoricalReference] = []
+    if selected_knowledge_context is not None:
+        supporting_work.append(HistoricalReference(
+            resolution="resolved", kind="ingest_selection_context",
+            object_id=selected_knowledge_context["run_id"],
+            revision=str(selected_knowledge_context["run_revision"]),
+            content_sha256=selected_knowledge_context["context_sha256"],
+        ))
     if work is not None and work.build_source is not None:
         supporting_work.append(HistoricalReference(
             resolution="resolved", kind=BUILD_SOURCE_VISIBILITY_REFERENCE,
@@ -3461,7 +3470,7 @@ def _submitted_turn_intent(
                 policy=request.plan_context_policy.policy
             ),
         )
-    return SubmittedTurnIntentV1(**common)
+    return SubmittedTurnIntentV1(**common, selected_knowledge=request.selected_knowledge)
 
 
 def _turn_idempotency_key(world_id: str, turn_id: str) -> UUID:
@@ -4544,6 +4553,7 @@ def execute_agent_turn(
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
     conversation_service: AgentConversationService | None = None,
     trace_builder: AgentTurnTraceBuilder | None = None,
+    operator_subject: str | None = None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 
@@ -4623,6 +4633,100 @@ def execute_agent_turn(
             if durable_turn is not None and durable_turn.status == "completed":
                 return _completed_turn_replay(
                     request, owner=owner, turn=durable_turn, trace_builder=trace
+                )
+
+    selected_knowledge_context = None
+    if request.selected_knowledge is not None:
+        if conversation_service is None or not operator_subject:
+            raise AgentTurnServiceError(
+                "Selected knowledge requires authenticated durable World conversation.",
+                code="selection_conversation_unavailable",
+                status_code=503,
+            )
+        from apps.live_control_server.services.ingest_selection_context import (
+            resolve_ingest_selection_context,
+        )
+        from apps.live_control_server.services.extract_promote import (
+            ExtractPromoteError,
+        )
+        from apps.live_control_server.services.graph_run_registry import (
+            GraphRunRegistryError,
+        )
+        from apps.live_control_server.services.world_graph_projection import (
+            WorldGraphProjectionServiceError,
+        )
+
+        selection = request.selected_knowledge
+        try:
+            selected_knowledge_context = resolve_ingest_selection_context(
+                selection.run_id,
+                selection.context_request,
+                operator_subject=operator_subject,
+            )
+        except ExtractPromoteError as exc:
+            raise AgentTurnServiceError(
+                str(exc), code=exc.code, status_code=exc.status_code
+            ) from exc
+        except (
+            GraphRunRegistryError,
+            WorldGraphProjectionServiceError,
+            ApplicationStateError,
+        ) as exc:
+            raise AgentTurnServiceError(
+                "Selected ingestion context could not be resolved.",
+                code="selection_context_unavailable",
+                status_code=exc.status_code,
+            ) from exc
+        except Exception as exc:
+            _LOG.exception("Selected ingestion context failed unexpectedly")
+            raise AgentTurnServiceError(
+                "Selected ingestion context could not be resolved.",
+                code="selection_context_unavailable",
+                status_code=503,
+            ) from exc
+        if (
+            selected_knowledge_context["scope"]["managed_world_id"]
+            != canonical_world_id
+            or selected_knowledge_context["context_sha256"]
+            != selection.expected_context_sha256
+        ):
+            raise AgentTurnServiceError(
+                "The selected knowledge context changed; select it again.",
+                code="selection_context_changed",
+                status_code=409,
+            )
+        if (
+            len(
+                json.dumps(
+                    selected_knowledge_context,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            > SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS
+        ):
+            raise AgentTurnServiceError(
+                "Choose a smaller passage or fewer records.",
+                code="selection_context_too_large",
+                status_code=413,
+            )
+        if durable_turn is not None:
+            refs = [
+                r
+                for r in durable_turn.provenance.supporting_work
+                if r.kind == "ingest_selection_context"
+            ]
+            if (
+                len(refs) != 1
+                or refs[0].content_sha256 != selection.expected_context_sha256
+                or refs[0].object_id != selection.run_id
+                or refs[0].revision != str(selected_knowledge_context["run_revision"])
+            ):
+                raise AgentTurnServiceError(
+                    "The original turn selection cannot be replaced.",
+                    code="selection_context_changed",
+                    status_code=409,
                 )
 
     if request.plan_context_policy is not None:
@@ -5023,6 +5127,7 @@ def execute_agent_turn(
                 playable_target=playable_target_receipt,
                 graph_scope=scope,
                 graph_envelope=envelope,
+                selected_knowledge_context=selected_knowledge_context,
             )
             with trace.phase("durable_turn_accept"):
                 durable_turn = _accept_world_turn(
@@ -5136,6 +5241,13 @@ def execute_agent_turn(
                     None if policy_bootstrap is None else policy_bootstrap.retrieval_session
                 ),
             )
+        if selected_knowledge_context is not None:
+            assembly = replace(assembly, invocation=replace(
+                assembly.invocation,
+                context_packet=replace(assembly.invocation.context_packet,
+                                       selected_knowledge_context=selected_knowledge_context),
+                input_kind="server_assembled_saved_work",
+            ))
         if work is not None and work.build_source is not None:
             assembly = replace(assembly, invocation=replace(
                 assembly.invocation, input_kind="server_assembled_saved_work",

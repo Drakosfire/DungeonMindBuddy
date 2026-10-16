@@ -38,3 +38,29 @@ durable intent/provenance→runtime→Harness context, retry selection binding,
 annotation qualification and unchanged Graph policy/scope. API/port tests do not
 claim rendered UX or native Graph write support. No changes to serving services,
 credentials, dependencies, DB schema, parent candidate or native World.
+
+## Submitted contract and evidence
+
+`POST /api/live/agent/turn` accepts optional `selected_knowledge` with `runId`,
+`contextRequest` (the #1211 selector/preconditions), and `expectedContextSha256`.
+This first consumer requires the matching managed-World Ingest surface and no
+primary work. Authentication supplies the annotation subject. The client never
+supplies authoritative context records. Existing unselected intent fingerprints
+remain byte-identical. Historical provenance uses the existing generic reference
+revision string, not Content-only object/work revision fields.
+
+Author evidence: 15 new tests exercise actual frozen source/candidate resolution,
+real disposable APP PostgreSQL acceptance/completion/fresh-service replay,
+changed intent, stale source/revision/digest, attributed annotations, authenticated
+route subject, serialized/deserialized Harness transport, unchanged Graph tools,
+and pre-dispatch payload bounds. Combined selection/runtime/turn suites pass 202
+tests with two unchanged-main Plan fake-contract failures explicitly excluded;
+both reproduce against source archived from exact `9abb6c5f1903a10f784c5563081052472a3dc19e`.
+Ruff and cumulative diff check pass. No actual provider call, serving change,
+retained corpus mutation or World publication. Rendered adoption and typed
+proposal/apply remain outstanding; this proves context delivery, not model quality.
+
+Authenticated route regression: 53 passed; four pre-existing Graph-policy tests
+fail on unchanged main as well (sufficiency expectation, two V2/V3 execution-policy
+digest assertions, and a V2 scope schema fixture). This slice does not alter that
+Graph policy or source scope. Unselected turns do not consume an annotation subject.
