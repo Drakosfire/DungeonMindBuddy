@@ -25,7 +25,7 @@ def packet(size=80, missing=False):
 
 def present(value):
     parent = GraphToolPresentation(SCOPE)
-    first = parent.present(TOOL, ARGS, json.dumps(value, ensure_ascii=False), uuid4())
+    first = parent.present(TOOL, {**ARGS, "operation": "object"}, json.dumps(value, ensure_ascii=False), uuid4())
     return parent, first, json.loads(first)
 
 
@@ -41,7 +41,7 @@ def test_mixed_initial_records_preserve_qualifications_and_complete_anchor_closu
     assert not exposure.complete
     assert any(row["assertionId"] == "large" for row in initial["view"]["reviewedSourceObservations"])
     # A future request must not inherit the records from an earlier envelope.
-    later = detail_pages(parent, first)[-1]
+    later = detail_pages(parent, first, args={**ARGS, "operation": "object"})[-1]
     assert "small" not in parent.inclusion(TOOL, [later])[0].assertion_ids
     changed = json.loads(first)
     changed["records"][0]["value"].pop("epistemicKind")
@@ -109,3 +109,26 @@ def test_multi_page_object_retains_compact_initial_and_continuation():
     pages = detail_pages(parent, first, args=args)
     assert len(pages) > 1
     assert parent.inclusion(TOOL, pages)[0].assertion_ids == {"small", "large"}
+
+
+@pytest.mark.parametrize("operation", ["search", "neighborhood"])
+def test_discovery_owner_hints_cannot_be_starved_by_complete_relationships(operation):
+    value = packet()
+    value["reviewedSourceObservationMatches"] = [{
+        "assertionId": "wanted-observation", "subjectNodeId": "world-owner",
+        "observationKind": "worldbuilding_observation", "textExcerpt": "Float Goats carry goods over water.",
+        "excerptStart": 0, "excerptEnd": 34, "textLength": 9000,
+        "epistemicKind": "fact", "evidenceRefIds": ["e:one"]}]
+    value["relationships"] = [{"edgeId": f"edge:{i}", "sourceNodeId": "one", "targetNodeId": "two",
+                               "predicate": "near", "evidenceRefIds": ["e:one"], "label": "unrelated" * 100}
+                              for i in range(20)]
+    parent = GraphToolPresentation(SCOPE, cache=GraphToolPageCache(page_bytes=32000))
+    first = parent.present(TOOL, {**ARGS, "operation": operation}, json.dumps(value), uuid4())
+    initial = json.loads(first)
+    match, = initial["view"]["reviewedSourceObservationMatches"]
+    assert match["subjectNodeId"] == "world-owner" and match["assertionId"] == "wanted-observation"
+    assert match["textExcerpt"] == "Float Goats carry goods over water."
+    assert len(first.encode()) <= 8000
+    assert "records" not in initial
+    exposure, = parent.inclusion(TOOL, [first])
+    assert not exposure.assertion_ids and not exposure.relationship_ids and not exposure.evidence_ref_ids
