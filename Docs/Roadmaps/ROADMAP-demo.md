@@ -25,20 +25,33 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
 ## Immediate foundation — MIND retrieval efficiency and Jev, 2026-10-16
 
-The Mirathorn lifecycle below remains the product acceptance journey. Its immediate
-foundation is responsive, source-faithful acquisition: MIND #130 and #131 are merged
-(#131 at 637364c647da475d766cfba0b7eebed66d1182f4). Reviewed operation-local ancestry
-reuse preserves source authority without a global admitted-result cache. Next,
-Buddy adopts that exact dependency and batches independent selected actions in the
-non-serving Jev evaluator under HANDOFF-AGENT-jev-batched-acquisition.md.
+The Mirathorn lifecycle below remains the product acceptance journey. MIND #130
+and #131 are merged; Buddy #1269 batches acquisition and #1270 reuses immutable
+source bodies within an exact source/revision scope. Reviewed fixed-read Council
+acquisition fell from approximately 15.9s to 2.1s across these changes with exact
+evidence parity. These are component measurements, not ordinary conversation latency.
 
-Deterministic read-only evidence parity precedes additional inference. Jev owns
-relevance and missing-evidence judgments; code owns legal retrieval, uniqueness,
-caching and stopping. The pilot one-shot writer is implemented, but ordinary
-Agent Harness adoption, unseen/contradictory cases and replacing human requirements
-and seeds remain open. Pilot gold coverage does not establish general accuracy.
-No evaluator or dependency merge alone updates a serving runtime or completes the
-Mirathorn journey. Independent review and DOGFOOD/operator inspection remain.
+Jev evaluator work through #1274 supports question-only acquisition, a separate
+coverage challenge and batched unread-action judgments. On the two saved Mirathorn
+cases, reviewed answers cover Float Goats 3/3 and Council 10/10 gold facts with one
+tool-free Luna call per case. Full provenance remains in the host citation map.
+Acquisition still reads roughly 61–66% of the available action catalogue and incurs
+substantial Jev input traffic; unseen generality, economical selection and fresh
+end-to-end latency remain open. Recorded response reuse is reported separately.
+
+GE #20 is merged at dde768f3e632af20b969cc694d8318265ce6ff5c and supplies opt-in
+actual serialized decision dispatch authorization/lifecycle truth. Buddy's next
+producer step is the durable controller/writer role policy under
+[HANDOFF-AGENT-jev-durable-role-policy.md](../Plans/HANDOFF-AGENT-jev-durable-role-policy.md).
+The genuine Build prepared-envelope adapter and production controller consumer
+follow separately through the existing parent Graph/source broker and durable
+conversation fence. Keep runtime free of evaluator imports. Jev judges relevance
+and missing evidence; code owns legal acquisition, uniqueness, caching and stopping.
+
+No evaluator/dependency/policy merge alone updates a serving runtime or completes
+the Mirathorn journey. Ordinary Agent Harness adoption, durable citation/history
+and openable passage witnesses, broader semantic evaluation and DOGFOOD/operator
+inspection remain required. Improve ingestion against gold alongside that journey.
 
 ## Primary priority — Mirathorn worldbuilding in Build, 2026-10-14
 
