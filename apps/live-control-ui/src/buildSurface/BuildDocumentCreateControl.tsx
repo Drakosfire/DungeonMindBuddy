@@ -402,7 +402,7 @@ export function BuildDocumentCreateControl({
         onOpenChange={setCreateOpen}
         title="New page"
         align="end"
-        placement="beside"
+        placement="below"
         className="surface-context-popover--wide"
         trigger={
           <SurfaceContextAction
@@ -421,7 +421,7 @@ export function BuildDocumentCreateControl({
         onOpenChange={setImportOpen}
         title="Import source"
         align="end"
-        placement="beside"
+        placement="below"
         className="surface-context-popover--wide"
         trigger={
           <SurfaceContextAction

@@ -728,3 +728,14 @@ body:has([data-document-surface="build"])
 .build-authoring-toolbar button:disabled { opacity: .5; }
 .build-starter-choice { display: flex; align-items: center; gap: .4rem; }
 @media (max-width: 600px) { .build-document-create--context { margin-left: 0; width: 100%; } }
+
+.build-document-create--context .build-starter-choice { flex-basis: 100%; }
+.build-document-create--context .surface-context-popover:first-child { order: 2; }
+.build-document-create--context .surface-context-popover:last-child { order: 1; }
+@media (max-width: 600px) {
+  .build-document-create--context { position: relative; }
+  .build-document-create--context .surface-context-popover { position: static; }
+  .build-document-create--context .surface-context-popover__panel {
+    left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+  }
+}
