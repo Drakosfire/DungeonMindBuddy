@@ -1,7 +1,7 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@75951c99a9e1d50861133da3283250781e2a62f4` after #1246 merged.
+**Base:** fetched `origin/main@98b28b08470ae9320e638dda8d8810b492b86ca0` after #1248 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/ingest-manual-source-load/DungeonMindBuddy`.
 **Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 changes graph packaging and its handoff, also with no overlap. The #1243 main merge changed no leased UI files.
@@ -74,13 +74,7 @@ provider files are leased.
 
 ## Current-main rebase and acceptance — 2026-10-16
 
-Rebased the existing PR onto fetched `origin/main@75951c99a9e1d50861133da3283250781e2a62f4`.
-The cumulative diff remains limited to the nine leased paths. The focused
-IngestionModule and MemoryIngestPage suites pass 72 tests. Both UI TypeScript
-projects pass when their build-info files are redirected to `/tmp`; the
-default typecheck cannot write its configured cache under the read-only shared
-`node_modules`. The production bundle builds to `/tmp/dmb-ingest-preview` with
-the existing Vite large-chunk warning. `git diff --check` passes.
+Rebased the existing PR onto fetched `origin/main@98b28b08470ae9320e638dda8d8810b492b86ca0` after #1247 and #1248 merged. Those main changes do not touch the three leased UI source paths. The cumulative diff remains limited to the nine leased paths. After rebasing, the focused IngestionModule and MemoryIngestPage suites pass 72 tests. Both UI TypeScript projects pass when their build-info files are redirected to `/tmp`; the default typecheck cannot write its configured cache under the read-only shared `node_modules`. The production bundle builds to `/tmp/dmb-ingest-preview` with the existing Vite large-chunk warning. `git diff --check` passes.
 
 Rendered the rebuilt production bundle at desktop and a 390px viewport. At both
 widths, campaign/session/title and source/workflow actions stay in the local
@@ -90,10 +84,13 @@ Session 29 work appeared alongside an empty raw-text
 editor. The surface now identifies that prepared source and directs the user
 to Review or an explicit Load, rather than presenting the empty field as the
 active source. The static preview had no live artifact registry, so this
-verifies presentation only, not reading the live saved source. No prepare,
-extract, review, save, or ingestion-data action was performed. 5202 and 5204
-were not changed; 5204 still serves the pre-nav implementation until this PR
-is reviewed and deployed.
+verifies presentation only, not reading the live saved source. This render
+preceded the latest-main rebase; the rebase did not change leased UI source
+files, and the production bundle was rebuilt afterward. No prepare, extract,
+review, save, or ingestion-data action was performed. 5202 and 5204 were not
+changed; 5204 still serves the pre-nav implementation until this PR is
+reviewed and deployed. Bugbot reviewed the recovered-source change before the
+latest-main rebase and found no confirmed bugs.
 
 ## Implementation notes
 
@@ -113,5 +110,5 @@ is reviewed and deployed.
 
 ## Completion
 
-Commit and push the bounded implementation and open a PR. Merge remains a
-separate authorization.
+The bounded implementation is committed and pushed in PR #1237. It remains
+open for review; merge and deployment to 5202 remain separate authorization.
