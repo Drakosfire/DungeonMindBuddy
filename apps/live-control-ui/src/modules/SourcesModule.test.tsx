@@ -59,7 +59,9 @@ describe("SourcesModule", () => {
     });
 
     expect(screen.getByText("Ready for planning activation")).toBeInTheDocument();
-    expect(screen.getByText("Session memory")).toBeInTheDocument();
+    expect(screen.queryByText("Breadcrumb routing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Session memory")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".corpus-ladder > li")).toHaveLength(4);
     expect(postRecapIngest).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "inspect_status",

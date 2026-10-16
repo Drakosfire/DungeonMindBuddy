@@ -1725,12 +1725,7 @@ export interface ResolvedRollResponse {
 }
 
 export type RecapIngestOperation =
-  | "stage_preview"
   | "generate_recap_memory"
-  | "apply_normalize"
-  | "build_frontmatter_seed"
-  | "run_breadcrumb_ingest"
-  | "materialize_session_memory"
   | "build_graph_preview_bundle"
   | "materialize_preview_supergraph"
   | "inspect_graph_preview"
@@ -1748,14 +1743,12 @@ export interface RecapIngestRequest {
   keep_basename?: string;
   force_stage?: boolean;
   force_recap?: boolean;
-  check?: boolean;
   candidate_graph_path?: string;
   force_graph_run?: boolean;
   extract_graph?: boolean;
   graph_model_id?: string | null;
   materialize_after_extract?: boolean;
   include_graph_extraction?: boolean;
-  include_legacy_breadcrumb?: boolean;
 }
 
 export interface RecapGraphExtractedNode {
