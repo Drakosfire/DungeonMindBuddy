@@ -1,6 +1,10 @@
 # AGENT: retain unvalidated governed answers for deterministic diagnosis
 
-Status ACTIVE under PRIME's Mirathorn lifecycle goal. Base `362d304413deabf39c12ca52e4c41d33816fa513`;
+Status SETTLED: #1222 independently reviewed at35a62bc3 and merged at
+`48d3101c15c88832bb41a8ac71fa23045e429cee`. Matched preview deployed. Fresh
+Thalia run traversed Graph/read source; final provider outcome is unknown, with
+no returned final draft. Do not replay. Successor: `HANDOFF-BUILD-host-derived-citations.md`.
+Original scope: Base `362d304413deabf39c12ca52e4c41d33816fa513`;
 serial successor to accepted #1221. PRIME implements solo in
 `/tmp/prime-recap-mention-boundaries`, branch `codex/agent-unvalidated-answer-capture`.
 ARCHITECTURE independently reviews before merge.
