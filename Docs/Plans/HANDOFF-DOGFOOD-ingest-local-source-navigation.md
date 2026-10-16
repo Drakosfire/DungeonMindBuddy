@@ -104,6 +104,31 @@ typecheck, build, and desktop/390px rendered results remain the only executed
 verification for the unchanged UI diff. Open #1235, #1244, and #1251 were
 rechecked; their changed paths do not overlap this UI lease.
 
+## Current-main refresh — 2026-10-16
+
+Fetched `origin/main@d2df98ff7d7be67658d4705f3879dd1ddb6a1700` after #1252,
+#1253, and #1254 merged. Rebased the existing navigation branch cleanly onto
+that commit. Open Ingest PRs #1235, #1244, #1251, and #1255 were rechecked; they
+cover observation review, evidence-reference recovery, readiness, and backend
+derivative lineage, with no overlap in this lease's three UI implementation
+files. The cumulative diff remains the same nine leased paths.
+
+Installed the exact UI lockfile dependencies in the isolated checkout. The
+focused `IngestionModule` and `MemoryIngestPage` suites pass 72/72; `npm run
+typecheck`, `npm run build`, and `git diff --check origin/main...HEAD` pass.
+The production build retains the existing Vite large-chunk warning. Rendered
+the rebuilt bundle on temporary local port 5288: the blank Ingest landing
+shows the single local toolbar and no duplicate Paste/Processed controls. The
+World graph badge says Needs attention because this static preview is not
+connected to the live API. The prior 390px rendered check is on an earlier
+base; the latest-main commits do not touch this lease's UI files, but a fresh
+narrow viewport render is unavailable through the current browser controls.
+No source was prepared, extracted, reviewed, or written; 5202 and 5204 were
+not changed.
+
+The rebased implementation is ready for review in the existing PR. Live
+saved-source loading and end-to-end ingestion acceptance remain unverified.
+
 ## Implementation notes
 
 - Removed the visible Paste recap / Processed toggles, Unload button, group
