@@ -114,8 +114,18 @@ slice rather than broadening this UI lease.
 - A separate rendered inspection of restored Session 29 showed a graph
   candidate (59 nodes / 33 edges) while status inspection reported the
   canonical recap and normalized recap missing. The updated welcome and status
-  language now directs the user to restore/load verified source and treats the
-  per-file evidence as authoritative; no extraction was run.
+  language directs the user to restore/load verified source and treats the
+  per-file evidence as authoritative; no extraction was run. A current 5204
+  dogfood view also exposed that the status service still returns
+  `breadcrumb_required` and CLI breadcrumb-routing steps when both recap files
+  are missing. The UI now labels that state from explicit on-disk proof and
+  keeps raw server recommendations in a collapsed diagnostic disclosure.
+  The status-service precedence itself is outside this UI lease; a follow-on
+  server slice must distinguish missing source from missing breadcrumb and
+  withhold routing recommendations until both recap artifacts are verified.
+- `IngestionModule.test.tsx`: 64 passed after adding regression coverage for
+  missing-source proof, user-facing recovery guidance, and collapsed raw server
+  recommendations. Existing React `act(...)` warnings remain.
 - Loading the existing Session 27 processed recap in the isolated preview
   displayed “Local Graph session was revoked. Reconnect explicitly.” I did not
   reconnect or run another graph action. The tab's temporary UI state was
