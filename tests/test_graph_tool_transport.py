@@ -180,9 +180,14 @@ def test_plugin_pages_broker_and_direct_without_repeating_operation(
     st = plugin.set_active_retrieval_session_id("session:one")
     bt = None
     if brokered:
+        from uuid import uuid4
+        from apps.live_control_server.services.graph_tool_presentation import GraphToolPresentation
+        parent = GraphToolPresentation(TransportScope("session:one", policy.graph_scope.world_id, policy.graph_scope.revision_pin))
 
         def broker(name, args):
-            return execute(name, args), {
+            payload = (parent.continuation(name, args) if "resultPageToken" in args else
+                parent.present(name, args, execute(name, args), uuid4()))
+            return payload, {
                 "retrieval_session_id": "session:one",
                 "snapshot": {
                     "world_id": policy.graph_scope.world_id,
@@ -200,6 +205,11 @@ def test_plugin_pages_broker_and_direct_without_repeating_operation(
         second = json.loads(handler(next_args))
         assert second["pageIndex"] == 0 and len(calls) == count == 1
         assert "resultPageToken" not in calls[0][1]
+        if brokered:
+            # The real parent registers failures as exact denial feedback.
+            with pytest.raises(ValueError, match="foreign_graph_result_page"):
+                parent.continuation("expand_graph_retrieval", {**next_args, "queryText": "changed"})
+            return
         foreign = json.loads(handler({**next_args, "queryText": "changed"}))
         assert foreign["code"] == "foreign_graph_result_page" and len(calls) == 1
     finally:

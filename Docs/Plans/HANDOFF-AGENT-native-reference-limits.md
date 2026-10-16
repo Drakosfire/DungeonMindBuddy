@@ -1,6 +1,10 @@
 # AGENT: preserve native evidence and claim identifiers
 
-Status ACTIVE under PRIME's Mirathorn lifecycle goal. Base
+Status SETTLED: independently reviewed #1218 merged at
+`5d14ed96b0a7b93b84c58cd21c2cabf9489935e8`. Read-only resolver passes 73 source
+pins; ordinary question reached provider/Graph expansion and exposed the separate
+parent/worker paging contract gap. Successor: `HANDOFF-AGENT-parent-graph-presentation.md`.
+Original base
 `2e61446033eac508233a94cfb523c62d42d622ad`; serial successor to accepted #1217.
 PRIME implements solo; ARCHITECTURE independently reviews.
 Lane `codex/agent-native-reference-limits`, `/tmp/prime-recap-mention-boundaries`.

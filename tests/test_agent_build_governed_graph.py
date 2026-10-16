@@ -99,21 +99,55 @@ class SyntheticHarness:
         if self.graph:
             assert source_read_enabled
             operation = None
-            if self.graph == 'observation':
+            if self.graph in {'observation', 'paged', 'paged-mutated'}:
                 operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
                     'schema': 'dmb_expand_graph_retrieval_request_v1',
                     'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
                     'targets': [{'kind': 'node', 'id': 'frank'}],
                 }})
+                operation_args = {'schema': 'dmb_expand_graph_retrieval_request_v1',
+                    'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
+                    'targets': [{'kind': 'node', 'id': 'frank'}]}
+                operation_pages = []
                 result = json.loads(operation['resultJson'])
-                if 'reviewedSourceObservations' not in result:
+                if self.graph in {'paged', 'paged-mutated'}:
+                    assert result['schema'] == 'dmb_graph_tool_overview_v1'
+                    overview_body = json.loads(payload)
+                    overview_body['input'].extend([
+                        {'type': 'function_call', 'name': 'expand_graph_retrieval', 'call_id': 'overview', 'arguments': json.dumps(operation_args)},
+                        {'type': 'function_call_output', 'call_id': 'overview', 'output': operation['resultJson']}])
+                    encoded = json.dumps(overview_body)
+                    assert authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
+                        'apiMode': request_budget['apiMode'], 'payloadJson': encoded,
+                        'payloadSha256': sha256(encoded.encode()).hexdigest(), 'payloadUtf8Bytes': len(encoded.encode())})
+                    assert on_provider_lifecycle({'transition': 'sdk_entered'})
+                    assert on_provider_lifecycle({'transition': 'response_received'})
+                    token = result['detailPageToken']
+                    while token:
+                        page_args = {**operation_args, 'resultPageToken': token}
+                        page = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': page_args})
+                        operation_pages.append((page_args, page['resultJson']))
+                        token = json.loads(page['resultJson']).get('nextPageToken')
+                elif 'reviewedSourceObservations' not in result:
                     return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
-                assert result['reviewedSourceObservations'][0]['assertionId'] == 'observation-one'
+                if self.graph == 'observation':
+                    assert result['reviewedSourceObservations'][0]['assertionId'] == 'observation-one'
             opened = on_graph_operation({'toolName': 'read_graph_source', 'arguments': {
-                'retrievalSessionId': self.bootstrap.retrieval_session.id, 'anchorIds': ['anchor-one'],
+                'retrievalSessionId': self.bootstrap.retrieval_session.id, 'anchorIds': ['anchor-one'], 'maxChars': 12000,
             }})
             result = json.loads(opened['resultJson'])
-            assert result.get('content') == 'Frank guards the western gate.', result
+            source_pages = []
+            if self.graph in {'paged', 'paged-mutated'}:
+                assert result['schema'] == 'dmb_graph_tool_page_v1'
+                token = result.get('nextPageToken')
+                while token:
+                    page_args = {'retrievalSessionId': self.bootstrap.retrieval_session.id,
+                        'anchorIds': ['anchor-one'], 'maxChars': 12000, 'resultPageToken': token}
+                    page = on_graph_operation({'toolName': 'read_graph_source', 'arguments': page_args})
+                    source_pages.append((page_args, page['resultJson']))
+                    token = json.loads(page['resultJson']).get('nextPageToken')
+            else:
+                assert result.get('content') == 'Frank guards the western gate.', result
             body = json.loads(payload)
             if operation is not None:
                 body['input'].extend([
@@ -124,7 +158,20 @@ class SyntheticHarness:
                 {'type': 'function_call', 'name': 'read_graph_source', 'call_id': 'source-call', 'arguments': '{}'},
                 {'type': 'function_call_output', 'call_id': 'source-call', 'output': opened['resultJson']},
             ])
+            for tool, pages in [('expand_graph_retrieval', operation_pages if operation else []), ('read_graph_source', source_pages)]:
+                for i, (page_args, page) in enumerate(reversed(pages)):
+                    call_id = f'{tool}:{i}'
+                    body['input'].extend([
+                        {'type': 'function_call', 'name': tool, 'call_id': call_id, 'arguments': json.dumps(page_args)},
+                        {'type': 'function_call_output', 'call_id': call_id, 'output': page}])
+            if self.graph == 'paged-mutated':
+                body['input'][-1]['output'] += ' '
             encoded = json.dumps(body)
+            if self.graph == 'paged-mutated':
+                assert not authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
+                    'apiMode': request_budget['apiMode'], 'payloadJson': encoded,
+                    'payloadSha256': sha256(encoded.encode()).hexdigest(), 'payloadUtf8Bytes': len(encoded.encode())})
+                return AgentRuntimeResult(status='error', error_code='provider_authorization_denied')
             assert authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
                 'apiMode': request_budget['apiMode'], 'payloadJson': encoded,
                 'payloadSha256': sha256(encoded.encode()).hexdigest(), 'payloadUtf8Bytes': len(encoded.encode())})
@@ -137,7 +184,7 @@ class SyntheticHarness:
                 claim['evidence_ref_ids'] = [EVIDENCE_ID[:-1] + 'z']
             return AgentRuntimeResult(status='ok', final_text=json.dumps({
                 'answer_context_status': 'graph_grounded',
-                'answer_segments': [{'kind': 'graph_claim', 'text': result['content'], **claim}],
+                'answer_segments': [{'kind': 'graph_claim', 'text': 'Frank guards the western gate.', **claim}],
                 'citation_map': {'entries': [{**claim, 'source_opened': False}]},
             }))
         segment = {'kind': 'saved_source_claim', 'text': 'Frank and Sara operate the Rocky Talkie.'}
@@ -207,8 +254,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -227,7 +274,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         evidence_by_anchor_id={'anchor-one': EVIDENCE_ID}, source_scope_anchors=({
             'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID, 'source_artifact_id': 'artifact-one',
             'source_revision_id': 'source-rev-one'},))
-    text = 'Frank guards the western gate.'
+    text = 'Frank guards the western gate.' * (310 if observation in {'paged', 'paged-mutated'} else 1)
     digest = sha256(text.encode()).hexdigest()
     def read_external_graph(arguments, *, receipt_version):
         assert receipt_version == 2 and arguments['anchorIds'] == ['anchor-one']
@@ -280,17 +327,17 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert not any(e.kind == 'validated_graph_operation_v3' for e in turn.graph_context_execution.events)
         assert turn.completion is None
         return
-    if observation == 'mutated-evidence':
+    if observation in {'mutated-evidence', 'paged-mutated'}:
         with pytest.raises(svc.AgentTurnServiceError):
             execute((source, request, bootstrap), tmp_path,
-                SyntheticHarness(source, bootstrap, graph='observation', tamper_evidence=True))
+                SyntheticHarness(source, bootstrap, graph='paged-mutated' if observation == 'paged-mutated' else 'observation', tamper_evidence=observation == 'mutated-evidence'))
         service = AgentConversationService()
         conversation = service.get_active_conversation('elderwyld')
         turn, = service.list_turns('elderwyld', conversation.conversation_id)
         assert turn.completion is None
         return
     response = execute((source, request, bootstrap), tmp_path,
-        SyntheticHarness(source, bootstrap, graph='observation' if observation else True))
+        SyntheticHarness(source, bootstrap, graph='paged' if observation == 'paged' else ('observation' if observation else True)))
     context = response.knowledge_context
     assert context.completion.answer_basis == 'saved_source_plus_world_graph'
     citation, = context.completion.citation_map.entries
@@ -310,6 +357,13 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
         assert event.assertion_ids == ['observation-one']
         assert event.returned_source_pins[0].source_revision_id == 'source-rev-one'
+        if observation == 'paged':
+            attempts = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3']
+            assert len(attempts) == 3
+            assert 'observation-one' not in attempts[1].included_assertion_ids
+            assert 'observation-one' in attempts[2].included_assertion_ids
+            assert len(attempts[2].included_source_read_event_ids) == 1
+            assert len([e for e in turn.graph_context_execution.events if e.kind == 'validated_source_read_v2']) == 1
 
 
 @pytest.mark.parametrize('change', ['source', 'question'])

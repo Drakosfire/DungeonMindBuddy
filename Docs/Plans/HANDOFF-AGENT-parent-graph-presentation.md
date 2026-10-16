@@ -56,3 +56,21 @@ Inspect cumulative diff, commit/push one PR, obtain independent exact-head revie
 After acceptance roll owned preview, use a fresh ordinary question (no replay),
 open passages and obtain DOGFOOD/operator inspection; restart/historical-source
 acceptance remains required by the full goal.
+
+## Review evidence
+
+69 focused tests pass (one inherited Pydantic schema-shadow warning). The real
+Build APP test now covers >8KB qualified observation/source packets, parent
+continuations, overview-only provider admission without the hidden assertion,
+full detail admission, one native read/event despite many pages, source-open
+receipt and fresh history/trace readback. A changed page is rejected before the
+next provider dispatch. Actual pinned Harness dispatcher and provider serializer
+preserve parent overview bytes through the plugin. Manifest tests cover omitted
+records, exact qualification bytes, fragment reassembly confined to the current
+envelope, reversed/repeated pages, ambiguous origins, source/context completeness,
+and request/session/tool/expiry/forged continuation refusal. Existing direct
+paging and Plan policy/batch-source tests pass. No provider calls occurred.
+Logs: `/tmp/parent-presentation-regression.log`,
+`/tmp/parent-graph-dispatch-tests.log`. Ruff and cumulative diff checks pass.
+Overview rows remain discovery-only until exact complete detail/object records
+are delivered; no omitted provenance becomes factual/citation authority.
