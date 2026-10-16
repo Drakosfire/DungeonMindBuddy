@@ -110,3 +110,21 @@ Stop if the fix needs a shared component, route contract, extraction change, or 
   the browser, and the 5204 preview had refused connections on the earlier
   attempt. No navigation or write action was taken in 5202. No ingestion,
   publication, API, database, or corpus action was taken.
+
+### Local-nav hydration feedback follow-up — 2026-10-16
+
+- While saved status is being checked, the navbar now says it is checking; it
+  does not briefly surface stale `reused`/`breadcrumb_required` claims from
+  localStorage. Fresh disk inspection remains authoritative for recap status.
+- If status inspection fails, the navbar keeps a dismissible warning and the
+  saved disk-derived result is not promoted. The normal action guidance remains
+  available, without saying the new draft has no saved files.
+- Reset the status-toast key when selection changes so an identical result for
+  another session can still be announced in the navbar.
+- Regression coverage now exercises delayed and failed inspection with stale
+  local drafts. The focused Ingest UI suites pass (78 tests); typecheck and
+  production build pass. The production build still reports its existing
+  large-chunk warning.
+- Rendered local preview remains blocked by host networking (`listen EPERM` on
+  127.0.0.1:5205); the attempted 5204 preview still refused connections.
+  User-owned 5202 was observed read-only and left unchanged.

@@ -1046,8 +1046,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setShowAdvanced(usableDraft.showAdvanced);
         setForceStage(usableDraft.forceStage);
         setForceRecap(usableDraft.forceRecap);
-        setState(usableDraft.state);
-        setLatestResult(usableDraft.latestResult);
+        setState(restoredIgnoreDiskResume ? usableDraft.state : { status: "idle" });
+        setLatestResult(restoredIgnoreDiskResume ? usableDraft.latestResult : null);
         setPreviewSignature(usableDraft.previewSignature);
         setIgnoreDiskResume(restoredIgnoreDiskResume);
       }
@@ -1090,10 +1090,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 prev.status === "applying" ||
                 prev.status === "building_frontmatter_seed" ||
                 prev.status === "running_breadcrumb_ingest" ||
-                prev.status === "materializing" ||
-                prev.status === "preview_ready" ||
-                prev.status === "applied" ||
-                prev.status === "ready_for_planning_activation"
+                prev.status === "materializing"
               ) {
                 return prev;
               }
@@ -1101,7 +1098,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             });
           }
         } catch {
-          // Disk probe is best-effort; local draft still applies.
+          if (!cancelled && usableDraft && !restoredIgnoreDiskResume) {
+            setLatestResult(null);
+            setState({ status: "idle" });
+            setToast({
+              tone: "warning",
+              title: "Could not verify saved ingest status",
+              detail: "The current recap files could not be checked. This browser's saved status may be out of date.",
+              nextSteps: ["Refresh the page to check the saved files again before continuing."],
+              sticky: true,
+            });
+          }
         }
       }
 
@@ -1111,6 +1118,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
 
     setHydrated(false);
+    setToast(null);
+    lastToastKeyRef.current = null;
     void hydrateFromStorageAndDisk();
 
     return () => {
@@ -1185,6 +1194,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   ]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
     const maybeToast = buildToastForResult(latestResult, {
       fallbackErrorMessage: state.status === "error" ? state.message : undefined,
       forceStage,
@@ -1217,7 +1229,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
     lastToastKeyRef.current = key;
     setToast(maybeToast);
-  }, [latestResult, state, forceStage, forceRecap, genericGuardPass]);
+  }, [hydrated, latestResult, state, forceStage, forceRecap, genericGuardPass]);
 
   useEffect(() => {
     if (!toast || toast.sticky) {
@@ -2181,15 +2193,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     ? "Preparing recap…"
                     : isMaterializing
                       ? "Materializing graph…"
-                      : freshRecapEntry && state.status === "idle"
-                        ? "New draft · nothing prepared"
-                        : toast
-                          ? <>
-                              <span className="ingest-local-nav__status-title">{toast.title}</span>
-                              <span aria-hidden="true"> · </span>
-                              <span>{workflowNextAction}</span>
-                            </>
-                          : workflowNextAction}
+                      : !hydrated
+                        ? "Checking saved recap status…"
+                      : toast
+                        ? <>
+                            <span className="ingest-local-nav__status-title">{toast.title}</span>
+                            <span aria-hidden="true"> · </span>
+                            <span>{workflowNextAction}</span>
+                          </>
+                        : workflowNextAction}
             </p>
             {toast ? (
               <>

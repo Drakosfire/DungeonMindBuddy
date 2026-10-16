@@ -1688,6 +1688,131 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
   });
 
+  it("waits for fresh disk inspection before showing a resumed draft status", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    const staleResult = makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: [
+        "staged_raw_notes_reused",
+        "recap_reused",
+        "normalized_reused",
+        "frontmatter_seed_required",
+        "breadcrumb_required",
+        "ingest_status_inspected",
+        "graph_candidate_ready",
+      ],
+      warnings: ["A prior draft warning"],
+      next_actions: ["A stale next action"],
+      paths: {
+        ...makeStatus().paths,
+        canonical_recap: "saved/canonical-session-29.md",
+        normalized_recap: "saved/normalized-session-29.md",
+      },
+      ingest_report: {
+        graph_preview: { status: "candidate_validation_ready" },
+      },
+    });
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 3,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: staleResult,
+      previewSignature: null,
+      state: { status: "breadcrumb_required", result: staleResult },
+      ignoreDiskResume: false,
+    }));
+
+    let resolveInspect: ((status: RecapIngestStatus) => void) | undefined;
+    const inspectPromise = new Promise<RecapIngestStatus>((resolve) => {
+      resolveInspect = resolve;
+    });
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") return inspectPromise;
+      return makeStatus({ session: 29 });
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
+
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    expect(within(toolbar).getByRole("status")).toHaveTextContent("Checking saved recap status…");
+    expect(within(toolbar).getByRole("status")).not.toHaveTextContent(/breadcrumb|reused without overwrite/i);
+
+    await act(async () => {
+      resolveInspect?.(makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        paths: {},
+        warnings: [],
+        next_actions: [],
+        ingest_report: {
+          corpus_impact: [
+            { key: "canonical_recap", relpath: "corpus/missing-canonical.md", exists: false },
+            { key: "normalized_recap", relpath: "corpus/missing-normalized.md", exists: false },
+          ],
+        },
+        entity_spelling_audit: [],
+      }));
+      await inspectPromise;
+    });
+
+    await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 29 - The Meat Mind of Mireward Reach"));
+    expect(within(toolbar).getByRole("status")).not.toHaveTextContent(/breadcrumb|reused without overwrite|stale next action/i);
+    await userEvent.setup().click(screen.getByText("Advanced"));
+    const evidence = screen.getByRole("complementary", { name: "Ingestion evidence and proof" });
+    expect(evidence).toHaveTextContent("Missing");
+    expect(evidence).not.toHaveTextContent("saved/normalized-session-29.md");
+    expect(evidence).not.toHaveTextContent("normalized_reused");
+  });
+
+  it("does not promote an unverified saved status when disk inspection fails", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    const staleResult = makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: ["recap_reused", "normalized_reused", "breadcrumb_required"],
+      paths: {
+        ...makeStatus().paths,
+        normalized_recap: "saved/unverified-normalized-session-29.md",
+      },
+    });
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 3,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: staleResult,
+      previewSignature: null,
+      state: { status: "breadcrumb_required", result: staleResult },
+      ignoreDiskResume: false,
+    }));
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockRejectedValue(new Error("offline"));
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
+
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const warning = await within(toolbar).findByRole("alert");
+    expect(warning).toHaveTextContent("Could not verify saved ingest status");
+    expect(warning).not.toHaveTextContent(/breadcrumb|reused without overwrite/i);
+    await userEvent.setup().click(within(toolbar).getByText("Details"));
+    expect(within(toolbar).getByText(/browser's saved status may be out of date/i)).toBeVisible();
+    expect(document.body.textContent).not.toContain("saved/unverified-normalized-session-29.md");
+  });
+
   it("allows replacing an existing preview graph when force re-extract is checked", async () => {
     const user = userEvent.setup();
     const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
