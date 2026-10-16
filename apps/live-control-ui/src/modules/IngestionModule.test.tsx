@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -166,13 +166,20 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={30} managedWorldId="elderwyld" initialSourceSession={29} />);
 
     expect(await screen.findByRole("heading", { name: "Bring your table’s story into the World." })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start with a session recap" })).toBeInTheDocument();
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    expect(toolbar).toBeInTheDocument();
+    expect(within(toolbar).getByLabelText("Campaign")).toBeInTheDocument();
+    expect(within(toolbar).getByLabelText("Recap/source session")).toHaveValue(null);
+    expect(within(toolbar).getByLabelText("Session title")).toHaveValue("");
+    expect(within(toolbar).getByLabelText("Prior processed recap")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
+    expect(within(toolbar).getByRole("button", { name: "Run ingest" })).toBeDisabled();
     expect(screen.queryByText("Operator prep tool over the PR92 ingestion orchestrator.")).not.toBeInTheDocument();
     expect(screen.queryByText("Current next action")).not.toBeInTheDocument();
     expect(screen.queryByText(/Next: Review the extracted candidate/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Recap/source session")).toHaveValue(null);
     expect(screen.getByLabelText("Session title")).toHaveValue("");
-    await waitFor(() => expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Choose a processed recap"));
+    await waitFor(() => expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Load a processed recap…"));
     expect(ingest).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Load processed recap" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Write a recap" }));
@@ -250,7 +257,7 @@ describe("IngestionModule", () => {
         onLayoutSaved={vi.fn()}
       />,
     );
-    expect(await screen.findByText("Raw Recap Ingestion")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Ingest workspace toolbar" })).toBeInTheDocument();
   });
 
   it("disables stage preview with empty raw text", async () => {

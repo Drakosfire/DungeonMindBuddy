@@ -786,7 +786,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [sourceMode, setSourceMode] = useState<IngestionSourceMode>("raw");
   const [loadedArtifact, setLoadedArtifact] = useState<RecapArtifactRecord | null>(null);
   const [processedPreviewText, setProcessedPreviewText] = useState("");
-  const [processedPreviewPath, setProcessedPreviewPath] = useState<string | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
@@ -1254,7 +1253,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setSourceMode("raw");
     setLoadedArtifact(null);
     setProcessedPreviewText("");
-    setProcessedPreviewPath(null);
     setSelectedPriorArtifactId("");
     setToast(null);
     setState({ status: "idle" });
@@ -1335,10 +1333,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       try {
         const source = await postCitationSource({ path: citationPath });
         setProcessedPreviewText(source.content);
-        setProcessedPreviewPath(source.path);
       } catch {
         setProcessedPreviewText("");
-        setProcessedPreviewPath(citationPath);
       }
 
       setIgnoreDiskResume(false);
@@ -1354,7 +1350,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setSourceMode("raw");
       setLoadedArtifact(null);
       setProcessedPreviewText("");
-      setProcessedPreviewPath(null);
       setToast({
         tone: "error",
         title: "Could not load prior ingestion",
@@ -2037,29 +2032,172 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
-      <header className="ingestion-module-header">
-        <div>
-          <h2 className="module-title">{showRecapWelcome ? "Start with a session recap" : "Raw Recap Ingestion"}</h2>
-          {!showRecapWelcome ? <p className="module-muted">Operator prep tool over the PR92 ingestion orchestrator.</p> : null}
-          <div className="ingestion-module-header-meta">
-            <ReviewCampaignPicker
-              selectedCampaignId={ingestCampaignId}
-              onSelect={handleIngestCampaignSelect}
-              className="graph-preview-run-picker ingestion-campaign-picker"
-            />
-            {!showRecapWelcome ? (
-              <p className="module-muted">
-                Live workspace session: <strong>{session}</strong>
-              </p>
+      <section className="ingest-local-nav" aria-label="Ingest workspace toolbar">
+        <div className="ingest-local-nav__identity">
+          <ReviewCampaignPicker
+            selectedCampaignId={ingestCampaignId}
+            onSelect={handleIngestCampaignSelect}
+            className="graph-preview-run-picker ingestion-campaign-picker"
+          />
+          <label className="ingest-local-nav__field" htmlFor="ingestion-recap-session">
+            <span>Session</span>
+            <span className="ingest-local-nav__session-control">
+              <input
+                id="ingestion-recap-session"
+                aria-label="Recap/source session"
+                type="number"
+                min={1}
+                step={1}
+                value={recapSession > 0 ? recapSession : ""}
+                onChange={(event) => {
+                  const nextValue = Number.parseInt(event.target.value, 10);
+                  setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);
+                  setIgnoreDiskResume(false);
+                }}
+              />
+              <RequiredBadge satisfied={validRecapSession} />
+            </span>
+          </label>
+          <label className="ingest-local-nav__field ingest-local-nav__title" htmlFor="ingestion-title">
+            <span>Session title</span>
+            <span className="ingest-local-nav__title-control">
+              <input
+                id="ingestion-title"
+                aria-label="Session title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder={titlePlaceholder}
+              />
+              <RequiredBadge satisfied={genericGuardPass} />
+            </span>
+          </label>
+          {!showRecapWelcome ? (
+            <button type="button" className="ingest-local-nav__new" onClick={() => startNewRecap(1)}>
+              New recap
+            </button>
+          ) : null}
+        </div>
+
+        <div className="ingest-local-nav__workflow">
+          <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
+            <span className="ingest-local-nav__group-label">Source</span>
+            <div className="ingestion-source-mode-toggle">
+              <button
+                type="button"
+                className={sourceMode === "raw" ? "active" : undefined}
+                aria-pressed={sourceMode === "raw"}
+                onClick={() => {
+                  if (loadedArtifact || sourceMode === "processed") {
+                    startNewRecap(1);
+                  } else {
+                    setSourceMode("raw");
+                  }
+                }}
+              >
+                Paste recap
+              </button>
+              <button
+                type="button"
+                className={sourceMode === "processed" ? "active" : undefined}
+                aria-pressed={sourceMode === "processed"}
+                disabled={!loadedArtifact}
+                onClick={() => setSourceMode("processed")}
+              >
+                Processed
+              </button>
+            </div>
+            <label className="ingest-local-nav__prior" htmlFor="ingestion-prior-artifact">
+              <span className="sr-only">Prior processed recap</span>
+              <select
+                id="ingestion-prior-artifact"
+                aria-label="Prior processed recap"
+                value={selectedPriorArtifactId}
+                onChange={(event) => setSelectedPriorArtifactId(event.target.value)}
+                disabled={priorIngestionArtifacts.length === 0 || loadingPriorIngestion}
+              >
+                {priorIngestionArtifacts.length === 0 ? (
+                  <option value="">No processed recaps yet</option>
+                ) : (
+                  <>
+                    <option value="">Load a processed recap…</option>
+                    {priorIngestionArtifacts.map((record) => (
+                      <option key={record.artifact_id} value={record.artifact_id}>
+                        {recapArtifactSessionLabel(record)}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </label>
+            <button
+              type="button"
+              aria-label="Load processed recap"
+              onClick={() => void loadSelectedPriorIngestion()}
+              disabled={loadingPriorIngestion || priorIngestionArtifacts.length === 0 || !selectedPriorArtifactId}
+            >
+              {loadingPriorIngestion ? "Loading…" : "Load"}
+            </button>
+            {loadedArtifact || sourceMode === "processed" ? (
+              <button type="button" aria-label="Unload processed recap" onClick={() => startNewRecap(1)}>
+                Unload
+              </button>
             ) : null}
           </div>
+
+          <div className="ingest-local-nav__stages" role="group" aria-label="Extraction actions">
+            <span className="ingest-local-nav__group-label">Extraction</span>
+            <button
+              type="button"
+              aria-label={primaryOp === "prep" ? "Preparing recap" : "Prep for ingest"}
+              className={hasNormalizedRecap ? undefined : "primary"}
+              onClick={() => void prepForIngest()}
+              disabled={!canPrepForIngest}
+            >
+              {primaryOp === "prep" ? <><span className="button-inline-spinner" aria-hidden="true" /> Prepping…</> : "Prepare"}
+            </button>
+            {hasPreviewUnionStore ? (
+              <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
+                <input
+                  type="checkbox"
+                  checked={forceGraphRun}
+                  onChange={(event) => setForceGraphRun(event.target.checked)}
+                />
+                Replace graph
+              </label>
+            ) : null}
+            <button
+              type="button"
+              aria-label={primaryOp === "ingest" ? "Extracting graph" : forceGraphRun && hasPreviewUnionStore ? "Run ingest (replace graph)" : "Run ingest"}
+              className={hasNormalizedRecap ? "primary" : undefined}
+              onClick={() => void runIngest()}
+              disabled={!canRunIngest}
+            >
+              {primaryOp === "ingest" ? <><span className="button-inline-spinner" aria-hidden="true" /> Extracting…</> : "Extract"}
+            </button>
+            {hasNormalizedRecap ? (
+              <button type="button" aria-label={reviewLoading ? "Opening review…" : "Review recap canvas"} className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
+                {reviewLoading ? "Opening review…" : "Review"}
+              </button>
+            ) : null}
+            {isIngestSurfacePath() && hasPreviewUnionStore ? (
+              <button type="button" onClick={openGraphReviewWorkbench}>Review in workbench</button>
+            ) : null}
+          </div>
+          <p className="ingest-local-nav__status" role="status" aria-live="polite">
+            {state.status === "error"
+              ? state.message ?? "Ingestion operation failed."
+              : primaryOp === "ingest"
+                ? "Extracting graph…"
+                : primaryOp === "prep"
+                  ? "Preparing recap…"
+                  : isMaterializing
+                    ? "Materializing graph…"
+                    : freshRecapEntry && state.status === "idle"
+                      ? "New draft · nothing prepared"
+                      : workflowNextAction}
+          </p>
         </div>
-        {!showRecapWelcome ? (
-          <button type="button" className="wizard-step-chip" onClick={() => startNewRecap(1)}>
-            New recap
-          </button>
-        ) : null}
-      </header>
+      </section>
 
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
@@ -2106,130 +2244,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         </section>
       ) : null}
 
-      {!(freshRecapEntry && latestResult === null && state.status === "idle") ? (
-        <section className="ingestion-flow-card" aria-label="Ingestion workflow progress">
-          <div>
-            <p className="ingestion-flow-kicker">Readiness from on-disk inspect</p>
-            <h3>Current next action</h3>
-            <p role="status" aria-live="polite">{workflowNextAction}</p>
-          </div>
-        </section>
-      ) : null}
-
       <div className="ingestion-command-grid">
-        <section className="ingestion-controls-pane" aria-label="Ingestion source and controls">
+        <section className="ingestion-controls-pane" aria-label="Recap editor">
           <div className="ingestion-source-grid">
-            <section className="ingestion-flow-card ingestion-prior-load-card">
-              <p className="ingestion-flow-kicker">Load prior ingestion</p>
-              <p className="module-muted">
-                Resume from an on-disk normalized recap instead of re-pasting raw notes.
-              </p>
-              <div className="ingestion-prior-load-row">
-                <label htmlFor="ingestion-prior-artifact">
-                  Processed recap
-                  <select
-                    id="ingestion-prior-artifact"
-                    aria-label="Prior processed recap"
-                    value={selectedPriorArtifactId}
-                    onChange={(event) => setSelectedPriorArtifactId(event.target.value)}
-                    disabled={priorIngestionArtifacts.length === 0 || loadingPriorIngestion}
-                  >
-                    {priorIngestionArtifacts.length === 0 ? (
-                      <option value="">No prior ingestions found</option>
-                    ) : (
-                      <>
-                        <option value="">Choose a processed recap</option>
-                        {priorIngestionArtifacts.map((record) => (
-                          <option key={record.artifact_id} value={record.artifact_id}>
-                            {recapArtifactSessionLabel(record)}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void loadSelectedPriorIngestion()}
-                  disabled={loadingPriorIngestion || priorIngestionArtifacts.length === 0 || !selectedPriorArtifactId}
-                >
-                  {loadingPriorIngestion ? "Loading…" : "Load processed recap"}
-                </button>
-                {loadedArtifact || sourceMode === "processed" ? (
-                  <button type="button" onClick={() => startNewRecap(1)}>
-                    Unload processed recap
-                  </button>
-                ) : null}
-              </div>
-              {loadedArtifact ? (
-                <p className="module-muted">
-                  Loaded <code>{loadedArtifact.source_recap_path}</code>
-                  {processedPreviewPath ? (
-                    <>
-                      {" "}
-                      · preview from <code>{processedPreviewPath}</code>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-            </section>
-
-            <div className="ingestion-source-mode-toggle">
-              <button
-                type="button"
-                className={sourceMode === "raw" ? "active" : undefined}
-                aria-pressed={sourceMode === "raw"}
-                onClick={() => {
-                  if (loadedArtifact || sourceMode === "processed") {
-                    startNewRecap(1);
-                  } else {
-                    setSourceMode("raw");
-                  }
-                }}
-              >
-                Paste raw recap
-              </button>
-              <button
-                type="button"
-                className={sourceMode === "processed" ? "active" : undefined}
-                aria-pressed={sourceMode === "processed"}
-                disabled={!loadedArtifact}
-                onClick={() => setSourceMode("processed")}
-              >
-                Loaded processed recap
-              </button>
-            </div>
-
-            <div>
-              <label htmlFor="ingestion-recap-session">
-                Recap/source session <RequiredBadge satisfied={validRecapSession} />
-              </label>
-              <input
-                id="ingestion-recap-session"
-                aria-label="Recap/source session"
-                type="number"
-                min={1}
-                step={1}
-                value={recapSession > 0 ? recapSession : ""}
-                onChange={(event) => {
-                  const nextValue = Number.parseInt(event.target.value, 10);
-                  setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);
-                  setIgnoreDiskResume(false);
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="ingestion-title">
-                Session title <RequiredBadge satisfied={genericGuardPass} />
-              </label>
-              <input
-                id="ingestion-title"
-                aria-label="Session title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder={titlePlaceholder}
-              />
-            </div>
             {sourceMode === "processed" ? (
               <div className="ingestion-raw-block">
                 <label htmlFor="ingestion-processed-preview">
@@ -2265,70 +2282,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             )}
           </div>
 
-          <div className="ingestion-actions ingestion-primary-actions">
-            <button
-              type="button"
-              className={hasNormalizedRecap ? undefined : "primary"}
-              onClick={() => void prepForIngest()}
-              disabled={!canPrepForIngest}
-            >
-              {primaryOp === "prep" ? (
-                <>
-                  <span className="button-inline-spinner" aria-hidden="true" />
-                  Prepping…
-                </>
-              ) : (
-                "Prep for ingest"
-              )}
-            </button>
-            {hasPreviewUnionStore ? (
-              <label className="ingestion-checkbox-row ingestion-replace-graph-row">
-                <input
-                  type="checkbox"
-                  checked={forceGraphRun}
-                  onChange={(event) => setForceGraphRun(event.target.checked)}
-                />
-                Replace existing graph
-              </label>
-            ) : null}
-            <button
-              type="button"
-              className={hasNormalizedRecap ? "primary" : undefined}
-              onClick={() => void runIngest()}
-              disabled={!canRunIngest}
-            >
-              {primaryOp === "ingest" ? (
-                <>
-                  <span className="button-inline-spinner" aria-hidden="true" />
-                  Running ingest…
-                </>
-              ) : forceGraphRun && hasPreviewUnionStore ? (
-                "Run ingest (replace graph)"
-              ) : (
-                "Run ingest"
-              )}
-            </button>
-            {hasNormalizedRecap ? (
-              <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
-                {reviewLoading ? "Opening review…" : "Review recap canvas"}
-              </button>
-            ) : null}
-            {isIngestSurfacePath() && hasPreviewUnionStore ? (
-              <button
-                type="button"
-                onClick={openGraphReviewWorkbench}
-              >
-                Review in workbench
-              </button>
-            ) : null}
-          </div>
-
           <div className="ingestion-action-explainer">
-            <p>
-              Two steps: <strong>Prep for ingest</strong> packages the session recap on disk;
-              {" "}
-              <strong>Run ingest</strong> runs the LLM graph extract (including party fill).
-            </p>
             {hasPreviewUnionStore && !forceGraphRun ? (
               <p>
                 A graph already exists for this session. Check &quot;Replace existing graph&quot; before
@@ -2342,15 +2296,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             {previewInvalidated ? (
               <p>Preview invalidated by raw text/title edits. Prep for ingest again.</p>
             ) : null}
-            <p className="ingestion-live-status" role="status" aria-live="polite">
-              {primaryOp === "ingest"
-                ? "Working: running ingest (LLM graph extract)…"
-                : primaryOp === "prep"
-                  ? "Working: prepping session files…"
-                  : isMaterializing
-                    ? "Materialization in progress..."
-                    : ""}
-            </p>
           </div>
 
           {state.status === "error" ? (

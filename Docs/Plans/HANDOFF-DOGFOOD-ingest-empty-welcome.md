@@ -1,19 +1,21 @@
-# DOGFOOD: Ingest first-use welcome
+# DOGFOOD: Ingest first-use and local toolbar
 
 Status: ACTIVE
 Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`
 
-Base: fetched `origin/main@65ab104be533854e72e5b5277e07744bcfe2e1f9`.
+Current base: `origin/main@d2d80adb6aace8d166c4619e3c377faf56870c90`.
 
 ## Objective
 
-Make Ingest feel like a welcoming first-use surface when no World is selected or
-when a managed World has no exact extraction run selected. Explain what the
-surface is for and provide an actionable next step. Preserve the current
-Elderwyld recap entry, exact-run routing, source ownership, graph-review gates,
-and all ingestion/review behavior.
+Make Ingest a welcoming, coherent workspace. When no World or exact extraction
+run is selected, explain the next useful action. For the Elderwyld recap flow,
+put Ingest-specific campaign/session/source identity and state-appropriate stage
+actions in one local toolbar beneath the shared app navigation. Keep the recap
+or welcome as the main projected surface, remove duplicate titles/statuses, and
+preserve exact-run routing, source ownership, graph-review gates, and ingestion
+behavior. The shared app navigation itself is out of scope.
 
 ## Write lease
 
@@ -52,6 +54,16 @@ ingestion implicitly.
 - The blank entry does not imply a previously selected session or saved recap;
   no historical status is presented as the next action until a session is
   intentionally selected or loaded.
+- The Ingest-local toolbar is the single home for Ingest-specific campaign,
+  session, source, and stage controls. The page body does not repeat its title,
+  campaign/session identity, or next-action status. The shared app navigation
+  remains unchanged.
+- Selecting a prior recap or changing toolbar fields does not prepare, run,
+  admit, or publish it; those actions remain explicit and retain their existing
+  gates.
+- At desktop and narrow widths, the toolbar keeps controls identifiable and
+  usable without squeezing the recap editor into a narrow column or hiding the
+  current source/session context.
 - Elderwyld's established recap entry and exact-run review flows remain intact.
 - No state change may admit, import, publish, or associate source evidence.
 
@@ -93,3 +105,25 @@ Rebased the assigned PR #1191 onto current `origin/main@65ab104be533854e72e5b527
 Verification on this head: focused IngestionModule and MemoryIngestPage suites passed 69 tests; UI typecheck and production build passed; `git diff --check origin/main...HEAD` passed. The current-head local preview visibly rendered the first-use welcome at desktop, including the three-step recap workflow, empty raw-recap field, and the statement that nothing is prepared or ingested until the user chooses those steps. Current-head narrow-width rendering could not be verified: the installed Playwright browser binary is missing and system Chrome terminated before capture. The prior 390px check is from the older pre-rebase preview and is not current-head evidence.
 
 No recap was prepared, run, admitted, or saved. The existing `f43e48e6-c775-4960-824f-fb398fe50bb9` review candidate in 5202 was left unchanged. This PR improves first-use Ingest presentation only; it does not resolve the saved candidate's visible `team` → `tea` links, establish extraction quality, clarify rerun semantics, or prove authenticated persistence. Those are the next ingestion-mandate work, under a separately bounded handoff after this serial PR is reviewed/settled.
+
+## Ingest-local toolbar pass — 2026-10-16
+
+The active slice now places campaign, source session and title, source mode,
+prior processed-recap selection/loading, and extraction/review actions in a
+sticky Ingest-local toolbar below the shared navigation. The duplicate module
+heading, workflow-progress card, and prior-recap card were removed from the
+content area; the blank welcome and recap editor remain the projected surface.
+Only the six leased paths changed. The shared app navigation and 5202 runtime
+remain untouched.
+
+Verification on the current local head: IngestionModule and MemoryIngestPage
+suites passed 69 tests; UI typecheck and production build passed; `git diff
+--check` passed. A production preview at 5208 rendered the fresh Elderwyld
+route with the app navigation, local toolbar, empty session/title fields,
+unselected prior recap list, disabled extraction actions, and blank recap
+welcome. Narrow-width rendering was not available from the current browser
+viewport controls, so CSS responsive behavior is implemented but not claimed as
+visually accepted on this head.
+
+No recap was prepared, run, admitted, or saved. This presentation change does
+not claim to fix extraction quality or prove authenticated persistence.

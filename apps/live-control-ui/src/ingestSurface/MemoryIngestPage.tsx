@@ -242,7 +242,6 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
     return (
       <AppChrome activeRoute="ingest">
         <main className="ingest-surface-root" aria-label="Memory Ingest">
-          <h1>Memory Ingest · {selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId}</h1>
           {managedWorldId === "elderwyld" ? (
             <IngestionModule campaignId="longmont-c2" session={29} managedWorldId={selectedManagedWorldId} initialSourceSession={29} />
           ) : (
