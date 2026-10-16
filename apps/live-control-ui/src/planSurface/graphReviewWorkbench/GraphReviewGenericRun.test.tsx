@@ -9,7 +9,12 @@ import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractio
 import type { PlanContextDescriptor } from "../types";
 import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
-import type { ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
+import type {
+  ExactRunReviewPackage,
+  ExtractionRunRecord,
+  ManagedWorldGraphProjectionResponse,
+  WorldContainerRecord,
+} from "../../api/types";
 import {
   INGEST_RUN_CATALOG_DESCRIPTOR,
   mapIngestRunCatalogObservation,
@@ -144,7 +149,7 @@ function mockCatalogApis() {
 }
 
 function mockExactRunReviewPackage(
-  packageResponse: typeof reviewPackage = reviewPackage,
+  packageResponse: ExactRunReviewPackage = reviewPackage,
 ) {
   return vi
     .spyOn(extractPromoteApi, "getExactRunReviewPackage")
@@ -430,6 +435,81 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled();
     expect(firstWorldPrepare).not.toHaveBeenCalled();
+  });
+
+  it("routes Gazetteer 1.11 source observations into the explicit review surface", async () => {
+    mockCatalogApis();
+    const observationRun = {
+      ...exactRun,
+      profile_id: "worldbuilding_gazetteer_v1@1.11",
+    };
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(observationRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({
+      ...buildContext,
+      run: observationRun,
+    });
+    mockExactRunReviewPackage({
+      ...reviewPackage,
+      worldId: "managed-world-a",
+      inspectionStatus: "ready",
+      assertions: [
+        ...reviewPackage.assertions,
+        {
+          assertionId: "obs:mirathorn:coast",
+          kind: "source_observation",
+          label: "Eastern coastline",
+          summary: "The city stands on the eastern coast.",
+          subjectCandidateNodeId: "obj_session22_vial",
+          evidence: [{
+            sourceArtifactId: reviewPackage.sourceArtifactId,
+            sourceSpanRefId: "span:worldbuilding:coast:p1",
+            paragraphText: "Worldbuilding source for promote.",
+            anchorQuotes: ["Worldbuilding source"],
+            invalidAnchorQuotes: [],
+          }],
+        },
+      ],
+    });
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: "managed-world-a",
+      nativeWorldId: "managed-world-a",
+      bindingVersion: 1,
+      projection: {
+        schema: "dmb_world_graph_projection_v1",
+        snapshot: {
+          worldId: "managed-world-a",
+          campaignId: "",
+          revisionId: "revision-1",
+          headRevisionId: "revision-1",
+          isHead: true,
+          focus: { kind: "none", sessionId: null },
+          admissibility: "gm",
+        },
+        summary: {
+          nodeCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          evidenceCount: 0,
+          sourceArtifactCount: 0,
+          projectionTruncated: false,
+        },
+        nodes: [],
+        relationships: [],
+        attributes: [],
+        evidence: [],
+        sourceArtifacts: [],
+        diagnostics: [],
+      },
+    } satisfies ManagedWorldGraphProjectionResponse);
+
+    renderModule();
+
+    expect(await screen.findByText("Review extracted facts")).toBeInTheDocument();
+    expect(screen.getByText("Eastern coastline")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-assertions")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Prepare review plan" })).toBeDisabled();
   });
 
   it("requires a verified managed World before preparing a promotable recap run", async () => {

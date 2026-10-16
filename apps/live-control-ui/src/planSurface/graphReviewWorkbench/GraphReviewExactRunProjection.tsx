@@ -14,6 +14,7 @@ interface GraphReviewExactRunProjectionProps {
   correctionPending?: boolean;
   correctionError?: string | null;
   onCorrectEvidence?: (corrections: ExactRunEvidenceQuoteCorrection[]) => void;
+  showAssertions?: boolean;
 }
 
 export function GraphReviewExactRunProjection({
@@ -22,6 +23,7 @@ export function GraphReviewExactRunProjection({
   correctionPending = false,
   correctionError = null,
   onCorrectEvidence,
+  showAssertions = true,
 }: GraphReviewExactRunProjectionProps) {
   const [selectedAssertionId, setSelectedAssertionId] = useState<string | null>(
     review.assertions[0]?.assertionId ?? null,
@@ -134,7 +136,7 @@ export function GraphReviewExactRunProjection({
         </pre>
       </section>
 
-      <section
+      {showAssertions ? <section
         className="graph-review-exact-run-assertions"
         data-testid="graph-review-exact-run-assertions"
         aria-label="Exact-run assertions and evidence"
@@ -174,7 +176,7 @@ export function GraphReviewExactRunProjection({
         ) : (
           <p className="plan-projection-empty">No assertions in this exact run.</p>
         )}
-      </section>
+      </section> : null}
     </div>
   );
 }

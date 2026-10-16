@@ -1,0 +1,314 @@
+.graph-review-worldbuilding-observation-review {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  color: var(--text-primary, #e8edf6);
+  background:
+    radial-gradient(ellipse at 8% 0%, rgb(204 156 70 / 12%), transparent 42%),
+    linear-gradient(145deg, #1c2634 0%, #151d29 70%);
+  border: 1px solid rgb(218 172 86 / 38%);
+  border-radius: 1rem;
+  box-shadow: 0 18px 42px rgb(0 0 0 / 18%);
+}
+
+.graph-review-worldbuilding-observation-review__header,
+.graph-review-worldbuilding-observation-review__candidate-title,
+.graph-review-worldbuilding-observation-review__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.graph-review-worldbuilding-observation-review__header h3,
+.graph-review-worldbuilding-observation-review__candidate h4,
+.graph-review-worldbuilding-observation-review__prepared h4 {
+  margin: 0.15rem 0 0.4rem;
+}
+
+.graph-review-worldbuilding-observation-review__header p:last-child,
+.graph-review-worldbuilding-observation-review__candidate-title p,
+.graph-review-worldbuilding-observation-review__dependency,
+.graph-review-worldbuilding-observation-review__hint,
+.graph-review-worldbuilding-observation-review__actions span {
+  color: var(--text-muted, #b8c3d3);
+}
+
+.graph-review-worldbuilding-observation-review__eyebrow {
+  margin: 0;
+  color: #edc36e;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.graph-review-worldbuilding-observation-review__candidates {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-review-worldbuilding-observation-review__candidate {
+  min-width: 0;
+  padding: 1rem;
+  background: rgb(13 20 31 / 52%);
+  border: 1px solid #3a4b62;
+  border-radius: 0.8rem;
+}
+
+.graph-review-worldbuilding-observation-review__kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4rem;
+  margin-bottom: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  color: #f1ce82;
+  background: rgb(194 143 54 / 12%);
+  border: 1px solid rgb(218 172 86 / 35%);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.graph-review-worldbuilding-observation-review__status {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.55rem;
+  color: #aebbd0;
+  background: #202d3e;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.graph-review-worldbuilding-observation-review__status.is-accept,
+.graph-review-worldbuilding-observation-review__status.is-create_new,
+.graph-review-worldbuilding-observation-review__status.is-bind_existing {
+  color: #bde4d0;
+  background: #1e3b35;
+}
+
+.graph-review-worldbuilding-observation-review__status.is-reject {
+  color: #f0c0b9;
+  background: #452b31;
+}
+
+.graph-review-worldbuilding-observation-review__status.is-defer {
+  color: #efd293;
+  background: #463a27;
+}
+
+.graph-review-worldbuilding-observation-review__dependency {
+  margin: 0.6rem 0;
+  padding: 0.55rem 0.7rem;
+  background: rgb(35 48 66 / 72%);
+  border-left: 2px solid #d4a34b;
+  border-radius: 0.2rem;
+  font-size: 0.86rem;
+}
+
+.graph-review-worldbuilding-observation-review__evidence {
+  margin-block: 0.7rem;
+  color: #d9e2ef;
+}
+
+.graph-review-worldbuilding-observation-review__evidence > summary {
+  width: fit-content;
+  color: #b9c9dd;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.graph-review-worldbuilding-observation-review__evidence article {
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  background: #121a26;
+  border: 1px solid #35465b;
+  border-radius: 0.55rem;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-worldbuilding-observation-review__evidence p {
+  margin: 0.25rem 0 0.5rem;
+  color: #c9d4e3;
+  font-size: 0.84rem;
+}
+
+.graph-review-worldbuilding-observation-review__evidence blockquote {
+  margin: 0.5rem 0 0;
+  padding-left: 0.8rem;
+  color: #aebbd0;
+  border-left: 2px solid #6f829d;
+  white-space: pre-wrap;
+}
+
+.graph-review-worldbuilding-observation-review__candidate fieldset {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.8rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid #34465c;
+  border-radius: 0.65rem;
+}
+
+.graph-review-worldbuilding-observation-review__candidate legend {
+  padding-inline: 0.35rem;
+  color: #b9c9dd;
+  font-size: 0.8rem;
+}
+
+.graph-review-worldbuilding-observation-review__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.graph-review-worldbuilding-observation-review__choices label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.65rem;
+  color: #d7e0ee;
+  background: #202c3c;
+  border: 1px solid #3f536d;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.graph-review-worldbuilding-observation-review__choices label:has(input:checked) {
+  color: #fae4b2;
+  background: #4a3b25;
+  border-color: #cf9c43;
+}
+
+.graph-review-worldbuilding-observation-review__choices label:has(input:disabled) {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.graph-review-worldbuilding-observation-review__identity-search {
+  display: grid;
+  gap: 0.55rem;
+  max-width: 40rem;
+}
+
+.graph-review-worldbuilding-observation-review__identity-search label {
+  display: grid;
+  gap: 0.35rem;
+  color: #b9c9dd;
+  font-size: 0.8rem;
+}
+
+.graph-review-worldbuilding-observation-review input:not([type="radio"]),
+.graph-review-worldbuilding-observation-review select {
+  min-height: 2.4rem;
+  padding: 0.45rem 0.6rem;
+  color: #edf2fa;
+  background: #111923;
+  border: 1px solid #53657d;
+  border-radius: 0.45rem;
+}
+
+.graph-review-worldbuilding-observation-review__actions {
+  align-items: center;
+  padding-top: 0.85rem;
+  border-top: 1px solid #34465b;
+}
+
+.graph-review-worldbuilding-observation-review button {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.8rem;
+  color: #f5e8ce;
+  background: #3a4657;
+  border: 1px solid #687b93;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.graph-review-worldbuilding-observation-review__actions button {
+  color: #20190e;
+  background: #d7a74c;
+  border-color: #f0c56c;
+  font-weight: 750;
+}
+
+.graph-review-worldbuilding-observation-review button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.graph-review-worldbuilding-observation-review__alert {
+  padding: 0.65rem 0.8rem;
+  color: #f2d8bb;
+  background: rgb(121 66 43 / 28%);
+  border: 1px solid rgb(220 144 89 / 45%);
+  border-radius: 0.55rem;
+}
+
+.graph-review-worldbuilding-observation-review__prepared {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  background: rgb(35 73 61 / 24%);
+  border: 1px solid rgb(133 197 162 / 48%);
+  border-radius: 0.75rem;
+}
+
+.graph-review-worldbuilding-observation-review__prepared p {
+  margin: 0.15rem 0;
+}
+
+.graph-review-worldbuilding-observation-review__prepared details {
+  padding-top: 0.45rem;
+  border-top: 1px solid rgb(133 197 162 / 28%);
+}
+
+.graph-review-worldbuilding-observation-review__prepared summary {
+  width: fit-content;
+  color: #d7e7dd;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.graph-review-worldbuilding-observation-review__prepared ol,
+.graph-review-worldbuilding-observation-review__prepared ul {
+  display: grid;
+  gap: 0.55rem;
+  padding-left: 1.35rem;
+}
+
+.graph-review-worldbuilding-observation-review__prepared li {
+  overflow-wrap: anywhere;
+}
+
+.graph-review-worldbuilding-observation-review__prepared li p {
+  color: #b8c8bf;
+}
+
+.graph-review-worldbuilding-observation-review__prepared li small {
+  display: block;
+  color: #a5b9ad;
+}
+
+@media (max-width: 680px) {
+  .graph-review-worldbuilding-observation-review__header,
+  .graph-review-worldbuilding-observation-review__candidate-title,
+  .graph-review-worldbuilding-observation-review__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .graph-review-worldbuilding-observation-review__status {
+    align-self: flex-start;
+  }
+
+  .graph-review-worldbuilding-observation-review__actions span {
+    overflow-wrap: anywhere;
+  }
+}

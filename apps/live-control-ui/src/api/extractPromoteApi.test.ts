@@ -5,6 +5,7 @@ import {
   confirmFirstWorldGraph,
   prepareExtractPromote,
   prepareFirstWorldGraph,
+  prepareWorldbuildingWritePlan,
 } from "./extractPromoteApi";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -106,6 +107,67 @@ describe("extractPromoteApi confirm", () => {
       schema: "dmb_first_world_graph_prepare_request_v1",
       runId: "run-glass",
       decisions,
+    });
+  });
+
+  it("prepareWorldbuildingWritePlan posts the exact run, parent revision, and dispositions", async () => {
+    const dispositions = [
+      { assertionId: "place:coast", decision: "create_new" as const },
+      { assertionId: "obs:coast:flock", decision: "accept" as const },
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_worldbuilding_write_plan_v2",
+        version: 2,
+        planId: "plan-1",
+        planDigest: "sha256:plan",
+        decisionDigest: "sha256:decisions",
+        worldId: "elderwyld",
+        parentRevisionId: "rev:parent",
+        runId: "run-gazetteer-1",
+        sourceDomain: "worldbuilding",
+        sourceArtifactId: "artifact:worldbuilding:elderwyld",
+        sourceRevisionId: "rev:source",
+        extractionProfile: "worldbuilding_gazetteer_v1@1.11",
+        candidatePreviewId: "preview-1",
+        candidateSchema: "dmb_candidate_graph_v1",
+        candidateVersion: "0.2",
+        effect: {
+          acceptedProposals: [],
+          rejectedAssertions: [],
+          unresolvedMentions: [],
+          deferredCandidateIds: [],
+          nodeIdMap: {},
+          decisionSnapshot: [],
+        },
+        summary: {
+          createNewNodeCount: 1,
+          bindExistingNodeCount: 0,
+          acceptedEdgeCount: 0,
+          rejectedCandidateCount: 0,
+          deferredCandidateCount: 0,
+          acceptedAssertionCount: 2,
+        },
+        diagnostics: [],
+        confirmable: false,
+        confirmableReason: "Prepared plan is inert.",
+      }),
+    );
+
+    await prepareWorldbuildingWritePlan({
+      runId: "run-gazetteer-1",
+      expectedParentRevisionId: "rev:parent",
+      dispositions,
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toContain("/api/live/extract-promote/worldbuilding/prepare");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      schema: "dmb_worldbuilding_write_plan_prepare_request_v1",
+      runId: "run-gazetteer-1",
+      expectedParentRevisionId: "rev:parent",
+      dispositions,
     });
   });
 

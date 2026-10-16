@@ -51,6 +51,7 @@ import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRecapProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
+import { GraphReviewWorldbuildingObservationReview } from "./GraphReviewWorldbuildingObservationReview";
 import {
   resolveGraphReviewWriteAuthority,
   resolvePublishedMemoryBrowseContext,
@@ -987,6 +988,7 @@ export function GraphReviewWorkbenchModule({
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
               exactRunFirstWorldEligible={exactRunFirstWorldEligible}
+              managedWorldId={managedWorldId}
               sourceReviewOnly={effectiveSourceReviewOnly}
               exactRunNonPromotableReason={exactRunNonPromotableReason}
               exactPreparing={exactPreparing}
@@ -1021,6 +1023,7 @@ function GraphReviewExactRunBranch(props: {
   exactRunReviewable: boolean;
   exactRunPromotable: boolean;
   exactRunFirstWorldEligible: boolean;
+  managedWorldId: string | null;
   sourceReviewOnly: boolean;
   exactRunNonPromotableReason: string | null;
   exactPreparing: boolean;
@@ -1038,6 +1041,10 @@ function GraphReviewExactRunBranch(props: {
 }) {
   const { committedPhase } = useGraphReviewLiveState();
   const historicalRecapInspectable = isCatalogRunHistoricalRecapInspectable(props.exactRun);
+  const observationReviewEligible = !props.sourceReviewOnly
+    && props.exactRun.source_domain === "worldbuilding"
+    && props.exactRun.profile_id === "worldbuilding_gazetteer_v1@1.11"
+    && Boolean(props.exactReview?.assertions.some((assertion) => assertion.kind === "source_observation"));
 
   // After terminal receipt for this binding, committed projection is the only
   // primary result — never exact-run candidate source/assertions.
@@ -1080,6 +1087,7 @@ function GraphReviewExactRunBranch(props: {
       {props.exactReview ? (
         <GraphReviewExactRunProjection
           review={props.exactReview}
+          showAssertions={!observationReviewEligible}
           correctionEnabled={props.exactRun.source_domain === "worldbuilding"
             && !props.sourceReviewOnly
             && props.exactRun.profile_id === "worldbuilding_shepherds_flock_v0@0.1"
@@ -1119,6 +1127,11 @@ function GraphReviewExactRunBranch(props: {
               </>
             )}
         </p>
+      ) : observationReviewEligible && props.exactReview ? (
+        <GraphReviewWorldbuildingObservationReview
+          review={props.exactReview}
+          managedWorldId={props.managedWorldId}
+        />
       ) : !props.sourceReviewOnly && props.exactRunFirstWorldEligible && props.exactReview ? (
         props.exactReviewStatus === "error" ? null : (
           <GraphReviewFirstWorldPublishSheet
