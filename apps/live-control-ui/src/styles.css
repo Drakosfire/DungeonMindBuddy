@@ -1715,6 +1715,14 @@ code {
   opacity: 0.66;
 }
 
+.ingestion-proof-path-unverified {
+  border-color: #59657a;
+}
+
+.ingestion-proof-path-unverified strong {
+  color: #bac3d1;
+}
+
 .ingestion-status-panel details {
   margin-top: 0.65rem;
 }
