@@ -1,6 +1,6 @@
 # AGENT — Select reviewed observations before anchor admission
 
-Status ACTIVE, PRIME solo; base `b285e4fd1ab61139b66b461730ee7b058a909994`.
+Status MERGED as `9b07844634f432017b0d2dd41e99f01683c78f08`; implementation lease ended. Base `b285e4fd1ab61139b66b461730ee7b058a909994`.
 Lane `/tmp/prime-recap-mention-boundaries`, branch `codex/agent-selected-observations`.
 Topology serial; source-observation producer #1232 is merged. DOGFOOD UI work is
 separate. ARCHITECTURE owns independent exact-head review.
@@ -53,3 +53,5 @@ remains omitted and coverage reports the bound. This implementation prevents unr
 reviewed observations consuming the budget first; it does not guarantee arbitrary
 objects or giant historical records can fit. Fresh Mirathorn1.11 live evidence remains
 required, including its17-ref Float Goat definition and the ordinary object anchors.
+
+Independent ARCHITECTURE PASS exact795038403c4c1e53980a03b826b8f5734138f2dc;39 independent selected/native/governed tests passed.
