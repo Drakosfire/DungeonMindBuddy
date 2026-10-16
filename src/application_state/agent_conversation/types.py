@@ -1831,7 +1831,7 @@ class ProviderAttemptAuthorizedEventV1(GraphExecutionEventBaseV1):
     kind: Literal["provider_attempt_authorized"]
     provider_attempt_id: UUID
     envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    serializer_version: Literal["canonical-json-utf8-v1", "typesafe-sdk-json-v1"]
+    serializer_version: Literal["canonical-json-utf8-v1", "typesafe-sdk-json-v1", "openai-sdk-json-v1"]
     provider: str = Field(min_length=1, max_length=128)
     model: str = Field(min_length=1, max_length=256)
     api_mode: str = Field(min_length=1, max_length=64)

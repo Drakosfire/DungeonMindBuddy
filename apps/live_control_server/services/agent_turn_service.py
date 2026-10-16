@@ -572,8 +572,9 @@ def _initial_claim_packet_from_view(
             status_code=502,
         ) from exc
     expected = _expected_initial_claim_packet(bootstrap, frozen_projection)
-    if getattr(view, "api_mode", None) == "typesafe_decision":
-        packet = body.get("state", {}).get("initialClaimPacket")
+    if getattr(view, "api_mode", None) in {"typesafe_decision", "responses"}:
+        state = body.get("state", {}) if view.api_mode == "typesafe_decision" else json.loads(body["input"])
+        packet = state.get("initialClaimPacket")
         if packet != expected:
             raise AgentTurnServiceError("The structured initial Graph packet differs.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
@@ -854,7 +855,14 @@ def _verify_policy_plan_payload(
     playable_target: PlanPlayableTargetReceiptV1 | None,
     bootstrap: AgentPlanWorldGraphBootstrap | None = None,
     build_jev_expected_state: Mapping[str, Any] | None = None,
+    build_writer_projection: Any = None,
 ) -> None:
+    if view.get("apiMode") == "responses":
+        from .build_jev_writer import validate_body
+        if not _governed_build_turn(request) or build_writer_projection is None:
+            raise ValueError("Writer requires a parent staged Build projection")
+        validate_body(view["payloadJson"], build_writer_projection)
+        return
     if view.get("apiMode") == "typesafe_decision":
         from .build_jev_dispatch import first_state, validate_body
         if not _governed_build_turn(request) or bootstrap is None:
@@ -1518,8 +1526,10 @@ class _PolicyExecutionAdapter:
         self, body: Mapping[str, Any], tool_name: str,
     ) -> list[str]:
         state = body.get("state")
+        if getattr(self, "_active_build_writer_projection", None) is not None:
+            state = json.loads(body["input"])
         if (getattr(self, "budget", {}).get("apiMode") == "typesafe_decision"
-                and isinstance(state, Mapping) and state.get("schema") == "dmb_build_jev_controller_state_v1"):
+                and isinstance(state, Mapping) and state.get("schema") in {"dmb_build_jev_controller_state_v1", "dmb_build_jev_writer_packet_v1"}):
             key = {"expand_graph_retrieval": "graph", "read_graph_source": "sources"}.get(tool_name)
             return list(state["exposure"][key]) if key is not None else []
         # A broker denial is conversational feedback, not a validated read.
@@ -1557,6 +1567,7 @@ class _PolicyExecutionAdapter:
         _verify_policy_plan_payload(
             view, self.request, self.work, self.playable_target, self.bootstrap,
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
+            build_writer_projection=getattr(self, "_active_build_writer_projection", None),
         )
         initial = _initial_claim_packet_from_view(
             type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
@@ -1698,10 +1709,15 @@ class _PolicyExecutionAdapter:
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
             return False
         try:
+            from . import build_jev_writer as writer
+            writing = getattr(self, "_active_build_writer_projection", None) is not None
+            identity = ({"provider": writer.PROVIDER, "model": writer.MODEL, "apiMode": writer.API_MODE}
+                if writing else self.budget)
+            output_reserve = writer.OUTPUT_RESERVE if writing else self.budget["outputReserveTokens"]
             if (
-                view.get("provider") != self.budget["provider"]
-                or view.get("model") != self.budget["model"]
-                or view.get("apiMode") != self.budget["apiMode"]
+                view.get("provider") != identity["provider"]
+                or view.get("model") != identity["model"]
+                or view.get("apiMode") != identity["apiMode"]
             ):
                 raise AgentTurnServiceError(
                     "Provider request identity differs from the approved budget.",
@@ -1760,13 +1776,13 @@ class _PolicyExecutionAdapter:
                 )
             body = json.loads(view["payloadJson"])
             upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
-            if upper_bound + self.budget["outputReserveTokens"] > self.budget["contextLimitTokens"]:
+            if upper_bound + output_reserve > self.budget["contextLimitTokens"]:
                 raise AgentTurnServiceError(
                     "The final provider request exceeds the frozen budget.",
                     code="provider_envelope_over_budget", status_code=413,
                     provider_dispatched=False,
                 )
-            provider_attempt_id = UUID(view["providerAttemptId"]) if view.get("apiMode") == "typesafe_decision" else uuid4()
+            provider_attempt_id = UUID(view["providerAttemptId"]) if view.get("apiMode") in {"typesafe_decision", "responses"} else uuid4()
             try:
                 included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
                 included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
@@ -1816,6 +1832,10 @@ class _PolicyExecutionAdapter:
                 build_closures = _build_initial_claim_evidence(
                     view, self.bootstrap, self.initial_session_projection,
                 )
+                if writing:
+                    # Initial claims are discovery only for this writer; only selected
+                    # complete broker exposures establish answer support.
+                    build_closures = []
                 for operation in included_operations:
                     for kind, target, refs in exposed[operation.event_id].claim_evidence:
                         allowed = operation.assertion_ids if kind == "assertion" else operation.relationship_ids
@@ -1826,14 +1846,15 @@ class _PolicyExecutionAdapter:
                 event_id=uuid4(), sequence=len(execution.events),
                 provider_attempt_id=provider_attempt_id,
                 envelope_sha256=view["payloadSha256"],
-                serializer_version=("typesafe-sdk-json-v1" if view.get("apiMode") == "typesafe_decision" else "canonical-json-utf8-v1"),
+                serializer_version=(writer.SERIALIZER if writing else
+                    "typesafe-sdk-json-v1" if view.get("apiMode") == "typesafe_decision" else "canonical-json-utf8-v1"),
                 provider=view["provider"], model=view["model"],
                 api_mode=view["apiMode"],
                 tool_schema_sha256=_canonical_sha256(body.get("tools", [])),
                 input_accounting_kind="conservative_upper_bound",
                 input_estimator=self.budget["estimator"],
                 input_tokens=upper_bound,
-                output_token_reserve=self.budget["outputReserveTokens"],
+                output_token_reserve=output_reserve,
                 included_assertion_ids=assertions,
                 included_relationship_ids=relationships,
                 included_evidence_ref_ids=evidence,
@@ -1991,6 +2012,88 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = manifest
         return manifest.state()
 
+    def stage_build_writer(self, *, graph_payloads=(), source_payloads=()):
+        from . import build_jev_writer as writer
+        # Reuse the existing parent inclusion/completeness/source proof, never a
+        # worker-authored packet or operation-wide evidence union.
+        self.stage_build_controller_exposure(graph_payloads=graph_payloads, source_payloads=source_payloads)
+        roles = self._broker_execution().policy.provider_roles
+        if roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
+            raise ValueError("Frozen writer route is incompatible with GE Responses")
+        staged = writer.projection(self._build_controller_exposure)
+        self._build_controller_exposure = None
+        self._build_writer_projection = staged
+        return staged
+
+    def authorize_prepared_build_writer(self, prepared: Any) -> bool:
+        from . import build_jev_writer as writer
+        if self.failure is not None or self.fence is None:
+            return False
+        staged = getattr(self, "_build_writer_projection", None)
+        if (staged is None or staged.event_sequence != len(self._broker_execution().events)
+                or staged.prior_provider_attempt_id != str(self.last_provider_attempt_id)):
+            return False
+        try:
+            view = writer.prepared_view(prepared, staged)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return False
+        self._prepared_build_authorizing = view
+        self._active_build_writer_projection = staged
+        try:
+            accepted = self.authorize(view)
+        finally:
+            self._prepared_build_authorizing = None
+            self._active_build_writer_projection = None
+        if accepted:
+            self._prepared_build_writer = prepared
+            self._build_writer_projection = None
+        return accepted
+
+    def record_prepared_build_writer(self, event: Any) -> bool:
+        prepared = getattr(self, "_prepared_build_writer", None)
+        if prepared is None or event.request != prepared or str(self.last_provider_attempt_id) != prepared.attempt_id:
+            return False
+        transition = {"sending": "sdk_entered", "known_not_sent": "known_not_sent",
+            "response_received": "response_received", "outcome_unknown": "outcome_unknown"}.get(event.outcome)
+        return transition is not None and self.record_lifecycle({"transition": transition, "statusCode": event.http_status})
+
+    def complete_build_writer(self, result: Any):
+        from . import build_jev_writer as writer
+        if (self.failure is not None or self.fence is None or self.producing_provider_attempt_id is None
+                or self.producing_provider_attempt_id != self.last_provider_attempt_id):
+            raise ValueError("No acknowledged writer response")
+        if (result.observation.provider != writer.PROVIDER
+                or result.observation.resolved_model != writer.MODEL
+                or result.observation.response_model != writer.MODEL or not isinstance(result.text, str)):
+            raise ValueError("Writer result identity differs")
+        final_text = result.text
+        if self.context_capture is None:
+            raise ValueError("Build writer requires raw answer capture")
+        self.context_capture.answer_draft(final_text, producing_provider_attempt_id=self.producing_provider_attempt_id)
+        draft_id = f"unvalidated-provider-answer:{self.producing_provider_attempt_id}:{self.fence.turn.graph_context_receipt.context_receipt_sha256}"
+        captured = [m.text for observation in self.context_capture.trace.observations
+            if observation.kind == "context_snapshot" for m in observation.materials if m.item_id == draft_id]
+        if captured != [final_text]:
+            raise ValueError("Raw writer answer capture is incomplete")
+        candidate = json.loads(final_text)
+        if not isinstance(candidate, dict) or not isinstance(candidate.get("answer_segments"), list):
+            raise ValueError("Writer answer shape is invalid")
+        if any(not isinstance(s, dict) for s in candidate["answer_segments"]):
+            raise ValueError("Writer segment shape is invalid")
+        if any(s.get("kind") == "saved_source_claim" for s in candidate.get("answer_segments", [])):
+            raise ValueError("Saved source body was not supplied to the writer")
+        turn = self.fence.turn
+        completion, bindings, answer = _parse_policy_completion(final_text, turn,
+            self.producing_provider_attempt_id,
+            build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id))
+        self.context_capture.answer_context(answer)
+        turn = self.stop()
+        self.turn = self.service.complete_turn(TurnResult(world_id=turn.world_id,
+            conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+            expected_revision=turn.revision, assistant_text=answer, completion=completion,
+            producing_provider_attempt_id=self.producing_provider_attempt_id, claim_graph_event_ids=bindings))
+        return self.turn
+
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:
         from .build_jev_dispatch import API_MODE, first_state, prepared_view, request_budget
         if self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not _governed_build_turn(self.request):
@@ -2052,13 +2155,22 @@ class _PolicyExecutionAdapter:
                 self.fence.append("record_provider_outcome", "outcome", event)
             )
             self.turn = updated
-            if transition == "response_received" and self.budget.get("apiMode") != "typesafe_decision":
-                self.producing_provider_attempt_id = self.last_provider_attempt_id
+            execution = self._broker_execution()
+            auth = next(item for item in execution.events if _is_provider_authorization(item)
+                and item.provider_attempt_id == self.last_provider_attempt_id)
+            if transition == "response_received":
+                roles = getattr(execution.policy, "provider_roles", None)
+                if (roles is not None and (auth.provider, auth.model, auth.api_mode) == roles.writer.identity()
+                        or roles is None and self.budget.get("apiMode") != "typesafe_decision"):
+                    self.producing_provider_attempt_id = self.last_provider_attempt_id
             if self.context_capture is not None and transition != "sdk_entered":
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,
-                    "provider": self.budget["provider"], "model": self.budget["model"],
-                    "outcome": transition if transition in {"response_received", "known_not_sent"} else "unknown",
+                    "provider": auth.provider, "model": auth.model,
+                    # Trace is a coarse display enum; exact known_not_sent stays
+                    # in the durable execution lifecycle, not an invalid trace label.
+                    "outcome": ("response_received" if transition == "response_received" else
+                        "failed" if transition == "known_not_sent" else "unknown"),
                 })
             return True
         except (AgentTurnServiceError, ApplicationStateError, ValueError) as exc:

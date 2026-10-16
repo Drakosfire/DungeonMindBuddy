@@ -36,9 +36,9 @@ dependencies = [
     "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@637364c647da475d766cfba0b7eebed66d1182f4",
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
-    # Exact source pin: GenerationEngine PR #19 merge (structured attempt evidence).
+    # Exact source pin: GenerationEngine PR #22 merge (guarded Responses terminal truth).
     # This source pin does not update any deployed/serving runtime.
-    "generationengine[openai,openrouter,typesafe] @ git+https://github.com/Drakosfire/GenerationEngine.git@dde768f3e632af20b969cc694d8318265ce6ff5c",
+    "generationengine[openai,openrouter,typesafe] @ git+https://github.com/Drakosfire/GenerationEngine.git@5c69e7c55d2573a582a85ae11ba947160d5f142d",
     "psycopg[binary]>=3.2",
     "alembic>=1.16",
 ]
