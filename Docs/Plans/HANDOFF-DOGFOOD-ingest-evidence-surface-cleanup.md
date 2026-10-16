@@ -259,3 +259,19 @@ authorized by this amendment. This remains the single serial implementation PR
   `act(...)` warnings. No live ingestion or write action was used; 5202 and
   5204 remain untouched. Fresh Bugbot review of the updated exact PR head is
   required before dogfood.
+- Bugbot on PR head `5d8f6251b8858274bc55bc838844cd61b8ca58e6` found a P2
+  same-session draft-reset race: “New recap” leaves the campaign/session
+  identity unchanged, so a late operation response could repopulate the cleared
+  draft. Recap operations now capture a draft epoch; changing campaign/session,
+  resetting to a new recap, or loading a prior recap invalidates that epoch.
+  Stale responses and failures are ignored, and stale loading/finally handlers
+  cannot clear the state of newer work. A regression holds Stage + Preview
+  open, starts New recap on the same target, then resolves the old response and
+  verifies that the cleared draft stays empty and Apply remains disabled.
+- Verification after the same-session reset repair: `IngestionModule.test.tsx`
+  74 passed and `MemoryIngestPage.test.tsx` 13 passed (87 total); `npm run
+  build` passed (including TypeScript project build), with the existing Vite
+  large-chunk warning; `git diff --check` passed. Existing React `act(...)`
+  warnings remain in the IngestionModule suite. No live ingestion or write
+  action was used; 5202 and 5204 remain untouched. A fresh Bugbot review of the
+  updated exact PR head is required before dogfood.

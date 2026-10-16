@@ -592,6 +592,53 @@ describe("IngestionModule", () => {
     expect(screen.queryByText("recap_preview_created")).not.toBeInTheDocument();
   });
 
+  it("keeps a late same-session response out of a new recap draft", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-23");
+    let finishStage!: (result: RecapIngestStatus) => void;
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+      if (request.operation === "inspect_status") {
+        return makeStatus({
+          session: request.session,
+          status: "initialized",
+          states: ["ingest_status_inspected"],
+        });
+      }
+      if (request.operation === "stage_preview") {
+        return new Promise((resolve) => { finishStage = resolve; });
+      }
+      throw new Error(`Unexpected ingest operation: ${request.operation}`);
+    });
+
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.type(screen.getByLabelText("Raw recap text"), "Old draft recap\n\nThe party arrives.");
+    await user.type(screen.getByLabelText("Session title"), "Session 23 - Old draft");
+    await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
+    await waitFor(() => expect(ingest).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "stage_preview",
+      campaign_id: "longmont-c2",
+      session: 23,
+    })));
+
+    // New recap keeps the same campaign/session, so target identity alone
+    // cannot distinguish this cleared draft from the one in flight.
+    await user.click(screen.getByRole("button", { name: "New recap" }));
+    expect(screen.getByLabelText("Raw recap text")).toHaveValue("");
+    expect(screen.getByLabelText("Session title")).toHaveValue("");
+
+    await act(async () => finishStage(makeStatus({
+      session: 23,
+      status: "recap_preview_created",
+      states: ["raw_text_received", "recap_preview_created"],
+    })));
+
+    expect(screen.getByLabelText("Raw recap text")).toHaveValue("");
+    expect(screen.getByLabelText("Session title")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeDisabled();
+    expect(screen.queryByText("recap_preview_created")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
+  });
+
   it("reports an operation response bound to a different campaign or session", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-23");
     const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {

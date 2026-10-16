@@ -826,6 +826,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const selectedIngestTarget = JSON.stringify([ingestCampaignId, recapSession]);
   const selectedIngestTargetRef = useRef(selectedIngestTarget);
   selectedIngestTargetRef.current = selectedIngestTarget;
+  const recapDraftEpochRef = useRef(0);
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -875,6 +876,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
+    invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = JSON.stringify([nextCampaignId, recapSession]);
     invalidateInFlightHydrateInspect();
     setIngestCampaignId(nextCampaignId);
@@ -893,6 +895,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function handleRecapSessionChange(nextSession: number) {
     if (nextSession === recapSession) return;
+    invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = JSON.stringify([ingestCampaignId, nextSession]);
     invalidateInFlightHydrateInspect();
     setRecapSession(nextSession);
@@ -913,12 +916,28 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setHydrated(true);
   }
 
+  function invalidateInFlightRecapOperations() {
+    recapDraftEpochRef.current += 1;
+  }
+
   async function postForSelectedIngestTarget(
     request: Parameters<typeof postRecapIngest>[0],
     targetIdentity: string,
   ): Promise<RecapIngestStatus | null> {
-    const result = await postRecapIngest(request);
-    if (selectedIngestTargetRef.current !== targetIdentity) return null;
+    const draftEpoch = recapDraftEpochRef.current;
+    let result: RecapIngestStatus;
+    try {
+      result = await postRecapIngest(request);
+    } catch (error) {
+      // Resetting the draft invalidates pending responses and their failures.
+      // Do not let an older request publish an error into the new draft.
+      if (recapDraftEpochRef.current !== draftEpoch) return null;
+      throw error;
+    }
+    if (
+      recapDraftEpochRef.current !== draftEpoch ||
+      selectedIngestTargetRef.current !== targetIdentity
+    ) return null;
     if (result.campaign_id !== request.campaign_id || result.session !== request.session) {
       const message = "The service returned a result for a different campaign or session. Inspect this recap before retrying.";
       setState({ status: "error", message });
@@ -1506,6 +1525,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   function resetWizardFlow(nextStep = 1) {
+    invalidateInFlightRecapOperations();
+    hydrateInspectGenerationRef.current += 1;
     closeSavedReader();
     lastToastKeyRef.current = null;
     window.localStorage.removeItem(storageKey);
@@ -1525,6 +1546,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setState({ status: "idle" });
     setLatestResult(null);
     setPreviewSignature(null);
+    setPrimaryOp(null);
+    setReconciling(false);
+    setLoadingPriorIngestion(false);
     jumpToStep(nextStep);
   }
 
@@ -1573,6 +1597,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
 
     const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+    invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = targetIdentity;
     invalidateInFlightHydrateInspect();
     const requestGeneration = hydrateInspectGenerationRef.current;
@@ -1654,7 +1679,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setLoadingPriorIngestion(false);
+      if (
+        requestGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setLoadingPriorIngestion(false);
     }
   }
 
@@ -1688,6 +1716,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   async function runIngest() {
     if (!canRunIngest) return;
     const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     setReaderRun(null);
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1793,13 +1822,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      if (selectedIngestTargetRef.current === targetIdentity) setPrimaryOp(null);
+      if (
+        recapDraftEpochRef.current === draftEpoch &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setPrimaryOp(null);
     }
   }
 
   async function prepForIngest() {
     if (!canPrepForIngest) return;
     const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setPrimaryOp("prep");
@@ -1882,7 +1915,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         message: error instanceof Error ? error.message : "Prep failed",
       });
     } finally {
-      if (selectedIngestTargetRef.current === targetIdentity) setPrimaryOp(null);
+      if (
+        recapDraftEpochRef.current === draftEpoch &&
+        selectedIngestTargetRef.current === targetIdentity
+      ) setPrimaryOp(null);
     }
   }
 
@@ -2270,6 +2306,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   async function reconcileNormalizedRecap(keepBasename: string) {
     const targetIdentity = selectedIngestTarget;
+    const draftEpoch = recapDraftEpochRef.current;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setReconciling(true);
@@ -2319,7 +2356,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setReconciling(false);
+      if (recapDraftEpochRef.current === draftEpoch) setReconciling(false);
     }
   }
 
