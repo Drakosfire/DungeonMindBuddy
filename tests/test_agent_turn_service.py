@@ -5859,13 +5859,16 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
     )
 
 
-@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support"])
+@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support", "bundle", "bundle_build"])
 def test_mounted_v3_traversal_source_route_real_pg_and_history(
     application_state_dsn,
     tmp_path,
     monkeypatch, operation,
 ):
     """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
+    is_build = operation == "bundle_build"
+    use_bundle = operation in {"bundle", "bundle_build"}
+    operation = "object" if use_bundle else operation
     import asyncio
     import httpx
     import fastapi.routing as routing
@@ -5956,6 +5959,22 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
         plan_context_policy={"policy": "auto_plan_world"},
         message="Summarize the entire prior recap while preserving its context boundary.",
     )
+    if is_build:
+        from dataclasses import replace
+        build_basis = parent.BuildSavedSourceBasis(
+            document_id=basis.document_id, world_id=world, revision=1,
+            content_sha256=basis.content_sha256, title='Synthetic source',
+            source_domain='worldbuilding', document_class='reference',
+            authority_state='authored', visibility_state='internal', markdown=plan,
+        )
+        work = replace(work, kind='build', build_source=build_basis, content_basis=None, plan_markdown=None)
+        body = _request(surface={'surface_id':'build','instance_id':'synthetic-build-pane'},
+            owner_scope={'kind':'world','world_id':world}, client_work_state='saved_clean',
+            primary_work={'kind':'build','object_id':basis.document_id,'expected_revision':1,
+                'expected_content_sha256':basis.content_sha256},
+            graph_request={'mode':'world','world_id':world,'campaign_id':None,'revision_pin':None,
+                'focus':{'kind':'none','session_id':None,'campaign_id':None}},
+            turn_id=str(uuid4()),message='What does the graph say about the tavern?')
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id=native, campaign_id='', focus={'kind': 'none'}, admissibility='gm',
@@ -6046,9 +6065,8 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     },
                     {
                         "role": "user",
-                        "content": parent._plan_message(
-                            body.message, plan, content_basis=basis
-                        ),
+                        "content": (parent._build_invocation_message(work, body.message) + "\n\n" + parent._BUILD_GRAPH_ANSWER_INSTRUCTIONS
+                            if is_build else parent._plan_message(body.message, plan, content_basis=basis)),
                     },
                 ],
                 "tools": [],
@@ -6076,24 +6094,45 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
             graph_reply = on_graph_operation({
                 'toolName': 'expand_graph_retrieval', 'arguments': {
                     'retrievalSessionId': session.id, 'operation': operation,
+                    **({'includeSources':True} if use_bundle else {}),
                     'queryText': 'The Prancing Tavern',
                     'targets': [{'kind':'node','id':'obj:tavern'}],
                 },
             })
             graph_packet = json.loads(graph_reply['resultJson'])
-            origin, extension = adapter._broker_execution().events[-2:]
+            events = adapter._broker_execution().events
+            origin = next(e for e in events if e.kind == "validated_graph_operation_v3")
+            extension = next(e for e in events if e.kind == "source_scope_extension_v3")
             assert origin.kind == 'validated_graph_operation_v3', graph_packet
             assert extension.kind == 'source_scope_extension_v3'
             assert extension.origin_graph_event_id == origin.event_id
             pin = next(pin for pin in origin.returned_source_pins if pin.evidence_ref_id == 'ev:tavern')
             assert pin in extension.pins
-            response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
-                'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
-            }})
-            page = json.loads(response['resultJson'])
-            assert page.get('content') == ANCHOR_CONTENT.rstrip(), json.dumps({'page':page,'core':core_results})
-            for call_id, name, reply in [('graph','expand_graph_retrieval',graph_reply),
-                                          ('source','read_graph_source',response)]:
+            if use_bundle:
+                assert graph_packet['schema'] == 'dmb_graph_evidence_packet_v1'
+                assert any(item['content'] == ANCHOR_CONTENT.rstrip() for item in graph_packet['sources']), graph_packet
+                assert graph_packet['coverage']['openedSources'] >= 1
+                if is_build:
+                    assert all('evidenceRefIds' not in r['record'] for r in graph_packet['records'])
+                else:
+                    assert any('ev:tavern' in r['record'].get('evidenceRefIds', []) for r in graph_packet['records'])
+                # Repeating the completed immutable bundle must not reacquire.
+                before_count = len(core_reads)
+                cached = on_graph_operation({'toolName':'expand_graph_retrieval', 'arguments': {
+                    'retrievalSessionId': session.id, 'operation': operation,
+                    'queryText':'The Prancing Tavern', 'targets':[{'kind':'node','id':'obj:tavern'}],
+                    'includeSources':True,
+                }})
+                assert cached['resultJson'] == graph_reply['resultJson'] and len(core_reads) == before_count
+                replies = [('bundle','expand_graph_retrieval',graph_reply)]
+            else:
+                response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
+                    'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
+                }})
+                page = json.loads(response['resultJson'])
+                assert page.get('content') == ANCHOR_CONTENT.rstrip(), json.dumps({'page':page,'core':core_results})
+                replies = [('graph','expand_graph_retrieval',graph_reply), ('source','read_graph_source',response)]
+            for call_id, name, reply in replies:
                 payload['input'].extend([
                     {'type':'function_call','call_id':call_id,'name':name,'arguments':'{}'},
                     {'type':'function_call_output','call_id':call_id,'output':reply['resultJson']},
@@ -6137,6 +6176,11 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     ]
                 },
             }
+            if is_build:
+                answer = {'answer_context_status':'graph_grounded','answer_segments':[{
+                    'kind':'graph_claim','claim_id':'claim:population',
+                    'text':'The keeper guards the gate.','target_kind':'assertion','target_id':'asrt:population',
+                }]}
             return AgentRuntimeResult(
                 status="ok",
                 final_text=json.dumps(answer),
@@ -6183,12 +6227,15 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
     assert extension.pins == origin.returned_source_pins
     assert read.event_id in producing.included_source_read_event_ids
     citation = saved.completion.citation_map.entries[0]
-    assert citation.source_opened and citation.source_read_ids == [read.receipts[0].source_read_id]
-    assert core_reads == [read.receipts[0].anchor_id]
+    admitted_read = next(r for r in read.receipts if r.evidence_ref_id == 'ev:tavern' and r.returned_chars > 0)
+    assert citation.source_opened and citation.source_read_ids == [admitted_read.source_read_id]
+    assert sorted(core_reads) == sorted(r.anchor_id for r in read.receipts)
     before = saved.model_dump_json()
     rebuilt = project_plan_turn_context(saved, delivery_replay=True)
-    assert rebuilt.schema_ == "dmb_agent_plan_world_graph_context_response_v2"
-    target = next(t for t in rebuilt.source_open_targets if t.kind == 'evidence_anchor')
+    expected_schema = "dmb_build_graph_context_response_v1" if is_build else "dmb_agent_plan_world_graph_context_response_v2"
+    assert rebuilt.schema_ == expected_schema
+    target = next(t for t in rebuilt.source_open_targets if t.kind == 'evidence_anchor'
+                  and t.source_read_id in citation.source_read_ids)
     assert target.source_read_id == citation.source_read_ids[0]
     assert (
         service.list_turns(world, conversation.conversation_id)[0].model_dump_json()
@@ -6220,9 +6267,9 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
     )
     readback = json.loads(child)
     assert readback["turn"] == saved.model_dump(mode="json", by_alias=True)
-    assert readback["view_schema"] == "dmb_agent_plan_world_graph_context_response_v2"
+    assert readback["view_schema"] == expected_schema
     assert (
-        delivered["plan_context"]["source_open_targets"]
+        delivered["knowledge_context" if is_build else "plan_context"]["source_open_targets"]
         == rebuilt.model_dump(mode="json", by_alias=True)["source_open_targets"]
     )
 

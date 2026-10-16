@@ -1453,6 +1453,7 @@ class _PolicyExecutionAdapter:
         self.presentation = None
         self.build_claim_evidence: dict[UUID, _BuildClaimEvidence] = {}
         self.operation_payloads: dict[UUID, str] = {}
+        self.evidence_bundle_cache: dict[str, Mapping[str, Any] | None] = {}
         self.source_payloads: dict[UUID, str] = {}
         self.context_payloads: dict[UUID, str] = {}
         self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
@@ -1460,7 +1461,7 @@ class _PolicyExecutionAdapter:
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
         from .graph_tool_transport import GraphToolPageCache, TransportScope
-        if self.presentation is None:
+        if getattr(self, "presentation", None) is None:
             self.presentation = GraphToolPresentation(TransportScope(
                 self.bootstrap.retrieval_session.id,
                 self.bootstrap.world_scope.world_id,
@@ -1742,6 +1743,7 @@ class _PolicyExecutionAdapter:
                 presenter = self._tool_presentation()
                 graph_exposure = presenter.inclusion("expand_graph_retrieval", included_payloads)
                 source_exposure = presenter.inclusion("read_graph_source", included_source_payloads)
+                source_exposure.extend(presenter.bundled_source_inclusion(included_payloads))
                 context_exposure = presenter.inclusion("read_related_recap_context", included_context_payloads)
             except ValueError as exc:
                 raise AgentTurnServiceError(
@@ -1949,6 +1951,23 @@ class _PolicyExecutionAdapter:
             except ValueError as exc:
                 return self._denied_tool_result(tool, str(exc), 409,
                     "Graph result page unavailable; the original read was not repeated.", arguments=arguments)
+        if (message.get("toolName") == "expand_graph_retrieval"
+                and isinstance(arguments, Mapping)
+                and arguments.get("includeSources", arguments.get("include_sources")) is True):
+            from .graph_evidence_bundle import acquire_evidence_bundle
+            try:
+                reply = acquire_evidence_bundle(self, dict(message))
+                parsed = json.loads(reply["resultJson"])
+                if parsed.get("schema") == "dmb_world_graph_retrieval_error_v1":
+                    return self._denied_tool_result("expand_graph_retrieval", parsed["code"],
+                        parsed["statusCode"], parsed["message"], arguments=arguments)
+                return reply
+            except (ValueError, TypeError, KeyError) as exc:
+                return self._denied_tool_result("expand_graph_retrieval",
+                    "evidence_bundle_overflow" if str(exc) == "evidence_bundle_overflow" else "evidence_bundle_unavailable",
+                    413 if str(exc) == "evidence_bundle_overflow" else 409,
+                    "Evidence bundle unavailable. Narrow the detail request; uncertain reads were not repeated.",
+                    arguments=arguments)
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
         if message.get("toolName") == "read_related_recap_context":
