@@ -27,6 +27,9 @@ class Exposure:
     relationship_ids: frozenset[str] = frozenset()
     evidence_ref_ids: frozenset[str] = frozenset()
     complete: bool = False
+    # Complete per-target records; authorization separately intersects their
+    # declared refs with final-envelope admitted evidence, never event unions.
+    claim_evidence: tuple[tuple[str, str, tuple[str, ...]], ...] = ()
 
 
 @dataclass
@@ -255,6 +258,18 @@ class GraphToolPresentation:
                 rows.get(key) == original and key in rows
                 for key, original in result.value.items()
             )
+        closures = []
+        for key, kind, id_key in (
+            ("attributes", "assertion", "assertionId"),
+            ("reviewedSourceObservations", "assertion", "assertionId"),
+            ("relationships", "relationship", "edgeId"),
+        ):
+            for row in rows.get(key, []):
+                refs = row.get("evidenceRefIds")
+                target = row.get(id_key)
+                if (isinstance(target, str) and target and isinstance(refs, list) and refs
+                        and all(isinstance(ref, str) and ref and ref == ref.strip() for ref in refs)):
+                    closures.append((kind, target, tuple(sorted(set(refs)))))
         return Exposure(
             event_id=result.event_id,
             assertion_ids=frozenset(
@@ -274,4 +289,5 @@ class GraphToolPresentation:
                 if row.get("evidenceRefId")
             ),
             complete=complete,
+            claim_evidence=tuple(sorted(set(closures))),
         )

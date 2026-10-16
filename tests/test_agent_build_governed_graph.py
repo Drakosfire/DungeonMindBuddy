@@ -220,9 +220,7 @@ class SyntheticHarness:
             assert on_provider_lifecycle({'transition': 'response_received'})
             claim = {'claim_id': CLAIM_ID, 'target_kind': 'assertion' if operation else 'relationship',
                      'target_id': 'observation-one' if operation else 'rel-gate',
-                     'graph_revision': 'native-rev-3', 'evidence_ref_ids': [EVIDENCE_ID]}
-            if self.mutation == 'multi-ref':
-                claim['evidence_ref_ids'] = sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two'])
+                     }
             if self.tamper_evidence:
                 claim['evidence_ref_ids'] = [EVIDENCE_ID[:-1] + 'z']
             segment = {'kind': 'graph_claim', 'text': 'Frank guards the western gate.', **claim}
