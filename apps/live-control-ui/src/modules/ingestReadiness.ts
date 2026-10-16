@@ -19,6 +19,17 @@ export interface IngestReadiness {
   isComplete: boolean;
 }
 
+interface CandidateValidationSummary {
+  state: "not_applicable" | "valid" | "warning" | "blocked" | "unavailable";
+  error_count: number;
+  warning_count: number;
+  unresolved_evidence_reference_count: number;
+}
+
+type CandidateValidationPreview = RecapGraphPreviewReport & {
+  candidate_validation?: CandidateValidationSummary;
+};
+
 function hasState(result: RecapIngestStatus | null | undefined, state: string): boolean {
   return Boolean(result?.states?.includes(state));
 }
@@ -41,9 +52,58 @@ function graphReady(preview: RecapGraphPreviewReport | null): boolean {
   return preview?.status === "preview_union_store_ready";
 }
 
+function candidateValidationSummary(
+  preview: RecapGraphPreviewReport | null,
+): CandidateValidationSummary | undefined {
+  return (preview as CandidateValidationPreview | null)?.candidate_validation;
+}
+
+function candidateValidationState(preview: RecapGraphPreviewReport | null):
+  | "not_applicable"
+  | "valid"
+  | "warning"
+  | "blocked"
+  | "unavailable"
+  | null {
+  if (!preview) return null;
+  const summary = candidateValidationSummary(preview);
+  if (summary) return summary.state;
+  if (
+    preview.candidate_graph_path ||
+    preview.status === "candidate_validation_ready" ||
+    preview.status === "preview_union_store_ready"
+  ) {
+    return "unavailable";
+  }
+  return "not_applicable";
+}
+
+function candidateValidationMessage(preview: RecapGraphPreviewReport | null): string | null {
+  const summary = candidateValidationSummary(preview);
+  const state = candidateValidationState(preview);
+  if (!state || state === "not_applicable" || state === "valid") return null;
+  if (state === "unavailable") {
+    return "Candidate validation details are unavailable; inspect the run before treating it as ready.";
+  }
+  if (state === "blocked") {
+    const reasons = [
+      summary?.unresolved_evidence_reference_count
+        ? `${summary.unresolved_evidence_reference_count} unresolved evidence reference${summary.unresolved_evidence_reference_count === 1 ? "" : "s"}`
+        : null,
+      summary?.error_count ? `${summary.error_count} validation error${summary.error_count === 1 ? "" : "s"}` : null,
+    ].filter(Boolean);
+    return reasons.length
+      ? `Candidate validation is blocked by ${reasons.join(" and ")}.`
+      : "Candidate validation is blocked; inspect the validation report before admission.";
+  }
+  const warningCount = summary?.warning_count ?? 0;
+  return `${warningCount} candidate validation warning${warningCount === 1 ? "" : "s"} need review before admission.`;
+}
+
 function graphBlocked(preview: RecapGraphPreviewReport | null): boolean {
   if (!preview) return false;
   if (preview.extraction_mode === "llm_blocked") return true;
+  if (["blocked", "unavailable"].includes(candidateValidationState(preview) ?? "")) return true;
   return Boolean(preview.blocked_reason && preview.status !== "preview_union_store_ready");
 }
 
@@ -58,8 +118,10 @@ function attentionItems(result: RecapIngestStatus | null | undefined, preview: R
   if (Array.isArray(result.entity_spelling_audit) && result.entity_spelling_audit.length > 0) {
     items.push("Review spelling / entity variants before treating names as canon.");
   }
+  const validationMessage = candidateValidationMessage(preview);
+  if (validationMessage) items.push(validationMessage);
   if (graphBlocked(preview)) {
-    items.push(preview?.blocked_reason?.trim() || "Graph extraction is blocked.");
+    if (!validationMessage) items.push(preview?.blocked_reason?.trim() || "Graph extraction is blocked.");
   }
   if (result.errors.length > 0) {
     items.push(...result.errors.slice(0, 2));
@@ -96,21 +158,37 @@ function formatGraphCounts(preview: RecapGraphPreviewReport): string | null {
 }
 
 function graphDetail(preview: RecapGraphPreviewReport | null, ready: boolean, blocked: boolean): string {
+  const validationState = candidateValidationState(preview);
+  const validationMessage = candidateValidationMessage(preview);
+  const counts = preview ? formatGraphCounts(preview) : null;
+  if (blocked && validationMessage && validationState !== "not_applicable") {
+    const hasCandidateArtifact = Boolean(
+      preview?.candidate_graph_path ||
+        preview?.candidate_node_count != null ||
+        preview?.candidate_edge_count != null,
+    );
+    if (!hasCandidateArtifact) return validationMessage;
+    const candidateLabel = counts ? `Candidate extracted (${counts})` : "Candidate extracted";
+    return `${candidateLabel}, but ${validationMessage.charAt(0).toLowerCase()}${validationMessage.slice(1)}`;
+  }
   if (ready) {
-    const counts = preview ? formatGraphCounts(preview) : null;
-    return counts
+    const detail = counts
       ? `Preview union on disk (${counts}). Open Graph Review to judge coverage.`
       : "Preview union store is on disk. Open Graph Review to judge coverage.";
+    return validationMessage ? `${detail} ${validationMessage}` : detail;
   }
   if (preview?.status === "candidate_validation_ready" && !blocked) {
-    const counts = formatGraphCounts(preview);
-    return `Extracted candidate ready for review${counts ? ` (${counts})` : ""}. World Graph admission is pending.`;
+    if (validationState === "warning") {
+      const candidate = `Extracted candidate${counts ? ` (${counts})` : ""} is available for review. World Graph admission is pending.`;
+      return validationMessage ? `${candidate} ${validationMessage}` : candidate;
+    }
+    const candidate = `Extracted candidate${counts ? ` (${counts})` : ""} is ready for review. World Graph admission is pending.`;
+    return validationMessage ? `${candidate} ${validationMessage}` : candidate;
   }
   if (blocked) return preview?.blocked_reason?.trim() || "Graph extraction blocked.";
   if (!preview || preview.status === "missing" || preview.status === "graph_preview_missing") {
     return "No preview graph for this session yet.";
   }
-  const counts = formatGraphCounts(preview);
   return counts ? `Graph status: ${preview.status} (${counts}).` : `Graph status: ${preview.status}.`;
 }
 
@@ -126,6 +204,19 @@ function buildNextAction(options: {
   if (!result) return "Inspect or load a session to see the next ingest action.";
   if (result.status === "needs_reconciliation" || attention.some((item) => item.includes("duplicate"))) {
     return "Resolve duplicate normalized recaps, then re-inspect status.";
+  }
+  const validationState = candidateValidationState(preview);
+  if (validationState === "blocked") {
+    const unresolved = candidateValidationSummary(preview)?.unresolved_evidence_reference_count ?? 0;
+    return unresolved > 0
+      ? `Next: resolve or recover ${unresolved} unresolved evidence reference${unresolved === 1 ? "" : "s"} before admission.`
+      : "Next: inspect and resolve candidate validation errors before admission.";
+  }
+  if (validationState === "unavailable") {
+    return "Next: inspect the candidate run or rerun validation before treating it as ready.";
+  }
+  if (validationState === "warning") {
+    return "Next: review candidate validation warnings before admission.";
   }
   if (blocked) {
     return `Graph projection blocked: ${preview?.blocked_reason?.trim() || "unknown reason"}.`;
@@ -160,7 +251,7 @@ export function buildIngestReadiness(result: RecapIngestStatus | null | undefine
   const graphIsReady = graphReady(preview);
   const blocked = graphBlocked(preview);
   const attention = attentionItems(result, preview);
-  const isComplete = memoryIsReady && graphIsReady && !blocked;
+  const isComplete = memoryIsReady && graphIsReady && !blocked && attention.length === 0;
 
   return {
     memory: {
@@ -172,7 +263,7 @@ export function buildIngestReadiness(result: RecapIngestStatus | null | undefine
     graph: {
       id: "graph",
       label: "Graph preview",
-      state: graphIsReady ? "ready" : blocked ? "blocked" : result ? "not_ready" : "idle",
+      state: blocked ? "blocked" : graphIsReady ? "ready" : result ? "not_ready" : "idle",
       detail: graphDetail(preview, graphIsReady, blocked),
     },
     attention: {

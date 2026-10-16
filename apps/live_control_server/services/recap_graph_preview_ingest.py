@@ -1270,6 +1270,114 @@ def _artifact_uri(repo: Path, artifact: dict[str, Any] | None) -> str | None:
     return _repo_relative((repo / uri).resolve(), repo)
 
 
+def _candidate_validation_summary(
+    repo: Path, summary: GraphIngestRunSummary, manifest: dict[str, Any]
+) -> dict[str, int | str]:
+    """Summarize the validation report attached to this exact candidate run."""
+
+    default = {
+        "state": "not_applicable",
+        "error_count": 0,
+        "warning_count": 0,
+        "unresolved_evidence_reference_count": 0,
+    }
+    unavailable = {**default, "state": "unavailable"}
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return (
+            unavailable
+            if summary.status in {"candidate_validation_ready", "preview_union_store_ready"}
+            else default
+        )
+    candidate = artifacts.get("candidate_graph")
+    if not isinstance(candidate, dict) or not isinstance(candidate.get("uri"), str):
+        report_artifact = artifacts.get("candidate_validation_report")
+        if report_artifact is not None or summary.status in {
+            "candidate_validation_ready",
+            "preview_union_store_ready",
+        }:
+            return unavailable
+        return default
+    report_artifact = artifacts.get("candidate_validation_report")
+    if not isinstance(report_artifact, dict) or not isinstance(report_artifact.get("uri"), str):
+        return unavailable
+
+    repo_root = repo.resolve()
+    try:
+        report_path = (repo_root / report_artifact["uri"]).resolve()
+        if not report_path.is_relative_to(repo_root) or not report_path.is_file():
+            return unavailable
+        report_bytes = report_path.read_bytes()
+        expected_report_sha_raw = report_artifact.get("sha256")
+        expected_report_sha = _normalize_digest(expected_report_sha_raw)
+        if expected_report_sha_raw is not None and expected_report_sha is None:
+            return unavailable
+        if expected_report_sha and hashlib.sha256(report_bytes).hexdigest() != expected_report_sha:
+            return unavailable
+        report = json.loads(report_bytes)
+        if not isinstance(report, dict):
+            return unavailable
+
+        candidate_path = (repo_root / candidate["uri"]).resolve()
+        report_candidate_path_value = report.get("candidate_graph_path")
+        if not isinstance(report_candidate_path_value, str):
+            return unavailable
+        report_candidate_path = Path(report_candidate_path_value)
+        if not report_candidate_path.is_absolute():
+            report_candidate_path = (repo_root / report_candidate_path).resolve()
+        else:
+            report_candidate_path = report_candidate_path.resolve()
+        if (
+            not candidate_path.is_relative_to(repo_root)
+            or not report_candidate_path.is_relative_to(repo_root)
+            or candidate_path != report_candidate_path
+            or not candidate_path.is_file()
+        ):
+            return unavailable
+
+        candidate_sha = _normalize_digest(candidate.get("sha256"))
+        report_candidate_sha = _normalize_digest(report.get("candidate_graph_sha256"))
+        if (
+            report.get("schema") != "dmb_candidate_graph_validation_report_v0"
+            or report.get("campaign_id") != summary.campaign_id
+            or report.get("session_id") != summary.session_id
+            or not candidate_sha
+            or candidate_sha != report_candidate_sha
+            or hashlib.sha256(candidate_path.read_bytes()).hexdigest() != candidate_sha
+            or not isinstance(report.get("valid"), bool)
+            or not isinstance(report.get("errors"), list)
+            or not isinstance(report.get("warnings"), list)
+            or any(not isinstance(item, str) for item in [*report["errors"], *report["warnings"]])
+        ):
+            return unavailable
+
+        errors = report["errors"]
+        warnings = report["warnings"]
+        unresolved = sum(
+            item.casefold().startswith("unresolved evidence ref")
+            for item in [*errors, *warnings]
+        )
+        blocked = not report["valid"] or bool(errors) or unresolved > 0
+        state = "blocked" if blocked else "warning" if warnings else "valid"
+        return {
+            "state": state,
+            "error_count": len(errors),
+            "warning_count": len(warnings),
+            "unresolved_evidence_reference_count": unresolved,
+        }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return unavailable
+
+
+def _normalize_digest(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    digest = value.strip().lower()
+    if digest.startswith("sha256:"):
+        digest = digest.removeprefix("sha256:")
+    return digest if len(digest) == 64 and all(char in "0123456789abcdef" for char in digest) else None
+
+
 def _extracted_nodes_from_preview_union(
     repo: Path, preview_union_store_path: str | None
 ) -> list[dict]:
@@ -1301,6 +1409,7 @@ def _status_from_summary(
         "normalized_recap_path": normalized_recap_path,
     }
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    status["candidate_validation"] = _candidate_validation_summary(repo, summary, manifest)
     diagnostics = manifest.get("diagnostics", {})
     status["extraction_mode"] = diagnostics.get("extraction_mode")
     status["graph_extraction_profile"] = diagnostics.get("graph_extraction_profile")
