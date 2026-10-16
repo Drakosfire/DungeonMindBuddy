@@ -6173,6 +6173,7 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
     events = saved.graph_context_execution.events
     from application_state.agent_conversation.types import PlanWorldGraphExecutionV3
     assert isinstance(saved.graph_context_execution, PlanWorldGraphExecutionV3)
+    assert saved.graph_context_execution.policy.source_read_accounting == 'settled_receipts_v1'
     assert saved.graph_context_execution.policy.source_read_scope.admitted_anchors == []
     origin = next(e for e in events if e.kind == 'validated_graph_operation_v3')
     extension = next(e for e in events if e.kind == 'source_scope_extension_v3')

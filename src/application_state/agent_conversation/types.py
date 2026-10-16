@@ -11,6 +11,7 @@ from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal, NoReturn
@@ -1707,6 +1708,12 @@ class GraphExecutionPolicyV3(GraphExecutionPolicyV1):
         return self
 
 
+class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
+    """Explicit receipt settlement; historical policies keep reservation accounting."""
+
+    source_read_accounting: Literal["settled_receipts_v1"]
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -2297,6 +2304,43 @@ class PlanWorldGraphExecutionV1(StrictModel):
         return self
 
 
+def source_read_character_usage(
+    policy: GraphExecutionPolicyV2 | GraphExecutionPolicyV3,
+    events: Sequence[GraphExecutionEventV2 | GraphExecutionEventV3],
+) -> int:
+    """Charge settled bodies plus unresolved reservations at each admission prefix.
+
+    Call with typed execution events. Full pin, receipt and sequence validation
+    remains with the execution record; no body or authority is inferred here.
+    """
+    settled = isinstance(policy, SettledGraphExecutionPolicyV3)
+    usage = 0
+    reservations: dict[UUID, SourceReadAuthorizationEventV2] = {}
+    completed: set[UUID] = set()
+    for event in events:
+        if isinstance(event, SourceReadAuthorizationEventV2):
+            if event.read_call_id in reservations:
+                raise ValueError("source-read call ID was authorized more than once")
+            reservations[event.read_call_id] = event
+            usage += event.max_chars * len(event.anchors)
+            if settled and usage > policy.max_source_read_chars:
+                raise ValueError("source-read character budget exceeded at authorization")
+        elif settled and isinstance(event, ValidatedSourceReadEventV2):
+            auth = reservations.get(event.read_call_id)
+            if auth is None or event.sequence <= auth.sequence:
+                raise ValueError("source-read settlement requires an earlier authorization")
+            if event.read_call_id in completed or len(event.receipts) != len(auth.anchors):
+                raise ValueError("source-read settlement requires one complete receipt")
+            if any(receipt.returned_chars > auth.max_chars for receipt in event.receipts):
+                raise ValueError("source-read settlement exceeds its reservation")
+            completed.add(event.read_call_id)
+            usage -= auth.max_chars * len(auth.anchors)
+            usage += sum(receipt.returned_chars for receipt in event.receipts)
+    if usage > policy.max_source_read_chars:
+        raise ValueError("source-read character budget exceeded")
+    return usage
+
+
 class PlanWorldGraphExecutionV2(StrictModel):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v2"] = Field(
         default="dmb_agent_plan_world_graph_execution_v2", alias="schema"
@@ -2327,7 +2371,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
         receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
         receipts_by_call: set[UUID] = set()
         all_read_ids: set[str] = set()
-        authorized_chars = authorized_anchors = 0
+        authorized_anchors = 0
         latest_attempt_id: UUID | None = None
         latest_outcome: str | None = None
         for event in self.events:
@@ -2378,7 +2422,6 @@ class PlanWorldGraphExecutionV2(StrictModel):
                 if event.max_chars > self.policy.max_chars_per_source_read:
                     raise ValueError("source-read per-call character limit exceeded")
                 auths[event.read_call_id] = event
-                authorized_chars += event.max_chars * len(event.anchors)
                 authorized_anchors += len(event.anchors)
             elif isinstance(event, ValidatedSourceReadEventV2):
                 auth = auths.get(event.read_call_id)
@@ -2411,8 +2454,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
             raise ValueError("source-read call budget exceeded")
         if not dynamic and authorized_anchors > self.policy.max_source_read_anchors:
             raise ValueError("source-read anchor budget exceeded")
-        if authorized_chars > self.policy.max_source_read_chars:
-            raise ValueError("source-read character budget exceeded")
+        source_read_character_usage(self.policy, self.events)
 
         _validate_related_recap_context_events(self)
 
@@ -2476,7 +2518,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: GraphExecutionPolicyV3
+    policy: SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:

@@ -4068,3 +4068,54 @@ def test_uncapped_execution_persists_accounting_and_guards_downgrade(application
     with pytest.raises(RuntimeError, match="retained uncapped"):
         command.downgrade(alembic_config(), "20261016_0024")
     assert AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0] == reopened
+
+
+def test_settled_source_read_receipts_reopen_and_release_capacity(application_state_dsn, tmp_path, monkeypatch):
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance, _submitted_turn_intent
+    from application_state.agent_conversation.types import (
+        SettledGraphExecutionPolicyV3, PlanWorldGraphExecutionV3,
+        SourceReadAuthorizationEventV2, SourceReadAnchorReceiptV2,
+        ValidatedSourceReadEventV2, graph_execution_policy_digest_v3,
+        source_read_character_usage,
+    )
+    body, work, bootstrap, receipt, original, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    policy = SettledGraphExecutionPolicyV3.model_validate(original.policy.model_dump(mode='json', by_alias=True)
+        | {'source_read_accounting':'settled_receipts_v1'})
+    execution = PlanWorldGraphExecutionV3(context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=policy, execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy), events=[])
+    service = AgentConversationService()
+    conversation = service.new_conversation(ConversationCommand(world_id=work.world_id, command_id=uuid4(),
+        expected_pointer_revision=0, expected_active_conversation_id=None))
+    accepted = service.accept_turn(TurnSubmission(world_id=work.world_id, conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(), expected_conversation_revision=1, user_text=body.message,
+        provenance=_conversation_provenance(body, world_id=work.world_id, work=work,
+            graph_scope=bootstrap.world_scope, graph_envelope=bootstrap.graph_envelope),
+        submitted_intent_v2=_submitted_turn_intent(body, world_id=work.world_id),
+        graph_context_receipt=receipt, graph_context_execution=execution))
+    turn = service.claim_turn(work.world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision).turn
+    scope = policy.source_read_scope
+    pin = scope.admitted_anchors[0]
+    for index in range(9):
+        authorization = SourceReadAuthorizationEventV2(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+            kind='source_read_authorized_v2', read_call_id=uuid4(), context_receipt_sha256=receipt.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256, retrieval_session_id=scope.retrieval_session_id,
+            world_id=scope.world_id, campaign_id=scope.campaign_id, graph_revision=scope.graph_revision,
+            anchors=[pin], max_chars=12000)
+        turn, fresh = AgentConversationService().authorize_source_read(work.world_id, conversation.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=authorization)
+        assert fresh
+        validated = ValidatedSourceReadEventV2(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+            kind='validated_source_read_v2', read_call_id=authorization.read_call_id, receipts=[SourceReadAnchorReceiptV2(
+                source_read_id=f'settled-read-{index}', anchor_id=pin.anchor_id, evidence_ref_id=pin.evidence_ref_id,
+                source_artifact_id=pin.source_artifact_id, source_revision_id=pin.source_revision_id,
+                outcome='enough', content_sha256=hashlib.sha256(b'short body').hexdigest(), returned_chars=10,
+                truncated=False, evidence_sufficiency_status='sufficient')])
+        turn, fresh = AgentConversationService().record_validated_source_read(work.world_id, conversation.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, receipt=validated)
+        assert fresh
+        reopened = AgentConversationService().list_turns(work.world_id, conversation.conversation_id)[0]
+        assert reopened.graph_context_execution.model_dump_json(by_alias=True) == turn.graph_context_execution.model_dump_json(by_alias=True)
+        assert source_read_character_usage(reopened.graph_context_execution.policy, reopened.graph_context_execution.events) == (index+1)*10
+    assert len(turn.graph_context_execution.events) == 18
