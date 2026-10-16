@@ -111,6 +111,8 @@ provider, database, serving configuration, external runtime, or 5202 writes.
 
 ## Completion
 
-Commit the scoped UI change, push this branch, and open/update one PR. Do not
-merge without explicit merge authority. The server confirmation-contract
-mismatch and real source-observation publication/readback remain open gates.
+Implementation is complete in draft PR #1235 at GitHub head
+`a9fadb5314d27cd339697ef1de0a81ca88d4842f`, based on
+`main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`. Do not merge without explicit
+merge authority. The server confirmation-contract mismatch and real
+source-observation publication/readback remain open gates.
