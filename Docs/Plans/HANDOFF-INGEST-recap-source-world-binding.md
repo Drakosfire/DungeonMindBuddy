@@ -39,6 +39,24 @@ PRIME independently verified runner registration omits World, creator has no Wor
 - tests/test_source_artifact.py
 - tests/test_graph_preview_runner.py
 
+### Direct consumer and fixture adoption amendment
+
+PRIME expands the same capability's expected write set after verifying the direct-caller audit, before implementation. The required World argument is intentional; do not retain a worldless creator fallback just to avoid updating its callers.
+
+- evals/graph_memory_layer/run_current_corpus_admission_acceptance.py
+- evals/graph_memory_layer/run_current_corpus_candidate_replay_acceptance.py
+- tests/test_artifact_data_root.py
+- tests/test_graph_ingest_packaging_live_call_shape.py
+- tests/test_graph_memory_category_graph_preview_runner.py
+- tests/test_graph_preview_routes.py
+- tests/test_graph_run_registry.py
+- tests/test_live_source_navigation_api.py
+- tests/test_recap_literal_evidence_correction.py
+- tests/test_recap_source_content_root.py
+- tests/test_recap_source_observation_followup.py
+
+Changes in these paths are restricted to adopting the new explicit native-World source contract and necessary identity/lineage fixture assertions. Synthetic tests may name an explicit fixture World; real evaluation entrypoints must use verified existing native-World input or require explicit input and refuse if absent, never derive authority from a campaign/title/default. Do not run private corpus evaluation or publication. Preserve negative tests for missing/foreign World rather than changing them into happy paths. Report inherited failures separately; no unrelated test rewriting.
+
 No UI/shared styles, provider route, lock/schema/migration, retained source/registry/corpus or serving changes. Return to PRIME if another path or ownership contract is necessary. Active Build is on main3b575220; PRIME's Jev consumer edits remain in another checkout. These source paths are disjoint from both.
 
 ## Verification and handback
