@@ -25,6 +25,10 @@ frozen identity, not semantic entailment; consumer must verify exact source byte
 - `src/application_state/agent_conversation/repository.py` only if serialization assumes Plan.
 - `src/application_state/migrations/versions/20261016_0024_build_graph_turns.py`
 - `tests/application_state/test_build_graph_turns.py`
+- `tests/application_state/test_agent_conversation_service.py` and
+  `tests/application_state/test_agent_conversation_postgres.py`: update only
+  assertions of the current migration head from 0023 to 0024, discovered by
+  the owning regression run. No weakening of lifecycle or migration assertions.
 
 Current open PRs inspected: no active APP ledger overlap. DOGFOOD's Build Edit
 clearance UI lease is disjoint. No dependency, browser, provider, corpus,
