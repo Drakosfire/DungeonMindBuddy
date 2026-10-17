@@ -71,6 +71,7 @@ def test_source_sdk_durable_proposal_and_no_replay(request_case):
     assert len(wire.calls)==1
     body=json.loads(wire.calls[0].content)
     assert body['tools']==[] and json.loads(body['input'])['draft_markdown']==source.markdown
+    assert 'json' in body['input'].lower(), 'OpenAI JSON mode requires json in input, not only system instructions'
     assert result.raw_response==wire.text
     assert BuildProposalService().get('elderwyld',result.action_id)==result
     again=asyncio.run(owner.compose(request,transport=wire))

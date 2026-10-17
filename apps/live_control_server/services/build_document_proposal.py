@@ -122,7 +122,7 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     # Graph citation, admission or claim about played truth.
     history = AgentConversationService().list_turns(world, reservation.conversation_id, limit=6)
     messages = [{"user": turn.user_text, "assistant": turn.assistant_text} for turn in history if turn.status == "completed"]
-    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "instruction": reservation.instruction,
+    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "output_format": "json_object", "instruction": reservation.instruction,
         "source_basis": reservation.basis.model_dump(mode="json"), "source_title": snapshot.record.title,
         "draft_markdown": request.draft_markdown, "recent_dialogue": messages,
         "source_class": "proposed_authored_worldbuilding_not_played_truth"}, ensure_ascii=False, separators=(",", ":"))
