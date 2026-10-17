@@ -334,6 +334,46 @@ describe("IngestionModule", () => {
     expect(screen.queryByText("in progress")).not.toBeInTheDocument();
   });
 
+  it.each(["source_unverified", "candidate_validation_ready"] as const)(
+    "explains that a retained unverified graph result (%s) is history and does not start processing",
+    async (graphStatus) => {
+      const inspectSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+        session: 29,
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        paths: { canonical_recap: null, normalized_recap: null },
+        ingest_report: {
+          corpus_impact: [],
+          graph_preview: {
+            status: graphStatus,
+            extraction_run_id: "retained-session-29-run",
+            blocked_reason: "selected normalized recap is unavailable for content verification",
+          },
+        },
+        entity_spelling_audit: [],
+      }));
+
+      render(
+        <IngestionModule
+          campaignId="longmont-c2"
+          session={29}
+          managedWorldId="elderwyld"
+          initialSourceSession={29}
+        />,
+      );
+
+      const guidance = await screen.findByRole("status", { name: "Recap source verification guidance" });
+      expect(guidance).toHaveAttribute("data-retained-graph-run", "true");
+      expect(guidance).toHaveTextContent("Saved graph result kept as history");
+      expect(guidance).toHaveTextContent("cannot be matched to a verified recap");
+      expect(guidance).toHaveTextContent("Load the correct saved recap or use Paste recap above");
+      expect(guidance).not.toHaveTextContent("retained-session-29-run");
+      expect(screen.queryByRole("button", { name: "Process recap" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Open Graph Review" })).not.toBeInTheDocument();
+      expect(inspectSpy.mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
+    },
+  );
+
   it("treats a verified saved recap with a missing graph preview as ready for first extraction", async () => {
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
       session: 10,
@@ -452,6 +492,10 @@ describe("IngestionModule", () => {
     await userEvent.setup().click(await screen.findByText("Evidence & details"));
     const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
     expect(await screen.findByText("Source unverified")).toBeInTheDocument();
+    const guidance = await screen.findByRole("status", { name: "Recap source verification guidance" });
+    expect(guidance).toHaveAttribute("data-retained-graph-run", "false");
+    expect(guidance).toHaveTextContent("Recap source needs verification");
+    expect(guidance).not.toHaveTextContent("Saved graph result kept as history");
     expect(graphPanel).toHaveTextContent("Graph extraction: not run");
     expect(within(graphPanel).getByText(
       "Graph extraction has not run yet. Complete the source checks before processing.",
@@ -771,10 +815,19 @@ describe("IngestionModule", () => {
     await act(async () => {
       firstA.resolve(makeStatus({
         ...statusFor(10, "stale-first-A-session-10.md"),
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_unverified",
+            extraction_run_id: "stale-first-A-run",
+          },
+        },
       }));
       await firstA.promise;
     });
     expect(document.body).not.toHaveTextContent("stale-first-A-session-10.md");
+    expect(screen.queryByRole("status", { name: "Recap source verification guidance" })).not.toBeInTheDocument();
 
     await act(async () => {
       secondA.resolve(makeStatus({
@@ -786,10 +839,19 @@ describe("IngestionModule", () => {
     await act(async () => {
       sessionB.resolve(makeStatus({
         ...statusFor(11, "stale-B-session-11.md"),
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_unverified",
+            extraction_run_id: "stale-session-B-run",
+          },
+        },
       }));
       await sessionB.promise;
     });
     expect(document.body).not.toHaveTextContent("stale-B-session-11.md");
+    expect(screen.queryByRole("status", { name: "Recap source verification guidance" })).not.toBeInTheDocument();
   });
 
   it("ignores deferred Process results across mounted World A→B→A and preserves the recap draft", async () => {
