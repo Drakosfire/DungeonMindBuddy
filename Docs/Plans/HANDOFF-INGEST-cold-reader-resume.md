@@ -15,35 +15,36 @@ Fix the saved recap reader's automatic restoration after a cold page load or rou
 
 On the Session 10 route in 5202, a cold reload can show `Saved recap could not be opened` / `No saved recap is available for this session` even though the exact saved recap exists in the artifact list. Clicking **Load processed recap** then opens the same source successfully.
 
-The automatic reader currently treats a matching inspect-status result as proof that an addressable source exists. That result can have no exact artifact, normalized path, or run ID. The effect records its `readerAttempt` before the asynchronous saved-artifact lookup finishes; the error from the incomplete status result then suppresses retry when the exact saved artifact arrives.
+The cold route has a separate premature caller: `NativeGraphAccessControl` reports an available session during mount and its callback directly calls `reviewSavedSource(true)` before the route selection or artifact lookup has hydrated. That call records `readerAttempt` and reports no saved recap. When the automatic restore effect later sees the hydrated Session 10 result and exact saved artifact, it skips because that identity is already marked attempted.
 
-**Invariant:** automatic restoration starts only when an exact source address is available, or after the exact saved-artifact lookup has completed and supplied the source to load. A status match alone is not an address. Do not mark a reader attempt before that decision. Preserve explicit manual load and request-generation guards so a late A response cannot overwrite B or a later A selection.
+**Invariant:** the Native Graph availability callback must not start or consume a reader attempt until the route selection is hydrated and an exact source address is known. The automatic effect remains the owner of first cold restoration and waits for the exact saved-artifact lookup when status supplies no address. A later Graph reconnect may retry a failed projection once those conditions hold. Preserve explicit manual load and request-generation guards so a late A response cannot overwrite B or a later A selection.
 
 ## Successor failure after #1352 and repair
 
-A new hidden 5202 tab reproduced the failure without using **Load processed recap** or **Process recap**: after the saved list loaded, the picker selected the exact Longmont C2 Session 10 artifact, while the reader still showed `Saved recap could not be opened` / `No saved recap is available for this session`. The user's visible tab was not changed.
+A hidden fresh 5202 tab with the temporary `readerDebug=1` panel reproduced the failure without using **Load processed recap** or **Process recap**. At `reviewSavedSource` entry the snapshot showed `preserveSelection=false`, `restore=true`, `selectionHydrated=false`, `readerAttempt` already set, no current lookup result, zero artifacts, and no source address. The reader showed `Saved recap could not be opened` / `No saved recap is available for this session`.
 
-The completion flag (`priorArtifactLookup.status`) and its rows (`priorIngestionArtifacts`) were separate React states. The reader effect could therefore observe a completed lookup while the row state in its closure was still empty, record the attempt, and suppress retry after the exact Session 10 row appeared. The fix makes the lookup result and records one snapshot; the automatic reader resolves both its address and source row from that snapshot. Manual source loading still uses the visible artifact list.
+After hydration, the trace showed `selectionHydrated=true`, `resultOwnsSelection=true`, a normalized path, lookup `loaded`, 27 listed artifacts, and the exact `longmont-c2/session-10` artifact ID. The effect then reported `gateReason=attempt-already-recorded` with `restore=false`. Source inspection traced the premature call to the mount-time `NativeGraphAccessControl.onChanged` callback. The repair leaves that callback inert until the current selection has an exact address, allowing the automatic effect to restore; it still lets a later Graph reconnect retry a failed projection.
 
-The mounted regression holds the saved-list response, then holds the projection response. It verifies the matching artifact is selected and the exact session projection request starts automatically, without clicking Load, before releasing the response and confirming the enriched recap renders.
+The cold-route regression resolves Graph availability before inspect-status or artifact-list hydration and verifies there is no premature error, then confirms the exact Session 10 projection starts automatically when the source arrives. A second test verifies a failed projection retries after explicitly reconnecting Graph. Existing manual-load and A→B→A guards remain covered.
 
 ## Exact write lease
 
 - `Docs/Plans/HANDOFF-INGEST-cold-reader-resume.md` — this bounded contract and truthful settlement.
-- `apps/live-control-ui/src/modules/IngestionModule.tsx` — gate automatic restore on addressable source/finished artifact lookup; retain manual-load and stale-selection behavior.
-- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regression coverage for deferred exact-artifact lookup and empty completed lookup.
+- `apps/live-control-ui/src/modules/IngestionModule.tsx` — prevent early Graph-availability callbacks from consuming cold-reader attempts; preserve eligible reconnect retry, manual load, and stale-selection behavior.
+- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regress the early callback before hydration and preserve Graph reconnect retry alongside existing cold-load, manual-load, and stale-response coverage.
 
 No other product paths, APIs, shared navigation, schemas, migrations, dependencies, runtime services, saved content, extraction runs, or World publication. Return to PRIME before widening the lease.
 
 ## Verification
 
-- Reproduce the race with an exact Session 10 selection and a deferred saved-artifact-list response.
-- Assert no premature failed reader attempt/error before the exact list resolves; when it resolves with the matching artifact, assert the recap restores automatically.
+- Reproduce the failure with Graph availability resolving before Session 10 selection/status/artifact hydration.
+- Assert that callback does not consume the reader attempt; after the exact saved source arrives, assert automatic projection and rendering without clicking Load.
+- Assert that a failed projection retries after an explicit Graph reconnect.
 - Assert a completed lookup with no matching address reports no saved recap without looping, and that explicit manual load still works.
 - Preserve A→B→A stale-response fences with focused coverage if the change touches their lifecycle.
 - Run the owning `IngestionModule.test.tsx` suite, applicable typecheck/build, and `git diff --check` against the cumulative current-main diff.
 - No **Process**, extraction/provider call, candidate confirmation, World write, or retained database change. The user's Session 10 browser state is not a fixture and must not be mutated.
-- Successor verification on this checkout: 73 `IngestionModule.test.tsx` tests passed; UI typecheck and production build passed (with the existing >500 KB bundle warning); `git diff --check` passed. Rendered 5202 acceptance of this successor remains pending PRIME's host-side PR, review/merge, and rollout. The pre-fix cold failure is confirmed; no claim that the repair is live yet.
+- Verification against exact base `0dbdd85a8db8038ef7fe21e083dbe3cc8905462d`: the new early-callback regression fails with the premature `No saved recap is available for this session` alert. The corrected branch passes both the early-callback and reconnect-retry regressions; all 75 `IngestionModule.test.tsx` tests pass, UI typecheck and production build pass, and `git diff --check` passes. The build retains its existing >500 KB chunk warning and the suite emits existing React `act(...)` warnings. PRIME restored the normal 5202 index; a fresh hidden tab shows no diagnostic panel. Do not claim the repair is live until the corrected PR is reviewed, merged, and rolled out.
 
 ## Completion boundary
 

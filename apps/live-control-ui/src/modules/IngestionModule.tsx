@@ -44,12 +44,6 @@ const INGESTION_DRAFT_STORAGE_VERSION = 3;
 
 type IngestionSourceMode = "raw" | "processed";
 
-type PriorArtifactLookup = {
-  campaignId: string;
-  status: "loading" | "loaded" | "failed";
-  records: RecapArtifactRecord[];
-};
-
 function isIngestSurfacePath(): boolean {
   if (typeof window === "undefined") return false;
   return window.location.pathname.replace(/\/+$/, "") === "/ingest";
@@ -720,7 +714,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
   const preservedRouteDraftRef = useRef<ReturnableIngestionDraft | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
-  const [priorArtifactLookup, setPriorArtifactLookup] = useState<PriorArtifactLookup | null>(null);
+  const [priorArtifactLookup, setPriorArtifactLookup] = useState<{
+    campaignId: string;
+    status: "loading" | "loaded" | "failed";
+  } | null>(null);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
@@ -1090,17 +1087,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   );
   const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
-  const currentArtifactLookup = priorArtifactLookup?.campaignId === ingestCampaignId
-    ? priorArtifactLookup
-    : null;
-  const exactSavedArtifact = currentArtifactLookup?.status === "loaded"
-    ? currentArtifactLookup.records.find(
-        (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
-      )
-    : undefined;
+  const exactSavedArtifact = priorIngestionArtifacts.find(
+    (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
+  );
   const normalizedRecapPath = resultOwnsSelection ? matchingResult?.paths?.normalized_recap?.trim() : null;
   const exactReaderRun = selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() : null);
   const hasAddressableSavedSource = Boolean(exactSavedArtifact || normalizedRecapPath || exactReaderRun);
+  const currentArtifactLookup = priorArtifactLookup?.campaignId === ingestCampaignId
+    ? priorArtifactLookup
+    : null;
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
     ingestCampaignId,
@@ -1441,7 +1436,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
-    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading", records: [] });
+    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading" });
     void getRecapArtifacts(ingestCampaignId)
       .then((response) => {
         if (cancelled || ingestCampaignIdRef.current !== ingestCampaignId) return;
@@ -1451,9 +1446,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ),
         );
         setPriorIngestionArtifacts(records);
-        // Keep lookup completion and its exact rows in one state snapshot. The
-        // cold-reader effect must never observe `loaded` with stale/empty rows.
-        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded", records });
+        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded" });
         const currentSession = recapSessionRef.current;
         const targetSessionId = currentSession > 0 ? `session-${currentSession}` : "";
         const exactTarget = records.find(
@@ -1464,7 +1457,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       .catch(() => {
         if (!cancelled && ingestCampaignIdRef.current === ingestCampaignId) {
           setPriorIngestionArtifacts([]);
-          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed", records: [] });
+          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed" });
         }
       });
     return () => {
@@ -2051,10 +2044,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setReviewError(null);
     setReviewSource(null);
     try {
-      const sourceRecords = preserveSelection
-        ? currentArtifactLookup?.status === "loaded" ? currentArtifactLookup.records : []
-        : priorIngestionArtifacts;
-      const record = sourceRecords.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
+      const record = priorIngestionArtifacts.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
       const path = resultOwnsSelection ? latestResult?.paths?.normalized_recap : null;
       if (!record && !path && !runId) throw new Error("No saved recap is available for this session.");
       setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: null });
@@ -2138,6 +2128,29 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     } finally {
       if (isCurrent()) setReviewLoading(false);
     }
+  }
+
+  function handleNativeGraphAccessChanged(available: boolean) {
+    if (available && readerMode) {
+      // Local Graph can become ready before the route and its saved-source list
+      // hydrate. Do not let that early callback consume the one-shot reader
+      // attempt; the restore effect will retry when an exact source is known.
+      if (!selectionHydrated || loadingPriorIngestion || !hasAddressableSavedSource) return;
+      if (readerAttempt.current === reviewIdentity && !reviewError) return;
+
+      reviewEpoch.current += 1;
+      setReviewSource(null);
+      setReviewError(null);
+      setReviewLoading(false);
+      restoreReaderRoute.current = true;
+      void reviewSavedSource(true, true);
+      return;
+    }
+
+    reviewEpoch.current += 1;
+    setReviewSource(null);
+    setReviewLoading(false);
+    if (available) setReviewError(null);
   }
 
   function openGraphReviewWorkbench() {
@@ -2601,13 +2614,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
           <details id="ingestion-evidence-details" ref={evidenceDetailsRef}><summary>Evidence &amp; details</summary>
-          <NativeGraphAccessControl onChanged={(available) => {
-            reviewEpoch.current += 1;
-            setReviewSource(null);
-            setReviewError(null);
-            setReviewLoading(false);
-            if (available && readerMode) void reviewSavedSource(true);
-          }} />
+          <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged} />
           <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
