@@ -35,6 +35,7 @@ from apps.live_control_server.services.promotable_ingest_run import (
 )
 from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.ingestion.extraction_run import (
+    ExtractionRun,
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
     ExtractionRunStatus,
@@ -59,6 +60,43 @@ def _reject(message: str, *, status_code: int = 422) -> ExtractPromoteError:
         code="evidence_correction_invalid" if status_code == 422 else "evidence_correction_conflict",
         status_code=status_code,
     )
+
+
+def _frozen_recap_world_lineage(parent: ExtractionRun) -> dict[str, object]:
+    """Copy the exact parent World binding into a derived recap run.
+
+    A v2 SourceArtifact is World-scoped, so its parent must already carry the
+    immutable context that authorized it. This helper never resolves or infers
+    a World; the run registry checks that the copied values still match the
+    registered source before persisting the child.
+    """
+    context = parent.lineage.get("world_campaign_ingest_context")
+    if context is not None:
+        if (
+            not isinstance(context, dict)
+            or not isinstance(context.get("native_world_id"), str)
+            or not context["native_world_id"].strip()
+            or context.get("campaign_id") != parent.campaign_id
+        ):
+            raise _reject("parent recap run has invalid frozen World context")
+        return {"world_campaign_ingest_context": dict(context)}
+
+    native_world_id = parent.lineage.get("native_world_id")
+    campaign_id = parent.lineage.get("campaign_id")
+    if parent.source_artifact_id.startswith("artifact:recap:v2:"):
+        if (
+            not isinstance(native_world_id, str)
+            or not native_world_id.strip()
+            or campaign_id != parent.campaign_id
+        ):
+            raise _reject("parent recap run is missing its exact verified World context")
+
+    copied: dict[str, object] = {}
+    if native_world_id is not None:
+        copied["native_world_id"] = native_world_id
+    if campaign_id is not None:
+        copied["campaign_id"] = campaign_id
+    return copied
 
 
 def _sha(data: bytes) -> str:
@@ -334,6 +372,7 @@ def correct_recap_run_evidence(
         or getattr(resolved, "source_span_index_path", None) is None
     ):
         raise _reject("correction requires an exact frozen recap review bundle")
+    world_lineage = _frozen_recap_world_lineage(parent)
 
     try:
         parent_bytes = resolved.candidate_graph_path.read_bytes()
@@ -407,6 +446,10 @@ def correct_recap_run_evidence(
         session_id=parent.session_id,
     )
     lineage = {
+        # A derived recap run must stay bound to the exact World context that
+        # authorized its parent. Copy frozen values only; this path must never
+        # resolve a current/default World for an already captured run.
+        **world_lineage,
         "derivation": _RECAP_DERIVATION,
         "parent_run_id": parent.run_id,
         "parent_candidate_sha256": parent_sha,
@@ -477,6 +520,7 @@ def correct_recap_run_evidence(
         raise _reject("derived run identity conflicts with existing run", status_code=409)
     if (
         identity_lineage != expected_identity_lineage
+        or any(child.lineage.get(key) != value for key, value in world_lineage.items())
         or child.components != components
         or child.source_artifact_id != parent.source_artifact_id
         or child.source_domain != "recap"

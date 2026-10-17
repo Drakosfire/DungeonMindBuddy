@@ -185,6 +185,7 @@ def _stamp_fixture_candidate(
         recap = corpus / recap
     artifact = create_recap_source_artifact(
         ROOT,
+        world_id="world:elderwyld",
         campaign_id="longmont-c2",
         session_id="session-22",
         recap_path=recap,
@@ -875,7 +876,20 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    from application_state.source import service as source_service
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services import historical_recap_world_projection
+    from graph_memory.projection.world_projection import (
+        WorldGraphProjection,
+        WorldGraphProjectionFocus,
+        WorldGraphProjectionNodeView,
+        WorldGraphProjectionSnapshot,
+        WorldGraphProjectionSummary,
+        WorldGraphProjectionTrustBoundary,
+    )
+
+    client, corpus, _candidate = client_env
     _patch_fake_category_extract(monkeypatch)
     _patch_retired_union_materialize(monkeypatch)
 
@@ -902,6 +916,87 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "deepseek/deepseek-v4.1-flash"
     assert not any("breadcrumb" in warning.lower() for warning in body["warnings"])
+
+    # End-to-end boundary: ordinary Process creates canonical recap/source,
+    # immutable graph candidate + manifest, APP-STATE source, and an exact-run
+    # historical projection against that source's native World.
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    artifact = get_source_artifact(ROOT, run.source_artifact_id)
+    assert artifact.source_artifact_id.startswith("artifact:recap:v2:")
+    assert artifact.world_id == "world:elderwyld"
+    assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == artifact.world_id
+    assert graph["candidate_graph_path"]
+    assert (ROOT / graph["candidate_graph_path"]).is_file()
+    assert graph["manifest_path"]
+    assert (ROOT / graph["manifest_path"]).is_file()
+
+    source = source_service.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256 or "",
+    )
+    assert source is not None
+    assert source.world_id == artifact.world_id
+    normalized_path = Path(body["paths"]["normalized_recap"])
+    if not normalized_path.is_absolute():
+        normalized_path = corpus / normalized_path
+    assert source.markdown == normalized_path.read_text(encoding="utf-8")
+
+    observed: dict[str, object] = {}
+
+    def project_fixture(request, *, root, hydrate_product_local_excerpts=True):  # noqa: ANN001
+        observed["request"] = request
+        return WorldGraphProjection(
+            schema="dmb_world_graph_projection_v1",
+            snapshot=WorldGraphProjectionSnapshot(
+                world_id=request.world_id,
+                campaign_id=request.campaign_id,
+                revision_id="fixture-world-head",
+                head_revision_id="fixture-world-head",
+                is_head=True,
+                focus=WorldGraphProjectionFocus(
+                    kind="session",
+                    campaign_id=request.campaign_id,
+                    session_id="session-22",
+                ),
+                admissibility="gm",
+                scope_mode="campaign",
+            ),
+            summary=WorldGraphProjectionSummary(
+                node_count=1,
+                relationship_count=0,
+                attribute_count=0,
+                evidence_count=0,
+                source_artifact_count=1,
+            ),
+            nodes=[
+                WorldGraphProjectionNodeView(
+                    node_id="node:mireward",
+                    label="Mireward",
+                    kind="location",
+                    role="place",
+                    summary="A road in the fixture projection.",
+                    source_artifact_ids=[artifact.source_artifact_id],
+                )
+            ],
+            trust_boundary=WorldGraphProjectionTrustBoundary(
+                can_trust=["synthetic fixture World snapshot"],
+                cannot_trust=["real World graph admission"],
+            ),
+        )
+
+    monkeypatch.setattr(
+        historical_recap_world_projection, "project_world_graph", project_fixture
+    )
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: ROOT)
+    projection = client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-projection"
+    )
+    assert projection.status_code == 200, projection.text
+    projected = projection.json()
+    assert projected["worldId"] == "world:elderwyld"
+    assert projected["sourceArtifactId"] == artifact.source_artifact_id
+    assert projected["nodeViews"]["node:mireward"]["label"] == "Mireward"
+    assert observed["request"].world_id == "world:elderwyld"
 
 
 def test_generate_recap_memory_reuses_preview_graph_without_force(

@@ -1,7 +1,7 @@
 # Ingest: bind fresh recap sources to their World
 
 Status: ACTIVE — PRIME authorizes DOGFOOD to implement this next Ingest slice under the operator's Ingest assignment. ARCHITECTURE owns independent review; PRIME owns merge.
-Base: Buddy origin/main@448e88d9006b19cfb607d4ac5afde14d6d44d856.
+Base: Buddy origin/main@ad325a2b61ca7678816ce2c108a7c8bb101a7bf5.
 Lane: codex/ingest-recap-source-world-binding, /tmp/prime-ingest-recap-source-world-binding. Topology: serial successor to merged #1266/#1276; no unmerged dependency.
 
 ## Outcome and evidence
@@ -67,6 +67,12 @@ The authoring and retained-package owning tests are explicitly included for the 
 
 Changes in these paths are restricted to adopting the new explicit native-World source contract and necessary identity/lineage fixture assertions. Synthetic tests may name an explicit fixture World; real evaluation entrypoints must use verified existing native-World input or require explicit input and refuse if absent, never derive authority from a campaign/title/default. Do not run private corpus evaluation or publication. Preserve negative tests for missing/foreign World rather than changing them into happy paths. Report inherited failures separately; no unrelated test rewriting.
 
+## Re-anchor and topology settlement — 2026-10-17
+
+GitHub confirms PR #1266 merged at `7cd86c3a3fc875e0994ac53cbe5515bff43b27df` and PR #1276 merged at `448e88d9006b19cfb607d4ac5afde14d6d44d856`. Current `origin/main` is `ad325a2b61ca7678816ce2c108a7c8bb101a7bf5` after merged #1282; the shell fetch succeeded and the intervening main changes are limited to conversation UI files outside this lease.
+
+PR #1244 remains open but its candidate-recovery implementation is held and is not a dependency or stacked parent for this World-binding slice. PRIME explicitly transferred the shared `tests/test_graph_memory_category_graph_preview_runner.py` path from that frozen lane to this lane. This slice may keep the explicit World/v2 identity fixture updates in that file; do not incorporate #1244's legacy repair implementation.
+
 No UI/shared styles, provider route, lock/schema/migration, retained source/registry/corpus or serving changes. Return to PRIME if another path or ownership contract is necessary. Active Build is on main3b575220; PRIME's Jev consumer edits remain in another checkout. These source paths are disjoint from both.
 
 ## Verification and handback
@@ -74,6 +80,8 @@ No UI/shared styles, provider route, lock/schema/migration, retained source/regi
 Use synthetic source/candidates, fake extraction, exact configured route model identifier and disposable APP databases only. No paid provider calls or World publication. Existing host Postgres54329 is approved and running; sandbox network refusal is not host unavailability. Run host checks with the required execution permission. Unique dungeonbuddy_app_state_test_* databases must be cleaned up; never use retained54330/54331.
 
 Prove same-World idempotence, two Worlds with identical campaign/session/text getting distinct source identities and correct native queries, old worldless records unchanged, conflicting World refusal, APP/run/source mismatch refusal before projection, exact source bytes/span identity, and fresh APP readback after Process. Commit the combined Process→canonical/normalized/candidate/manifest→exact source→historical node-bearing projection regression (fixture World graph explicitly synthetic). Run focused owning tests and cumulative diff checks; distinguish pre-existing failures.
+
+Verification on the rebased implementation: 313 tests passed, 12 skipped, and two known base failures were deselected after reproducing them at pinned base `a9ec` (canonical line-only indexing lacks party evidence; the configured content-root symlink test is rejected by the existing repository-root safety check). `ruff check --extend-ignore F401` passes for the changed Python files; the two ignored F401 diagnostics are unchanged on base. `git diff --check` passes. No provider, private corpus, World publication, live serving runtime, or retained database was used.
 
 For rendered acceptance, use isolated NON-SERVING ports and synthetic storage at desktop/narrow widths, with explicit runtime lease/cleanup. Do not change/restart 5202/8000, touch the operator's Build draft, repair old retained data, or claim full real-corpus ingestion acceptance from fixture evidence.
 

@@ -257,7 +257,7 @@ def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
         pick_normalized_basename_from_disk,
         session_recaps_prefix,
     )
-    from src.graph_memory.evidence.source_artifact import build_recap_source_artifact_id
+    from src.graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
     from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 
     corpus = default_corpus_root()
@@ -359,7 +359,8 @@ def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
 
             original_sha = _sha256_file(original_path)
             session_id = f"session-{session}"
-            source_artifact_id = build_recap_source_artifact_id(
+            source_artifact_id = build_world_scoped_recap_source_artifact_id(
+                world_id=WORLD_ID,
                 campaign_id=campaign_id,
                 session_id=session_id,
                 content_sha256=original_sha,
@@ -579,6 +580,7 @@ def _extract_session(
 
     artifact = create_recap_source_artifact(
         repo_root,
+        world_id=WORLD_ID,
         campaign_id=entry.campaign_id,
         session_id=entry.session_id,
         recap_path=repo_root / entry.original_path,
@@ -615,6 +617,10 @@ def _extract_session(
             model_id=None,
             allow_llm=True,
             output_dir=output_dir / "extraction" / entry.session_id,
+            initial_lineage={
+                "native_world_id": WORLD_ID,
+                "campaign_id": entry.campaign_id,
+            },
         )
     )
     status = result.run.status

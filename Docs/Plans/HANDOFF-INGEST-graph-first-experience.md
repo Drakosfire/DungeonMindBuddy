@@ -1,6 +1,6 @@
 # HANDOFF-INGEST-graph-first-experience
 
-**Status:** ACTIVE under the user's explicit Ingest-first product direction (2026-10-16).
+**Status:** SETTLED — PR #1276 merged at `448e88d9006b19cfb607d4ac5afde14d6d44d856`; implementation lease released.
 **Objective:** Make graph enrichment the primary Ingest result, collapse recap processing to one clear action, and retire the breadcrumb-exploration product path.
 **Base:** `main@3b5752204a4e54372096345fb2b17d29541051da`, verified from GitHub before rebasing.
 **Parent:** Former stacked parent PR #1259 merged at `70c894a25ab64a0b08dd2e7a4f293f5e262eff4b`.
@@ -70,3 +70,7 @@ The parent PR #1259 is the only overlapping active UI lease and is an explicit s
 ## Stop condition
 
 If the loaded graph projection cannot render candidate nodes before admission using existing contracts, keep the UI honest and record the missing projection contract. Do not silently mutate the World Graph or invent a second graph representation inside this UI slice.
+
+## Settlement — 2026-10-17
+
+PR #1276 merged at `448e88d9006b19cfb607d4ac5afde14d6d44d856`. The graph-enriched recap is now the primary Ingest projection, with raw Markdown behind Advanced and Graph Review remaining the candidate-admission boundary. The PR did not claim real Process, durable source readback, publication, or rendered end-to-end acceptance; those remain in the active Ingest goal. The next source-binding implementation is tracked in `HANDOFF-INGEST-recap-source-world-binding.md`.

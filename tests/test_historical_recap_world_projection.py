@@ -45,6 +45,7 @@ def _run(*, digest: str = "a" * 64) -> ExtractionRun:
         status=ExtractionRunStatus.VALIDATED,
         campaign_id="longmont-c2",
         session_id="session-25",
+        lineage={"native_world_id": "eldyrwild", "campaign_id": "longmont-c2"},
         components={
             "source_artifact": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
@@ -357,6 +358,37 @@ def test_exact_run_projection_fails_closed_without_world_binding(
 
     assert error.value.code == "world_binding_unavailable"
     assert error.value.status_code == 409
+
+
+def test_exact_run_projection_rejects_foreign_run_world_before_graph_query(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    run = _run().model_copy(
+        update={
+            "lineage": {
+                "native_world_id": "world:conks-and-cons",
+                "campaign_id": "longmont-c2",
+            }
+        }
+    )
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=run,
+        source=_source(),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="does not match its exact",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(tmp_path, RUN_ID)
+
+    assert error.value.code == "source_binding_mismatch"
+    assert error.value.status_code == 422
+    assert captured["calls"] == 0
 
 
 def test_orik_brin_excerpt_comes_from_app_state_without_source_sidecar(

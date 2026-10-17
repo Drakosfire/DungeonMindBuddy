@@ -26,6 +26,21 @@ from apps.live_control_server.services.source_artifact_registry import (
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunComponentRef
 
 
+def _ingest_context():
+    return SimpleNamespace(
+        as_lineage=lambda: {
+            "schema": "dm_world_campaign_ingest_context_v1",
+            "managed_world_id": "managed-fixture-world",
+            "native_world_id": "fixture-world",
+            "binding_version": 1,
+            "campaign_id": "campaign-a",
+            "head_revision_id": "revision:fixture",
+            "graph_schema": "dm_graph_v1",
+            "graph_payload_sha256": "a" * 64,
+        }
+    )
+
+
 @pytest.fixture
 def split_roots(tmp_path, monkeypatch):
     code, data = tmp_path / "code", tmp_path / "data"
@@ -41,7 +56,7 @@ def split_roots(tmp_path, monkeypatch):
 
 def _run(code, data, monkeypatch):
     artifact = create_recap_source_artifact(
-        code, campaign_id="campaign-a", session_id="session-1",
+        code, world_id="fixture-world", campaign_id="campaign-a", session_id="session-1",
         recap_text="# Recap\n\nAlice entered the tower.\n",
     )
     candidate = data / "out/graph_memory/runs/extraction/pinned/candidate_graph.json"
@@ -140,7 +155,7 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
     original = code / "original.md"
     original.write_text("Retained source.\n")
     artifact = create_recap_source_artifact(
-        code, campaign_id="campaign-a", session_id="session-1", recap_path=original,
+        code, world_id="fixture-world", campaign_id="campaign-a", session_id="session-1", recap_path=original,
     )
     assert source_artifacts_path(code) == data / "out/registries/source_artifacts.json"
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == original.read_text()
@@ -153,6 +168,7 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
     run_recap_production_extraction(
         repo_root=code, campaign_id="campaign-a", session_id="session-1",
         recap_path=original, allow_llm=False, output_dir=Path("out/future"),
+        ingest_context=_ingest_context(),
     )
     assert calls[0].repo_root == data
     assert calls[0].output_dir == data / "out/future"
@@ -160,6 +176,7 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
         run_recap_production_extraction(
             repo_root=code, campaign_id="campaign-a", session_id="session-1",
             recap_path=original, output_dir=code / "out/extraction",
+            ingest_context=_ingest_context(),
         )
     assert len(calls) == 1
     assert original.read_text() == "Retained source.\n"
@@ -172,7 +189,7 @@ def test_exact_run_reaches_real_prepare_boundary_with_separate_data(split_roots,
     artifact, run, files, requested = _run(code, data, monkeypatch)
     before = {kind: path.read_bytes() for kind, path in files.items()}
     binding = SimpleNamespace(
-        managed_world_id="managed-a", native_world_id="native-a",
+        managed_world_id="managed-a", native_world_id="fixture-world",
         binding_version=1,
     )
     monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _id: binding)
@@ -180,7 +197,7 @@ def test_exact_run_reaches_real_prepare_boundary_with_separate_data(split_roots,
     class ReachedNativeBoundary(Exception):
         pass
     def native_boundary(world_id):
-        assert world_id == "native-a"
+        assert world_id == "fixture-world"
         raise ReachedNativeBoundary()
     monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", native_boundary)
     from apps.live_control_server.models.extract_promote import ExtractPromotePrepareRequest
@@ -273,7 +290,15 @@ def test_source_body_symlink_and_scope_drift_fail(split_roots, monkeypatch, tmp_
     doc = json.loads(metadata.read_text())
     doc["records"][0]["session_id"] = "session-2"
     metadata.write_text(json.dumps(doc))
-    with pytest.raises(PromotableIngestRunError, match="session_id"):
+    with pytest.raises(
+        SourceArtifactRegistryError,
+        match="World-scoped recap SourceArtifact ID does not match its identity",
+    ):
+        get_source_artifact(code, artifact.source_artifact_id)
+    with pytest.raises(
+        PromotableIngestRunError,
+        match="unknown source_artifact_id",
+    ):
         resolve_promotable_ingest_run(run.run_id, root=code)
 
 
