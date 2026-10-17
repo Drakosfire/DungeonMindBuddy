@@ -13,6 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .build_jev_accounting import ExperimentalAccounting
 from .build_jev_dispatch import MODEL
 
 
@@ -141,11 +142,17 @@ class BuildJevTransitions:
         relevant_min: float = 0.5,
         exclusion_min: float = 0.9,
         retention_policy: Literal["question_relevance_packets_v1"] | None = None,
+        accounting: ExperimentalAccounting | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
         if retention_policy not in {None, "question_relevance_packets_v1"}:
             raise ValueError("unsupported retention policy")
+        if accounting is not None and retention_policy is None:
+            raise ValueError(
+                "experimental accounting requires explicit retention policy"
+            )
+        self._accounting = accounting
         self._retention_policy = retention_policy
         self._retained: set[str] = set()
         self._retention_pending: list[tuple[AcquiredEvidence, ...]] = []
@@ -219,6 +226,8 @@ class BuildJevTransitions:
 
         units = self._retention_pending[0]
         state = packet_state(self._question, self._scope, units)
+        if self._accounting is not None:
+            state["context_accounting"] = self._accounting.descriptor
         questions = packet_questions(units)
         return self._intent("retention", state, questions)
 
@@ -322,7 +331,9 @@ class BuildJevTransitions:
             state["rules"] += (
                 " The view omits units heuristically judged irrelevant; exclusions do not prove absence or completeness."
             )
-            if not fits(state, questions):
+            if self._accounting is not None:
+                state["context_accounting"] = self._accounting.descriptor
+            if not fits(state, questions, accounting=self._accounting):
                 return self._finish("refused", "retained_view_exceeds_context_policy")
         return self._intent(phase, state, questions)
 
@@ -513,7 +524,10 @@ class BuildJevTransitions:
 
                 try:
                     self._retention_pending = packets(
-                        self._question, self._scope, newly_acquired
+                        self._question,
+                        self._scope,
+                        newly_acquired,
+                        accounting=self._accounting,
                     )
                 except ValueError:
                     self._step = self._finish(

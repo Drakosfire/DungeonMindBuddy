@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 from uuid import UUID
 
+from .build_jev_accounting import ExperimentalAccounting
+
 PROVIDER = "typesafe"
 MODEL = "jev-1.14.0"
 API_MODE = "typesafe_decision"
@@ -77,13 +79,16 @@ def _decode(body: str | bytes) -> dict:
     return value
 
 
-def validate_body(payload: str, expected_state: Mapping[str, Any]) -> dict:
+def validate_body(payload: str, expected_state: Mapping[str, Any], *,
+                  accounting: ExperimentalAccounting | None = None) -> dict:
     body = _decode(payload)
     if body["state"] != expected_state:
         raise ValueError("Decision source, question, scope, initial packet or discovery differs")
     for name, question in body["questions"].items():
         if not isinstance(name, str) or not name or not isinstance(question, dict):
             raise ValueError("Invalid decision question")
+        if accounting is not None:
+            continue
         # All instructions/options/criteria and JSON structure count toward the
         # conservative per-question projection, not just the state text.
         projection = {"state": body["state"], "model": body["model"], "questions": {name: question}}
@@ -91,6 +96,9 @@ def validate_body(payload: str, expected_state: Mapping[str, Any]) -> dict:
         if len(encoded) + 64 * (1 + _json_nodes(projection)) > QUESTION_LIMIT:
             raise ValueError("Decision per-question context exceeds its conservative ceiling")
     raw = payload.encode()
+    if accounting is not None:
+        accounting.validate(body, raw)
+        return body
     if len(raw) + 64 * (1 + _json_nodes(body)) > REQUEST_LIMIT:
         raise ValueError("Decision request context exceeds its conservative ceiling")
     return body
