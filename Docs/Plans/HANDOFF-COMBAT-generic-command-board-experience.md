@@ -187,3 +187,10 @@ Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is prese
 - The remote C0 branch is composed on current main while retaining all 20 exact §8 C0 paths. The prior C0 implementation and earlier f35-based composition remain in its history. No files outside §8 are added to the C0 cumulative diff.
 - Fresh owning checks for the refreshed branch head have not yet been run. The verification recorded above is historical evidence for its cited earlier heads and must not be represented as fresh evidence for the refreshed head.
 - Ingest extraction-quality issues remain known; do not ask the operator to repeat Session 29 dogfooding until PRIME closes that gate. Preserve the operator’s Build session.
+
+
+### Re-anchor result — 2026-10-17
+
+- Re-anchor merge commit: `bd84b2e870f38303f04019609c42a77da465d020`, with C0 branch head `ce8a507ecd32de9628f83e453f0f9ab1e72769b7` and current main `42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` as parents.
+- GitHub comparison against current `main@42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` reports the C0 branch ahead by its six implementation/history commits and zero commits behind. The cumulative PR diff remains the exact 20 paths in §8; the four-commit main advance from the prior checkpoint touched only requested-detail writer paths outside this lease.
+- No GitHub Actions PR workflow runs are attached to the re-anchor commit. Fresh owning C0 tests and independent exact-head review remain pending; do not reuse the older-head checks above as current-head proof.
