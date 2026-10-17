@@ -686,7 +686,21 @@ describe("IngestionModule", () => {
   });
 
   it("opens a saved Session 10 as the enriched World Graph view", async () => {
-    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap");
+    const user = setupIngestUser();
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    const draftText = "Session 11 draft that must survive a direct Session 10 route.";
+    const storageKey = "dmb.ingestion.longmont-c2.session.11";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 11,
+      slug: "",
+      title: "Session 11 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
     const status = makeStatus({
       session: 10,
       status: "recap_reused",
@@ -712,12 +726,15 @@ describe("IngestionModule", () => {
       snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
     }));
 
-    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+    const initialView = render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
 
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
     const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Viewing saved recap · Session 10."));
     expect(within(toolbar).queryByText(/Choose Process to build the enriched recap/i)).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("view")).toBe("recap");
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}")).toMatchObject({ rawText: draftText, recapSession: 11 });
+    expect(within(toolbar).getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
@@ -725,6 +742,142 @@ describe("IngestionModule", () => {
     expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
       expect.objectContaining({ focus: expect.objectContaining({ sessionId: "session-10" }) }),
     );
+
+    initialView.unmount();
+    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Return to draft" }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("session")).toBe("session-11"));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+  });
+
+  it("keeps a mismatched draft recoverable when a direct saved recap route cannot be verified", async () => {
+    const user = setupIngestUser();
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    const draftText = "Session 11 draft that must survive an unverified Session 10 route.";
+    const storageKey = "dmb.ingestion.longmont-c2.session.11";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 11,
+      slug: "",
+      title: "Session 11 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      campaign_id: "longmont-c2",
+      session: 10,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      entity_spelling_audit: [],
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft preserved · Session 11");
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(within(toolbar).getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "New recap" })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "Paste recap" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}")).toMatchObject({
+      rawText: draftText,
+      recapSession: 11,
+    });
+
+    await user.click(within(toolbar).getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+  });
+
+  it("keeps a matching draft editable and offers its saved reader without losing text", async () => {
+    const user = setupIngestUser();
+    const draftText = "Unfinished notes that must survive opening the saved recap.";
+    const artifact = {
+      schema_version: "dmb_recap_artifact_record_v1" as const,
+      artifact_id: "artifact:recap:longmont-c2:session-10",
+      campaign_id: "longmont-c2",
+      session_id: "session-10",
+      source_recap_path: "Session 10 - Mireward.md",
+      run_bundle_uri: "bundle",
+      run_manifest_uri: "manifest",
+      source_span_index_uri: "index",
+      graph_run_refs: [],
+      default_projection_mode: "preview_union" as const,
+      registered_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      registry_source: "scan" as const,
+    };
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    const storageKey = "dmb.ingestion.longmont-c2.session.29";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 10,
+      slug: "",
+      title: "Session 10 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [artifact],
+    });
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (body) =>
+      makeStatus({
+        campaign_id: body.campaign_id,
+        session: body.session,
+        status: "recap_reused",
+        states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+        paths: {
+          ...makeStatus().paths,
+          canonical_recap: "Session 10 - Mireward.md",
+          normalized_recap: "Session 10 - Mireward.md",
+        },
+        ingest_report: {
+          corpus_impact: [
+            { key: "canonical_recap", relpath: "Session 10 - Mireward.md", exists: true },
+            { key: "normalized_recap", relpath: "Session 10 - Mireward.md", exists: true },
+          ],
+        },
+        entity_spelling_audit: [],
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent(/Unsaved draft open/i));
+    expect(within(toolbar).getByRole("button", { name: "View saved recap" })).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("view")).toBeNull();
+
+    await user.click(within(toolbar).getByRole("button", { name: "View saved recap" }));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+    expect(within(toolbar).getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
+
+    await user.click(within(toolbar).getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(10);
+    expect(new URLSearchParams(window.location.search).get("view")).toBeNull();
   });
 
   it("Process uses the combined operation and opens the node-bearing recap", async () => {
@@ -1337,8 +1490,21 @@ describe("IngestionModule", () => {
       snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
     }));
 
+    const draftText = "Session 24 draft that must survive reading Session 23.";
+    const storageKey = "dmb.ingestion.longmont-c2.session.24";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 24,
+      slug: "",
+      title: "Session 24 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
-    render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
+    const initialView = render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
     await screen.findByRole("option", { name: /Session 23/ });
     await user.selectOptions(screen.getByLabelText("Prior processed recap"), artifact.artifact_id);
     await user.click(screen.getByRole("button", { name: "Load processed recap" }));
@@ -1347,9 +1513,111 @@ describe("IngestionModule", () => {
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByText("The party held the gate.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New recap" })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").recapSession).toBe(24);
+    expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
     expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
+
+    initialView.unmount();
+    render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Return to draft" }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("session")).toBe("session-24"));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(24);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
   });
+
+  it.each(["late resolution", "late rejection"] as const)(
+    "persists edits after returning to a draft before a pending recap inspection's %s",
+    async (completion) => {
+      const user = setupIngestUser();
+      const artifact = {
+        schema_version: "dmb_recap_artifact_record_v1" as const,
+        artifact_id: "artifact:recap:longmont-c2:session-23",
+        campaign_id: "longmont-c2",
+        session_id: "session-23",
+        source_recap_path: "corpus/eldyrwild-markdown/Session 23 - Mireward Gate Battle.md",
+        run_bundle_uri: "bundle",
+        run_manifest_uri: "manifest",
+        source_span_index_uri: "index",
+        graph_run_refs: [],
+        default_projection_mode: "preview_union" as const,
+        registered_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z",
+        registry_source: "scan" as const,
+      };
+      vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
+        schema_version: "dmb_recap_artifacts_registry_v1",
+        version: "1",
+        records: [artifact],
+      });
+      const pendingInspection = deferred<RecapIngestStatus>();
+      vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+        if (request.operation !== "inspect_status") {
+          throw new Error(`Unexpected ingestion write: ${request.operation}`);
+        }
+        if (request.session === 23) return pendingInspection.promise;
+        return makeStatus({
+          campaign_id: request.campaign_id,
+          session: request.session,
+          status: "initialized",
+          states: ["ingest_status_inspected"],
+          entity_spelling_audit: [],
+        });
+      });
+
+      const draftText = "Session 24 draft that must survive reading Session 23.";
+      const updatedDraft = `${draftText} New edits after returning.`;
+      const storageKey = "dmb.ingestion.longmont-c2.session.24";
+      window.localStorage.setItem(storageKey, JSON.stringify({
+        version: 3,
+        rawText: draftText,
+        recapSession: 24,
+        slug: "",
+        title: "Session 24 - Draft in progress",
+        showAdvanced: false,
+        forceStage: false,
+        forceRecap: false,
+        ignoreDiskResume: false,
+      }));
+      window.history.replaceState({}, "", "/ingest?world=elderwyld");
+      const firstView = render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
+      await screen.findByRole("option", { name: /Session 23/ });
+      await waitFor(() =>
+        expect(screen.getByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText),
+      );
+      await user.selectOptions(screen.getByLabelText("Prior processed recap"), artifact.artifact_id);
+      await user.click(screen.getByRole("button", { name: "Load processed recap" }));
+      await user.click(await screen.findByRole("button", { name: "Return to draft" }));
+
+      const recapEditor = await screen.findByRole("textbox", { name: "Write or paste a recap" });
+      await user.type(recapEditor, " New edits after returning.");
+      await waitFor(() => {
+        expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(updatedDraft);
+      });
+
+      await act(async () => {
+        if (completion === "late resolution") {
+          pendingInspection.resolve(makeStatus({
+            session: 23,
+            status: "recap_reused",
+            states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+          }));
+        } else {
+          pendingInspection.reject(new Error("Inspection failed after draft return"));
+        }
+      });
+
+      expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(updatedDraft);
+      expect(screen.getByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(updatedDraft);
+      firstView.unmount();
+      render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
+      expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(updatedDraft);
+    },
+  );
 
   it("keeps raw source hidden if the World Graph projection is unavailable", async () => {
     const user = setupIngestUser();

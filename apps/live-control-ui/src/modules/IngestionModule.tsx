@@ -91,6 +91,12 @@ interface IngestionModuleDraft {
   ignoreDiskResume?: boolean;
 }
 
+interface ReturnableIngestionDraft {
+  storageKey: string;
+  campaignId: string;
+  draft: IngestionModuleDraft;
+}
+
 type IngestionToastTone = "info" | "warning" | "error" | "success";
 
 interface IngestionToast {
@@ -552,6 +558,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [reconciling, setReconciling] = useState(false);
   const [sourceMode, setSourceMode] = useState<IngestionSourceMode>("raw");
   const [loadedArtifact, setLoadedArtifact] = useState<RecapArtifactRecord | null>(null);
+  const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
@@ -806,6 +813,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showRecapWelcome =
     hydrated &&
     !readerMode &&
+    !returnableDraft &&
     !hasLoadedRecapContent &&
     !busy &&
     state.status !== "error" &&
@@ -831,6 +839,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       if (reviewError) return "Saved recap could not be opened. See the message on the recap surface.";
       if (reviewSource?.projection) return `Viewing saved recap · Session ${reviewSource.session}.`;
       return `Opening saved recap · Session ${recapSession}…`;
+    }
+    if (rawTextSatisfied && hasCurrentNormalizedSource) {
+      return `Unsaved draft open · Session ${recapSession}. The saved recap is available to read.`;
     }
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
       return "Write or paste a recap, then choose Process.";
@@ -886,6 +897,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     async function hydrateFromStorageAndDisk() {
       const inspectGeneration = hydrateInspectGenerationRef.current;
       const draft = readDraft(storageKey);
+      const routeDraft =
+        requestedRecapSession != null &&
+        draft?.recapSession !== requestedRecapSession &&
+        Boolean(draft?.rawText.trim())
+          ? { storageKey, campaignId: ingestCampaignId, draft: draft! }
+          : null;
+      setReturnableDraft(routeDraft);
       const usableDraft =
         requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
           ? null
@@ -1018,7 +1036,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }, [ingestCampaignId, hydrated, freshRecapEntry]);
 
   useEffect(() => {
-    if (!hydrated) {
+    if (!hydrated || loadingPriorIngestion || readerMode || returnableDraft) {
       return;
     }
     writeDraft(storageKey, {
@@ -1034,6 +1052,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     });
   }, [
     hydrated,
+    loadingPriorIngestion,
+    readerMode,
+    returnableDraft,
     storageKey,
     rawText,
     recapSession,
@@ -1102,6 +1123,45 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
   }
 
+  function returnToDraft() {
+    const candidate = returnableDraft;
+    if (!candidate) {
+      closeSavedReader();
+      return;
+    }
+
+    invalidateInFlightRecapOperations();
+    hydrateInspectGenerationRef.current += 1;
+    closeSavedReader();
+    setLoadingPriorIngestion(false);
+    const { draft, campaignId } = candidate;
+    setIngestCampaignId(campaignId);
+    selectedIngestTargetRef.current = JSON.stringify([campaignId, draft.recapSession]);
+    inspectedTargetRef.current = "";
+    setRecapSession(draft.recapSession);
+    setRawText(draft.rawText);
+    setSlug(draft.slug);
+    setTitle(draft.title);
+    setShowAdvanced(draft.showAdvanced);
+    setForceStage(draft.forceStage);
+    setForceRecap(draft.forceRecap);
+    setIgnoreDiskResume(Boolean(draft.ignoreDiskResume));
+    setSourceMode("raw");
+    setLoadedArtifact(null);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    setToast(null);
+    setReturnableDraft(null);
+    setHydrated(true);
+
+    const params = new URLSearchParams(window.location.search);
+    params.set("campaign", campaignId);
+    params.set("session", `session-${draft.recapSession}`);
+    params.delete("view");
+    params.delete("recapReviewRunId");
+    window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
+  }
+
   function resetIngestionDraft() {
     invalidateInFlightRecapOperations();
     hydrateInspectGenerationRef.current += 1;
@@ -1118,6 +1178,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setSourceMode("raw");
     setPriorSourceReadFailed(false);
     setLoadedArtifact(null);
+    setReturnableDraft(null);
     setSelectedPriorArtifactId("");
     setToast(null);
     setState({ status: "idle" });
@@ -1170,6 +1231,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
 
     const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+    if (rawText.trim()) {
+      const draft = {
+        version: INGESTION_DRAFT_STORAGE_VERSION,
+        rawText,
+        recapSession,
+        slug,
+        title,
+        showAdvanced,
+        forceStage,
+        forceRecap,
+        ignoreDiskResume,
+      } satisfies IngestionModuleDraft;
+      writeDraft(storageKey, draft);
+      setReturnableDraft({ storageKey, campaignId: ingestCampaignId, draft });
+    }
     invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = targetIdentity;
     invalidateInFlightHydrateInspect();
@@ -1736,6 +1812,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     Boolean(toast) ||
     state.status === "error" ||
     showSourceProofRecovery;
+  const canReturnToDraft = Boolean(returnableDraft || (readerMode && rawText.trim()));
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -1779,13 +1856,38 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </span>
           </label>
           {hydrated ? (
-            <button
-              type="button"
-              className="ingest-local-nav__primary-action"
-              onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap()}
-            >
-              {showRecapWelcome ? "Paste recap" : "New recap"}
-            </button>
+            <>
+              {canReturnToDraft ? (
+                <button
+                  type="button"
+                  className="ingest-local-nav__primary-action"
+                  onClick={returnToDraft}
+                >
+                  Return to draft
+                </button>
+              ) : null}
+              {canReturnToDraft && !returnableDraft ? (
+                <button
+                  type="button"
+                  onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap()}
+                >
+                  {showRecapWelcome ? "Paste recap" : "New recap"}
+                </button>
+              ) : !canReturnToDraft ? (
+                <button
+                  type="button"
+                  className="ingest-local-nav__primary-action"
+                  onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap()}
+                >
+                  {showRecapWelcome ? "Paste recap" : "New recap"}
+                </button>
+              ) : null}
+              {!readerMode && rawText.trim() && hasCurrentNormalizedSource ? (
+                <button type="button" onClick={() => void reviewSavedSource()}>
+                  View saved recap
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
 
@@ -1975,6 +2077,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <p role="status" className="module-muted">Preparing the graph-enriched view…</p>
               ) : null}
             </section>
+          ) : returnableDraft ? (
+            <div className="ingestion-prepared-source-notice" role="status">
+              <strong>Draft preserved · Session {returnableDraft.draft.recapSession}</strong>
+              <p>Return to this draft to continue editing under its original session.</p>
+            </div>
           ) : sourceMode === "processed" ? (
             <div className="ingestion-prepared-source-notice" role="status">
               <strong>Graph-enriched recap</strong>
