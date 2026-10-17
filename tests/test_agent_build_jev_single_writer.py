@@ -268,3 +268,43 @@ def test_provider_unsuccessful_status_with_residual_valid_output_never_completes
     assert fresh.graph_context_execution.events[-1].outcome=='response_received'
     assert fresh.completion is None and fresh.assistant_text is None and fresh.status!='completed'
     assert not adapter.authorize_prepared_build_writer(prepared(staged))
+
+
+def test_prompt_capture_precedes_sdk_io_and_fresh_read_matches_exact_wire(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.agent_prompt_evidence import read_prompt
+    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1")
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    adapter, staged, _, _ = stage(build_case, monkeypatch)
+    class CapturedBeforeWire(WriterWire):
+        async def handle_async_request(self, request):
+            traces = AgentConversationService().list_context_trace_attempts(
+                world_id=self.adapter.turn.world_id, turn_id=self.adapter.turn.turn_id)
+            references = [item for trace in traces for item in trace.observations if item.kind == "prompt_reference"]
+            assert references[-1].provider_attempt_id == self.adapter.last_provider_attempt_id
+            assert read_prompt(references[-1]).encode() == request.content
+            return await super().handle_async_request(request)
+    wire = CapturedBeforeWire(adapter)
+    result = invoke(adapter, staged, wire)
+    assert len(wire.calls) == 1 and adapter.failure is None
+    adapter.complete_build_writer(result)
+    traces = AgentConversationService().list_context_trace_attempts(world_id=adapter.turn.world_id, turn_id=adapter.turn.turn_id)
+    references = [item for trace in traces for item in trace.observations if item.kind == "prompt_reference"]
+    assert len(references) == 2  # Decision and writer are distinct captured calls.
+    assert read_prompt(references[-1]).encode() == wire.calls[0].content
+    assert references[-1].provider_attempt_id == adapter.producing_provider_attempt_id
+    assert all(not hasattr(item, "payload_json") for trace in traces for item in trace.observations)
+
+
+def test_prompt_capture_failure_refuses_before_sdk_io(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services import agent_prompt_evidence
+    adapter, staged, _, _ = stage(build_case, monkeypatch)
+    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1")
+    def fail(*args, **kwargs):
+        raise OSError("synthetic private storage failure")
+    monkeypatch.setattr(agent_prompt_evidence, "store_prompt", fail)
+    wire = WriterWire(adapter)
+    with pytest.raises(GenerationEngineError):
+        invoke(adapter, staged, wire)
+    assert wire.calls == []
+    assert adapter.failure.code == "prompt_capture_unavailable"
+    assert adapter.turn.graph_context_execution.events[-1].outcome == "known_not_sent"

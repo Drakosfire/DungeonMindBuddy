@@ -115,6 +115,23 @@ class ContextTraceCollector:
             except ApplicationStateValidationError:
                 self._mark_incomplete_locked("trace_observation_rejected")
 
+    def capture_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
+        """Commit an exact request reference or refuse dispatch; never best effort."""
+        from .agent_prompt_evidence import store_prompt
+        with self.fence.renewer._lock:
+            evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
+            observation = _OBSERVATION.validate_python({
+                "kind": "prompt_reference", "sequence": len(self.trace.observations),
+                "elapsed_ms": self.elapsed_ms, "evidence_id": evidence_id,
+                "provider_attempt_id": authorization.provider_attempt_id,
+                "provider": authorization.provider, "model": authorization.model,
+                "api_mode": authorization.api_mode, "serializer_version": authorization.serializer_version,
+                "payload_sha256": view["payloadSha256"], "payload_utf8_bytes": view["payloadUtf8Bytes"],
+            })
+            self.trace = self.fence.service.append_context_trace(**self._binding(), observation=observation)
+            if observation not in self.trace.observations:
+                raise ApplicationStateValidationError("prompt reference was not durably captured")
+
     def refresh_after_source_capture(self) -> None:
         """Atomic source receipt writes assign observation sequences in APP."""
         with self.fence.renewer._lock:

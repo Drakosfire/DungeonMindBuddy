@@ -35,12 +35,22 @@ def _sha(data: bytes) -> str:
 
 
 def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bool = False):
+    from graph_memory.evidence.source_artifact import (
+        build_world_scoped_recap_source_artifact_id,
+    )
+
     source = tmp_path / "source.md"
     source_bytes = b"Mira found the silver key under the old bridge.\n"
     source.write_bytes(source_bytes)
     span_file = tmp_path / "spans.json"
     span_file.write_text('{"spans":[]}', encoding="utf-8")
-    artifact_id = "artifact:recap:c:s:source"
+    source_sha = _sha(source_bytes)
+    artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id="fixture-world",
+        campaign_id="c",
+        session_id="s",
+        content_sha256=source_sha,
+    )
     span_id = f"{artifact_id}:span:abc:1-1"
     payload = {
         "schema": "dmb_candidate_graph_preview_v0", "version": "0.1",
@@ -79,7 +89,6 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     parent_path = tmp_path / "parent.json"
     parent_bytes = json.dumps(payload).encode()
     parent_path.write_bytes(parent_bytes)
-    source_sha = _sha(source_bytes)
     components = {
         "source_artifact": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
@@ -98,6 +107,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         run_id="parent", source_artifact_id=artifact_id, source_domain="recap",
         campaign_id="c", session_id="s", profile_id="recap_category_v1@1.0",
         status=ExtractionRunStatus.REVIEWABLE, components=components,
+        lineage={"native_world_id": "fixture-world", "campaign_id": "c"},
     )
     resolved = SimpleNamespace(
         run_id="parent", candidate_graph_path=parent_path,
@@ -176,6 +186,8 @@ def test_recap_child_is_held_exact_idempotent_and_parent_frozen(
     child = children[response.run_id]
     assert child.status == ExtractionRunStatus.REVIEWABLE
     assert child.lineage["derivation"] == "operator_recap_literal_evidence_correction_v1"
+    assert child.lineage["native_world_id"] == parent.lineage["native_world_id"]
+    assert child.lineage["campaign_id"] == parent.lineage["campaign_id"]
     assert child.components["source_artifact"] == parent.components["source_artifact"]
     assert child.components["source_span_index"] == parent.components["source_span_index"]
     assert child.components["candidate_graph"] != parent.components["candidate_graph"]
@@ -194,6 +206,17 @@ def test_recap_child_is_held_exact_idempotent_and_parent_frozen(
     assert child.lineage["semantic_disposition"] == {
         "version": 1, "state": "held", "basis_sha256": response.semantic_basis_sha256,
     }
+
+
+def test_world_scoped_recap_child_refuses_parent_without_frozen_world_context(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, _, _, span_id, children = _fixture(monkeypatch, tmp_path)
+    parent.lineage.clear()
+    with pytest.raises(correction.ExtractPromoteError, match="missing its exact verified World context"):
+        correction.correct_recap_run_evidence(_request(_sha(parent_bytes), span_id))
+    assert not children
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
 
 
 @pytest.mark.parametrize("replacement", ["Mira acquired a key", "elsewhere"])
@@ -266,6 +289,32 @@ def test_recap_retry_reports_current_review_decision_without_reset(
     assert candidate.read_bytes() == before
 
 
+@pytest.mark.parametrize("state", ["accepted", "rejected"])
+def test_decided_recap_child_cannot_change_its_frozen_world_binding(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, state: str
+) -> None:
+    _, parent_bytes, _, _, span_id, children = _fixture(monkeypatch, tmp_path)
+    request = _request(_sha(parent_bytes), span_id)
+    first = correction.correct_recap_run_evidence(request)
+    child = children[first.run_id]
+    child.lineage["semantic_disposition"] = {
+        "version": 1,
+        "state": state,
+        "basis_sha256": first.semantic_basis_sha256,
+        "review_decision_ref": "review:1",
+        "reviewer_id": "local_operator",
+        "decided_at": "2026-10-06T00:00:00Z",
+        "from_revision": child.revision,
+    }
+    child.revision += 1
+    child.lineage["native_world_id"] = "world:forged"
+    with pytest.raises(
+        correction.ExtractPromoteError,
+        match="derived run identity conflicts with existing run",
+    ):
+        correction.correct_recap_run_evidence(request)
+
+
 def test_recap_duplicate_target_and_tampered_sealed_bytes_fail(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -289,7 +338,7 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     assert application_state_dsn
     source_text = "Mira found the silver key under the old bridge.\n"
     artifact = source_artifact_registry.create_recap_source_artifact(
-        tmp_path, campaign_id="c", session_id="s", recap_text=source_text
+        tmp_path, world_id="fixture-world", campaign_id="c", session_id="s", recap_text=source_text
     )
     span_path = source_artifact_registry.source_span_index_path(
         tmp_path, artifact.source_artifact_id
@@ -350,6 +399,18 @@ def test_recap_child_round_trips_real_disposable_run_registry(
         tmp_path, source_artifact_id=artifact.source_artifact_id,
         source_domain="recap", campaign_id="c", session_id="s",
         profile_id="recap_category_v1@1.0", components=components,
+        lineage={
+            "world_campaign_ingest_context": {
+                "schema": "dm_world_campaign_ingest_context_v1",
+                "managed_world_id": "managed:fixture-world",
+                "native_world_id": "fixture-world",
+                "campaign_id": "c",
+                "head_revision_id": "head:fixture-1",
+                "graph_schema": "dungeonmind_world_graph_v1",
+                "graph_payload_sha256": _sha(b"fixture graph"),
+                "binding_version": 1,
+            },
+        },
     )
     for status in (
         ExtractionRunStatus.PREPARED, ExtractionRunStatus.EXTRACTED,
@@ -378,6 +439,9 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     assert child.lineage["semantic_disposition"] == {
         "version": 1, "state": "held", "basis_sha256": response.semantic_basis_sha256,
     }
+    assert child.lineage["world_campaign_ingest_context"] == parent.lineage[
+        "world_campaign_ingest_context"
+    ]
     assert child.components["source_artifact"] == parent.components["source_artifact"]
     assert child.components["source_span_index"] == parent.components["source_span_index"]
     assert correction.correct_recap_run_evidence(request) == response

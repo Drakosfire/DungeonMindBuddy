@@ -685,6 +685,13 @@ def _load_canonical_source_artifact(
     entry: ManifestEntry,
     seams: ReplaySeams,
 ):
+    if not entry.source_artifact_id.startswith("artifact:recap:v2:"):
+        raise ReplayStop(
+            "accepted manifest contains a legacy worldless recap source identity; replay refuses to rebind it",
+            boundary="exact_source_admission",
+            campaign_id=entry.campaign_id,
+            session_id=entry.session_id,
+        )
     if seams.load_source_artifact is not None:
         artifact = seams.load_source_artifact(repo_root=repo_root, entry=entry)
     else:
@@ -694,6 +701,7 @@ def _load_canonical_source_artifact(
 
         artifact = create_recap_source_artifact(
             repo_root,
+            world_id=WORLD_ID,
             campaign_id=entry.campaign_id,
             session_id=entry.session_id,
             recap_path=repo_root / entry.original_path,
@@ -708,18 +716,13 @@ def _load_canonical_source_artifact(
             session_id=entry.session_id,
         )
     existing_world = getattr(artifact, "world_id", None)
-    if existing_world not in {None, "", WORLD_ID}:
+    if existing_world != WORLD_ID:
         raise ReplayStop(
-            f"canonical source artifact world_id {existing_world!r} is not the replay World",
+            f"canonical source artifact world_id {existing_world!r} is not the verified replay World",
             boundary="exact_source_admission",
             campaign_id=entry.campaign_id,
             session_id=entry.session_id,
         )
-    if existing_world != WORLD_ID:
-        if hasattr(artifact, "model_copy"):
-            artifact = artifact.model_copy(update={"world_id": WORLD_ID})
-        else:
-            setattr(artifact, "world_id", WORLD_ID)
     return artifact
 
 

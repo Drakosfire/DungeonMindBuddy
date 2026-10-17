@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
     build_worldbuilding_source_artifact_id,
+    build_world_scoped_recap_source_artifact_id,
     validate_source_artifact_scope,
 )
 
@@ -23,6 +24,64 @@ def test_legacy_recap_artifact_still_validates() -> None:
     )
     validate_source_artifact_scope(artifact)
     assert artifact.campaign_id == "longmont-c2"
+
+
+def test_world_scoped_recap_id_uses_full_digest_and_unambiguous_world_scope() -> None:
+    digest = hashlib.sha256(b"same recap").hexdigest()
+    same_world = build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    assert same_world == build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=f"sha256:{digest}",
+    )
+    assert same_world != build_world_scoped_recap_source_artifact_id(
+        world_id="world:conks-and-cons",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    assert same_world != build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=hashlib.sha256(b"different recap").hexdigest(),
+    )
+    assert same_world.startswith("artifact:recap:v2:")
+
+
+def test_world_scoped_recap_artifact_rejects_missing_or_forged_world_identity() -> None:
+    digest = hashlib.sha256(b"recap").hexdigest()
+    artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id="world:elderwyld",
+        campaign_id="longmont-c2",
+        session_id="session-29",
+        content_sha256=digest,
+    )
+    with pytest.raises(ValidationError, match="requires world_id"):
+        GraphMemorySourceArtifact(
+            source_artifact_id=artifact_id,
+            source_domain="recap",
+            campaign_id="longmont-c2",
+            session_id="session-29",
+            uri="repo://recaps/session-29.md",
+            content_sha256=digest,
+        )
+    with pytest.raises(ValidationError, match="ID does not match its identity"):
+        GraphMemorySourceArtifact(
+            source_artifact_id=artifact_id,
+            source_domain="recap",
+            campaign_id="longmont-c2",
+            session_id="session-29",
+            world_id="world:conks-and-cons",
+            uri="repo://recaps/session-29.md",
+            content_sha256=digest,
+        )
 
 
 def test_worldbuilding_artifact_allows_null_session() -> None:

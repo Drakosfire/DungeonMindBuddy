@@ -372,21 +372,16 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlanView).toHaveBeenCalled();
   });
 
-  it("renders memory ingest from /ingest", async () => {
+  it("renders the first-use Ingest landing from /ingest", async () => {
     window.history.pushState({}, "", "/ingest");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
-    expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
-    expect(await screen.findByLabelText("Campaign")).toBeInTheDocument();
-    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
-    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
-    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
-    expect(liveApi.getPlanView).toHaveBeenCalled();
-    expect(ingestRunCatalogApi.getExtractionRunCatalog).toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
+    expect(ingestRunCatalogApi.getExtractionRunCatalog).not.toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();
-    expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
   });
 
   it("E1 bare /build: real App shows empty state and New source without auto-create", async () => {

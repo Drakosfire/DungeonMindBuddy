@@ -11,6 +11,7 @@ from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     get_extraction_run,
+    validate_recap_source_run_world_binding,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
     extract_span_from_revision_bound_text,
@@ -254,10 +255,28 @@ def build_historical_recap_world_projection(
             code="world_binding_unavailable",
             status_code=409,
         )
+    try:
+        native_world_id = validate_recap_source_run_world_binding(
+            source_world_id=source.world_id,
+            campaign_id=run.campaign_id,
+            lineage=run.lineage,
+        )
+    except GraphRunRegistryError as exc:
+        raise _error(
+            str(exc),
+            code="source_binding_mismatch",
+            status_code=exc.status_code,
+        ) from exc
+    if not native_world_id:
+        raise _error(
+            "exact run has no verified native World context",
+            code="world_binding_unavailable",
+            status_code=409,
+        )
 
     request = WorldGraphProjectionRequest(
         schema="dmb_world_graph_projection_request_v1",
-        world_id=source.world_id,
+        world_id=native_world_id,
         campaign_id=run.campaign_id,
         focus={
             "kind": "session",
@@ -301,7 +320,7 @@ def build_historical_recap_world_projection(
         source_revision_id=str(source.source_revision_id),
         campaign_id=run.campaign_id,
         session_id=run.session_id,
-        world_id=source.world_id,
+        world_id=native_world_id,
         source_sha256=f"sha256:{source.content_sha256}",
         graph_id=snapshot.revision_id,
         snapshot=snapshot,

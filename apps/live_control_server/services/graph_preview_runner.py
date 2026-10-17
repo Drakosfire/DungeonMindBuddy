@@ -128,6 +128,71 @@ def _recap_identity_snapshot(
     return asdict(registry)
 
 
+def _verified_ingest_context_lineage(
+    ingest_context: Any,
+    *,
+    campaign_id: str,
+) -> tuple[str, dict[str, Any]]:
+    """Validate and freeze the authoritative MIND World/campaign observation."""
+    try:
+        lineage = ingest_context.as_lineage()
+    except (AttributeError, TypeError) as exc:
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context is required for a fresh recap source",
+            status_code=422,
+        ) from exc
+    if not isinstance(lineage, dict):
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context is malformed",
+            status_code=422,
+        )
+
+    required_text = (
+        "schema",
+        "managed_world_id",
+        "native_world_id",
+        "campaign_id",
+        "head_revision_id",
+        "graph_schema",
+        "graph_payload_sha256",
+    )
+    if any(
+        not isinstance(lineage.get(key), str)
+        or not lineage[key]
+        or lineage[key] != lineage[key].strip()
+        for key in required_text
+    ):
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context is incomplete",
+            status_code=422,
+        )
+    binding_version = lineage.get("binding_version")
+    if isinstance(binding_version, bool) or not isinstance(binding_version, int) or binding_version < 1:
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context has an invalid binding version",
+            status_code=422,
+        )
+    digest = lineage["graph_payload_sha256"]
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context has an invalid graph digest",
+            status_code=422,
+        )
+    if lineage["schema"] != "dm_world_campaign_ingest_context_v1":
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context has an unsupported schema",
+            status_code=422,
+        )
+    if lineage["campaign_id"] != campaign_id:
+        raise SourceArtifactRegistryError(
+            "verified World/campaign ingestion context belongs to a different campaign",
+            status_code=409,
+        )
+    # Copy only JSON-compatible primitive context so the exact verified values
+    # are frozen into the ExtractionRun lineage.
+    return lineage["native_world_id"], dict(lineage)
+
+
 def run_recap_production_extraction(
     *,
     repo_root: Path,
@@ -147,6 +212,10 @@ def run_recap_production_extraction(
     extra_known_entities: tuple[KnownEntity, ...] | None = None,
 ) -> ProductionExtractionResult:
     repo_root = artifact_data_root(repo_root)
+    native_world_id, frozen_context = _verified_ingest_context_lineage(
+        ingest_context,
+        campaign_id=campaign_id,
+    )
     if output_dir is not None:
         output_dir = (
             output_dir if output_dir.is_absolute() else repo_root / output_dir
@@ -214,6 +283,7 @@ def run_recap_production_extraction(
             category_client = bounded
     artifact = create_recap_source_artifact(
         repo_root,
+        world_id=native_world_id,
         campaign_id=campaign_id,
         session_id=session_id,
         recap_path=recap_path,
@@ -260,11 +330,7 @@ def run_recap_production_extraction(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-                initial_lineage=(
-                    {"world_campaign_ingest_context": ingest_context.as_lineage()}
-                    if ingest_context is not None
-                    else None
-                ),
+                initial_lineage={"world_campaign_ingest_context": frozen_context},
             )
         )
         return result

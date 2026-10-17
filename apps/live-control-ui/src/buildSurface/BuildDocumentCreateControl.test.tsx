@@ -183,6 +183,7 @@ describe("BuildDocumentCreateControl", () => {
     fireEvent.click(screen.getByTestId("build-document-create-submit"));
 
     expect(onSubmit).toHaveBeenCalledWith({
+      starter: true,
       title: "Orchard Notes",
       destination: { kind: "new_world", name: "The Glass Orchard" },
     });
@@ -247,6 +248,7 @@ describe("BuildDocumentCreateControl", () => {
 
     fireEvent.click(screen.getByTestId("build-document-create-submit"));
     expect(onSubmit).toHaveBeenCalledWith({
+      starter: true,
       title: "Orchard Notes",
       destination: { kind: "new_world", name: "The Glass Orchard" },
     });

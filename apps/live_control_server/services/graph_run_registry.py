@@ -57,6 +57,85 @@ class GraphRunRegistryError(ValueError):
         self.status_code = status_code
 
 
+def validate_recap_source_run_world_binding(
+    *,
+    source_world_id: str | None,
+    campaign_id: str | None,
+    lineage: dict[str, Any],
+) -> str | None:
+    """Require a world-scoped recap source to match its exact run lineage."""
+    if not source_world_id:
+        return None
+    if not source_world_id.strip() or source_world_id != source_world_id.strip():
+        raise GraphRunRegistryError(
+            "recap SourceArtifact has an invalid native World binding",
+            status_code=422,
+        )
+
+    context = lineage.get("world_campaign_ingest_context")
+    if context is not None:
+        if not isinstance(context, dict):
+            raise GraphRunRegistryError(
+                "recap ExtractionRun World context is malformed",
+                status_code=422,
+            )
+        required = (
+            "schema",
+            "managed_world_id",
+            "native_world_id",
+            "campaign_id",
+            "head_revision_id",
+            "graph_schema",
+            "graph_payload_sha256",
+        )
+        if any(
+            not isinstance(context.get(key), str)
+            or not context[key]
+            or context[key] != context[key].strip()
+            for key in required
+        ):
+            raise GraphRunRegistryError(
+                "recap ExtractionRun World context is incomplete",
+                status_code=422,
+            )
+        binding_version = context.get("binding_version")
+        digest = context["graph_payload_sha256"]
+        if (
+            context["schema"] != "dm_world_campaign_ingest_context_v1"
+            or isinstance(binding_version, bool)
+            or not isinstance(binding_version, int)
+            or binding_version < 1
+            or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)
+        ):
+            raise GraphRunRegistryError(
+                "recap ExtractionRun World context is invalid",
+                status_code=422,
+            )
+        if context["campaign_id"] != campaign_id:
+            raise GraphRunRegistryError(
+                "recap ExtractionRun World context campaign does not match its source",
+                status_code=422,
+            )
+        context_world_id = context["native_world_id"]
+    else:
+        # Synthetic acceptance runners create their own explicit native World
+        # and do not have a managed-World binding snapshot.
+        context_world_id = lineage.get("native_world_id")
+        if lineage.get("campaign_id") not in (None, campaign_id):
+            raise GraphRunRegistryError(
+                "recap ExtractionRun native World scope campaign does not match its source",
+                status_code=422,
+            )
+
+    if context_world_id != source_world_id:
+        raise GraphRunRegistryError(
+            "recap SourceArtifact native World does not match its exact ExtractionRun context",
+            status_code=422,
+        )
+    return source_world_id
+
+
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -344,11 +423,20 @@ def _persist_source_authority(
     if source_domain not in {"recap", "worldbuilding"}:
         return
     try:
-        _registered_artifact, markdown = load_registered_source_artifact_text(
+        registered_artifact, markdown = load_registered_source_artifact_text(
             root,
             artifact.source_artifact_id,
         )
-        source_service.persist_source_markdown(
+        if (
+            registered_artifact.source_artifact_id != artifact.source_artifact_id
+            or registered_artifact.world_id != artifact.world_id
+            or registered_artifact.content_sha256 != artifact.content_sha256
+        ):
+            raise GraphRunRegistryError(
+                "registered SourceArtifact changed before durable source adoption",
+                status_code=409,
+            )
+        persisted = source_service.persist_source_markdown(
             source_artifact_id=artifact.source_artifact_id,
             source_domain=source_domain,
             campaign_id=artifact.campaign_id,
@@ -366,6 +454,11 @@ def _persist_source_authority(
                 else {"adopted_from_uri": artifact.uri}
             ),
         )
+        if persisted.world_id != artifact.world_id:
+            raise GraphRunRegistryError(
+                "durable source World does not match its registered SourceArtifact",
+                status_code=409,
+            )
     except (SourceArtifactRegistryError, ApplicationStateError) as exc:
         raise GraphRunRegistryError(
             f"durable {source_domain} source persistence failed: {exc}",
@@ -533,6 +626,12 @@ def create_extraction_run(
         campaign_id=campaign_id,
         session_id=session_id,
     )
+    if str(artifact.source_domain) == "recap":
+        validate_recap_source_run_world_binding(
+            source_world_id=artifact.world_id,
+            campaign_id=artifact.campaign_id,
+            lineage=dict(lineage or {}),
+        )
     if status in TERMINAL_EXTRACTION_RUN_STATUSES:
         raise GraphRunRegistryError(
             "cannot create an extraction run directly in a terminal status",

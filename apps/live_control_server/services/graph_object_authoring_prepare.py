@@ -1412,6 +1412,13 @@ def resolve_graph_review_source(
                 "recapArtifactId has no registered source digest",
                 code="source_unresolved",
             )
+        verified_native_world_id = (request.world_id or "").strip()
+        if not verified_native_world_id or verified_native_world_id != request.world_id:
+            raise GraphObjectAuthoringError(
+                "recap source registration requires an explicit verified World",
+                code="world_binding_required",
+                status_code=422,
+            )
 
         recap_path = Path(record.source_recap_path)
         if recap_path.is_absolute() or ".." in recap_path.parts:
@@ -1429,6 +1436,7 @@ def resolve_graph_review_source(
         try:
             artifact = create_recap_source_artifact(
                 root,
+                world_id=verified_native_world_id,
                 campaign_id=record.campaign_id,
                 session_id=record.session_id,
                 recap_path=resolved_path,
@@ -1439,17 +1447,12 @@ def resolve_graph_review_source(
             raise GraphObjectAuthoringError(
                 str(exc), code=code, status_code=exc.status_code
             ) from exc
-        # Recap registry records predate the governed World topology and may
-        # therefore carry no world_id. The request's server-resolved World is
-        # authoritative for this publication and must reach source admission.
-        if not (getattr(artifact, "world_id", None) or "").strip():
-            artifact = artifact.model_copy(update={"world_id": authored_world})
         return SimpleNamespace(
             source_artifact_id=artifact.source_artifact_id,
             source_revision_id=f"sha256:{artifact.content_sha256}",
             campaign_id=record.campaign_id,
             session_id=record.session_id,
-            world_id=authored_world,
+            world_id=verified_native_world_id,
             sealed_source_uri=artifact.uri,
             source_artifact=artifact,
         )

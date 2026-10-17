@@ -397,6 +397,7 @@ def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path)
 
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="eldyrwild",
         campaign_id="eldyrwild",
         session_id="session-1",
         recap_text="The party reached Mirathorn.\n",
@@ -407,6 +408,7 @@ def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path)
         source_domain="recap",
         campaign_id="eldyrwild",
         session_id="session-1",
+        lineage={"native_world_id": "eldyrwild", "campaign_id": "eldyrwild"},
     )
 
     generic = client.get(f"/api/live/graph-preview/extraction-runs/{run.run_id}")

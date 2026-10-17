@@ -202,6 +202,7 @@ describe("BuildSurfacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     window.history.pushState({}, "", "/build");
     vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v1",
@@ -262,7 +263,7 @@ describe("BuildSurfacePage", () => {
     });
 
     renderBuildPage();
-    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.click(screen.getByRole("button", { name: "Make this page yours →" }));
     await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
     await user.type(screen.getByTestId("build-document-create-title"), "Ironveil Property");
     await user.click(screen.getByTestId("build-document-create-submit"));
@@ -280,7 +281,10 @@ describe("BuildSurfacePage", () => {
       authority_state: "draft",
       visibility_state: "internal",
     });
-    // Blank new drafts default to Edit so the canvas is immediately usable.
+    await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Start with a spark"));
+    expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    // New starter drafts remain immediately editable.
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
     expect(screen.getAllByRole("button", { name: "Document", exact: true })).toHaveLength(1);
@@ -322,6 +326,7 @@ describe("BuildSurfacePage", () => {
     await user.click(screen.getByTestId("build-document-create-open"));
     await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
     await user.type(screen.getByTestId("build-document-create-title"), "First notes");
+    await user.click(screen.getByRole("checkbox",{name:"Start with worldbuilding prompts"}));
     await user.click(screen.getByTestId("build-document-create-submit"));
 
     await screen.findByTestId("build-markdown-editor");

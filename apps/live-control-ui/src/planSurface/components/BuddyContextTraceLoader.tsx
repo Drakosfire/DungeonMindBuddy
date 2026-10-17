@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { getWorldAgentTurnContextTrace } from '../../api/liveApi'
 import type { WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
 import { BuddyContextTrace } from './BuddyContextTrace'
+import { BuddyPromptInspector } from './BuddyPromptInspector'
 
 interface Props {
+  promptOnly?: boolean
   enabled: boolean
   worldId: string
   turnId: string
@@ -12,7 +14,7 @@ interface Props {
   load?: typeof getWorldAgentTurnContextTrace
 }
 
-export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversationId, running = false, load = getWorldAgentTurnContextTrace }: Props) {
+export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversationId, running = false, load = getWorldAgentTurnContextTrace, promptOnly = false }: Props) {
   const key = `${worldId}\u001f${conversationId}\u001f${turnId}`
   const [loaded, setLoaded] = useState<{ key: string; data: WorldAgentTurnContextTraceResponse } | null>(null)
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null)
@@ -60,8 +62,8 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   const attempts = loaded.data.attempts
   if (!attempts.length) return <div>{error}{running
     ? <p role="status">Trace capture has not started yet.</p>
-    : <BuddyContextTrace trace={null} />}</div>
+    : promptOnly ? <BuddyPromptInspector trace={null} /> : <BuddyContextTrace trace={null} />}</div>
   return <div>{error}{attempts.map((trace, index) => index === attempts.length - 1
-    ? <BuddyContextTrace key={trace.trace_id} trace={trace} />
-    : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary><BuddyContextTrace trace={trace} /></details>)}</div>
+    ? promptOnly ? <BuddyPromptInspector key={trace.trace_id} trace={trace} /> : <BuddyContextTrace key={trace.trace_id} trace={trace} />
+    : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary>{promptOnly ? <BuddyPromptInspector trace={trace} /> : <BuddyContextTrace trace={trace} />}</details>)}</div>
 }

@@ -1148,6 +1148,7 @@ def _validated_recap_run(
 
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="world:longmont-test",
         campaign_id="longmont-c2",
         session_id="session-23",
         recap_text=recap_text,
@@ -1172,6 +1173,7 @@ def _validated_recap_run(
         source_domain="recap",
         campaign_id="longmont-c2",
         session_id="session-23",
+        lineage={"native_world_id": "world:longmont-test", "campaign_id": "longmont-c2"},
     )
     run = update_extraction_run_status(
         tmp_path,
@@ -1273,6 +1275,7 @@ def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
 
     sibling = create_recap_source_artifact(
         tmp_path,
+        world_id="world:longmont-test",
         campaign_id="longmont-c2",
         session_id="session-23",
         recap_text="# Sibling recap\n\nDifferent bytes.\n",

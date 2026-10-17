@@ -2,14 +2,18 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
-import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { type MarkdownCanvasSessionValue, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 
 /** Build-owned slot copy and Save action for the shared MarkdownCanvas. */
 export function useBuildMarkdownCanvasSlots(args?: {
   /** When shared Edit Host publishes Save, omit the duplicate footer button. */
   hideFooterSave?: boolean;
+  hideDraftTools?: boolean;
 }): MarkdownCanvasSlots {
-  const session = useMarkdownCanvasSession();
+  return useBuildSlotsForSession(useMarkdownCanvasSession(), args);
+}
+
+function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { hideFooterSave?: boolean; hideDraftTools?: boolean }): MarkdownCanvasSlots {
   const hideFooterSave = args?.hideFooterSave === true;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dialogId = useId();
@@ -41,12 +45,12 @@ export function useBuildMarkdownCanvasSlots(args?: {
     authorityErrorTestId: "build-authority-error",
     conflictTestId: "build-surface-conflict",
     saveErrorTestId: "build-save-error",
-    tools: session.dirty ? (
+    tools: session.dirty && !args?.hideDraftTools ? (
       <>
-        <button type="button" disabled={!canDiscard} onClick={() => {
+        <button className="build-discard-draft" type="button" disabled={!canDiscard} onClick={() => {
           if (canDiscard) setPendingDiscard({ documentId: session.documentId, documentKey: session.documentKey });
         }}>
-          Discard local draft
+          Discard draft
         </button>
         {pendingMatches ? (
           <dialog ref={dialogRef} role="alertdialog" aria-modal="true"
@@ -98,3 +102,9 @@ export const BUILD_MARKDOWN_CANVAS = {
   surface: "build" as const,
   kind: "worldbuilding_source" as const,
 };
+
+/** Keep recovery in the document navigation, outside authored paper. */
+export function BuildDraftRecovery({ session }: { session: MarkdownCanvasSessionValue }) {
+  const slots = useBuildSlotsForSession(session, { hideFooterSave: true });
+  return <div className="build-draft-recovery">{slots.tools}</div>;
+}

@@ -40,6 +40,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     stable_json_digest,
     VerifiedGraphReviewSpan,
 )
+from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
 
 CAMPAIGN_ID = "longmont-c1"
 TEST_CAMPAIGN_REL = "Test Campaign/A5"
@@ -756,7 +757,12 @@ def test_prepare_recap_selector_resolves_server_owned_source(
     )
 
     assert response.prepared is True
-    assert response.source_artifact_id == "artifact:recap:longmont-c1:session-2:" + digest[:12]
+    assert response.source_artifact_id == build_world_scoped_recap_source_artifact_id(
+        world_id=CAMPAIGN_ID,
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-2",
+        content_sha256=digest,
+    )
     assert response.source_revision_id == f"sha256:{digest}"
     assert response.expected_parent_revision_id == "rev:d0"
     assert authority.revision_id == "rev:d0"

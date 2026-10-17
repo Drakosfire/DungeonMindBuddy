@@ -1,4 +1,6 @@
-import { useMemo, type Ref } from "react";
+import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
+import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
+import { useEffect, useMemo, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -68,6 +70,15 @@ export function BuildSurfaceContext({
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  useEffect(() => {
+    const open = (event: Event) => {
+      if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
+        document.querySelector<HTMLSelectElement>(".build-document-selector--context select")?.focus();
+      }
+    };
+    window.addEventListener(BUILD_STUDIO_ACTION, open);
+    return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
+  }, []);
 
   const surfaceIdentity = useMemo(() => {
     if (activeDocumentId) {
@@ -130,6 +141,7 @@ export function BuildSurfaceContext({
               {session ? <button type="button" className="build-navbar-save" data-testid="build-navbar-save"
                 disabled={session.saveDisabled || documentMutationBusy}
                 onClick={() => void session.saveMarkdown()}>{saveBusy ? "Saving…" : "Save"}</button> : null}
+              {session?.dirty ? <BuildDraftRecovery session={session} /> : null}
             </>
           ) : (
             <>
@@ -164,6 +176,11 @@ export function BuildSurfaceContext({
                   }}
                 />
               ) : null}
+            </div>
+          </details>
+          {activeDocumentId && extractionTargetRef ? (
+            <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
+          ) : null}
           <BuildDocumentCreateControl
             destinationOptions={destinationOptions}
             suggestedDestinationValue={suggestedDestinationValue}
@@ -178,11 +195,6 @@ export function BuildSurfaceContext({
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
           />
-            </div>
-          </details>
-          {activeDocumentId && extractionTargetRef ? (
-            <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
-          ) : null}
         </div>
         {listStatus === "error" ? (
           <SurfaceContextStatus tone="error">

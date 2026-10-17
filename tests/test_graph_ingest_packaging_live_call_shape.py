@@ -108,6 +108,7 @@ def _run_live_call_shape(
 
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="fixture-world",
         campaign_id="longmont-c2",
         session_id="session-24",
         recap_path=source,

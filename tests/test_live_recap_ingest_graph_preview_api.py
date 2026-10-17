@@ -72,29 +72,20 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
 
 def _prepare_normalized(client: TestClient) -> None:
     raw = "Session 22 Recap\n\nThe group scouts the Mireward road and regroups at dusk."
-    stage = client.post(
+    response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "stage_preview",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": raw,
             "slug": "Mireward Road Dogfood",
+            "include_graph_extraction": False,
         },
     )
-    assert stage.status_code == 200
-    apply = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "slug": "Mireward Road Dogfood",
-        },
-    )
-    assert apply.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["paths"]["normalized_recap"]
 
 
 def test_recap_graph_ingest_requires_world_context_before_staging_or_source_registration(
@@ -114,6 +105,7 @@ def test_recap_graph_ingest_requires_world_context_before_staging_or_source_regi
             "campaign_id": "longmont-c2",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nA new recap.",
+            "slug": "New Mireward Road Recap",
             "include_graph_extraction": True,
         },
     )
@@ -152,6 +144,7 @@ def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
             "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nA new recap.",
+            "slug": "New Mireward Road Recap",
             "include_graph_extraction": True,
         },
     )
@@ -192,6 +185,7 @@ def _stamp_fixture_candidate(
         recap = corpus / recap
     artifact = create_recap_source_artifact(
         ROOT,
+        world_id="world:elderwyld",
         campaign_id="longmont-c2",
         session_id="session-22",
         recap_path=recap,
@@ -334,10 +328,46 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
 
 def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
-        canonical_candidate_graph_from_passes,
+        minimal_category_pass_outputs,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
     )
 
-    graph = canonical_candidate_graph_from_passes(spref=spref)
+    # This route fixture covers evidence packaging and provenance, not party
+    # enrichment. Explicitly model a completed extraction without invoking the
+    # separate claimed-fill contract, so the candidate is valid for these tests.
+    span_index = {
+        "source_artifact_id": source_artifact_id,
+        "source_ref_id": f"{source_artifact_id}:text",
+        "spans": [
+            {
+                "kind": "paragraph",
+                "span_id": spref,
+                "source_span_ref_id": spref,
+                "source_artifact_id": source_artifact_id,
+                "line_start": 1,
+                "line_end": 3,
+                "text": "Bonogo scouts the Mireward road and regroups at dusk.",
+            }
+        ],
+    }
+    result = run_category_pipeline(
+        FixtureCategoryGraphPassClient(minimal_category_pass_outputs(spref)),
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            session_number=22,
+            source_span_index=span_index,
+            source_artifact_id=source_artifact_id,
+            source_ref_id=f"{source_artifact_id}:text",
+            model_id="gpt-5.4-mini",
+            enable_party_claimed_fill=False,
+        ),
+    )
+    graph = result.candidate_graph
     graph["source_artifact_ids"] = [source_artifact_id]
     for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items", "proposed_writes"):
         for item in graph.get(collection) or []:
@@ -832,23 +862,34 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": False,
-            "include_legacy_breadcrumb": True,
         },
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
-    assert "session_memory_materialized" in body["states"]
+    assert "normalized_current" in body["states"]
+    assert not any("breadcrumb" in state or "session_memory" in state for state in body["states"])
     assert "graph_preview" not in body["ingest_report"]
 
 
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    from application_state.source import service as source_service
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services import historical_recap_world_projection
+    from graph_memory.projection.world_projection import (
+        WorldGraphProjection,
+        WorldGraphProjectionFocus,
+        WorldGraphProjectionNodeView,
+        WorldGraphProjectionSnapshot,
+        WorldGraphProjectionSummary,
+        WorldGraphProjectionTrustBoundary,
+    )
+
+    client, corpus, _candidate = client_env
     _patch_fake_category_extract(monkeypatch)
     _patch_retired_union_materialize(monkeypatch)
 
@@ -861,7 +902,6 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
@@ -875,7 +915,88 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "deepseek/deepseek-v4.1-flash"
-    assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
+    assert not any("breadcrumb" in warning.lower() for warning in body["warnings"])
+
+    # End-to-end boundary: ordinary Process creates canonical recap/source,
+    # immutable graph candidate + manifest, APP-STATE source, and an exact-run
+    # historical projection against that source's native World.
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    artifact = get_source_artifact(ROOT, run.source_artifact_id)
+    assert artifact.source_artifact_id.startswith("artifact:recap:v2:")
+    assert artifact.world_id == "world:elderwyld"
+    assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == artifact.world_id
+    assert graph["candidate_graph_path"]
+    assert (ROOT / graph["candidate_graph_path"]).is_file()
+    assert graph["manifest_path"]
+    assert (ROOT / graph["manifest_path"]).is_file()
+
+    source = source_service.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256 or "",
+    )
+    assert source is not None
+    assert source.world_id == artifact.world_id
+    normalized_path = Path(body["paths"]["normalized_recap"])
+    if not normalized_path.is_absolute():
+        normalized_path = corpus / normalized_path
+    assert source.markdown == normalized_path.read_text(encoding="utf-8")
+
+    observed: dict[str, object] = {}
+
+    def project_fixture(request, *, root, hydrate_product_local_excerpts=True):  # noqa: ANN001
+        observed["request"] = request
+        return WorldGraphProjection(
+            schema="dmb_world_graph_projection_v1",
+            snapshot=WorldGraphProjectionSnapshot(
+                world_id=request.world_id,
+                campaign_id=request.campaign_id,
+                revision_id="fixture-world-head",
+                head_revision_id="fixture-world-head",
+                is_head=True,
+                focus=WorldGraphProjectionFocus(
+                    kind="session",
+                    campaign_id=request.campaign_id,
+                    session_id="session-22",
+                ),
+                admissibility="gm",
+                scope_mode="campaign",
+            ),
+            summary=WorldGraphProjectionSummary(
+                node_count=1,
+                relationship_count=0,
+                attribute_count=0,
+                evidence_count=0,
+                source_artifact_count=1,
+            ),
+            nodes=[
+                WorldGraphProjectionNodeView(
+                    node_id="node:mireward",
+                    label="Mireward",
+                    kind="location",
+                    role="place",
+                    summary="A road in the fixture projection.",
+                    source_artifact_ids=[artifact.source_artifact_id],
+                )
+            ],
+            trust_boundary=WorldGraphProjectionTrustBoundary(
+                can_trust=["synthetic fixture World snapshot"],
+                cannot_trust=["real World graph admission"],
+            ),
+        )
+
+    monkeypatch.setattr(
+        historical_recap_world_projection, "project_world_graph", project_fixture
+    )
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: ROOT)
+    projection = client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-projection"
+    )
+    assert projection.status_code == 200, projection.text
+    projected = projection.json()
+    assert projected["worldId"] == "world:elderwyld"
+    assert projected["sourceArtifactId"] == artifact.source_artifact_id
+    assert projected["nodeViews"]["node:mireward"]["label"] == "Mireward"
+    assert observed["request"].world_id == "world:elderwyld"
 
 
 def test_generate_recap_memory_reuses_preview_graph_without_force(
@@ -892,7 +1013,6 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
         "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
-        "check": True,
         "include_graph_extraction": True,
         "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
@@ -922,7 +1042,6 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
         "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
-        "check": True,
         "include_graph_extraction": True,
         "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
@@ -937,7 +1056,7 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     assert forced_graph["manifest_path"] != first_manifest
 
 
-def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
+def test_generate_recap_memory_stops_on_staged_source_conflict(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, corpus, _candidate = client_env
@@ -958,7 +1077,6 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
             "session": 22,
             "raw_text": "Different pasted text should not replace staged notes.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
@@ -968,11 +1086,9 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
     body = response.json()
     assert body["status"] != "ready_for_planning_activation"
     assert "staged_raw_notes_conflict" in body["states"]
-    assert "graph_candidate_ready" in body["states"]
-    assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
+    assert "graph_candidate_ready" not in body["states"]
+    assert "graph_preview" not in body["ingest_report"]
     assert "Different pasted text" not in staged.read_text(encoding="utf-8")
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
 
 
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
@@ -997,7 +1113,6 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
         },
     )
@@ -1259,8 +1374,9 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld",
         "session": 22,
-               "include_graph_extraction": True, "include_legacy_breadcrumb": False,
-               "graph_model_id": "deepseek/deepseek-v4.1-flash"}
+        "include_graph_extraction": True,
+        "graph_model_id": "deepseek/deepseek-v4.1-flash",
+    }
     for _ in range(2):
         response = client.post("/api/live/recap-ingest", json=request)
         assert response.status_code == 200, response.text

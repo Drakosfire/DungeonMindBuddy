@@ -13,6 +13,7 @@ from tests.test_bounded_recap_execution import (
     semantic_engine_seam,  # noqa: F401
 )
 from apps.live_control_server.services import graph_preview_runner as service
+from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
 from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
 from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
@@ -73,6 +74,16 @@ def invoke(root, **kwargs):
         recap_path=root / "source.md",
         allow_llm=True,
         output_dir=root / "new-run",
+        ingest_context=RecapContextSnapshot(
+            schema="dm_world_campaign_ingest_context_v1",
+            managed_world_id="managed-fixture-world",
+            native_world_id="world:synthetic",
+            binding_version=1,
+            campaign_id="synthetic",
+            head_revision_id="revision:fixture",
+            graph_schema="dm_graph_v1",
+            graph_payload_sha256="a" * 64,
+        ),
         **kwargs,
     )
 
@@ -111,13 +122,26 @@ def test_ordinary_request_helper_reaches_service_without_openai_default(
     from apps.live_control_server.routes import recap_ingest as route
 
     root, engine, _ = ordinary
-    monkeypatch.setattr(route, "_request_recap_context", lambda body: None)
+    monkeypatch.setattr(
+        route,
+        "_request_recap_context",
+        lambda body: RecapContextSnapshot(
+            schema="dm_world_campaign_ingest_context_v1",
+            managed_world_id="managed-fixture-world",
+            native_world_id="world:synthetic",
+            binding_version=1,
+            campaign_id="synthetic",
+            head_revision_id="revision:fixture",
+            graph_schema="dm_graph_v1",
+            graph_payload_sha256="a" * 64,
+        ),
+    )
     monkeypatch.setattr(
         route,
         "inspect_recap_ingest_status",
         lambda **k: {
             "status": "ok",
-            "states": ["normalized_reused"],
+            "states": ["normalized_reused", "normalized_current"],
             "warnings": [],
             "paths": {},
         },
