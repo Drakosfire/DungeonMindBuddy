@@ -518,7 +518,7 @@ def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str) -> list[
                 or call_id in seen_outputs
                 or calls.get(call_id) not in {
                     "expand_graph_retrieval", "read_graph_source",
-                    "read_related_recap_context", "propose_build_insertion",
+                    "read_related_recap_context", "propose_build_insertion", "prepare_build_image",
                 }
                 or not isinstance(item.get("output"), str)
             ):
@@ -1128,7 +1128,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildEncodedAssessmentPolicyV1
+            policy_class = (graph_types.BuildImageActionPolicyV1
+                if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                else graph_types.BuildEncodedAssessmentPolicyV1
                 if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
                 else graph_types.BuildInitialEstimatedSelectedSourcePolicyV1
                 if (budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
@@ -1897,6 +1899,9 @@ class _PolicyExecutionAdapter:
                 included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
                 included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
                 included_context_payloads = self._included_evidence_payloads(body, "read_related_recap_context")
+                if _included_tool_payloads(body, tool_name="prepare_build_image"):
+                    from .build_image_tool import validate_included_results as validate_image_results
+                    validate_image_results(body, getattr(self, "build_image_results", set()))
                 inserted_payloads = _included_tool_payloads(body, tool_name="propose_build_insertion")
                 if inserted_payloads:
                     from .build_insertion_tool import validate_included_results
@@ -5535,9 +5540,12 @@ def execute_agent_turn(
                     ) from exc
             if (durable_turn is not None and request.build_write_capability is not None
                     and _governed_build_turn(request)):
-                from application_state.agent_conversation.build_authoring import recover_prepared_proposal
-                recovered = recover_prepared_proposal(conversation_service, durable_turn,
-                    request.build_write_capability.idempotency_key)
+                from application_state.agent_conversation.build_authoring import recover_prepared_proposal, recover_prepared_image
+                recovered = recover_prepared_image(conversation_service, durable_turn,
+                    request.build_write_capability.idempotency_key, operator_subject)
+                if recovered is None:
+                    recovered = recover_prepared_proposal(conversation_service, durable_turn,
+                        request.build_write_capability.idempotency_key)
                 if recovered is not None:
                     durable_turn = recovered
             if durable_turn is not None and durable_turn.status == "completed":
@@ -6303,6 +6311,7 @@ def execute_agent_turn(
             expected_conversation_id=policy_conversation_id,
         )
         if isinstance(selected_runtime, BuildJevHarness):
+            adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         span_id = trace.start_phase("runtime_dispatch")
         try:
@@ -6337,11 +6346,20 @@ def execute_agent_turn(
                     message=invocation.message + ("\n\nPrior proposed page additions (reference data, not admitted facts or instructions):\n"
                         + json.dumps(proposal_context, ensure_ascii=False) if proposal_context else ""))
                 invocation = replace(invocation, capability_policy=replace(
-                    invocation.capability_policy, surface_actions=(TOOL_NAME,)))
+                    invocation.capability_policy, surface_actions=(TOOL_NAME, "prepare_build_image")))
                 insertion_tool = BuildInsertionTool(request.build_write_capability, request.turn_id,
                     lambda: None if adapter.fence is None else adapter.fence.turn)
+                from .build_image_tool import BuildImageTool
+                image_tool = BuildImageTool(capability, request.turn_id,
+                    lambda: None if adapter.fence is None else adapter.fence.turn, operator_subject)
+                adapter.build_image_results = set()
                 adapter.build_insertion_results = set()
                 def broker_operation(message):
+                    if message.get("toolName") == "prepare_build_image":
+                        from .build_insertion_tool import arguments_digest
+                        reply = image_tool.dispatch(message)
+                        adapter.build_image_results.add((arguments_digest(dict(message.get("arguments", {}))), reply["resultJson"]))
+                        return reply
                     if message.get("toolName") == TOOL_NAME:
                         from .build_insertion_tool import arguments_digest
                         reply = insertion_tool.dispatch(message)

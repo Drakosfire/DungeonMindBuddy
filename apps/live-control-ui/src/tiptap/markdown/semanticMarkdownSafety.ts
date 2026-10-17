@@ -21,7 +21,7 @@ type JsonMark = {
   attrs?: Record<string, unknown> | null;
 };
 
-const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference"]);
+const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference", "mediaImage"]);
 const CALLOUT_CHILD_TYPES = new Set([
   "paragraph",
   "heading",
@@ -125,6 +125,7 @@ export function semanticMarkdownSerializationDiagnostics(
           }
         }
         return;
+      case "mediaImage":
       case "runbookReference":
       case "graphNodeReference":
       case "horizontalRule":

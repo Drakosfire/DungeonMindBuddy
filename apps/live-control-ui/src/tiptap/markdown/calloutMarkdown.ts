@@ -1,3 +1,4 @@
+import { mediaMarkdown } from "../../media/mediaReferences";
 import {
   normalizeRunbookReferenceAttrs,
   runbookReferenceHref,
@@ -171,6 +172,7 @@ function inlineMarkdown(node: JsonNode): string {
       markdownMarks(node.marks),
     );
   }
+  if (node.type === "mediaImage") return mediaMarkdown(String(node.attrs?.assetId ?? ''), String(node.attrs?.alt ?? ''));
   if (node.type === "hardBreak") return "\n";
   if (node.type === "runbookReference") {
     // In-memory attrs are semantic after versioned load migration.
@@ -297,6 +299,7 @@ function serializeNode(node: JsonNode): string {
       return inlineMarkdown(node);
     case "hardBreak":
       return "\n";
+    case "mediaImage":
     case "runbookReference":
     case "graphNodeReference":
       return inlineMarkdown(node);

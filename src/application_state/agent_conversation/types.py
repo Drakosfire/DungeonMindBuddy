@@ -1457,7 +1457,30 @@ class BuildAuthoringCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1
+BUILD_IMAGE_READY_TEXT = "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
+
+
+class BuildImagePreparationCompletionV1(StrictModel):
+    schema_: Literal["dmb_build_image_preparation_completion_v1"] = Field(default="dmb_build_image_preparation_completion_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["prepared_image_direction"] = "prepared_image_direction"
+    answer_context_status: Literal["image_preparation_ready"] = "image_preparation_ready"
+    answer_segments: list[PlanWorldGraphConnectiveSegmentV1] = Field(min_length=1, max_length=1)
+    citation_map: None = None
+    action_id: UUID
+    reservation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preparation_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_acknowledgement(self):
+        if self.answer_segments[0].text != BUILD_IMAGE_READY_TEXT:
+            raise ValueError("Image preparation acknowledgement is derived by the host")
+        return self
+
+
+GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -1953,6 +1976,18 @@ class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionContr
 
 class BuildEncodedAssessmentPolicyV1(BuildInitialEstimatedSelectedSourcePolicyV1):
     assessment_codec: Literal["lossless_assessment_columns_v1"]
+
+
+class BuildImageActionPolicyV1(BuildEncodedAssessmentPolicyV1):
+    image_preparation_policy: Literal["captured_build_image_prompt_alt_v1"]
+    image_preparation_schema_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_surface_operations: list[Literal["answer_from_sources", "prepare_build_image", "propose_build_insertion"]] = Field(min_length=1, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_image_capability(self):
+        if ("prepare_build_image" in self.allowed_surface_operations) != (self.action_capability_sha256 is not None):
+            raise ValueError("Image preparation requires the captured editor capability")
+        return self
 
 
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
@@ -2862,7 +2897,7 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     controller_attempt_id: UUID
     controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     machine_request_id: str = Field(min_length=1, max_length=128)
-    operation: Literal["answer_from_sources", "propose_build_insertion"]
+    operation: Literal["answer_from_sources", "propose_build_insertion", "prepare_build_image"]
     broker_operation_id: str = Field(min_length=1, max_length=256)
     capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -2914,7 +2949,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3962,17 +3997,17 @@ def validate_execution_completion(
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
     if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
-        if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)):
+        if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ValueError("Cited source policy requires its reconstructed source completion")
         if isinstance(completion, BuildGraphCompletionV1) and (completion.citation_map is not None
                 or any(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in completion.answer_segments)):
             raise ValueError("Cited saved-only completion cannot carry Graph authority")
     if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
         selections = [e for e in execution.events if isinstance(e, BuildJevActionSelectionV1)]
-        expected = "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources"
+        expected = ("prepare_build_image" if isinstance(completion, BuildImagePreparationCompletionV1) else "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources")
         if len(selections) != 1 or selections[0].operation != expected:
             raise ValueError("Completion differs from the controller-selected operation")
-    if isinstance(completion, BuildAuthoringCompletionV1):
+    if isinstance(completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
         if (not isinstance(receipt, BuildGraphContextReceiptV1)
                 or not isinstance(execution, PlanWorldGraphExecutionV3)
                 or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)
@@ -4356,7 +4391,7 @@ class Turn(StrictModel):
             raise ValueError("Build Graph receipt requires governed Build execution and provenance")
         if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
             _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
-            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
                 raise ValueError("Build answer text must match its validated completion segments")
         if (self.completion is None and self.graph_context_execution is not None
                 and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
@@ -4402,7 +4437,7 @@ class TurnResult(StrictModel):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
-        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")

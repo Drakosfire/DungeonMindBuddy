@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services import media_storage
 from application_state import media
+from application_state.build_proposal.images import BuildImageService
 from application_state.cli import assert_at_head
 from application_state.errors import ApplicationStateError
 
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/live/media/images", tags=["media"])
 
 class ImagePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    preparation_id: UUID | None = None
     prompt: str = Field(min_length=1, max_length=16000)
     model: Literal["flux-2-pro", "gpt-image-1.5"]
     width: Literal[1024, 1536] = 1024
@@ -76,6 +78,12 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
         assert_at_head()
     except ApplicationStateError as error:
         raise HTTPException(503, detail="The media library needs database setup before image generation.") from error
+    preparation = None
+    if body.preparation_id is not None:
+        try:
+            preparation = BuildImageService().get(body.preparation_id, principal.subject)
+        except ApplicationStateError as error:
+            raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
     client = None
     try:
         client = _image_client()
@@ -101,6 +109,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
                 "kind": "generation", "prompt": body.prompt, "model": body.model,
                 "settings": body.model_dump(exclude={"prompt"}),
                 "observation": result.observation.model_dump(mode="json"),
+                "preparation": preparation.model_dump(mode="json", exclude={'owner_id'}) if preparation else None,
             })
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail="The image could not be retained in the media library. No CDN save is claimed.") from error
@@ -126,6 +135,59 @@ def image_library(request: Request, response: Response, before_time: datetime | 
         return {'items': [_public_record(row) for row in rows]}
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Media library is unavailable.') from error
+
+
+def _preparation_record(record):
+    return record.model_dump(mode='json', exclude={'owner_id'})
+
+
+@router.get('/preparations/list')
+def image_preparations(request: Request, response: Response, world_id: str, conversation_id: UUID):
+    principal = enforce_native_graph_gm(request)
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        return {'items': [_preparation_record(record) for record in BuildImageService().list(world_id, conversation_id, principal.subject)]}
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail='Image preparations unavailable.') from error
+
+
+@router.get('/preparations/{action_id}')
+def image_preparation(action_id: UUID, request: Request, response: Response):
+    principal = enforce_native_graph_gm(request)
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        return _preparation_record(BuildImageService().get(action_id, principal.subject))
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
+
+
+class ImageAssociationRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    asset_id: UUID
+    expected_revision: int = Field(strict=True, ge=1)
+
+
+@router.post('/preparations/{action_id}/asset')
+def associate_image(action_id: UUID, body: ImageAssociationRequest, request: Request, response: Response):
+    principal = enforce_native_graph_gm(request)
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        preparation = BuildImageService().get(action_id, principal.subject)
+        from apps.live_control_server.services.build_document_proposal import _source
+        _source(preparation.reservation)
+        return _preparation_record(BuildImageService().associate(action_id, body.asset_id, principal.subject, body.expected_revision))
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail=str(error)) from error
+
+
+@router.get('/{asset_id}/metadata')
+def image_metadata(asset_id: UUID, request: Request, response: Response):
+    principal = enforce_native_graph_gm(request)
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        return _public_record(media.get_asset(asset_id, principal.subject))
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail='Media asset unavailable.') from error
 
 
 @router.get('/{asset_id}')

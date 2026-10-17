@@ -103,6 +103,50 @@ def _editor_table_lines(markdown: str) -> set[int]:
     return admitted
 
 
+_MEDIA_DESTINATION = re.compile(r"^dmb-media:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
+
+
+def has_saved_media_references(markdown: str) -> bool:
+    """Inspect decoded Markdown destinations, including character references."""
+    return any(
+        child.type == "image" and (child.attrGet("src") or "").startswith("dmb-media:")
+        for token in MarkdownIt("commonmark").parse(markdown)
+        for child in token.children or []
+    )
+
+
+def validate_saved_media_references(markdown: str, owner: str = "local_operator") -> None:
+    """APP is the image authority; a Markdown URL never proves a saved asset."""
+    from application_state import media
+    from application_state.errors import ApplicationStateError
+    for token in MarkdownIt('commonmark').parse(markdown):
+        for child in token.children or []:
+            if child.type != 'image':
+                continue
+            destination = child.attrGet('src') or ''
+            if not destination.startswith('dmb-media:'):
+                continue
+            match = _MEDIA_DESTINATION.fullmatch(destination)
+            if not match or not child.content.strip() or '\n' in child.content or '\r' in child.content:
+                raise TiptapMarkdownWriteError('Invalid saved image reference')
+            try:
+                record = media.get_asset(match[1], owner)
+            except ApplicationStateError as error:
+                raise TiptapMarkdownWriteError('Saved image is not available to this operator') from error
+            if record['state'] != 'ready' or record['receipt']['visibility'] != 'public':
+                raise TiptapMarkdownWriteError('Save the image with public delivery before inserting it')
+
+
+def _editor_image_lines(markdown: str) -> set[int]:
+    result: set[int] = set()
+    for token in MarkdownIt('commonmark').parse(markdown):
+        if token.type == 'inline' and token.map and token.children:
+            images = [child for child in token.children if child.type == 'image']
+            if images and not any(child.type == 'html_inline' for child in token.children) and all(_MEDIA_DESTINATION.fullmatch(child.attrGet('src') or '') and child.content.strip() and not child.attrGet('title') for child in images):
+                result.update(range(token.map[0]+1, token.map[1]+1))
+    return result
+
+
 def markdown_lossy_diagnostics(markdown: str, *, allow_editor_tables: bool = False) -> list[str]:
     """Return diagnostics for unsupported Markdown constructs.
 
@@ -110,13 +154,14 @@ def markdown_lossy_diagnostics(markdown: str, *, allow_editor_tables: bool = Fal
     """
     markdown = markdown.replace("\r\n", "\n")
     table_lines = _editor_table_lines(markdown) if allow_editor_tables else set()
+    image_lines = _editor_image_lines(markdown)
     diagnostics: list[str] = []
     for line_number, line in enumerate(
         markdown.split("\n"), start=1
     ):
         if not line.strip():
             continue
-        if line_number not in table_lines and _LOSSY_MARKDOWN_LINE_RE.match(line):
+        if line_number not in table_lines and line_number not in image_lines and _LOSSY_MARKDOWN_LINE_RE.match(line):
             diagnostics.append(
                 f"line {line_number}: unsupported Markdown block would be lossy on commit"
             )
@@ -717,6 +762,7 @@ def _commit_plan_postgres(
 def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
+    validate_saved_media_references(request.markdown)
     write_mode = _normalize_write_mode(request.write_mode)
     from apps.live_control_server.services.workspace_document_registry import (
         unswitched_workspace_record,
@@ -902,6 +948,7 @@ def commit_tiptap_markdown_write(
 def _commit_tiptap_markdown_write_unlocked(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
+    validate_saved_media_references(request.markdown)
     write_mode = _normalize_write_mode(request.write_mode)
     record = _resolve_writable_document(
         root,

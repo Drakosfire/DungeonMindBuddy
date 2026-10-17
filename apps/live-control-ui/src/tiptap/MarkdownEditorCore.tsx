@@ -10,6 +10,8 @@ import { PLAN_TABLE_EXTENSIONS } from "./extensions/planTableExtensions";
 import { PlayableElementHeadingAttributes } from "./extensions/PlayableElementHeadingAttributes";
 import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 
+import { MediaImageNode } from "./extensions/MediaImageNode";
+
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
   PlayableElementHeadingAttributes,
@@ -18,6 +20,7 @@ export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   ...PLAN_TABLE_EXTENSIONS,
   RunbookReferenceNode,
   GraphNodeReferenceNode,
+  MediaImageNode,
 ];
 
 const NO_EXTRA_EXTENSIONS: AnyExtension[] = [];

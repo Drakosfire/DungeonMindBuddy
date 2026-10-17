@@ -157,3 +157,40 @@ async def test_owned_library_save_and_reopen_have_no_generation(setup, monkeypat
     assert owners and all(owner == owners[0] for owner in owners)
     assert save.call_args.args == (aid, owners[0])
     provider.generate_image.assert_not_called()
+
+
+async def test_image_metadata_does_not_read_original_bytes(setup, monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import UUID
+
+    aid = UUID("d3796b5d-d783-4195-b2cf-646debf276db")
+    row = dict(
+        asset_id=aid,
+        created_at=datetime.now(timezone.utc),
+        mime_type="image/png",
+        width=3,
+        height=2,
+        byte_length=10,
+        content_sha256="hash",
+        provenance={},
+        state="ready",
+        receipt={
+            "delivery_url": "https://imagedelivery.net/test/buddy-"
+            + aid.hex
+            + "/public"
+        },
+    )
+    monkeypatch.setattr(media_images.media, "get_asset", lambda asset_id, owner: row)
+
+    def no_bytes(*args, **kwargs):
+        raise AssertionError("Metadata must not load original bytes")
+
+    monkeypatch.setattr(media_images.media, "read_staged_bytes", no_bytes)
+    app, _ = setup
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 1234)),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    ) as http:
+        response = await http.get("/api/live/media/images/" + str(aid) + "/metadata")
+    assert response.status_code == 200 and "data_url" not in response.json()

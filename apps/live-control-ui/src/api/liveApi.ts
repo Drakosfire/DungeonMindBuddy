@@ -336,6 +336,8 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || pathname === "/api/live/threats/query-hydration") return true;
 
   const payload = requestBodyRecord(body);
+  if (/^\/api\/live\/tiptap\/markdown-write\/(prepare|commit)$/.test(pathname)
+    && typeof payload?.markdown === 'string' && payload.markdown.includes('dmb-media:')) return true;
   return pathname === "/api/live/query" && payload?.world_graph_context != null;
 }
 
