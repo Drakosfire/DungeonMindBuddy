@@ -35,6 +35,16 @@ No API, extraction, persistence, schema, provider, corpus, graph-admission, shar
 - Verify in the IngestionModule UI suite, typecheck/build where available, and `git diff --check` against the cumulative base-to-head diff.
 - Do not run Process, Graph Review mutations, admission, publication, or persistence writes. Keep 5202 and operator tabs untouched; no runtime restart.
 
+## Implementation and verification evidence
+
+The navigation status now follows the reader state: it says the saved recap is opening while the projection loads, names the viewed session once projection is present, and directs the operator to the reader's error when opening fails. Active ingest/preview work keeps status precedence. The copy names the reader state only; it makes no claim that the projection or its candidates were admitted to World memory. A saved recap in reader mode no longer falls through to the Process instruction. The editable/new-source path still preserves its title guard and Process guidance.
+
+- `npm test -- src/modules/IngestionModule.test.tsx`: passed, 41 tests. Coverage asserts the loaded Session 10 reader status and checks that an editable recap returns to Process guidance after a valid title; the existing normalized-source test also continues to require Process guidance.
+- `git diff --check`: passed.
+- `npm run typecheck` and `npm run build`: both stop on existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 at line 47, TS18048 at line 49, TS2339 at line 50). The typecheck failure prevents Vite build from running.
+- Full UI suite (before the final assertion-only test extension): 308 files passed, 23 failed; 4,041 tests passed, 130 failed, 1 skipped. Failures include Plan/Graph Review suites expecting controls whose backing surface is now retired. The Ingest module suite passed independently; no green full-suite claim is made.
+- No Process, Graph Review mutation, admission, publication, persistence write, or 5202 operation was performed.
+
 ## Review and completion
 
 One reviewable UI-only PR on this branch. PRIME retains merge authority. Record exact head SHA and verification evidence in the PR description. The scope ends when truthful navigation status is proven at the UI test boundary and the PR is ready for independent review.
