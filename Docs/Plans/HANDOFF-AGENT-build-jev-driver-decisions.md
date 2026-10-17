@@ -32,3 +32,13 @@ Verify initial and subsequent parent-owned decisions, exact SDK question definit
 ## Settled predecessor
 
 PR1319 independently passed ARCHITECTURE review at8a293e29bc724aeb50e20a1b9d44dd714ce1283e and merged at454211e1cb2152d483cf9fb5323667227d1b9406. It adds authenticated historical source-passage opening and the V2 UI consumer, including the native whole-source versus excerpt digest correction. The real immutable APP source test survives a workspace edit and index removal; native Graph resolution remains mocked. This does not prove ordinary Jev selection, live performance, retained Mirathorn lifecycle or operator acceptance.
+
+## Re-anchor and verification checkpoint
+
+Implementation is rebased in authority by merging accepted main cb11bf86c69b7dbe96063753660fda7b829620b4 into the same checkout; no new checkout or environment was made. The original contract-first commit is39ecd090f. PR1244's Ingest packaging repair is inherited main, not part of this implementation diff.
+
+Synthetic SDK transport tests exercise actual TypeSafe request preparation, parent broker admission, compact subsequent decisions and disposable APP reload, followed by the existing one-call source writer. Two selected observations share one batched source-read event with both provenance mappings retained. This owning-boundary case found and corrected an invalid driver request: the native observation-only selector forbids node targets. Source whole-document hashes remain distinct from excerpt hashes.
+
+No real provider request, ordinary runtime selection, deployment or retained World mutation occurs here. Complete exact-source discovery is required; broader World traversal and action-capable ordinary conversation are later adoption work. Saved-source navigation currently uses bounded line ranges, not inferred headings or manually supplied gold requirements. Existing conservative decision context ceilings apply; no large-corpus latency or accuracy claim follows from these synthetic cases.
+
+Verification on the implementation tree: 123 focused SDK/driver/controller/source-writer/transition tests passed in36.37s. Scoped Ruff and cumulative whitespace checks passed. All SDK transports are mocked; APP databases are disposable. Independent review remains required.

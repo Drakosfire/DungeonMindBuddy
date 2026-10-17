@@ -911,10 +911,12 @@ def _freeze_policy_receipt(
     *,
     context_read_enabled: bool = False,
     included_history: tuple = (),
+    build_jev_expected_state: Mapping[str, Any] | None = None,
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
-    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap)
+    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
+        build_jev_expected_state=build_jev_expected_state)
     packet = _initial_claim_packet_from_view(
         type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
         bootstrap,
@@ -1531,6 +1533,11 @@ class _PolicyExecutionAdapter:
         self, body: Mapping[str, Any], tool_name: str,
     ) -> list[str]:
         state = body.get("state")
+        driver = getattr(self, "_active_build_driver_projection", None)
+        if driver is not None:
+            # The driver independently re-derives every compact unit from these
+            # exact parent records; worker-authored byte lists never reach here.
+            return list(driver.graph_payloads) if tool_name == "expand_graph_retrieval" else []
         if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
             return []  # Source inclusion is proved by the exact transformed projection below.
         if getattr(self, "_active_build_writer_projection", None) is not None:
@@ -1605,6 +1612,7 @@ class _PolicyExecutionAdapter:
                 self.request, self.work, self.bootstrap,
                 self.playable_target, view, self.budget,
                 context_read_enabled=self.context_read_enabled,
+                build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
                 included_history=getattr(self, "build_history_for_inclusion", ()),
             )
             provenance = _conversation_provenance(
@@ -1830,6 +1838,9 @@ class _PolicyExecutionAdapter:
             active_writer = getattr(self, "_active_build_writer_projection", None)
             if getattr(active_writer, "source_only", False):
                 source_ids = {UUID(sid) for sid in active_writer.source_event_ids}
+            active_driver = getattr(self, "_active_build_driver_projection", None)
+            if active_driver is not None:
+                source_ids = {UUID(sid) for sid in active_driver.source_event_ids}
             included_source_events = [event for event in execution.events
                 if getattr(event, "kind", None) == "validated_source_read_v2" and event.event_id in source_ids]
             context_ids = {item.event_id for item in context_exposure if item.complete}
@@ -1865,6 +1876,12 @@ class _PolicyExecutionAdapter:
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
+                if active_driver is not None:
+                    selected = [event.model_dump(mode="json", by_alias=True) for event in execution.events
+                        if isinstance(event, graph_types.ValidatedBuildSectionReadV1)
+                        and str(event.read_id) in active_driver.section_read_ids]
+                    if len(selected) != len(active_driver.section_read_ids):
+                        raise ValueError("Driver section inclusion differs from completed reads")
                 if selected and not isinstance(execution.policy, graph_types.BuildSectionControllerWriterPolicyV1):
                     raise ValueError("Saved section dispatch requires the explicit selected-section input policy")
                 if selected:
@@ -1998,6 +2015,11 @@ class _PolicyExecutionAdapter:
                 )
             )
             return False
+
+    def create_build_jev_driver(self):
+        """Explicit parent capability; ordinary runtime selection is unchanged."""
+        from .build_jev_driver import BuildJevDriver
+        return BuildJevDriver(self)
 
     def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
