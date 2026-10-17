@@ -57,6 +57,16 @@ No UI, other API routes, schema/migration, extraction producer, provider setting
 4. Update this handoff with exact results and limitations, and mark the predecessor handoff settled without claiming rendered/real-recap acceptance.
 5. Commit only the leased paths, push the branch, and open one review-ready PR. PRIME merges after ARCHITECTURE review.
 
+### Current implementation evidence
+
+- Root cause reproduced: exact run discovery returns the existing run and its ExtractionRun remains REVIEWABLE; the known-entity and SourceSpanIndex validators pass. GraphIngest added a zero-count repair diagnostic and reserialized the candidate anyway, changing its digest and causing the strict production-lineage check to reject it. No fixture mismatch was found.
+- The packager now skips candidate writes when identity/evidence validation makes no semantic change, does not add a zero repair count, and only writes diagnostic fields that actually change. Real evidence repairs still update the packaged candidate and validation report.
+- Verification passed: focused packaging no-op, actual-repair, and warning tests (3 passed); both API regressions (2 passed); the complete Ingest API suite (27 passed, 10 existing Pydantic warnings); Python compile checks; Ruff on the two changed test files and Ingest service; and `git diff --check`.
+- The complete `tests/test_graph_memory_category_graph_preview_runner.py` file had one unrelated pre-existing failure (42 passed, 1 failed): `test_runner_canonical_line_only_index_reaches_category_prompt` reported `party enrichment incomplete for 1 nodes`. The same failure reproduced against the unmodified packager from `main@6531f003`.
+- The shared packager has an existing Ruff F401 for `FixtureCategoryGraphPassClient` at line 38, unchanged from the base. Whole-file Ruff format check also flags all three large Python files for formatting; no broad reformat was included. Changed test/service Ruff checks passed.
+- No 5202, live provider, retained recap, or rendered Ingest flow was used. This proves synthetic retry/recovery behavior only. Real Session 29 ingestion and persistence acceptance remain open for later dogfooding.
+- Only the leased server/package/tests and the two handoff records are included; Combat changes and 5202 remain untouched.
+
 ## Predecessor settlement
 
 PR #1333 (`INGEST: reset prior recap selection on route change`) passed independent ARCHITECTURE review and merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b` from head `88510a3d8aeaff0caf9b84b674ee63e1b49836a5`. It fixed mounted same-campaign session-route changes and passed 63 UI tests with typecheck and diff-check. The operator's 5202 page is still on the Session 10 route with Session 27 selected; this is read-only observation of the currently served build and does not verify that merged code has been deployed. The predecessor did not claim live source load/process/save, real recap, or rendered PR acceptance. This settlement does not assert the remaining acceptance gates are complete.
