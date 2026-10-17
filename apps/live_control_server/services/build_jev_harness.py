@@ -86,6 +86,8 @@ class BuildJevHarness:
             accounting.estimate({"offline_preflight": "🐐 café 中文 123"})
             budget["buildJevActions"].pop("evidence_codec")
             budget["buildJevActions"]["controller_continuation_accounting"] = accounting.descriptor
+            from .build_jev_transitions import JOINT_SUPPORT_POLICY
+            budget["buildJevActions"]["support_policy"] = JOINT_SUPPORT_POLICY
         return budget
 
     def configured_budget(self, request):

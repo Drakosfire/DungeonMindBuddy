@@ -41,7 +41,8 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
     execution = turn.graph_context_execution
-    assert isinstance(execution.policy, ledger.BuildEstimatedActionControllerWriterPolicyV1)
+    assert isinstance(execution.policy, ledger.BuildJointSupportActionControllerWriterPolicyV1)
+    assert execution.policy.support_policy == "combined_relevant_evidence_support_v1"
     assert execution.policy.controller_continuation_accounting.model_dump() == accounting.descriptor
     authorizations = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1)]
     assert authorizations[0].input_accounting_kind == authorizations[-1].input_accounting_kind == "conservative_upper_bound"
@@ -53,6 +54,9 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
         assert event.input_estimator == accounting.descriptor["policy"]
         assert event.input_tokens == accounting.estimate(body)
         assert body["state"]["context_accounting"] == accounting.descriptor
+        if body["state"]["decision"]["phase"] == "assess":
+            assert body["questions"]["joint_support"]["type"] == "noul"
+            assert "support" not in body["questions"]
         assert "contained_passage_slices_v1" not in body["state"]["decision"]["state"]
     # Historical accounting rejects an estimated event at its own boundary.
     legacy_policy = {k: v for k, v in execution.policy.model_dump(mode="json", by_alias=True).items()
