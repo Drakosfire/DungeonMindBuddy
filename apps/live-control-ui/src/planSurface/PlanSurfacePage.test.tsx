@@ -3292,3 +3292,51 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 });
+
+
+it("authors playable structure through Plan toolbar and explicit Save, retaining identities after reopen", async () => {
+  vi.spyOn(window,"scrollBy").mockImplementation(()=>{});
+  const rect=DOMRect.fromRect({x:0,y:0,width:1,height:1});
+  const oldRects=Object.getOwnPropertyDescriptor(Range.prototype,"getClientRects");
+  const oldRect=Object.getOwnPropertyDescriptor(Range.prototype,"getBoundingClientRect");
+  Object.defineProperty(Range.prototype,"getClientRects",{configurable:true,value:()=>[rect]});
+  Object.defineProperty(Range.prototype,"getBoundingClientRect",{configurable:true,value:()=>rect});
+  try {
+    const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,"# Authored session\n\nSource quotation retained.\n");
+    const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockResolvedValue({schema_version:"dmb_tiptap_markdown_write_prepare_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:record.title,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:8,file_exists:true,writer_ok:true,writer_confirm_token:"structure-save",warnings:[],diagnostics:[]});
+    let saved="";
+    const commit=vi.spyOn(liveApi,"commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request=>{
+      saved=request.markdown;const digest=createHash("sha256").update(saved).digest("hex");const nextRecord={...record,revision:9};
+      const prior=await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({...prior,object_revision:9,revision_n:5,work_revision_id:"structure-work-revision",markdown:saved,content_sha256:digest,has_divergent_working_copy:false});
+      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({schema_version:"dmb_workspace_document_snapshot_v2",record:nextRecord,markdown:saved,content_sha256:digest,file_fingerprint:"postgres",file_exists:true,loaded_revision:9});
+      return {schema_version:"dmb_tiptap_markdown_write_commit_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:record.title,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:9,committed_revision:9,committed_record:nextRecord,normalized_content_sha256:digest,writer_ok:true,writer_phase:"commit",diagnostics:[]};
+    });
+    const pageTree=<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>;
+    window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${savedAgentPlanId}`);
+    const mounted=render(pageTree);
+    await screen.findByTestId("world-owned-plan");
+    const beat=await screen.findByRole("button",{name:"Add Beat",exact:true});
+    await waitFor(()=>expect(beat).toBeEnabled());
+    expect(screen.getByRole("button",{name:"Add Scene to this Beat"})).toBeDisabled();
+    const oldAction=(chromeCapture.editorTools as {tools:{sections:Array<{actions:Array<{label:string;onClick:()=>void}>}>}}).tools.sections.flatMap(section=>section.actions).find(action=>action.label === "Add Beat")!.onClick;
+    fireEvent.click(beat);
+    await screen.findByRole("heading",{name:"New Beat",exact:true});
+    const scene=screen.getByRole("button",{name:"Add Scene to this Beat"});await waitFor(()=>expect(scene).toBeEnabled());fireEvent.click(scene);
+    await screen.findByRole("heading",{name:"New Scene",exact:true});
+    act(()=>oldAction());
+    expect(screen.getAllByRole("heading",{name:"New Beat",exact:true})).toHaveLength(1);
+    expect(prepare).not.toHaveBeenCalled();expect(commit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button",{name:"Save Plan",exact:true}));
+    await waitFor(()=>expect(commit).toHaveBeenCalledOnce());
+    await screen.findByText("Saved to this World.");
+    const identities=saved.match(/id=(?:beat|scene):[^ ]+/g);expect(identities).toHaveLength(2);expect(saved).toContain("Source quotation retained.");
+    mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:"New Scene",exact:true});
+    const editor=screen.getByTestId("world-owned-plan-markdown-editor");
+    expect(editor).toHaveTextContent("Source quotation retained.");
+    expect(editor.querySelector('[data-dmb-playable-id]')?.getAttribute('data-dmb-playable-id')).toBe(identities![0].slice(3));
+  } finally {
+    if(oldRects)Object.defineProperty(Range.prototype,"getClientRects",oldRects);else Reflect.deleteProperty(Range.prototype,"getClientRects");
+    if(oldRect)Object.defineProperty(Range.prototype,"getBoundingClientRect",oldRect);else Reflect.deleteProperty(Range.prototype,"getBoundingClientRect");
+  }
+});

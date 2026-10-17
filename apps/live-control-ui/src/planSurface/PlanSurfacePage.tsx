@@ -1,3 +1,4 @@
+import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
@@ -538,6 +539,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }),
   }), []);
 
+  const structureProtectionRef = useRef(false);
+  structureProtectionRef.current = createUncertain || recoveryConflict || pendingWriteRef.current !== null || saving || fidelityBlocked;
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => {
     const action = (id: string, label: string, invoke: (active: Editor) => void, disabled = false) => ({
       id,
@@ -554,8 +557,30 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       },
       disabled: !editor || status !== "ready" || saving || fidelityBlocked || disabled,
     });
+    const structureState = editor?.state;
+    const structureDraftGeneration = editGenerationRef.current;
+    const structureSelectionGeneration = selectionGenerationRef.current;
+    const structureActions = planStructureActions(editor);
+    const structureProtected = saving || createUncertain || recoveryConflict || pendingWriteRef.current !== null;
     return {
       sections: [
+        {
+          id: "world-plan-structure",
+          title: "Playable structure",
+          defaultOpen: true,
+          panel: <div><p>Beats contain Scenes in new Plans. Existing Scene-first Plans keep their structure.</p>{structureActions.filter(item => item.disabledReason).map(item => <p key={item.kind}>{item.label}: {item.disabledReason}</p>)}</div>,
+          actions: structureActions.map(item => ({
+            ...action(`world-plan-add-${item.kind}`, item.label, active => {
+              if (!structureState || structureProtectionRef.current || !active.isEditable || active.isDestroyed) return;
+              try {
+                if (structureDraftGeneration !== editGenerationRef.current || structureSelectionGeneration !== selectionGenerationRef.current) throw new Error("The Plan or cursor changed. Choose the structure action again.");
+                insertPlanStructure(active, item.kind, structureState); setError(null);
+              }
+              catch (cause) { setError(cause instanceof Error ? cause.message : "Could not add playable structure."); }
+            }, structureProtected || Boolean(item.disabledReason)),
+            disabledReason: item.disabledReason ?? undefined,
+          })),
+        },
         {
           id: "world-plan-format",
           title: "Text",
@@ -578,7 +603,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         },
       ],
     };
-  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status]);
+  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status, markdown, selectionGeneration, createUncertain, recoveryConflict]);
 
   useEffect(() => {
     let cancelled = false;
