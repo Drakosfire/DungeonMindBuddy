@@ -91,6 +91,26 @@ SEMANTIC_CASES = (
         "not_supported_by_opened_passages",
     ),
 )
+SEMANTIC_CASES += (
+    (
+        "unsupported-race",
+        "Mara is a dwarf guild representative.",
+        "Mara represents the guilds.",
+        "not_supported_by_opened_passages",
+    ),
+    (
+        "unsupported-abilities",
+        "The grove leader is a cheerful gnome who can conjure rare plants.",
+        "The grove leader opposes contamination of the wilderness.",
+        "not_supported_by_opened_passages",
+    ),
+    (
+        "asserted-fact-control",
+        "The gate is haunted.",
+        "The gate is haunted.",
+        "entailed",
+    ),
+)
 
 
 def candidate(
@@ -226,7 +246,7 @@ def test_mutating_input_or_returned_view_cannot_change_pending_bindings():
 
 
 @pytest.mark.parametrize("fault", ["model", "request", "keys", "verdict", "score"])
-def test_malformed_answer_refuses_whole_batch_without_partial_result(fault):
+def test_malformed_answer_fences_remaining_packets_without_partial_result(fault):
     plan = SourceAssessment("What roles?", SCOPE, (candidate("u1"), candidate("u2")))
     r = plan.requests[0]
     a = reply(r)
@@ -237,11 +257,11 @@ def test_malformed_answer_refuses_whole_batch_without_partial_result(fault):
     if fault == "request":
         request = "other"
     if fault == "keys":
-        a.pop("source_1")
+        a.pop("source_0")
     if fault == "verdict":
-        a["source_1"]["selected"] = "fixed_graph"
+        a["source_0"]["selected"] = "fixed_graph"
     if fault == "score":
-        a["source_1"]["probabilities"] = {v: float("nan") for v in VERDICTS}
+        a["source_0"]["probabilities"] = {v: float("nan") for v in VERDICTS}
     with pytest.raises(ValueError):
         plan.accept(request, model, a)
     assert not plan.complete and not plan.judgments
@@ -347,6 +367,8 @@ def test_bounded_packets_are_distinct_and_all_originals_survive():
     assert len(plan.requests) > 1
     assert len({r.request_id for r in plan.requests}) == len(plan.requests)
     for r in plan.requests:
+        assert len(r.state["evidence"]) == 1
+        assert len(r.state["bindings"]) == 1 and len(r.questions) == 1
         plan.accept(r.request_id, r.model, reply(r, "uncertain_or_incomplete"))
     assert plan.complete and len(plan.judgments) == 20
     assert plan.host_evidence == tuple(c.unit for c in candidates)
@@ -367,3 +389,19 @@ def test_uncertain_provider_attempt_stops_plan_without_replay():
         plan.validate_wire(r.request_id, "{}")
     with pytest.raises(ValueError):
         plan.accept(r.request_id, r.model, reply(r))
+
+
+def test_other_observations_and_passages_never_enter_a_review_packet():
+    a = candidate(
+        "a", "Mara is a dwarf guild representative.", "Mara represents the guilds."
+    )
+    b = candidate("b", "Mara is a dwarf.", "Mara is a dwarf.")
+    plan = SourceAssessment("What role?", SCOPE, (a, b))
+    assert len(plan.requests) == 2
+    for r in plan.requests:
+        ids = tuple(r.state["bindings"])
+        assert len(ids) == 1
+        if ids[0] == "a":
+            assert "Mara is a dwarf." not in r.state["passages"].values()
+        else:
+            assert "Mara represents the guilds." not in r.state["passages"].values()
