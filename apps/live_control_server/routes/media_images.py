@@ -7,6 +7,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from generationengine import GenerationClient, GenerationEngineError, ImageOptions, ImageRequest
+from generationengine.providers.fal_provider import FalProvider
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
@@ -35,11 +36,19 @@ class ImagePreviewRequest(BaseModel):
         return self
 
 
+def _fal_key() -> str:
+    return os.environ.get("DUNGEONBUDDY_FAL_KEY", "").strip() or os.environ.get("FAL_KEY", "").strip()
+
+
+def _image_client() -> GenerationClient:
+    return GenerationClient(image_provider=FalProvider(api_key=_fal_key()))
+
+
 @router.get("/capabilities")
 def image_capabilities(request: Request, response: Response):
     enforce_native_graph_gm(request)
     response.headers["Cache-Control"] = "no-store"
-    return {"configured": bool(os.environ.get("FAL_KEY")), "models": [
+    return {"configured": bool(_fal_key()), "models": [
         {"id": "flux-2-pro", "label": "FLUX 2 Pro", "formats": ["png", "jpeg"], "controls": ["seed"]},
         {"id": "gpt-image-1.5", "label": "GPT Image 1.5", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"]},
     ]}
@@ -49,10 +58,11 @@ def image_capabilities(request: Request, response: Response):
 async def generate_image_preview(body: ImagePreviewRequest, request: Request, response: Response):
     enforce_native_graph_gm(request)
     response.headers["Cache-Control"] = "no-store"
-    if not os.environ.get("FAL_KEY"):
+    if not _fal_key():
         raise HTTPException(503, detail="Image generation needs the server's fal credential.")
-    client = GenerationClient.from_env()
+    client = None
     try:
+        client = _image_client()
         result = await client.generate_image(ImageRequest(
             prompt=body.prompt, model=body.model, width=body.width, height=body.height,
             num_images=1, options=body.options, deadline_ms=180000,
@@ -62,7 +72,8 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
     except (ValueError, ImportError) as error:
         raise HTTPException(503, detail="Image generation is not configured on this server.") from error
     finally:
-        await client.aclose()
+        if client is not None:
+            await client.aclose()
     if not result.images:
         raise HTTPException(502, detail="The model returned no image.")
     images = []
