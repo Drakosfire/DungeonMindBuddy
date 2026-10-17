@@ -70,10 +70,12 @@ _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("ingest.run", "ingest.run", "run_id"),
     ("source.artifact", "source.artifact", "source_artifact_id"),
     ("source.revision", "source.revision", "source_revision_id"),
+    ("media.asset", "media.asset", "asset_id"),
+    ("media.storage", "media.storage", "asset_id"),
 )
 
 # Schemas that mark a database as already holding APP-STATE (restore must refuse).
-_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source")
+_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source", "media")
 
 
 @dataclass(frozen=True)

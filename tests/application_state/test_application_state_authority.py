@@ -160,6 +160,8 @@ def test_fingerprint_deterministic_on_empty_head(application_state_dsn: str) -> 
         "ingest.run",
         "source.artifact",
         "source.revision",
+        "media.asset",
+        "media.storage",
     }
     assert all(d.row_count == 0 for d in first.domains)
 

@@ -40,6 +40,7 @@ dependencies = [
     # This source pin does not update any deployed/serving runtime.
     "generationengine[openai,openrouter,typesafe,fal] @ git+https://github.com/Drakosfire/GenerationEngine.git@7e3ed2202684316c6d426462f4928824bb2e99ca",
     "psycopg[binary]>=3.2",
+    "pillow>=10",
     "alembic>=1.16",
 ]
 
