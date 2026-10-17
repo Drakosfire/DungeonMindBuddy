@@ -1,6 +1,6 @@
 # Ingest: bind fresh recap sources to their World
 
-Status: ACTIVE — PRIME authorizes DOGFOOD to implement this next Ingest slice under the operator's Ingest assignment. ARCHITECTURE owns independent review; PRIME owns merge.
+Status: MERGED — PR #1284 merged at `44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93`; this source-binding implementation lease is closed.
 Base: Buddy origin/main@18dcb5f7fdedee49a7d785ad765ddc8b9e571322.
 Lane: codex/ingest-recap-source-world-binding, /tmp/prime-ingest-recap-source-world-binding. Topology: serial successor to merged #1266/#1276; no unmerged dependency.
 
@@ -86,3 +86,7 @@ Verification on the rebased implementation: 313 tests passed, 12 skipped, and tw
 For rendered acceptance, use isolated NON-SERVING ports and synthetic storage at desktop/narrow widths, with explicit runtime lease/cleanup. Do not change/restart 5202/8000, touch the operator's Build draft, repair old retained data, or claim full real-corpus ingestion acceptance from fixture evidence.
 
 Finish implementation, intended diff review, tests, commit, push and PR; return exact head, evidence, limits and merge order to PRIME. ARCHITECTURE independently reviews; do not self-merge or add an operator permission gate for ordinary authorized work. Keep claims tied to exact checked-in refs.
+
+## Settlement
+
+GitHub confirms PR #1284 merged at `44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93` from head `26f27a081e5c9c5f5407da5fc61b180c7064561b` (`codex/ingest-recap-source-world-binding`). Its checked-in synthetic Process → exact APP-STATE source → node-bearing historical projection test proves the source and projection retain the verified native World. This settles the source identity and run/source binding capability only; real Session 29 ingestion, graph admission/publication, and rendered 5202 acceptance were not established. The successor managed-run projection handoff owns the remaining selected-managed-World UI/backend binding work.

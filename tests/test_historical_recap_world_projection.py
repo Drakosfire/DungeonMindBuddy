@@ -9,6 +9,9 @@ from uuid import UUID, uuid4
 import pytest
 
 from apps.live_control_server.services import historical_recap_world_projection as projection_service
+from apps.live_control_server.services.managed_world_graph_projection import (
+    VerifiedManagedWorldBinding,
+)
 from application_state.source.types import SourceMarkdownRecord
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
@@ -53,6 +56,25 @@ def _run(*, digest: str = "a" * 64) -> ExtractionRun:
                 sha256="sha256:" + digest,
             )
         },
+    )
+
+
+def _managed_run(*, digest: str = "a" * 64) -> ExtractionRun:
+    return _run(digest=digest).model_copy(
+        update={
+            "lineage": {
+                "world_campaign_ingest_context": {
+                    "schema": "dm_world_campaign_ingest_context_v1",
+                    "managed_world_id": "elderwyld",
+                    "native_world_id": "eldyrwild",
+                    "binding_version": 3,
+                    "campaign_id": "longmont-c2",
+                    "head_revision_id": "rev:fixture-head",
+                    "graph_schema": "dm_graph_v1",
+                    "graph_payload_sha256": "b" * 64,
+                }
+            }
+        }
     )
 
 
@@ -277,6 +299,8 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
     assert response.source_revision_id
     assert response.source_sha256 == "sha256:" + "a" * 64
     assert response.world_id == "eldyrwild"
+    assert response.managed_world_id is None
+    assert response.binding_version is None
     assert response.snapshot.revision_id == "world-rev-25"
     assert response.node_views["node-bonogo"].label == "Bonogo"
     assert "dmb-node:node-bonogo" in response.markdown
@@ -388,6 +412,261 @@ def test_exact_run_projection_rejects_foreign_run_world_before_graph_query(
 
     assert error.value.code == "source_binding_mismatch"
     assert error.value.status_code == 422
+    assert captured["calls"] == 0
+
+
+def test_scoped_projection_uses_frozen_managed_binding_and_native_world(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    expected = VerifiedManagedWorldBinding(
+        managed_world_id="elderwyld",
+        native_world_id="eldyrwild",
+        binding_version=3,
+        source_root_relpath="corpus/elderwyld-markdown",
+    )
+    resolutions: list[VerifiedManagedWorldBinding] = [expected, expected]
+    monkeypatch.setattr(projection_service, "managed_world_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(
+        projection_service,
+        "resolve_managed_world_binding",
+        lambda _world_id, *, root: resolutions.pop(0),
+    )
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source(),
+        world=_world(),
+    )
+
+    response = projection_service.build_historical_recap_world_projection(
+        tmp_path,
+        RUN_ID,
+        managed_world_id="elderwyld",
+    )
+
+    assert response.managed_world_id == "elderwyld"
+    assert response.binding_version == 3
+    assert response.world_id == "eldyrwild"
+    assert response.snapshot.world_id == "eldyrwild"
+    assert captured["request"].world_id == "eldyrwild"
+    assert resolutions == []
+
+
+def test_scoped_projection_rejects_foreign_selected_managed_world_before_graph_query(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source(),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="does not match the exact ExtractionRun context",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="conks-and-cons",
+        )
+
+    assert error.value.code == "selected_world_mismatch"
+    assert captured["calls"] == 0
+
+
+@pytest.mark.parametrize(
+    "current",
+    [
+        VerifiedManagedWorldBinding(
+            managed_world_id="elderwyld",
+            native_world_id="world:remapped",
+            binding_version=3,
+            source_root_relpath="corpus/elderwyld-markdown",
+        ),
+        VerifiedManagedWorldBinding(
+            managed_world_id="elderwyld",
+            native_world_id="eldyrwild",
+            binding_version=4,
+            source_root_relpath="corpus/elderwyld-markdown",
+        ),
+    ],
+    ids=["remapped-native-world", "changed-binding-version"],
+)
+def test_scoped_projection_rejects_registry_drift_before_graph_query(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    current: VerifiedManagedWorldBinding,
+) -> None:
+    monkeypatch.setattr(projection_service, "managed_world_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(
+        projection_service,
+        "resolve_managed_world_binding",
+        lambda _world_id, *, root: current,
+    )
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source(),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="no longer matches",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="elderwyld",
+        )
+
+    assert error.value.code == "managed_world_binding_changed"
+    assert captured["calls"] == 0
+
+
+def test_scoped_projection_rechecks_binding_after_graph_read(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    initial = VerifiedManagedWorldBinding(
+        managed_world_id="elderwyld",
+        native_world_id="eldyrwild",
+        binding_version=3,
+        source_root_relpath="corpus/elderwyld-markdown",
+    )
+    changed = VerifiedManagedWorldBinding(
+        managed_world_id="elderwyld",
+        native_world_id="eldyrwild",
+        binding_version=4,
+        source_root_relpath="corpus/elderwyld-markdown",
+    )
+    resolutions = [initial, changed]
+    monkeypatch.setattr(projection_service, "managed_world_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(
+        projection_service,
+        "resolve_managed_world_binding",
+        lambda _world_id, *, root: resolutions.pop(0),
+    )
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source(),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="changed during projection",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="elderwyld",
+        )
+
+    assert error.value.code == "managed_world_binding_changed"
+    assert captured["calls"] == 1
+    assert resolutions == []
+
+
+def test_scoped_projection_rejects_snapshot_from_another_native_world(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    binding = VerifiedManagedWorldBinding(
+        managed_world_id="elderwyld",
+        native_world_id="eldyrwild",
+        binding_version=3,
+        source_root_relpath="corpus/elderwyld-markdown",
+    )
+    monkeypatch.setattr(projection_service, "managed_world_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(
+        projection_service,
+        "resolve_managed_world_binding",
+        lambda _world_id, *, root: binding,
+    )
+    wrong_world = _world()
+    wrong_snapshot = wrong_world.snapshot.model_copy(update={"world_id": "world:other"})
+    wrong_world = wrong_world.model_copy(update={"snapshot": wrong_snapshot})
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source(),
+        world=wrong_world,
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="returned a different native World",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="elderwyld",
+        )
+
+    assert error.value.code == "projection_world_mismatch"
+    assert captured["calls"] == 1
+
+
+def test_scoped_projection_rejects_missing_frozen_managed_context(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_run(),
+        source=_source(),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="no frozen managed World binding context",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="elderwyld",
+        )
+
+    assert error.value.code == "managed_world_context_unavailable"
+    assert captured["calls"] == 0
+
+
+def test_scoped_projection_rejects_source_native_world_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured = _install_projection(
+        monkeypatch,
+        tmp_path,
+        run=_managed_run(),
+        source=_source().model_copy(update={"world_id": "world:other"}),
+        world=_world(),
+    )
+
+    with pytest.raises(
+        projection_service.HistoricalRecapProjectionError,
+        match="does not match its exact ExtractionRun context",
+    ) as error:
+        projection_service.build_historical_recap_world_projection(
+            tmp_path,
+            RUN_ID,
+            managed_world_id="elderwyld",
+        )
+
+    assert error.value.code == "source_binding_mismatch"
     assert captured["calls"] == 0
 
 

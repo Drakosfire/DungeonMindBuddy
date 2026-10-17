@@ -112,15 +112,28 @@ function historicalRecapProjectionForRun(runId: string): HistoricalRecapWorldPro
     sourceRevisionId: `source-revision-${sessionNumber}`,
     campaignId: "longmont-c2",
     sessionId,
-    worldId: "eldyrwild",
+    worldId: "world:elderwyld",
+    managedWorldId: "elderwyld",
+    bindingVersion: 3,
     sourceSha256: `sha256:${"a".repeat(64)}`,
     sourceStatus: "available",
     graphStatus: "available",
     snapshot: {
       ...session23WorldGraphRecapFixture.snapshot,
+      worldId: "world:elderwyld",
       focus: { kind: "session", campaignId: "longmont-c2", sessionId },
     },
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 function setupIngestUser() {
@@ -754,7 +767,7 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("button", { name: "Build Frontmatter Seed" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Run Breadcrumb Ingest" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Materialize Session Memory" })).not.toBeInTheDocument();
-    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22");
+    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.getByText(/Exact extraction run · run-session-22/)).toBeInTheDocument();
     expect(screen.getByText(/current admitted World Graph/)).toBeInTheDocument();
@@ -785,9 +798,93 @@ describe("IngestionModule", () => {
     await user.click(screen.getByRole("button", { name: "Process recap" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Exact extraction run source is unavailable.");
-    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22");
+    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /recap node/i })).not.toBeInTheDocument();
+  });
+
+  it("rejects an exact projection that echoes a different managed World", async () => {
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          extraction_run_id: "run-session-22",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockResolvedValueOnce({
+      ...historicalRecapProjectionForRun("run-session-22"),
+      managedWorldId: "conks-and-cons",
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(user, "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.", "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("does not match the selected managed World binding");
+    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+  });
+
+  it("ignores an old exact-run reply across an A→B→A managed-World selection", async () => {
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          extraction_run_id: "run-session-22",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    const oldWorldA = deferred<HistoricalRecapWorldProjectionResponse>();
+    const worldB = deferred<HistoricalRecapWorldProjectionResponse>();
+    const newWorldA = deferred<HistoricalRecapWorldProjectionResponse>();
+    const managedWorldIds: string[] = [];
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation((_runId, managedId) => {
+      managedWorldIds.push(managedId ?? "");
+      if (managedWorldIds.length === 1) return oldWorldA.promise;
+      if (managedWorldIds.length === 2) return worldB.promise;
+      return newWorldA.promise;
+    });
+
+    const { rerender } = render(
+      <IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />,
+    );
+    await fillRecapInputs(user, "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.", "Session 22 - Mireward Road and Lysandro");
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    await waitFor(() => expect(managedWorldIds).toEqual(["elderwyld"]));
+
+    rerender(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="conks-and-cons" />);
+    await waitFor(() => expect(managedWorldIds).toEqual(["elderwyld", "conks-and-cons"]));
+    rerender(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(managedWorldIds).toEqual(["elderwyld", "conks-and-cons", "elderwyld"]));
+
+    await act(async () => {
+      oldWorldA.resolve({
+        ...historicalRecapProjectionForRun("run-session-22"),
+        managedWorldId: "wrong-old-world",
+      });
+      await oldWorldA.promise;
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => {
+      newWorldA.resolve(historicalRecapProjectionForRun("run-session-22"));
+      await newWorldA.promise;
+    });
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("stops Process on a saved-source conflict and keeps the pasted recap in the editor", async () => {

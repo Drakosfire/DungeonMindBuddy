@@ -240,15 +240,37 @@ def get_extraction_run_recap_projection(
     run_id: str,
     request: Request,
 ) -> dict[str, Any]:
-    """Project exact durable recap text onto the current governed World."""
-    _reject_query_params(request)
+    """Project exact durable recap text onto the current governed World.
+
+    An optional managed_world_id constrains the current managed World selected
+    by the caller. It never supplies native Graph authority.
+    """
+    allowed_query_names = {"managed_world_id"}
+    unknown_query_names = sorted(set(request.query_params.keys()) - allowed_query_names)
+    if unknown_query_names:
+        names = ", ".join(unknown_query_names)
+        raise HTTPException(
+            status_code=422,
+            detail=f"exact-run route does not accept query parameters: {names}",
+        )
+    managed_world_ids = request.query_params.getlist("managed_world_id")
+    if len(managed_world_ids) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail="exact-run route accepts one managed_world_id selector",
+        )
+    managed_world_id = managed_world_ids[0] if managed_world_ids else None
     from apps.live_control_server.services.historical_recap_world_projection import (
         HistoricalRecapProjectionError,
         build_historical_recap_world_projection,
     )
 
     try:
-        response = build_historical_recap_world_projection(repo_root(), run_id)
+        response = build_historical_recap_world_projection(
+            repo_root(),
+            run_id,
+            managed_world_id=managed_world_id,
+        )
     except HistoricalRecapProjectionError as exc:
         raise HTTPException(
             status_code=exc.status_code,

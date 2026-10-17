@@ -1,6 +1,6 @@
 # Ingest — verify selected managed World on exact-run projection
 
-Status: ACTIVE — PRIME authorizes DOGFOOD under the operator's Ingest assignment. ARCHITECTURE independently reviews; PRIME merges. Base origin/main@210c174f3a18421eb5134935a53e99956c03773f. Lane codex/ingest-managed-run-projection, /tmp/prime-ingest-recap-source-world-binding. Serial successor to merged #1284@44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93. Parallel-independent of PRIME's next Agent source-navigation work; no unmerged dependency or shared implementation paths. Source binding implementation lease ended. Prior test services are stopped.
+Status: ACTIVE — PRIME authorizes DOGFOOD under the operator's Ingest assignment. ARCHITECTURE independently reviews; PRIME merges. Re-anchored base origin/main@119043228c60142e670bbad61d2cd73ed96426ba after merged #1286; its only overlapping `liveApi.ts` change is in the separate authorization helper, outside DOGFOOD's leased historical projection client function. Lane codex/ingest-managed-run-projection, /tmp/prime-ingest-recap-source-world-binding. Serial successor to merged #1284@44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93. Parallel-independent of PRIME's next Agent source-navigation work; no unmerged dependency or shared implementation paths. Source binding implementation lease ended. Prior test services are stopped.
 
 ## One outcome
 
@@ -43,3 +43,9 @@ Isolated NON-SERVING UI5206/API8006 only if both are free; do not evict listener
 Previous witness isolation incident: an initial preview used Vite default proxy8000 and GET /api/live/graph-preview/artifacts?campaign_id=longmont-c2 may have refreshed derived recap registry metadata through ensure_recap_artifacts_registry. It stopped before Process/source submission/World writes. Do not repeat a live GET or rollback data to investigate this incident; preserve that bounded evidence.
 
 Finish implementation → owning tests/rendered witness → cumulative diff inspection → commit/push/PR. Return exact head, tests, screenshots/evidence, remaining gates and cleanup confirmation. Independent ARCHITECTURE review and PRIME merge remain required; no redundant operator permission gate for ordinary authorized execution.
+
+## Implementation checkpoint — 2026-10-16
+
+The scoped selector, frozen/current binding checks, projection snapshot check, response tuple, exact-run UI request/verification, and A→B→A stale-response guard are implemented in the leased files. Generic unscoped historical reads do not receive managed binding metadata and retain the existing projection semantics. Synthetic regressions cover managed/native ID divergence, foreign selection, pre-/mid-read registry drift, source/snapshot mismatch, missing frozen context, duplicate selector, exact-run UI binding, and selection changes.
+
+Local verification: Python 3.13 `compileall` and `git diff --check` pass. The owning Python and Vitest suites have not run: this isolated checkout has a bare `.venv` without project dependencies or pytest, `out/hermes-agent` is absent, and the UI has no `node_modules`. The environment’s npm cache is read-only. No UI/API service was started and no rendered reader witness was possible here; 5202/8000 remain untouched. Treat this as an implementation candidate awaiting PR CI and the isolated rendered acceptance above, not completed acceptance.

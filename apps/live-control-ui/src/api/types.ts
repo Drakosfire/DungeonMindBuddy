@@ -2716,6 +2716,8 @@ export type HistoricalRecapWorldProjectionResponse = Omit<
   campaignId: string;
   sessionId: string;
   worldId: string;
+  managedWorldId?: string | null;
+  bindingVersion?: number | null;
   sourceSha256: string;
   sourceStatus: "available" | "unavailable";
   graphStatus: "available" | "unavailable";
