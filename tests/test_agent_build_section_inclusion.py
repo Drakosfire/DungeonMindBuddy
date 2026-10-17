@@ -47,7 +47,9 @@ def staged(build_case,monkeypatch,*,second_controller=False,two=False,mixed=Fals
 
 
 @pytest.mark.parametrize('two',[False,True])
-def test_sdk_controller_sections_writer_and_fresh_answer_binding(build_case,monkeypatch,two):
+def test_sdk_controller_sections_writer_and_fresh_answer_binding(build_case,monkeypatch,tmp_path,two):
+    monkeypatch.setenv('DMB_AGENT_PROMPT_CAPTURE', '1')
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(tmp_path))
     adapter,projection,reads=staged(build_case,monkeypatch,second_controller=True,two=two)
     raw=source_answer(reads,same_text=two)
     wire=WriterWire(adapter,text=raw)
@@ -74,6 +76,12 @@ def test_sdk_controller_sections_writer_and_fresh_answer_binding(build_case,monk
         and event.provider_attempt_id==adapter.producing_provider_attempt_id][0]
     assert set(inclusion.section_event_ids)=={__import__('uuid').UUID(r['event_id']) for r in reads}
     assert owner.project_plan_turn_context(turn,delivery_replay=True).completion==turn.completion
+    from apps.live_control_server.services.agent_prompt_evidence import read_prompt
+    traces=AgentConversationService().list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)
+    references=[item for trace in traces for item in trace.observations if item.kind=='prompt_reference']
+    assert len(references)==3  # Initial decision, informed decision, one writer.
+    assert references[-1].provider_attempt_id==adapter.producing_provider_attempt_id
+    assert read_prompt(references[-1]).encode()==wire.calls[0].content
 
 
 def test_mixed_graph_and_authored_source_remain_distinct(build_case,monkeypatch):

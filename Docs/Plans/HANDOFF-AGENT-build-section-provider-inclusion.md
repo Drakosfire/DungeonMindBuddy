@@ -1,7 +1,7 @@
 # AGENT — saved sections in controller and writer evidence
 
 ACTIVE serial consumer. PRIME implements solo; ARCHITECTURE reviews. Base
-9f0dabf32031f0b6c972956c505d4ae75fa55695; branch
+44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93; branch
 codex/build-section-provider-inclusion; non-serving /tmp/prime-recap-mention-boundaries.
 #1280 is merged; open Ingest/UI leases are disjoint.
 
