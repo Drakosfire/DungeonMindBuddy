@@ -1,6 +1,6 @@
 # MEDIA — Durable asset catalog foundation
 
-Status: ACTIVE — operator authorizes durable storage/retrieval before more generated images. PRIME implements; ARCHITECTURE reviews. Base: main@981384722723a8682e93da03bac80e0b0d37ebcf. Branch: codex/media-catalog-foundation. Independent of Ingest #1299; serial successor to media #1301.
+Status: MERGED — PR1302 independent PASS exacta6dcbac5f6e0e5775e02baaa29875e19f7346990, merge154a51c2a1d50f649785bf24a27964df72b3ccb5. Foundation lease complete; CDN/UI consumer owns follow-through. Base: main@981384722723a8682e93da03bac80e0b0d37ebcf. Branch: codex/media-catalog-foundation. Independent of Ingest #1299; serial successor to media #1301.
 
 ## Ownership and invariant
 

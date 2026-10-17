@@ -1,7 +1,7 @@
 # MEDIA — CDN save and reopen
 
 Status: ACTIVE — operator requested durable public CDN image storage before more images. PRIME implements; independent review before merge.
-Branch: codex/media-cdn-library. Topology: stacked on catalog PR1302 exacta6dcbac5f6e0e5775e02baaa29875e19f7346990; merge catalog first, then review consumer cumulative diff. Handoff must be re-anchored on accepted parent if it changes.
+Branch: codex/media-cdn-library. Topology: serial consumer of catalog PR1302 merged154a51c2a1d50f649785bf24a27964df72b3ccb5 after independent PASS on a6dcbac5f6e0e5775e02baaa29875e19f7346990. Base154a51c2.
 
 ## Outcome and authority
 
@@ -11,7 +11,7 @@ Explicit operator policy: saved images use public delivery now. Prompts/settings
 
 ## Write lease
 
-This handoff; apps/live_control_server/services/media_storage.py; apps/live_control_server/routes/media_images.py; tests/test_media_image_generation.py; tests/integration/test_media_storage_postgres.py; apps/live-control-ui/src/media/MediaImageWizard.tsx; apps/live-control-ui/src/media/MediaImageWizard.test.tsx; apps/live-control-ui/src/media/MediaImageWizard.css.
+This handoff; Docs/Plans/HANDOFF-MEDIA-durable-catalog.md (settle merged predecessor); apps/live_control_server/services/media_storage.py; apps/live_control_server/routes/media_images.py; tests/test_media_image_generation.py; tests/integration/test_media_storage_postgres.py; apps/live-control-ui/src/media/MediaImageWizard.tsx; apps/live-control-ui/src/media/MediaImageWizard.test.tsx; apps/live-control-ui/src/media/MediaImageWizard.css.
 
 ## Failure invariant
 
