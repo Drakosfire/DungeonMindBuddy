@@ -1021,6 +1021,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+  const exactGraphReviewRunId = resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() || null : null;
+  const canOpenGraphReview = Boolean(
+    isIngestSurfacePath()
+    && managedWorldId
+    && exactGraphReviewRunId
+    && (graphPreview?.status === "preview_union_store_ready" || graphPreview?.status === "candidate_validation_ready"),
+  );
   const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
   const reviewIdentity = JSON.stringify([
@@ -2048,12 +2055,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   function openGraphReviewWorkbench() {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !canOpenGraphReview || !exactGraphReviewRunId || !managedWorldId) return;
     const params = new URLSearchParams(window.location.search);
+    params.set("world", managedWorldId);
     params.set("session", `session-${recapSession}`);
     params.set("campaign", ingestCampaignId);
-    window.history.replaceState({}, "", `/ingest?${params.toString()}`);
+    params.set("extractionRunId", exactGraphReviewRunId);
+    params.delete("recapReviewRunId");
+    params.delete("sourceArtifactId");
+    params.delete("documentId");
+    params.delete("revision");
+    const sourceArtifactId = reviewSource?.runId === exactGraphReviewRunId
+      && reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
+      ? reviewSource.projection.sourceArtifactId
+      : null;
+    if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
+    window.history.pushState({}, "", `${ingestRoutePath()}?${params.toString()}${window.location.hash}`);
     window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+    window.dispatchEvent(new Event("popstate"));
     projection?.close();
   }
 
@@ -2322,7 +2341,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
                 </button>
                 {isIngestSurfacePath() && (hasPreviewUnionStore || graphPreview?.status === "candidate_validation_ready") ? (
-                  <button type="button" onClick={openGraphReviewWorkbench}>Graph Review</button>
+                  <>
+                    <button
+                      type="button"
+                      aria-label={canOpenGraphReview ? "Open Graph Review" : "Graph Review unavailable: exact extraction run required"}
+                      onClick={openGraphReviewWorkbench}
+                      disabled={!canOpenGraphReview}
+                    >
+                      Graph Review
+                    </button>
+                    {!canOpenGraphReview ? (
+                      <span className="ingest-local-nav__action-hint" role="status">
+                        Graph Review needs an exact extraction run for this session.
+                      </span>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
             ) : null}
