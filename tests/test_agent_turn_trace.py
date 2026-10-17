@@ -513,3 +513,30 @@ def test_durable_binding_is_log_only_and_preserves_client_identity(monkeypatch):
     assert response['turn_id'] == 'client'
     assert 'correlation' not in response
     assert emitted[0]['correlation'] == {'durable_turn_id': str(turn.turn_id), 'conversation_id': str(turn.conversation_id), 'attempt': 2}
+
+
+def test_emitted_line_drops_unknown_metric_names_and_values(caplog):
+    builder = AgentTurnTraceBuilder(agent_thread_id="thread", turn_id="client", runtime="test", backend="test", mode="test")
+    trace = builder.finalize(status="ok", model_calls=[map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="request-1"), status="ok", sequence=1)])
+    trace["spans"] = [{"name": "read", "duration_ms": 17, "attributes": {"count": 3}}]
+    trace["context_summary"] = {"history_message_count": 4}
+    bags = [trace["usage"], trace["cost"], trace["context_summary"], trace["spans"][0]["attributes"],
+            trace["model_calls"][0]["usage"], trace["model_calls"][0]["cost"], trace["model_calls"][0]["request_summary"]]
+    for bag in bags:
+        bag["PRIVATE_PROMPT_SENTINEL_123"] = 1
+        bag["PRIVATE_CREDENTIAL_SENTINEL_456"] = True
+        bag["PRIVATE_NULL_SENTINEL_789"] = None
+        bag["unexpected"] = PRIVACY_SENTINEL
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        emit_baseline_trace_log(trace)
+    line = next(r.getMessage() for r in caplog.records if r.name == "dmb.agent.turn_trace")
+    assert "SENTINEL" not in line
+    saved = json.loads(line.removeprefix("dmb_agent_turn_trace "))
+    assert saved["usage"]["input_tokens"] == 100
+    assert saved["usage"]["cached_input_tokens"] == 0
+    assert saved["context_summary"] == {"history_message_count": 4}
+    assert saved["spans"][0]["duration_ms"] == 17
+    assert saved["spans"][0]["attributes"] == {"count": 3}
+    assert saved["model_calls"][0]["request_summary"]["message_count"] == 4
+    assert saved["retention"]["scope"] == "allowlisted_metadata"

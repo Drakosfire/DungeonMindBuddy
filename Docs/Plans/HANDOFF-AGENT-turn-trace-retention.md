@@ -55,3 +55,17 @@ Verification at implementation checkpoint:
   allowlists scalar fields/numeric metrics. Oversize records drop trailing spans
   then calls with original counts and complete=false within24000 UTF-8 bytes.
   Error fallback with no captured calls records unknown count, not proven zero.
+
+Independent review cycle1: HOLD atd75187a42 for unknown numeric metric KEY
+names surviving the log projection. Repaired with explicit separate usage,
+cost, request-summary, context and span-attribute key vocabularies. Unknown
+keys (numeric,boolean,null) and values are tested against the actual emitted
+serialized line; known token/cache/timing/count fields survive. Log retention
+scope explicitly says allowlisted_metadata, not full HTTP trace retention.
+22 focused cases pass after repair; scoped Ruff/diff check pass. A distinct
+exact-head cumulative review is required before adoption.
+
+Deployment sink qualification: stdout enters inherited journald/host policy.
+Host configuration has default LineMax48K; distro ForwardToSyslog=yes. This is
+not an exclusive private-file sink or an indefinite retention guarantee; no
+host logging/forwarding/rotation configuration change is authorized here.

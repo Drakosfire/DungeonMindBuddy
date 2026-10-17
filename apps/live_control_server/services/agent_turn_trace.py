@@ -492,16 +492,33 @@ def _log_scalars(value: Mapping[str, Any], keys: Iterable[str]) -> dict[str, Any
     return out
 
 
-def _log_metrics(value: Any) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        return {}
-    # Metrics have no free-form strings or nested arbitrary observer payloads.
-    keys = [key for key, item in value.items()
-            if isinstance(key, str) and _LOG_TOKEN.fullmatch(key)
-            and (item is None or isinstance(item, (bool, int, float)))]
-    out = _log_scalars(value, keys)
-    out.update(_log_scalars(value, ("status", "currency")))
-    return out
+_USAGE_KEYS = (
+    "status", "available", "input_tokens", "output_tokens", "total_tokens",
+    "cached_input_tokens", "cache_write_input_tokens", "uncached_input_tokens",
+    "reasoning_tokens", "model_call_count", "usage_reported_call_count",
+    "observed_model_call_count",
+)
+_COST_KEYS = ("status", "usd", "currency", "pricing_table_matched",
+              "priced_call_count", "unpriced_call_count")
+_REQUEST_SUMMARY_KEYS = (
+    "api_call_count", "message_count", "tool_count", "approx_input_tokens",
+    "request_char_count", "max_tokens", "assistant_content_chars", "assistant_tool_call_count",
+)
+_CONTEXT_KEYS = (
+    "context_schema", "world_id", "campaign_id", "revision_id", "focus_kind",
+    "admissibility", "history_message_count", "history_char_count", "retrieval_session_id",
+    "retrieval_candidate_count", "retrieval_claim_count", "latest_recap_change_present",
+    "admitted_recap_excerpt_char_count", "runtime_continuity_present",
+    "surface_context_schema", "request_present", "surface_id", "resolution_status",
+    "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
+)
+_SPAN_ATTRIBUTE_KEYS = (*_CONTEXT_KEYS, "count", "reason", "is_error", "outcome",
+                        "retrieval_schema", "result_count", "source_count")
+
+
+def _log_metrics(value: Any, keys: Iterable[str]) -> dict[str, Any]:
+    # Both names and values are bounded; unknown names may themselves contain prose/secrets.
+    return _log_scalars(value, keys) if isinstance(value, Mapping) else {}
 
 
 def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
@@ -513,9 +530,9 @@ def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
     out["correlation"] = _log_scalars(trace.get("correlation", {}), (
         "durable_turn_id", "conversation_id", "attempt",
     ))
-    out["usage"] = _log_metrics(trace.get("usage"))
-    out["cost"] = _log_metrics(trace.get("cost"))
-    out["context_summary"] = _log_metrics(trace.get("context_summary"))
+    out["usage"] = _log_metrics(trace.get("usage"), _USAGE_KEYS)
+    out["cost"] = _log_metrics(trace.get("cost"), _COST_KEYS)
+    out["context_summary"] = _log_metrics(trace.get("context_summary"), _CONTEXT_KEYS)
     out["warnings"] = [w for w in trace.get("warnings", [])
                        if isinstance(w, str) and _LOG_TOKEN.fullmatch(w)][:32]
     calls = trace.get("model_calls") or []
@@ -528,8 +545,9 @@ def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
             "started_at", "completed_at", "duration_ms", "finish_reason", "retry_count",
             "retryable", "status_code", "error_type",
         ))
-        for key in ("usage", "cost", "request_summary"):
-            row[key] = _log_metrics(call.get(key))
+        for key, keys in (("usage", _USAGE_KEYS), ("cost", _COST_KEYS),
+                          ("request_summary", _REQUEST_SUMMARY_KEYS)):
+            row[key] = _log_metrics(call.get(key), keys)
         out["model_calls"].append(row)
     out["spans"] = []
     for span in spans:
@@ -537,9 +555,9 @@ def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
             "span_id", "parent_span_id", "kind", "name", "status",
             "started_at", "completed_at", "duration_ms",
         ))
-        row["attributes"] = _log_metrics(span.get("attributes"))
+        row["attributes"] = _log_metrics(span.get("attributes"), _SPAN_ATTRIBUTE_KEYS)
         out["spans"].append(row)
-    out["retention"] = {"complete": True, "original_model_calls": len(calls),
+    out["retention"] = {"scope": "allowlisted_metadata", "complete": True, "original_model_calls": len(calls),
                         "original_spans": len(spans)}
     # Error fallback's empty call list does not establish absence of dispatch.
     if trace.get("status") != "ok" and not calls:
