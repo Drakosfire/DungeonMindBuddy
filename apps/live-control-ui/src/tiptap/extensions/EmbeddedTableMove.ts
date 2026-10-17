@@ -1,4 +1,5 @@
 import type { EditorView } from '@tiptap/pm/view';
+import { closeHistory } from '@tiptap/pm/history';
 
 const mime = 'application/x-dungeonbuddy-table-move';
 const drags = new WeakMap<EditorView, { token: string; doc: EditorView['state']['doc']; range: { from: number; to: number } }>();
@@ -21,7 +22,7 @@ export function moveTable(view: EditorView, range: { from: number; to: number },
   if (destination >= range.from && destination <= range.to) return false;
   const content = view.state.doc.slice(range.from, range.to).content;
   const target = destination > range.to ? destination - (range.to - range.from) : destination;
-  view.dispatch(view.state.tr.delete(range.from, range.to).insert(target, content).scrollIntoView());
+  view.dispatch(closeHistory(view.state.tr).delete(range.from, range.to).insert(target, content).scrollIntoView());
   return true;
 }
 
