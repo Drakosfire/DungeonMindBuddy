@@ -298,6 +298,11 @@ class BuildJevHarness:
 
     @staticmethod
     def _acquire(adapter, driver):
+        with adapter.build_native_acquisition(driver):
+            return BuildJevHarness._acquire_in_wave(adapter, driver)
+
+    @staticmethod
+    def _acquire_in_wave(adapter, driver):
         bindings, graph_reads = {}, {}
         needed = set()
         for action in driver.step.actions:

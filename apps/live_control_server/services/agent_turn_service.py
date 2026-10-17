@@ -9,6 +9,7 @@ import re
 import psycopg
 from pydantic import TypeAdapter, ValidationError
 from dataclasses import dataclass, replace
+from contextlib import contextmanager
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -1775,7 +1776,7 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
-        if self.failure is not None:
+        if self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None:
             return False
         if (self.budget.get("apiMode") == "typesafe_decision"
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
@@ -2450,6 +2451,62 @@ class _PolicyExecutionAdapter:
             )
             return False
 
+    @contextmanager
+    def build_native_acquisition(self, driver):
+        """One parent-owned native read lifetime, never across inference."""
+        from .build_jev_transitions import AcquisitionIntent
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+        from apps.live_control_server.integrations.dungeonmind.reviewed_source_wave import reviewed_source_wave
+        from graph_memory.retrieval.models import WorldGraphObservationSelectionRequest
+
+        if getattr(self, "_build_native_acquisition_services", None) is not None:
+            raise ValueError("nested native acquisition")
+        step = driver.step
+        if driver is not getattr(self, "_build_jev_driver", None) or not isinstance(step, AcquisitionIntent):
+            raise ValueError("native acquisition requires current parent driver intent")
+        execution = self._broker_execution() if self.fence is not None else None
+        types = _app_state_graph_execution_types()
+        graph_actions = [a for a in step.actions if a.kind == "graph_observations"]
+        if not isinstance(getattr(execution, "policy", None), types.BuildReadBatchActionControllerWriterPolicyV1) or not graph_actions:
+            yield
+            return
+        authorizations = [e for e in execution.events if isinstance(e, types.ProviderAttemptAuthorizedEventV1)
+                          and e.provider_attempt_id == self.last_provider_attempt_id]
+        outcomes = [e.outcome for e in execution.events if isinstance(e, types.ProviderOutcomeEventV1)
+                    and e.provider_attempt_id == self.last_provider_attempt_id]
+        if (self.failure is not None or not _governed_build_turn(self.request)
+                or outcomes[-1:] != ["response_received"] or len(authorizations) != 1
+                or (authorizations[0].provider, authorizations[0].model, authorizations[0].api_mode)
+                != execution.policy.provider_roles.controller.identity()):
+            raise ValueError("native acquisition requires acknowledged controller response")
+        arguments = driver.action_arguments(graph_actions[0].id)
+        source = self.bootstrap.build_source_discovery
+        scope = self.bootstrap.world_scope
+        if (not source or source.get("status") != "complete"
+                or source.get("world_id") != scope.world_id
+                or source.get("graph_revision") != scope.revision_id
+                or source.get("source_artifact_id") != driver._scope.source_artifact_id
+                or source.get("source_revision_id") != driver._scope.source_revision_id
+                or scope.world_id != driver._scope.world_id
+                or scope.revision_id != driver._scope.graph_revision):
+            raise ValueError("native acquisition source scope differs")
+        request = WorldGraphObservationSelectionRequest.model_validate({
+            "schema": "dmb_world_graph_observation_selection_v1",
+            "worldId": scope.world_id, "campaignId": "", "scopeMode": "world",
+            "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+            "admissibility": "gm", "revisionPin": scope.revision_id,
+            "sourceArtifactId": source["source_artifact_id"],
+            "sourceRevisionId": source["source_revision_id"],
+            "observationIds": arguments["observationIds"],
+        })
+        services = world_graph_reads.direct_services_from_config(scope.world_id)
+        with reviewed_source_wave(services, request) as bound:
+            self._build_native_acquisition_services = bound
+            try:
+                yield
+            finally:
+                self._build_native_acquisition_services = None
+
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
@@ -2579,7 +2636,11 @@ class _PolicyExecutionAdapter:
                 "revisionPin": self.bootstrap.world_scope.revision_id,
             }
             stage = "native_retrieval"
-            services = direct_services_from_config(self.bootstrap.world_scope.world_id)
+            services = getattr(self, "_build_native_acquisition_services", None)
+            if services is not None and request.operation != "observations":
+                return denied("native_acquisition_operation_mismatch", 409)
+            if services is None:
+                services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
                 source = self.bootstrap.build_source_discovery
@@ -3051,6 +3112,8 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
+                **({"native_services": self._build_native_acquisition_services}
+                   if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )
             if (
                 internal.get("schema") != "dmb_internal_read_graph_source_batch_v2"
