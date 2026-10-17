@@ -234,3 +234,14 @@
 }
 
 .plan-conversation-dock.is-fullscreen .plan-conversation-dock__management > div { max-block-size: calc(100dvh - 8rem); }
+
+@media (max-width: 42rem) {
+  .plan-conversation-dock .conversation-dock__header { position: relative; }
+  .plan-conversation-dock__management { position: static; }
+  .plan-conversation-dock__management > div {
+    left: 0;
+    right: 0;
+    inline-size: 100%;
+    max-block-size: min(28rem, calc(var(--conversation-dock-height) - 10rem));
+  }
+}
