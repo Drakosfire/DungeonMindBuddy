@@ -24,3 +24,7 @@
 .media-image-wizard :focus-visible { outline: 2px solid #f0ca74; outline-offset: 3px; }
 .media-image-wizard { box-sizing: border-box; }
 @media (max-width: 600px) { .media-image-wizard { width: calc(100vw - 2rem); } }
+
+.media-image-wizard__library { padding: 1rem 0; }
+.media-image-wizard__library > button { display: block; width: 100%; text-align: left; margin-bottom: .5rem; }
+.media-image-wizard__actions { flex-wrap: wrap; }

@@ -26,6 +26,8 @@ def setup(monkeypatch):
         monkeypatch.setenv(name, value)
     client = SimpleNamespace(generate_image=AsyncMock(return_value=SimpleNamespace(images=[GeneratedImage(content=b'\x89PNG\r\n\x1a\n', media_type='image/png')], observation=SimpleNamespace(model_dump=lambda **kwargs: {'provider': 'fal', 'latency_ms': 10}))), aclose=AsyncMock())
     monkeypatch.setattr(media_images, '_image_client', lambda: client)
+    monkeypatch.setattr(media_images, 'assert_at_head', lambda: None)
+    monkeypatch.setattr(media_images.media, 'stage_image', lambda content, owner, provenance: {'asset_id': 'd3796b5d-d783-4195-b2cf-646debf276db', 'mime_type': 'image/png', 'state': 'staged'})
     app = FastAPI()
     app.include_router(media_images.router)
     return app, client
@@ -101,3 +103,57 @@ async def test_dedicated_key_only_enables_capabilities_and_generation(setup, mon
         assert 'synthetic-buddy-key' not in response.text
     assert (await submit(setup, {'prompt': 'Edge', 'model': 'flux-2-pro'})).status_code == 200
     provider.generate_image.assert_awaited_once()
+
+
+async def test_library_setup_prevents_paid_generation(setup, monkeypatch):
+    from application_state.errors import ApplicationStateUnavailableError
+    def unavailable():
+        raise ApplicationStateUnavailableError('not migrated')
+    monkeypatch.setattr(media_images, 'assert_at_head', unavailable)
+    assert (await submit(setup, {'prompt': 'Edge', 'model': 'flux-2-pro'})).status_code == 503
+    setup[1].generate_image.assert_not_called()
+
+
+async def test_generation_stages_private_provenance_before_return(setup, monkeypatch):
+    seen = []
+    def stage(content, owner, provenance):
+        seen.append((content, owner, provenance))
+        return {'asset_id': 'd3796b5d-d783-4195-b2cf-646debf276db', 'mime_type': 'image/png', 'state': 'staged'}
+    monkeypatch.setattr(media_images.media, 'stage_image', stage)
+    response = await submit(setup, {'prompt': 'Edge private prompt', 'model': 'flux-2-pro'})
+    assert response.status_code == 200
+    assert len(seen) == 1 and seen[0][1]
+    assert seen[0][2]['prompt'] == 'Edge private prompt'
+    assert seen[0][2]['model'] == 'flux-2-pro'
+    assert seen[0][2]['observation']['provider'] == 'fal'
+    assert response.json()['images'][0]['state'] == 'staged'
+
+
+async def test_owned_library_save_and_reopen_have_no_generation(setup, monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import UUID
+    aid = UUID('d3796b5d-d783-4195-b2cf-646debf276db')
+    row = dict(asset_id=aid, created_at=datetime.now(timezone.utc), mime_type='image/png', width=3, height=2, byte_length=8,
+               content_sha256='hash', provenance={'prompt': 'private'}, state='ready', owner_id='private-owner',
+               fence='private-fence', receipt={'delivery_url': 'https://imagedelivery.net/synthetic/' + aid.hex + '/public'})
+    owners = []
+    def get(asset_id, owner):
+        owners.append(owner)
+        assert asset_id == aid
+        return row
+    monkeypatch.setattr(media_images.media, 'get_asset', get)
+    monkeypatch.setattr(media_images.media, 'read_staged_bytes', lambda *args: b'original')
+    monkeypatch.setattr(media_images.media, 'list_assets', lambda owner, **kwargs: owners.append(owner) or [row])
+    save = AsyncMock(return_value=row)
+    monkeypatch.setattr(media_images.media_storage, 'save_asset', save)
+    app, provider = setup
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test', headers={'Authorization': f'Bearer {TOKEN}'}) as http:
+        for path in ['library', str(aid)]:
+            response = await http.get('/api/live/media/images/' + path)
+            assert response.status_code == 200 and response.headers['cache-control'] == 'no-store'
+            assert 'private-owner' not in response.text and 'private-fence' not in response.text
+        assert (await http.get('/api/live/media/images/library?before_id=' + str(aid))).status_code == 422
+        assert (await http.post('/api/live/media/images/' + str(aid) + '/save')).status_code == 200
+    assert owners and all(owner == owners[0] for owner in owners)
+    assert save.call_args.args == (aid, owners[0])
+    provider.generate_image.assert_not_called()
