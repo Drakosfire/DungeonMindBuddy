@@ -65,7 +65,7 @@ function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:Adap
       title="Conversation" showTitle={false} contextLabel="context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       initialHeight={420} minHeight={280} minimumReaderHeight={0}
       headerActions={<><div ref={newConversation} className="plan-conversation-dock__new-conversation"/><details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details></>}
-      launcher={<><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/><span>Conversation</span></>}
+      launcher={<div ref={setLauncherHost} className="plan-conversation-dock__launcher"/>}
       contextDetails={<><p className="plan-conversation-dock__scope">{contextLabel.replace(/\s*·\s*Full saved Plan$/, "")}</p><div ref={context}/></>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}
       composer={<div ref={composer} className="plan-conversation-dock__composer"/>}/>
