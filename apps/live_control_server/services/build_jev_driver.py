@@ -681,7 +681,9 @@ class BuildJevDriver:
                     "The historical assessment commitment does not expose its evidence."
                 )
         accounting = getattr(a, "_build_jev_accounting", None)
-        if accounting is not None:
+        if accounting is not None and a.fence is not None and any(
+            isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+        ):
             state["context_accounting"] = accounting.descriptor
         projection = DriverDecisionProjection(
             canonical(state),
@@ -714,7 +716,11 @@ class BuildJevDriver:
             if (self.step.state.get("phase_input_policy") == PHASE_POLICY
                     and plan.state().get("schema") != PHASE_SCHEMA):
                 return False
-            view = prepared_driver_view(prepared, plan, accounting=getattr(a, "_build_jev_accounting", None))
+            continuation = a.fence is not None and any(
+                isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+            )
+            view = prepared_driver_view(prepared, plan,
+                accounting=getattr(a, "_build_jev_accounting", None) if continuation else None)
             from .build_jev_dispatch import CONTINUATION_SCHEMA, factored_decision
             expected_decision = (factored_decision(self.step)
                 if plan.state().get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA} else self.step.model_dump(mode="json"))

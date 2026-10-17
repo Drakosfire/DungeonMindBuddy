@@ -46,6 +46,7 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     authorizations = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1)]
     assert authorizations[0].input_accounting_kind == authorizations[-1].input_accounting_kind == "conservative_upper_bound"
     assert authorizations[0].input_tokens == turn.graph_context_receipt.assembled_input.provider_envelope_input_tokens
+    assert "context_accounting" not in json.loads(decisions.calls[0].content)["state"]
     for event, request in zip(authorizations[1:-1], decisions.calls[1:], strict=True):
         body = json.loads(request.content)
         assert event.input_accounting_kind == "estimated_token_count"

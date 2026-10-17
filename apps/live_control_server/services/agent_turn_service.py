@@ -1610,7 +1610,8 @@ class _PolicyExecutionAdapter:
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
             build_jev_accounting=(getattr(self, "_build_jev_accounting", None)
-                if getattr(self, "_active_build_driver_projection", None) is not None else None),
+                if (getattr(self, "_active_build_driver_projection", None) is not None
+                    and self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)) else None),
         )
         if (getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False)
                 or getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False)):
