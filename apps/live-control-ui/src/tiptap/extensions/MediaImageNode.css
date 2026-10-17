@@ -2,7 +2,7 @@
 .document-media-image__toolbar { display: flex; align-items: center; gap: .5rem; padding: .4rem .55rem; background: #8d78591a; font: .85rem system-ui, sans-serif; }
 .document-media-image__title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .document-media-image__toolbar button { font: inherit; color: inherit; border: 1px solid #8d785966; border-radius: .3rem; background: transparent; padding: .2rem .4rem; cursor: pointer; }
-.document-media-image__handle { cursor: grab; padding: .2rem; font-size: 1.2rem; }
+.document-media-image__toolbar .document-media-image__handle { position: static; flex: none; cursor: grab; padding: .2rem; font-size: 1.2rem; }
 .document-media-image__body { display: block; position: relative; }
 .document-media-image__body[hidden] { display: none; }
 .document-media-image__body img { display: block; width: 100%; height: auto; }
