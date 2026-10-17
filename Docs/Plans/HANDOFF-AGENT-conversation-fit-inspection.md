@@ -13,7 +13,8 @@ Exclusive paths: this handoff; apps/live-control-ui/src/planSurface/components/
 WorldPlanAgentAnswer.tsx, WorldPlanAgentAnswer.css, WorldPlanAgentAnswer.test.tsx,
 BuildComposeProposal.css, PreparedRequestInspector.tsx, BuddyPromptInspector.test.tsx,
 BuddyContextTrace.css; apps/live_control_server/services/build_document_proposal.py;
-tests/test_build_document_proposal.py. Render desktop/narrow table and prompt views,
+tests/test_build_document_proposal.py; apps/live-control-ui/src/ui/ConversationDock.css
+(operator's added fullscreen side-spacing correction). Render desktop/narrow table and prompt views,
 verify component and strict schema boundaries, typecheck/build; exact independent
 review, PR/merge, matched UI5202/API8000+8002 deployment without document mutation.
 Old prompt captures retain old instructions; only new requests change.

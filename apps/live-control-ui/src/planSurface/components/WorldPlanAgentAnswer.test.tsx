@@ -100,6 +100,13 @@ describe("WorldPlanAgentAnswer", () => {
     expect(container.querySelector("script, img")).toBeNull();
     expect(screen.getByText("Still formatted").tagName).toBe("STRONG");
   });
+
+  it("marks only short numeric columns for compact content-based sizing", () => {
+    render(<WorldPlanAgentAnswer answer={'| d20 | Name | Detail |\n|---:|---|---|\n| 1 | Mara | Watches the gate |\n| 20 | Pell | Keeps the peace |'} />);
+    expect(screen.getByRole('columnheader', { name: 'd20' })).toHaveAttribute('data-compact-column', 'true');
+    expect(screen.getByRole('cell', { name: '20' })).toHaveAttribute('data-compact-column', 'true');
+    expect(screen.getByRole('columnheader', { name: 'Name' })).not.toHaveAttribute('data-compact-column');
+  });
 });
 
 describe("stable Buddy answer rendering", () => {

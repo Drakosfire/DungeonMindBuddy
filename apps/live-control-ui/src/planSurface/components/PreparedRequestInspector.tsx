@@ -11,7 +11,16 @@ function components(body: Record<string, unknown>): Component[] {
     return [{ pointer: `/${pointerPart(key)}`, label: key === 'instructions' ? 'System instructions' : key, value }]
   })
 }
-const format = (value: unknown) => typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+function format(value: unknown, raw: boolean): string {
+  if (typeof value !== 'string') return JSON.stringify(value, null, 2)
+  if (!raw) {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (parsed !== null && typeof parsed === 'object') return JSON.stringify(parsed, null, 2)
+    } catch { /* Ordinary prompt prose is displayed verbatim. */ }
+  }
+  return value
+}
 
 /** Presentation of an actual captured request; callers own identity and authorization. */
 export function PreparedRequestInspector({ payloadJson }: { payloadJson: string }) {
@@ -27,7 +36,7 @@ export function PreparedRequestInspector({ payloadJson }: { payloadJson: string 
       <nav aria-label="Request components">{parts.map(item => <button key={item.pointer} type="button" aria-pressed={selected === item.pointer}
         onClick={() => setSelected(item.pointer)}>{item.label}<small>{item.pointer}</small></button>)}</nav>
       <section aria-label="Captured request"><h5>{part ? part.label : 'Full composed request'}</h5>
-        <pre tabIndex={0}>{part ? format(part.value) : raw ? payloadJson : JSON.stringify(body, null, 2)}</pre>
+        <pre tabIndex={0}>{part ? format(part.value, raw) : raw ? payloadJson : JSON.stringify(body, null, 2)}</pre>
       </section>
     </div>
   </>
