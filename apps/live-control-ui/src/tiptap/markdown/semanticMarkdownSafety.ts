@@ -1,3 +1,4 @@
+import { webSourceHref } from "./webSourceHref";
 import {
   playableSerializationFailures,
 } from "../playable/playableElementIdentity";
@@ -50,7 +51,7 @@ const PANE_CHILD_TYPES = new Set([
   // Matches visitPaneBlockquote admitting supported callouts inside panes.
   "callout",
 ]);
-const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code"]);
+const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code", "link"]);
 
 function asNode(value: unknown): JsonNode | null {
   return value !== null && typeof value === "object" ? (value as JsonNode) : null;
@@ -123,6 +124,10 @@ export function semanticMarkdownSerializationDiagnostics(
       case "text":
         for (const mark of marks(node)) {
           const markType = typeof mark.type === "string" ? mark.type : "unknown";
+          if (markType === "link" && (!webSourceHref(mark.attrs?.href)
+              || Object.keys(mark.attrs ?? {}).some(key => key !== "href"))) {
+            diagnostics.push(warning("Web source links require a valid HTTP/HTTPS href and no unsupported attributes.", type));
+          }
           if (!SUPPORTED_MARK_TYPES.has(markType)) {
             diagnostics.push(warning(
               `Text mark ${markType} is not supported by the semantic Markdown editor.`,

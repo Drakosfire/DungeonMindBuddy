@@ -1,6 +1,6 @@
 # BUILD: recover protected drafts without losing local edits
 
-Status: ACTIVE. PRIME implements under refreshed operator goal for Build saving
+Status: MERGED AND ADOPTED at 63b6297cd253ac4c8bc017caaf3ca9616afdd2bc; implementation/review lease released. PRIME implements under refreshed operator goal for Build saving
 and durable authored material; ARCHITECTURE independently reviews.
 Base: origin/main@ae394d6d3b98e49a4111c9e268efaa9174d24eca.
 Branch: codex/build-draft-recovery; reuse buddy-context-loop and dependencies.

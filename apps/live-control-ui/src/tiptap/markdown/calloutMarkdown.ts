@@ -1,3 +1,4 @@
+import { webSourceHref } from "./webSourceHref";
 import { mediaMarkdown } from "../../media/mediaReferences";
 import {
   normalizeRunbookReferenceAttrs,
@@ -147,6 +148,7 @@ function safeMarkdownHref(value: unknown): string | null {
     return null;
   }
 
+  if (/^https?:/i.test(href) && !webSourceHref(href)) return null;
   return escapeMarkdownHref(href);
 }
 

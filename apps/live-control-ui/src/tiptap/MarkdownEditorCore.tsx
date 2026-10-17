@@ -10,10 +10,13 @@ import { PLAN_TABLE_EXTENSIONS } from "./extensions/planTableExtensions";
 import { PlayableElementHeadingAttributes } from "./extensions/PlayableElementHeadingAttributes";
 import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 
+import { WebSourceLink } from "./extensions/WebSourceLink";
+
 import { MediaImageNode } from "./extensions/MediaImageNode";
 
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
+  WebSourceLink,
   PlayableElementHeadingAttributes,
   CalloutNode,
   ...DECISION_CONSEQUENCE_EXTENSIONS,

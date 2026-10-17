@@ -22,7 +22,9 @@ function hasBlockingImportDiagnostics(diagnostics: MarkdownImportDiagnostic[]): 
 
 function hasSemanticBlockWorthIntercepting(content: JSONContent[] | undefined): boolean {
   if (!content || content.length === 0) return false;
-  return content.some((node) => SEMANTIC_INTERCEPT_NODE_TYPES.has(String(node.type)));
+  return content.some((node) => SEMANTIC_INTERCEPT_NODE_TYPES.has(String(node.type))
+    || node.marks?.some(mark => mark.type === "link")
+    || hasSemanticBlockWorthIntercepting(node.content));
 }
 
 /**
