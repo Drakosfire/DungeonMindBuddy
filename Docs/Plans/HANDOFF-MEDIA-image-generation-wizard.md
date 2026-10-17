@@ -1,6 +1,6 @@
 # MEDIA — Reusable image generation wizard
 
-Status: ACTIVE — operator requests prompt/model/parameter image generation via existing fal credential and GenerationEngine, hosted in reusable media UI. PRIME implements; independent review before merge.
+Status: MERGED — Buddy #1300 independently reviewed PASS at 614ae6f83f2039501e49934f0fca14b62fc5227a; merge ad9f83ed32bdf5565f807353f04db6a9e9e3dc48. Implementation lease complete; runtime adoption and live fal witness remain pending.
 Base: Buddy 168938813fd4b15ff00277142cce51dc50696b97.
 Branch: codex/media-image-wizard. Topology: serial consumer of accepted GE #24 merge 7e3ed2202684316c6d426462f4928824bb2e99ca; independent of DOGFOOD Ingest PR1299.
 
@@ -21,3 +21,5 @@ Only explicit Generate submits a paid request. Existing local operator auth is r
 Provider-free endpoint auth/validation/forwarding and encoding result tests; rendered wizard model-dependent controls, one explicit call and failure behavior; Build host leaves editor unchanged. Compile/build and inspect cumulative diff, finish PR. Existing typecheck failures stay explicit. No 5202 restart or live provider call until reviewed; separate runtime rollout.
 
 Evidence: endpoint auth/validation/forwarding/credential tests 7/7 pass. Shared wizard + Build shell suites 34 pass, 1 existing skip. UI typecheck and Vite build pass; existing bundle-size advisory remains. Synthetic-only rendered wizard checked desktop and narrow: model selection changes controls; component owns its styles; narrow document scrollWidth equals clientWidth after box-sizing fix. No provider call, document mutation, Graph access or 5202 change. Lock check passes; unrelated package artifact metadata is preserved. Preview-only generation result is transient and must be downloaded to keep it.
+
+Live readiness: no FAL_KEY assignment was found in the checked Buddy repository .env or private runtime-config/laptop-buddy.env. Operator was asked for the existing credential file path/variable name; no key was displayed, copied or created. No server restart occurred. Existing GE transport retry behavior is unchanged; frontend duplicate-submission prevention is not a guarantee of one SDK attempt.
