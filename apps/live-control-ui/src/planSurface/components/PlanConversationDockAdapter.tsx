@@ -62,7 +62,7 @@ function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:Adap
   return <>
     <ConversationDock className="plan-conversation-dock" reader={reader} readerLabel={`${surface === "build" ? "Build" : "Plan"} workspace`}
       conversationLabel="World conversation"
-      title="Conversation" contextLabel="context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
+      title="Conversation" showTitle={false} contextLabel="context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       initialHeight={420} minHeight={280} minimumReaderHeight={0}
       headerActions={<><div ref={newConversation} className="plan-conversation-dock__new-conversation"/><details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details></>}
       launcher={<><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/><span>Conversation</span></>}

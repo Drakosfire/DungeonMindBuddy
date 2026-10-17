@@ -1,6 +1,6 @@
 # AGENT: truthful Jev/one-writer usage totals
 
-ACTIVE under PRIME responsive source-faithful Graph goal. Base `0dbdd85a8db8038ef7fe21e083dbe3cc8905462d`; branch `codex/jev-usage-total-accounting`; reuse `/home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy` and existing dependencies. PRIME implements solo; ARCHITECTURE independently reviews. Serial successor to merged #1351; no open Agent implementation PR. Concurrent DOGFOOD #1353 owns IngestionModule and its cold-reader handoff/tests only; no overlap.
+SETTLED — reviewed head9c47f84c086be41ee5dd2c3e849537ac130fba9e merged as e61475254274248cdd0cabdea45969ae2b8387e8. Implementation lease ended; live goal remains active. Base `0dbdd85a8db8038ef7fe21e083dbe3cc8905462d`; branch `codex/jev-usage-total-accounting`; reuse `/home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy` and existing dependencies. PRIME implements solo; ARCHITECTURE independently reviews. Serial successor to merged #1351; no open Agent implementation PR. Concurrent DOGFOOD #1353 owns IngestionModule and its cold-reader handoff/tests only; no overlap.
 
 ## Invariant and failure
 

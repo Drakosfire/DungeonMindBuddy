@@ -10,8 +10,14 @@ Serving API log records hermes_plugin_not_loaded before provider authorization f
 
 ## Write lease
 
-This handoff; truthful settlement of HANDOFF-AGENT-jev-usage-totals.md; apps/live-control-ui/src/ui/ConversationDock.tsx and its test; planSurface/components/PlanConversationDockAdapter.tsx and CSS/test; WorldPlanAgentConversation.tsx and CSS; planSurface/WorldPlanAgentConversation.worldHistory.test.tsx. No API schemas, prompts, provider routes, Graph writes or dependencies.
+This handoff; truthful settlement of HANDOFF-AGENT-jev-usage-totals.md; apps/live-control-ui/src/ui/ConversationDock.tsx and its test; planSurface/components/PlanConversationDockAdapter.tsx and CSS/test; WorldPlanAgentConversation.tsx and CSS; planSurface/WorldPlanAgentConversation.worldHistory.test.tsx; agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx. No API schemas, prompts, provider routes, Graph writes or dependencies.
 
 ## Verification
 
 Mounted current-context tools/disabled reasons, compact input and multiline growth/reset, submitted-message failure/recovery without replay, existing dock keyboard/fullscreen/draft tests; typecheck/build and exact cumulative review. Use existing dependencies and output, no new server/lane/environment or /tmp staging. After review/merge adopt UI on existing5202 with index rollback; preserve unsaved browser work. Operator inspection remains required.
+
+## Current implementation evidence
+
+Existing runtime repaired by normal offline no-dependency installation of its existing source package using cached build tooling, without a new environment or restart. Actual Hermes discovery now loads dungeonbuddy_graph with six registered handlers (including propose_build_insertion). No user request replay/provider call. This repairs missing registration; it does not prove a fresh answer or image-tool adoption.
+
+Typecheck and production build pass (existing large-chunk warning). Two new mounted Build tests cover one-line/growing/reset input, Options configuration disclosure, failure beside its submitted message, retained exact recovery and no auto resend; shared dock accessibility test passes. Current broad run has 10 inherited failures: six integration expectations and four adapter expectations. Exact e614 source/test substitution reproduces all ten (same names and failure modes). Original scope checks remain active; no new regression after fixing an initial hook-order error in the uncommitted implementation. Tools/access is a truthful configured-capability view, not a claim that every model route has identical tool definitions; actual definitions remain in The Prompt. Page insertion is marked editor-connected/checked on send; image conversation tooling is explicitly unavailable.
