@@ -231,8 +231,9 @@ describe("IngestionModule", () => {
       version: "1",
       records: [],
     });
-    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) =>
       makeStatus({
+        session: request.session,
         status: "initialized",
         states: ["ingest_status_inspected"],
         entity_spelling_audit: [],
@@ -502,6 +503,201 @@ describe("IngestionModule", () => {
     const priorRecap = await screen.findByLabelText("Prior processed recap");
     await waitFor(() => expect(priorRecap).toHaveDisplayValue("Load a processed recap…"));
     expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
+  });
+
+  it("follows mounted route session changes and ignores an earlier A response after A→B→A", async () => {
+    const firstA = deferred<RecapIngestStatus>();
+    const sessionB = deferred<RecapIngestStatus>();
+    const secondA = deferred<RecapIngestStatus>();
+    const requests = vi.mocked(recapIngestApi.postRecapIngest);
+    let hasVisitedB = false;
+    const statusFor = (sessionNumber: number, path: string) => makeStatus({
+      session: sessionNumber,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      warnings: [path],
+      entity_spelling_audit: [],
+    });
+    requests.mockImplementation((body) => {
+      if (body.operation !== "inspect_status") return Promise.resolve(makeStatus({ session: body.session }));
+      if (body.session === 10) return hasVisitedB ? secondA.promise : firstA.promise;
+      if (body.session === 11) {
+        hasVisitedB = true;
+        return sessionB.promise;
+      }
+      return Promise.resolve(makeStatus({ session: body.session }));
+    });
+
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(10));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+
+    await waitFor(() => expect(requests).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status", session: 10 })));
+    await act(async () => { await Promise.resolve(); });
+    const initialACallCount = requests.mock.calls.filter(([request]) => request.operation === "inspect_status" && request.session === 10).length;
+    window.history.replaceState({}, "", route(11));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(requests).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status", session: 11 })));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+
+    window.history.replaceState({}, "", route(10));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(requests.mock.calls.filter(([request]) => request.operation === "inspect_status" && request.session === 10).length).toBeGreaterThan(initialACallCount));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(10);
+
+    await act(async () => {
+      firstA.resolve(makeStatus({
+        ...statusFor(10, "stale-first-A-session-10.md"),
+      }));
+      await firstA.promise;
+    });
+    expect(document.body).not.toHaveTextContent("stale-first-A-session-10.md");
+
+    await act(async () => {
+      secondA.resolve(makeStatus({
+        ...statusFor(10, "current-second-A-session-10.md"),
+      }));
+      await secondA.promise;
+    });
+    await waitFor(() => expect(document.body).toHaveTextContent("current-second-A-session-10.md"));
+    await act(async () => {
+      sessionB.resolve(makeStatus({
+        ...statusFor(11, "stale-B-session-11.md"),
+      }));
+      await sessionB.promise;
+    });
+    expect(document.body).not.toHaveTextContent("stale-B-session-11.md");
+  });
+
+  it("ignores deferred Process results across mounted World A→B→A and preserves the recap draft", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const pendingWorldAProcess = deferred<RecapIngestStatus>();
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) => {
+      if (request.operation === "generate_recap_memory") return pendingWorldAProcess.promise;
+      return makeStatus({
+        campaign_id: request.campaign_id,
+        session: request.session,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    });
+
+    const props = { campaignId: "longmont-c2", session: 22 } as const;
+    const { rerender } = render(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    const recap = "Session 22 — A draft that must survive World navigation.";
+    await fillRecapInputs(user, recap, "Session 22 — Route safety");
+    await user.click(await screen.findByRole("button", { name: "Process recap" }));
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "generate_recap_memory",
+      managed_world_id: "elderwyld",
+      session: 22,
+    })));
+
+    rerender(<IngestionModule {...props} managedWorldId="conks-and-cons" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    rerender(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+
+    await act(async () => {
+      pendingWorldAProcess.resolve(makeStatus({
+        campaign_id: "longmont-c2",
+        session: 22,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "candidate_validation_ready",
+            extraction_run_id: "world-a-stale-run",
+            candidate_node_count: 3,
+            candidate_edge_count: 2,
+          },
+        },
+      }));
+      await pendingWorldAProcess.promise;
+    });
+
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    expect(screen.queryByRole("region", { name: "Graph-enriched recap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Recap processed")).not.toBeInTheDocument();
+  });
+
+  it("drops a deferred saved-reader projection when the mounted route changes sessions", async () => {
+    const oldSessionProjection = deferred<HistoricalRecapWorldProjectionResponse>();
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([
+        makeRecapArtifactRecord("longmont-c2", 10),
+        makeRecapArtifactRecord("longmont-c2", 11),
+      ]),
+    );
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: {
+        ...makeStatus().paths,
+        canonical_recap: `Session ${request.session}.md`,
+        normalized_recap: `Session ${request.session}.md`,
+      },
+    }));
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation((runId) =>
+      runId === "run-session-10"
+        ? oldSessionProjection.promise
+        : Promise.resolve(historicalRecapProjectionForRun(runId)),
+    );
+
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}&view=recap&recapReviewRunId=run-session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(10));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-10", "elderwyld"));
+
+    window.history.replaceState({}, "", route(11));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-11", "elderwyld"));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(await screen.findByText("Session 11 — Mireward Road")).toBeInTheDocument();
+
+    await act(async () => {
+      oldSessionProjection.resolve(historicalRecapProjectionForRun("run-session-10"));
+      await oldSessionProjection.promise;
+    });
+    expect(screen.getByText("Session 11 — Mireward Road")).toBeInTheDocument();
+    expect(screen.queryByText("Session 10 — Mireward Road")).not.toBeInTheDocument();
+  });
+
+  it("preserves the recap draft under its original session when the operator changes sessions", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      session: request.session,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      entity_spelling_audit: [],
+    }));
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const recapInput = await screen.findByRole("textbox", { name: "Write or paste a recap" });
+    await user.type(recapInput, "Session 10 source text that must stay bound to Session 10.");
+    await user.clear(screen.getByLabelText("Session title"));
+    await user.type(screen.getByLabelText("Session title"), "Session 10 - The Guard Arrives");
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "11" } });
+    });
+
+    expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Draft preserved · Session 10/)).toBeInTheDocument();
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await user.click(within(toolbar).getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(
+      "Session 10 source text that must stay bound to Session 10.",
+    );
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(10);
   });
 
   it("uses the latest session target when a prior recap list resolves late", async () => {
