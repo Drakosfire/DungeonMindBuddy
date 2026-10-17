@@ -51,3 +51,22 @@ it('supports keyboard movement and refuses an interior drop', () => {
   document.querySelector('[aria-label="Move table"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
   expect(editor.state.doc.firstChild?.textContent).toBe('Soldiers');
 });
+
+it('never splits adjacent titled tables during Up, Down or an interior-caption drop', () => {
+  const editor = mount();
+  editor.commands.setContent(markdownToTiptapDoc('## A\n\n| d1 | Name |\n| --- | --- |\n| 1 | Mara |\n\n## B\n\n| d1 | Name |\n| --- | --- |\n| 1 | Pell |').doc);
+  const before = editor.getJSON();
+  const pairs = () => {
+    const values: string[] = []; editor.state.doc.forEach(node => values.push(node.type.name === 'heading' ? node.textContent : node.lastChild!.lastChild!.textContent)); return values;
+  };
+  document.querySelectorAll('[aria-label="Move table"]')[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }));
+  expect(pairs()).toEqual(['B', 'Pell', 'A', 'Mara']);
+  editor.commands.undo(); expect(editor.getJSON()).toEqual(before);
+  document.querySelectorAll('[aria-label="Move table"]')[1]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
+  expect(pairs()).toEqual(['B', 'Pell', 'A', 'Mara']);
+  editor.commands.undo(); expect(editor.getJSON()).toEqual(before);
+  const positions: number[] = []; editor.state.doc.forEach((node, pos) => { if (node.type.name === 'table') positions.push(pos); });
+  moveTable(editor.view, tableMoveRange(editor.view, positions[1]!)!, positions[0]!);
+  expect(pairs()).toEqual(['B', 'Pell', 'A', 'Mara']);
+  editor.commands.undo(); expect(editor.getJSON()).toEqual(before);
+});

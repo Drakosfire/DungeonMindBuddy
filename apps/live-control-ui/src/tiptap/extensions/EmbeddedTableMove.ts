@@ -12,8 +12,13 @@ export function tableMoveRange(view: EditorView, position: number) {
 }
 
 export function moveTable(view: EditorView, range: { from: number; to: number }, destination: number) {
-  if (!view.editable || destination >= range.from && destination <= range.to) return false;
+  if (!view.editable) return false;
   if (destination < 0 || destination > view.state.doc.content.size || view.state.doc.resolve(destination).depth !== 0) return false;
+  // A drop must not separate another table from its adjacent caption.
+  if (view.state.doc.nodeAt(destination)?.type.name === 'table') {
+    destination = tableMoveRange(view, destination)?.from ?? destination;
+  }
+  if (destination >= range.from && destination <= range.to) return false;
   const content = view.state.doc.slice(range.from, range.to).content;
   const target = destination > range.to ? destination - (range.to - range.from) : destination;
   view.dispatch(view.state.tr.delete(range.from, range.to).insert(target, content).scrollIntoView());
@@ -66,8 +71,17 @@ export function embeddedTableMove(view: EditorView, getPos: () => number | undef
     if (!range) return;
     const previous = view.state.doc.resolve(range.from).nodeBefore;
     const next = view.state.doc.resolve(range.to).nodeAfter;
-    if (event.key === 'ArrowUp' && previous) moveTable(view, range, range.from - previous.nodeSize);
-    if (event.key === 'ArrowDown' && next) moveTable(view, range, range.to + next.nodeSize);
+    if (event.key === 'ArrowUp' && previous) {
+      const before = range.from - previous.nodeSize;
+      moveTable(view, range, previous.type.name === 'table' ? tableMoveRange(view, before)?.from ?? before : before);
+    }
+    if (event.key === 'ArrowDown' && next) {
+      let after = range.to + next.nodeSize;
+      if (next.type.name === 'heading' && next.attrs.level === 2 && view.state.doc.nodeAt(after)?.type.name === 'table') {
+        after += view.state.doc.nodeAt(after)!.nodeSize;
+      }
+      moveTable(view, range, after);
+    }
   };
   handle.addEventListener('dragstart', start); handle.addEventListener('dragend', end); handle.addEventListener('keydown', key);
   view.dom.addEventListener('dragover', over, true); view.dom.addEventListener('drop', drop, true);
