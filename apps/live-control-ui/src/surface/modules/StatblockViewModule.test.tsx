@@ -162,7 +162,7 @@ function addedResponse(): AddGeneratedStatblockResponse {
   };
   return {
     added_entities: [added],
-    encounter: encounter({ draft: { ...encounter().draft, entities: [added] } }),
+    encounter: encounter({ revision: 2, draft: { ...encounter().draft, entities: [added] } }),
   };
 }
 
@@ -205,9 +205,11 @@ describe("StatblockViewModule", () => {
     const addSpy = vi.spyOn(combatApi, "addGeneratedStatblockToEncounter").mockResolvedValue(addedResponse());
     await userEvent.click(addButton);
 
-    expect(addSpy).toHaveBeenCalledWith("elderwyld", encounter().encounter_id, "statblock-one", { team: "enemy", count: 1 });
+    expect(addSpy).toHaveBeenCalledWith("elderwyld", encounter().encounter_id, "statblock-one", {
+      expected_revision: 1, team: "enemy", count: 1,
+    });
     expect(await screen.findByText("Added Geomantic Drake Juvenile to Mireward Gate.")).toBeInTheDocument();
-    expect(screen.getByText(/Round 1 · 1 combatant · rev 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Round 1 · 1 combatant · rev 2/)).toBeInTheDocument();
   });
 
   it("sends changed add-to-encounter options", async () => {
@@ -224,7 +226,7 @@ describe("StatblockViewModule", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add to encounter" }));
 
     expect(combatApi.addGeneratedStatblockToEncounter).toHaveBeenCalledWith("elderwyld", encounter().encounter_id, "statblock-one", {
-      team: "ally", count: 2, initiative: 17, name_override: "South Gate Drake", notes: "Arrives from south gate.",
+      expected_revision: 1, team: "ally", count: 2, initiative: 17, name_override: "South Gate Drake", notes: "Arrives from south gate.",
     });
   });
 
@@ -244,7 +246,9 @@ describe("StatblockViewModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter to receive statblock" }), currentEncounter.encounter_id);
     await userEvent.click(await screen.findByRole("button", { name: "Add to encounter" }));
-    expect(addSpy).toHaveBeenCalledWith("elderwyld", currentEncounter.encounter_id, "statblock-one", { team: "enemy", count: 1 });
+    expect(addSpy).toHaveBeenCalledWith("elderwyld", currentEncounter.encounter_id, "statblock-one", {
+      expected_revision: 1, team: "enemy", count: 1,
+    });
 
     view.setWorld("conks-and-cons");
     await screen.findByRole("option", { name: "Conks encounter · rev 1" });

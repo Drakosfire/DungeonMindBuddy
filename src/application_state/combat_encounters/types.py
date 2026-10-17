@@ -16,6 +16,12 @@ _WORLD_ID = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
 _MAX_DRAFT_BYTES = 700 * 1024
 
 
+def _campaign_id_not_blank(value: str | None) -> str | None:
+    if value is not None and not value.strip():
+        raise ValueError("campaign_id must not be blank")
+    return value
+
+
 class CombatEntityProvenance(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -178,6 +184,11 @@ class CombatEncounterRecord(BaseModel):
             raise ValueError("world_id must be a canonical managed World id")
         return value
 
+    @field_validator("campaign_id")
+    @classmethod
+    def _nonblank_campaign_id(cls, value: str | None) -> str | None:
+        return _campaign_id_not_blank(value)
+
     @model_validator(mode="after")
     def _scope_is_coherent(self) -> CombatEncounterRecord:
         if self.session is not None and self.campaign_id is None:
@@ -192,6 +203,11 @@ class CreateCombatEncounterRequest(BaseModel):
     campaign_id: str | None = Field(default=None, max_length=128)
     session: int | None = Field(default=None, ge=1, le=9999)
     ruleset_id: str = Field(default="generic.manual-tracking", min_length=1, max_length=96)
+
+    @field_validator("campaign_id")
+    @classmethod
+    def _nonblank_campaign_id(cls, value: str | None) -> str | None:
+        return _campaign_id_not_blank(value)
 
     @model_validator(mode="after")
     def _scope_is_coherent(self) -> CreateCombatEncounterRequest:
@@ -210,6 +226,7 @@ class SaveCombatEncounterRequest(BaseModel):
 class AddGeneratedStatblockRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    expected_revision: int = Field(ge=1)
     team: Literal["pc", "ally", "enemy", "neutral"] = "enemy"
     count: int = Field(default=1, ge=1, le=20)
     name_override: str | None = Field(default=None, max_length=160)

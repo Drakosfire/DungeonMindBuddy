@@ -194,3 +194,11 @@ Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is prese
 - Re-anchor merge commit: `bd84b2e870f38303f04019609c42a77da465d020`, with C0 branch head `ce8a507ecd32de9628f83e453f0f9ab1e72769b7` and current main `42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` as parents.
 - GitHub comparison against current `main@42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` reports the C0 branch ahead by its six implementation/history commits and zero commits behind. The cumulative PR diff remains the exact 20 paths in §8; the four-commit main advance from the prior checkpoint touched only requested-detail writer paths outside this lease.
 - No GitHub Actions PR workflow runs are attached to the re-anchor commit. Fresh owning C0 tests and independent exact-head review remain pending; do not reuse the older-head checks above as current-head proof.
+
+
+### C0 review HOLD repair — stale statblock writes and campaign scope (2026-10-17)
+
+- PRIME's review found that generated-statblock insertion read the latest encounter revision and then used that value for its save, allowing a stale UI selection to overwrite a newer encounter. The request now requires the caller's `expected_revision`; the service rejects a mismatch before reading the statblock and still uses the caller revision for the final atomic compare-and-swap, so a concurrent save during lookup also wins safely. The Statblock UI sends the selected encounter revision.
+- Campaign IDs containing only whitespace (or an empty string) now fail request and stored-record validation before SQL. HTTP regression coverage confirms `422` and no created encounter, both with and without a session.
+- Owning verification on the prepared repair candidate, based on PR head `1b47ff69b046d86f4fd911cf86d41145d98f3ec1`: backend persistence/routes/statblock suites **34 passed**; focused CombatRoster/Statblock UI suites **16 passed**; TypeScript app and node checks passed; production Vite build passed (709 modules, existing large-chunk warning); scoped Ruff and `git diff --check` passed. One unrelated Pydantic warning in `citation_freshness.py` remains.
+- This records the repair candidate only. The repaired commit must be published to the existing PR and receive a fresh exact-head PRIME review; no merge, rendered acceptance, live API, database, or 5202 changes are authorized by this repair.

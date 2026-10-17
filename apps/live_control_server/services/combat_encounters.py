@@ -19,7 +19,10 @@ from application_state.combat_encounters.types import (
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
-from application_state.errors import ApplicationStateValidationError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateValidationError,
+)
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.services.statblock_view import (
     StatblockViewError,
@@ -59,6 +62,10 @@ def add_generated_statblock_to_world_combat_encounter(
     request: AddGeneratedStatblockRequest,
 ) -> AddGeneratedStatblockResponse:
     encounter = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id)
+    if encounter.revision != request.expected_revision:
+        raise ApplicationStateConflictError(
+            "Combat encounter changed since it was selected; reload before adding a statblock"
+        )
     detail = read_generated_statblock(
         base=session_dir(), root=repo_root(), artifact_id=artifact_id
     )
@@ -164,7 +171,7 @@ def add_generated_statblock_to_world_combat_encounter(
         world_id=world_id,
         encounter_id=encounter_id,
         request=SaveCombatEncounterRequest(
-            expected_revision=encounter.revision,
+            expected_revision=request.expected_revision,
             draft=draft,
         ),
     )

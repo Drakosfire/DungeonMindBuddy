@@ -90,11 +90,13 @@ function AddToCombatPanel({
   detail,
   worldId,
   encounterId,
+  encounter,
   onAdded,
 }: {
   detail: GeneratedStatblockDetailResponse;
   worldId: string;
   encounterId: string;
+  encounter: CombatEncounterRecord | null;
   onAdded: (response: AddGeneratedStatblockResponse) => void;
 }) {
   const [team, setTeam] = useState<CombatTeam>("enemy");
@@ -119,6 +121,10 @@ function AddToCombatPanel({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!encounter || encounter.encounter_id !== encounterId) {
+      setError("Choose the encounter that should receive this statblock.");
+      return;
+    }
     const generation = targetGeneration.current;
     setSubmitting(true);
     setError(null);
@@ -126,6 +132,7 @@ function AddToCombatPanel({
     const parsedCount = Number.parseInt(count, 10);
     const parsedInitiative = initiative.trim() === "" ? null : Number.parseInt(initiative, 10);
     const request: AddGeneratedStatblockRequest = {
+      expected_revision: encounter.revision,
       team,
       count: Number.isFinite(parsedCount) ? parsedCount : 1,
     };
@@ -180,7 +187,12 @@ function AddToCombatPanel({
           Notes
           <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional combat notes" />
         </label>
-        <button type="submit" disabled={submitting || !encounterId}>{submitting ? "Adding…" : "Add to encounter"}</button>
+        <button
+          type="submit"
+          disabled={submitting || !encounterId || !encounter}
+        >
+          {submitting ? "Adding…" : "Add to encounter"}
+        </button>
       </form>
       {success ? <p className="module-success">{success}</p> : null}
       {error ? <p className="module-error">Unable to add to combat: {error}</p> : null}
@@ -246,7 +258,13 @@ function Detail({
         <span>Combat-ready ✅</span>
       </section>
 
-      <AddToCombatPanel detail={detail} worldId={worldId} encounterId={encounterId} onAdded={onAdded} />
+      <AddToCombatPanel
+        detail={detail}
+        worldId={worldId}
+        encounterId={encounterId}
+        encounter={encounter}
+        onAdded={onAdded}
+      />
       <CurrentCombatReadback encounter={encounter} />
 
       <section aria-label="Combat summary">

@@ -97,6 +97,7 @@ export interface CreateCombatEncounterRequest {
 }
 
 export interface AddGeneratedStatblockRequest {
+  expected_revision: number;
   team: CombatEntity["team"];
   count: number;
   name_override?: string | null;

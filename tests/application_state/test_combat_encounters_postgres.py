@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from threading import Barrier
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -15,6 +17,7 @@ from application_state.combat_encounters.service import (
 )
 from application_state.combat_encounters.types import (
     CombatEncounterDraft,
+    CombatEncounterRecord,
     CombatEntity,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
@@ -183,6 +186,39 @@ def test_create_rejects_session_without_campaign_and_draft_duplicate_references(
                 {"group_key": "drakes", "label": "More drakes", "member_ids": ["two"]},
             ],
         )
+
+
+@pytest.mark.parametrize("campaign_id", ["", "   "])
+@pytest.mark.parametrize("session", [None, 29])
+def test_blank_campaign_scope_is_rejected_by_request_and_record(
+    campaign_id: str,
+    session: int | None,
+) -> None:
+    with pytest.raises(ValueError, match="campaign_id must not be blank"):
+        CreateCombatEncounterRequest(
+            title="Invalid campaign scope",
+            campaign_id=campaign_id,
+            session=session,
+        )
+
+    ruleset = rulesets.load_ruleset("generic.manual-tracking")
+    now = datetime.now(UTC)
+    valid_record = CombatEncounterRecord(
+        encounter_id=uuid4(),
+        world_id="elderwyld",
+        campaign_id="longmont-c2",
+        session=session,
+        revision=1,
+        ruleset=ruleset,
+        ruleset_digest=rulesets.ruleset_digest(ruleset),
+        draft=_draft("Valid scope"),
+        created_at=now,
+        updated_at=now,
+    )
+    payload = valid_record.model_dump()
+    payload["campaign_id"] = campaign_id
+    with pytest.raises(ValueError, match="campaign_id must not be blank"):
+        CombatEncounterRecord.model_validate(payload)
 
 
 def test_world_id_validation_fails_before_database_access() -> None:
