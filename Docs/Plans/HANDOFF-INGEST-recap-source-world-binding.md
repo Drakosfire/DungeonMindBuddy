@@ -30,6 +30,7 @@ PRIME independently verified runner registration omits World, creator has no Wor
 - apps/live_control_server/services/source_artifact_registry.py
 - apps/live_control_server/services/graph_preview_runner.py
 - apps/live_control_server/services/graph_run_registry.py
+- apps/live_control_server/services/exact_run_evidence_correction.py (derived recap child must inherit the exact verified parent World context; no new resolution or fallback)
 - apps/live_control_server/services/historical_recap_world_projection.py
 - apps/live_control_server/services/graph_object_authoring_prepare.py
 - apps/live_control_server/services/session28_retained_package_registration.py
