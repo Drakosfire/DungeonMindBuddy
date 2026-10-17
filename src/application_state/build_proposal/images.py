@@ -20,7 +20,7 @@ from application_state.unit_of_work import unit_of_work
 
 class BuildImageService:
     def prepare(
-        self, reservation: BuildProposalReservation, owner: str, prompt: str, alt: str
+        self, reservation: BuildProposalReservation, owner: str, prompt: str, alt: str, *, writer_proof=None
     ) -> BuildImagePreparation:
         world = reservation.basis.world_id
         with unit_of_work(_ready_dsn()) as conn:
@@ -47,6 +47,7 @@ class BuildImageService:
                     or previous.owner_id != owner
                     or previous.prompt != prompt
                     or previous.alt != alt
+                    or previous.writer_proof != writer_proof
                 ):
                     raise ApplicationStateConflictError(
                         "Image preparation key has a different request"
@@ -70,6 +71,7 @@ class BuildImageService:
                 updated_at=now,
                 prompt=prompt,
                 alt=alt,
+                writer_proof=writer_proof,
             )
             conn.execute(
                 "INSERT INTO agent.build_proposal(action_id,world_id,conversation_id,idempotency_key,revision,payload) VALUES(%s,%s,%s,%s,1,%s)",

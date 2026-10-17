@@ -97,6 +97,11 @@ class BuildJevHarness:
             budget["buildJevActions"]["source_writer_output_policy"] = POLICY
             from application_state.agent_conversation.writer_evidence_selection import POLICY as SELECTION_POLICY
             budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
+        if accounting is not None and cap is not None:
+            from application_state.build_proposal.types import ImageDirection
+            budget["buildJevActions"]["image_preparation_schema_sha256"] = digest(ImageDirection.model_json_schema())
+            budget["buildJevActions"]["image_preparation_policy"] = "captured_build_image_prompt_alt_v1"
+            budget["buildJevActions"]["allowed_surface_operations"] = ["answer_from_sources", "prepare_build_image", "propose_build_insertion"]
         return budget
 
     def configured_budget(self, request):
@@ -157,6 +162,9 @@ class BuildJevHarness:
         )
         try:
             asyncio.run(self._decide(adapter, driver))
+            if driver.operation == "prepare_build_image":
+                from .build_image_writer import prepare_image
+                return prepare_image(self, adapter, driver)
             if driver.operation == "propose_build_insertion":
                 return self._proposal(adapter, driver)
             while not isinstance(driver.step, Disposition):

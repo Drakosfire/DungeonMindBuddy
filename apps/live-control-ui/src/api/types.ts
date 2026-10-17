@@ -1115,6 +1115,20 @@ export interface WorldBuildAuthoringCompletionV1 {
   envelope_sha256: string;
 }
 
+export interface WorldBuildImagePreparationCompletionV1 {
+  schema: "dmb_build_image_preparation_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "prepared_image_direction";
+  answer_context_status: "image_preparation_ready";
+  answer_segments: {kind: "connective"; text: string}[];
+  citation_map: null;
+  action_id: string;
+  reservation_sha256: string;
+  preparation_result_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+}
+
 export interface SavedBuildSectionTargetV1 {
   schema: "dmb_saved_build_section_target_v1";
   kind: "saved_build_section";
@@ -1134,7 +1148,7 @@ export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanCon
   schema: "dmb_build_graph_context_response_v1";
   saved_source_sections?: SavedBuildSectionTargetV1[];
   receipt: WorldBuildGraphReceiptV1;
-  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | null;
+  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | WorldBuildImagePreparationCompletionV1 | null;
 }
 
 export interface WorldPlanEvidenceAnchorStatusV1 {

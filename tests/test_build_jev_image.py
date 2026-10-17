@@ -1,0 +1,211 @@
+"""Real mocked decision+writer SDKs, actual APP preparation/completion and recovery."""
+
+import json
+from hashlib import sha256
+from uuid import uuid5
+import httpx
+import psycopg
+import pytest
+from psycopg.types.json import Jsonb
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation import types as ledger
+from application_state.build_proposal.images import BuildImageService
+from application_state.errors import (
+    ApplicationStateIntegrityError,
+    ApplicationStateNotFoundError,
+)
+from apps.live_control_server.services import build_image_writer as image_writer
+from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+from apps.live_control_server.services.build_jev_accounting import (
+    ExperimentalAccounting,
+)
+from tests.test_agent_build_jev_ordinary_harness import (
+    DecisionWire,
+    ordinary_case,
+    build_case as _build_case,
+)
+from tests.test_agent_build_governed_graph import execute
+
+
+@pytest.fixture
+def build_case(tmp_path, monkeypatch, application_state_dsn):
+    return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+
+
+class ImageWire(httpx.AsyncBaseTransport):
+    def __init__(self, *, timeout=False, after=None):
+        self.calls = []
+        self.timeout = timeout
+        self.after = after
+        self.text = json.dumps(
+            {
+                "prompt": "An overhead fantasy map of the peaceful fort town beside its swamp, with the marketplace as proposed layout.",
+                "alt": "Proposed map of the fort town",
+            }
+        )
+
+    async def handle_async_request(self, request):
+        self.calls.append(request)
+        if self.timeout:
+            raise httpx.ReadTimeout("synthetic uncertain send", request=request)
+        if self.after:
+            self.after()
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "id": "image-direction",
+                "object": "response",
+                "created_at": 1,
+                "status": "completed",
+                "model": "gpt-6-luna",
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "msg",
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": self.text,
+                                "annotations": [],
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 35,
+                    "total_tokens": 135,
+                },
+            },
+        )
+
+
+def setup(build_case, monkeypatch, **wire_options):
+    case, reads = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    request = request.model_copy(
+        update={
+            "message": "Open the image wizard with a map prompt based on this town and our conversation."
+        }
+    )
+    monkeypatch.setattr(image_writer, "_model", lambda: "gpt-6-luna")
+    decision = DecisionWire(operation="prepare_build_image")
+    wire = ImageWire(**wire_options)
+    runtime = BuildJevHarness(
+        decision_transport=decision,
+        writer_transport=wire,
+        accounting=ExperimentalAccounting(
+            "synthetic-owner-test", lambda text: len(text) // 4
+        ),
+    )
+    return (source, request, bootstrap), reads, runtime, decision, wire
+
+
+def test_image_operation_prepares_one_writer_and_reopens_without_generation(
+    build_case, monkeypatch, tmp_path
+):
+    case, reads, runtime, decisions, wire = setup(build_case, monkeypatch)
+    response = execute(case, tmp_path, runtime, operator_subject="local_operator")
+    completion = response.knowledge_context.completion
+    assert isinstance(completion, ledger.BuildImagePreparationCompletionV1)
+    assert response.answer.text == ledger.BUILD_IMAGE_READY_TEXT
+    assert len(decisions.calls) == len(wire.calls) == 1 and reads == {
+        "graph": 0,
+        "source": 0,
+    }
+    image = BuildImageService().get(completion.action_id, "local_operator")
+    assert image.prompt == json.loads(wire.text)["prompt"] and image.asset_id is None
+    assert image.writer_proof.raw_response == wire.text
+    assert (
+        image.writer_proof.authorization.payload_sha256
+        == sha256(wire.calls[0].content).hexdigest()
+    )
+    packet = json.loads(json.loads(wire.calls[0].content)["input"])
+    assert packet["draft_markdown"] == case[1].build_write_capability.draft_markdown
+    assert json.loads(wire.calls[0].content)["tools"] == []
+    assert json.loads(wire.calls[0].content)["text"]["format"]["type"] == "json_schema"
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", image.reservation.conversation_id)[0]
+    assert turn.completion == completion
+    replay = execute(case, tmp_path, runtime, operator_subject="local_operator")
+    assert replay.knowledge_context.delivery_replay is True
+    assert len(decisions.calls) == len(wire.calls) == 1
+    with pytest.raises(ApplicationStateNotFoundError):
+        BuildImageService().get(image.action_id, "foreign")
+
+
+@pytest.mark.parametrize("field", ["prompt", "alt", "raw_response", "request_json"])
+def test_reopen_rejects_forged_preparation(
+    build_case, monkeypatch, tmp_path, application_state_dsn, field
+):
+    case, _, runtime, _, _ = setup(build_case, monkeypatch)
+    response = execute(case, tmp_path, runtime, operator_subject="local_operator")
+    action = response.knowledge_context.completion.action_id
+    with psycopg.connect(application_state_dsn) as conn:
+        payload = conn.execute(
+            "SELECT payload FROM agent.build_proposal WHERE action_id=%s", (action,)
+        ).fetchone()[0]
+        if field in {"prompt", "alt"}:
+            payload[field] += " forged"
+        else:
+            payload["writer_proof"][field] += " forged"
+        conn.execute(
+            "UPDATE agent.build_proposal SET payload=%s WHERE action_id=%s",
+            (Jsonb(payload), action),
+        )
+    with pytest.raises(ApplicationStateIntegrityError):
+        AgentConversationService().list_turns(
+            "elderwyld", case[1].build_write_capability.conversation_id
+        )
+
+
+def test_completion_failure_recovers_owned_preparation_without_another_writer(
+    build_case, monkeypatch, tmp_path
+):
+    case, _, runtime, decisions, wire = setup(build_case, monkeypatch)
+    original = AgentConversationService.complete_turn
+    monkeypatch.setattr(
+        AgentConversationService,
+        "complete_turn",
+        lambda *a, **k: (_ for _ in ()).throw(
+            ValueError("synthetic completion outage")
+        ),
+    )
+    with pytest.raises(Exception):
+        execute(case, tmp_path, runtime, operator_subject="local_operator")
+    action = uuid5(case[1].build_write_capability.idempotency_key, "image")
+    assert BuildImageService().get(action, "local_operator").writer_proof
+    monkeypatch.setattr(AgentConversationService, "complete_turn", original)
+    response = execute(case, tmp_path, runtime, operator_subject="local_operator")
+    assert response.knowledge_context.completion.action_id == action
+    assert len(decisions.calls) == len(wire.calls) == 1
+
+
+def test_unknown_writer_does_not_replay_or_create_preparation(
+    build_case, monkeypatch, tmp_path
+):
+    case, _, runtime, decisions, wire = setup(build_case, monkeypatch, timeout=True)
+    with pytest.raises(Exception):
+        execute(case, tmp_path, runtime, operator_subject="local_operator")
+    with pytest.raises(Exception):
+        execute(case, tmp_path, runtime, operator_subject="local_operator")
+    assert len(wire.calls) == 1
+    with pytest.raises(ApplicationStateNotFoundError):
+        BuildImageService().get(
+            uuid5(case[1].build_write_capability.idempotency_key, "image"),
+            "local_operator",
+        )
+
+
+def test_no_editor_capability_does_not_offer_image(build_case, monkeypatch):
+    case, _, runtime, _, _ = setup(build_case, monkeypatch)
+    request = case[1].model_copy(update={"build_write_capability": None})
+    assert (
+        "prepare_build_image"
+        not in runtime.configured_budget(request)["buildJevActions"][
+            "allowed_surface_operations"
+        ]
+    )

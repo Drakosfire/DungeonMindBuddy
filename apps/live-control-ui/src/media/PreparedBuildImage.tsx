@@ -6,7 +6,7 @@ import { MediaImageWizard, type GeneratedMediaImage } from './MediaImageWizard';
 import { mediaMarkdown } from './mediaReferences';
 
 export type PreparedImage = {schema_version:'dmb_build_image_preparation_v2';action_id:string;prompt:string;alt:string;revision:number;
-  asset_id:string|null;created_at:string;after_turn_sequence:number;reservation:{conversation_id:string;expected_pointer_revision:number;basis:BuildProposalBasis}};
+  asset_id:string|null;created_at:string;after_turn_sequence:number;reservation:{origin?:{durable_turn_id:string}|null;conversation_id:string;expected_pointer_revision:number;basis:BuildProposalBasis}};
 async function mediaRequest(path: string, body?: unknown, signal?: AbortSignal) {
   const {response} = await authenticatedApiFetch('/api/live/media/images/'+path,
     body ? {method:'POST',body:JSON.stringify(body),signal} : {signal});

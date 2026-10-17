@@ -1128,7 +1128,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildEncodedAssessmentPolicyV1
+            policy_class = (graph_types.BuildImageActionPolicyV1
+                if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                else graph_types.BuildEncodedAssessmentPolicyV1
                 if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
                 else graph_types.BuildInitialEstimatedSelectedSourcePolicyV1
                 if (budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
@@ -5538,9 +5540,12 @@ def execute_agent_turn(
                     ) from exc
             if (durable_turn is not None and request.build_write_capability is not None
                     and _governed_build_turn(request)):
-                from application_state.agent_conversation.build_authoring import recover_prepared_proposal
-                recovered = recover_prepared_proposal(conversation_service, durable_turn,
-                    request.build_write_capability.idempotency_key)
+                from application_state.agent_conversation.build_authoring import recover_prepared_proposal, recover_prepared_image
+                recovered = recover_prepared_image(conversation_service, durable_turn,
+                    request.build_write_capability.idempotency_key, operator_subject)
+                if recovered is None:
+                    recovered = recover_prepared_proposal(conversation_service, durable_turn,
+                        request.build_write_capability.idempotency_key)
                 if recovered is not None:
                     durable_turn = recovered
             if durable_turn is not None and durable_turn.status == "completed":
@@ -6306,6 +6311,7 @@ def execute_agent_turn(
             expected_conversation_id=policy_conversation_id,
         )
         if isinstance(selected_runtime, BuildJevHarness):
+            adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         span_id = trace.start_phase("runtime_dispatch")
         try:

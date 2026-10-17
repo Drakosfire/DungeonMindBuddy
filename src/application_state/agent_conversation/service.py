@@ -1239,8 +1239,8 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool) -> Turn:
-        from .types import BuildAuthoringCompletionV1, BuildActionControllerWriterPolicyV1
-        if prepared_recovery and not isinstance(result.completion, BuildAuthoringCompletionV1):
+        from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildActionControllerWriterPolicyV1
+        if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
@@ -1288,7 +1288,7 @@ class AgentConversationService:
                 if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
                 from .types import BuildCitedSourceActionControllerWriterPolicyV1
-                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, BuildAuthoringCompletionV1):
+                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
                     from .source_writer_output import validate_completion_proof
                     captured = conn.execute(
                         "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",

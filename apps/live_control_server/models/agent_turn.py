@@ -20,6 +20,7 @@ from application_state.agent_conversation.types import (
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
+    BuildImagePreparationCompletionV1,
     BuildSourcePassageCitationV1,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
@@ -672,7 +673,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     )
     receipt: BuildGraphContextReceiptV1
     saved_source_sections: list[AgentSavedBuildSectionTargetV1] = Field(default_factory=list, max_length=16384)
-    completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | None
+    completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
