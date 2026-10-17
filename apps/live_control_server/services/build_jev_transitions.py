@@ -324,24 +324,26 @@ class BuildJevTransitions:
                         raise ValueError("decision choice is not legal")
                     distribution = answer.get("probabilities")
                     if distribution is not None:
-                        if (
-                            set(distribution) != set(q.options)
-                            or abs(
-                                sum(_probability(p) for p in distribution.values()) - 1
-                            )
-                            > 0.00001
-                        ):
-                            raise ValueError("invalid choice distribution")
+                        if not isinstance(distribution, dict) or set(
+                            distribution
+                        ) != set(q.options):
+                            raise ValueError("invalid choice score keys")
+                        for probability in distribution.values():
+                            _probability(probability)
             available = self._available()
             if request.phase == "coverage":
                 chosen, excluded = [], []
                 for i, action in enumerate(available):
                     answer = answers[f"use_{i}"]
+                    scores = answer.get("probabilities") or {}
+                    # Never inflate a reported score or pretend rounded mass is normalized.
+                    exclusion_score = scores.get("not_useful", 0) / max(
+                        1.0, sum(scores.values())
+                    )
                     if (
                         answer["selected"] == "not_useful"
-                        and answer.get("probabilities") is not None
-                        and answer["probabilities"].get("not_useful", 0)
-                        >= self._exclusion_min
+                        and scores
+                        and exclusion_score >= self._exclusion_min
                     ):
                         excluded.append(action.id)
                     else:
