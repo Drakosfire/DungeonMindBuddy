@@ -31,6 +31,10 @@ def test_claimed_fill_schema_is_nodes_only() -> None:
     schema = party_claimed_fill_json_schema()
     assert set(schema["required"]) == {"filled_nodes"}
     assert "participation_edges" not in schema["properties"]
+    filled_node = schema["properties"]["filled_nodes"]["items"]
+    assert set(filled_node["properties"]) == {"node_id", "source_contexts"}
+    assert "description" not in filled_node["properties"]
+    assert "session_actions" not in filled_node["properties"]
     assert schema_for_pass(PASS_NAME)["required"] == ["filled_nodes"]
     assert (
         schema_for_pass_spec(
@@ -132,17 +136,7 @@ class _FillRecordingClient:
                     "filled_nodes": [
                         {
                             "node_id": "node:caelynn",
-                            "label": "Caelynn",
-                            "node_type": "character",
-                            "description": "Caelynn struck the wall defenders with lightning.",
-                            "importance": "high",
-                            "evidence_refs": [
-                                {
-                                    "source_row_index": 0,
-                                    "anchor_quotes": ["Caelynn"],
-                                }
-                            ],
-                            "session_actions": ["struck with lightning"],
+                            "source_contexts": [{"source_row_index": 0}],
                         }
                     ]
                 },
@@ -217,9 +211,18 @@ def test_pipeline_runs_claimed_fill_when_party_mentioned() -> None:
         for n in (g.get("nodes") or [])
         if isinstance(n, dict)
     }
-    assert descriptions.get("node:caelynn") == (
-        "Caelynn struck the wall defenders with lightning."
+    source_row = "Caelynn held the wall as the meat horde pressed Mireward Gate."
+    caelynn = next(
+        n
+        for g in graphs
+        for n in (g.get("nodes") or [])
+        if isinstance(n, dict) and n.get("node_id") == "node:caelynn"
     )
+    assert descriptions.get("node:caelynn") == source_row
+    assert caelynn["session_actions"] == [source_row]
+    assert len(caelynn["evidence_refs"]) == 1
+    assert caelynn["evidence_refs"][0]["source_span_ref_id"] == "span-1"
+    assert caelynn["evidence_refs"][0]["anchor_quotes"] == [source_row]
 
 
 def test_pipeline_skips_claimed_fill_when_disabled() -> None:

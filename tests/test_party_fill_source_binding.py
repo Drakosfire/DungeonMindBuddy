@@ -33,7 +33,10 @@ def packet():
                 "pc",
                 "ari",
                 2,
-                ("artifact:immutable:sha256:abc:paragraph:001",),
+                (
+                    "artifact:immutable:sha256:abc:paragraph:001",
+                    "artifact:immutable:sha256:abc:paragraph:002",
+                ),
                 ("Ari",),
             )
         ],
@@ -45,6 +48,10 @@ def packet():
             {
                 "source_span_ref_id": "artifact:immutable:sha256:abc:paragraph:002",
                 "text": "Ari returned to camp.",
+            },
+            {
+                "source_span_ref_id": "artifact:immutable:sha256:abc:paragraph:003",
+                "text": "Bea kept watch.",
             },
         ],
         allowed_target_node_ids=[],
@@ -69,14 +76,9 @@ def offered():
         "filled_nodes": [
             {
                 "node_id": "pc:ari",
-                "label": "Ari",
-                "node_type": "character",
-                "description": "Ari held the gate and returned to camp.",
-                "importance": "high",
-                "session_actions": ["held the gate", "returned to camp"],
-                "evidence_refs": [
-                    {"source_row_index": 0, "anchor_quotes": ["Ari held the gate."]},
-                    {"source_row_index": 1, "anchor_quotes": ["returned to camp"]},
+                "source_contexts": [
+                    {"source_row_index": 0},
+                    {"source_row_index": 1},
                 ],
             }
         ]
@@ -90,7 +92,7 @@ def spec():
         "fill",
         "fill",
         kind="claimed_fill",
-        source_row_indexes=(0, 1),
+        source_row_indexes=(0, 1, 2),
     )
 
 
@@ -117,13 +119,13 @@ def test_source_indexes_are_provider_schema_and_host_bound_without_mutating_pack
     assert not dropped["dropped_no_valid_evidence"]
     assert [
         ref["source_span_ref_id"] for ref in clean["nodes"][0]["evidence_refs"]
-    ] == [row["source_span_ref_id"] for row in p.source_rows]
+    ] == [row["source_span_ref_id"] for row in p.source_rows[:2]]
 
 
-@pytest.mark.parametrize("index", [-1, 2, True, "0"])
+@pytest.mark.parametrize("index", [-1, 3, True, "0"])
 def test_unknown_or_noninteger_rows_rejected_by_schema_and_host(index):
     raw = offered()
-    raw["filled_nodes"][0]["evidence_refs"][0]["source_row_index"] = index
+    raw["filled_nodes"][0]["source_contexts"][0]["source_row_index"] = index
     with pytest.raises(ValidationError):
         validate(raw, schema_for_pass_spec(spec()))
     bound, diag = bind_fill_evidence(packet(), raw)
@@ -132,37 +134,89 @@ def test_unknown_or_noninteger_rows_rejected_by_schema_and_host(index):
 
 
 @pytest.mark.parametrize(
+    "source_text",
+    [
+        "Ephanna will use Eldritch Blast.",
+        "If the ward breaks, Ephanna may cast Eldritch Blast.",
+        "Ephanna did not use Eldritch Blast.",
+        "Orik told Ephanna to use Eldritch Blast.",
+        "Ephanna held the gate. She will use Eldritch Blast next time.",
+    ],
+)
+def test_public_party_fill_preserves_complete_source_modality(source_text):
+    p = packet()
+    p.claims[0] = ClaimedEntity(
+        "pc:ephanna", "Ephanna", "pc", "ephanna", 1,
+        ("artifact:immutable:sha256:abc:paragraph:001",), ("Ephanna",),
+    )
+    p.baseline_nodes_by_id = {
+        "pc:ephanna": {
+            "node_id": "pc:ephanna",
+            "label": "Ephanna",
+            "description": "Existing accepted baseline",
+        }
+    }
+    p.source_rows = [
+        {
+            "source_span_ref_id": "artifact:immutable:sha256:abc:paragraph:001",
+            "text": source_text,
+        }
+    ]
+    raw = offered()
+    raw["filled_nodes"][0]["node_id"] = "pc:ephanna"
+    raw["filled_nodes"][0]["source_contexts"] = [{"source_row_index": 0}]
+
+    bound, diag = bind_fill_evidence(p, raw)
+
+    assert diag["enrichment_complete"]
+    node = bound["filled_nodes"][0]
+    assert node["description"] == source_text
+    assert node["session_actions"] == [source_text]
+    assert node["evidence_refs"] == [
+        {
+            "source_span_ref_id": "artifact:immutable:sha256:abc:paragraph:001",
+            "anchor_quotes": [source_text],
+        }
+    ]
+
+
+def test_party_fill_rejects_a_source_row_not_bound_to_that_claim():
+    raw = offered()
+    raw["filled_nodes"][0]["source_contexts"][1]["source_row_index"] = 2
+    bound, diag = bind_fill_evidence(packet(), raw)
+    assert bound is None
+    assert "source_row_not_linked_to_claim" in diag["binding_errors"]
+
+
+@pytest.mark.parametrize(
     "damage",
     [
-        "short_id",
+        "out_of_range_row",
         "cross_row",
-        "empty_quotes",
+        "empty_contexts",
         "partial",
         "duplicate",
         "invented",
-        "null_actions",
+        "provider_prose",
     ],
 )
 def test_invalid_fill_is_atomic_and_keeps_baseline(damage):
     p, raw = packet(), offered()
     node = raw["filled_nodes"][0]
-    if damage == "short_id":
-        node["evidence_refs"][0] = {
-            "source_span_ref_id": "artifact:paragraph:001",
-            "anchor_quotes": ["Ari"],
-        }
+    if damage == "out_of_range_row":
+        node["source_contexts"][0]["source_row_index"] = 99
     elif damage == "cross_row":
-        node["evidence_refs"][0]["anchor_quotes"] = ["returned to camp"]
-    elif damage == "empty_quotes":
-        node["evidence_refs"][0]["anchor_quotes"] = []
+        node["source_contexts"][1]["source_row_index"] = 2
+    elif damage == "empty_contexts":
+        node["source_contexts"] = []
     elif damage == "partial":
         p.claims.append(ClaimedEntity("pc:bea", "Bea", "pc", "bea", 1, (), ("Bea",)))
     elif damage == "duplicate":
         raw["filled_nodes"].append(deepcopy(node))
     elif damage == "invented":
         node["node_id"] = "pc:invented"
-    else:
-        node["session_actions"] = None
+    elif damage == "provider_prose":
+        node["description"] = "Provider-written paraphrase."
     baseline = deepcopy(p.baseline_nodes_by_id)
     bound, diag = bind_fill_evidence(p, raw)
     assert bound is None
@@ -211,8 +265,8 @@ def test_packaging_counts_nested_refs_and_rejects_unresolved(tmp_path, monkeypat
     assert diagnostics["resolvable_evidence_ref_count"] == 1
 
 
-@pytest.mark.parametrize("valid_quote", [True, False])
-def test_ge_producer_pipeline_binds_or_preserves_baseline(monkeypatch, valid_quote):
+@pytest.mark.parametrize("valid_context", [True, False])
+def test_ge_producer_pipeline_binds_or_preserves_baseline(monkeypatch, valid_context):
     from generationengine.types import TextResult
     from tests.test_bounded_recap_execution import deepseek_observation
     from tests.test_party_claimed_fill import _FillRecordingClient
@@ -238,10 +292,10 @@ def test_ge_producer_pipeline_binds_or_preserves_baseline(monkeypatch, valid_quo
             instructions="fill",
             user_content=request["user_prompt"],
         )["parsed"]
-        if not valid_quote:
-            payload["filled_nodes"][0]["evidence_refs"][0]["anchor_quotes"] = [
-                "fabricated action"
-            ]
+        if not valid_context:
+            payload["filled_nodes"][0]["source_contexts"].append(
+                {"source_row_index": 0}
+            )
         return _WorkerOutcome(
             {
                 "kind": "result",
@@ -297,17 +351,17 @@ def test_ge_producer_pipeline_binds_or_preserves_baseline(monkeypatch, valid_quo
     )
     assert len(received) == 1
     items = received[0]["json_schema"]["properties"]["filled_nodes"]["items"]
-    assert items["properties"]["evidence_refs"]["items"]["properties"][
+    assert items["properties"]["source_contexts"]["items"]["properties"][
         "source_row_index"
     ]["enum"] == [0]
     assert (
-        result.diagnostics["party_claimed_fill"]["enrichment_complete"] is valid_quote
+        result.diagnostics["party_claimed_fill"]["enrichment_complete"] is valid_context
     )
     graphs = [result.candidate_graph, result.registry_context_graph or {}]
     node = next(
         n for g in graphs for n in g.get("nodes", []) if n["node_id"] == "node:caelynn"
     )
-    if valid_quote:
+    if valid_context:
         assert node["enriched_by"] == PASS_NAME
         assert all(
             ref["source_span_ref_id"] == "span-1" for ref in node["evidence_refs"]
@@ -316,10 +370,7 @@ def test_ge_producer_pipeline_binds_or_preserves_baseline(monkeypatch, valid_quo
         assert node.get("enriched_by") != PASS_NAME
         assert "party_claimed_fill_incomplete" in node["warnings"]
         assert result.diagnostics["party_claimed_fill"]["filled_applied"] == 0
-        assert (
-            "quote_not_in_selected_row"
-            in result.diagnostics["party_claimed_fill"]["binding_errors"]
-        )
+        assert "duplicate_source_row" in result.diagnostics["party_claimed_fill"]["binding_errors"]
 
 
 def test_packaging_marks_preserved_incomplete_fill_unready(tmp_path, monkeypatch):
