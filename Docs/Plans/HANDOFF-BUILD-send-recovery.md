@@ -1,6 +1,12 @@
 # Build composer recovery
 
-Status: ACTIVE — PRIME operator-directed repair, serial.
+Status: SETTLED — merged PR #1290 at 2850ad248470d2965ac0dc6fd8acf5bcd5e59267.
+Independent ARCHITECTURE PASS at fddb2dca5f7577a36557094c9b74a964d6afe4b6.
+10 focused tests, typecheck, production build and diff check pass.
+5202 serves the reviewed UI; live Send enabled for the preserved operator table
+request. No operator table request was submitted by PRIME. API/5876 unchanged.
+The older Ask resolved during operator interaction; its initial absence was a
+point-in-time diagnostic. Runtime Agent write-tool awareness remains a separate gap.
 Base: 3ea8bd1dce89aa369d3108b6e3d33a220afca640.
 Branch: codex/build-send-recovery; checkout /tmp/prime-recap-mention-boundaries.
 
