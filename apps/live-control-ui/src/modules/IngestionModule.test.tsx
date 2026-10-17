@@ -505,6 +505,31 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
   });
 
+  it("reselects only the matching prior recap when the mounted route changes sessions", async () => {
+    const session10 = makeRecapArtifactRecord("longmont-c2", 10);
+    const session27 = makeRecapArtifactRecord("longmont-c2", 27);
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([session10, session27]),
+    );
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(27));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+    const priorRecap = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(priorRecap).toHaveValue(session27.artifact_id));
+
+    window.history.replaceState({}, "", route(10));
+    rerender(<IngestionModule {...props} />);
+
+    await waitFor(() => expect(priorRecap).toHaveValue(session10.artifact_id));
+    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Write or paste a recap" })).toHaveValue("");
+    expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(
+      ([request]) => request.operation !== "generate_recap_memory",
+    )).toBe(true);
+  });
+
   it("follows mounted route session changes and ignores an earlier A response after A→B→A", async () => {
     const firstA = deferred<RecapIngestStatus>();
     const sessionB = deferred<RecapIngestStatus>();
