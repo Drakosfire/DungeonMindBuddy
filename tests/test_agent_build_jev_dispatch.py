@@ -287,7 +287,7 @@ def test_first_state_accepts_real_nullable_none_focus_only(build_case, focus, ac
             policy.first_state(work, scoped, request.message, owner._expected_initial_claim_packet(scoped))
 
 
-@pytest.mark.parametrize('mutation', ['none', 'reorder', 'missing', 'unknown_reference', 'qualification'])
+@pytest.mark.parametrize('mutation', ['none', 'reorder', 'missing', 'unknown_reference', 'qualification', 'false_to_zero', 'true_to_one', 'int_to_float'])
 def test_compact_initial_admission_proves_exact_logical_packet(build_case, mutation):
     from copy import deepcopy
     from types import SimpleNamespace
@@ -297,7 +297,7 @@ def test_compact_initial_admission_proves_exact_logical_packet(build_case, mutat
     # Include exact qualified synthetic rows in the projection actually expected
     # by the admission seam, not in a caller-supplied authority packet.
     projection = bootstrap.retrieval_session.project_for_hermes()
-    projection['claim_ledger'] = [dict(claim_id='one', epistemic_kind='belief', evidence_ref_ids=[]),
+    projection['claim_ledger'] = [dict(claim_id='one', epistemic_kind='belief', evidence_ref_ids=[], selected=False, readable=True, count=2),
                                  dict(claim_id='two', epistemic_kind='reported', evidence_ref_ids=[])]
     expected = owner._expected_initial_claim_packet(bootstrap, projection)
     value = deepcopy(expected)
@@ -307,6 +307,11 @@ def test_compact_initial_admission_proves_exact_logical_packet(build_case, mutat
         value['claimLedger'].pop()
     elif mutation == 'qualification':
         value['claimLedger'][0]['epistemic_kind'] = 'fact'
+    elif mutation in {'false_to_zero', 'true_to_one', 'int_to_float'}:
+        key, replacement = {'false_to_zero': ('selected', 0),
+                            'true_to_one': ('readable', 1),
+                            'int_to_float': ('count', 2.0)}[mutation]
+        value['claimLedger'][0][key] = replacement
     compact = encode(value)
     if mutation == 'unknown_reference':
         compact['tables']['claimLedger']['references'] = [[0,0,999]]

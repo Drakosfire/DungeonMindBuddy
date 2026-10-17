@@ -584,7 +584,8 @@ def _initial_claim_packet_from_view(
             except (TypeError, KeyError, ValueError) as exc:
                 raise AgentTurnServiceError("The compact initial Graph packet is invalid.",
                     code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
-        if packet != expected:
+        from .build_initial_packet_codec import canonical
+        if canonical(packet) != canonical(expected):
             raise AgentTurnServiceError("The structured initial Graph packet differs.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
         return packet

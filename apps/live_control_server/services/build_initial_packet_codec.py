@@ -119,7 +119,7 @@ def encode(packet: dict) -> dict:
         result["tables"][key] = dict(
             columns=columns, rows=rows, presence=presence, references=references
         )
-    if decode(result) != packet:
+    if canonical(decode(result)) != canonical(packet):
         raise ValueError("Initial packet codec did not round trip exactly")
     return result
 

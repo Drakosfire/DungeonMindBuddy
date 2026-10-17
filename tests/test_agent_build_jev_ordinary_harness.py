@@ -756,3 +756,53 @@ def test_compact_first_sdk_keeps_nonempty_logical_membership_and_wire_hash(
         bootstrap
     )
     assert writer.calls == []
+
+
+@pytest.mark.parametrize("mutation", ["boolean_to_integer", "integer_to_float"])
+def test_compact_sdk_type_substitution_never_dispatches(
+    build_case, monkeypatch, tmp_path, mutation
+):
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    original = BuildJevDriver.authorize
+    checked = []
+
+    def authorize(driver, prepared):
+        body = json.loads(prepared.body)
+        assert body["state"]["schema"] == "dmb_build_jev_driver_decision_v2"
+        if mutation == "boolean_to_integer":
+            from apps.live_control_server.services.build_initial_packet_codec import decode, encode
+            packet = decode(body["state"]["initialClaimPacket"])
+            assert packet["candidates"][0]["selected"] is False
+            packet["candidates"][0]["selected"] = 0
+            body["state"]["initialClaimPacket"] = encode(packet)
+        else:
+            value = body["state"]["source_basis"]["registry_revision"]
+            assert type(value) is int
+            body["state"]["source_basis"]["registry_revision"] = float(value)
+        wire = json.dumps(body).encode()
+        changed = replace(prepared, body=wire, body_size=len(wire),
+                          body_sha256=sha256(wire).hexdigest())
+        # Same Python equality, different JSON types: the exact wire gate must refuse.
+        assert json.loads(prepared.body) == body
+        accepted = original(driver, changed)
+        checked.append(accepted)
+        return accepted
+
+    monkeypatch.setattr(BuildJevDriver, "authorize", authorize)
+    decisions, writer = DecisionWire(), WriterWire()
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
+    case, _ = ordinary_case(build_case, monkeypatch)
+    # Synthetic native projection includes a real JSON boolean in navigation metadata.
+    from copy import deepcopy
+    session = case[2].retrieval_session
+    projection = session.project_for_hermes()
+    projection["candidates"] = [{"node_id": "frank", "selected": False}]
+    monkeypatch.setattr(type(session), "project_for_hermes", lambda self: deepcopy(projection))
+    with pytest.raises(AgentTurnServiceError):
+        execute(case, tmp_path, harness)
+    assert checked == [False]
+    assert decisions.calls == writer.calls == []
+    assert harness.adapter.fence is None
+    assert harness.adapter.turn is None
