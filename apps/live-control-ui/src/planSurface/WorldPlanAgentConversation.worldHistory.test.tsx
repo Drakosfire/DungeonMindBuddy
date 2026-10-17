@@ -1,3 +1,6 @@
+vi.mock("../api/buildDocumentProposalApi", async original => ({
+  ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
+}));
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { Editor } from "@tiptap/core";

@@ -21,6 +21,7 @@ from apps.live_control_server.config import (
     session_dir,
     world_graph_root,
 )
+from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
     AgentConversationHistoryBuildTurnV2,
@@ -1628,3 +1629,79 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
     except Exception:
         _finalize_unlogged_agent_trace(trace, status="error")
         raise
+
+
+@router.post("/worlds/{world_id}/build-proposals")
+def post_build_document_proposal(world_id: str, body: BuildDocumentProposalRequest, request: Request):
+    """Creative authoring proposal only; workspace Save remains a separate owner."""
+    from apps.live_control_server.services.build_document_proposal import compose, _public
+    from src.llm.generation_sync import run_awaitable_sync
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params or body.basis.world_id != verified:
+        raise HTTPException(status_code=422, detail={"code": "build_compose_scope_mismatch"})
+    try:
+        return {"schema": "dmb_build_proposal_response_v1", "record": _public(run_awaitable_sync(lambda: compose(body)))}
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "build_compose_state_unavailable"}) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 503), detail={"code": "build_compose_failed", "action_id": str(body.idempotency_key)}) from exc
+
+
+@router.get("/worlds/{world_id}/build-proposals")
+def list_build_document_proposals(world_id: str, conversation_id: UUID, request: Request):
+    from application_state.build_proposal.service import BuildProposalService
+    from apps.live_control_server.services.build_document_proposal import _public
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if set(request.query_params) != {"conversation_id"} or len(request.query_params.getlist("conversation_id")) != 1:
+        raise HTTPException(status_code=422, detail="one exact conversation selector is required")
+    try:
+        return {"schema": "dmb_build_proposal_list_v1", "world_id": verified, "conversation_id": str(conversation_id),
+            "records": [_public(record) for record in BuildProposalService().list(verified, conversation_id)]}
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_unavailable"}) from exc
+
+
+@router.get("/worlds/{world_id}/build-proposals/{action_id}")
+def get_build_document_proposal(world_id: str, action_id: UUID, request: Request):
+    from application_state.build_proposal.service import BuildProposalService
+    from apps.live_control_server.services.build_document_proposal import _public
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Build proposal does not accept query selectors")
+    try:
+        return {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().get(verified, action_id))}
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_unavailable"}) from exc
+
+
+@router.get("/worlds/{world_id}/build-proposals/{action_id}/prompt")
+def get_build_document_proposal_prompt(world_id: str, action_id: UUID, request: Request):
+    from fastapi.responses import JSONResponse
+    from apps.live_control_server.services.build_document_proposal import read_prompt
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Build prompt does not accept query selectors")
+    try:
+        return JSONResponse(read_prompt(verified, action_id), headers={"Cache-Control": "no-store"})
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "build_prompt_unavailable"}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code": "build_prompt_unavailable"}) from exc
+
+
+@router.post("/worlds/{world_id}/build-proposals/{action_id}/inserted")
+def report_build_document_proposal_inserted(world_id: str, action_id: UUID, request: Request, expected_revision: int = Query(ge=1)):
+    from application_state.build_proposal.service import BuildProposalService
+    from apps.live_control_server.services.build_document_proposal import _public
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if set(request.query_params) != {"expected_revision"} or len(request.query_params.getlist("expected_revision")) != 1:
+        raise HTTPException(status_code=422, detail="one exact revision selector is required")
+    try:
+        return {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().report_inserted(verified, action_id, expected_revision=expected_revision))}
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_insert_status_unavailable"}) from exc

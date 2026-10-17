@@ -28,6 +28,7 @@ On a saved Build worldbuilding document: ask “Create six NPCs for Edge, with j
 - apps/live_control_server/services/build_document_proposal.py (new)
 - apps/live_control_server/routes/agent.py (Build proposal/create/status/list/prompt routes only)
 - apps/live-control-ui/src/api/buildDocumentProposalApi.ts (new; own types/transport wrapper)
+- apps/live-control-ui/src/api/liveApi.evidenceReads.test.ts (Build proposal endpoint transport cases only; predecessor lease settled)
 - apps/live-control-ui/src/api/liveApi.ts (requiresNativeGraphAuthorization/canRetryLocalSessionRequest only; explicit function-level split from DOGFOOD's getHistoricalRecapWorldProjection)
 - apps/live-control-ui/src/documentEditing/markdownInsertion.ts (new shared pure insertion/admission helpers)
 - apps/live-control-ui/src/documentEditing/markdownInsertion.test.ts (new)
@@ -36,6 +37,7 @@ On a saved Build worldbuilding document: ask “Create six NPCs for Edge, with j
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx (publish Compose bridge)
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx
 - apps/live-control-ui/src/agentInteraction/WorldAgentConversation.tsx (typed Build capability)
+- apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx (mock the new independent proposal-list read; existing invariants unchanged)
 - apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx and .css (Build intent routing/inline receipts only)
 - apps/live-control-ui/src/planSurface/components/BuildComposeProposal.tsx and .test.tsx (new)
 - apps/live-control-ui/src/planSurface/components/BuildComposeProposal.css (new)
