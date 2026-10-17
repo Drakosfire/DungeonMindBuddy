@@ -24,7 +24,7 @@ import {
   type WorkspaceDocumentLocalSurface,
   type WorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
-import { draftRecoveryIdentity, draftRecoveryKey, preserveDraftRecovery, readDraftRecovery, writeVerifiedLocalState, type WorkspaceDraftRecoveryReview } from "./workspaceDocumentRecovery";
+import { assertPersistedDraft, draftRecoveryIdentity, draftRecoveryKey, preserveDraftRecovery, readDraftRecovery, writeVerifiedLocalState, type WorkspaceDraftRecoveryReview } from "./workspaceDocumentRecovery";
 import { openWorkspaceDocumentAuthoringState } from "./openWorkspaceDocumentAuthoringState";
 import type { ReconcileLocalDraftResult } from "./reconcileLocalDraft";
 import { verifyCommitReceiptAgainstSnapshot } from "./verifyCommitReceiptAgainstSnapshot";
@@ -424,7 +424,7 @@ export function useWorkspaceDocumentAuthoring(
     }
     return JSON.stringify([current, editor.getJSON(), editorMutationGenerationRef.current,
       snap.loaded_revision, snap.content_sha256,
-      storage.getItem(`dmb.workspaceDocument.${args.documentId}`)]);
+      assertPersistedDraft(storage, current)]);
   }, [args.documentId, editor, machine.phase, storage]);
 
   const prepareDraftRecovery = useCallback((): WorkspaceDraftRecoveryReview => {
@@ -454,6 +454,7 @@ export function useWorkspaceDocumentAuthoring(
       updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
     preserveDraftRecovery(storage, original, next);
     setRecoveryVersion(v => v + 1);
+    assertPersistedDraft(storage, current);
     writeVerifiedLocalState(storage, next);
     localStateRef.current = next; localDirtyRef.current = next.dirty;
     setLocalState(next);
@@ -471,6 +472,7 @@ export function useWorkspaceDocumentAuthoring(
         && draftRecoveryIdentity(live) !== draftRecoveryIdentity(backup.original)) {
       throw new Error("There are newer edits or a different source revision. Your edits and recovery copy have been kept; nothing was restored.");
     }
+    assertPersistedDraft(storage, current);
     writeVerifiedLocalState(storage, backup.original);
     localStateRef.current = backup.original; localDirtyRef.current = backup.original.dirty;
     setLocalState(backup.original);

@@ -19,6 +19,16 @@ export function draftRecoveryIdentity(state: WorkspaceDocumentLocalState): strin
   const { created_at: _created, updated_at: _updated, last_local_save_at: _saved, ...identity } = state;
   return JSON.stringify(identity);
 }
+/** Detect independently changed storage; localStorage is not an atomic cross-tab CAS. */
+export function assertPersistedDraft(storage: Pick<Storage, "getItem">, expected: WorkspaceDocumentLocalState): string {
+  const raw = storage.getItem(workspaceDocumentStorageKey(expected.document_id));
+  let stored: unknown;
+  try { stored = raw == null ? null : JSON.parse(raw); } catch { stored = null; }
+  if (!isWorkspaceDocumentLocalState(stored) || draftRecoveryIdentity(stored) !== draftRecoveryIdentity(expected)) {
+    throw new Error("The stored draft changed in another tab or is unavailable. Your stored edits and recovery copy have been kept. Reopen the document before recovery.");
+  }
+  return raw!;
+}
 export function readDraftRecovery(storage: Pick<Storage, "getItem">, id: string): Checkpoint | null {
   const raw = storage.getItem(draftRecoveryKey(id));
   if (raw == null) return null;

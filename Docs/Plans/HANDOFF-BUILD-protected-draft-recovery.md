@@ -65,3 +65,9 @@ Implementation verification:
   checkpoint; original seal/dirty flags return, so Save cannot bypass protection.
 - Current live Edge flag/recovery is not claimed proven until adoption exposes
   the actual reason; no automated action will re-import or discard that draft.
+
+Review repair: require persisted-state identity to match this tab before review,
+confirmation and immediately before replacement/restore. Missing, unreadable,
+changed or inaccessible storage must preserve its bytes and recovery checkpoint.
+This detects observed divergence; localStorage read/write is not atomic cross-tab
+CAS and this slice does not claim cross-tab transaction exclusion.

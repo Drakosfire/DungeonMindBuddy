@@ -833,6 +833,37 @@ describe("verified protected draft recovery", () => {
     expect(() => result.current.restoreDraftRecovery()).toThrow(/newer edits/);
     expect(localStorage.getItem(key)).not.toBeNull();
   });
+  it.each(["before review", "after review", "before restore"])("preserves another tab's persisted edits %s", async timing => {
+    seed();
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    const review = timing === "before review" ? null : result.current.prepareDraftRecovery();
+    if (timing === "before restore") {
+      act(() => result.current.confirmDraftRecovery(review!));
+      act(() => result.current.setEditor(editorWithJson(result.current.editorContent)));
+    }
+    const checkpoint = localStorage.getItem(key);
+    const stored = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    const other = JSON.stringify({ ...stored, tiptap_json: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Other tab unique edits" }] }] } });
+    localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), other);
+    expect(() => timing === "before review" ? result.current.prepareDraftRecovery()
+      : timing === "after review" ? result.current.confirmDraftRecovery(review!)
+      : result.current.restoreDraftRecovery()).toThrow(/stored draft changed/);
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(other);
+    expect(localStorage.getItem(key)).toBe(checkpoint);
+  });
+  it.each([null, "not JSON"])("refuses recovery with missing/unreadable stored draft %s", async raw => {
+    seed();
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    if (raw == null) localStorage.removeItem(workspaceDocumentStorageKey(DOC_ID));
+    else localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), raw);
+    expect(() => result.current.prepareDraftRecovery()).toThrow(/stored draft changed/);
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(raw);
+    expect(localStorage.getItem(key)).toBeNull();
+  });
   it("keeps unsupported source protected without creating a checkpoint", async () => {
     seed("# Source\n\n<div>Unsupported raw HTML</div>\n");
     const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
