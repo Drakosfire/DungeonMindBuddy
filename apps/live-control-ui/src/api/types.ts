@@ -1068,10 +1068,43 @@ export interface WorldBuildGraphCompletionV1 extends Omit<WorldPlanGraphCompleti
   answer_context_status: WorldBuildGraphAnswerStatus;
   answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, {kind: "graph_claim" | "connective"}> | {kind: "saved_source_claim"; text: string; content_sha256: string})[];
 }
+export interface WorldBuildSourcePassageCitationV1 {
+  segment_index: number;
+  text_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+  read_event_id: string;
+  receipt: {
+    source_read_id: string; anchor_id: string; evidence_ref_id: string;
+    source_artifact_id: string; source_revision_id: string;
+    outcome: "enough"; content_sha256: string;
+    line_start: number | null; line_end: number | null;
+    returned_chars: number; truncated: false; evidence_sufficiency_status: "sufficient";
+  };
+}
+export type WorldBuildSourceAnswerStatus = "source_grounded" | "source_grounded_partial" | "source_insufficient_evidence";
+export interface WorldBuildGraphCompletionV2 {
+  schema: "dmb_build_graph_completion_v2";
+  context_receipt_sha256: string;
+  answer_basis: "opened_source_passages" | "saved_source_and_opened_passages";
+  answer_context_status: WorldBuildSourceAnswerStatus;
+  answer_segments: ({kind: "source_passage_claim"; text: string} | {kind: "connective"; text: string}
+    | {kind: "saved_source_claim"; text: string; content_sha256: string})[];
+  citation_map: null;
+  source_citations: WorldBuildSourcePassageCitationV1[];
+}
+export interface AgentSourcePassageReadResponseV1 {
+  schema: "dmb_agent_source_passage_read_v1";
+  target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";
+    world_id: string; turn_id: string; citation_index: number};
+  citation: WorldBuildSourcePassageCitationV1;
+  content: string;
+}
+
 export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
   schema: "dmb_build_graph_context_response_v1";
   receipt: WorldBuildGraphReceiptV1;
-  completion: WorldBuildGraphCompletionV1 | null;
+  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | null;
 }
 
 export interface WorldPlanEvidenceAnchorStatusV1 {

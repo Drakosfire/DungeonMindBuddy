@@ -42,7 +42,7 @@ Main currently ends at APP0027. Held MEDIA #1306 reserves0028 and remains DO NOT
 
 Actual mocked SDK → real broker reads → exact source-only writer wire → typed host completion → disposable SQL persistence → new service/repository reconstruction. Cover performed-but-omitted reads, controller-only inclusion, swapped handles, cross-subject provenance, truncated/repeated reads, stale envelopes, source edits and exact idempotent completion. Keep existing Graph/saved-section and authoring behavior passing. Inspect cumulative diff and send one implementation PR promptly for ARCHITECTURE review before PRIME merge.
 
-The next consuming slice adds ordinary Jev routing and the UI/source-passage reader, then tests Float Goats, Council and unseen/missing/conflict cases with one Luna writer. Full Mirathorn source→ingest→publish→ordinary answer→restart/historical opening and operator inspection remain the product acceptance test.
+Merged as157f8d11e39772a7e857bc41e110479daa8d6ef7 after independent ARCHITECTURE review. The active source-passage-reader handoff builds the distinct authenticated reader/UI first; ordinary Jev routing remains a later slice, followed by tests Float Goats, Council and unseen/missing/conflict cases with one Luna writer. Full Mirathorn source→ingest→publish→ordinary answer→restart/historical opening and operator inspection remain the product acceptance test.
 
 ## Implementation evidence and limits
 

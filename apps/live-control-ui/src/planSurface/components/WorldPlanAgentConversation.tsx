@@ -1,3 +1,4 @@
+import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
 import { useBuildCompose } from "./BuildComposeProposal";
 import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
@@ -32,6 +33,7 @@ import type {
   WorldBuildGraphReceiptV1,
   WorldBuildGraphCompletionV1,
   WorldBuildGraphAnswerStatus,
+  WorldBuildSourceAnswerStatus,
   WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
   WorldGraphRecapContextReadResponseV2,
@@ -1355,6 +1357,12 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
     || typeof authority.graph_revision !== "string" || !authority.graph_revision
     || authority.admissibility_version !== "gm-v1") return false;
   const receipt = value.receipt as unknown as WorldBuildGraphReceiptV1;
+  if (isRecord(value.completion) && value.completion.schema === "dmb_build_graph_completion_v2") {
+    return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256)
+      && (value.execution === null || isWorldPlanGraphExecution(value.execution))
+      && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
+        .every(items => Array.isArray(items) && items.length === 0);
+  }
   if ((value.completion !== null && !isWorldPlanGraphCompletion(value.completion, receipt))
     || (value.execution !== null && !isWorldPlanGraphExecution(value.execution))) return false;
   const completion = value.completion as WorldBuildGraphCompletionV1 | null;
@@ -3788,8 +3796,11 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus): string {
     switch (status) {
+      case "source_grounded": return "Supported by opened source passages.";
+      case "source_grounded_partial": return "Supported by opened source passages; coverage was incomplete.";
+      case "source_insufficient_evidence": return "The opened sources did not support an answer.";
       case "graph_grounded":
         return "Grounded in World Graph evidence.";
       case "graph_grounded_partial":
@@ -3803,9 +3814,12 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus, surface: string | null): string | null {
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus, surface: string | null): string | null {
     const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
+      case "source_grounded": return "Sources";
+      case "source_grounded_partial": return "Sources · partial";
+      case "source_insufficient_evidence": return "Needs more context";
       case "graph_grounded": return `World + ${work}`;
       case "graph_grounded_partial": return `World + ${work} · partial`;
       case "source_only_insufficient_evidence":
@@ -4202,6 +4216,18 @@ export function WorldPlanAgentConversation({
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const planContext = graphContextForTurn(turn);
+    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2") {
+      return <details className="world-plan-agent-conversation__evidence-trail">
+        <summary>Evidence trail</summary>
+        <ResponseEvidenceTabs evidence={verifiedWorldId
+          ? <BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} />
+          : <p>Select the original World to open these source passages.</p>}
+          prompt={verifiedWorldId && history?.conversation_id
+            ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
+              conversationId={history.conversation_id} running={false} />
+            : <p>The saved request is unavailable.</p>} />
+      </details>;
+    }
     const targets = planContext?.source_open_targets ?? [];
     const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = planContext?.completion?.citation_map?.entries ?? [];
