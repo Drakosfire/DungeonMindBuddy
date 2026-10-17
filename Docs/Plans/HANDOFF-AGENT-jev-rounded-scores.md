@@ -1,0 +1,13 @@
+# AGENT — accept rounded SDK choice scores
+
+ACTIVE under PRIME's question-only Jev evaluation goal. Base67dbf2a6d03066b61eefcecf6623d71d4254f832; serial branch codex/build-jev-rounded-scores in reused /home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy. PRIME implements solo; ARCHITECTURE reviews. No new worktree/tmp/environment.
+
+Observed real SDK responses returned legal80/79-way choices whose individually valid probabilities total0.99; current machine incorrectly refuses those completed decisions before useful acquisition. Remove the unsupported exact-sum requirement. Preserve exact question/choice keys and finite [0,1] scores. For unread exclusion use reported not_useful divided by max(1,total reported mass): never inflate a score when mass is missing/rounded down, and penalize excess mass. This is an explicit conservative heuristic, not a claim of calibration or a repaired probability distribution. Missing/zero/uncertain scores must cause acquisition rather than an exclusion. Do not alter request bodies or replay external attempts.
+
+Exclusive writes: this handoff; apps/live_control_server/services/build_jev_transitions.py; tests/test_build_jev_transitions.py; Docs/Plans/HANDOFF-AGENT-build-jev-compaction.md (factual merged settlement). No provider calls in implementation/review. Offline replay must accept the three exact completed real responses with unchanged request hashes; a separately recorded successor experiment may reuse those results and make only new-state Jev calls after review. No graph/history/serving/APP/authoring changes.
+
+Prove rounded down/up and excess/missing/zero score behavior, original malformed score refusal, exact response/identity/scope invariants, and byte-identical decision requests. Inspect cumulative diff, test/lint/typecheck, commit/push/open PR, independent exact-head review before merge. Semantic sufficiency and ordinary integration remain open.
+
+## Author evidence
+
+67 focused tests pass (60 existing plus7 regressions), scoped Ruff, changed-module Pyright and cumulative diff checks pass. Three exact completed Jev responses replay offline with identical request hashes: Float first acquisition b18, Council first b21 then a3. No real response/corpus committed. The initial trial made3 acknowledged Jev calls, with12416 reported input and2368 output tokens; zero Luna calls or retained writes. The trial correctly refused instead of silently continuing after its invalid normalization assumption. Corrected replay incurs no provider calls. The successor experiment can reuse these completed responses only at identical request/wire hashes; new states remain separately logged and scored.

@@ -360,3 +360,59 @@ def test_saved_authored_scene_cannot_arrive_as_admitted_graph_evidence():
     with pytest.raises(ValueError, match="source class"):
         machine.accept_acquisition({"a0": (forged,)})
     assert machine.step.status == "refused"
+
+
+def test_many_way_sdk_choice_rounded_to_point_99_is_not_refused():
+    machine = BuildJevTransitions(
+        "What?", SCOPE, actions(*(f"Choice {i}" for i in range(79)))
+    )
+    step = machine.step
+    scores = {
+        x: 0.0 for x in next(q.options for q in step.questions if q.name == "next")
+    }
+    scores["a0"] = 0.99
+    reply = {
+        "sufficiency": {
+            "kind": "choice",
+            "selected": "more_evidence",
+            "probabilities": {
+                "sufficient": 0.0,
+                "more_evidence": 1.0,
+                "conflict": 0.0,
+                "uncertain": 0.0,
+            },
+        },
+        "next": {"kind": "choice", "selected": "a0", "probabilities": scores},
+    }
+    result = machine.accept_decision(step.request_id, step.model, reply)
+    assert isinstance(result, AcquisitionIntent) and result.actions[0].id == "a0"
+
+
+@pytest.mark.parametrize(
+    "scores,excluded",
+    [
+        ({"not_useful": 0.99, "useful": 0.0, "unknown": 0.0}, True),
+        ({"not_useful": 0.94, "useful": 0.04, "unknown": 0.03}, True),
+        ({"not_useful": 0.90, "useful": 0.06, "unknown": 0.05}, False),
+        ({"not_useful": 1.0, "useful": 1.0, "unknown": 1.0}, False),
+        ({"not_useful": 0.0, "useful": 0.0, "unknown": 0.0}, False),
+        (None, False),
+    ],
+)
+def test_coverage_exclusion_never_inflates_rounded_or_inconsistent_scores(
+    scores, excluded
+):
+    machine = BuildJevTransitions("Question", SCOPE, actions("A"))
+    answer(machine)
+    step = machine.step
+    reply = {"kind": "choice", "selected": "not_useful"}
+    if scores is not None:
+        reply["probabilities"] = scores
+    result = machine.accept_decision(step.request_id, step.model, {"use_0": reply})
+    assert (
+        isinstance(result, Disposition)
+        if excluded
+        else isinstance(result, AcquisitionIntent)
+    )
+    if excluded:
+        assert result.excluded_unread_ids == ("a0",)
