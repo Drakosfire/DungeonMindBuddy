@@ -225,7 +225,7 @@
 .plan-conversation-dock .conversation-dock__header { min-block-size: 2rem; gap: .3rem; }
 .plan-conversation-dock .conversation-dock__header button, .plan-conversation-dock__management > summary { font-size: 13px; }
 .plan-conversation-dock .plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea {
-  min-block-size: 5.2rem; max-block-size: 10rem; field-sizing: content;
+  min-block-size: 2.5rem; max-block-size: 10rem; field-sizing: content;
   font-size: 14px; line-height: 1.4; padding: .55rem .65rem;
 }
 @media (max-width: 42rem) {
