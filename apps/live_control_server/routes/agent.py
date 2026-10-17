@@ -1586,7 +1586,7 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             ),
             conversation_service=_conversation_service(request),
             trace_builder=trace,
-            operator_subject=principal.subject if body.selected_knowledge is not None else None,
+            operator_subject=principal.subject,
         )
         _finalize_unlogged_agent_trace(trace, status="ok")
         return result.model_dump(mode="json", by_alias=True)

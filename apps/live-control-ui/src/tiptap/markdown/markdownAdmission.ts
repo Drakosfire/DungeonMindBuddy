@@ -1,3 +1,4 @@
+import { mediaAssetId } from "../../media/mediaReferences";
 import type {
   Blockquote,
   Heading,
@@ -323,7 +324,12 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
       warn(state, "Ordinary Markdown links are not supported by the mounted editor schema.", nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
-    case "image":
+    case "image": {
+      const assetId = mediaAssetId(node.url);
+      if (assetId && !node.title && node.alt?.trim() && !/[\r\n]/.test(node.alt)) return [{type:"mediaImage",attrs:{assetId,alt:node.alt}}];
+      warn(state, "Only saved Buddy image references are supported.", nodeStartLine(node));
+      return sourceTextNodes(node,state);
+    }
     case "imageReference": {
       warn(state, "Markdown images are not supported yet.", nodeStartLine(node));
       return sourceTextNodes(node, state);

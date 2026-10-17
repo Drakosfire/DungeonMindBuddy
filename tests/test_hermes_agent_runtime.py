@@ -269,7 +269,7 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert (
         request.capability_policy.enabled_tool_names == tuple(
             name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-            if name not in {"read_related_recap_context", "propose_build_insertion"}
+            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}
         )
     )
     assert all(

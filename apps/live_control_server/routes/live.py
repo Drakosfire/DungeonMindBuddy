@@ -908,9 +908,11 @@ def post_statblock_workbench_draft_retrieval_verify(
     response_model=TiptapMarkdownWritePrepareResponse,
 )
 def post_tiptap_markdown_write_prepare(
-    body: TiptapMarkdownWritePrepareRequest,
+    body: TiptapMarkdownWritePrepareRequest, request: Request,
 ) -> dict[str, Any]:
     try:
+        if 'dmb-media:' in body.markdown:
+            enforce_native_graph_gm(request)
         response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -922,9 +924,11 @@ def post_tiptap_markdown_write_prepare(
     response_model=TiptapMarkdownWriteCommitResponse,
 )
 def post_tiptap_markdown_write_commit(
-    body: TiptapMarkdownWriteCommitRequest,
+    body: TiptapMarkdownWriteCommitRequest, request: Request,
 ) -> dict[str, Any]:
     try:
+        if 'dmb-media:' in body.markdown:
+            enforce_native_graph_gm(request)
         response = commit_tiptap_markdown_write(root=repo_root(), request=body)
     except TiptapMarkdownWriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

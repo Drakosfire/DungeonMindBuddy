@@ -185,7 +185,7 @@ def default_graph_only_capability_policy(
     )
     names = tuple(
         name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION}
+        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION, "prepare_build_image"}
     )
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
@@ -464,11 +464,11 @@ def _handler_for(tool_name: str):
         del kwargs
         try:
             payload, denied = apply_capability_policy_to_arguments(tool_name, args,
-                effect="write" if tool_name == PROPOSE_BUILD_INSERTION else "read")
+                effect="write" if tool_name in {PROPOSE_BUILD_INSERTION, "prepare_build_image"} else "read")
             if denied is not None:
                 return denied
             assert payload is not None
-            if tool_name == PROPOSE_BUILD_INSERTION:
+            if tool_name in {PROPOSE_BUILD_INSERTION, "prepare_build_image"}:
                 broker = _active_parent_graph_broker.get()
                 if not _parent_graph_broker_required.get() or not callable(broker):
                     return _policy_denied_error(code="build_insertion_broker_unavailable", message="No parent authoring capability is available.")

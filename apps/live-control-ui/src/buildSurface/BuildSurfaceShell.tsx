@@ -1,3 +1,4 @@
+import { mediaMarkdown } from "../media/mediaReferences";
 import { MediaImageWizard } from "../media/MediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
 import { BUILD_STARTER_CONTENT, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
@@ -38,8 +39,10 @@ function BuildPresentableSourceView({
   session,
   editSlots,
   navigationTarget,
+  composeBridge,
   onEditorTools,
 }: {
+  composeBridge: BuildComposeBridge;
   session: MarkdownCanvasSessionValue;
   editSlots: MarkdownCanvasSlots;
   navigationTarget: BuildSourceNavigationTarget;
@@ -47,6 +50,12 @@ function BuildPresentableSourceView({
 }) {
   const [outlineVersion, setOutlineVersion] = useState(0);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaError,setMediaError]=useState('');
+  const mediaCapture=useRef<Awaited<ReturnType<BuildComposeBridge['capture']>>|null>(null);
+  async function openMedia() {
+    try { mediaCapture.current=await composeBridge.capture();setMediaError('');setMediaOpen(true); }
+    catch(reason) {setMediaError(reason instanceof Error?reason.message:'Open an editable page first.');}
+  }
   const { openTool, setPaneOpen, surfaceInteractionPublication } = useAgentInteraction();
   const referenceTool = surfaceInteractionPublication?.tools.find(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID);
   useEffect(() => {
@@ -155,10 +164,16 @@ function BuildPresentableSourceView({
       <div role="group" aria-label="Worldbuilding tools">
         <button type="button" disabled={referenceTool?.availability.status !== "enabled"} onClick={() => openTool(BUILD_FIND_EXISTING_TOOL_ID)}>Link existing node</button>
         <button type="button" onClick={() => setPaneOpen(true)}>Ask Agent</button>
-        <button type="button" onClick={() => setMediaOpen(true)}>Create image</button>
+        <button type="button" onClick={() => void openMedia()}>Create image</button>
       </div>
     </div>
-    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} /></aside>}
+    {mediaError&&<p role="alert">{mediaError}</p>}
+    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={(image,result)=>{
+      try { if (!mediaCapture.current || image.state!=='ready') return;
+        composeBridge.insert(mediaCapture.current,mediaMarkdown(image.asset_id,result.prompt.slice(0,500).replace(/[\r\n]/g,' ')));
+        setMediaOpen(false);setMediaError('');
+      } catch(reason) {setMediaError(reason instanceof Error?reason.message:'The image could not be inserted.');}
+    }} /></aside>}
     <MarkdownCanvas slots={editSlots} />
   </div>;
 }
@@ -564,6 +579,7 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
           session={session}
           editSlots={editSlots}
           navigationTarget={navigationTarget}
+          composeBridge={composeBridge}
           onEditorTools={onEditorTools}
         />
       )}

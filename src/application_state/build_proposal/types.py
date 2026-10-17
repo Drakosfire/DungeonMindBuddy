@@ -96,3 +96,30 @@ class BuildProposalRecord(StrictModel):
         if self.inserted_in_draft and self.proposal is None:
             raise ValueError("Only a reviewed proposal can be reported inserted in the draft")
         return self
+
+
+class BuildImagePreparation(StrictModel):
+    """Inert image direction, not a Markdown/prose provider result."""
+    schema_version: Literal['dmb_build_image_preparation_v2'] = 'dmb_build_image_preparation_v2'
+    action_id: UUID
+    reservation: BuildProposalReservation
+    request_fingerprint: str = Field(pattern=r'^[a-f0-9]{64}$')
+    owner_id: str = Field(min_length=1)
+    revision: int = Field(strict=True, ge=1)
+    state: Literal['prepared'] = 'prepared'
+    after_turn_sequence: int = Field(strict=True, ge=0)
+    created_at: datetime
+    updated_at: datetime
+    prompt: str = Field(min_length=1, max_length=16000)
+    alt: str = Field(min_length=1, max_length=500)
+    asset_id: UUID | None = None
+
+    @model_validator(mode='after')
+    def validate_binding(self):
+        if self.action_id != self.reservation.idempotency_key or self.request_fingerprint != self.reservation.fingerprint:
+            raise ValueError('Image preparation differs from its captured reservation')
+        if not self.prompt.strip() or not self.alt.strip() or '\n' in self.alt or '\r' in self.alt:
+            raise ValueError('Image prompt and single-line alt text are required')
+        if self.reservation.origin is None:
+            raise ValueError('Image preparation requires its Harness origin')
+        return self

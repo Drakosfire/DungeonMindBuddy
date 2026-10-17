@@ -67,6 +67,7 @@ ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     *ORDERED_INTERACTION_TOOL_NAMES,
     PROPOSE_BUILD_INSERTION,
+    "prepare_build_image",
 )
 
 HERMES_GRAPH_INTERACTION_TOOL_NAMES = frozenset(ORDERED_INTERACTION_TOOL_NAMES)
@@ -272,11 +273,18 @@ def propose_build_insertion_definition() -> dict[str, Any]:
                        "required": ["instruction"], "additionalProperties": False}}}
 
 
+def prepare_build_image_definition() -> dict[str, Any]:
+    return {"type":"function", "function":{"name":"prepare_build_image",
+        "description":"Prepare an image prompt for the current Build document when the user asks for an image or illustration. Use the document and discussion to write a vivid, self-contained visual prompt and concise alt text. This opens a user-reviewed Image Studio action; it does not generate, save or insert. No IDs, paths, URLs, model or credentials arguments. Do not use propose_build_insertion for an image.",
+        "parameters":{"type":"object","properties":{"prompt":{"type":"string","minLength":1,"maxLength":16000},"alt":{"type":"string","minLength":1,"maxLength":500}},"required":["prompt","alt"],"additionalProperties":False}}}
+
+
 def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:
     return [
         declare_conversation_context_tool_definition(),
         *hermes_graph_interaction_tool_definitions(),
         propose_build_insertion_definition(),
+        prepare_build_image_definition(),
     ]
 
 

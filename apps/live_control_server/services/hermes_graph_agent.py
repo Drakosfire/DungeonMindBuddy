@@ -440,6 +440,12 @@ def _build_ephemeral_system_prompt(
         retrieval_session=retrieval_session_packet,
     )
     parts = [_GRAPH_SYSTEM_POLICY, scope_part]
+    if "prepare_build_image" in policy.enabled_tool_names:
+        parts.append("Use prepare_build_image when asked for artwork or an image of this document. "
+            "Ground its visual direction in the document and discussion; distinguish creative additions. "
+            "The user reviews the prompt, generates and saves in Image Studio, then approves insertion. "
+            "The tool prepares only; never claim the image already exists or was inserted. "
+            "Use connective prose to say the Image Studio prompt is ready.")
     if "propose_build_insertion" in policy.enabled_tool_names:
         parts.append("You can propose additions to the current Build page using propose_build_insertion. "
             "Discuss and ask clarifying questions normally. When the user asks to put agreed content on the page, "
@@ -1524,7 +1530,7 @@ class _GraphOperationReservation:
     def _call_locked(
         self, tool_name: str, arguments: Mapping[str, Any],
     ) -> tuple[str, Mapping[str, Any] | None]:
-        if tool_name == "propose_build_insertion":
+        if tool_name in {"propose_build_insertion", "prepare_build_image"}:
             return self.broker(tool_name, arguments)
         if self.indeterminate:
             return json.dumps({
@@ -2052,7 +2058,7 @@ def run_hermes_graph_agent_turn(
                         else:
                             visible_defs = [
                                 definition for definition in visible_defs
-                                if not {"read_related_recap_context", "propose_build_insertion"}.intersection(
+                                if not {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}.intersection(
                                     _tool_names_from_definitions([definition]))
                             ]
                         visible_names = _tool_names_from_definitions(visible_defs)
@@ -2197,8 +2203,8 @@ def run_hermes_graph_agent_turn(
                             else:
                                 agent_tools = [
                                     definition for definition in agent_tools
-                                    if "read_related_recap_context" not in
-                                    _tool_names_from_definitions([definition])
+                                    if not {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}.intersection(
+                                    _tool_names_from_definitions([definition]))
                                 ]
                             agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)

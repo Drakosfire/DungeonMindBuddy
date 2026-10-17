@@ -6,7 +6,7 @@ type Model = { id: string; label: string; formats: string[]; controls: string[] 
 export type GeneratedMediaImage = { data_url: string; media_type: string; asset_id: string; state: string; delivery_url?: string | null };
 export type MediaRecord = { asset_id: string; state: string; mime_type: string; data_url?: string; delivery_url?: string | null; created_at: string; provenance: { prompt?: string; model?: string; settings?: Record<string, unknown> } };
 export type ImageGenerationResult = { images: GeneratedMediaImage[]; model: string; prompt: string; observation?: { latency_ms?: number; cost_usd?: number | null } };
-export type ImageGenerationInput = { prompt: string; model: string; width: number; height: number; options: Record<string, string | number> };
+export type ImageGenerationInput = { prompt: string; model: string; width: number; height: number; options: Record<string, string | number>; preparation_id?: string };
 export type ImageGenerationPort = {
   capabilities: () => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[] }>;
   list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
@@ -26,8 +26,8 @@ const livePort: ImageGenerationPort = {
 };
 
 /** Surface-independent generator. The host owns placement and any eventual document write. */
-export function MediaImageWizard({ onClose, onChoose, port = livePort }: {
-  onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult) => void; port?: ImageGenerationPort;
+export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
+  initialPrompt?: string; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult) => void; port?: ImageGenerationPort;
 }) {
   const [models, setModels] = useState<Model[]>([]);
   const [configured, setConfigured] = useState(false);
@@ -39,7 +39,7 @@ export function MediaImageWizard({ onClose, onChoose, port = livePort }: {
   const [saving, setSaving] = useState<string | null>(null);
   const saveBusy = useRef(false);
   const [step, setStep] = useState(0);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [modelId, setModelId] = useState('flux-2-pro');
   const [shape, setShape] = useState('1024x1024');
   const [format, setFormat] = useState('png');
@@ -65,7 +65,7 @@ export function MediaImageWizard({ onClose, onChoose, port = livePort }: {
     if (model.controls.includes('quality')) options.quality = quality;
     if (model.controls.includes('background')) options.background = background;
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
-    try { setResult(await port.generate({ prompt, model: modelId, width, height, options })); setStep(2); }
+    try { setResult(await port.generate({ prompt, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) })); setStep(2); }
     catch (error) { setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
     finally { inFlight.current = false; setPending(false); }
   };
@@ -133,6 +133,6 @@ export function MediaImageWizard({ onClose, onChoose, port = livePort }: {
     </div>}
     {!libraryOpen && (step === 1 || step === 2) && <footer><p>Generation uses your fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p><button type="button" disabled={pending || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button></footer>}
     {pending && <p role="status">Creating your image. You can keep working on your page while this runs.</p>}
-    {result && <figure className="media-image-wizard__result" hidden={step !== 2 || libraryOpen}><figcaption>{result.prompt}</figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} /><div className="media-image-wizard__actions"><a download={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} href={image.data_url}>Download image</a>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && image.state === 'ready' && <button type="button" onClick={() => onChoose(image, result)}>Use image</button>}</div></div>)}</figure>}
+    {result && <figure className="media-image-wizard__result" hidden={step !== 2 || libraryOpen}><figcaption>{result.prompt}</figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} /><div className="media-image-wizard__actions"><a download={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} href={image.data_url}>Download image</a>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && image.state === 'ready' && <button type="button" onClick={() => onChoose(image, result)}>{chooseLabel}</button>}</div></div>)}</figure>}
   </section>;
 }

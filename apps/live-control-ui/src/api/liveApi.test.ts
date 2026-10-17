@@ -3503,3 +3503,12 @@ it.each([
   expect(fetchSpy).toHaveBeenCalledTimes(3);
   vi.restoreAllMocks(); vi.unstubAllEnvs();
 });
+
+it('authenticates Markdown saves containing saved-media references', async () => {
+  setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockJsonResponse({writer_ok:true}));
+  await prepareTiptapMarkdownWrite({document_id:'edge',expected_revision:1,
+    markdown:'![Edge](dmb-media:ac6c15cc-8c68-4732-8ae2-d9f3f051393a)'});
+  expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe('Bearer test-only-local-operator-credential-value');
+  expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('/api/live/tiptap/markdown-write/prepare');
+});

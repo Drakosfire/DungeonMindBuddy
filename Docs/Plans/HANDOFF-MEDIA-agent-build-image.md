@@ -1,6 +1,6 @@
 # MEDIA — Conversation to image on a Build page
 
-Status: ACTIVE — operator explicitly requested discussion→Harness prepared prompt→shared wizard→Generate→Save→Insert into current page. PRIME implements solo; ARCHITECTURE reviews independently. Base main892cc46b50c3420765c00064db1dec46248c4d7d; branch codex/agent-build-image-workflow; isolated /tmp/prime-buddy-media-wizard. Serial successor to merged media1303–1305. DOGFOOD retains Ingestion paths/runtime; no overlap. Live operator5202/API8000; stable5876/API8002; APP54331; fixture54329. Provider calls only after implementation review for bounded live acceptance; no Graph mutation.
+Status: ACTIVE — operator explicitly requested discussion→Harness prepared prompt→shared wizard→Generate→Save→Insert into current page. PRIME implements solo; ARCHITECTURE reviews independently. Base main892cc46b50c3420765c00064db1dec46248c4d7d; branch codex/agent-build-image-workflow; reused existing checkout /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy. Serial successor to merged media1303–1305. DOGFOOD retains Ingestion paths/runtime; no overlap. Live operator5202/API8000; stable5876/API8002; APP54331; fixture54329. Provider calls only after implementation review for bounded live acceptance; no Graph mutation.
 
 ## Contract
 
@@ -20,3 +20,13 @@ tests/test_build_image_tool.py (new); tests/integration/test_build_images_postgr
 ## Proof and rollout
 
 Real fixture APP origin fencing/idempotency/reload/owner-bound association; Harness tool registration→parentdispatch→stored action; prepared wizard performs no inference until Generate; stale page/conversation and late callbacks cannot mutate; explicit insert roundtrips Markdown and persisted source Save/reopen. Unknown provider/upload outcomes stay recoverable without automatic generation. Scoped tests, cumulative diff, typecheck/build; independent exact-head review before merge. Verified fresh backup/restore migration rehearsal before live APP0028; preserve operator drafts, normal idle restart authority is already granted. Live useful Edge image exists ac6c15cc-8c68-4732-8ae2-d9f3f051393a, available for non-generation Save/reopen checks. Fal authentication now200; one actual GE/fal generation took13.79s, CDNsave/reopenpassed.
+
+## Current acceptance boundary
+
+The current parent-controlled Build capability is supplied through the World Graph conversation route. Image preparation follows that existing route; it does not silently enable World facts. Graph-off authoring still requires a separate tool-bearing Build action mode and is not claimed by this slice. The requested end state keeps document authoring independent of Graph retrieval. No merge or live rollout is performed before independent review; live generation acceptance remains pending.
+
+Tests and scratch output use the existing checkout’s ignored .pytest_cache with TMPDIR and pytest basetemp explicitly set. No new checkout or /tmp directory is needed.
+
+## Implementation evidence
+
+On the current implementation: 54 focused backend tests pass, including disposable PostgreSQL preparation, parent IPC and source Save/reopen; 141 focused UI tests pass. The synthetic rendered wizard completed prepared prompt→Generate→Save→Insert into the real editor; the inserted image fitted desktop and 390px views. Preview calls were mocked and used an already saved artwork; no provider or retained World writes occurred. The preview server/tab were stopped afterward. TypeScript currently fails on five errors in unchanged WorldPlanAgentAnswer.tsx (lines47–50); no clean typecheck is claimed. Earlier broad runtime failures are not all established as inherited: the large-Plan provider-gate failure and versioned-contract assertion were reproduced on unchanged remote main; other host/lifecycle fixture failures remain unqualified. Live Harness→wizard and APP0028 rollout remain acceptance gates.

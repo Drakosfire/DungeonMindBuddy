@@ -1,3 +1,4 @@
+import { PreparedBuildImage, listPreparedImages, type PreparedImage } from "../../media/PreparedBuildImage";
 import { useEffect, useRef, useState } from 'react';
 import { composeBuildProposal, getBuildProposal, getBuildProposalPrompt, listBuildProposals, reportBuildInsertion,
   type BuildProposalRecord } from '../../api/buildDocumentProposalApi';
@@ -22,6 +23,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory });
   current.current = { scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory };
   const [records, setRecords] = useState<{ scope: string; values: BuildProposalRecord[] }>({ scope: '', values: [] });
+  const [imageRecords,setImageRecords] = useState<{scope:string;values:PreparedImage[]}>({scope:'',values:[]});
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,9 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
     setError(null);
     if (!enabled || !history?.conversation_id) return;
     const controller = new AbortController(); let active = true;
+    listPreparedImages(worldId,history.conversation_id,controller.signal)
+      .then(values=>{if(active)setImageRecords({scope,values});})
+      .catch(()=>{if(active)setError('Earlier image directions could not be loaded.');});
     listBuildProposals(worldId, history.conversation_id, controller.signal)
       .then(values => { if (active) setRecords(previous => ({ scope,
         values: [...values, ...(previous.scope === scope ? previous.values.filter(item => !values.some(saved => saved.action_id === item.action_id)) : [])]
@@ -121,11 +126,14 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
       expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
   }
   return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
-    items: records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: record.after_turn_sequence,
+    items: [...(records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: record.after_turn_sequence,
       element: <BuildComposeProposal key={record.action_id} record={record}
         recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge)
           && history?.active_conversation_id === record.reservation.conversation_id
-          && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : [] };
+          && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : []),
+      ...(imageRecords.scope===scope ? imageRecords.values.map(record=>({key:record.action_id,afterSequence:record.after_turn_sequence,
+        element:<PreparedBuildImage key={record.action_id} record={record} bridge={bridge}
+          active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision} />})):[])] };
 }
 
 function BuildPrompt({ record }: { record: BuildProposalRecord }) {
