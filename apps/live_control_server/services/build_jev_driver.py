@@ -690,6 +690,12 @@ class BuildJevDriver:
             isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
         ))):
             state["context_accounting"] = accounting.descriptor
+        from .build_jev_assessment_codec import CODEC as ASSESSMENT_CODEC, encode as encode_assessment
+        codec = (a.budget.get("buildJevActions") or {}).get("assessment_codec")
+        if codec is not None:
+            if codec != ASSESSMENT_CODEC:
+                raise ValueError("unsupported assessment codec")
+            state = encode_assessment(state)
         projection = DriverDecisionProjection(
             canonical(state),
             canonical(wire_questions(intent)),
@@ -735,7 +741,26 @@ class BuildJevDriver:
             from .build_jev_dispatch import CONTINUATION_SCHEMA, factored_decision
             expected_decision = (factored_decision(self.step)
                 if plan.state().get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA} else self.step.model_dump(mode="json"))
-            if canonical(plan.state()["decision"]) != canonical(expected_decision):
+            comparison_state = plan.state()
+            codec = (a.budget.get("buildJevActions") or {}).get("assessment_codec")
+            if codec is not None:
+                from .build_jev_assessment_codec import CODEC as ASSESSMENT_CODEC, decode as decode_assessment
+                if (codec != ASSESSMENT_CODEC or (a.fence is not None and
+                        getattr(a._broker_execution().policy, "assessment_codec", None) != codec)):
+                    return False
+                if self.step.phase == "assess":
+                    comparison_state = decode_assessment(comparison_state)
+                    expected_qualifications = {unit.id: unit.provenance[0]
+                        for units in self._units.values() for unit in units
+                        if unit.source_class == "admitted_graph_observation_and_opened_passages"}
+                    if (canonical(comparison_state["observation_qualifications"]) != canonical(expected_qualifications)
+                            or canonical(comparison_state.get("interaction")) != canonical(self._interaction)):
+                        return False
+                elif "assessment_codec" in comparison_state:
+                    return False
+            elif "assessment_codec" in comparison_state:
+                return False
+            if canonical(comparison_state["decision"]) != canonical(expected_decision):
                 return False
             if plan.state().get("schema") == PHASE_SCHEMA and (
                 canonical(plan.state().get("phase_binding")) != canonical(self._phase_commitment(self.step))

@@ -85,6 +85,8 @@ class BuildJevHarness:
             # Trusted injection only. Exercise the loaded counter before any SDK send.
             accounting.estimate({"offline_preflight": "🐐 café 中文 123"})
             budget["buildJevActions"].pop("evidence_codec")
+            from .build_jev_assessment_codec import CODEC as ASSESSMENT_CODEC
+            budget["buildJevActions"]["assessment_codec"] = ASSESSMENT_CODEC
             budget["buildJevActions"]["controller_continuation_accounting"] = accounting.descriptor
             budget["buildJevActions"]["controller_initial_accounting"] = accounting.descriptor
             from .build_jev_transitions import JOINT_SUPPORT_POLICY, READ_BATCH_POLICY
