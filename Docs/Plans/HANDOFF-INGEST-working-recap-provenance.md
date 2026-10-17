@@ -1,8 +1,8 @@
 # INGEST: clarify working recap provenance
 
 **Status:** ACTIVE — PRIME authorized this bounded UX slice on 2026-10-17.
-**Base:** Buddy `main@23066e13e847c74dcefdbb80b24d548b883b31c5`.
-**Branch:** `codex/ingest-working-recap-provenance`, created from that exact current main SHA.
+**Base:** started from Buddy `main@23066e13e847c74dcefdbb80b24d548b883b31c5`; main advanced to `f35a152f4fc11b2f108b00c84313f5b275e5b130` during implementation. The cumulative main-to-head diff remains limited to this handoff and the two leased UI files.
+**Branch:** `codex/ingest-working-recap-provenance`.
 **Checkout:** Reuse the assigned `996b` workspace for focused verification only. Its existing branch is 36 commits behind current main and has unrelated dirty/untracked Ingest work; do not switch branches, reset, stash, or edit any path outside this lease. The two leased source/test files match current main byte-for-byte at the pinned base. Publish the reviewed cumulative change on this named branch.
 **Topology:** Serial; one small Ingest UI PR. PRIME retains review and merge authority. No new worktree, environment, server, provider call, corpus or database write.
 
@@ -35,6 +35,13 @@ No other source, tests, CSS, routes, API, server, schemas, extraction prompt/pro
 - Perform read-only rendered checks at desktop and narrow widths through an existing surface. Do not use the user’s 5202 tab for interactions or writes; do not change its served assets. If the current environment cannot provide both rendered widths safely, report the missing evidence rather than claiming acceptance.
 - Review the exact cumulative base-to-head diff and present one PR to PRIME. Do not merge it.
 
+## Implementation evidence
+
+- The reader now says “Working recap”; the adjacent notice explicitly says “Source: Published recap.” The local/uncommitted and canonical-state disclaimer remains intact.
+- Added a regression assertion for the working label, source label, and unchanged notice. Focused suite passes 12/12 tests (including the prior 11); `npm run typecheck` passes; `npm run build -- --outDir /tmp/dmb-ingest-working-recap-build` passes with the existing large-chunk warning; `git diff --check` passes.
+- The exact cumulative diff against the newly fetched `main@f35a152f4fc11b2f108b00c84313f5b275e5b130` contains only this handoff and the two leased UI files; main has three additional commits since the pinned starting base and no changed paths in this effective diff.
+- Current-head rendered desktop and narrow checks are **not verified**. 5202 remains on main and shows the original label mismatch. This lease forbids starting another server/worktree/environment or changing the served assets, so there is no safe existing surface displaying the feature branch at either width. No current-branch visual acceptance is claimed; report this gap to PRIME with the PR.
+
 ## Settlement
 
-This section is reserved for verified implementation, test, rendered acceptance, and PR evidence. Do not pre-mark the slice complete.
+The code and automated verification are complete; rendered acceptance remains outstanding. The cumulative change is published for independent review. Keep this handoff ACTIVE until PRIME resolves the rendered-evidence gate or explicitly revises it.
