@@ -100,6 +100,34 @@ class Disposition(_Frozen):
     retention_judgments: tuple[dict, ...] = ()
 
 
+FRONTIER_POLICY = "evidence_bound_deferred_frontier_v1"
+
+
+class FrontierDisposition(Disposition):
+    """Current coverage and historical judgments are separate from semantic support."""
+
+    frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] = FRONTIER_POLICY
+    coverage_status: Literal[
+        "catalog_exhausted", "heuristic_exclusions", "heuristic_partial"
+    ]
+    evidence_basis_sha256: str
+    deferred_unread_ids: tuple[str, ...]
+    coverage_judgments: tuple[dict, ...]
+
+    def writer_summary(self) -> dict:
+        # Full per-action answers remain host-side, never repeated in the writer packet.
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "relevant_ids": list(self.relevant_ids),
+            "coverage_status": self.coverage_status,
+            "evidence_basis_sha256": self.evidence_basis_sha256,
+            "deferred_unread_ids": list(self.deferred_unread_ids),
+            "excluded_unread_count": len(self.excluded_unread_ids),
+            "coverage_judgments_sha256": _digest(self.coverage_judgments),
+        }
+
+
 Step = DecisionIntent | AcquisitionIntent | Disposition
 
 
@@ -143,6 +171,7 @@ class BuildJevTransitions:
         exclusion_min: float = 0.9,
         retention_policy: Literal["question_relevance_packets_v1"] | None = None,
         accounting: ExperimentalAccounting | None = None,
+        frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
@@ -152,6 +181,14 @@ class BuildJevTransitions:
             raise ValueError(
                 "experimental accounting requires explicit retention policy"
             )
+        if frontier_policy not in {None, FRONTIER_POLICY}:
+            raise ValueError("unsupported frontier policy")
+        if frontier_policy and retention_policy:
+            raise ValueError("frontier requires the complete acquired evidence view")
+        self._frontier_policy = frontier_policy
+        self._deferred: set[str] = set()
+        self._coverage_basis: str | None = None
+        self._coverage_judgments: list[dict] = []
         self._accounting = accounting
         self._retention_policy = retention_policy
         self._retained: set[str] = set()
@@ -192,6 +229,18 @@ class BuildJevTransitions:
             and any(uid not in self._units for uid in a.unit_ids)
         ]
 
+    def _basis(self) -> str:
+        return _digest(
+            {
+                "question": self._question,
+                "scope": self._scope.model_dump(mode="json"),
+                "evidence": [u.model_dump(mode="json") for u in self._units.values()],
+            }
+        )
+
+    def _offered(self) -> list[ReadAction]:
+        return [a for a in self._available() if a.id not in self._excluded]
+
     def _finish(
         self,
         status: Literal[
@@ -202,7 +251,7 @@ class BuildJevTransitions:
         ],
         reason: str,
     ) -> Disposition:
-        return Disposition(
+        result = Disposition(
             status=status,
             reason=reason,
             evidence=tuple(self._units.values()),
@@ -212,6 +261,24 @@ class BuildJevTransitions:
             excluded_unread_ids=tuple(
                 sorted(self._excluded & {a.id for a in self._available()})
             ),
+        )
+
+        if not self._frontier_policy:
+            return result
+        unread = {a.id for a in self._available()}
+        deferred = tuple(sorted(self._deferred & unread))
+        return FrontierDisposition(
+            **result.model_dump(),
+            coverage_status=(
+                "heuristic_partial"
+                if unread - self._excluded
+                else "heuristic_exclusions"
+                if unread
+                else "catalog_exhausted"
+            ),
+            evidence_basis_sha256=self._basis(),
+            deferred_unread_ids=deferred,
+            coverage_judgments=tuple(self._coverage_judgments),
         )
 
     def _view_units(self) -> tuple[AcquiredEvidence, ...]:
@@ -250,7 +317,7 @@ class BuildJevTransitions:
     ) -> DecisionIntent | Disposition:
         from .build_jev_compaction import project_evidence
 
-        available = self._available()
+        available = self._offered() if self._frontier_policy else self._available()
         viewed = self._view_units()
         state = {
             **project_evidence(self._scope, viewed),
@@ -272,6 +339,18 @@ class BuildJevTransitions:
             "relevance_threshold": self._relevant_min,
             "unread_exclusion_threshold": self._exclusion_min,
         }
+        if self._frontier_policy:
+            state["coverage_frontier"] = {
+                "policy": self._frontier_policy,
+                "evidence_basis_sha256": self._basis(),
+                "current_coverage_judged": self._coverage_basis == self._basis(),
+                "deferred_unread_ids": sorted(self._deferred),
+                "excluded_unread_count": len(self._excluded),
+                "rule": "Deferred actions were NOT read or proved irrelevant. If support is missing, "
+                "choose a deferred action that may resolve it, or none to abstain. "
+                "Sufficiency is separate from coverage; neither unread exclusions nor "
+                "defer judgments prove completeness. New evidence invalidates those judgments.",
+            }
         if phase == "coverage":
             state["coverage_rule"] = (
                 "Evaluate whether unread actions can add missing coverage, a necessary hop, qualification "
@@ -381,7 +460,7 @@ class BuildJevTransitions:
                             raise ValueError("invalid choice score keys")
                         for probability in distribution.values():
                             _probability(probability)
-            available = self._available()
+            available = self._offered() if self._frontier_policy else self._available()
             if request.phase == "retention":
                 units = self._retention_pending.pop(0)
                 for i, unit in enumerate(units):
@@ -408,6 +487,44 @@ class BuildJevTransitions:
                 self._step = (
                     self._retention_decision()
                     if self._retention_pending
+                    else self._decision("assess")
+                )
+            elif request.phase == "coverage" and self._frontier_policy:
+                useful, unknown = [], []
+                self._excluded.clear()
+                self._deferred.clear()
+                for i, action in enumerate(available):
+                    answer = answers[f"use_{i}"]
+                    scores = answer.get("probabilities") or {}
+                    # Identical conservative exclusion math to the baseline controller.
+                    exclusion_score = scores.get("not_useful", 0) / max(
+                        1.0, sum(scores.values())
+                    )
+                    if answer["selected"] == "useful":
+                        useful.append(action)
+                    elif answer["selected"] == "unknown":
+                        unknown.append(action)
+                    elif scores and exclusion_score >= self._exclusion_min:
+                        self._excluded.add(action.id)
+                    else:
+                        self._deferred.add(action.id)
+                self._coverage_basis = self._basis()
+                self._coverage_judgments.append(
+                    {
+                        "request_id": request_id,
+                        "evidence_basis_sha256": self._coverage_basis,
+                        "action_ids": [a.id for a in available],
+                        "answers": json.loads(json.dumps(answers)),
+                        "excluded_ids": sorted(self._excluded),
+                        "deferred_ids": sorted(self._deferred),
+                    }
+                )
+                candidates = useful + unknown
+                self._step = (
+                    AcquisitionIntent(actions=(candidates[0],))
+                    if candidates
+                    else self._terminal_answer()
+                    if self._sufficient or not self._deferred
                     else self._decision("assess")
                 )
             elif request.phase == "coverage":
@@ -447,7 +564,13 @@ class BuildJevTransitions:
                 )
                 self._conflict = label == "conflict" and bool(self._view_units())
                 next_id = answers.get("next", {}).get("selected", "none")
-                if self._sufficient or next_id == "none":
+                if (
+                    self._frontier_policy
+                    and self._coverage_basis == self._basis()
+                    and (self._sufficient or next_id == "none")
+                ):
+                    self._step = self._terminal_answer()
+                elif self._sufficient or next_id == "none":
                     self._step = (
                         self._decision("coverage")
                         if available
@@ -470,7 +593,9 @@ class BuildJevTransitions:
         )
         return self._finish(
             status,
-            "heuristic_unread_exclusions"
+            "heuristic_deferred_frontier"
+            if self._frontier_policy and self._deferred
+            else "heuristic_unread_exclusions"
             if self._excluded & {a.id for a in self._available()}
             else "catalog_exhausted",
         )
@@ -519,6 +644,12 @@ class BuildJevTransitions:
             self._units = staged
             self._visited.update(a.id for a in intent.actions)
             self._excluded.difference_update(a.id for a in intent.actions)
+            if self._frontier_policy:
+                # New support may connect a previously negative action. Audit survives;
+                # current conclusions do not survive a different exact evidence basis.
+                self._coverage_basis = None
+                self._excluded.clear()
+                self._deferred.clear()
             if self._retention_policy and newly_acquired:
                 from .build_jev_retention import packets
 

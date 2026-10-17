@@ -19,6 +19,7 @@ from .build_jev_transitions import (
     AcquiredEvidence,
     AcquisitionIntent,
     BuildJevTransitions,
+    FRONTIER_POLICY,
     DecisionIntent,
     DecisionQuestion,
     OpenedPassage,
@@ -266,7 +267,8 @@ class BuildJevDriver:
             self._catalog[aid] = (action, (start, end))
             actions.append(action)
         self._machine = BuildJevTransitions(
-            adapter.request.message, self._scope, tuple(actions)
+            adapter.request.message, self._scope, tuple(actions),
+            frontier_policy=FRONTIER_POLICY if with_actions else None,
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None
