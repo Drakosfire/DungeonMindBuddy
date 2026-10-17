@@ -34,6 +34,54 @@ test.describe("fixed Buddy visual contract", () => {
   }
 });
 
+test("welcomes a first-time Play visitor without creating Runs or Runbooks", async ({ page, request }) => {
+  const metaResponse = await request.get("/meta.json");
+  expect(metaResponse.ok()).toBeTruthy();
+  const meta = (await metaResponse.json()) as { stories: Record<string, unknown> };
+  const story = "play-empty-welcome--app-shell-first-run";
+  expect(Object.hasOwn(meta.stories, story)).toBeTruthy();
+
+  for (const viewport of [desktop, narrow]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/?story=${story}&mode=preview`);
+    await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+    await expect(page.getByTestId("play-first-run-welcome")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "An open table awaits." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create blank Runbook" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Start exact Run" })).toBeDisabled();
+    await expect(page.getByText("No durable Runs are available.")).toHaveCount(0);
+    await expect(page.getByText("No active Runbooks are available.")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Command board navigation" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+
+    const requests = await page.evaluate(() => window.__dmbPlayEmptyFixtureRequests ?? []);
+    expect(requests.length).toBeGreaterThan(0);
+    expect(requests.filter((entry) => entry.kind === "write")).toEqual([]);
+    const graphQueries = requests.filter((entry) => entry.kind === "query");
+    expect(graphQueries.length).toBeGreaterThan(0);
+    expect(graphQueries.every((entry) => (
+      entry.method === "POST" && entry.path === "/api/live/world-graph/managed-projection"
+    ))).toBe(true);
+
+    if (viewport.width === narrow.width) {
+      const startPrompt = await page.locator(".play-start-run > p").first().boundingBox();
+      const buddyLauncher = await page.getByTestId("agent-interaction-open").boundingBox();
+      expect(startPrompt).not.toBeNull();
+      expect(buddyLauncher).not.toBeNull();
+      const noOverlap = startPrompt!.x + startPrompt!.width <= buddyLauncher!.x
+        || buddyLauncher!.x + buddyLauncher!.width <= startPrompt!.x
+        || startPrompt!.y + startPrompt!.height <= buddyLauncher!.y
+        || buddyLauncher!.y + buddyLauncher!.height <= startPrompt!.y;
+      expect(noOverlap).toBe(true);
+    }
+
+    const screenshot = viewport.width === desktop.width
+      ? "play-empty-welcome-desktop.png"
+      : "play-empty-welcome-narrow.png";
+    await expect(page).toHaveScreenshot(screenshot);
+  }
+});
+
 test("keeps the active Play scene primary across available widths", async ({ page, request }) => {
   const metaResponse = await request.get("/meta.json");
   expect(metaResponse.ok()).toBeTruthy();

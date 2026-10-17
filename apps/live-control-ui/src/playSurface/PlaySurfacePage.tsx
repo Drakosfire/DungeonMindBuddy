@@ -330,6 +330,7 @@ function PlayChooser({
 }) {
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const selectedWorldName = selectedWorld.kind === "managed" ? selectedWorld.name : null;
   const world = useOptionalWorldGraphLens();
   const productCampaignId = selectedWorldId ? null : campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
@@ -368,16 +369,20 @@ function PlayChooser({
     };
   }, [selectedWorldId]);
 
+  const showFirstRunWelcome = status === "ready" && records.length === 0 && initialPlanId == null;
+
   return (
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
       <header>
         <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
-        <p className="play-muted">
-          {initialPlanId
-            ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
-            : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
-        </p>
+        {!showFirstRunWelcome ? (
+          <p className="play-muted">
+            {initialPlanId
+              ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
+              : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
+          </p>
+        ) : null}
         {continuityWarning ? (
           <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">
             {continuityWarning}
@@ -385,42 +390,46 @@ function PlayChooser({
         ) : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
-      <section data-testid="play-existing-runs">
-        <h2>Existing Runs</h2>
-        {status === "loading" ? <p>Loading Runs…</p> : null}
-        {status === "recovery_pending" ? (
-          <p role="alert">Run recovery is pending. Play cannot list or mutate Runs until that recovery finishes.</p>
-        ) : null}
-        {status === "unavailable" ? (
-          <p role="alert">{detail ?? "Play Runs are unavailable."}</p>
-        ) : null}
-        {status === "ready" && records.length === 0 ? (
-          <p className="play-muted">No durable Runs are available.</p>
-        ) : null}
-        {status === "ready" && records.length > 0 ? (
-          <ul className="play-run-list">
-            {records.map((record) => (
-              <li key={record.run_id}>
-                <a
-                  href={playHref({ run: record.run_id })}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    navigateToRun(record.run_id);
-                  }}
-                >
-                  <strong>{record.run_id}</strong>
-                  <span className="play-muted">
-                    {" "}
-                    · {record.schema_version === "dmb_world_play_run_record_v2"
-                      ? `World ${record.world_id}`
-                      : `campaign ${record.campaign_id}`} · revision {record.playable_revision}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+      {showFirstRunWelcome ? (
+        <PlayFirstRunWelcome worldName={selectedWorldName} />
+      ) : (
+        <section data-testid="play-existing-runs">
+          <h2>Existing Runs</h2>
+          {status === "loading" ? <p>Loading Runs…</p> : null}
+          {status === "recovery_pending" ? (
+            <p role="alert">Run recovery is pending. Play cannot list or mutate Runs until that recovery finishes.</p>
+          ) : null}
+          {status === "unavailable" ? (
+            <p role="alert">{detail ?? "Play Runs are unavailable."}</p>
+          ) : null}
+          {status === "ready" && records.length === 0 ? (
+            <p className="play-muted">No durable Runs are available.</p>
+          ) : null}
+          {status === "ready" && records.length > 0 ? (
+            <ul className="play-run-list">
+              {records.map((record) => (
+                <li key={record.run_id}>
+                  <a
+                    href={playHref({ run: record.run_id })}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateToRun(record.run_id);
+                    }}
+                  >
+                    <strong>{record.run_id}</strong>
+                    <span className="play-muted">
+                      {" "}
+                      · {record.schema_version === "dmb_world_play_run_record_v2"
+                        ? `World ${record.world_id}`
+                        : `campaign ${record.campaign_id}`} · revision {record.playable_revision}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      )}
       <StartRunPanel
         key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "runbook-chooser"}`}
         onStarted={navigateToRun}
@@ -428,8 +437,39 @@ function PlayChooser({
         verifiedWorldId={selectedWorldId}
         initialPlanId={selectedWorldId ? initialPlanId : null}
         initialPlanRevisionPin={selectedWorldId ? initialPlanRevisionPin : null}
+        firstRunWelcome={showFirstRunWelcome}
       />
     </main>
+  );
+}
+
+function PlayFirstRunWelcome({ worldName }: { worldName: string | null }) {
+  return (
+    <section className="play-first-run-welcome" aria-labelledby="play-first-run-title" data-testid="play-first-run-welcome">
+      <div className="play-first-run-welcome__copy">
+        <p className="play-first-run-welcome__eyebrow">A fresh beginning</p>
+        <h2 id="play-first-run-title">An open table awaits.</h2>
+        <p>
+          {worldName ? `There are no Runs in ${worldName} yet. ` : "There are no Runs here yet. "}
+          Choose a saved Runbook below, or create a blank one and shape the night as you go.
+        </p>
+        <p className="play-first-run-welcome__note">
+          Nothing begins until you choose a Runbook and start.
+        </p>
+      </div>
+      <div className="play-first-run-welcome__art" aria-hidden="true">
+        <svg viewBox="0 0 260 190" role="presentation">
+          <path className="play-first-run-welcome__map" d="M24 32 92 20l58 15 81-13v125l-80 17-60-15-67 15z" />
+          <path className="play-first-run-welcome__route" d="M39 125c30-19 42-55 72-48 23 5 31 37 56 33 18-3 28-26 53-42" />
+          <path className="play-first-run-welcome__route play-first-run-welcome__route--soft" d="M41 53c20 11 34 12 49 2m80 94c17-8 30-10 45-5" />
+          <circle className="play-first-run-welcome__camp-halo" cx="168" cy="110" r="20" />
+          <path className="play-first-run-welcome__camp" d="m158 117 10-19 11 19zm10-20v-9m-9 29h19" />
+          <path className="play-first-run-welcome__star" d="m68 45 3 8 8 3-8 3-3 8-3-8-8-3 8-3z" />
+          <path className="play-first-run-welcome__star" d="m216 55 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" />
+        </svg>
+        <p><strong>The first scene is yours.</strong><br />Start small. Let the table surprise you.</p>
+      </div>
+    </section>
   );
 }
 
