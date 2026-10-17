@@ -1,6 +1,6 @@
 # AGENT: choose completion shape from selected source facts
 
-ACTIVE under PRIME's source-faithful ordinary Graph collaboration goal. Base d61381bd92c921057aa9e4495e9727ed52041ab8. Serial successor to merged1344. PRIME implements solo; ARCHITECTURE independently reviews. Reuse current checkout/dependencies; no new worktree/environment/export/tmp. No serving, retained data or provider calls in this repair; DOGFOOD retains rollout/Ingest/Combat.
+MERGED in #1345 at1828966a830ac2a30e3645ba1b824ac9d0648b66, reviewed headd8388e2055a519c5934705cf0ab596be7b10b780. Default estimated runtime successor owns the current serial lane. Originally ACTIVE under PRIME's source-faithful ordinary Graph collaboration goal. Base d61381bd92c921057aa9e4495e9727ed52041ab8. Serial successor to merged1344. PRIME implements solo; ARCHITECTURE independently reviews. Reuse current checkout/dependencies; no new worktree/environment/export/tmp. No serving, retained data or provider calls in this repair; DOGFOOD retains rollout/Ingest/Combat.
 
 ## Failure and accepted repair design
 
@@ -13,3 +13,7 @@ After validating ALL selected handles/read IDs and exact producing inclusion, ch
 This handoff; factual settlement of HANDOFF-AGENT-build-useful-partial-writer.md; src/application_state/agent_conversation/source_writer_output.py only shape selection; tests/test_build_cited_writer_output.py for real SDK→APP selected-saved-with-ambient-passages success/reopen and unknown-selector refusal. No prompt/schema/types/service/acquisition/runtime/SQL/UI/dependency changes. One bounded serial PR, exact cumulative review before merge.
 
 Use recorded raw output plus exact authorized request and last-turn execution to verify reconstruction without inference. Actual APP tests must prove complete/reopen, saved indexes and downgrade/forgery refusal. Record all results, retain the live failed-run designation, and do not claim the original failed turn was committed. No further paid call is needed for this repair. Full Mirathorn/operator acceptance remains open.
+
+## Accepted boundary
+
+26 author and26 independent owning SDK→APP tests pass; exact-head review PASS. Exact preserved useful Toll response reconstructs from its51-passage request and original typed last-turn execution, with valid saved bindings/execution completion checks. Original live run remains failed/uncommitted; no new paid call was made. Historical/default serving adoption remains distinct from these tests and is the next bounded slice.

@@ -72,12 +72,15 @@ load_dungeonmindbuddy_dotenv()
 
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
-    """Own Hermes host for deterministic shutdown (Kernel prewarm retired)."""
+    """Prepare local Agent dependencies and own deterministic host shutdown."""
+    from apps.live_control_server.services.build_jev_runtime import prepare_default_build_runtime
+    _application.state.build_jev_runtime_factory = prepare_default_build_runtime()
     get_hermes_graph_agent_host()
     try:
         yield
     finally:
         shutdown_hermes_graph_agent_host()
+        _application.state.build_jev_runtime_factory = None
 
 
 def create_app() -> FastAPI:

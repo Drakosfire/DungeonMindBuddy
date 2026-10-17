@@ -5431,6 +5431,7 @@ def execute_agent_turn(
     plan_graph_resolver: PlanGraphResolver | None = None,
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
+    build_runtime_factory: Any | None = None,
     conversation_service: AgentConversationService | None = None,
     trace_builder: AgentTurnTraceBuilder | None = None,
     operator_subject: str | None = None,
@@ -6191,15 +6192,18 @@ def execute_agent_turn(
 
     # Delay runtime lookup/construction until authorization, receipt replay,
     # current work, pointer, and graph validation have all succeeded.
+    unavailable_type = ()
     try:
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
+            from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
             default_build_jev = (_governed_build_turn(request) and policy_bootstrap is not None
                 and isinstance(policy_bootstrap.build_source_discovery, Mapping)
                 and policy_bootstrap.build_source_discovery.get("status") == "complete")
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
-            ) or (BuildJevHarness() if default_build_jev else default_hermes_agent_runtime())
+            ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()
+                if default_build_jev else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)
@@ -6220,6 +6224,11 @@ def execute_agent_turn(
                     code="turn_persistence_indeterminate",
                     status_code=getattr(persist_exc, "status_code", 503),
                 ) from persist_exc
+        if isinstance(exc, unavailable_type):
+            raise AgentTurnServiceError(
+                "Graph conversation is unavailable until its offline tokenizer is configured.",
+                code="build_jev_runtime_unavailable", status_code=503, provider_dispatched=False,
+            ) from exc
         raise AgentTurnServiceError(
             "The Agent runtime could not be constructed.",
             code="runtime_unavailable",
