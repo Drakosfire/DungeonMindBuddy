@@ -279,3 +279,50 @@ async def test_map_purpose_has_exact_effective_prompt_and_preserves_authored_pro
     assert response.json()['prompt']==expected
     assert seen[0]['prompt']==expected and seen[0]['authored_prompt']=='Edge, the old fort and swamp'
     assert seen[0]['settings']['purpose']=='map'
+
+
+async def test_prepared_generation_passes_real_storage_json_admission(setup, monkeypatch):
+    """An agent preparation ID must survive the real pre-DB provenance validation."""
+    import io
+    from uuid import UUID
+    from PIL import Image
+    from application_state import media
+
+    aid = UUID('d3796b5d-d783-4195-b2cf-646debf276db')
+    preparation_id = UUID('b8170e50-9b5f-4f34-9557-5bd20cd5db1b')
+    monkeypatch.setattr(media_images.BuildImageService, 'get', lambda *args:
+                        SimpleNamespace(model_dump=lambda **kwargs: {'action_id': str(preparation_id)}))
+    content = io.BytesIO()
+    Image.new('RGB', (2, 2)).save(content, format='PNG')
+    setup[1].generate_image.return_value.images = [GeneratedImage(content=content.getvalue(), media_type='image/png')]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('media_admission_witness', media.__file__)
+    admission = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(admission)
+    real_stage = admission.stage_image
+    seen = []
+
+    class ReachedDatabase(Exception):
+        pass
+
+    def database_boundary(*args, **kwargs):
+        raise ReachedDatabase()
+
+    monkeypatch.setattr(admission, 'unit_of_work', database_boundary)
+    from application_state.errors import ApplicationStateValidationError
+    with pytest.raises(ApplicationStateValidationError, match='JSON-safe'):
+        real_stage(content.getvalue(), 'synthetic-owner', {'settings': {'preparation_id': preparation_id}})
+
+    def stage(content, owner, provenance):
+        with pytest.raises(ReachedDatabase):
+            real_stage(content, owner, provenance)
+        seen.append(provenance)
+        return {'asset_id': aid, 'mime_type': 'image/png', 'state': 'staged'}
+
+    monkeypatch.setattr(media_images.media, 'stage_image', stage)
+    response = await submit(setup, {'prompt': 'Edge map', 'model': 'gpt-image-2.5-flare',
+                                   'purpose': 'map', 'preparation_id': str(preparation_id)})
+    assert response.status_code == 200
+    assert seen[0]['settings']['preparation_id'] == str(preparation_id)
+    assert response.json()['settings']['preparation_id'] == str(preparation_id)
+    setup[1].generate_image.assert_awaited_once()
