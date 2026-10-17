@@ -68,6 +68,45 @@ describe("WorldGraphRecapProjectionView", () => {
     });
   });
 
+  it("keeps the shared campaign, session, and load toolbar visible by default", () => {
+    render(
+      <WorldGraphRecapProjectionView
+        payload={session23WorldGraphRecapFixture}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        onLoad={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector(".recap-reader-toolbar")).toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign")).toHaveValue("longmont-c2");
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
+    expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
+  });
+
+  it("can omit the shared toolbar while preserving the node-bearing recap", async () => {
+    render(
+      <WorldGraphRecapProjectionView
+        payload={session23WorldGraphRecapFixture}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        showProjectionToolbar={false}
+      />,
+    );
+
+    expect(document.querySelector(".recap-reader-toolbar")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Focus session")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("published-recap-local-authoring")).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector(".recap-node-token")).toBeInTheDocument());
+  });
+
   it("opens a campaign-memory Peek without World Object chrome or Continue in Build", async () => {
     render(
       <WorldGraphRecapProjectionView
@@ -121,7 +160,7 @@ describe("WorldGraphRecapProjectionView", () => {
 
     fireEvent.click(within(peek).getByRole("button", { name: /Close Caelynn/i }));
     expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
     expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
       "data-existing-node-id",
       "pc_caelynn",
