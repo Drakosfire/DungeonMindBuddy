@@ -266,7 +266,9 @@ def test_known_rejection_can_retry_same_bytes_but_unknown_cannot(database):
 
 def test_truncated_jpeg_cannot_enter_catalog(database):
     output = io.BytesIO()
-    Image.new("RGB", (32, 32), "orange").save(output, format="JPEG")
+    image = Image.new("RGB", (64, 64))
+    image.putdata([(i % 256, (i * 17) % 256, (i * 31) % 256) for i in range(4096)])
+    image.save(output, format="JPEG")
     truncated = output.getvalue()[:-30]
     with Image.open(io.BytesIO(truncated)) as image:
         assert image.format == "JPEG"
