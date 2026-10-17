@@ -194,3 +194,73 @@ async def test_image_metadata_does_not_read_original_bytes(setup, monkeypatch):
     ) as http:
         response = await http.get("/api/live/media/images/" + str(aid) + "/metadata")
     assert response.status_code == 200 and "data_url" not in response.json()
+
+
+async def test_catalog_auth_paging_and_selection_do_not_generate(setup):
+    from datetime import datetime, timezone
+    from generationengine import ProviderCatalogModel, ProviderCatalogPage
+    app, provider = setup
+    provider.list_image_models = AsyncMock(return_value=ProviderCatalogPage(
+        provider='fal', models=[
+            ProviderCatalogModel(endpoint_id='bytedance/seedream/v5/pro/text-to-image', executable_model='seedream-v5-pro', metadata={'display_name': 'Seedream'}),
+            ProviderCatalogModel(endpoint_id='future/model', metadata={'display_name': 'Future'}),
+        ], has_more=True, next_cursor='next', fetched_at=datetime.now(timezone.utc),
+    ))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test') as http:
+        assert (await http.get('/api/live/media/images/catalog')).status_code == 401
+        provider.list_image_models.assert_not_called()
+        response = await http.get('/api/live/media/images/catalog?cursor=old&limit=7', headers={'Authorization': f'Bearer {TOKEN}'})
+    assert response.status_code == 200 and response.headers['cache-control'] == 'no-store'
+    body = response.json()
+    assert body['next_cursor'] == 'next' and body['has_more']
+    assert [item['selectable'] for item in body['models']] == [True, False]
+    provider.list_image_models.assert_awaited_once_with(category='text-to-image', cursor='old', limit=7)
+    provider.generate_image.assert_not_called()
+    provider.aclose.assert_awaited_once()
+
+
+async def test_catalog_failure_is_visible_and_does_not_generate(setup):
+    from generationengine import FailureCode, GenerationEngineError, InferenceFailure
+    app, provider = setup
+    provider.list_image_models = AsyncMock(side_effect=GenerationEngineError(
+        InferenceFailure.from_code(FailureCode.PROVIDER_UNAVAILABLE), SimpleNamespace(),
+    ))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test', headers={'Authorization': f'Bearer {TOKEN}'}) as http:
+        response = await http.get('/api/live/media/images/catalog')
+    assert response.status_code == 502
+    assert 'selection is unchanged' in response.json()['detail']['message']
+    provider.generate_image.assert_not_called()
+    provider.aclose.assert_awaited_once()
+
+
+@pytest.mark.parametrize(('model', 'options'), [
+    ('gpt-image-2.5-flare', {'quality': 'high', 'background': 'auto'}),
+    ('gpt-image-2.5-sunburst', {'quality': 'medium'}),
+    ('seedream-v5-pro', {'output_format': 'jpeg'}),
+    ('nano-banana-2-lite', {'seed': 0, 'output_format': 'webp'}),
+])
+async def test_operator_selected_models_forward_supported_controls(setup, model, options):
+    response = await submit(setup, {'prompt': 'Edge map', 'model': model, 'options': options})
+    assert response.status_code == 200
+    request = setup[1].generate_image.call_args.args[0]
+    assert request.model == model
+    assert request.options.model_dump(exclude_none=True) == options
+
+
+@pytest.mark.parametrize(('model', 'options'), [
+    ('seedream-v5-pro', {'seed': 0}), ('seedream-v5-pro', {'output_format': 'webp'}),
+    ('nano-banana-2-lite', {'quality': 'high'}),
+])
+async def test_selected_models_reject_inapplicable_controls(setup, model, options):
+    assert (await submit(setup, {'prompt': 'Edge', 'model': model, 'options': options})).status_code == 422
+    setup[1].generate_image.assert_not_called()
+
+
+async def test_capabilities_curate_exact_four_without_catalog_call(setup):
+    app, provider = setup
+    provider.list_image_models = AsyncMock()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test', headers={'Authorization': f'Bearer {TOKEN}'}) as http:
+        body = (await http.get('/api/live/media/images/capabilities')).json()
+    assert body['default_model_id'] == 'gpt-image-2.5-flare'
+    assert {item['id'] for item in body['models']} == {'gpt-image-2.5-flare','gpt-image-2.5-sunburst','seedream-v5-pro','nano-banana-2-lite'}
+    provider.list_image_models.assert_not_called()
