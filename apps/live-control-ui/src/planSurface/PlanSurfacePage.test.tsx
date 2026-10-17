@@ -3319,6 +3319,7 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
     await screen.findByTestId("world-owned-plan");
     const beat=await screen.findByRole("button",{name:"Add Beat",exact:true});
     await waitFor(()=>expect(beat).toBeEnabled());
+    fireEvent.change(screen.getByRole("textbox",{name:"Plan title",exact:true}),{target:{value:"Renamed typed Plan"}});
     expect(screen.getByRole("button",{name:"Add Scene to this Beat"})).toBeDisabled();
     const oldAction=(chromeCapture.editorTools as {tools:{sections:Array<{actions:Array<{label:string;onClick:()=>void}>}>}}).tools.sections.flatMap(section=>section.actions).find(action=>action.label === "Add Beat")!.onClick;
     fireEvent.click(beat);

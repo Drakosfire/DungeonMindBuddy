@@ -604,7 +604,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         },
       ],
     };
-  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status, markdown, selectionGeneration, createUncertain, recoveryConflict]);
+  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status, markdown, title, selectionGeneration, createUncertain, recoveryConflict]);
 
   useEffect(() => {
     let cancelled = false;
