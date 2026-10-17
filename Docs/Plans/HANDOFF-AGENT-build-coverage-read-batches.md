@@ -1,6 +1,8 @@
 # AGENT: acquire jointly selected independent reads
 
-ACTIVE under PRIME's responsive Graph collaboration goal. Base7cf6b81f54c57898bb235ffe89913bc296059abe (merged1337). Serial successor; PRIME implements solo, ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout and existing dependencies. No new worktree, clone, source export, environment or /tmp directory. No deployment/retained-data writes; implementation verification uses synthetic requests and disposable APP only.
+SETTLED implementation: PR1338 reviewedc40eb1550c788f726b51583859551021f1e07c91 merged23ad40b84015213ffc9f3d1fa2420570fa71bd04 after128distinctauthor/13independenttestsPASS. Fresh Council43.4077s15newJev+1Luna versus87.5197s55newJev+1Luna;52passages/10citations/reopenPASS, strictgoldrolecoverageincomplete. Float3/3goldPASS21.6969s9newJev+1Luna;36passages/3citations/reopenPASS. Uncontrolled mixed-initial-replay timings, no generalaccuracy/servingacceptance. Successor HANDOFF-AGENT-build-native-acquisition-session.md.
+
+Original contract under PRIME's responsive Graph collaboration goal. Base7cf6b81f54c57898bb235ffe89913bc296059abe (merged1337). Serial successor; PRIME implements solo, ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout and existing dependencies. No new worktree, clone, source export, environment or /tmp directory. No deployment/retained-data writes; implementation verification uses synthetic requests and disposable APP only.
 
 ## Evidence and invariant
 

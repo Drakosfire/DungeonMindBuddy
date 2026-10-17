@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
-        ResolvedSourceAnchorReadV2,
+        ResolvedSourceAnchorReadV2, DirectWorldGraphReadServices,
     )
 
 from apps.live_control_server.config import (
@@ -262,6 +262,7 @@ def read_source_anchors_internal_v2(
     *,
     root: Path | None = None,
     repo_root: Path | None = None,
+    native_services: DirectWorldGraphReadServices | None = None,
 ) -> tuple[ResolvedSourceAnchorReadV2 | WorldGraphRetrievalServiceError, ...]:
     """Resolve one pinned native batch, then preserve each body's outcome."""
     _require_mounted_native_read(root)
@@ -273,7 +274,7 @@ def read_source_anchors_internal_v2(
         )
     try:
         results = direct.read_source_anchors_direct_v2(
-            direct.direct_services_from_config(requests[0].world_id), requests,
+            native_services if native_services is not None else direct.direct_services_from_config(requests[0].world_id), requests,
             repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
         )
     except direct.DirectWorldGraphReadError as exc:

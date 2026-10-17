@@ -134,6 +134,23 @@ class WriterWire(httpx.AsyncBaseTransport):
 
 def ordinary_case(build_case, monkeypatch, *, authoring=False):
     adapter, _, calls, _ = driver_case(build_case, monkeypatch)
+    # This fixture fakes native IO; real scoped-session conformance is exercised
+    # separately. Keep ordinary APP/SDK behavior real without claiming native IO.
+    from contextlib import contextmanager
+    from apps.live_control_server.integrations.dungeonmind import reviewed_source_wave
+    from graph_memory.interaction import expansion_executor
+
+    @contextmanager
+    def synthetic_wave(services, request):
+        yield services
+
+    monkeypatch.setattr(reviewed_source_wave, "reviewed_source_wave", synthetic_wave)
+    original_source_read = expansion_executor.execute_read_graph_source
+
+    def synthetic_source_read(arguments, *, receipt_version, native_services=None):
+        return original_source_read(arguments, receipt_version=receipt_version)
+
+    monkeypatch.setattr(expansion_executor, "execute_read_graph_source", synthetic_source_read)
     # The native selected-observation adapter, with all host admission/persistence
     # still real, returns the same source-bound synthetic observation as object read.
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads
