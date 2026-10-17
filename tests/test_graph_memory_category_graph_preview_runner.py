@@ -260,6 +260,103 @@ def test_runner_rejects_conflicting_canonical_evidence_span_selectors(
     assert compute_sha256(candidate_path) == original_sha256
 
 
+@pytest.mark.parametrize("secondary_selector", ["absent", None])
+def test_runner_allows_absent_or_null_optional_secondary_span_selector(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    secondary_selector: str | None,
+) -> None:
+    source, artifact, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        if secondary_selector == "absent":
+            evidence_ref.pop("source_span_ref_id")
+        else:
+            evidence_ref["source_span_ref_id"] = None
+
+    candidate_path = tmp_path / "optional_secondary_span_selector.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/optional_secondary_span_selector"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    refs = [packaged["evidence_refs"][0], packaged["nodes"][0]["evidence_refs"][0]]
+    assert all(ref["span_id"] == canonical_span_id for ref in refs)
+    if secondary_selector == "absent":
+        assert all("source_span_ref_id" not in ref for ref in refs)
+    else:
+        assert all(ref["source_span_ref_id"] is None for ref in refs)
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 0
+
+
+@pytest.mark.parametrize(
+    "malformed_selector",
+    [9, ["not", "a span"], {"id": "not-a-span"}, ""],
+)
+def test_runner_rejects_malformed_secondary_span_selectors_without_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malformed_selector: Any,
+) -> None:
+    source, artifact, span_index, candidate, legacy_span_id, _ = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        evidence_ref["source_span_ref_id"] = malformed_selector
+
+    candidate_path = tmp_path / "malformed_secondary_span_selector.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/malformed_secondary_span_selector"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.FAILED
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["evidence_reference_repairs"] == []
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 2
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 2
+    assert manifest["status"] == "failed"
+    assert legacy_span_id in packaged["evidence_refs"][0]["span_id"]
+    assert packaged["evidence_refs"][0]["source_span_ref_id"] == malformed_selector
+    assert any("malformed span selectors" in warning for warning in report["warnings"])
+    assert compute_sha256(candidate_path) == original_sha256
+
+
 def test_runner_keeps_candidate_immutable_when_source_is_in_output_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

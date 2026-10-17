@@ -199,3 +199,13 @@ PRIME's independent review of head `1c855e2145272de0d46a8688affe1cdb4df12c7a` fo
 - The complete owning runner file reports 35 passed and one existing failure in `test_runner_canonical_line_only_index_reaches_category_prompt`, which still fails with the unrelated fixture validation error `party enrichment incomplete for 1 nodes`.
 - Scoped Ruff, Python compileall, and `git diff --check` passed.
 - Testing used the already-present app runtime; no environment was created. No retained candidate, source, Graph, database, or server state was changed.
+
+
+## PRIME review follow-up — malformed secondary selectors — 2026-10-17
+
+PRIME independently confirmed the canonical-selector fix on the exact prior head and found that _evidence_span_ids still filtered non-string values. A valid primary ID paired with a present malformed secondary selector could therefore be treated as resolved or repaired. Selector parsing now treats absent and explicit null fields as optional, but rejects any present non-null field that is not a non-empty string; the same check runs before alias repair mutates the candidate. Regressions cover malformed integer/list/object/blank values and preserve valid alias repair when the optional secondary selector is absent or null.
+
+- The bounded selector regressions passed: 7 passed (conflicting canonical IDs, four malformed selector values, absent/null optional field cases).
+- The complete owning runner file reports 41 passed and one known unrelated failure in test_runner_canonical_line_only_index_reaches_category_prompt, where fixture category output fails with party enrichment incomplete for 1 nodes.
+- Scoped Ruff, Python compileall, and git diff --check passed. Tests use the already-present app runtime; no environment was created.
+- No retained candidate, source, Graph, database, or server state was changed.

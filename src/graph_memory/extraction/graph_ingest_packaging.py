@@ -301,12 +301,23 @@ def _span_identity(span: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _evidence_span_selectors(
+    evidence_ref: Mapping[str, Any],
+) -> tuple[list[tuple[str, str]], bool]:
+    selectors: list[tuple[str, str]] = []
+    for key in ("span_id", "source_span_ref_id"):
+        if key not in evidence_ref or evidence_ref[key] is None:
+            continue
+        value = evidence_ref[key]
+        if not isinstance(value, str) or not value.strip():
+            return [], False
+        selectors.append((key, value.strip()))
+    return selectors, True
+
+
 def _evidence_span_ids(evidence_ref: Mapping[str, Any]) -> list[str]:
-    return [
-        value.strip()
-        for key in ("span_id", "source_span_ref_id")
-        if isinstance((value := evidence_ref.get(key)), str) and value.strip()
-    ]
+    selectors, well_formed = _evidence_span_selectors(evidence_ref)
+    return [span_id for _, span_id in selectors] if well_formed else []
 
 
 def _evidence_ref_span_ids_are_consistent(
@@ -314,8 +325,9 @@ def _evidence_ref_span_ids_are_consistent(
     *,
     known_span_ids: set[str] | None = None,
 ) -> bool:
-    span_ids = _evidence_span_ids(evidence_ref)
-    return bool(span_ids) and len(set(span_ids)) == 1 and (
+    selectors, well_formed = _evidence_span_selectors(evidence_ref)
+    span_ids = [span_id for _, span_id in selectors]
+    return well_formed and bool(span_ids) and len(set(span_ids)) == 1 and (
         known_span_ids is None or span_ids[0] in known_span_ids
     )
 
@@ -435,12 +447,8 @@ def _repair_candidate_evidence_span_aliases(
         if evidence_ref.get("source_ref_id") != expected_source_ref_id:
             continue
 
-        span_fields = [
-            (key, value)
-            for key in ("span_id", "source_span_ref_id")
-            if isinstance((value := evidence_ref.get(key)), str) and value.strip()
-        ]
-        if not span_fields:
+        span_fields, selectors_well_formed = _evidence_span_selectors(evidence_ref)
+        if not selectors_well_formed or not span_fields:
             continue
 
         resolved_ids: set[str] = set()
@@ -861,8 +869,12 @@ def _write_validation_report(
             warnings.append("evidence ref missing id")
             continue
         known_evidence_ids.add(ref_id)
+        _, selectors_well_formed = _evidence_span_selectors(ref)
+        if not selectors_well_formed:
+            warnings.append(f"evidence ref {ref_id} has malformed span selectors")
         if not span_ids:
-            warnings.append(f"evidence ref {ref_id} missing span_id")
+            if selectors_well_formed:
+                warnings.append(f"evidence ref {ref_id} missing span_id")
         else:
             if len(set(span_ids)) > 1:
                 warnings.append(f"evidence ref {ref_id} has conflicting span selectors")
