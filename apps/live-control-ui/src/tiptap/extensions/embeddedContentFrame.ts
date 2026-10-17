@@ -1,7 +1,7 @@
 import './embeddedContentFrame.css';
 
 /** Editor-only chrome. Content nodes and their serialization stay owned by the caller. */
-export function embeddedContentFrame(label: string) {
+export function embeddedContentFrame(label: string, initialCollapsed = false, onToggle?: (collapsed: boolean) => void) {
   const dom = document.createElement('div');
   dom.className = 'embedded-content-frame';
   const header = dom.appendChild(document.createElement('div'));
@@ -14,16 +14,18 @@ export function embeddedContentFrame(label: string) {
   toggle.type = 'button';
   const content = dom.appendChild(document.createElement('div'));
   content.className = 'embedded-content-frame__body';
-  let collapsed = false;
+  let collapsed = initialCollapsed;
   function paint() {
     content.hidden = collapsed;
     toggle.textContent = collapsed ? 'Expand' : 'Collapse';
     toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${label.toLowerCase()}`);
     toggle.setAttribute('aria-expanded', String(!collapsed));
   }
-  const click = () => { collapsed = !collapsed; paint(); };
+  const click = () => { collapsed = !collapsed; onToggle?.(collapsed); paint(); };
+  const retainCaret = (event: MouseEvent) => event.preventDefault();
+  header.addEventListener('mousedown', retainCaret);
   toggle.addEventListener('click', click);
   paint();
-  return { dom, header, content, setSummary: (value: string) => { summary.textContent = value; },
-    destroy: () => toggle.removeEventListener('click', click) };
+  return { dom, header, content, isCollapsed: () => collapsed, setSummary: (value: string) => { summary.textContent = value; },
+    destroy: () => { toggle.removeEventListener('click', click); header.removeEventListener('mousedown', retainCaret); } };
 }

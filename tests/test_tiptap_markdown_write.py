@@ -145,6 +145,38 @@ def test_lossy_markdown_diagnostics_block_tables_and_html() -> None:
     assert any("line 1" in item for item in diagnostics)
 
 
+@pytest.mark.parametrize("envelope", ["", "---\ntitle: Edge\n---\n"])
+def test_worldbuilding_editor_table_prepare_commit_readback(tmp_path: Path, envelope: str) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    target = tmp_path / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(envelope + "# Edge\nA fort town.\n", encoding="utf-8")
+    markdown = envelope + "# Edge\n\n| d20 | Soldier | Detail |\n| --- | --- | --- |\n| 1 | Mara | Gate guard |\n| 20 | Pell | Peacekeeper |\n"
+    before = target.read_bytes()
+    prepared = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id, markdown=markdown, expected_revision=1))
+    assert prepared.writer_ok and prepared.writer_confirm_token
+    assert target.read_bytes() == before
+    committed = commit_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWriteCommitRequest(
+        document_id=record.document_id, markdown=markdown, expected_revision=1,
+        writer_confirm_token=prepared.writer_confirm_token))
+    assert committed.writer_ok
+    assert target.read_text(encoding="utf-8") == markdown
+    assert get_workspace_document(tmp_path, record.document_id).revision == 2
+
+
+@pytest.mark.parametrize("markdown", [
+    "| a | b |\n| --- | --- |\n| one | two | discarded |",
+    "| a | b |\n| --- | --- |\n| one |",
+    "| a | b |\n| :--- | --- |\n| one | two |",
+    "| a | b |\n| --- | --- |\n| <b>unsafe</b> | two |",
+    "| a | b |\n| --- | --- |\n| ![image](https://example.com) | two |",
+    "| a | b |",
+])
+def test_editor_table_admission_still_rejects_non_roundtrippable_tables(markdown):
+    assert markdown_lossy_diagnostics(markdown, allow_editor_tables=True)
+
+
 def test_worldbuilding_prepare_commit_round_trip(tmp_path: Path) -> None:
     record = create_workspace_document(
         tmp_path,
@@ -196,7 +228,7 @@ def test_lossy_markdown_blocks_prepare_and_commit_for_worldbuilding(tmp_path: Pa
         authority_state="draft",
         visibility_state="internal",
     )
-    markdown = "# Title\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n"
+    markdown = "# Title\n\n| a | b |\n| :--- | ---: |\n| 1 | 2 |\n"
     prepared = prepare_tiptap_markdown_write(
         root=tmp_path,
         request=TiptapMarkdownWritePrepareRequest(

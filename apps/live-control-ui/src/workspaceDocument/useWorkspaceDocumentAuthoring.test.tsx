@@ -130,6 +130,25 @@ describe("useWorkspaceDocumentAuthoring", () => {
     expect(window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID))).toBeNull();
   });
 
+  it("shows the server's actual prepare rejection while preserving the draft", async () => {
+    vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: 'dmb_tiptap_markdown_write_prepare_v1', document_id: BUILD_DOC_ID,
+      title: 'Build Source', target_relpath: 'out/workspace/worldbuilding/build.md',
+      target_display_path: 'out/workspace/worldbuilding/build.md', registry_revision: 1,
+      file_exists: false, writer_ok: false, writer_confirm_token: null,
+      warnings: ['The table needs review.'], diagnostics: ['line 4: unsupported markup'],
+    });
+    const editor = createEditor('My unsaved page');
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: BUILD_DOC_ID, surface: 'build', kind: 'worldbuilding_source' }));
+    await waitFor(() => expect(result.current.phase).toBe('ready_clean'));
+    act(() => { result.current.setEditor(editor); result.current.markDirty(); });
+    await act(async () => { await result.current.saveMarkdown(); });
+    expect(result.current.error).toContain('The table needs review.');
+    expect(result.current.error).toContain('line 4: unsupported markup');
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(JSON.stringify(editor.getJSON())).toContain('My unsaved page');
+  });
+
   it("enters conflict when verification snapshot is N+1 while receipt is N", async () => {
     vi.mocked(getWorkspaceDocumentSnapshot)
       .mockResolvedValueOnce(buildSnapshot())

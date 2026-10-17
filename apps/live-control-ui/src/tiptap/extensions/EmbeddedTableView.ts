@@ -1,17 +1,28 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
-import type { NodeView, ViewMutationRecord } from '@tiptap/pm/view';
+import type { EditorView, NodeView, ViewMutationRecord } from '@tiptap/pm/view';
 import { embeddedContentFrame } from './embeddedContentFrame';
+
+const collapsedByEditor = new WeakMap<EditorView, WeakMap<ProseMirrorNode, boolean>>();
 
 export class EmbeddedTableView implements NodeView {
   private node: ProseMirrorNode;
-  private frame = embeddedContentFrame('Table');
-  readonly dom = this.frame.dom;
-  private table = this.frame.content.appendChild(document.createElement('table'));
-  private columns = this.table.appendChild(document.createElement('colgroup'));
-  readonly contentDOM = this.table.appendChild(document.createElement('tbody'));
+  private frame: ReturnType<typeof embeddedContentFrame>;
+  private collapsed: WeakMap<ProseMirrorNode, boolean>;
+  readonly dom: HTMLDivElement;
+  private table: HTMLTableElement;
+  private columns: HTMLTableColElement;
+  readonly contentDOM: HTMLTableSectionElement;
 
-  constructor(node: ProseMirrorNode) {
+  constructor(node: ProseMirrorNode, view: EditorView) {
     this.node = node;
+    this.collapsed = collapsedByEditor.get(view) ?? new WeakMap();
+    collapsedByEditor.set(view, this.collapsed);
+    this.frame = embeddedContentFrame('Table', this.collapsed.get(node) ?? false,
+      value => this.collapsed.set(this.node, value));
+    this.dom = this.frame.dom;
+    this.table = this.frame.content.appendChild(document.createElement('table'));
+    this.columns = this.table.appendChild(document.createElement('colgroup'));
+    this.contentDOM = this.table.appendChild(document.createElement('tbody'));
     this.table.className = 'md-table';
     this.paint();
   }
@@ -35,6 +46,7 @@ export class EmbeddedTableView implements NodeView {
   update(node: ProseMirrorNode) {
     if (node.type !== this.node.type) return false;
     this.node = node;
+    this.collapsed.set(node, this.frame.isCollapsed());
     this.paint();
     return true;
   }

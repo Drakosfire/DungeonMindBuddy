@@ -456,7 +456,8 @@ export function useWorkspaceDocumentAuthoring(
       });
       if (saveGeneration !== saveGenerationRef.current) return;
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
-        dispatch({ type: "SAVE_FAILED", message: "Markdown save could not be prepared." });
+        const reason = [...(prepared.warnings ?? []), ...(prepared.diagnostics ?? [])].filter(Boolean).join(' ');
+        dispatch({ type: "SAVE_FAILED", message: reason ? `Couldn’t save this page: ${reason}` : "The server could not prepare this save. Your draft is still here." });
         return;
       }
 

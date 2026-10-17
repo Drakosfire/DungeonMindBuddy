@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 import blake3
+from markdown_it import MarkdownIt
 from pydantic import BaseModel, Field, model_validator
 
 from apps.live_control_server.services.registry_file_lock import (
@@ -68,18 +69,54 @@ def _normalize_write_mode(value: WriteMode | None) -> WriteMode:
     return value or "authoring"
 
 
-def markdown_lossy_diagnostics(markdown: str) -> list[str]:
+def _editor_table_lines(markdown: str) -> set[int]:
+    """Admit the flat, unaligned pipe-table subset emitted by the rich editor."""
+    lines = markdown.split("\n")
+    tokens = MarkdownIt("commonmark").enable("table").parse(markdown)
+    admitted: set[int] = set()
+
+    def pipes(line: str) -> int:
+        count = 0
+        escaped = False
+        for character in line:
+            if character == "|" and not escaped:
+                count += 1
+            escaped = not escaped if character == "\\" else False
+        return count
+
+    for index, token in enumerate(tokens):
+        if token.type != "table_open" or token.level != 0 or not token.map:
+            continue
+        start, end = token.map
+        closing = next((i for i in range(index + 1, len(tokens)) if tokens[i].type == "table_close"), index)
+        table = tokens[index:closing]
+        width = sum(item.type == "th_open" for item in table)
+        if (not width or start + 1 >= end
+                or not re.fullmatch(r"\s*\|(?:\s*-{3,}\s*\|)+\s*", lines[start + 1])):
+            continue
+        if any(not line.strip().startswith("|") or not line.strip().endswith("|")
+               or pipes(line) != width + 1 for line in lines[start:end]):
+            continue
+        if any(child.type in {"html_inline", "image"} for item in table for child in (item.children or [])):
+            continue
+        admitted.update(range(start + 1, end + 1))
+    return admitted
+
+
+def markdown_lossy_diagnostics(markdown: str, *, allow_editor_tables: bool = False) -> list[str]:
     """Return diagnostics for unsupported Markdown constructs.
 
     Blocking vs advisory is kind-scoped in prepare/commit (worldbuilding_source only).
     """
+    markdown = markdown.replace("\r\n", "\n")
+    table_lines = _editor_table_lines(markdown) if allow_editor_tables else set()
     diagnostics: list[str] = []
     for line_number, line in enumerate(
-        markdown.replace("\r\n", "\n").split("\n"), start=1
+        markdown.split("\n"), start=1
     ):
         if not line.strip():
             continue
-        if _LOSSY_MARKDOWN_LINE_RE.match(line):
+        if line_number not in table_lines and _LOSSY_MARKDOWN_LINE_RE.match(line):
             diagnostics.append(
                 f"line {line_number}: unsupported Markdown block would be lossy on commit"
             )
@@ -191,9 +228,9 @@ def _commit_blocking_lossy(
             # Blank out only the preserved envelope, keeping body diagnostics
             # in original source coordinates. Later delimiters remain checked.
             return markdown_lossy_diagnostics(
-                "\n" * envelope.count("\n") + markdown[len(envelope):]
+                "\n" * envelope.count("\n") + markdown[len(envelope):], allow_editor_tables=True
             )
-    return markdown_lossy_diagnostics(markdown)
+    return markdown_lossy_diagnostics(markdown, allow_editor_tables=True)
 
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
