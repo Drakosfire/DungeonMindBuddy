@@ -109,7 +109,7 @@ def validate_body(payload: str, expected_state: Mapping[str, Any], *,
     return body
 
 
-def prepared_view(prepared: Any, expected_state: Mapping[str, Any]) -> dict:
+def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accounting: ExperimentalAccounting | None = None) -> dict:
     if (prepared.provider != PROVIDER or prepared.provider_transport != "vercel_ai_gateway"
             or prepared.model != MODEL or prepared.method != "POST" or prepared.url != ENDPOINT
             or type(prepared.body) is not bytes or prepared.body_size != len(prepared.body)
@@ -117,7 +117,7 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any]) -> dict:
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
     payload = prepared.body.decode("utf-8")
-    validate_body(payload, expected_state)
+    validate_body(payload, expected_state, accounting=accounting)
     return {"provider": PROVIDER, "model": MODEL, "apiMode": API_MODE,
             "serializerVersion": SERIALIZER, "providerAttemptId": prepared.attempt_id,
             "payloadJson": payload, "payloadSha256": prepared.body_sha256,
@@ -171,9 +171,9 @@ def controller_exposure(base: Mapping[str, Any], *, event_sequence: int,
         sort_keys=True, allow_nan=False), event_sequence, prior_provider_attempt_id)
 
 
-def prepared_driver_view(prepared: Any, projection: Any) -> dict:
+def prepared_driver_view(prepared: Any, projection: Any, *, accounting: ExperimentalAccounting | None = None) -> dict:
     """Exact host-owned compact state AND questions; neither is worker authority."""
-    view = prepared_view(prepared, projection.state())
+    view = prepared_view(prepared, projection.state(), accounting=accounting)
     body = _decode(view["payloadJson"])
     if canonical(body["questions"]) != canonical(projection.questions()):
         raise ValueError("Prepared driver questions/options differ from the parent plan")

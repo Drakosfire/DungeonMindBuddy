@@ -1882,6 +1882,25 @@ class BuildPhaseActionControllerWriterPolicyV1(BuildFrontierActionControllerWrit
     phase_input_policy: Literal["role_separated_controller_inputs_v1"]
 
 
+class BuildControllerContinuationAccountingV1(StrictModel):
+    """Empirical admission for later controllers only; never a token guarantee."""
+
+    policy: Literal["o200k_double_plus_4096_experimental_v1"]
+    tokenizer: Literal["tiktoken"]
+    tokenizer_version: str = Field(min_length=1, max_length=128)
+    encoding: Literal["o200k_base"]
+    multiplier: Literal[2]
+    reserve: Literal[4096]
+    raw_wire_limit_bytes: Literal[256_000]
+    question_limit_tokens: Literal[32_000]
+    request_limit_tokens: Literal[64_000]
+    guaranteed_upper_bound: Literal[False]
+
+
+class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
+    controller_continuation_accounting: BuildControllerContinuationAccountingV1
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -1960,7 +1979,7 @@ class ProviderAttemptAuthorizedEventV1(GraphExecutionEventBaseV1):
     model: str = Field(min_length=1, max_length=256)
     api_mode: str = Field(min_length=1, max_length=64)
     tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound"]
+    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound", "estimated_token_count"]
     input_estimator: str = Field(min_length=1, max_length=128)
     input_tokens: int = Field(strict=True, ge=0)
     output_token_reserve: int = Field(strict=True, ge=0)
@@ -2632,6 +2651,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
 
         # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
         legacy_events: list[dict[str, object]] = []
+        provider_index = 0
         for event in self.events:
             if isinstance(
                 event,
@@ -2649,6 +2669,26 @@ class PlanWorldGraphExecutionV2(StrictModel):
             ):
                 continue
             payload = event.model_dump(mode="json", by_alias=True)
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                if isinstance(self.policy, BuildEstimatedActionControllerWriterPolicyV1):
+                    role = (event.provider, event.model, event.api_mode)
+                    controller = self.policy.provider_roles.controller.identity()
+                    writer = self.policy.provider_roles.writer.identity()
+                    if role not in {controller, writer} or (provider_index == 0 and role != controller):
+                        raise ValueError("provider accounting role differs from frozen policy")
+                    estimated = provider_index > 0 and role == controller
+                    descriptor = self.policy.controller_continuation_accounting
+                    expected_kind = "estimated_token_count" if estimated else self.policy.provider_input_accounting.kind
+                    expected_estimator = descriptor.policy if estimated else self.policy.provider_input_accounting.estimator
+                    if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
+                        raise ValueError("provider attempt accounting differs from accepted role policy")
+                    if estimated and event.input_tokens > descriptor.request_limit_tokens:
+                        raise ValueError("controller request estimate exceeds frozen policy")
+                    # Structural validator projection only; original event remains
+                    # explicitly estimated in the stored ledger and its hashes.
+                    payload["input_accounting_kind"] = self.policy.provider_input_accounting.kind
+                    payload["input_estimator"] = self.policy.provider_input_accounting.estimator
+                provider_index += 1
             if isinstance(event, ProviderAttemptAuthorizedEventV2):
                 payload["kind"] = "provider_attempt_authorized"
                 payload.pop("included_source_read_event_ids", None)
@@ -2784,7 +2824,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")

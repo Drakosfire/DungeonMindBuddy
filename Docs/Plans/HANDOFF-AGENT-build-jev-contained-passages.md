@@ -1,6 +1,8 @@
 # AGENT: lossless contained passages in controller assessments
 
-ACTIVE under PRIME's responsive Graph collaboration goal and ARCHITECTURE's exact-text reuse guidance. Base9f1d2f66b97ad1503bedab920da92c90314a8963 (merged1330). Serial successor; PRIME implements solo and ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/dependencies; no new worktree, clone, source export, per-slice environment or /tmp directory. No serving or retained-data changes. DOGFOOD retains Ingest/Combat and operator UX ownership.
+SETTLED implementation: PR1332 head3afd9a4529fa5ea65549361084a5303b150f3b9f merged at1c810a208e27be6efc7f21ed10bdcc18c05c0bb3 after independent review (223author/93independent tests). Fresh ordinary Float then acquired an additional docks record and refused its assessment at32754conservativeupper:10newJev calls71103input/11128output,0Luna,15.308seconds, no answer. Codec correctness is established; ordinary capacity/semantic acceptance remains unproven. Successor: HANDOFF-AGENT-build-jev-estimated-continuations.md.
+
+Original bounded contract under PRIME's responsive Graph collaboration goal and ARCHITECTURE's exact-text reuse guidance. Base9f1d2f66b97ad1503bedab920da92c90314a8963 (merged1330). Serial successor; PRIME implements solo and ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/dependencies; no new worktree, clone, source export, per-slice environment or /tmp directory. No serving or retained-data changes. DOGFOOD retains Ingest/Combat and operator UX ownership.
 
 ## Observed failure and bounded invariant
 
