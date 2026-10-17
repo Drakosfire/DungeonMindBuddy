@@ -17,7 +17,7 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
-import { useBuildMarkdownCanvasSlots } from "../buildSurface/buildMarkdownCanvasAdapter";
+import { BuildDraftRecovery, useBuildMarkdownCanvasSlots } from "../buildSurface/buildMarkdownCanvasAdapter";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import type { WorkspaceDocumentAuthoringValue } from "./useWorkspaceDocumentAuthoring";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
@@ -670,14 +670,14 @@ describe("real-session Save and Build discard exclusion", () => {
     act(() => { current.editor!.commands.insertContent("A real edit. "); });
     await waitFor(() => expect(current.dirty).toBe(true));
     const dirty = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
-    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft", exact: true }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep editing" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(current.dirty).toBe(true);
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft", exact: true }));
     let saving!: Promise<void>;
     act(() => { saving = current.saveMarkdown(); });
     await waitFor(() => expect(current.phase).toBe("preparing"));
@@ -723,5 +723,154 @@ describe("real-session Save and Build discard exclusion", () => {
     expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe("verified protected draft recovery", () => {
+  const source = "---\ntitle: Kept metadata\n---\n# Preserved source\n\nOriginal wording.\n";
+  const projection = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Unsaved local wording" }] }] };
+  const key = workspaceDocumentStorageKey(DOC_ID) + ".recovery.v1";
+  function seed(markdown = source) {
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(markdown));
+    localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify({
+      schema_version: "dmb_workspace_document_local_state_v5", document_id: DOC_ID,
+      title: "World Lore", campaign_id: "eldyrwild", kind: "worldbuilding_source",
+      target_session: null, surface: "build", base_revision: 1, base_content_sha256: "sha-source",
+      tiptap_json: projection, exported_markdown: markdown, exported_markdown_authoritative: true,
+      dirty: true, created_at: "2026-10-17T00:00:00Z", updated_at: "2026-10-17T00:00:00Z", last_local_save_at: "2026-10-17T00:00:00Z",
+    }));
+  }
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  it("preserves both versions and restores exact protected content after remount without server writes", async () => {
+    seed();
+    const first = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(first.result.current.phase).toBe("ready_dirty"));
+    act(() => first.result.current.setEditor(editorWithJson(projection)));
+    const original = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
+    const review = first.result.current.prepareDraftRecovery();
+    expect(first.result.current.saveDisabledReason).toMatch(/protect a recovered draft/);
+    expect(localStorage.getItem(key)).toBeNull();
+    act(() => first.result.current.confirmDraftRecovery(review));
+    const checkpoint = JSON.parse(localStorage.getItem(key)!);
+    expect(checkpoint.original.tiptap_json).toEqual(projection);
+    expect(checkpoint.original.exported_markdown).toBe(source);
+    expect(first.result.current.exportedMarkdownAuthoritative).toBe(false);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown).toContain("title: Kept metadata");
+    first.unmount();
+    const reopened = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(reopened.result.current.phase).toMatch(/^ready/));
+    act(() => reopened.result.current.setEditor(editorWithJson(reopened.result.current.editorContent)));
+    expect(reopened.result.current.draftRecoveryAvailable).toBe(true);
+    act(() => reopened.result.current.restoreDraftRecovery());
+    expect(reopened.result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(reopened.result.current.dirty).toBe(true);
+    expect(reopened.result.current.editorContent).toEqual(projection);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(original);
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+  it("restores the real rich editor through the Build recovery controls", async () => {
+    seed();
+    let current!: ReturnType<typeof useMarkdownCanvasSession>;
+    function RecoveryCanvas() {
+      current = useMarkdownCanvasSession();
+      return <>
+        <BuildDraftRecovery session={current} />
+        {current.phase.startsWith("ready") ? <MarkdownEditorCore documentKey={current.documentKey}
+          content={current.editorContent as Content} editable onEditorChange={current.setEditor}
+          onUpdate={current.handleEditorUpdate} /> : null}
+      </>;
+    }
+    render(<MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source"><RecoveryCanvas /></MarkdownCanvasSessionProvider>);
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    const originalJson = current.editor!.getJSON();
+    fireEvent.click(screen.getByRole("button", { name: "Review protected draft", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Review protected draft" });
+    expect(dialog).toHaveTextContent("Unsaved local wording");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep recovery copy and rebuild" }));
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
+    await waitFor(() => expect(current.editor?.getText()).toContain("Original wording."));
+    fireEvent.click(screen.getByRole("button", { name: "Restore protected draft" }));
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(true));
+    await waitFor(() => expect(current.editor?.getJSON()).toEqual(originalJson));
+    expect(current.dirty).toBe(true);
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it.each(["quota", "readback"])("leaves projection and seal intact when checkpoint %s fails", async failure => {
+    seed();
+    const storage = {
+      getItem: (k: string) => k === key && failure === "readback" ? null : localStorage.getItem(k),
+      setItem: (k: string, v: string) => { if (k === key && failure === "quota") throw new Error("Quota exceeded"); localStorage.setItem(k, v); },
+      removeItem: (k: string) => localStorage.removeItem(k),
+    };
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source", storage }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    const before = localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+    const review = result.current.prepareDraftRecovery();
+    expect(() => result.current.confirmDraftRecovery(review)).toThrow();
+    expect(result.current.editorContent).toEqual(projection);
+    expect(result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(before);
+  });
+  it("invalidates review when live editor changes and refuses restore over newer edits", async () => {
+    seed();
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    const editor = editorWithJson(projection);
+    act(() => result.current.setEditor(editor));
+    const review = result.current.prepareDraftRecovery();
+    vi.mocked(editor.getJSON).mockReturnValue({ type: "doc", content: [] });
+    expect(() => result.current.confirmDraftRecovery(review)).toThrow(/changed after review/);
+    expect(localStorage.getItem(key)).toBeNull();
+    vi.mocked(editor.getJSON).mockReturnValue(projection);
+    act(() => result.current.confirmDraftRecovery(result.current.prepareDraftRecovery()));
+    act(() => result.current.setEditor(editorWithParagraph("Newer unique edits")));
+    expect(() => result.current.restoreDraftRecovery()).toThrow(/newer edits/);
+    expect(localStorage.getItem(key)).not.toBeNull();
+  });
+  it.each(["before review", "after review", "before restore"])("preserves another tab's persisted edits %s", async timing => {
+    seed();
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    const review = timing === "before review" ? null : result.current.prepareDraftRecovery();
+    if (timing === "before restore") {
+      act(() => result.current.confirmDraftRecovery(review!));
+      act(() => result.current.setEditor(editorWithJson(result.current.editorContent)));
+    }
+    const checkpoint = localStorage.getItem(key);
+    const stored = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    const other = JSON.stringify({ ...stored, tiptap_json: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Other tab unique edits" }] }] } });
+    localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), other);
+    expect(() => timing === "before review" ? result.current.prepareDraftRecovery()
+      : timing === "after review" ? result.current.confirmDraftRecovery(review!)
+      : result.current.restoreDraftRecovery()).toThrow(/stored draft changed/);
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(other);
+    expect(localStorage.getItem(key)).toBe(checkpoint);
+  });
+  it.each([null, "not JSON"])("refuses recovery with missing/unreadable stored draft %s", async raw => {
+    seed();
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    if (raw == null) localStorage.removeItem(workspaceDocumentStorageKey(DOC_ID));
+    else localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), raw);
+    expect(() => result.current.prepareDraftRecovery()).toThrow(/stored draft changed/);
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(raw);
+    expect(localStorage.getItem(key)).toBeNull();
+  });
+  it("keeps unsupported source protected without creating a checkpoint", async () => {
+    seed("# Source\n\n<div>Unsupported raw HTML</div>\n");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    act(() => result.current.setEditor(editorWithJson(projection)));
+    expect(() => result.current.confirmDraftRecovery(result.current.prepareDraftRecovery())).toThrow(/cannot be safely imported/);
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(result.current.exportedMarkdownAuthoritative).toBe(true);
   });
 });

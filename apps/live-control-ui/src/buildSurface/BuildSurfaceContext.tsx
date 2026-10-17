@@ -140,8 +140,11 @@ export function BuildSurfaceContext({
               ) : null}
               {session ? <button type="button" className="build-navbar-save" data-testid="build-navbar-save"
                 disabled={session.saveDisabled || documentMutationBusy}
+                title={documentMutationBusy ? "Wait for the current document action to finish." : session.saveDisabledReason ?? undefined}
+                aria-describedby={session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
                 onClick={() => void session.saveMarkdown()}>{saveBusy ? "Saving…" : "Save"}</button> : null}
-              {session?.dirty ? <BuildDraftRecovery session={session} /> : null}
+              {session?.saveDisabled && session.dirty && session.saveDisabledReason ? <span id="build-save-reason" role="status">{session.saveDisabledReason}</span> : null}
+              {session?.dirty || session?.draftRecoveryAvailable ? <BuildDraftRecovery session={session!} /> : null}
             </>
           ) : (
             <>
