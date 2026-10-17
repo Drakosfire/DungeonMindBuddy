@@ -6,7 +6,7 @@ import { EmbeddedTableView } from './EmbeddedTableView';
 
 /** GFM-style tables for Plan Board / MarkdownEditor (non-resizable). */
 export const PLAN_TABLE_EXTENSIONS = [
-  Table.extend({ addNodeView() { return ({ node, view }) => new EmbeddedTableView(node, view); } }).configure({
+  Table.extend({ addNodeView() { return ({ node, view, getPos }) => new EmbeddedTableView(node, view, getPos); } }).configure({
     resizable: false,
     HTMLAttributes: {
       class: "md-table",

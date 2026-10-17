@@ -23,3 +23,10 @@ editor title save/reopen, result/no document edits, reattachment. Typecheck/buil
 independent exact review, PR/merge and UI5202-only rollout; APIs unchanged. Set the
 operator-requested title on their existing table using its visible control, leave
 Save explicit. No new provider calls.
+
+Operator adds whole-object drag/drop. Extend exclusive set with
+EmbeddedTableMove.ts and EmbeddedTableMove.test.ts. Move the adjacent caption H2
+and table atomically in one editor transaction, preserve undo and cells. Accept
+only same-editor, in-memory-token drags against the unchanged source document;
+resolve drop to top-level boundaries. Provide keyboard Alt+Up/Down on the handle.
+No cross-document transfer, foreign HTML import or hidden source edits.
