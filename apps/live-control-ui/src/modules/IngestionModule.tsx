@@ -821,16 +821,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     graphPreview?.status === "candidate_validation_ready",
   );
   const workflowNextAction = (() => {
-    if (!sourceInputSatisfied && !hasNormalizedRecap) {
-      return "Write or paste a recap, then choose Process.";
-    }
-    if (!validRecapSession) return "Choose a session number before processing.";
-    if (!genericGuardPass) return "Add a specific session title before processing.";
     if (state.status === "running_full_ingest") {
       return "Processing recap and building World Graph context.";
     }
     if (state.status === "building_graph_preview") return "Working: building the graph source-span preview bundle.";
     if (state.status === "materializing_preview_supergraph") return "Working: materializing the preview union supergraph.";
+    if (readerMode) {
+      if (reviewLoading) return `Opening saved recap · Session ${recapSession}…`;
+      if (reviewError) return "Saved recap could not be opened. See the message on the recap surface.";
+      if (reviewSource?.projection) return `Viewing saved recap · Session ${reviewSource.session}.`;
+      return `Opening saved recap · Session ${recapSession}…`;
+    }
+    if (!sourceInputSatisfied && !hasNormalizedRecap) {
+      return "Write or paste a recap, then choose Process.";
+    }
+    if (!validRecapSession) return "Choose a session number before processing.";
+    if (!genericGuardPass) return "Add a specific session title before processing.";
     if (hasPreviewUnionStore && forceGraphRun) {
       return "Ready to replace the existing graph. Choose Process to refresh it.";
     }

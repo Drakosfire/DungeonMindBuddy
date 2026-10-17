@@ -672,10 +672,17 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
 
     await user.type(screen.getByLabelText("Write or paste a recap"), "Session 22 Recap\n\n...");
-    await user.type(screen.getByLabelText("Session title"), "ingest");
+    const title = screen.getByLabelText("Session title");
+    await user.type(title, "ingest");
 
     expect(screen.getByRole("button", { name: "Process recap" })).toBeDisabled();
     expect(screen.getByText("Add a specific session title before processing.")).toBeInTheDocument();
+
+    await user.clear(title);
+    await user.type(title, "Session 22 - Mireward Gate Approach");
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent(/Choose Process to build the enriched recap and graph context/i));
+    expect(screen.getByRole("button", { name: "Process recap" })).toBeEnabled();
   });
 
   it("opens a saved Session 10 as the enriched World Graph view", async () => {
@@ -708,6 +715,9 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
 
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Viewing saved recap · Session 10."));
+    expect(within(toolbar).queryByText(/Choose Process to build the enriched recap/i)).not.toBeInTheDocument();
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
