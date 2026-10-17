@@ -59,8 +59,8 @@ def test_actual_sdk_continuations_have_historical_commitment_not_initial_packet(
     receipt = runtime.adapter.turn.graph_context_receipt
     for body in bodies[1:]:
         state = body["state"]
-        assert state["schema"] == policy.CONTINUATION_SCHEMA
-        assert state["input_policy"] == policy.CONTINUATION_POLICY
+        assert state["schema"] == policy.PHASE_SCHEMA
+        assert state["input_policy"] == policy.PHASE_POLICY
         assert "initialClaimPacket" not in state
         assert state["historical_initial"]["context_receipt_sha256"] == receipt.context_receipt_sha256
         assert state["historical_initial"]["initial_envelope_sha256"] == receipt.assembled_input.assembled_input_sha256
@@ -82,7 +82,7 @@ def test_mutated_continuation_is_refused_before_second_send(
 
     def authorize(driver, prepared):
         body = json.loads(prepared.body)
-        if body["state"]["schema"] != policy.CONTINUATION_SCHEMA:
+        if body["state"]["schema"] != policy.PHASE_SCHEMA:
             return original(driver, prepared)
         binding = body["state"]["historical_initial"]
         if mutation == "tampered_parent_receipt":

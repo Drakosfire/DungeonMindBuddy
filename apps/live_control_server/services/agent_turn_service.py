@@ -1115,7 +1115,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildFrontierActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildPhaseActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("phase_input_policy") is not None
+                else graph_types.BuildFrontierActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("frontier_policy") is not None
                 else graph_types.BuildContinuationActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("controller_input_policy") is not None
@@ -1610,10 +1612,11 @@ class _PolicyExecutionAdapter:
             return self.fence.turn, [], [], []
         active_driver = getattr(self, "_active_build_driver_projection", None)
         if active_driver is not None:
-            from .build_jev_dispatch import CONTINUATION_SCHEMA, CONTINUATION_POLICY, continuation_binding
+            from .build_jev_dispatch import CONTINUATION_SCHEMA, CONTINUATION_POLICY, PHASE_SCHEMA, PHASE_POLICY, continuation_binding
             state = json.loads(view["payloadJson"]).get("state", {})
-            if state.get("schema") == CONTINUATION_SCHEMA:
-                if (state.get("input_policy") != CONTINUATION_POLICY
+            if state.get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}:
+                expected_input = PHASE_POLICY if state["schema"] == PHASE_SCHEMA else CONTINUATION_POLICY
+                if (state.get("input_policy") != expected_input
                         or "initialClaimPacket" in state
                         or _canonical_sha256(state.get("historical_initial")) != _canonical_sha256(continuation_binding(self))):
                     raise ValueError("Continuation differs from the frozen receipt and acknowledged attempt")
@@ -1892,8 +1895,8 @@ class _PolicyExecutionAdapter:
             })
             build_closures = []
             if _governed_build_turn(self.request):
-                from .build_jev_dispatch import CONTINUATION_SCHEMA
-                continuation = active_driver is not None and body.get("state", {}).get("schema") == CONTINUATION_SCHEMA
+                from .build_jev_dispatch import CONTINUATION_SCHEMA, PHASE_SCHEMA
+                continuation = active_driver is not None and body.get("state", {}).get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}
                 build_closures = [] if writing or continuation else _build_initial_claim_evidence(
                     view, self.bootstrap, self.initial_session_projection,
                 )
