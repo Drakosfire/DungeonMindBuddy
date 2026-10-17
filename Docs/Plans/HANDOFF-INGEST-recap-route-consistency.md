@@ -1,15 +1,19 @@
 # HANDOFF — INGEST recap route consistency
 
-**Created:** 2026-10-17.
-**Status:** ACTIVE — PRIME explicitly dispatches this follow-on under the operator’s Ingest-first goal.
-**Base:** fetched `origin/main@981384722723a8682e93da03bac80e0b0d37ebcf` after rebasing the final route-safety changes.
-**Branch:** `codex/ingest-recap-route-consistency`.
+**Status:** ACTIVE — PRIME dispatched the scoped #1299 failure-path repair in the existing assigned checkout.
+**Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reused; no new worktree).
+**Base:** `origin/main@892cc46b50c3420765c00064db1dec46248c4d7d` verified from GitHub; candidate rebase is pending before final verification.
+**Branch:** `codex/ingest-1299-repair`, created from tested candidate `83a0eee183744071cf065bba6b715a3ba3eb518b`.
 **PR:** [#1299](https://github.com/Drakosfire/DungeonMindBuddy/pull/1299), `INGEST: preserve drafts across saved recap routes`.
-**Topology:** serial successor to merged #1298; parallel-independent of open #1244 (server candidate-evidence packaging), #1235 (Graph Review source-observation UI), and #1144 (candidate-kind validation). Their current changed-file lists do not overlap this lane.
+**Topology:** serial repair on the existing #1299 PR. No additional PR. PRIME retains merge authority.
+
+## Lane preservation
+
+The parked `codex/dogfood-recap-presentation` changes were saved in `stash@{0}` with message `PARKED dogfood-recap-presentation before INGEST-1299 repair`. `git stash show --include-untracked --stat stash@{0}` verified ten paths, including the untracked DOGFOOD handoff. Do not apply this stash into the #1299 repair branch; preserve it for its own future lease.
 
 ## Mission
 
-Make direct saved-recap URLs and picker-loaded recaps behave consistently without hiding or discarding an operator’s unsaved draft. Preserve current edit intent and fix the picker path that currently clears the active draft while it opens a saved recap.
+Preserve unsaved drafts while direct saved-recap URLs and picker navigation behave consistently. Repair the failure path where returning to a draft before a pending `inspect_status` settles leaves `loadingPriorIngestion` true, gates autosave, and loses edits on remount. Limit new product changes to this failure-path repair and its paired regression cases.
 
 ## Current-code evidence and invariant
 
@@ -23,11 +27,10 @@ Make direct saved-recap URLs and picker-loaded recaps behave consistently withou
 ## Exact write set
 
 - `Docs/Plans/HANDOFF-INGEST-recap-route-consistency.md`
-- `Docs/Plans/HANDOFF-INGEST-loaded-recap-guidance.md` (settle merged #1298 predecessor)
 - `apps/live-control-ui/src/modules/IngestionModule.tsx`
 - `apps/live-control-ui/src/modules/IngestionModule.test.tsx`
 
-No other files. No API, extraction, persistence, schema, provider, corpus, Graph-admission, shared-navigation, or runtime-service changes. Do not change Build or historical settled handoffs other than the named #1298 predecessor.
+No other files. No API, extraction, persistence, schema, provider, corpus, Graph-admission, shared-navigation, or runtime-service changes. Do not edit or apply the parked DOGFOOD paths.
 
 ## Acceptance
 
@@ -37,8 +40,8 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 - If a direct saved-recap route cannot be verified, keep the mismatched draft visibly recoverable. Do not expose an editor whose selected session would not be persisted over the preserved draft key.
 - Preserve unrelated query parameters and exact campaign/session binding.
 - Keep source and Graph-admission claims truthful.
-- Keep the direct-route draft-preservation behavior intentional; do not manufacture a forced-reader route fix.
-- Verify with the focused IngestionModule UI suite, package typecheck/build where available, and `git diff --check`.
+- Test `returnToDraft` while `inspect_status` is pending, covering both later resolution and rejection. After editing, autosave must resume and a remount must restore the new text.
+- Verify with the focused IngestionModule UI suite, package typecheck/build where available, and `git diff --check` against the rebased head.
 - No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart. Browser-local draft storage is in scope and is explicitly verified by the tests.
 
 ## Implementation and verification evidence
@@ -52,8 +55,9 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 - `npx vite build`: passed independently; Vite reports the repository’s existing large-chunk advisory. `npm run build` cannot reach Vite because the package typecheck step reports the existing WorldPlanAgentAnswer errors below.
 - `npm run typecheck`: still stops on five existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 line 47, TS18048 line 49, TS2339 line 50). The edited Ingest files are not named by these diagnostics.
 - `git diff --check`: passed.
+- Candidate `83a0eee183744071cf065bba6b715a3ba3eb518b` adds the `returnToDraft` loading reset and two parameterized late-resolve/late-reject remount regressions; prior focused verification reported 45/45 IngestionModule tests and a passing Vite build. Re-run required on the current-main rebased cumulative head.
 - No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart was performed.
 
 ## Review and completion
 
-One reviewable PR on this branch. PRIME retains merge authority. PR #1299 is rebased on `main@981384722723a8682e93da03bac80e0b0d37ebcf`; final code head is recorded in the PR description. The PR is ready for a fresh independent review of the cumulative diff and this failure-path safeguard. Do not merge without PRIME’s approval.
+The remote PR remains at head `0e9cde0a2eb39d4fb1ad0cadf3a2a9660dcbf6ba` while this repair is prepared. After rebasing and verifying, update the same PR with the exact cumulative base/head and checks, then send the head to PRIME for independent review. Do not merge without PRIME’s approval.
