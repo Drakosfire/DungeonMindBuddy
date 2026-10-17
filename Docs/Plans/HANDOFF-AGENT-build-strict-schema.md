@@ -1,4 +1,6 @@
-# Build strict schema adoption — ACTIVE
+# Build strict schema adoption — SETTLED
+
+Completed implementation and matched rollout: Buddy#1289 merge6d4ae819368107488c05fffa4f3888c03dc8a7f3, GE#23 merge28255c8142c190b8ccdfaeec0b1abd5d2456a001. ARCHITECTURE passed exact Buddy0054651e and19 owning tests; prior UI/editor review carries. Live synthetic strict-schema generation passed in3.883s (484input/211output tokens,one attempt,no retries,costunknown). APP0026 backup restore/migration rehearsal and retained rollout preserved all existing rows.5202/8000 and5876/8002 serve the matched accepted source; health,asset hashes and authenticated routes passed. No Graph publication or operator-page mutation. Operator inspection and full Mirathorn acceptance remain open. This implementation/runtime lease ended. Original bounded authority follows.
 
 Operator authorized GE guarded schema support followed by Build adoption and5202 deployment. PRIME implements; ARCHITECTURE reviews. Buddy basebabdf1fe78cde23f5954414a675e487a606f0a03; branch codex/build-strict-schema, /tmp/prime-recap-mention-boundaries. Serial successor to merged#1288. GE prerequisite contract: GenerationEngine docs/Handoffs/HANDOFF-guarded-structured-schema.md atc99bb7e, base5c69e7c5. GE#23 accepted merge28255c8142c190b8ccdfaeec0b1abd5d2456a001 (independent100tests, author169tests, CIpassed). Consumer execution/deployment uses that exact pin. DOGFOOD retains Ingest; no shared implementation writes.
 

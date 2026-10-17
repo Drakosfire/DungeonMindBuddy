@@ -1,6 +1,6 @@
 # Agent — Compose into the saved Build page
 
-IMPLEMENTATION MERGED — Buddy#1288 atbabdf1fe78cde23f5954414a675e487a606f0a03; exact-head ARCHITECTURE review passed. UI/editor/persistence capability is implemented, but it is not yet deployed. The operator then required guarded strict schema adoption before rollout; HANDOFF-AGENT-build-strict-schema.md now owns the consumer/runtime successor. Original bounded contract follows.
+IMPLEMENTATION MERGED — Buddy#1288 atbabdf1fe78cde23f5954414a675e487a606f0a03; exact-head ARCHITECTURE review passed. UI/editor/persistence capability is deployed through reviewed strict-schema successor#1289 at6d4ae819368107488c05fffa4f3888c03dc8a7f3 on5202 and5876. The operator then required guarded strict schema adoption before rollout; HANDOFF-AGENT-build-strict-schema.md now owns the consumer/runtime successor. Original bounded contract follows.
 
 Explicit operator dogfood priority: ask for NPCs/jobs and put a table on the page. PRIME implements solo; ARCHITECTURE independently reviews; DOGFOOD remains on Ingest. Base origin/main@119043228c60142e670bbad61d2cd73ed96426ba. Branch codex/build-compose-insertion, /tmp/prime-recap-mention-boundaries. Parallel-independent of DOGFOOD's managed-run projection; no unmerged dependency. #1285 selected-source inclusion is merged at210c174f; #1286 evidence-read auth is merged at11904322 and deployed. Do not wait on source-navigation or automatic Jev acquisition before delivering creative Compose.
 

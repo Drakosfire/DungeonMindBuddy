@@ -73,8 +73,12 @@ proposal under `HANDOFF-AGENT-build-compose-insertion.md`. Independent review,
 279 UI tests, mounted Save/reopen and desktop/narrow component rendering passed.
 A synthetic JSON-object call succeeded, then operator review required strict
 schema adoption. GE#23 supplies guarded zero-repair strict schemas; the consumer
-and matched rollout follow `HANDOFF-AGENT-build-strict-schema.md`. Operator
-availability remains pending deployment and inspection.
+and matched rollout follow `HANDOFF-AGENT-build-strict-schema.md`. Buddy#1289 merged at6d4ae819 and deployed with accepted GE28255c8 to
+5202/8000 and5876/8002. The synthetic strict-schema generation completed in
+3.883s (484input/211output tokens,one attempt,no retries;costunknown). APP0026
+rollout preserved all existing rows; health,asset hashes and authenticated
+routes passed. The table request → review → insert → explicit Save capability is
+available for operator inspection. This does not close full Mirathorn acceptance.
 Cross-document edits, automatic Graph publication and replacing selected text
 remain separate work. DOGFOOD continues Ingest ownership.
 
