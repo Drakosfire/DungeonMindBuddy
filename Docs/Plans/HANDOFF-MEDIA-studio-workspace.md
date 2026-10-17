@@ -1,6 +1,6 @@
 # MEDIA: one creation workspace with visible retained results
 
-Status: ACTIVE. PRIME owns implementation, review dispatch and coordinated local
+Status: MERGED AND ADOPTED at 34c10ee20d2dd232af2caadd78a558e004b66ab6; implementation/review lease released. PRIME owns implementation, review dispatch and coordinated local
 5202/API delivery under the operator's current Image Studio dogfood request.
 Base: origin/main@590686f5d5c7933480d7e57ce080bddf4f4fc473.
 Branch: codex/media-studio-workspace; reuse buddy-context-loop and dependencies.
