@@ -41,6 +41,8 @@ interface IngestionModuleProps {
 }
 
 const INGESTION_DRAFT_STORAGE_VERSION = 3;
+const INGESTION_GRAPH_MODEL_ID = "deepseek/deepseek-v4.1-flash-1017";
+const INGESTION_GRAPH_MODEL_LABEL = "DeepSeek V4.1 Flash 1017 · pinned";
 
 type IngestionSourceMode = "raw" | "processed";
 
@@ -1820,7 +1822,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           force_stage: forceStage || undefined,
           force_recap: forceRecap || undefined,
           include_graph_extraction: true,
-          graph_model_id: "deepseek/deepseek-v4.1-flash",
+          graph_model_id: INGESTION_GRAPH_MODEL_ID,
           force_graph_run: forceGraphRun || undefined,
         }, targetIdentity);
       if (!response) return;
@@ -1965,7 +1967,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         session: recapSession,
         candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithModel,
-        graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
+        graph_model_id: extractGraphWithModel ? INGESTION_GRAPH_MODEL_ID : undefined,
         force_graph_run: forceGraphRun || undefined,
       }, targetIdentity);
       if (!result) return;
@@ -1995,7 +1997,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         session: recapSession,
         candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithModel,
-        graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
+        graph_model_id: extractGraphWithModel ? INGESTION_GRAPH_MODEL_ID : undefined,
         materialize_after_extract: extractGraphWithModel,
         force_graph_run: forceGraphRun || undefined,
       }, targetIdentity);
@@ -2734,7 +2736,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   if (checked) setCandidateGraphPath("");
                 }}
               />
-              Extract graph from recap with category extraction (DeepSeek)
+              Extract graph from recap with category extraction ({INGESTION_GRAPH_MODEL_LABEL})
             </label>
             <p className="module-muted">
               Optional preview-only candidate graph artifact. When category extraction is enabled, the backend extracts source-backed nodes and relationships from the saved recap.

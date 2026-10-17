@@ -396,6 +396,7 @@ def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path
         ('{"observation_nodes": "wrong"}', {}),
         ('{"observation_nodes": []}', {"provider": "other"}),
         ('{"observation_nodes": []}', {"response_model": "other"}),
+        ('{"observation_nodes": []}', {"response_model": "deepseek/deepseek-v4.1-flash"}),
         ('{"observation_nodes": []}', {"provider_attempt_count": 2}),
         ('{"observation_nodes": []}', {"retry_count": 1}),
     ],

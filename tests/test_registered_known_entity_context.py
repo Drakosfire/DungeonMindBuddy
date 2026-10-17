@@ -75,7 +75,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
     kwargs = {"extra_known_entities": entities} if context else {}
     result = run_recap_production_extraction(
         repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-24", recap_path=path,
-        profile="category_baseline", model_id="deepseek/deepseek-v4.1-flash", category_client=client,
+        profile="category_baseline", model_id="deepseek/deepseek-v4.1-flash-1017", category_client=client,
         ingest_context=_context("longmont-c2"),
         **kwargs,
     )

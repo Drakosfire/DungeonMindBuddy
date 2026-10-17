@@ -42,7 +42,7 @@ def run_fixture(text: str, entities: list[dict]):
             "spans": [{"span_id": "span-1", "source_span_ref_id": "span-1", "line_start": 1,
                        "line_end": 1, "text": text}],
         },
-        model_id="deepseek/deepseek-v4.1-flash", enable_party_claimed_fill=False,
+        model_id="deepseek/deepseek-v4.1-flash-1017", enable_party_claimed_fill=False,
         extra_known_entities=tuple(known_entities_from_world_graph({"nodes": entities}, include_kinds=None)),
     )
     return run_category_pipeline(Capture(), options), messages
