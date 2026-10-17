@@ -117,7 +117,7 @@ class BuildJevHarness:
         return AgentBuildGraphTurnResponseV1.model_validate(payload)
 
     def execute(self, adapter):
-        self.calls, self.timings = [], []
+        self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
         driver = adapter.create_build_jev_driver(with_actions=True)
         adapter.build_frozen_history = driver._interaction["history"]
@@ -136,6 +136,14 @@ class BuildJevHarness:
                     self._acquire(adapter, driver)
                 else:
                     raise ValueError("Unsupported Jev step")
+            terminal = driver.step
+            if terminal.status == "refused":
+                raise ValueError(f"Jev refused delivery: {terminal.reason}")
+            adapter.build_retrieval_disposition = {
+                "status": terminal.status,
+                "reason": terminal.reason,
+                "relevant_ids": list(terminal.relevant_ids),
+            }
             graph, sources, sections = driver._material()
             if sources:
                 staged = adapter.stage_build_source_writer(
@@ -148,11 +156,20 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
+            if terminal.status in {"insufficient_evidence", "unresolved_conflict"}:
+                candidate = json.loads(result.text)
+                if candidate.get("answer_context_status") in {
+                    "source_grounded",
+                    "graph_grounded",
+                }:
+                    raise ValueError(
+                        "Writer claimed full support despite unresolved retrieval"
+                    )
             return adapter.complete_build_writer(result)
         finally:
             adapter.stop()
 
-    def _record_observation(self, observation, elapsed, phase):
+    def _record_observation(self, observation, elapsed, phase, *, status="ok"):
         self.timings.append(dict(phase=phase, elapsed_ms=elapsed))
         known = all(
             type(observation.get(k)) is int for k in ("input_tokens", "output_tokens")
@@ -162,15 +179,47 @@ class BuildJevHarness:
             requested_model=observation.get("resolved_model"),
             response_model=observation.get("response_model")
             or observation.get("resolved_model"),
-            status="ok",
+            status=status,
             duration_ms=elapsed,
             api_duration=elapsed / 1000,
             usage={**observation, "status": "reported" if known else "unavailable"},
             inference_observation=observation,
         )
-        self.calls.append(call)
+        index = self._inflight.pop(phase, None)
+        if index is None:
+            self.calls.append(call)
+        else:
+            self.calls[index] = call
         if self.adapter.context_capture:
             self.adapter.context_capture.provider_usage([call])
+
+    def _entered(self, event, phase):
+        if event.outcome == "sending":
+            self._inflight[phase] = len(self.calls)
+            self.calls.append(
+                dict(
+                    provider=event.request.provider,
+                    requested_model=event.request.model,
+                    status="error",
+                    usage={"status": "unavailable"},
+                    outcome="unknown",
+                )
+            )
+
+    def _failed(self, exc, started, phase):
+        if phase not in self._inflight:
+            return  # A pre-dispatch veto is not an entered provider call.
+        observation = getattr(exc, "observation", None)
+        if observation is not None:
+            observation = observation.model_dump(mode="json")
+        else:
+            row = self.calls[self._inflight[phase]]
+            observation = dict(
+                provider=row["provider"], resolved_model=row["requested_model"]
+            )
+        self._record_observation(
+            observation, (time.perf_counter() - started) * 1000, phase, status="error"
+        )
 
     def _observe(self, result, started, phase):
         self._record_observation(
@@ -186,7 +235,10 @@ class BuildJevHarness:
             return driver.authorize(prepared)
 
         async def record(event):
-            return adapter.record_prepared_build_decision(event)
+            acknowledged = adapter.record_prepared_build_decision(event)
+            if acknowledged:
+                self._entered(event, "controller")
+            return acknowledged
 
         provider = TypeSafeDecisionProvider(
             dispatch_gate=DecisionDispatchGate(authorize, record),
@@ -213,6 +265,9 @@ class BuildJevHarness:
             )
             self._observe(result, started, "controller")
             driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
+        except Exception as exc:
+            self._failed(exc, started, "controller")
+            raise
         finally:
             await client.aclose()
 
@@ -300,7 +355,10 @@ class BuildJevHarness:
             return adapter.authorize_prepared_build_writer(prepared)
 
         async def record(event):
-            return adapter.record_prepared_build_writer(event)
+            acknowledged = adapter.record_prepared_build_writer(event)
+            if acknowledged:
+                self._entered(event, "writer")
+            return acknowledged
 
         provider = OpenAITextProvider(
             dispatch_gate=TextDispatchGate(authorize, record),
@@ -312,6 +370,9 @@ class BuildJevHarness:
             result = await client.generate_text(writer_policy.text_request(staged))
             self._observe(result, started, "writer")
             return result
+        except Exception as exc:
+            self._failed(exc, started, "writer")
+            raise
         finally:
             await client.aclose()
 
@@ -356,17 +417,24 @@ class BuildJevHarness:
             return adapter.authorize_prepared_build_writer(prepared)
 
         async def record(event):
-            return adapter.record_prepared_build_writer(event)
+            acknowledged = adapter.record_prepared_build_writer(event)
+            if acknowledged:
+                self._entered(event, "writer")
+            return acknowledged
 
         started = time.perf_counter()
-        action = asyncio.run(
-            proposal_owner.compose_with_writer(
-                request,
-                TextDispatchGate(authorize, record),
-                transport=self.writer_transport,
-                frozen_history=history,
+        try:
+            action = asyncio.run(
+                proposal_owner.compose_with_writer(
+                    request,
+                    TextDispatchGate(authorize, record),
+                    transport=self.writer_transport,
+                    frozen_history=history,
+                )
             )
-        )
+        except Exception as exc:
+            self._failed(exc, started, "writer")
+            raise
         if action.state != "proposed":
             raise ValueError("Proposal is unresolved; no regeneration or second writer")
         if (

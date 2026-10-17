@@ -44,3 +44,12 @@ This adopts Jev only for governed Build with complete exact-source discovery. Ot
 ## Review repair authority
 
 PRIME activates in-scope review repairs after ARCHITECTURE HOLD at5c3d22eac: refusal stops before writer; explicit terminal conflict/insufficiency reaches the writer; entered failed attempts are counted with available observations; immutable persisted proposal recovery uses an owner-checked transaction/CAS after lease expiry or interruption, preserving general provider claim fencing and attempt identity. The APP repository.py addition is leased only for that narrow validated recovery update. No provider dispatch or new attempt is permitted in recovery. Final verification supersedes earlier immediate-retry-only claims.
+
+
+## Corrected review packet
+
+ARCHITECTURE HOLD at5c3d22eac found refusal fall-through, failed-call undercount and lease-limited recovery. Repairs now stop refused dispositions before any writer, carry explicit conflict/insufficiency into the exact staged packet, reject full-grounding status for unresolved retrieval, and count only acknowledged SDK-entered calls with normalized error observations/available usage. A pure pre-dispatch veto counts zero.
+
+Prepared proposal recovery uses the same APP lock/validation transaction plus a dedicated revision/attempt CAS for running/interrupted turns; it does not renew a provider lease, increment attempts or alter closed incident traces. General complete_turn retains its live-lease SQL. Tests prove live, expired and interrupted recovery with unchanged attempt/call counts, ordinary expired completion rejection, missing/foreign action binding, and failure usage preservation.
+
+Final repair selection:121 tests passed (ordinary, decision dispatch, APP authoring, shared proposal writer, source writer). Focused real-bootstrap regression admits only no-focus dictionaries with optional null campaign/session fields and rejects non-null or unknown scope. Read-only actual Float/Council preparation exposed this fixture mismatch; after repair both reach the expected APP migration readiness gate (retained servingAPP0029 versus code0030). No provider calls or retained writes were made. These results supersede the earlier immediate-retry-only recovery evidence. Matched APP0030 rollout/recovery rehearsal and real ordinary benchmarks remain post-review work.

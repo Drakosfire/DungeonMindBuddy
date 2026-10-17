@@ -130,7 +130,7 @@ def recover_prepared_proposal(service, turn, action_id):
     from application_state.errors import ApplicationStateNotFoundError
     from .types import BuildActionControllerWriterPolicyV1, TurnResult
 
-    if (turn.status != "running" or turn.graph_context_execution is None
+    if (turn.status not in {"running", "interrupted"} or turn.graph_context_execution is None
             or not isinstance(turn.graph_context_execution.policy, BuildActionControllerWriterPolicyV1)):
         return None
     try:
@@ -142,7 +142,7 @@ def recover_prepared_proposal(service, turn, action_id):
     completion = completion_for_proposal(record, turn.graph_context_receipt)
     # The completion transaction independently validates the actual proposal,
     # turn, source, action selection, writer acknowledgement and result digest.
-    return service.complete_turn(TurnResult(world_id=turn.world_id,
+    return service.recover_prepared_build_turn(TurnResult(world_id=turn.world_id,
         conversation_id=turn.conversation_id, turn_id=turn.turn_id,
         expected_revision=turn.revision, assistant_text=BUILD_PROPOSAL_READY_TEXT,
         completion=completion, producing_provider_attempt_id=record.authorization.provider_attempt_id,

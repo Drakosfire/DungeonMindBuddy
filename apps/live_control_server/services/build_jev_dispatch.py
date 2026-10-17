@@ -38,8 +38,12 @@ def first_state(work: Any, bootstrap: Any, question: str, packet: Mapping[str, A
             or work.object_id != source.document_id or work.revision != source.revision):
         raise ValueError("Jev first dispatch requires an exact saved Build source")
     scope = bootstrap.world_scope
+    focus = scope.focus
+    no_focus = (isinstance(focus, Mapping) and focus.get("kind") == "none"
+        and set(focus) <= {"kind", "campaign_id", "session_id"}
+        and focus.get("campaign_id") is None and focus.get("session_id") is None)
     if (scope.scope_mode != "world" or scope.campaign_id not in {None, ""}
-            or scope.focus != {"kind": "none"} or scope.admissibility != "gm"):
+            or not no_focus or scope.admissibility != "gm"):
         raise ValueError("Jev Build first dispatch requires the admitted whole-World scope")
     return _snapshot({
         "schema": "dmb_build_jev_first_state_v1",

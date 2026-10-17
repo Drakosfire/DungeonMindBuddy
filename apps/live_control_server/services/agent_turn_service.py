@@ -2165,6 +2165,7 @@ class _PolicyExecutionAdapter:
         staged = writer.with_dialogue(writer.projection(self._build_controller_exposure),
             getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
+        staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         self._build_writer_projection = staged
         return staged
 
@@ -2179,6 +2180,7 @@ class _PolicyExecutionAdapter:
             self._broker_execution(), self.source_payloads)
         staged = writer.with_dialogue(staged, getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
+        staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         self._build_writer_projection = staged
         return staged
 

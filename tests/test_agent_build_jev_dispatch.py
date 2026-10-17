@@ -266,3 +266,22 @@ def test_exact_conservative_total_request_boundary(build_case):
     questions["q0"]["instructions"] += "x"
     with pytest.raises(ValueError, match="request context"):
         policy.prepared_view(_prepared(state, questions), state)
+
+
+@pytest.mark.parametrize("focus,accepted", [
+    ({"kind": "none", "campaign_id": None, "session_id": None}, True),
+    ({"kind": "none", "campaign_id": "c1", "session_id": None}, False),
+    ({"kind": "none", "session_id": "session-1"}, False),
+    ({"kind": "none", "unexpected": None}, False),
+    ({"kind": "session", "session_id": "session-1"}, False),
+])
+def test_first_state_accepts_real_nullable_none_focus_only(build_case, focus, accepted):
+    _, request, bootstrap = build_case
+    work = agent._work_resolver(request, {"kind": "world", "id": "elderwyld"})
+    scoped = replace(bootstrap, world_scope=replace(bootstrap.world_scope, focus=focus))
+    if accepted:
+        assert policy.first_state(work, scoped, request.message,
+            owner._expected_initial_claim_packet(scoped))["graph_scope"]["native_world_id"] == "native-build-world"
+    else:
+        with pytest.raises(ValueError, match="whole-World scope"):
+            policy.first_state(work, scoped, request.message, owner._expected_initial_claim_packet(scoped))

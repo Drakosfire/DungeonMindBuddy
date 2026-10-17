@@ -73,8 +73,8 @@ class DecisionWire(httpx2.AsyncBaseTransport):
 
 
 class WriterWire(httpx.AsyncBaseTransport):
-    def __init__(self, *, timeout=False):
-        self.calls, self.timeout = [], timeout
+    def __init__(self, *, timeout=False, answer_status="source_grounded"):
+        self.calls, self.timeout, self.answer_status = [], timeout, answer_status
 
     async def handle_async_request(self, request):
         self.calls.append(request)
@@ -93,7 +93,7 @@ class WriterWire(httpx.AsyncBaseTransport):
         else:
             text = json.dumps(
                 {
-                    "answer_context_status": "source_grounded",
+                    "answer_context_status": self.answer_status,
                     "answer_segments": [
                         {
                             "kind": "source_passage_claim",
@@ -297,6 +297,9 @@ def test_unknown_provider_never_falls_back_or_replays(
         execute(case, tmp_path, runtime)
     counts = len(decisions.calls), len(writer.calls)
     assert counts == (1, 0 if failure == "controller" else 1)
+    assert len(runtime.calls) == sum(counts)
+    assert runtime.calls[-1]["status"] == "error"
+    assert runtime.calls[-1]["usage"]["status"] == "unavailable"
     with pytest.raises(AgentTurnServiceError):
         execute(case, tmp_path, runtime)
     assert (len(decisions.calls), len(writer.calls)) == counts
@@ -444,35 +447,211 @@ def test_durable_execution_rejects_unbound_action_selection(
         type(execution).model_validate(packet)
 
 
-def test_ordinary_retry_recovers_persisted_proposal_without_model_replay(build_case, monkeypatch, tmp_path):
+@pytest.mark.parametrize("recovery_state", ["live", "expired", "interrupted"])
+def test_ordinary_retry_recovers_persisted_proposal_without_model_replay(
+    build_case, monkeypatch, tmp_path, application_state_dsn, recovery_state
+):
     case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
     decisions, writer = DecisionWire(operation="propose_build_insertion"), WriterWire()
     runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
     original = AgentConversationService.complete_turn
+
     def simulated_crash(*args, **kwargs):
         raise SystemExit("synthetic crash after proposal persistence")
+
     monkeypatch.setattr(AgentConversationService, "complete_turn", simulated_crash)
     with pytest.raises(SystemExit):
         execute(case, tmp_path, runtime)
     monkeypatch.setattr(AgentConversationService, "complete_turn", original)
+    service = AgentConversationService()
+    before = service.list_turns(
+        "elderwyld", service.get_world_pointer("elderwyld").active_conversation_id
+    )[0]
+    if recovery_state == "expired":
+        import psycopg
+
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 minute' WHERE turn_id=%s",
+                (before.turn_id,),
+            )
+        from application_state.agent_conversation.build_authoring import (
+            completion_for_proposal,
+        )
+        from application_state.errors import ApplicationStateConflictError
+
+        action = BuildProposalService().get(
+            "elderwyld", case[1].build_write_capability.idempotency_key
+        )
+        with pytest.raises(ApplicationStateConflictError, match="expired"):
+            service.complete_turn(
+                ledger.TurnResult(
+                    world_id=before.world_id,
+                    conversation_id=before.conversation_id,
+                    turn_id=before.turn_id,
+                    expected_revision=before.revision,
+                    assistant_text=ledger.BUILD_PROPOSAL_READY_TEXT,
+                    completion=completion_for_proposal(
+                        action, before.graph_context_receipt
+                    ),
+                    producing_provider_attempt_id=action.authorization.provider_attempt_id,
+                    claim_graph_event_ids={},
+                )
+            )
+    elif recovery_state == "interrupted":
+        service.fail_turn(
+            ledger.TurnFailure(
+                world_id=before.world_id,
+                conversation_id=before.conversation_id,
+                turn_id=before.turn_id,
+                expected_revision=before.revision,
+                failure_code="synthetic_transport_interrupt",
+            ),
+            interrupted=True,
+        )
     response = execute(case, tmp_path, runtime)
+    after = service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id)
+    assert after.attempt == before.attempt
+
     assert response.answer.text == ledger.BUILD_PROPOSAL_READY_TEXT
     assert response.knowledge_context.delivery_replay is True
     assert len(decisions.calls) == len(writer.calls) == 1
 
 
-def test_ordinary_followup_writer_receives_exact_frozen_dialogue(build_case, monkeypatch, tmp_path):
+def test_ordinary_followup_writer_receives_exact_frozen_dialogue(
+    build_case, monkeypatch, tmp_path
+):
     case, _ = ordinary_case(build_case, monkeypatch)
     decisions, writer = DecisionWire(), WriterWire()
     runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
     first = execute(case, tmp_path, runtime)
     source, request, bootstrap = case
-    followup = request.model_copy(update={"turn_id": str(uuid4()), "message": "What about that gate?"})
+    followup = request.model_copy(
+        update={"turn_id": str(uuid4()), "message": "What about that gate?"}
+    )
     execute((source, followup, bootstrap), tmp_path, runtime)
     packet = json.loads(json.loads(writer.calls[-1].content)["input"])
     history = packet["dialogue_reference"]
     assert len(history) == 1
     assert history[0]["user"] == request.message
     assert history[0]["assistant"] == first.answer.text
-    assert history[0]["assistant_sha256"] == sha256(first.answer.text.encode()).hexdigest()
-    assert packet["dialogue_policy"] == "conversation_reference_only_not_source_evidence"
+    assert (
+        history[0]["assistant_sha256"] == sha256(first.answer.text.encode()).hexdigest()
+    )
+    assert (
+        packet["dialogue_policy"] == "conversation_reference_only_not_source_evidence"
+    )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "invalid_decision_do_not_replay",
+        "invalid_acquisition_do_not_replay",
+        "retained_view_exceeds_context_policy",
+    ],
+)
+def test_refused_after_actual_acquisition_never_calls_writer(
+    build_case, monkeypatch, tmp_path, reason
+):
+    case, reads = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+
+    class RefusingHarness(BuildJevHarness):
+        @staticmethod
+        def _acquire(adapter, driver):
+            BuildJevHarness._acquire(adapter, driver)
+            driver._machine.refuse(reason)
+
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+    )
+
+    with pytest.raises(AgentTurnServiceError):
+        execute(
+            case,
+            tmp_path,
+            RefusingHarness(decision_transport=decisions, writer_transport=writer),
+        )
+    assert reads == {"graph": 1, "source": 1}
+    assert writer.calls == []
+
+
+@pytest.mark.parametrize("status", ["insufficient_evidence", "unresolved_conflict"])
+def test_terminal_gap_is_explicit_in_single_partial_writer(
+    build_case, monkeypatch, tmp_path, status
+):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = (
+        DecisionWire(),
+        WriterWire(answer_status="source_grounded_partial"),
+    )
+
+    class PartialHarness(BuildJevHarness):
+        @staticmethod
+        def _acquire(adapter, driver):
+            BuildJevHarness._acquire(adapter, driver)
+            driver._machine._step = driver._machine._finish(
+                status, "support_missing_or_conflicting"
+            )
+
+    response = execute(
+        case,
+        tmp_path,
+        PartialHarness(decision_transport=decisions, writer_transport=writer),
+    )
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["retrieval_disposition"]["status"] == status
+    assert (
+        response.knowledge_context.completion.answer_context_status
+        == "source_grounded_partial"
+    )
+    assert len(writer.calls) == 1
+
+
+def test_predispatch_veto_does_not_count_a_model_call(
+    build_case, monkeypatch, tmp_path
+):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+
+    class VetoHarness(BuildJevHarness):
+        async def _decide(self, adapter, driver):
+            driver.authorize = lambda _: False
+            return await super()._decide(adapter, driver)
+
+    runtime = VetoHarness(decision_transport=decisions, writer_transport=writer)
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+    )
+
+    with pytest.raises(AgentTurnServiceError):
+        execute(case, tmp_path, runtime)
+    assert decisions.calls == writer.calls == runtime.calls == []
+
+
+def test_failed_structured_writer_keeps_reported_usage(
+    build_case, monkeypatch, tmp_path
+):
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+
+    class BadOutput(WriterWire):
+        async def handle_async_request(self, request):
+            response = await super().handle_async_request(request)
+            data = response.json()
+            data["output"][0]["content"][0]["text"] = '{"invalid_proposal":true}'
+            return httpx.Response(200, request=request, json=data)
+
+    decisions, writer = DecisionWire(operation="propose_build_insertion"), BadOutput()
+    runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+    )
+
+    with pytest.raises(AgentTurnServiceError):
+        execute(case, tmp_path, runtime)
+    assert len(runtime.calls) == 2
+    assert runtime.calls[-1]["status"] == "error"
+    assert runtime.calls[-1]["usage"]["input_tokens"] == 100
+    assert runtime.calls[-1]["usage"]["output_tokens"] == 40
+    assert runtime.calls[-1]["usage"]["status"] == "reported"

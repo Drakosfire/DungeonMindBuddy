@@ -1211,6 +1211,16 @@ class AgentConversationService:
         return renewed
 
     def complete_turn(self, result: TurnResult) -> Turn:
+        return self._complete_turn(result, prepared_recovery=False)
+
+    def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
+        """Recover an immutable acknowledged proposal, never a provider claim."""
+        return self._complete_turn(result, prepared_recovery=True)
+
+    def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool) -> Turn:
+        from .types import BuildAuthoringCompletionV1, BuildActionControllerWriterPolicyV1
+        if prepared_recovery and not isinstance(result.completion, BuildAuthoringCompletionV1):
+            raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
@@ -1247,9 +1257,12 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "completed turn has a different recorded result or a different claim fence"
                 )
-            if turn.revision != result.expected_revision or turn.status != "running":
+            allowed_status = {"running", "interrupted"} if prepared_recovery else {"running"}
+            if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
             execution = turn.graph_context_execution
+            if prepared_recovery and not isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
+                raise ApplicationStateValidationError("Recovery requires the controller-selected Build action policy")
             if execution is not None:
                 if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
@@ -1297,7 +1310,8 @@ class AgentConversationService:
                         raise ApplicationStateValidationError(str(exc)) from exc
             from .build_authoring import validate_stored_proposal
             validate_stored_proposal(conn, turn, result.completion)
-            updated = repo.complete_claimed_turn(
+            completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
+            updated = completion_update(
                 conn,
                 world_id=world_id,
                 turn_id=turn.turn_id,
