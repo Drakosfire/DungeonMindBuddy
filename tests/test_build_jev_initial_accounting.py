@@ -46,10 +46,10 @@ def test_first_receipt_and_event_reject_forged_accounting(build_case, monkeypatc
     policy = execution.policy.model_dump(mode="json", by_alias=True)
     policy["controller_initial_accounting"]["tokenizer_version"] = "forged"
     with pytest.raises(ValueError, match="differs from continuation"):
-        ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_validate(policy)
+        ledger.BuildEncodedAssessmentPolicyV1.model_validate(policy)
     del policy["controller_initial_accounting"]
     with pytest.raises(ValueError, match="required"):
-        ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_validate(policy)
+        ledger.BuildEncodedAssessmentPolicyV1.model_validate(policy)
     assert turn.completion.source_citations and len(writer.calls) == 1
 
 
@@ -106,6 +106,7 @@ def test_historical_selected_policy_keeps_first_conservative_and_exact_shape(bui
     def historical_budget(request, *, accounting=None):
         budget = current_budget(request, accounting=accounting)
         budget["buildJevActions"].pop("controller_initial_accounting")
+        budget["buildJevActions"].pop("assessment_codec")
         return budget
 
     monkeypatch.setattr(BuildJevHarness, "budget", staticmethod(historical_budget))
@@ -150,3 +151,84 @@ def test_initial_question_limit_refuses_before_any_send(build_case, monkeypatch,
         execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
             writer_transport=writer, accounting=ExperimentalAccounting("synthetic-limit", count)))
     assert decisions.calls == writer.calls == []
+
+
+def test_encoded_assessment_exposure_and_durable_policy_reopen(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC, decode
+    case, calls = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    response = execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+        writer_transport=writer, accounting=counter()))
+    assert response.answer.text.startswith("Frank believes the western gate is haunted.")
+    assert len(writer.calls) == 1 and calls == {"graph": 1, "source": 1}
+    bodies = [json.loads(request.content) for request in decisions.calls]
+    assessed = [body for body in bodies if body["state"].get("assessment_codec") == CODEC]
+    assert assessed
+    for body in assessed:
+        expanded = decode(body["state"])
+        assert expanded["decision"]["state"]["evidence"]
+        assert expanded["observation_qualifications"]
+        assert expanded["interaction"] == bodies[0]["state"]["interaction"]
+        assert all(counter().estimate({"model": body["model"], "state": body["state"],
+            "questions": {key: question}}) <= 32000 for key, question in body["questions"].items())
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
+    assert type(turn.graph_context_execution.policy) is ledger.BuildEncodedAssessmentPolicyV1
+    assert turn.graph_context_execution.policy.assessment_codec == CODEC
+    snapshot = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
+    assert ledger.PlanWorldGraphExecutionV3.model_validate(snapshot).model_dump(mode="json", by_alias=True) == snapshot
+    parent = turn.graph_context_execution.policy.model_dump(mode="json", by_alias=True)
+    parent.pop("assessment_codec")
+    assert ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_validate(parent).model_dump(mode="json", by_alias=True) == parent
+    assert "assessment_codec" not in ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_fields
+    assert turn.status == "completed" and turn.completion.source_citations
+    for body in bodies:
+        if body["state"].get("decision", {}).get("phase") != "assess":
+            assert "assessment_codec" not in body["state"]
+
+
+@pytest.mark.parametrize("mutation", ["codec", "qualification", "evidence", "history", "over_limit"])
+def test_assessment_prepared_changes_refuse_before_transport(build_case, monkeypatch, tmp_path, mutation):
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    original = BuildJevDriver.authorize
+    refused = []
+    def altered(driver, prepared):
+        body = json.loads(prepared.body)
+        state = body["state"]
+        if state.get("assessment_codec") != CODEC:
+            return original(driver, prepared)
+        refused.append(len(decisions.calls))
+        if mutation == "codec":
+            state["assessment_codec"] = "unsupported"
+        elif mutation == "qualification":
+            state["observation_qualifications"] = []
+        elif mutation == "evidence":
+            state["decision"]["state"]["evidence"] = []
+        elif mutation == "history":
+            state["interaction"]["history"] = [{"forged": "history"}]
+        else:
+            state["interpretation"] += " huge " * 40000
+        raw = json.dumps(body).encode()
+        return original(driver, replace(prepared, body=raw, body_size=len(raw), body_sha256=sha256(raw).hexdigest()))
+    monkeypatch.setattr(BuildJevDriver, "authorize", altered)
+    with pytest.raises(Exception):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=counter()))
+    assert len(refused) == 1 and len(decisions.calls) == refused[0] and writer.calls == []
+
+
+def test_encoded_assessment_still_refuses_true_context_overflow(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+    from apps.live_control_server.services.build_jev_assessment_codec import CODEC
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    def count(text):
+        body = json.loads(text)
+        return 14000 if body.get("state", {}).get("assessment_codec") == CODEC else 1
+    with pytest.raises(Exception):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=ExperimentalAccounting("synthetic-assess-overflow", count)))
+    assert decisions.calls and writer.calls == []
+    assert all(json.loads(request.content)["state"].get("assessment_codec") is None for request in decisions.calls)
