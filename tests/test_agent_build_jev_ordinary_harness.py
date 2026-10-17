@@ -218,7 +218,7 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
     )[0]
     assert turn.status == "completed" and len(turn.completion.source_citations) == 1
     assert isinstance(
-        turn.graph_context_execution.policy, ledger.BuildPhaseActionControllerWriterPolicyV1
+        turn.graph_context_execution.policy, ledger.BuildContainedActionControllerWriterPolicyV1
     )
     selections = [
         e
@@ -851,9 +851,12 @@ def test_ordinary_deferred_actions_stay_unread_and_citations_survive_reopen(
     turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
     assert turn.status == "completed" and len(turn.completion.source_citations) == 1
     policy = turn.graph_context_execution.policy
-    assert type(policy) is ledger.BuildPhaseActionControllerWriterPolicyV1
+    assert type(policy) is ledger.BuildContainedActionControllerWriterPolicyV1
     # Reading historical policy bytes must not introduce new frontier fields.
     old = policy.model_dump(mode="json", by_alias=True)
+    old.pop("evidence_codec")
+    phase = ledger.BuildPhaseActionControllerWriterPolicyV1.model_validate(old)
+    assert "evidence_codec" not in phase.model_dump()
     old.pop("phase_input_policy")
     frontier = ledger.BuildFrontierActionControllerWriterPolicyV1.model_validate(old)
     assert "phase_input_policy" not in frontier.model_dump()

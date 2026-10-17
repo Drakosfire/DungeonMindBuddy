@@ -15,6 +15,7 @@ from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
 )
 from .build_jev_dispatch import first_state, PHASE_SCHEMA, PHASE_POLICY, phase_binding
+from .build_jev_compaction import CONTAINED_CODEC
 from .build_jev_transitions import (
     AcquiredEvidence,
     AcquisitionIntent,
@@ -271,6 +272,7 @@ class BuildJevDriver:
             adapter.request.message, self._scope, tuple(actions),
             frontier_policy=FRONTIER_POLICY if with_actions else None,
             phase_input_policy=PHASE_POLICY if with_actions else None,
+            evidence_codec=CONTAINED_CODEC if with_actions else None,
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None

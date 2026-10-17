@@ -174,6 +174,7 @@ class BuildJevTransitions:
         frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] | None = None,
         phase_input_policy: Literal["role_separated_controller_inputs_v1"]
         | None = None,
+        evidence_codec: Literal["contained_passage_slices_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
@@ -191,6 +192,13 @@ class BuildJevTransitions:
             phase_input_policy and not frontier_policy
         ):
             raise ValueError("phase input policy requires the explicit frontier policy")
+        from .build_jev_compaction import CONTAINED_CODEC
+
+        if evidence_codec not in {None, CONTAINED_CODEC} or (
+            evidence_codec and not phase_input_policy
+        ):
+            raise ValueError("evidence codec requires explicit phase input policy")
+        self._evidence_codec = evidence_codec
         self._phase_input_policy = phase_input_policy
         self._assessment_judgment: dict | None = None
         self._frontier_policy = frontier_policy
@@ -357,7 +365,7 @@ class BuildJevTransitions:
                 "not admitted Graph facts, source evidence, sufficiency or claim inclusion",
             }
             if navigation
-            else project_evidence(self._scope, viewed)
+            else project_evidence(self._scope, viewed, codec=self._evidence_codec)
         )
         state = {
             **presentation,
@@ -379,6 +387,10 @@ class BuildJevTransitions:
             "relevance_threshold": self._relevant_min,
             "unread_exclusion_threshold": self._exclusion_min,
         }
+        from .build_jev_compaction import CONTAINED_CODEC, CONTAINED_RULE
+
+        if CONTAINED_CODEC in presentation:
+            state["rules"] += CONTAINED_RULE
         if self._frontier_policy:
             state["coverage_frontier"] = {
                 "policy": self._frontier_policy,
