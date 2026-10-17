@@ -128,3 +128,37 @@ it('routes the ordinary Build composer to a reviewed page insertion using the pu
   await waitFor(() => expect(session.dirty).toBe(true));
   expect(session.editor!.state.doc.textContent).toContain('Nella');
 });
+
+it.each(['click', 'enter'])('previews a natural table request by %s while preserving an uncertain read-only Ask', async method => {
+  vi.mocked(api.getWorldAgentConversationHistory).mockResolvedValue(history);
+  const key = 'dmb:world-play-pending-turn:v1:elderwyld';
+  const pending = JSON.stringify({ schema: 'dmb_world_play_pending_turn_v1', request: {
+    schema: 'dmb_agent_turn_request_v1', client_thread_id: '33333333-3333-4333-8333-333333333333',
+    turn_id: '44444444-4444-4444-8444-444444444444', surface: { surface_id: 'build', instance_id: `build:${DOC}` },
+    owner_scope: { kind: 'world', world_id: 'elderwyld' },
+    primary_work: { kind: 'build', object_id: DOC, expected_revision: 1, expected_content_sha256: 'a'.repeat(64) },
+    client_work_state: 'saved_clean', graph_request: { mode: 'none' }, graph_selection: null,
+    message: 'Do you have write tools? Can you see the page?',
+  } });
+  localStorage.setItem(key, pending);
+  render(<AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
+    <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell /><OpenConversation /></BuildCanvasTestProvider>
+    <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld" />
+  </WorldAgentConversationProvider></AskPluginSlotProvider></AgentInteractionProvider>);
+  await waitFor(() => expect(session.phase).toBe('ready_clean'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open conversation' }));
+  const composer = await screen.findByLabelText('Message DungeonBuddy');
+  fireEvent.change(composer, { target: { value: 'What do you know about Edge?' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled());
+  fireEvent.change(composer, { target: { value: 'I want a table of 20 soldiers names on a d20 table.' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled());
+  if (method === 'enter') fireEvent.keyDown(composer, { key: 'Enter' });
+  else fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByRole('button', { name: 'Insert into page' });
+  expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1);
+  expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  expect(localStorage.getItem(key)).toBe(pending);
+  expect(session.dirty).toBe(false);
+  fireEvent.change(composer, { target: { value: 'What do you know about Edge?' } });
+  expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+});
