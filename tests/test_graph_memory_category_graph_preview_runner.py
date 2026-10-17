@@ -178,6 +178,38 @@ def test_runner_repairs_only_proven_legacy_candidate_span_aliases(
     assert compute_sha256(candidate_path) == original_sha256
 
 
+def test_runner_candidate_warning_diagnostics_match_validation_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, _, _ = _shortened_candidate_fixture(
+        tmp_path
+    )
+    monkeypatch.chdir(tmp_path)
+    candidate["evidence_refs"][0].pop("id")
+    candidate_path = tmp_path / "candidate_with_warning.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/candidate_with_warning"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["warnings"]
+    assert packaged["diagnostics"]["warning_count"] == len(report["warnings"])
+
+
 def test_runner_keeps_candidate_immutable_when_source_is_in_output_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

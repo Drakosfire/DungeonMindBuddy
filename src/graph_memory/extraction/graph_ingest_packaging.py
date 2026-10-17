@@ -901,7 +901,7 @@ def _write_validation_report(
     diagnostics = candidate_graph.get("diagnostics")
     if isinstance(diagnostics, dict):
         diagnostics["unresolved_evidence_refs"] = unresolved_count
-        diagnostics["validation_warning_count"] = len(warnings)
+        diagnostics["warning_count"] = len(warnings)
         diagnostics["evidence_reference_repair_count"] = len(evidence_reference_repairs or [])
         write_json(candidate_graph_path, candidate_graph)
     incomplete_fill_count = sum(
