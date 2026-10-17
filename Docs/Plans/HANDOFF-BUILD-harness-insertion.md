@@ -44,6 +44,7 @@ cannot retarget insertion. No partial provider events invented from other calls.
 - apps/live_control_server/services/build_insertion_tool.py (new)
 - src/graph_memory/hermes_graph_plugin.py
 - src/application_state/agent_conversation/types.py
+- src/application_state/build_proposal/service.py (atomic live Agent origin claim at reservation/authorization/SDK entry)
 - src/application_state/build_proposal/types.py
 - apps/live-control-ui/src/api/types.ts
 - apps/live-control-ui/src/api/buildDocumentProposalApi.ts
@@ -56,7 +57,9 @@ cannot retarget insertion. No partial provider events invented from other calls.
 
 No Ingest edits or Graph/database schema publication. Existing JSON payload store
 carries additive origin metadata; preserve null-absent historical fingerprints.
-5202/8000 final rollout after independent exact-head review; 5876/8002 stable.
+5202/8000 final rollout after independent exact-head review. Both API readers
+8000/8002 adopt the new optional origin JSON before new Harness writes because
+they share APP state; 5876 UI may remain stable. No schema migration.
 Temporary previews may use 5208/8008 and disposable APP54329 with cleanup.
 Private synthetic evidence under local research state, never credentials in logs.
 
@@ -66,3 +69,8 @@ real process-isolated Harness tool selection and live synthetic provider witness
 negative stale target/cross-World, duplicate/changed tool calls, uncertain provider,
 no mutation before approval. Exact cumulative diff + independent ARCHITECTURE
 review; commit/push/open PR, merge under PRIME and settle/roll out 5202.
+
+Independent review repair: origin includes the Agent claim attempt. Actual APP
+locks validate the live unexpired running claim and exact World/conversation/source
+and client idempotency identity before reservation and both provider gates. Cached
+worker state alone grants no provider authority. Generator receipts remain separate.

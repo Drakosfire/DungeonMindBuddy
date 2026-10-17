@@ -119,7 +119,7 @@ it('uses the Harness for a discussion follow-up and exposes its durable preview 
     expect(cap.draft_markdown).toContain('A fort town.');
     const generate = vi.mocked(proposals.composeBuildProposal).getMockImplementation()!;
     saved = [await generate({ ...cap, instruction: 'Prepare the discussed Nella, a ferrier, as a table.',
-      origin: { client_turn_id: request.turn_id, durable_turn_id: '55555555-5555-4555-8555-555555555555',
+      origin: { client_turn_id: request.turn_id, durable_turn_id: '55555555-5555-4555-8555-555555555555', turn_attempt: 1,
         broker_operation_id: 'host:g1', arguments_sha256: 'd'.repeat(64) } })];
     throw new Error('Synthetic connection lost after the Harness tool prepared its preview');
   });

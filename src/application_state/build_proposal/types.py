@@ -31,6 +31,7 @@ class BuildProposalBasis(StrictModel):
 class BuildProposalOrigin(StrictModel):
     client_turn_id: UUID
     durable_turn_id: UUID
+    turn_attempt: int = Field(strict=True, ge=1)
     broker_operation_id: str = Field(min_length=1, max_length=256)
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 

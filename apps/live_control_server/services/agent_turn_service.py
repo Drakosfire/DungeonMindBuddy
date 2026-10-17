@@ -517,7 +517,7 @@ def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str) -> list[
                 or call_id in seen_outputs
                 or calls.get(call_id) not in {
                     "expand_graph_retrieval", "read_graph_source",
-                    "read_related_recap_context",
+                    "read_related_recap_context", "propose_build_insertion",
                 }
                 or not isinstance(item.get("output"), str)
             ):
@@ -1794,6 +1794,10 @@ class _PolicyExecutionAdapter:
                 included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
                 included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
                 included_context_payloads = self._included_evidence_payloads(body, "read_related_recap_context")
+                inserted_payloads = _included_tool_payloads(body, tool_name="propose_build_insertion")
+                if inserted_payloads:
+                    from .build_insertion_tool import validate_included_results
+                    validate_included_results(body, getattr(self, "build_insertion_results", set()))
             except ValueError as exc:
                 raise AgentTurnServiceError(
                     "The final provider request has an invalid Graph result block.",
@@ -6054,9 +6058,13 @@ def execute_agent_turn(
                     invocation.capability_policy, surface_actions=(TOOL_NAME,)))
                 insertion_tool = BuildInsertionTool(request.build_write_capability, request.turn_id,
                     lambda: None if adapter.fence is None else adapter.fence.turn)
+                adapter.build_insertion_results = set()
                 def broker_operation(message):
                     if message.get("toolName") == TOOL_NAME:
-                        return insertion_tool.dispatch(message)
+                        from .build_insertion_tool import arguments_digest
+                        reply = insertion_tool.dispatch(message)
+                        adapter.build_insertion_results.add((arguments_digest(dict(message.get("arguments", {}))), reply["resultJson"]))
+                        return reply
                     return adapter.broker_graph_operation(message)
             else:
                 broker_operation = adapter.broker_graph_operation

@@ -19,6 +19,20 @@ def arguments_digest(arguments: dict) -> str:
     return sha256(json.dumps(arguments, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
 
+def validate_included_results(body, permitted):
+    calls = {item["call_id"]: item for item in body.get("input", [])
+        if isinstance(item, dict) and item.get("type") == "function_call"}
+    for item in body.get("input", []):
+        if not isinstance(item, dict) or item.get("type") != "function_call_output":
+            continue
+        call = calls.get(item.get("call_id"), {})
+        if call.get("name") != TOOL_NAME:
+            continue
+        arguments = json.loads(call["arguments"])
+        if (arguments_digest(arguments), item["output"]) not in permitted:
+            raise ValueError("Unproved Build tool result in provider input")
+
+
 class BuildInsertionTool:
     def __init__(self, capability: BuildWriteCapability, client_turn_id: str, current_turn):
         self.capability = capability
@@ -44,7 +58,7 @@ class BuildInsertionTool:
                     or turn.provenance.primary_work.revision != str(capability.basis.registry_revision)
                     or turn.provenance.primary_work.content_sha256 != capability.basis.content_sha256):
                 raise ValueError("build_insertion_turn_changed")
-            origin = BuildProposalOrigin(client_turn_id=self.client_turn_id, durable_turn_id=turn.turn_id,
+            origin = BuildProposalOrigin(client_turn_id=self.client_turn_id, durable_turn_id=turn.turn_id, turn_attempt=turn.attempt,
                 broker_operation_id=operation_id, arguments_sha256=arguments_digest(args))
             store = BuildProposalService()
             try:
@@ -57,6 +71,7 @@ class BuildInsertionTool:
                         or saved.expected_pointer_revision != capability.expected_pointer_revision
                         or saved.origin is None or saved.origin.client_turn_id != self.client_turn_id
                         or saved.origin.durable_turn_id != turn.turn_id
+                        or saved.origin.turn_attempt != turn.attempt
                         or saved.origin.arguments_sha256 != origin.arguments_sha256
                         or saved.instruction != args["instruction"]):
                     raise ValueError("build_insertion_request_changed")
