@@ -81,7 +81,12 @@ Select limitations from missing_requested_details, partial_retrieval, unresolved
 Include partial_retrieval when host coverage is heuristic_partial or heuristic_exclusions; include
 missing_requested_details for insufficient_evidence; unresolved_conflict for that host status.
 Partial answers require at least one limitation; source_insufficient_evidence has no factual segments
-and at least one limitation. Use partial factual answers when only some requested details are supported.
+and at least one limitation. Missing requested specifics does not require total abstention.
+When supplied evidence offers directly relevant context, give a brief cited partial answer
+and the required limitation codes. Reserve empty abstention for evidence that cannot support
+useful relevant context. retrieval_disposition describes the acquisition outcome, not a
+prohibition on citing supplied passages or selected saved sections. Do not infer an absent
+fact or decision from silence in a passage, and do not claim the entire corpus was searched.
 The host renders limitation messages. No tools, further reads, corpus-completeness claims, Graph
 authority, receipt fields or hashes. Follow the supplied output schema.
 """

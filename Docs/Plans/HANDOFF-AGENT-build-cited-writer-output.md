@@ -1,6 +1,6 @@
 # AGENT: source facts require citations; host renders limitations
 
-ACTIVE under PRIME's source-faithful Graph collaboration goal. Baseaf6779d00155d4e7cfca6859295b381df1ea7e1d. Serial successor to merged1340. PRIME implements solo; ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/runtime/dependencies; no new worktree/env/source export/tmp. DOGFOOD retains Ingest/Combat/UX and matched-main rollout preparation; do not change serving assets/runtime/data.
+MERGED in #1342 at2f43bbffd5dfe042a5a913bd49efa94d0d3898f1, reviewed head6e2cec105bb1ff5d80ac65435b92225530619883. Successor useful-partial-writer owns the current serial lane. Originally ACTIVE under PRIME's source-faithful Graph collaboration goal. Baseaf6779d00155d4e7cfca6859295b381df1ea7e1d. Serial successor to merged1340. PRIME implements solo; ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/runtime/dependencies; no new worktree/env/source export/tmp. DOGFOOD retains Ingest/Combat/UX and matched-main rollout preparation; do not change serving assets/runtime/data.
 
 ## Failure and bounded capability
 
@@ -27,3 +27,7 @@ The existing V1/V2 SQL shapes and historical passage-read path remain intact. Ac
 ## Review correction: policy-wide source proof
 
 Independent review of b9de94ac found a real APP bypass: a caller could supply legacy V1 with an uncited connective and plain TurnResult, because proof was conditional on supplied V2. HOLD accepted. Repair is policy-wide producer proof for every answer_from_sources, not a completion-type conditional. APP chooses unchanged V2 for opened passages or unchanged V1 for saved-only/empty packets by deterministic reconstruction; caller fallback is forbidden. Saved-only V1 has only exact included saved claims and host-normalized limitations/suggestions, no Graph claims/citations. Its status uses existing V1 derivation, which does not encode V2 partial status. Empty-evidence abstention uses the same producer proof. Separately owned authoring completion stays independently validated. No historical schema/SQL changes. Add real APP bypass, saved-only/binding tamper, empty abstention and reload tests. ARCHITECTURE approved this correction design before implementation.
+
+## Accepted result and live limitation
+
+87 author tests and32 independent tests pass on corrected head; two exact-head review cycles (first HOLD for actual legacyV1 proof bypass, corrected PASS). Fresh ordinary-cited-writer-live-toll-20261017-01 completed/reopened with7Jev+1Luna in15.5035s and exactly47 prior passages. Producer integrity PASS; semantic/usefulness HOLD: host-only abstention omitted supported steep-toll/discontent context and did not identify specific missing details. No factual model text survived uncited, but that does not establish a good answer. Jev observed gateway charge$0.003145464; OpenAI cost unreported, not zero. Generic partial-answer instruction successor is separately pinned. No unchanged retry or rollout acceptance.
