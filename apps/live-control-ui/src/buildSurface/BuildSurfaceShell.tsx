@@ -168,9 +168,9 @@ function BuildPresentableSourceView({
       </div>
     </div>
     {mediaError&&<p role="alert">{mediaError}</p>}
-    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={(image,result)=>{
+    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={(image)=>{
       try { if (!mediaCapture.current || image.state!=='ready') return;
-        composeBridge.insert(mediaCapture.current,mediaMarkdown(image.asset_id,result.prompt.slice(0,500).replace(/[\r\n]/g,' ')));
+        composeBridge.insert(mediaCapture.current,mediaMarkdown(image.asset_id,'Saved artwork'));
         setMediaOpen(false);setMediaError('');
       } catch(reason) {setMediaError(reason instanceof Error?reason.message:'The image could not be inserted.');}
     }} /></aside>}

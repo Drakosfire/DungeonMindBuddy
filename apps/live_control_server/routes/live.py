@@ -94,6 +94,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWritePrepareResponse,
     commit_tiptap_markdown_write,
     prepare_tiptap_markdown_write,
+    has_saved_media_references,
 )
 
 from apps.live_control_server.services.statblock_corpus_preview import (
@@ -911,7 +912,7 @@ def post_tiptap_markdown_write_prepare(
     body: TiptapMarkdownWritePrepareRequest, request: Request,
 ) -> dict[str, Any]:
     try:
-        if 'dmb-media:' in body.markdown:
+        if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
         response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
     except TiptapMarkdownWriteError as exc:
@@ -927,7 +928,7 @@ def post_tiptap_markdown_write_commit(
     body: TiptapMarkdownWriteCommitRequest, request: Request,
 ) -> dict[str, Any]:
     try:
-        if 'dmb-media:' in body.markdown:
+        if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
         response = commit_tiptap_markdown_write(root=repo_root(), request=body)
     except TiptapMarkdownWriteError as exc:

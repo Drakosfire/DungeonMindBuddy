@@ -112,3 +112,44 @@ def test_prepared_image_association_and_actual_source_save_reopen(
 @pytest.fixture
 def request_case(tmp_path, monkeypatch, application_state_dsn):
     return _request_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+
+
+@pytest.mark.parametrize("destination", ["dmb-media:", "dmb&#45;media:", "dmb&#x2d;media:"])
+def test_encoded_foreign_image_rejected_by_prepare_and_commit(request_case, destination):
+    _, source, root = request_case
+    foreign = ready(saved_image("foreign"))
+    markdown = f"![Foreign]({destination}{foreign['asset_id']})"
+    from apps.live_control_server.services.tiptap_markdown_write import has_saved_media_references
+    assert has_saved_media_references(markdown)
+    for operation, model in [
+        (prepare_tiptap_markdown_write, TiptapMarkdownWritePrepareRequest),
+        (commit_tiptap_markdown_write, TiptapMarkdownWriteCommitRequest),
+    ]:
+        values = dict(document_id=source.record.document_id, markdown=markdown,
+                      expected_revision=source.loaded_revision)
+        if model is TiptapMarkdownWriteCommitRequest:
+            values["writer_confirm_token"] = "synthetic-unused-token"
+        with pytest.raises(TiptapMarkdownWriteError, match="not available to this operator"):
+            operation(root=root, request=model(**values))
+    assert get_workspace_document_snapshot(root, source.record.document_id).markdown == source.markdown
+
+
+@pytest.mark.parametrize("operation", ["prepare", "commit"])
+def test_write_routes_require_auth_for_encoded_image(request_case, monkeypatch, operation):
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    from apps.live_control_server.routes import live
+    _, source, _ = request_case
+    values = dict(document_id=source.record.document_id,
+                  markdown="![Foreign](dmb&#45;media:ac6c15cc-8c68-4732-8ae2-d9f3f051393a)",
+                  expected_revision=source.loaded_revision)
+    def refuse(request):
+        raise HTTPException(401, "operator required")
+    monkeypatch.setattr(live, "enforce_native_graph_gm", refuse)
+    model = TiptapMarkdownWritePrepareRequest if operation == "prepare" else TiptapMarkdownWriteCommitRequest
+    if operation == "commit":
+        values["writer_confirm_token"] = "synthetic-unused-token"
+    with pytest.raises(HTTPException) as error:
+        getattr(live, "post_tiptap_markdown_write_" + operation)(
+            model(**values), Request({"type": "http", "headers": []}))
+    assert error.value.status_code == 401

@@ -106,10 +106,17 @@ def _editor_table_lines(markdown: str) -> set[int]:
 _MEDIA_DESTINATION = re.compile(r"^dmb-media:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
 
 
+def has_saved_media_references(markdown: str) -> bool:
+    """Inspect decoded Markdown destinations, including character references."""
+    return any(
+        child.type == "image" and (child.attrGet("src") or "").startswith("dmb-media:")
+        for token in MarkdownIt("commonmark").parse(markdown)
+        for child in token.children or []
+    )
+
+
 def validate_saved_media_references(markdown: str, owner: str = "local_operator") -> None:
     """APP is the image authority; a Markdown URL never proves a saved asset."""
-    if 'dmb-media:' not in markdown:
-        return
     from application_state import media
     from application_state.errors import ApplicationStateError
     for token in MarkdownIt('commonmark').parse(markdown):
