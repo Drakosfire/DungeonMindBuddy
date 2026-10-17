@@ -88,6 +88,7 @@ class BuildJevHarness:
             budget["buildJevActions"]["controller_continuation_accounting"] = accounting.descriptor
             from .build_jev_transitions import JOINT_SUPPORT_POLICY
             budget["buildJevActions"]["support_policy"] = JOINT_SUPPORT_POLICY
+            budget["buildJevActions"]["writer_context_budget"] = writer_policy.role_budget()
         return budget
 
     def configured_budget(self, request):

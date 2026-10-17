@@ -1,6 +1,8 @@
 # AGENT: judge joint support across acquired evidence
 
-ACTIVE under PRIME's authorized responsive Graph collaboration program. Base6531f0038d79431c6265afb3fd01e6d99458cd2b, serial successor to merged1334. PRIME implements solo; ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout/runtime/dependencies. No new checkout, environment, source export or /tmp directory. No deployment, provider or retained-data writes in implementation verification. DOGFOOD owns Ingest/Combat/UX.
+SETTLED implementation: PR1335 reviewed27481f94a38645af2441d4d910e76a4ca4ab0fe4 merged91a6d4eeaa2886674d489a30ae953de5e68a9a7b after independent14test/codePASS;187author tests passed. This proves the joint-support host/schema contract only; fresh semantic accuracy/efficiency remain open. Writer capacity remains a distinct proven blocker. Successor: HANDOFF-AGENT-build-writer-role-budget.md.
+
+Original contract under PRIME's authorized responsive Graph collaboration program. Base6531f0038d79431c6265afb3fd01e6d99458cd2b, serial successor to merged1334. PRIME implements solo; ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout/runtime/dependencies. No new checkout, environment, source export or /tmp directory. No deployment, provider or retained-data writes in implementation verification. DOGFOOD owns Ingest/Combat/UX.
 
 ## Evidence and boundary
 

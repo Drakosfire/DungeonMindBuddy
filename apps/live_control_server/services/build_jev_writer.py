@@ -156,7 +156,17 @@ def with_disposition(staged: WriterProjection, disposition) -> WriterProjection:
         separators=(",", ":"), sort_keys=True, allow_nan=False))
 
 
-def validate_body(payload: str, expected: WriterProjection) -> dict:
+def role_budget() -> dict:
+    # Deliberate application allowance below the verified Luna model window.
+    # The controller and historical writers retain their own existing limits.
+    return {"schema": "dmb_build_writer_context_budget_v1", "provider": PROVIDER,
+            "model": MODEL, "api_mode": API_MODE,
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "context_limit_tokens": 128_000, "max_request_bytes": 128_000,
+            "output_reserve_tokens": OUTPUT_RESERVE}
+
+
+def validate_body(payload: str, expected: WriterProjection, *, budget: dict | None = None) -> dict:
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -174,13 +184,23 @@ def validate_body(payload: str, expected: WriterProjection) -> dict:
     )
     if body != expected.kwargs():
         raise ValueError("Writer body differs from exact parent projection")
-    upper = len(payload.encode()) + 64 * (1 + _json_nodes(body))
-    if upper + OUTPUT_RESERVE > min(CONTEXT_LIMIT, REQUEST_LIMIT):
+    raw_bytes = len(payload.encode())
+    context_limit, request_limit = min(CONTEXT_LIMIT, REQUEST_LIMIT), REQUEST_LIMIT
+    if budget is not None:
+        from application_state.agent_conversation.types import BuildWriterContextBudgetV1
+        accepted_budget = BuildWriterContextBudgetV1.model_validate(budget)
+        if accepted_budget.identity() != (PROVIDER, MODEL, API_MODE):
+            raise ValueError("writer context budget role differs")
+        context_limit, request_limit = accepted_budget.context_limit_tokens, accepted_budget.max_request_bytes
+    if raw_bytes > request_limit:
+        raise ValueError("writer raw request exceeds its role allowance")
+    upper = raw_bytes + 64 * (1 + _json_nodes(body))
+    if upper + OUTPUT_RESERVE > context_limit:
         raise ValueError("Writer input and output reserve exceed context allowance")
     return body
 
 
-def prepared_view(prepared: Any, expected: WriterProjection) -> dict:
+def prepared_view(prepared: Any, expected: WriterProjection, *, budget: dict | None = None) -> dict:
     if (
         prepared.provider != PROVIDER
         or prepared.api_mode != API_MODE
@@ -194,7 +214,7 @@ def prepared_view(prepared: Any, expected: WriterProjection) -> dict:
         raise ValueError("Prepared writer identity differs")
     UUID(prepared.attempt_id)
     payload = prepared.body.decode("utf-8")
-    validate_body(payload, expected)
+    validate_body(payload, expected, budget=budget)
     return {
         "provider": PROVIDER,
         "model": MODEL,

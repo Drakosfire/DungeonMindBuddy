@@ -43,6 +43,9 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     execution = turn.graph_context_execution
     assert isinstance(execution.policy, ledger.BuildJointSupportActionControllerWriterPolicyV1)
     assert execution.policy.support_policy == "combined_relevant_evidence_support_v1"
+    assert isinstance(execution.policy, ledger.BuildWriterBudgetActionControllerWriterPolicyV1)
+    assert execution.policy.writer_context_budget.context_limit_tokens == 128000
+    assert turn.graph_context_receipt.assembled_input.context_window_limit == 64000
     assert execution.policy.controller_continuation_accounting.model_dump() == accounting.descriptor
     authorizations = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1)]
     assert authorizations[0].input_accounting_kind == authorizations[-1].input_accounting_kind == "conservative_upper_bound"
@@ -79,6 +82,18 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     selected["model"] = "another-controller-model"
     with pytest.raises(ValueError, match="role"):
         ledger.PlanWorldGraphExecutionV3.model_validate(changed)
+    # APP retains independent writer and controller limits after reload.
+    boundary = json.loads(json.dumps(original))
+    writer_event = next(e for e in boundary["events"] if e["event_id"] == str(authorizations[-1].event_id))
+    writer_event["input_tokens"] = 128000 - 4096
+    ledger.PlanWorldGraphExecutionV3.model_validate(boundary)
+    writer_event["input_tokens"] += 1
+    with pytest.raises(ValueError, match="writer envelope"):
+        ledger.PlanWorldGraphExecutionV3.model_validate(boundary)
+    writer_event["input_tokens"] -= 1
+    writer_event["output_token_reserve"] = 0
+    with pytest.raises(ValueError, match="writer envelope"):
+        ledger.PlanWorldGraphExecutionV3.model_validate(boundary)
     for event, kind, estimator in [
         (authorizations[0], "estimated_token_count", accounting.descriptor["policy"]),
         (authorizations[-1], "estimated_token_count", accounting.descriptor["policy"]),
@@ -133,3 +148,21 @@ def test_changed_counter_descriptor_refuses_after_first_response(build_case, mon
         execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
             writer_transport=writer, accounting=accounting))
     assert len(decisions.calls) == 1 and writer.calls == []
+
+
+def test_writer_runtime_budget_drift_cannot_expand_frozen_policy(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    original = _PolicyExecutionAdapter.authorize_prepared_build_writer
+
+    def changed_runtime_budget(adapter, prepared):
+        adapter.budget["buildJevActions"]["writer_context_budget"]["context_limit_tokens"] = 256000
+        return original(adapter, prepared)
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, "authorize_prepared_build_writer", changed_runtime_budget)
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire()
+    with pytest.raises(Exception, match="could not complete safely"):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
+            writer_transport=writer, accounting=counter()))
+    assert len(decisions.calls) == 4 and writer.calls == []

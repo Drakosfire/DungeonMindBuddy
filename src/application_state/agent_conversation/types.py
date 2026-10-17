@@ -1905,6 +1905,30 @@ class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionContro
     support_policy: Literal["combined_relevant_evidence_support_v1"]
 
 
+class BuildWriterContextBudgetV1(StrictModel):
+    schema_: Literal["dmb_build_writer_context_budget_v1"] = Field(alias="schema")
+    provider: Literal["openai"]
+    model: Literal["gpt-6-luna"]
+    api_mode: Literal["responses"]
+    estimator: Literal["utf8_json_bytes_plus_64_per_node_v1"]
+    context_limit_tokens: Literal[128_000]
+    max_request_bytes: Literal[128_000]
+    output_reserve_tokens: Literal[4096]
+
+    def identity(self):
+        return self.provider, self.model, self.api_mode
+
+
+class BuildWriterBudgetActionControllerWriterPolicyV1(BuildJointSupportActionControllerWriterPolicyV1):
+    writer_context_budget: BuildWriterContextBudgetV1
+
+    @model_validator(mode="after")
+    def validate_writer_budget_role(self):
+        if self.provider_roles.writer.identity() != self.writer_context_budget.identity():
+            raise ValueError("writer budget requires its exact frozen provider role")
+        return self
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -2680,6 +2704,11 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     writer = self.policy.provider_roles.writer.identity()
                     if role not in {controller, writer} or (provider_index == 0 and role != controller):
                         raise ValueError("provider accounting role differs from frozen policy")
+                    if isinstance(self.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
+                        writer_budget = self.policy.writer_context_budget
+                        if (event.output_token_reserve != writer_budget.output_reserve_tokens
+                                or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
+                            raise ValueError("writer envelope exceeds its frozen role budget")
                     estimated = provider_index > 0 and role == controller
                     descriptor = self.policy.controller_continuation_accounting
                     expected_kind = "estimated_token_count" if estimated else self.policy.provider_input_accounting.kind
@@ -2828,7 +2857,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3197,7 +3226,13 @@ def validate_graph_provider_envelope(
     available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
     if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
         raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
-    if event.input_tokens + event.output_token_reserve > inputs.assembled_input.context_window_limit:
+    context_limit = inputs.assembled_input.context_window_limit
+    if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
+            and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
+        context_limit = execution.policy.writer_context_budget.context_limit_tokens
+        if event.output_token_reserve != execution.policy.writer_context_budget.output_reserve_tokens:
+            raise ValueError("writer reserve differs from its frozen role budget")
+    if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
     operation_event_ids = {e.event_id for e in graph_events}
     if not set(event.included_graph_event_ids).issubset(operation_event_ids):
