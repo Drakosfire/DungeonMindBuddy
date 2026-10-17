@@ -1,6 +1,6 @@
 # AGENT: compact the final evidence-selection wire
 
-**Status:** ACTIVE; PRIME implements solo, ARCHITECTURE independently reviews.
+**Status:** Implemented in #1361, independently PASS at 0faa614ea31245196c39b3d8a718343dc97424a4 and merged at f35a152f4fc11b2f108b00c84313f5b275e5b130. Fresh ordinary Float task/citations pass; Council task passes with broader gold partial and weak packet precision. Toll completes safely but omits useful partial context. HANDOFF-AGENT-requested-detail-gaps.md owns that bounded successor. Serving API adoption remains unproven.
 **Base:** main@23066e13e847c74dcefdbb80b24d548b883b31c5; branch codex/jev-selection-wire.
 **Lane:** existing buddy-tool-denial-delivery checkout, dependencies and private experiment directory. No new worktree, export, environment, server or /tmp task files.
 **Topology:** serial successor to merged #1360. Open MEDIA #1306 and Combat #1327 remain separate and held; DOGFOOD Ingest evaluation has no overlapping write set.

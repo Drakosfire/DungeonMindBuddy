@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -17,6 +18,8 @@ from .types import StrictModel
 POLICY = "cited_facts_host_limitations_v1"
 SCHEMA_NAME = "build_cited_source_answer"
 FINITE_SCHEMA_NAME = "build_cited_source_answer_v2"
+GAP_SCHEMA_NAME = "build_cited_source_answer_v3"
+GAP_POLICY = "question_spans_selected_excerpts_v1"
 LIMITATIONS = {
     "missing_requested_details": "The retrieved evidence does not establish all the requested details.",
     "partial_retrieval": "This answer uses partial retrieval and does not establish corpus completeness.",
@@ -84,6 +87,52 @@ class CitedSourceAnswer(StrictModel):
         return self
 
 
+class RequestedDetailGap(StrictModel):
+    question_span_start: int = Field(strict=True, ge=0)
+    question_span_end: int = Field(strict=True, gt=0)
+
+
+class CitedSourceAnswerWithGaps(CitedSourceAnswer):
+    # Existing completion permits 128 segments: reserve 16 gaps and 3 limitations.
+    answer_segments: list[PassageFact | SavedFact | Suggestion] = Field(max_length=109)
+    requested_detail_gaps: list[RequestedDetailGap] = Field(max_length=16)
+
+    @model_validator(mode="after")
+    def validate_gaps(self):
+        previous_end = -1
+        for gap in self.requested_detail_gaps:
+            if gap.question_span_start < previous_end or gap.question_span_start >= gap.question_span_end:
+                raise ValueError("Gap spans must be ordered, distinct and nonoverlapping")
+            previous_end = gap.question_span_end
+        if self.requested_detail_gaps and (
+            self.answer_context_status == "source_grounded"
+            or "missing_requested_details" not in self.limitations
+        ):
+            raise ValueError("Requested-detail gaps require a missing-details limitation and partial/insufficient status")
+        return self
+
+
+def gap_messages(answer, packet):
+    question = packet.get("user_question")
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("Requested-detail gaps require the exact user question")
+    messages = []
+    for gap in answer.requested_detail_gaps:
+        if gap.question_span_end > len(question):
+            raise ValueError("Requested-detail gap is outside the user question")
+        phrase = question[gap.question_span_start:gap.question_span_end]
+        if (not phrase or len(phrase) > 256 or phrase != phrase.strip()
+            or not all(char.isprintable() for char in phrase)
+            or not any(char.isalnum() for char in phrase)):
+            raise ValueError("Requested-detail gap is not a bounded displayable detail")
+        # User text stays literal in the Markdown conversation: no links, media,
+        # HTML or formatting can be introduced through a question slice.
+        literal = re.sub(r"([\\`*_{}\[\]()<>#+.!|~&\-])", r"\\\1", phrase)
+        messages.append({"kind": "connective", "text":
+            f"The selected source excerpts do not establish: “{literal}”."})
+    return messages
+
+
 def strict_json(raw: str):
     def unique(pairs):
         obj = {}
@@ -103,7 +152,12 @@ def strict_json(raw: str):
 
 
 def normalize(raw: str, packet: dict) -> dict:
-    answer = CitedSourceAnswer.model_validate(strict_json(raw))
+    gap_policy = packet.get("requested_detail_gap_policy")
+    if "requested_detail_gap_policy" in packet and gap_policy != GAP_POLICY:
+        raise ValueError("Unknown requested-detail gap policy")
+    answer_type = CitedSourceAnswerWithGaps if gap_policy == GAP_POLICY else CitedSourceAnswer
+    answer = answer_type.model_validate(strict_json(raw))
+    gaps = gap_messages(answer, packet) if gap_policy == GAP_POLICY else []
     disposition = packet.get("retrieval_disposition")
     if not isinstance(disposition, dict):
         raise ValueError("Cited source writer requires the host retrieval disposition")
@@ -140,6 +194,8 @@ def normalize(raw: str, packet: dict) -> dict:
             )
         else:
             segments.append(segment.model_dump(mode="json"))
+    # Append host-authored gaps after facts; existing citation indexes stay fixed.
+    segments.extend(gaps)
     # Canonical ordering; fact indexes stay unchanged for saved/source bindings.
     segments.extend(
         {"kind": "connective", "text": text}
@@ -156,7 +212,7 @@ def output_schema() -> dict:
     return CitedSourceAnswer.model_json_schema()
 
 
-def finite_output_schema(packet: dict) -> dict:
+def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -> dict:
     """Narrow selectors to this exact packet; do not infer knowledge authority."""
     from .types import ValidatedBuildSectionReadV1
 
@@ -230,7 +286,9 @@ def finite_output_schema(packet: dict) -> dict:
             raise ValueError("Invalid or duplicate saved-section selector")
         read_ids.add(str(read.read_id))
         event_ids.add(read.event_id)
-    schema = output_schema()
+    if requested_detail_gaps and packet.get("requested_detail_gap_policy") != GAP_POLICY:
+        raise ValueError("Gap output schema requires its exact packet capability")
+    schema = CitedSourceAnswerWithGaps.model_json_schema() if requested_detail_gaps else output_schema()
     available = {
         "PassageFact": ("passage_handles", handles),
         "SavedFact": ("section_read_ids", read_ids),
@@ -255,10 +313,14 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
     if not isinstance(fmt, dict):
         raise ValueError("Source writer request lacks its frozen output schema")
     name = fmt.get("name")
+    if name in {SCHEMA_NAME, FINITE_SCHEMA_NAME} and "requested_detail_gap_policy" in packet:
+        raise ValueError("Historical writer format cannot claim the new gap capability")
     if name == SCHEMA_NAME:
         schema = output_schema()
     elif name == FINITE_SCHEMA_NAME:
         schema = finite_output_schema(packet)
+    elif name == GAP_SCHEMA_NAME:
+        schema = finite_output_schema(packet, requested_detail_gaps=True)
     else:
         raise ValueError("Source writer request has an unknown output schema")
     if (
@@ -362,6 +424,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
 
     execution = turn.graph_context_execution
     receipt_sha = turn.graph_context_receipt.context_receipt_sha256
+    if "requested_detail_gap_policy" in packet and packet.get("user_question") != turn.user_text:
+        raise ValueError("Writer gap question differs from its exact original turn")
     candidate = normalize(raw_output, packet)
     included_ids = set(getattr(auth, "included_source_read_event_ids", ()))
     reads = [

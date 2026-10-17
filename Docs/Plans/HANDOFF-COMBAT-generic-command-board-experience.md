@@ -1,9 +1,9 @@
 # COMBAT: generic command-board encounter experience
 
 **Status:** ACTIVE — PRIME authorized the steward to activate C0 on 2026-10-17 after architecture disposition through PRIME. This lease covers C0 only; C1–C4 remain queued.
-**Base:** Current Buddy main is pinned at `f35a152f4fc11b2f108b00c84313f5b275e5b130`. PRIME resolved the current owner order for the exact C0 integration paths; re-anchor this C0 branch to that main while preserving the original implementation head.
+**Base:** Re-anchored to current Buddy main `42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` (the merge of Ingest PR #1362). The original C0 implementation head and prior main composition remain in branch history.
 **Branch / checkout:** remote PR branch `codex/combat-c0-durable-encounters`, original implementation head `a7132abb0d53a07718813c66355c023853a1789b`. The assigned `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` checkout is currently on the Ingest branch with unrelated dirty Ingest work; do not switch, reset, stash, or edit that checkout.
-**Serving baseline:** 5202 Ingest status presentation is accepted/live; preserve current 5202/API state for the operator's Ingest dogfood. No live APP-STATE migration, API restart, database mutation, or dist replacement is authorized by this lease.
+**Serving baseline:** #1362 is merged, but its current-head rendered visual acceptance remains deferred to the next already-authorized 5202 rollout. Preserve the current serving state; no live APP-STATE migration, API restart, database mutation, or dist replacement is authorized by this lease.
 **Topology:** serial within Combat: one C0 PR; C1–C4 wait for C0 review/merge. PRIME owns the held MEDIA #1306 migration rebase. PRIME confirmed C0 exclusively owns APP migration `20261017_0031` descending from accepted `20261017_0030`; MEDIA #1306's old `0028` branch must be rebased and renumbered only after C0. No other active C0 implementation lease exists.
 
 ## 1. Product outcome
@@ -112,7 +112,7 @@ PRIME explicitly transferred `apps/live_control_server/routes/live.py` into this
 - Exercise migration upgrade on the existing disposable APP-state test database only; never migrate retained/runtime APP-STATE under this lease.
 - Test create/list/open/save/reopen against disposable PostgreSQL, same-revision concurrent CAS, stale conflict, cross-World denial, session-without-campaign refusal, state bounds/shape, and exact ruleset snapshot/digest stability after the packaged catalog changes.
 - Verify old tracked combat JSON fixtures remain byte-identical and do not become implicitly loaded.
-- Run owning UI, route, application-state, typecheck/build, and `git diff --check` checks. Inspect the exact cumulative `main@6e7ee2e3d228a5b30277542ecd013779046a03c9` → head diff.
+- Run owning UI, route, application-state, typecheck/build, and `git diff --check` checks. Inspect the exact cumulative `main@42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc` → head diff.
 - Prepare one PR for PRIME review. Do not merge, deploy, restart APIs, migrate live APP-STATE, or modify 5202's served output under this lease.
 
 ### C0 working verification (2026-10-17)
@@ -138,7 +138,7 @@ PRIME explicitly transferred `apps/live_control_server/routes/live.py` into this
 - PRIME/ARCHITECTURE held the prior head because opening or reloading an encounter left its currently visible draft editable while the replacement request was pending. A late success could then overwrite edits typed after the request began.
 - The roster now disables draft and per-combatant editing controls during explicit create/open/reload replacement requests, including the new-encounter title while Create is pending. Save remains editable while pending because its submitted-snapshot path preserves newer local edits.
 - Deferred-response regression coverage proves Create, Open, and Reload keep the title and combatant notes locked until the replacement arrives, then show the exact returned draft. Focused CombatRosterModule suite passes 11 tests; Statblock View and broader checks are pending for the repaired head.
-- Re-anchored C0 on `main@6e7ee2e3d228a5b30277542ecd013779046a03c9`; the intervening commits do not modify the leased Combat files. Rebase/publish of the repaired PR head remains pending.
+- At the prior checkpoint, C0 was re-anchored on `main@6e7ee2e3d228a5b30277542ecd013779046a03c9`; the following published re-anchor below supersedes that base.
 
 ## 10. Superseded design-only gate record
 
@@ -178,3 +178,12 @@ The exact §8 lease remains the scope. Besides the two bounded integration paths
 - `tests/test_statblock_add_to_combat.py`
 
 Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is preserved in branch history. The local assigned checkout remains on the Ingest lane with unrelated dirty files; no branch switch, new checkout, server, environment, live migration, API restart, database mutation, or 5202 change is authorized.
+
+
+## Latest re-anchor after #1362 — 2026-10-17
+
+- Re-fetched GitHub state before refreshing this lane. Current Buddy main is `42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc`, which merges #1362 and #1363. Comparisons from the prior pinned f35 main show only the three #1362 Ingest-provenance paths and eight #1363 requested-detail writer paths; neither set overlaps this 20-path C0 lease.
+- Rechecked open PRs and owner dispositions: #1363 is the connected requested-detail producer successor; #1306 remains held; #763/#765 remain paused/no active implementation dispatch. PRIME’s C0 integration ownership for `main.py` router import/registration and the bounded Combat routes in `live.py` remains in force.
+- The remote C0 branch is composed on current main while retaining all 20 exact §8 C0 paths. The prior C0 implementation and earlier f35-based composition remain in its history. No files outside §8 are added to the C0 cumulative diff.
+- Fresh owning checks for the refreshed branch head have not yet been run. The verification recorded above is historical evidence for its cited earlier heads and must not be represented as fresh evidence for the refreshed head.
+- Ingest extraction-quality issues remain known; do not ask the operator to repeat Session 29 dogfooding until PRIME closes that gate. Preserve the operator’s Build session.
