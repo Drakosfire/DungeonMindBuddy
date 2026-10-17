@@ -1,6 +1,6 @@
 # AGENT — assess observation fidelity to opened passages
 
-ACTIVE under PRIME's source-faithful Graph collaboration goal and ARCHITECTURE design advice. Base96c73c18a6765830cbfaca9d5070c0e97545ec82; serial codex/jev-source-faithfulness in the existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new checkout or /tmp directories.
+SETTLED: #1314 merged72c22ee15bd6dd841f51bd0b2462f117444fbba4; lease ended. Successor HANDOFF-AGENT-jev-isolated-assessment.md owns isolated requests. Previously ACTIVE under PRIME's source-faithful Graph collaboration goal and ARCHITECTURE design advice. Base96c73c18a6765830cbfaca9d5070c0e97545ec82; serial codex/jev-source-faithfulness in the existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new checkout or /tmp directories.
 
 Council pilot reached provisional sufficiency and all10 gold passages, but independent review found one selected admitted observation asserting formal council membership beyond its opened passages. Do not manually sanitize that packet or correct retained Graph data. Build a general per-observation assessment pilot instead.
 
