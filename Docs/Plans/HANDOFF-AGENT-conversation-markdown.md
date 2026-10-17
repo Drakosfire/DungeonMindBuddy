@@ -1,6 +1,6 @@
 # Conversation Markdown presentation
 
-Status: ACTIVE — operator requests Markdown in conversation. PRIME implements;
+Status: SHIPPED — PR1292 merged as b0de58aef781623e3af8a598c56aa91bd9e664ac. PRIME implements;
 ARCHITECTURE independently reviews. Serial PR from remote main309d240e.
 Checkout /tmp/prime-recap-mention-boundaries; branch codex/conversation-markdown.
 
@@ -19,3 +19,9 @@ Verify mixed Markdown including aligned tables and segmented table/code syntax,
 unsafe HTML/URLs, and existing Build proposal rendering. Typecheck/build, cumulative
 diff, independent review, commit/push/PR. Deploy reviewed compiled UI to5202,
 preserving operator drafts; API and5876 remain unchanged. Operator acceptance open.
+
+ARCHITECTURE PASS exact ce2e2485; 18 tests independently repeated, TypeScript and
+production build pass. UI5202 deployed from immutable main b0de58ae; APIs remain
+6060a36d,5876 unchanged. No provider calls or document/database writes. Lease closed.
+Aligned-table proposal insertion remains an editor-admission issue, not resolved
+by this presentation change. Operator acceptance remains open.
