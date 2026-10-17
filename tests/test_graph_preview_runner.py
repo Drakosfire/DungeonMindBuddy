@@ -101,6 +101,7 @@ def _admit_recap(tmp_path: Path, text: str = "Mirathorn is a river city.\n\nGuar
     recap_path.write_text(text, encoding="utf-8")
     artifact = create_recap_source_artifact(
         tmp_path,
+        world_id="world:elderwyld",
         campaign_id="longmont-c2",
         session_id="session-24",
         recap_path=recap_path,
@@ -215,6 +216,14 @@ def _first_paragraph_span_id(source: NormalizedExtractionSource) -> str:
     raise AssertionError("expected at least one span")
 
 
+def _recap_run_lineage(source: NormalizedExtractionSource) -> dict[str, str]:
+    """Synthetic extraction callers state the source's fixture World explicitly."""
+    return {
+        "native_world_id": "world:elderwyld",
+        "campaign_id": source.campaign_id or "",
+    }
+
+
 def test_unknown_profile_persists_failed_run(tmp_path: Path) -> None:
     source = _admit_recap(tmp_path)
     result = run_production_extraction(
@@ -225,6 +234,7 @@ def test_unknown_profile_persists_failed_run(tmp_path: Path) -> None:
             profile_version="0.0",
             allow_llm=True,
             category_client=FixtureClient(),
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -246,6 +256,7 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / "runs",
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -269,6 +280,7 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / "runs",
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     assert second.run.run_id != loaded.run_id
@@ -485,6 +497,7 @@ def test_failure_modes_persist(tmp_path: Path, mode: str, kind: str) -> None:
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(mode=mode),
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -509,6 +522,7 @@ def test_reviewable_candidate_evidence_binds_registered_artifact(tmp_path: Path)
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / "runs",
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -552,6 +566,7 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
 
     first = create_recap_source_artifact(
         tmp_path,
+        world_id="world:elderwyld",
         campaign_id="longmont-c2",
         session_id="session-24",
         recap_path=recap_path,
@@ -572,6 +587,9 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / "runs",
+            initial_lineage=_recap_run_lineage(
+                _normalized_from_artifact(tmp_path, first.source_artifact_id)
+            ),
         )
     )
     assert first_run.run.status == ExtractionRunStatus.REVIEWABLE
@@ -579,6 +597,7 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
     recap_path.write_text(edited, encoding="utf-8")
     second = create_recap_source_artifact(
         tmp_path,
+        world_id="world:elderwyld",
         campaign_id="longmont-c2",
         session_id="session-24",
         recap_path=recap_path,
@@ -668,6 +687,7 @@ def test_production_known_entity_matching_uses_hydrated_spans(
             allow_llm=True,
             category_client=DuplicateHeroClient(span_ref=span_ref),
             output_dir=tmp_path / "runs",
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     assert result.known_entity_mentions is not None
@@ -780,6 +800,7 @@ def _run_recap_extraction(
             allow_llm=True,
             category_client=client,
             output_dir=tmp_path / output_dir,
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     return source, result
@@ -868,6 +889,7 @@ def test_duplicate_ids_fail_generation_as_integrity(
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / output_dir,
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -962,14 +984,14 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
         source_uri=source.source_uri,
         source_revision_id=revision,
         prepared_by="gm@test",
-        world_id="eldyrwild",
+        world_id="world:elderwyld",
         source_artifact_id=source.source_artifact_id,
         source_artifact=get_source_artifact(tmp_path, source.source_artifact_id),
         campaign_scope="longmont-c2",
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
         mutation_context=WorldGraphMutationContext(
-            world_id="eldyrwild",
+            world_id="world:elderwyld",
             revision_id="rev:d0",
             head_revision_id="rev:d0",
             objects={},
@@ -1001,6 +1023,7 @@ def test_integrity_failure_outranks_unsupported_eligibility(
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
             output_dir=tmp_path / "dup-sublocation-runs",
+            initial_lineage=_recap_run_lineage(source),
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -1072,6 +1095,7 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
     with pytest.raises(SourceArtifactRegistryError, match="safe path segment"):
         create_recap_source_artifact(
             tmp_path,
+            world_id="fixture-world",
             campaign_id="../..",
             session_id="session-24",
             recap_text="escape attempt\n",
@@ -1079,6 +1103,7 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
     with pytest.raises(SourceArtifactRegistryError, match="safe path segment"):
         create_recap_source_artifact(
             tmp_path,
+            world_id="fixture-world",
             campaign_id="longmont-c2",
             session_id="session-24/../evil",
             recap_text="escape attempt\n",

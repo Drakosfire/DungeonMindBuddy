@@ -222,6 +222,7 @@ def test_recap_artifact_rejected(client: TestClient, root: Path) -> None:
     recap_path.write_text("# Recap\n\nSession notes.\n", encoding="utf-8")
     artifact = create_recap_source_artifact(
         root,
+        world_id="fixture-world",
         campaign_id="longmont-c2",
         session_id="session-1",
         recap_path=recap_path,

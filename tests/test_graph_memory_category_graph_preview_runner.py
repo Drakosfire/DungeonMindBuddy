@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -32,9 +33,29 @@ def _copy_recap_to_tmp(tmp_path: Path) -> Path:
     return source
 
 
-def _copy_candidate_to_tmp(tmp_path: Path) -> Path:
+def _fixture_source_artifact_id(
+    source: Path, *, campaign_id: str, session_id: str
+) -> str:
+    from graph_memory.evidence.source_artifact import (
+        build_world_scoped_recap_source_artifact_id,
+    )
+
+    normalized = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
+    return build_world_scoped_recap_source_artifact_id(
+        world_id="world:fixture",
+        campaign_id=campaign_id,
+        session_id=session_id,
+        content_sha256=hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+    )
+
+
+def _copy_candidate_to_tmp(tmp_path: Path, *, source_artifact_id: str) -> Path:
     candidate = tmp_path / "candidate_graph_fixture.json"
-    candidate.write_text(CANDIDATE_PATH.read_text())
+    payload = json.loads(CANDIDATE_PATH.read_text())
+    payload["campaign_id"] = "longmont-c2"
+    payload["session_id"] = "session-24"
+    payload["source_artifact_ids"] = [source_artifact_id]
+    candidate.write_text(json.dumps(payload))
     return candidate
 
 
@@ -212,7 +233,10 @@ def test_runner_can_wrap_existing_candidate_graph_fixture(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     source = _copy_recap_to_tmp(tmp_path)
-    candidate = _copy_candidate_to_tmp(tmp_path)
+    source_artifact_id = _fixture_source_artifact_id(
+        source, campaign_id="longmont-c2", session_id="session-24"
+    )
+    candidate = _copy_candidate_to_tmp(tmp_path, source_artifact_id=source_artifact_id)
 
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
@@ -221,6 +245,7 @@ def test_runner_can_wrap_existing_candidate_graph_fixture(
             normalized_recap_path=source,
             output_dir=Path("runs/candidate_ready"),
             candidate_graph_path=candidate,
+            source_artifact_id=source_artifact_id,
         )
     )
     manifest = _load_manifest(result.manifest_path)
@@ -241,6 +266,12 @@ def test_runner_failed_candidate_validation_does_not_reach_candidate_ready(
     source = _copy_recap_to_tmp(tmp_path)
     invalid_candidate = tmp_path / "invalid_candidate_graph.json"
     payload = json.loads(CANDIDATE_PATH.read_text())
+    payload["campaign_id"] = "longmont-c2"
+    payload["session_id"] = "session-24"
+    source_artifact_id = _fixture_source_artifact_id(
+        source, campaign_id="longmont-c2", session_id="session-24"
+    )
+    payload["source_artifact_ids"] = [source_artifact_id]
     payload["diagnostics"]["canon_promotion"] = True
     invalid_candidate.write_text(json.dumps(payload))
 
@@ -251,6 +282,7 @@ def test_runner_failed_candidate_validation_does_not_reach_candidate_ready(
             normalized_recap_path=source,
             output_dir=Path("runs/invalid_candidate"),
             candidate_graph_path=invalid_candidate,
+            source_artifact_id=source_artifact_id,
         )
     )
     manifest = _load_manifest(result.manifest_path)
@@ -356,7 +388,7 @@ def test_runner_canonical_line_only_index_reaches_category_prompt(
     recap_text = "Session 16\n\nBonogo carried the violet astrolabe into Mireward at dawn.\n"
     source.write_text(recap_text, encoding="utf-8")
     artifact = create_recap_source_artifact(
-        tmp_path, campaign_id="longmont-c1", session_id="session-16", recap_path=source,
+        tmp_path, world_id="fixture-world", campaign_id="longmont-c1", session_id="session-16", recap_path=source,
     )
     span_index = source_span_index_to_dict(
         load_source_span_index(tmp_path, artifact.source_artifact_id)
@@ -801,7 +833,10 @@ def test_runner_candidate_graph_path_bypasses_profile_extractor(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     source = _copy_recap_to_tmp(tmp_path)
-    candidate = _copy_candidate_to_tmp(tmp_path)
+    source_artifact_id = _fixture_source_artifact_id(
+        source, campaign_id="longmont-c2", session_id="session-24"
+    )
+    candidate = _copy_candidate_to_tmp(tmp_path, source_artifact_id=source_artifact_id)
 
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
@@ -810,6 +845,7 @@ def test_runner_candidate_graph_path_bypasses_profile_extractor(
             normalized_recap_path=source,
             output_dir=Path("runs/profile_fixture_bypass"),
             candidate_graph_path=candidate,
+            source_artifact_id=source_artifact_id,
             allow_llm=True,
             graph_extraction_profile="category_encounter_job_preview",
         )

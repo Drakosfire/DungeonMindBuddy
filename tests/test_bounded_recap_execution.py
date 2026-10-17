@@ -22,6 +22,21 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 )
 
 
+def _fixture_ingest_context(campaign_id: str):
+    from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
+
+    return RecapContextSnapshot(
+        schema="dm_world_campaign_ingest_context_v1",
+        managed_world_id="managed-fixture-world",
+        native_world_id="world:synthetic",
+        binding_version=1,
+        campaign_id=campaign_id,
+        head_revision_id="revision:fixture",
+        graph_schema="dm_graph_v1",
+        graph_payload_sha256="a" * 64,
+    )
+
+
 @pytest.fixture(autouse=True)
 def semantic_engine_seam(monkeypatch):
     """Use explicit structured fake engines; process tests live separately."""
@@ -923,6 +938,7 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
         allow_llm=True,
         output_dir=output,
         execution_limits=RecapExecutionLimits(),
+        ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.run.run_id == "new-run"
     ledger = json.loads((output / "inference_call_ledger.json").read_text())
@@ -938,6 +954,7 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
             allow_llm=True,
             output_dir=output,
             execution_limits=RecapExecutionLimits(),
+            ingest_context=_fixture_ingest_context("synthetic"),
         )
 
 
@@ -1030,6 +1047,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monke
         allow_llm=True,
         output_dir=output,
         execution_limits=RecapExecutionLimits(),
+        ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.failure_kind == "incomplete", result.diagnostics
     assert (

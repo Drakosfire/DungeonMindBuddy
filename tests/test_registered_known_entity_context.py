@@ -11,7 +11,21 @@ import pytest
 
 from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
+from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
 from src.graph_memory.extraction.known_entity_registry import known_entities_from_world_graph
+
+
+def _context(campaign_id: str) -> RecapContextSnapshot:
+    return RecapContextSnapshot(
+        schema="dm_world_campaign_ingest_context_v1",
+        managed_world_id="managed-fixture-world",
+        native_world_id="world:elderwyld",
+        binding_version=1,
+        campaign_id=campaign_id,
+        head_revision_id="revision:fixture",
+        graph_schema="dm_graph_v1",
+        graph_payload_sha256="a" * 64,
+    )
 
 
 class RecordingClient:
@@ -62,6 +76,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
     result = run_recap_production_extraction(
         repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-24", recap_path=path,
         profile="category_baseline", model_id="deepseek/deepseek-v4.1-flash", category_client=client,
+        ingest_context=_context("longmont-c2"),
         **kwargs,
     )
     assert result.failure_kind is None

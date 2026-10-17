@@ -1,6 +1,6 @@
 # INGEST: distinguish saved graph candidates from current source
 
-**Status:** ACTIVE under the user-authorized Ingest-first goal: present source, extracted candidates, evidence, review, and rerun behavior with truthful provenance.
+**Status:** SETTLED — PR #1266 merged at `7cd86c3a3fc875e0994ac53cbe5515bff43b27df`; implementation lease released.
 **Base:** `main@3b5752204a4e54372096345fb2b17d29541051da`, verified on GitHub before rebasing.
 **Branch:** `codex/ingest-recap-source-status`.
 **Checkout:** `/home/drakosfire/Projects/.codex/ingest-source-lineage-status/DungeonMindBuddy` (local validation snapshot at `6c892f691d6d0fc83c37c6ba67402b9e3c6d3785`; the service and test blob hashes match current PR head `19d165210367953e6d6e9970586655210acf6108`).
@@ -43,3 +43,7 @@ No route, `types.ts`, UI module, graph-run registry, extraction/packaging, sourc
 - No live ingestion action is part of this slice. Full rendered recap ingestion, persistence readback, and any real rerun remain separate gates in the parent goal.
 
 - Re-anchored to `main@3b5752204a4e54372096345fb2b17d29541051da` after #1259 merged at `70c894a25ab64a0b08dd2e7a4f293f5e262eff4b`. GitHub confirms the 43 paths changed between the former base and main do not overlap this four-file write set. PR #1276 remains parallel-independent on disjoint paths.
+
+## Settlement — 2026-10-17
+
+PR #1266 merged at `7cd86c3a3fc875e0994ac53cbe5515bff43b27df`. Retained candidates now remain inspectable while being marked `source_unverified` when their current recap source cannot be proven. The separate source World-binding capability is tracked in `HANDOFF-INGEST-recap-source-world-binding.md`.

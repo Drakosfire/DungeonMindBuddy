@@ -687,6 +687,20 @@ def register_retained_package(
     if expected_preview_fingerprint != verified.preview_fingerprint:
         raise RetainedPackageRegistrationError("apply fingerprint differs from current preview")
 
+    # This retained package records neither a verified World binding nor a
+    # world-scoped source identity. It remains inspectable as a preview, but
+    # must not be rebound using the campaign name or old source ID.
+    native_world_id = verified.manifest.get("native_world_id")
+    if (
+        not isinstance(native_world_id, str)
+        or not native_world_id
+        or native_world_id != native_world_id.strip()
+        or not verified.source_artifact_id.startswith("artifact:recap:v2:")
+    ):
+        raise RetainedPackageRegistrationError(
+            "retained Session 28 package has no verified native World binding; registration is refused"
+        )
+
     root = repo_root.expanduser().resolve(strict=True)
     package_dir = _stage_verified_package(verified, repo_root=root)
     lineage = _lineage_for_import(verified, package_dir, root)
@@ -705,6 +719,7 @@ def register_retained_package(
         )
         artifact = sources.create_recap_source_artifact(
             root,
+            world_id=native_world_id,
             campaign_id=CAMPAIGN_ID,
             session_id=SESSION_ID,
             recap_text=source_text,

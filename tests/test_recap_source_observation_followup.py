@@ -128,7 +128,7 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     monkeypatch.setattr(extract_promote,"resolve_managed_world_binding",lambda *_a,**_k:binding)
     mixed=getattr(request,"param",None)=="source_endpoint"
     body=TEXT+("\nThe Annex hosts festival registration. Clerk Mira works in the Annex.\n" if mixed else "")
-    artifact=create_recap_source_artifact(tmp_path,campaign_id="longmont-c2",session_id="session-22",
+    artifact=create_recap_source_artifact(tmp_path,world_id="fixture-world",campaign_id="longmont-c2",session_id="session-22",
         recap_text=body+"\nSynthetic fixture "+token+".\n")
     span=source_span_index_path(tmp_path,artifact.source_artifact_id)
     index=json.loads(span.read_text())

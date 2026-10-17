@@ -23,7 +23,7 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
-    build_recap_source_artifact_id,
+    build_world_scoped_recap_source_artifact_id,
     build_worldbuilding_source_artifact_id,
     validate_source_artifact_scope,
 )
@@ -237,6 +237,7 @@ def _records_match(existing: GraphMemorySourceArtifact, candidate: GraphMemorySo
         "source_domain",
         "campaign_id",
         "session_id",
+        "world_id",
         "uri",
         "content_sha256",
         "artifact_kind",
@@ -536,6 +537,7 @@ def _upsert_source_artifact(
                 existing.source_domain == candidate.source_domain
                 and existing.campaign_id == candidate.campaign_id
                 and existing.session_id == candidate.session_id
+                and existing.world_id == candidate.world_id
                 and existing.artifact_kind == candidate.artifact_kind
                 and existing.document_class == candidate.document_class
                 and existing.workspace_document_id == candidate.workspace_document_id
@@ -585,6 +587,7 @@ def _upsert_source_artifact(
 def create_recap_source_artifact(
     root: Path,
     *,
+    world_id: str,
     campaign_id: str,
     session_id: str,
     recap_path: Path | None = None,
@@ -600,6 +603,12 @@ def create_recap_source_artifact(
     The caller's original recap path is read-only input and is never rewritten.
     """
     root = _artifact_root(root)
+    cleaned_world = (world_id or "").strip()
+    if not cleaned_world or cleaned_world != world_id:
+        raise SourceArtifactRegistryError(
+            "a verified native world_id is required to register a fresh recap source",
+            status_code=422,
+        )
     cleaned_campaign = _require_safe_path_segment(
         campaign_id or "", field_name="campaign_id"
     )
@@ -658,7 +667,8 @@ def create_recap_source_artifact(
                 status_code=409,
             )
 
-    source_artifact_id = build_recap_source_artifact_id(
+    source_artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id=cleaned_world,
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
         content_sha256=content_sha256,
@@ -669,6 +679,7 @@ def create_recap_source_artifact(
         source_domain="recap",
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
+        world_id=cleaned_world,
         uri=f"repo://{relpath}",
         content_sha256=content_sha256,
         artifact_kind="recap_markdown",
