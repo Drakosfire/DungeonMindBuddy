@@ -867,12 +867,13 @@ def _verify_policy_plan_payload(
     build_jev_expected_state: Mapping[str, Any] | None = None,
     build_writer_projection: Any = None,
     build_jev_accounting: Any = None,
+    build_writer_context_budget: Any = None,
 ) -> None:
     if view.get("apiMode") == "responses":
         from .build_jev_writer import validate_body
         if not _governed_build_turn(request) or build_writer_projection is None:
             raise ValueError("Writer requires a parent staged Build projection")
-        validate_body(view["payloadJson"], build_writer_projection)
+        validate_body(view["payloadJson"], build_writer_projection, budget=build_writer_context_budget)
         return
     if view.get("apiMode") == "typesafe_decision":
         from .build_jev_dispatch import first_state, validate_body
@@ -1116,7 +1117,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildJointSupportActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildWriterBudgetActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("writer_context_budget") is not None
+                else graph_types.BuildJointSupportActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("support_policy") is not None
                 else graph_types.BuildEstimatedActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("controller_continuation_accounting") is not None
@@ -1611,6 +1614,7 @@ class _PolicyExecutionAdapter:
             view, self.request, self.work, self.playable_target, self.bootstrap,
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
+            build_writer_context_budget=self._frozen_build_writer_budget(),
             build_jev_accounting=(getattr(self, "_build_jev_accounting", None)
                 if (getattr(self, "_active_build_driver_projection", None) is not None
                     and self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)) else None),
@@ -1852,7 +1856,13 @@ class _PolicyExecutionAdapter:
                 accounting.validate(body, view["payloadJson"].encode())
                 upper_bound = accounting.estimate(body)
                 input_kind, input_estimator = "estimated_token_count", accounting.descriptor["policy"]
-            if upper_bound + output_reserve > self.budget["contextLimitTokens"]:
+            context_limit = self.budget["contextLimitTokens"]
+            writer_budget = self._frozen_build_writer_budget() if writing else None
+            if writer_budget is not None:
+                if writer_budget != (self.budget.get("buildJevActions") or {}).get("writer_context_budget"):
+                    raise ValueError("writer budget differs from frozen policy")
+                context_limit = writer_budget["context_limit_tokens"]
+            if upper_bound + output_reserve > context_limit:
                 raise AgentTurnServiceError(
                     "The final provider request exceeds the frozen budget.",
                     code="provider_envelope_over_budget", status_code=413,
@@ -2238,6 +2248,15 @@ class _PolicyExecutionAdapter:
         self._build_writer_projection = staged
         return staged
 
+    def _frozen_build_writer_budget(self):
+        if self.fence is None:
+            return None
+        graph_types = _app_state_graph_execution_types()
+        policy = self._broker_execution().policy
+        if isinstance(policy, graph_types.BuildWriterBudgetActionControllerWriterPolicyV1):
+            return policy.writer_context_budget.model_dump(mode="json", by_alias=True)
+        return None
+
     def authorize_prepared_build_writer(self, prepared: Any) -> bool:
         from . import build_jev_writer as writer
         if self.failure is not None or self.fence is None:
@@ -2247,7 +2266,7 @@ class _PolicyExecutionAdapter:
                 or staged.prior_provider_attempt_id != str(self.last_provider_attempt_id)):
             return False
         try:
-            view = writer.prepared_view(prepared, staged)
+            view = writer.prepared_view(prepared, staged, budget=self._frozen_build_writer_budget())
         except (AttributeError, KeyError, TypeError, ValueError):
             return False
         self._prepared_build_authorizing = view
