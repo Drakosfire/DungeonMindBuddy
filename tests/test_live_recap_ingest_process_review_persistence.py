@@ -152,7 +152,11 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
     for ref in evidence:
         assert ref["source_artifact_id"] == source_artifact_id
         assert ref.get("source_span_ref_id") in spans
-    assert manifest["run_id"] == run_id
+    # GraphIngest and APP-STATE ExtractionRun intentionally keep distinct IDs.
+    # The manifest diagnostics link the package run to the canonical exact run.
+    assert manifest["run_id"].startswith("graph-ingest:longmont-c2:session-29:")
+    assert manifest["diagnostics"]["extraction_run_id"] == run_id
+    assert manifest["diagnostics"]["source_artifact_id"] == source_artifact_id
     assert manifest["source"]["source_artifact_id"] == source_artifact_id
 
     normalized = Path(result["paths"]["normalized_recap"])
