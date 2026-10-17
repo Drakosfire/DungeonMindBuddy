@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
-const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, models: [
+const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
   { id: 'flux-2-pro', label: 'FLUX 2 Pro', formats: ['png', 'jpeg'], controls: ['seed'] },
   { id: 'gpt-image-1.5', label: 'GPT Image 1.5', formats: ['png', 'jpeg', 'webp'], controls: ['quality', 'background'] },
-] }), generate: vi.fn().mockResolvedValue({ images: [{ data_url: 'data:image/png;base64,iVBORw0KGgo=', media_type: 'image/png' }], prompt: 'Edge', model: 'flux-2-pro' }) });
+] }), list: vi.fn().mockResolvedValue({ items: [] }), get: vi.fn(), save: vi.fn().mockResolvedValue({ asset_id: 'asset-1', state: 'ready', delivery_url: 'https://imagedelivery.net/test/asset-1/public' }), generate: vi.fn().mockResolvedValue({ images: [{ data_url: 'data:image/png;base64,iVBORw0KGgo=', media_type: 'image/png', asset_id: 'asset-1', state: 'staged' }], prompt: 'Edge', model: 'flux-2-pro' }) });
 async function settings(api: ImageGenerationPort) {
   render(<MediaImageWizard onClose={() => {}} port={api} />);
   fireEvent.change(screen.getByRole('textbox', { name: /What would you like/ }), { target: { value: 'Edge' } });
@@ -38,6 +38,37 @@ describe('MediaImageWizard', () => {
     await screen.findByRole('alert');
     expect(screen.getByRole('link', { name: 'Download image' })).toBeInTheDocument();
     expect(api.generate).toHaveBeenCalledTimes(2);
+  });
+  it('saves once and reopens from the library without generation', async () => {
+    const api = createPort(); await settings(api);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    await screen.findByRole('button', { name: 'Save image' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save image' }));
+    await screen.findByText('Saved to CDN');
+    expect(api.save).toHaveBeenCalledWith('asset-1');
+    const record = { asset_id: 'asset-1', state: 'ready', mime_type: 'image/png', data_url: 'data:image/png;base64,original', delivery_url: 'https://imagedelivery.net/test/asset-1/public', created_at: '2026-10-16T00:00:00Z', provenance: { prompt: 'Saved swamp', model: 'flux-2-pro', settings: { width: 1536, height: 1024, options: { seed: 42, output_format: 'png' } } } };
+    vi.mocked(api.list).mockResolvedValue({ items: [record] });
+    vi.mocked(api.get).mockResolvedValue(record);
+    fireEvent.click(screen.getByRole('button', { name: 'Image library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Saved swamp · Saved' }));
+    await screen.findByAltText('Saved swamp');
+    expect(api.generate).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '2. Model & settings' }));
+    expect(screen.getByLabelText(/Seed/)).toHaveValue('42');
+    expect(screen.getByLabelText('Shape')).toHaveValue('1536x1024');
+  });
+  it('retains the preview and reconciles an uncertain Save without regenerating', async () => {
+    const api = createPort(); await settings(api);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    await screen.findByRole('button', { name: 'Save image' });
+    vi.mocked(api.save).mockRejectedValue(new Error('Outcome unknown'));
+    vi.mocked(api.get).mockResolvedValue({ asset_id: 'asset-1', state: 'unknown', mime_type: 'image/png', created_at: '', provenance: {} });
+    fireEvent.click(screen.getByRole('button', { name: 'Save image' }));
+    await screen.findByRole('button', { name: 'Check Save status' });
+    expect(screen.getByRole('link', { name: 'Download image' })).toBeInTheDocument();
+    expect(api.generate).toHaveBeenCalledTimes(1);
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledWith('asset-1');
   });
   it('rejects invalid seed without a call', async () => {
     const api = createPort(); await settings(api);
