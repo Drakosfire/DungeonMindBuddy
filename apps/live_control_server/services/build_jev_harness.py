@@ -66,6 +66,7 @@ class BuildJevHarness:
         from .build_initial_packet_codec import CODEC
         budget["buildJevActions"] = dict(
             initial_packet_codec=CODEC,
+            controller_input_policy=decision_policy.CONTINUATION_POLICY,
             driver_schema="dmb_build_jev_actions_v1",
             action_capability_sha256=digest(cap.model_dump(mode="json"))
             if cap

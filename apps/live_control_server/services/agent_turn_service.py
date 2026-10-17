@@ -1115,7 +1115,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildCompactActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildContinuationActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_input_policy") is not None
+                else graph_types.BuildCompactActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("initial_packet_codec") is not None
                 else graph_types.BuildActionControllerWriterPolicyV1
                 if budget.get("buildJevActions") is not None else graph_types.BuildSectionControllerWriterPolicyV1
@@ -1604,6 +1606,17 @@ class _PolicyExecutionAdapter:
             if self.fence is None:
                 raise ValueError("Source writer requires an existing parent claim")
             return self.fence.turn, [], [], []
+        active_driver = getattr(self, "_active_build_driver_projection", None)
+        if active_driver is not None:
+            from .build_jev_dispatch import CONTINUATION_SCHEMA, CONTINUATION_POLICY, continuation_binding
+            state = json.loads(view["payloadJson"]).get("state", {})
+            if state.get("schema") == CONTINUATION_SCHEMA:
+                if (state.get("input_policy") != CONTINUATION_POLICY
+                        or "initialClaimPacket" in state
+                        or _canonical_sha256(state.get("historical_initial")) != _canonical_sha256(continuation_binding(self))):
+                    raise ValueError("Continuation differs from the frozen receipt and acknowledged attempt")
+                # A historical commitment is not an exposure of those initial records.
+                return self.fence.turn, [], [], []
         initial = _initial_claim_packet_from_view(
             type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
             self.bootstrap,
@@ -1877,7 +1890,9 @@ class _PolicyExecutionAdapter:
             })
             build_closures = []
             if _governed_build_turn(self.request):
-                build_closures = [] if writing else _build_initial_claim_evidence(
+                from .build_jev_dispatch import CONTINUATION_SCHEMA
+                continuation = active_driver is not None and body.get("state", {}).get("schema") == CONTINUATION_SCHEMA
+                build_closures = [] if writing or continuation else _build_initial_claim_evidence(
                     view, self.bootstrap, self.initial_session_projection,
                 )
                 if writing:
