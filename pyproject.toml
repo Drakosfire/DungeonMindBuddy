@@ -21,6 +21,8 @@ dependencies = [
     # terminal pre-dispatch budget patch, then uv installs the local tree.
     # Do not raise the pin without revisiting the Hermes dependency gate.
     "openai==2.24.0",
+    # Explicit offline o200k dependency for ordinary Jev estimated admission.
+    "tiktoken==0.14.0",
     # A3 experiment pin: newest PydanticAI whose openai extra still admits 2.24.
     # Do not raise this to 2.x in A3; that extra requires openai>=2.29.
     "pydantic-ai-slim[openai]==1.66.0",

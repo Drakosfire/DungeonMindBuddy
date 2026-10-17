@@ -1609,6 +1609,7 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
                 request.app.state, "agent_turn_runtime", None
             ),
             conversation_service=_conversation_service(request),
+            build_runtime_factory=getattr(getattr(request.app, "state", None), "build_jev_runtime_factory", None),
             trace_builder=trace,
             operator_subject=principal.subject if body.selected_knowledge is not None else None,
         )
