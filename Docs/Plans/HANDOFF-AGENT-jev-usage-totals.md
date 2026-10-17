@@ -13,3 +13,7 @@ One serial bounded PR: this handoff; factual settlement `Docs/Plans/HANDOFF-AGEN
 ## Verification and limits
 
 Run actual SDK->APP default HTTP witness with mocked providers through final trace and protected persisted context capture; totals must equal reported input+output and count every observed call once. Explicit provider totals remain authoritative; cache/reasoning are not added; absent/incomplete usage stays unavailable; error observations with reported usage remain counted. Preserve one writer, no retries and durable completion/replay tests. Scoped lint/diff check and independent exact-head review before merge. No fresh model or serving acceptance claimed by this accounting fix.
+
+## Implementation evidence
+
+15 focused cases pass: actual default HTTP/prepared factory/SDK->APP completion/replay and protected persisted usage sum, five observation edge cases, and a failed structured writer retaining its reported total. Initial capture-count assertion also counted lifecycle response notices; corrected to distinguish reported input/output observations from lifecycle records without changing runtime capture. Scoped Ruff and cumulative diff checks pass. No inference, retained data, schema or serving change.

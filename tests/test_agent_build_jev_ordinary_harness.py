@@ -685,6 +685,7 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["status"] == "error"
     assert runtime.calls[-1]["usage"]["input_tokens"] == 100
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
+    assert runtime.calls[-1]["usage"]["total_tokens"] == 140
     assert runtime.calls[-1]["usage"]["status"] == "reported"
 
 

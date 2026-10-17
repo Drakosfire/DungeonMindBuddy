@@ -1,6 +1,6 @@
 # AGENT: constrain the writer to exact supplied citation selectors
 
-ACTIVE under PRIME source-faithful responsive Graph goal; base91c44e0382e2970985f943216bc3b484510543bb. Serial successor to merged1350; reuse buddy-tool-denial-delivery checkout/deps, no new worktree/clone/export/env/tmp. PRIME implements solo; ARCHITECTURE independently reviews. DOGFOOD retains Ingest/Combat and matched91c44 runtime adoption. No serving, retained graph/data or provider calls during implementation.
+MERGED #1351 at39aa16045536eb259926a0c89f9065ee01f0a304; exact reviewed headd00a2c78218459711c48873d211ded75542a43d9. Implementation lease ended. Fresh actual ordinary HTTP Council now completes with exact finite selectors, nine native citations and restart reads; independent answer review remains partial for an omitted stance qualification. Runtime adoption and overall Mirathorn/operator acceptance remain separate. Originally ACTIVE under PRIME source-faithful responsive Graph goal; base91c44e0382e2970985f943216bc3b484510543bb. Serial successor to merged1350; reuse buddy-tool-denial-delivery checkout/deps, no new worktree/clone/export/env/tmp. PRIME implements solo; ARCHITECTURE independently reviews. DOGFOOD retains Ingest/Combat and matched91c44 runtime adoption. No serving, retained graph/data or provider calls during implementation.
 
 ## Evidence and design
 
