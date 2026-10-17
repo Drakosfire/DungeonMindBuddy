@@ -1,6 +1,6 @@
 # AGENT: deferred coverage frontier for ordinary Jev
 
-ACTIVE under PRIME's responsive Graph collaboration goal and ARCHITECTURE's evidence-backed frontier design. Base6e7ee2e3d228a5b30277542ecd013779046a03c9 (merged1328). PRIME implements solo in the existing buddy-tool-denial-delivery checkout; ARCHITECTURE independently reviews. Serial successor. No new checkout, clone, source export, environment or /tmp directory. DOGFOOD retains its disjoint Ingest/Combat ownership and operator Build support. No serving or retained-data changes.
+SETTLED implementation/review lease. Merged via PR1329 at9020dc459b78c49f3aaea01bd5594ffb0f266e3b after ARCHITECTURE code PASS exact7bdb060a9cacebbd0d3715490f90d45b29dda4a6 and81independent tests;159author tests pass. Runtime rollout/real terminal capacity remain held. Phase-input successor owns overlapping paths. Original authority: ACTIVE under PRIME's responsive Graph collaboration goal and ARCHITECTURE's evidence-backed frontier design. Base6e7ee2e3d228a5b30277542ecd013779046a03c9 (merged1328). PRIME implements solo in the existing buddy-tool-denial-delivery checkout; ARCHITECTURE independently reviews. Serial successor. No new checkout, clone, source export, environment or /tmp directory. DOGFOOD retains its disjoint Ingest/Combat ownership and operator Build support. No serving or retained-data changes.
 
 ## Observed failure and invariant
 

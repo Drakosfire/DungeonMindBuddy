@@ -1878,6 +1878,10 @@ class BuildFrontierActionControllerWriterPolicyV1(BuildContinuationActionControl
     frontier_policy: Literal["evidence_bound_deferred_frontier_v1"]
 
 
+class BuildPhaseActionControllerWriterPolicyV1(BuildFrontierActionControllerWriterPolicyV1):
+    phase_input_policy: Literal["role_separated_controller_inputs_v1"]
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -2776,7 +2780,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")

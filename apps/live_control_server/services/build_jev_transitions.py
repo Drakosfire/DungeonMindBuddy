@@ -14,7 +14,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .build_jev_accounting import ExperimentalAccounting
-from .build_jev_dispatch import MODEL
+from .build_jev_dispatch import MODEL, PHASE_POLICY
 
 
 class _Frozen(BaseModel):
@@ -74,7 +74,7 @@ class DecisionIntent(_Frozen):
     kind: Literal["decision"] = "decision"
     request_id: str
     model: str = MODEL
-    phase: Literal["select", "assess", "coverage", "retention"]
+    phase: Literal["select", "assess", "navigate", "coverage", "retention"]
     state: dict
     questions: tuple[DecisionQuestion, ...]
 
@@ -172,6 +172,8 @@ class BuildJevTransitions:
         retention_policy: Literal["question_relevance_packets_v1"] | None = None,
         accounting: ExperimentalAccounting | None = None,
         frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] | None = None,
+        phase_input_policy: Literal["role_separated_controller_inputs_v1"]
+        | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
@@ -185,6 +187,12 @@ class BuildJevTransitions:
             raise ValueError("unsupported frontier policy")
         if frontier_policy and retention_policy:
             raise ValueError("frontier requires the complete acquired evidence view")
+        if phase_input_policy not in {None, PHASE_POLICY} or (
+            phase_input_policy and not frontier_policy
+        ):
+            raise ValueError("phase input policy requires the explicit frontier policy")
+        self._phase_input_policy = phase_input_policy
+        self._assessment_judgment: dict | None = None
         self._frontier_policy = frontier_policy
         self._deferred: set[str] = set()
         self._coverage_basis: str | None = None
@@ -215,7 +223,9 @@ class BuildJevTransitions:
         self._excluded: set[str] = set()
         self._requests: set[str] = set()
         self._sufficient, self._conflict = False, False
-        self._step: Step = self._decision("assess")
+        self._step: Step = self._decision(
+            "navigate" if self._phase_input_policy else "assess"
+        )
 
     @property
     def step(self) -> Step:
@@ -313,14 +323,44 @@ class BuildJevTransitions:
         )
 
     def _decision(
-        self, phase: Literal["assess", "coverage"]
+        self, phase: Literal["assess", "navigate", "coverage"]
     ) -> DecisionIntent | Disposition:
         from .build_jev_compaction import project_evidence
 
         available = self._offered() if self._frontier_policy else self._available()
         viewed = self._view_units()
+        navigation = self._phase_input_policy and phase in {"navigate", "coverage"}
+        presentation = (
+            {
+                "scope": self._scope.model_dump(mode="json"),
+                "acquired_discovery": [
+                    {
+                        "action_id": aid,
+                        "hint": self._actions[aid].label[:96],
+                        "hint_truncated": len(self._actions[aid].label) > 96,
+                        "units": [
+                            {
+                                "id": u.id,
+                                "subject": u.subject,
+                                "source_class": u.source_class,
+                                "epistemic_kind": u.epistemic_kind,
+                                "temporal_scope": u.temporal_scope,
+                            }
+                            for uid, u in self._units.items()
+                            if uid in self._actions[aid].unit_ids
+                        ],
+                    }
+                    for aid in self._actions
+                    if aid in self._visited
+                ],
+                "evidence_presentation": "discovery_metadata_only; observation and passage bodies absent; "
+                "not admitted Graph facts, source evidence, sufficiency or claim inclusion",
+            }
+            if navigation
+            else project_evidence(self._scope, viewed)
+        )
         state = {
-            **project_evidence(self._scope, viewed),
+            **presentation,
             "user_question": self._question,
             "legal_next_actions": {a.id: a.label[:96] for a in available},
             "legal_action_kinds": {
@@ -351,7 +391,42 @@ class BuildJevTransitions:
                 "Sufficiency is separate from coverage; neither unread exclusions nor "
                 "defer judgments prove completeness. New evidence invalidates those judgments.",
             }
-        if phase == "coverage":
+        if self._phase_input_policy:
+            state["phase_input_policy"] = self._phase_input_policy
+            state["assessment_binding"] = self._assessment_judgment
+            if navigation:
+                state["rules"] = (
+                    "Choose retrieval using discovery hints and the acknowledged support assessment only. "
+                    "Observation and passage bodies are absent, not summarized or included as facts. "
+                    "Metadata/hints cannot establish support, truth, absence, or corpus completeness. "
+                    "Preserve source classes, epistemic and temporal qualifications; authored material is not played truth. "
+                    "Ambiguous unread hints warrant unknown. Navigation selects reads, never an answer."
+                )
+            else:
+                for key in (
+                    "legal_next_actions",
+                    "legal_action_kinds",
+                    "truncated_discovery_hints",
+                ):
+                    state.pop(key)
+                state["coverage_frontier"].pop("deferred_unread_ids")
+                state["coverage_frontier"]["deferred_unread_count"] = len(
+                    self._deferred
+                )
+        if phase == "navigate":
+            if not self._phase_input_policy:
+                raise ValueError("navigation requires the explicit phase input policy")
+            if not available:
+                return self._terminal_answer()
+            questions = (
+                DecisionQuestion(
+                    name="next",
+                    kind="choice",
+                    question="Which legal unread action most usefully supplies the missing support or necessary relation? Choose none to stop selecting.",
+                    options=("none", *(a.id for a in available)),
+                ),
+            )
+        elif phase == "coverage":
             state["coverage_rule"] = (
                 "Evaluate whether unread actions can add missing coverage, a necessary hop, qualification "
                 "or competing claim for the exact question. Choose unknown when hints are ambiguous. "
@@ -393,7 +468,7 @@ class BuildJevTransitions:
                         options=("none", *(u.id for u in viewed)),
                     ),
                 )
-            if available:
+            if available and not self._phase_input_policy:
                 questions += (
                     DecisionQuestion(
                         name="next",
@@ -461,7 +536,16 @@ class BuildJevTransitions:
                         for probability in distribution.values():
                             _probability(probability)
             available = self._offered() if self._frontier_policy else self._available()
-            if request.phase == "retention":
+            if request.phase == "navigate":
+                next_id = answers["next"]["selected"]
+                self._step = (
+                    AcquisitionIntent(actions=(self._actions[next_id],))
+                    if next_id != "none"
+                    else self._terminal_answer()
+                    if self._coverage_basis == self._basis() or not available
+                    else self._decision("coverage")
+                )
+            elif request.phase == "retention":
                 units = self._retention_pending.pop(0)
                 for i, unit in enumerate(units):
                     answer = answers[f"retain_{i}"]
@@ -525,7 +609,9 @@ class BuildJevTransitions:
                     if candidates
                     else self._terminal_answer()
                     if self._sufficient or not self._deferred
-                    else self._decision("assess")
+                    else self._decision(
+                        "navigate" if self._phase_input_policy else "assess"
+                    )
                 )
             elif request.phase == "coverage":
                 chosen, excluded = [], []
@@ -564,7 +650,23 @@ class BuildJevTransitions:
                 )
                 self._conflict = label == "conflict" and bool(self._view_units())
                 next_id = answers.get("next", {}).get("selected", "none")
-                if (
+                if self._phase_input_policy:
+                    self._assessment_judgment = {
+                        "request_id": request_id,
+                        "evidence_basis_sha256": self._basis(),
+                        "answers_sha256": _digest(answers),
+                        "sufficiency": label,
+                        "supported": self._sufficient,
+                        "conflict": self._conflict,
+                    }
+                    self._step = (
+                        self._terminal_answer()
+                        if not available or self._coverage_basis == self._basis()
+                        else self._decision(
+                            "coverage" if self._sufficient else "navigate"
+                        )
+                    )
+                elif (
                     self._frontier_policy
                     and self._coverage_basis == self._basis()
                     and (self._sufficient or next_id == "none")
@@ -648,6 +750,7 @@ class BuildJevTransitions:
                 # New support may connect a previously negative action. Audit survives;
                 # current conclusions do not survive a different exact evidence basis.
                 self._coverage_basis = None
+                self._assessment_judgment = None
                 self._excluded.clear()
                 self._deferred.clear()
             if self._retention_policy and newly_acquired:

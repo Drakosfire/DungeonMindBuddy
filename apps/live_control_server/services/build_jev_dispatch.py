@@ -182,6 +182,8 @@ def prepared_driver_view(prepared: Any, projection: Any) -> dict:
 
 CONTINUATION_SCHEMA = "dmb_build_jev_driver_continuation_v1"
 CONTINUATION_POLICY = "receipt_bound_factored_controller_v1"
+PHASE_SCHEMA = "dmb_build_jev_phase_controller_v1"
+PHASE_POLICY = "role_separated_controller_inputs_v1"
 
 
 def continuation_binding(adapter) -> dict:
@@ -236,3 +238,16 @@ def factored_decision(intent) -> dict:
                   for aid, hint in actions.items()],
         )
     return decision
+
+
+def phase_binding(intent, material, assessment_receipt=None) -> dict:
+    """Bind discovery judgments to the complete host basis without exposing it."""
+    if intent.state.get("phase_input_policy") != PHASE_POLICY:
+        raise ValueError("Phase projection requires the explicit input policy")
+    return {
+        "phase": intent.phase,
+        "evidence_basis_sha256": intent.state["coverage_frontier"]["evidence_basis_sha256"],
+        "assessment": intent.state.get("assessment_binding"),
+        "assessment_receipt": assessment_receipt,
+        "acquired_material_sha256": hashlib.sha256(canonical(material).encode()).hexdigest(),
+    }
