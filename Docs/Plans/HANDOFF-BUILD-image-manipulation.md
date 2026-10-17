@@ -21,6 +21,10 @@ Exclusive write lease:
 - apps/live-control-ui/src/tiptap/markdown/calloutMarkdown.ts
 - apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.ts
 - apps/live_control_server/services/tiptap_markdown_write.py
-- tests/test_tiptap_markdown_write.py
+- tests/test_image_presentation_admission.py
 
 Verification: owning real editor resize/collapse transactions and Markdown roundtrip, rejected metadata, backend admission; drag scrolling/stop tests; UI typecheck/build. Then review and delivery 5202/API8000 with existing process leases and retained data preserved. Rendered resize/collapse/placement/save/reopen on disposable media acceptance document only; do not recover/discard/save operator Edge draft. Existing rollout output/evidence locations reused, no new environment/worktree or /tmp paths. Plan acceptance tab remains separate and intact. Ingest #1383 adoption remains pending, no replay authorized.
+
+Verification note: the existing test_tiptap_markdown_write module requires disposable PostgreSQL54329 even for pure helper cases; all60 cases failed setup with54329 absent. No retained database was used. New pure presentation/owned-asset admission cases live in a separate non-DB module; this does not replace full persistence acceptance.
+
+Implementation verification: 58 UI tests passed across real media NodeView pointer/keyboard resize, collapse, cancel, internal HTML/Markdown identity and presentation roundtrip, drag lifecycle plus workspace fidelity/recovery suites. Eight pure backend admission/ownership cases passed, Ruff passed. TypeScript and Vite production build passed (inherited large-chunk advisory). Full DB-backed Markdown suite remains unverified because54329 is unavailable (60 setup errors); retained54331 untouched. No live rendered acceptance or rollout yet.

@@ -1,5 +1,5 @@
 import { webSourceHref } from "./webSourceHref";
-import { mediaAssetId } from "../../media/mediaReferences";
+import { mediaAssetId, imagePresentation } from "../../media/mediaReferences";
 import type {
   Blockquote,
   Heading,
@@ -332,7 +332,8 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
     }
     case "image": {
       const assetId = mediaAssetId(node.url);
-      if (assetId && !node.title && node.alt?.trim() && !/[\r\n]/.test(node.alt)) return [{type:"mediaImage",attrs:{assetId,alt:node.alt}}];
+      const presentation = imagePresentation(node.title);
+      if (assetId && (!node.title || presentation) && node.alt?.trim() && !/[\r\n]/.test(node.alt)) return [{type:"mediaImage",attrs:{assetId,alt:node.alt,...(presentation ?? {})}}];
       warn(state, "Only saved Buddy image references are supported.", nodeStartLine(node));
       return sourceTextNodes(node,state);
     }
