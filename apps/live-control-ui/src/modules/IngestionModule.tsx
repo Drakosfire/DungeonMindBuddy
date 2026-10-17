@@ -280,7 +280,54 @@ type IngestionStatusBadge = {
 };
 
 function graphPreviewIsBlocked(graphPreview?: RecapGraphPreviewReport): boolean {
-  return Boolean(graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked");
+  if (!graphPreview) return false;
+  if (graphPreview.extraction_mode === "llm_blocked") return true;
+  if (graphPreview.status === "missing" || graphPreview.status === "source_unverified") return false;
+  const reason = graphPreview.blocked_reason?.trim();
+  return Boolean(
+    reason &&
+      !(graphPreview.status === "source_span_bundle_ready" &&
+        reason === "Graph source bundle ready. Candidate graph extraction has not run yet."),
+  );
+}
+
+function graphPreviewHasExtractionFailure(
+  graphPreview?: RecapGraphPreviewReport,
+  result?: RecapIngestStatus | null,
+): boolean {
+  return graphPreview?.status === "failed" || Boolean(result?.states.includes("graph_preview_failed"));
+}
+
+function graphPreviewHasRunEvidence(graphPreview?: RecapGraphPreviewReport): boolean {
+  if (!graphPreview) return false;
+  return Boolean(
+    graphPreview.status !== "missing" ||
+      graphPreview.extraction_run_id?.trim() ||
+      graphPreview.run_dir?.trim() ||
+      graphPreview.manifest_path?.trim() ||
+      graphPreview.candidate_graph_path?.trim() ||
+      graphPreview.extraction_mode?.trim() ||
+      graphPreview.model_id?.trim() ||
+      graphPreview.current_graph_step ||
+      graphPreview.graph_steps?.length,
+  );
+}
+
+function graphPreviewHasNotRun(
+  graphPreview?: RecapGraphPreviewReport,
+  paneStatus?: IngestionPaneState["status"],
+  result?: RecapIngestStatus | null,
+): boolean {
+  const graphWorkInProgress = [
+    "running_full_ingest",
+    "building_graph_preview",
+    "materializing_preview_supergraph",
+  ].includes(paneStatus ?? "");
+  return graphPreview?.status === "missing" &&
+    !graphPreviewHasRunEvidence(graphPreview) &&
+    !graphPreviewIsBlocked(graphPreview) &&
+    !graphPreviewHasExtractionFailure(graphPreview, result) &&
+    !graphWorkInProgress;
 }
 
 function ingestionStatusBadge(
@@ -312,11 +359,17 @@ function ingestionStatusBadge(
   ) {
     return { label: "Source unverified", tone: "warning" };
   }
+  if (graphPreviewHasExtractionFailure(graphPreview, result)) {
+    return { label: "Failed", tone: "warning" };
+  }
   if (graphPreviewIsBlocked(graphPreview)) {
     return { label: "Blocked", tone: "warning" };
   }
   if (graphReady) {
     return { label: "Graph ready", tone: "success" };
+  }
+  if (graphPreviewHasNotRun(graphPreview, paneStatus, result)) {
+    return { label: "Not extracted", tone: "neutral" };
   }
   if (graphPreview) {
     return { label: "Graph incomplete", tone: "warning" };
@@ -2714,26 +2767,47 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               Graph extraction:{" "}
               {graphPreview?.status === "preview_union_store_ready"
                 ? "preview graph materialized"
-                : graphPreview?.extraction_mode === "llm_blocked"
-                  ? "blocked"
-                  : graphPreview?.status === "candidate_validation_ready"
-                    ? "candidate ready"
-                    : graphPreview?.status === "source_span_bundle_ready"
-                      ? "candidate pending"
-                      : isRunningFullIngest
-                        ? "extracting"
-                        : graphPreview?.status ?? "pending"}
+                : graphPreview?.status === "source_unverified"
+                  ? "source unverified"
+                  : graphPreviewHasExtractionFailure(graphPreview, proofResult)
+                    ? "failed"
+                    : graphPreviewIsBlocked(graphPreview)
+                      ? "blocked"
+                      : graphPreview?.status === "candidate_validation_ready"
+                        ? "candidate ready"
+                        : graphPreview?.status === "source_span_bundle_ready"
+                          ? "candidate pending"
+                          : isRunningFullIngest
+                            ? "extracting"
+                            : graphPreviewHasNotRun(graphPreview, state.status, proofResult)
+                              ? "not run"
+                              : graphPreview?.status ?? "pending"}
             </p>
+            {graphPreviewHasNotRun(graphPreview, state.status, proofResult) ? (
+              <p className="module-muted" role="status">
+                {canProcessRecap
+                  ? "Source ready. Choose Process in the Ingest navigation to extract graph candidates."
+                  : "Graph extraction has not run yet. Complete the source checks before processing."}
+              </p>
+            ) : null}
             {state.status !== "error" && latestResult?.errors?.length ? (
               <p className="module-muted" role="status">
                 Last ingest error: {latestResult.errors[0]}
               </p>
             ) : null}
-            <div className="ingestion-proof-metrics">
-              <span className="pill pill-neutral">status: {graphPreview?.status ?? "missing"}</span>
-              <span className="pill pill-neutral">nodes: {graphPreview?.node_count ?? 0}</span>
-              <span className="pill pill-neutral">edges: {graphPreview?.edge_count ?? 0}</span>
-            </div>
+            {graphPreviewHasRunEvidence(graphPreview) ? (
+              <div className="ingestion-proof-metrics">
+                {graphPreview?.status ? (
+                  <span className="pill pill-neutral">status: {graphPreview.status}</span>
+                ) : null}
+                {typeof graphPreview?.node_count === "number" ? (
+                  <span className="pill pill-neutral">nodes: {graphPreview.node_count}</span>
+                ) : null}
+                {typeof graphPreview?.edge_count === "number" ? (
+                  <span className="pill pill-neutral">edges: {graphPreview.edge_count}</span>
+                ) : null}
+              </div>
+            ) : null}
             {Array.isArray(graphPreview?.extracted_nodes) && graphPreview.extracted_nodes.length > 0 ? (
               <div className="ingestion-extracted-nodes" aria-label="Extracted preview nodes">
                 <p className="module-muted">
