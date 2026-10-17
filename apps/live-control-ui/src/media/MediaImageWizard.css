@@ -34,3 +34,24 @@
 .media-image-wizard__catalog ul { padding: 0; list-style: none; }
 .media-image-wizard__catalog li { padding: .75rem 0; border-bottom: 1px solid #546078; overflow-wrap: anywhere; }
 .media-image-wizard__catalog small { display: block; margin: .25rem 0; }
+
+/* Studio chrome stays reachable while artwork and catalogs scroll below it. */
+.media-image-wizard { padding: 0; }
+.media-image-wizard .media-image-wizard__header { display: block; position: sticky; top: 0; z-index: 2; background: #1c2737; padding: .8rem 1rem; border-bottom: 1px solid #546078; box-shadow: 0 5px 15px #0004; }
+.media-image-wizard__title-row, .media-image-wizard__toolbar-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.media-image-wizard .media-image-wizard__header h2 { font-size: 1.05rem; margin: 0; }
+.media-image-wizard__title-row p { margin: .25rem 0 0; font-size: .8rem; color: #c5cedb; }
+.media-image-wizard__window-actions { display: flex; gap: .35rem; flex-shrink: 0; }
+.media-image-wizard__toolbar-row { margin-top: .65rem; }
+.media-image-wizard__toolbar-row label { flex-direction: row; align-items: center; }
+.media-image-wizard__toolbar-row select { padding: .35rem; }
+.media-image-wizard .media-image-wizard__header nav { margin: .65rem 0 0; gap: .3rem; }
+.media-image-wizard .media-image-wizard__header nav button { padding: .35rem .5rem; font-size: .8rem; }
+.media-image-wizard__body { padding: 1rem; }
+.media-image-wizard.is-collapsed { width: min(24rem, calc(100vw - 2rem)); }
+.media-image-wizard.is-collapsed .media-image-wizard__header { border-bottom: 0; }
+.media-image-wizard__result img[draggable=true] { cursor: grab; }
+.is-media-placement-target { outline: 3px dashed #b88727; outline-offset: -4px; cursor: crosshair; }
+.document-media-image { position: relative; }
+.document-media-image__handle { position: absolute; top: .4rem; left: .4rem; padding: .15rem .5rem; border-radius: .35rem; background: #17202dcc; color: #f6dfaa; cursor: grab; z-index: 1; }
+@media (max-width: 600px) { .media-image-wizard__toolbar-row { flex-wrap: wrap; } .media-image-wizard__body { padding: .75rem; } }

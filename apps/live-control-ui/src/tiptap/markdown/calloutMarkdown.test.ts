@@ -552,3 +552,27 @@ describe("Tiptap rich text Markdown export", () => {
     ).toBe("> [!GM-NOTE]\n> ## Arrival\n");
   });
 });
+
+it.each([
+  'Before  \nAfter',
+  '- Before  \n  After',
+  '> Before  \n> After',
+  '> [!RULES]\n> Before  \n> After',
+  '**Before**  \n*After*',
+])('preserves hard-break paragraph structure and marks on save/reopen: %s', source => {
+  const original = markdownToTiptapDoc(source);
+  expect(original.diagnostics).toEqual([]);
+  expect(semanticMarkdownSerializationDiagnostics(original.doc)).toEqual([]);
+  const saved = tiptapJsonToSemanticMarkdown(original.doc);
+  const reopened = markdownToTiptapDoc(saved);
+  expect(reopened.diagnostics).toEqual([]);
+  expect(reopened.doc).toEqual(original.doc);
+});
+
+it('keeps hard breaks in headings and table-cell paragraphs blocked', () => {
+  const line = [{type:'text',text:'Before'},{type:'hardBreak'},{type:'text',text:'After'}];
+  const heading = {type:'doc',content:[{type:'heading',attrs:{level:2},content:line}]};
+  const table = {type:'doc',content:[{type:'table',content:[{type:'tableRow',content:[{type:'tableCell',content:[{type:'paragraph',content:line}]}]}]}]};
+  expect(semanticMarkdownSerializationDiagnostics(heading).some(item=>item.nodeType==='hardBreak')).toBe(true);
+  expect(semanticMarkdownSerializationDiagnostics(table).some(item=>item.nodeType==='hardBreak')).toBe(true);
+});

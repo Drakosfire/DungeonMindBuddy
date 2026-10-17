@@ -1,3 +1,4 @@
+import { closeHistory } from '@tiptap/pm/history';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
@@ -44,5 +45,6 @@ export function insertReviewedMarkdown(editor: Editor, caret: number, content: J
       throw new Error('Inserting here would prevent the page from saving safely.');
     }
   } finally { simulated.destroy(); }
+  editor.view.dispatch(closeHistory(editor.state.tr));
   if (!editor.commands.insertContentAt(caret, content)) throw new Error('The editor could not insert this proposal.');
 }

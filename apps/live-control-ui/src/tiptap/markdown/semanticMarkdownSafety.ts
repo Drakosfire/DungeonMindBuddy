@@ -21,7 +21,7 @@ type JsonMark = {
   attrs?: Record<string, unknown> | null;
 };
 
-const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference", "mediaImage"]);
+const INLINE_NODE_TYPES = new Set(["text", "runbookReference", "graphNodeReference", "mediaImage", "hardBreak"]);
 const CALLOUT_CHILD_TYPES = new Set([
   "paragraph",
   "heading",
@@ -103,6 +103,9 @@ export function semanticMarkdownSerializationDiagnostics(
         return;
       case "paragraph":
       case "heading":
+        if (children.at(-1)?.type === "hardBreak") {
+          diagnostics.push(warning("A trailing hard break needs text after it before saving as Markdown.", "hardBreak"));
+        }
         for (const child of children) {
           const childType = typeof child.type === "string" ? child.type : "unknown";
           if (!INLINE_NODE_TYPES.has(childType)) {
@@ -110,6 +113,9 @@ export function semanticMarkdownSerializationDiagnostics(
               `${type} contains ${childType}, which semantic Markdown cannot round-trip safely.`,
               childType,
             ));
+          }
+          if (childType === "hardBreak" && (type === "heading" || parentType === "tableCell" || parentType === "tableHeader")) {
+            diagnostics.push(warning("Hard breaks in headings or table cells cannot be saved as Markdown.", childType));
           }
           visit(child, type);
         }
@@ -263,7 +269,6 @@ export function semanticMarkdownSerializationDiagnostics(
         for (const child of children) visit(child, type);
         return;
       case "hardBreak":
-        diagnostics.push(warning("Hard breaks are not represented losslessly by the current Markdown serializer.", type));
         return;
       default:
         diagnostics.push(warning(

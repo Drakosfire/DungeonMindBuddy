@@ -1,3 +1,4 @@
+import { MEDIA_ASSET_ID } from '../media/mediaReferences';
 import type { Editor } from '@tiptap/core';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
@@ -12,6 +13,7 @@ export interface CapturedBuildInsertion {
 }
 export interface BuildComposeBridge {
   capture: () => Promise<CapturedBuildInsertion>;
+  pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -31,7 +33,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     }
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
-  return {
+  const bridge: BuildComposeBridge = {
     async capture() {
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Save and open an editable Build page first.');
@@ -47,6 +49,50 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       assertSame(captured);
       return captured;
     },
+    async pickInsertion({ signal, mode, assetId }) {
+      const initial = getCurrent();
+      const start = initial ? { ...initial } : null;
+      if (!start?.canEdit || start.editor.isDestroyed || !MEDIA_ASSET_ID.test(assetId)) throw new Error('Open the editable page before placing this image.');
+      const editor = start.editor; const dom = editor.view.dom;
+      return new Promise<CapturedBuildInsertion>((resolve, reject) => {
+        const cleanup = () => {
+          dom.classList.remove('is-media-placement-target');
+          dom.removeEventListener('pointerup', choose, true); dom.removeEventListener('drop', choose, true);
+          dom.removeEventListener('dragover', over, true); document.removeEventListener('dragend', endDrag, true);
+          signal.removeEventListener('abort', abort);
+        };
+        const fail = (reason: Error) => { cleanup(); reject(reason); };
+        const abort = () => fail(new DOMException('Placement cancelled.', 'AbortError'));
+        const endDrag = () => fail(new Error('The image was not dropped on the page. Try again.'));
+        const over = (event: DragEvent) => { event.preventDefault(); if(event.dataTransfer)event.dataTransfer.dropEffect='copy'; };
+        const choose = (event: Event) => {
+          if (mode === 'drag') { event.preventDefault(); event.stopImmediatePropagation(); }
+          try {
+            if (signal.aborted) throw new DOMException('Placement cancelled.', 'AbortError');
+            const now = getCurrent();
+            if (!now?.canEdit || editor.isDestroyed || now.editor !== editor || now.worldId !== start.worldId || now.documentId !== start.documentId) throw new Error('The page changed. Choose the image again on its original page.');
+            if (mode === 'drag' && (event as DragEvent).dataTransfer?.getData('application/x-dmb-media') !== assetId) throw new Error('Drop the selected saved image, not a file, link or outside image.');
+            if (!editor.state.selection.empty) throw new Error('Click a single insertion point; selected text will not be replaced.');
+            const pointer = event as MouseEvent;
+            const target = editor.view.posAtCoords({ left: pointer.clientX, top: pointer.clientY });
+            if (!target) throw new Error('Choose a position inside the page.');
+            editor.commands.setTextSelection(target.pos);
+            const expected = JSON.stringify(editor.getJSON()); const caret = editor.state.selection.from;
+            cleanup();
+            requestAnimationFrame(() => {
+              if (signal.aborted) { reject(new DOMException('Placement cancelled.', 'AbortError')); return; }
+              const latest=getCurrent();
+              if (!latest?.canEdit || latest.editor!==editor || latest.worldId!==start.worldId || latest.documentId!==start.documentId || latest.revision!==start.revision || latest.contentSha256!==start.contentSha256 || editor.isDestroyed || JSON.stringify(editor.getJSON()) !== expected || editor.state.selection.from !== caret) { reject(new Error('The page changed before placement. Choose a position again.')); return; }
+              bridge.capture().then(resolve, reject);
+            });
+          } catch (reason) { fail(reason instanceof Error ? reason : new Error('The image could not be placed.')); }
+        };
+        if (signal.aborted) { abort(); return; }
+        dom.classList.add('is-media-placement-target'); signal.addEventListener('abort', abort, { once: true });
+        if (mode === 'drag') { dom.addEventListener('drop', choose, true); dom.addEventListener('dragover', over, true); document.addEventListener('dragend', endDrag, true); }
+        else dom.addEventListener('pointerup', choose, true);
+      });
+    },
     insert(captured, markdown) {
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
@@ -55,4 +101,5 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       applied.add(captured); changed(captured.editor);
     },
   };
+  return bridge;
 }

@@ -32,12 +32,14 @@ IMAGE_MODELS = [
     {"id": "gpt-image-1.5", "label": "GPT Image 1.5", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"]},
 ]
 DEFAULT_IMAGE_MODEL = "gpt-image-2.5-flare"
+MAP_FRAMING = "Create a top-down, orthographic map of the described place, with readable spatial layout. Prioritize cartography over an atmospheric perspective illustration. Use the supplied features; treat unspecified placements as proposals, not established geography."
 
 
 class ImagePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     preparation_id: UUID | None = None
     prompt: str = Field(min_length=1, max_length=16000)
+    purpose: Literal["illustration", "map"] = "illustration"
     model: Literal["flux-2-pro", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "nano-banana-2-lite", "seedream-v5-pro"]
     width: Literal[1024, 1536] = 1024
     height: Literal[1024, 1536] = 1024
@@ -76,7 +78,7 @@ def image_capabilities(request: Request, response: Response):
         library_ready = False
     return {"configured": bool(_fal_key()), "library_ready": library_ready,
             "storage_configured": media_storage.configured(), "models": IMAGE_MODELS[:4],
-            "default_model_id": DEFAULT_IMAGE_MODEL}
+            "default_model_id": DEFAULT_IMAGE_MODEL, "map_framing": MAP_FRAMING}
 
 
 @router.get("/catalog")
@@ -125,11 +127,12 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
             preparation = BuildImageService().get(body.preparation_id, principal.subject)
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
+    effective_prompt = MAP_FRAMING + "\n\n" + body.prompt if body.purpose == "map" else body.prompt
     client = None
     try:
         client = _image_client()
         result = await client.generate_image(ImageRequest(
-            prompt=body.prompt, model=body.model, width=body.width, height=body.height,
+            prompt=effective_prompt, model=body.model, width=body.width, height=body.height,
             num_images=1, options=body.options, deadline_ms=180000,
         ))
     except GenerationEngineError as error:
@@ -147,7 +150,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
             raise HTTPException(502, detail="The returned image could not be previewed.")
         try:
             row = media.stage_image(image.content, principal.subject, {
-                "kind": "generation", "prompt": body.prompt, "model": body.model,
+                "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
                 "settings": body.model_dump(exclude={"prompt"}),
                 "observation": result.observation.model_dump(mode="json"),
                 "preparation": preparation.model_dump(mode="json", exclude={'owner_id'}) if preparation else None,
@@ -155,7 +158,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail="The image could not be retained in the media library. No CDN save is claimed.") from error
         images.append({"data_url": f"data:{row['mime_type']};base64,{base64.b64encode(image.content).decode('ascii')}", "media_type": row["mime_type"], "asset_id": str(row["asset_id"]), "state": row["state"]})
-    return {"images": images, "model": body.model, "prompt": body.prompt,
+    return {"images": images, "model": body.model, "prompt": effective_prompt,
             "settings": body.model_dump(exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
 
 

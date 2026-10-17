@@ -525,12 +525,12 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed on Setext headings and explicit hard breaks", () => {
+  it("fails closed on Setext headings while preserving explicit hard breaks", () => {
     const imported = markdownToTiptapDoc("Legacy title\n===\n\nLine one  \nLine two\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", line: 2 }),
-      expect.objectContaining({ level: "warning", line: 4 }),
     ]));
+    expect(imported.doc.content?.some(node => node.content?.some(child => child.type === "hardBreak"))).toBe(true);
   });
 
   it("imports canonical top-level Decision/Consequence with two ordered panes", () => {
