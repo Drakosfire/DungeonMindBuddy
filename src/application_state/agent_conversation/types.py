@@ -1933,6 +1933,10 @@ class BuildReadBatchActionControllerWriterPolicyV1(BuildWriterBudgetActionContro
     acquisition_policy: Literal["jointly_judged_independent_reads_v1"]
 
 
+class BuildCitedSourceActionControllerWriterPolicyV1(BuildReadBatchActionControllerWriterPolicyV1):
+    source_writer_output_policy: Literal["cited_facts_host_limitations_v1"]
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -2861,7 +2865,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -4312,6 +4316,13 @@ class TurnResult(StrictModel):
         if self.completion is None and self.producing_provider_attempt_id is not None:
             raise ValueError("completion binding inputs require a completion")
         return self
+
+
+class CitedSourceTurnResult(TurnResult):
+    """Internal producer proof, not a persisted completion field."""
+
+    writer_request_json: str = Field(min_length=1, max_length=512000)
+    raw_provider_output_json: str = Field(min_length=1, max_length=1048576)
 
 
 class TurnFailure(StrictModel):

@@ -1,6 +1,6 @@
 # AGENT: use MIND read sessions in ordinary acquisition
 
-ACTIVE under PRIME's MIND-first responsive Graph collaboration goal. Base135083b7550fcf02fcf7931eb4cf631e44f38bad. Serial successor to merged1338; PRIME implements solo; ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/runtime/dependencies, no new worktree/clone/export/environment or /tmp directories. DOGFOOD retains Ingest/Combat/UX. No deployment or retained writes.
+MERGED in #1340 at af6779d00155d4e7cfca6859295b381df1ea7e1d; implementation head be12f178bf7e126202c506ccb9069bf8716c829a. Successor source-writer contract owns the current serial lane. Originally ACTIVE under PRIME's MIND-first responsive Graph collaboration goal. Base135083b7550fcf02fcf7931eb4cf631e44f38bad. Serial successor to merged1338; PRIME implements solo; ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/runtime/dependencies, no new worktree/clone/export/environment or /tmp directories. DOGFOOD retains Ingest/Combat/UX. No deployment or retained writes.
 
 ## Measured gap and contract
 
@@ -15,3 +15,7 @@ This handoff; factual settlement of HANDOFF-AGENT-build-coverage-read-batches.md
 ## Verify and accept
 
 Prove exact frozen scope and read-only services reach both observation selection and source opener; one session per acquisition, fresh session next acquisition, shared session across multiple Graph/source batches, saved-only no session, failure cleanup, nesting/caller retarget/closed-handle refusal, provider authorization forbidden while session active. Existing real APP/SDK and native wave tests must retain evidence/qualification/citation parity. Compare exact recorded Council and Float controller decisions, full acquired units and final writer input (normalized clone identifiers only) without inference; count connections/queries/reconstructions and latency, capture memory/cold/warm where applicable. Actual user/provider acceptance is not established by replay. Independent exact-head review before merge. No paid inference until deterministic evidence warrants it; full Mirathorn lifecycle remains open.
+
+## Accepted boundary and remaining evidence
+
+Independent exact-head review passed; 117 distinct author tests and 20 independent tests passed. Provider-free Council replay retained the same 52 passages and Float the same 36, normalized only for disposable-clone identities/host commitments. Instrumented Council ancestry reads fell 40→8, stored graph reconstructions 600→120 and scoped native-context constructions 41→9. Whole-host connections/cursors include APP work; profiling is not an isolated native cold/warm measurement. No memory or cold/warm acceptance is claimed. Fresh missing-evidence Toll trial exposed factual prose in an uncited connective; the serial cited-writer successor repairs that producer contract, without relabelling retrieval parity as semantic sufficiency. Full Mirathorn/operator lifecycle acceptance remains open.

@@ -90,6 +90,8 @@ class BuildJevHarness:
             budget["buildJevActions"]["support_policy"] = JOINT_SUPPORT_POLICY
             budget["buildJevActions"]["writer_context_budget"] = writer_policy.role_budget()
             budget["buildJevActions"]["acquisition_policy"] = READ_BATCH_POLICY
+            from application_state.agent_conversation.source_writer_output import POLICY
+            budget["buildJevActions"]["source_writer_output_policy"] = POLICY
         return budget
 
     def configured_budget(self, request):

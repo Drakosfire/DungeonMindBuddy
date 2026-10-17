@@ -103,6 +103,10 @@ class WriterWire(httpx.AsyncBaseTransport):
                     ],
                 }
             )
+        if body["text"]["format"].get("name") == "build_cited_source_answer":
+            answer = json.loads(text)
+            answer["limitations"] = ["partial_retrieval"] if self.answer_status != "source_grounded" else []
+            text = json.dumps(answer)
         return httpx.Response(
             200,
             request=request,
