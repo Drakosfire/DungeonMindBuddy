@@ -804,6 +804,7 @@ describe("IngestionModule", () => {
   });
 
   it("rejects an exact projection that echoes a different managed World", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
     const user = setupIngestUser();
     const result = makeStatus({
       status: "ready_for_planning_activation",
@@ -833,6 +834,7 @@ describe("IngestionModule", () => {
   });
 
   it("ignores an old exact-run reply across an A→B→A managed-World selection", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
     const user = setupIngestUser();
     const result = makeStatus({
       status: "ready_for_planning_activation",

@@ -26,6 +26,20 @@ def _ingest_application_state(application_state_dsn: str) -> str:
 def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
     from apps.live_control_server.services import recap_ingest_context
 
+    # Keep every repo-relative source/run/Graph fixture under this test's
+    # disposable root. Never clear or populate the checkout's own out/ tree.
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.recap_ingest.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    graph_root = tmp_path / "out"
+    graph_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
+
     class FakeContext:
         def as_lineage(self) -> dict[str, object]:
             return {
