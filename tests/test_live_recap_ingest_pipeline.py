@@ -150,6 +150,22 @@ def _write_current_source_chain(
     return canonical, normalized, seed_path, breadcrumb_path
 
 
+def _write_generic_canonical_recap(
+    corpus: Path, *, session: int = 10
+) -> tuple[Path, str]:
+    canonical_rel = (
+        f"Longmont Campaign/Campaign 2/Session Recaps/Session {session} - Recap.md"
+    )
+    canonical = corpus / canonical_rel
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        f"---\ntitle: Session {session} - Recap:\nsession: {session}\n---\n"
+        f"# Session {session} Recap\n\nThe festival elementals arrive.\n",
+        encoding="utf-8",
+    )
+    return canonical, canonical_rel
+
+
 def test_stage_preview_reports_ingest_details(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     status = run_pipeline(_opts(), corpus=corpus)
@@ -349,6 +365,193 @@ def test_normalize_preserves_stale_normalized_without_force(tmp_path: Path) -> N
     assert status["status"] == "needs_reconciliation"
     assert "normalized_stale" in status["states"]
     assert normalized.read_text(encoding="utf-8") == "existing normalized"
+
+
+def test_generic_canonical_uses_explicit_title_for_read_only_status_and_normalize(
+    tmp_path: Path,
+) -> None:
+    corpus = _seed_corpus(tmp_path)
+    session = 10
+    title = "Session 10 - Festival Crafting Elementals"
+    slug = "Festival Crafting Elementals"
+    canonical, canonical_rel = _write_generic_canonical_recap(corpus, session=session)
+    normalized_rel = (
+        f"Longmont Campaign/Campaign 2/Session Recaps/_normalized/{title}.md"
+    )
+    normalized = corpus / normalized_rel
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    expected = _expected_normalized_content(
+        corpus=corpus,
+        canonical_recap_rel=canonical_rel,
+        session=session,
+        title=title,
+        slug=slug,
+    )
+    canonical_before = canonical.read_bytes()
+
+    created = run_pipeline(
+        _opts(
+            session=session,
+            raw_path=None,
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=True,
+            title=title,
+            slug=slug,
+        ),
+        corpus=corpus,
+    )
+
+    assert "normalized_created" in created["states"]
+    assert normalized.read_text(encoding="utf-8") == expected
+    normalized_before = normalized.read_bytes()
+
+    inspected = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=session,
+        title=title,
+        slug=slug,
+        corpus=corpus,
+    )
+
+    assert inspected["paths"]["canonical_recap"] == canonical_rel
+    assert inspected["paths"]["normalized_recap"] == normalized_rel
+    assert "normalized_current" in inspected["states"]
+    assert "normalized_provenance_unknown" not in inspected["states"]
+    lineage = inspected["ingest_report"]["derivative_stages"]["normalized_recap"]
+    assert lineage["expected_sha256"] == lineage["output_sha256"]
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
+
+    rerun = run_pipeline(
+        _opts(
+            session=session,
+            raw_path=None,
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=True,
+            title=title,
+            slug=slug,
+        ),
+        corpus=corpus,
+    )
+
+    assert rerun["paths"]["canonical_recap"] == canonical_rel
+    assert rerun["paths"]["normalized_recap"] == normalized_rel
+    assert "normalized_reused" in rerun["states"]
+    assert "normalized_current" in rerun["states"]
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
+
+
+def test_generic_canonical_stale_derivative_is_preserved_on_status_and_rerun(
+    tmp_path: Path,
+) -> None:
+    corpus = _seed_corpus(tmp_path)
+    session = 10
+    title = "Session 10 - Festival Crafting Elementals"
+    slug = "Festival Crafting Elementals"
+    canonical, canonical_rel = _write_generic_canonical_recap(corpus, session=session)
+    normalized = corpus / (
+        f"Longmont Campaign/Campaign 2/Session Recaps/_normalized/{title}.md"
+    )
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text("hand-edited normalized recap\n", encoding="utf-8")
+    canonical_before = canonical.read_bytes()
+    normalized_before = normalized.read_bytes()
+
+    inspected = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=session,
+        title=title,
+        slug=slug,
+        corpus=corpus,
+    )
+    rerun = run_pipeline(
+        _opts(
+            session=session,
+            raw_path=None,
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=True,
+            title=title,
+            slug=slug,
+        ),
+        corpus=corpus,
+    )
+
+    assert "normalized_stale" in inspected["states"]
+    assert "normalized_stale" in rerun["states"]
+    assert "derivative_reconciliation_required" in rerun["states"]
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
+    assert rerun["paths"]["canonical_recap"] == canonical_rel
+
+
+def test_specific_canonical_conflict_requires_reconciliation_without_rewrites(
+    tmp_path: Path,
+) -> None:
+    corpus = _seed_corpus(tmp_path)
+    session = 10
+    canonical_title = "Session 10 - Festival Crafting Elementals"
+    canonical_rel = (
+        "Longmont Campaign/Campaign 2/Session Recaps/"
+        "Session 10 - Festival Crafting Elementals.md"
+    )
+    canonical = corpus / canonical_rel
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        f"---\ntitle: {canonical_title}\nsession: {session}\n---\n"
+        "The festival elementals arrive.\n",
+        encoding="utf-8",
+    )
+    normalized = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
+        "Session 10 - Festival Crafting Elementals.md"
+    )
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text(
+        _expected_normalized_content(
+            corpus=corpus,
+            canonical_recap_rel=canonical_rel,
+        ),
+        encoding="utf-8",
+    )
+    canonical_before = canonical.read_bytes()
+    normalized_before = normalized.read_bytes()
+
+    inspected = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=session,
+        title="Session 10 - Other Session",
+        slug="Other Session",
+        corpus=corpus,
+    )
+    rerun = run_pipeline(
+        _opts(
+            session=session,
+            raw_path=None,
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=True,
+            title="Session 10 - Other Session",
+            slug="Other Session",
+        ),
+        corpus=corpus,
+    )
+
+    assert inspected["status"] == "needs_reconciliation"
+    assert "canonical_recap_conflict" in inspected["states"]
+    assert "normalized_current" not in inspected["states"]
+    assert rerun["status"] == "needs_reconciliation"
+    assert "canonical_recap_conflict" in rerun["states"]
+    assert any("specific title" in action for action in rerun["next_actions"])
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
 
 
 def test_force_normalize_archives_stale_output_before_replacing(tmp_path: Path) -> None:

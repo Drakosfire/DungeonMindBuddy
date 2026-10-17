@@ -513,6 +513,66 @@ def test_inspect_status_does_not_restore_the_retired_normalize_step(
     assert "apply_normalize" not in actions
 
 
+def test_inspect_status_verifies_generic_canonical_with_explicit_title_without_writes(
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    session = 10
+    title = "Session 10 - Festival Crafting Elementals"
+    slug = "Festival Crafting Elementals"
+    canonical_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md"
+    canonical = corpus / canonical_rel
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        "---\ntitle: Session 10 - Recap:\nsession: 10\n---\n"
+        "# Session 10 Recap\n\nThe festival elementals arrive.\n",
+        encoding="utf-8",
+    )
+    normalized_rel = (
+        f"Longmont Campaign/Campaign 2/Session Recaps/_normalized/{title}.md"
+    )
+    normalized = corpus / normalized_rel
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text(
+        _expected_normalized_content(
+            corpus=corpus,
+            canonical_recap_rel=canonical_rel,
+            session=session,
+            title=title,
+            slug=slug,
+        ),
+        encoding="utf-8",
+    )
+    canonical_before = canonical.read_bytes()
+    normalized_before = normalized.read_bytes()
+    graph_paths: list[str | None] = []
+
+    def inspect_graph(**kwargs: object) -> dict[str, object]:
+        graph_paths.append(kwargs.get("normalized_recap_path"))  # type: ignore[arg-type]
+        return {"status": "missing", "next_actions": []}
+
+    monkeypatch.setattr(
+        recap_ingest_route, "inspect_recap_graph_preview_status", inspect_graph
+    )
+    monkeypatch.setattr(recap_ingest_route, "_pipeline_corpus_root", lambda: corpus)
+    body = recap_ingest_route.post_recap_ingest(
+        recap_ingest_route.RecapIngestRequest(
+            operation="inspect_status",
+            campaign_id="longmont-c2",
+            session=session,
+            title=title,
+            slug=slug,
+        )
+    )
+
+    assert "normalized_current" in body["states"]
+    assert "normalized_provenance_unknown" not in body["states"]
+    assert graph_paths == [str(normalized)]
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
+
+
 def test_graph_preview_requires_a_current_normalized_source(
     client: TestClient,
     isolated_session: Path,
