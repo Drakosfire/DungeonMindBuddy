@@ -1,14 +1,25 @@
 import type { EditorView } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 
 const mime = 'application/x-dungeonbuddy-table-move';
 const drags = new WeakMap<EditorView, { token: string; doc: EditorView['state']['doc']; range: { from: number; to: number } }>();
+
+/** Never adopt a Plan identity, marked title or inline reference as editable table chrome. */
+export function isTableCaption(node: ProseMirrorNode | null | undefined): node is ProseMirrorNode {
+  if (node?.type.name !== 'heading' || node.attrs.level !== 2 || !node.textContent.trim()) return false;
+  if (Object.entries(node.attrs).some(([key, value]) => key !== 'level' && value != null)) return false;
+  for (let index = 0; index < node.childCount; index++) {
+    if (!node.child(index).isText || node.child(index).marks.length) return false;
+  }
+  return true;
+}
 
 export function tableMoveRange(view: EditorView, position: number) {
   const table = view.state.doc.nodeAt(position);
   if (table?.type.name !== 'table' || view.state.doc.resolve(position).depth !== 0) return null;
   const previous = view.state.doc.resolve(position).nodeBefore;
-  const from = previous?.type.name === 'heading' && previous.attrs.level === 2 ? position - previous.nodeSize : position;
+  const from = isTableCaption(previous) ? position - previous.nodeSize : position;
   return { from, to: position + table.nodeSize };
 }
 
@@ -78,7 +89,7 @@ export function embeddedTableMove(view: EditorView, getPos: () => number | undef
     }
     if (event.key === 'ArrowDown' && next) {
       let after = range.to + next.nodeSize;
-      if (next.type.name === 'heading' && next.attrs.level === 2 && view.state.doc.nodeAt(after)?.type.name === 'table') {
+      if (isTableCaption(next) && view.state.doc.nodeAt(after)?.type.name === 'table') {
         after += view.state.doc.nodeAt(after)!.nodeSize;
       }
       moveTable(view, range, after);

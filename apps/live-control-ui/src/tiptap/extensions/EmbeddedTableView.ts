@@ -2,10 +2,12 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { EditorView, NodeView, ViewMutationRecord } from '@tiptap/pm/view';
 import { embeddedContentFrame } from './embeddedContentFrame';
 import { readRollTable, rollFace } from './rollTable';
-import { embeddedTableMove } from './EmbeddedTableMove';
+import { embeddedTableMove, isTableCaption } from './EmbeddedTableMove';
+import { closeHistory } from '@tiptap/pm/history';
 
 const collapsedByEditor = new WeakMap<EditorView, WeakMap<ProseMirrorNode, boolean>>();
 const resultsByEditor = new WeakMap<EditorView, WeakMap<ProseMirrorNode, string>>();
+export const EMBEDDED_TABLE_CONTEXT_UPDATE = 'dmb-table-context-update';
 
 export class EmbeddedTableView implements NodeView {
   private node: ProseMirrorNode;
@@ -41,6 +43,8 @@ export class EmbeddedTableView implements NodeView {
     this.titleInput.maxLength = 160;
     this.titleInput.addEventListener('change', this.rename);
     this.titleInput.addEventListener('keydown', this.titleKey);
+    this.titleInput.addEventListener('blur', this.refreshTitle);
+    view.dom.addEventListener(EMBEDDED_TABLE_CONTEXT_UPDATE, this.refreshTitle);
     this.frame.title.replaceWith(this.titleInput);
     this.rollButton.type = 'button';
     this.rollButton.addEventListener('click', this.roll);
@@ -60,7 +64,7 @@ export class EmbeddedTableView implements NodeView {
     const pos = this.getPos();
     if (pos === undefined) return null;
     const previous = this.view.state.doc.resolve(pos).nodeBefore;
-    return previous?.type.name === 'heading' && previous.attrs.level === 2 ? { node: previous, pos: pos - previous.nodeSize } : null;
+    return isTableCaption(previous) ? { node: previous, pos: pos - previous.nodeSize } : null;
   }
   private rename = () => {
     const title = this.titleInput.value.trim().replace(/[\r\n]+/g, ' ').slice(0, 160);
@@ -69,7 +73,7 @@ export class EmbeddedTableView implements NodeView {
     const before = this.precedingHeading();
     if (before?.node.textContent === title) return;
     const heading = this.view.state.schema.nodes.heading!.create({ level: 2 }, this.view.state.schema.text(title));
-    const transaction = this.view.state.tr;
+    const transaction = closeHistory(this.view.state.tr);
     if (before) transaction.replaceWith(before.pos, before.pos + before.node.nodeSize, heading);
     else transaction.insert(pos, heading);
     this.view.dispatch(transaction);
@@ -88,11 +92,14 @@ export class EmbeddedTableView implements NodeView {
     this.result.textContent = text;
     this.result.hidden = false;
   };
-  private paint() {
+  private refreshTitle = () => {
     const caption = this.precedingHeading()?.node.textContent ?? '';
     if (document.activeElement !== this.titleInput) this.titleInput.value = caption;
-    this.titleInput.disabled = !this.view.editable;
     this.dom.dataset.hasTitle = String(Boolean(caption));
+  };
+  private paint() {
+    this.refreshTitle();
+    this.titleInput.disabled = !this.view.editable;
     const rollTable = readRollTable(this.node);
     this.rollButton.hidden = !rollTable;
     this.rollButton.textContent = rollTable ? `Roll d${rollTable.sides}` : '';
@@ -132,6 +139,8 @@ export class EmbeddedTableView implements NodeView {
   destroy() {
     this.titleInput.removeEventListener('change', this.rename);
     this.titleInput.removeEventListener('keydown', this.titleKey);
+    this.titleInput.removeEventListener('blur', this.refreshTitle);
+    this.view.dom.removeEventListener(EMBEDDED_TABLE_CONTEXT_UPDATE, this.refreshTitle);
     this.rollButton.removeEventListener('click', this.roll);
     this.move.destroy();
     this.frame.destroy();

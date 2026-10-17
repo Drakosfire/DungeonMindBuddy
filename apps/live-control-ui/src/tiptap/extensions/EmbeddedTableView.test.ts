@@ -84,3 +84,34 @@ it('stores the editable frame title in ordinary Markdown and rolls without chang
   editor.createNodeViews();
   expect(document.querySelector('[role="status"]')!.textContent).toBe(text);
 });
+
+it('refreshes captions after sibling Undo/Redo without overwriting an actively typed title', () => {
+  const { editor } = mount();
+  editor.commands.setContent(markdownToTiptapDoc('## Original\n\n| d1 | Name |\n| --- | --- |\n| 1 | Mara |').doc);
+  const input = () => document.querySelector<HTMLInputElement>('input[aria-label="Table title"]')!;
+  input().value = 'Changed'; input().dispatchEvent(new Event('change', { bubbles: true }));
+  expect(input().value).toBe('Changed');
+  editor.commands.undo();
+  expect(input().value).toBe('Original');
+  editor.commands.redo(); expect(input().value).toBe('Changed');
+  input().focus(); input().value = 'Typing a title';
+  editor.commands.insertContentAt(editor.state.doc.content.size, { type: 'paragraph', content: [{ type: 'text', text: 'Other edit' }] });
+  expect(input().value).toBe('Typing a title');
+  input().blur(); expect(input().value).toBe('Changed');
+});
+
+it.each(['identity', 'reference'] as const)('never adopts or overwrites a protected %s heading', kind => {
+  const { editor } = mount();
+  const table = markdownToTiptapDoc('| d1 | Name |\n| --- | --- |\n| 1 | Mara |').doc.content![0]!;
+  const heading = kind === 'identity'
+    ? { type: 'heading', attrs: { level: 2, playableElementId: 'preserve-identity' }, content: [{ type: 'text', text: 'Protected scene' }] }
+    : { type: 'heading', attrs: { level: 2 }, content: [{ type: 'graphNodeReference', attrs: { nodeId: 'npc:mara', label: 'Mara' } }] };
+  editor.commands.setContent({ type: 'doc', content: [heading, table] });
+  const original = editor.state.doc.firstChild!.toJSON();
+  const input = document.querySelector<HTMLInputElement>('input[aria-label="Table title"]')!;
+  expect(input.value).toBe('');
+  input.value = 'Soldiers'; input.dispatchEvent(new Event('change', { bubbles: true }));
+  expect(editor.state.doc.firstChild!.toJSON()).toEqual(original);
+  expect(editor.state.doc.child(1).textContent).toBe('Soldiers');
+  expect(editor.state.doc.child(2).type.name).toBe('table');
+});
