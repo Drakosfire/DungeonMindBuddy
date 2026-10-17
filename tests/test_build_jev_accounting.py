@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -19,8 +21,8 @@ from tests.test_build_jev_transitions import SCOPE, actions, answer, unit
 
 @pytest.fixture
 def accounting(monkeypatch):
-    # An unprepared tokenizer must not download anything. Cached rank files may be read.
-    tiktoken = pytest.importorskip("tiktoken")
+    # Use the same verified offline preparation as serving; never an ambient cache.
+    pytest.importorskip("tiktoken")
     from importlib import import_module
 
     load = import_module("tiktoken.load")
@@ -29,11 +31,11 @@ def accounting(monkeypatch):
         raise ValueError("offline tokenizer asset missing")
 
     monkeypatch.setattr(load, "read_file", no_download)
-    encoder = tiktoken.get_encoding("o200k_base")
-    return ExperimentalAccounting(
-        tiktoken.__version__,
-        lambda text: len(encoder.encode(text, disallowed_special=())),
-    )
+    configured = os.environ.get("DMB_TEST_JEV_TOKENIZER_FILE", "")
+    if not configured:
+        pytest.skip("Configure the verified offline tokenizer asset for conformance")
+    from apps.live_control_server.services.build_jev_runtime import load_offline_accounting
+    return load_offline_accounting(Path(configured))
 
 
 def body_for(policy, text="Short source.", questions=None):

@@ -147,8 +147,9 @@ def test_unavailable_default_refuses_before_acceptance_or_provider(
     )
 
 
+@pytest.mark.parametrize("with_history", [False, True])
 def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
-    build_case, monkeypatch, tmp_path, verified_asset
+    build_case, monkeypatch, tmp_path, verified_asset, with_history
 ):
     case, reads = ordinary_case(build_case, monkeypatch)
     _, request, bootstrap = case
@@ -178,6 +179,17 @@ def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
     )
     from apps.live_control_server.main import create_app
 
+    if with_history:
+        from uuid import uuid4
+        historical_request = request.model_copy(update={
+            "turn_id": str(uuid4()),
+            "message": "Please keep this draft reference: " + "🐐 café 中文 reference. " * 300,
+        })
+        seed_runtime = BuildJevHarness(decision_transport=DecisionWire(), writer_transport=WriterWire(),
+            accounting=prepared.load_offline_accounting(verified_asset))
+        seeded = execute((case[0], historical_request, bootstrap), tmp_path, seed_runtime)
+        assert seeded.answer.text
+        reads.update(graph=0, source=0)
     app = create_app()
     with TestClient(app) as client:
         factory = app.state.build_jev_runtime_factory
@@ -201,9 +213,10 @@ def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
         assert trace_usage["model_call_count"] == len(decisions.calls) + len(writer.calls)
         assert reads == {"graph": 1, "source": 1} and len(writer.calls) == 1
         service = AgentConversationService()
-        turn = service.list_turns(
+        from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+        turn = next(t for t in service.list_turns(
             "elderwyld", service.get_world_pointer("elderwyld").active_conversation_id
-        )[0]
+        ) if t.idempotency_key == _turn_idempotency_key("elderwyld", request.turn_id))
         assert turn.status == "completed"
         captures = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
         observed = [event for capture in captures for event in capture.observations
@@ -213,7 +226,28 @@ def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
         assert sum(event.input_tokens for event in observed) == trace_usage["input_tokens"]
         assert sum(event.output_tokens for event in observed) == trace_usage["output_tokens"]
         policy = turn.graph_context_execution.policy
-        assert isinstance(policy, ledger.BuildCitedSourceActionControllerWriterPolicyV1)
+        assert isinstance(policy, ledger.BuildInitialEstimatedSelectedSourcePolicyV1)
+        first_body = json.loads(decisions.calls[0].content)
+        receipt = turn.graph_context_receipt
+        events = [e for e in turn.graph_context_execution.events
+            if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1)]
+        from hashlib import sha256
+        assert events[0].envelope_sha256 == sha256(decisions.calls[0].content).hexdigest()
+        assert events[0].input_tokens == factory.accounting.estimate(first_body)
+        assert events[0].input_tokens == receipt.assembled_input.provider_envelope_input_tokens
+        assert events[0].input_accounting_kind == "estimated_token_count"
+        assert receipt.assembled_input.budget_policy_version == "build_jev_initial_estimate_v1"
+        assert receipt.assembled_input.tokenizer_name == factory.accounting.descriptor["policy"]
+        assert first_body["state"]["context_accounting"] == policy.controller_initial_accounting.model_dump()
+        if with_history:
+            history = first_body["state"]["interaction"]["history"]
+            assert len(history) == 1 and history[0]["user"] == historical_request.message
+            assert history[0]["assistant"] == seeded.answer.text
+            from apps.live_control_server.services.build_jev_dispatch import validate_body
+            with pytest.raises(ValueError, match="conservative ceiling"):
+                validate_body(decisions.calls[0].content.decode(), first_body["state"])
+            # The same exact SDK envelope is admitted with explicit prepared accounting.
+            validate_body(decisions.calls[0].content.decode(), first_body["state"], accounting=factory.accounting)
         assert (
             policy.controller_continuation_accounting.model_dump()
             == factory.accounting.descriptor
