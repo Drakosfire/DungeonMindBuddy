@@ -1883,7 +1883,7 @@ class BuildPhaseActionControllerWriterPolicyV1(BuildFrontierActionControllerWrit
 
 
 class BuildControllerContinuationAccountingV1(StrictModel):
-    """Empirical admission for later controllers only; never a token guarantee."""
+    """Empirical controller admission; role policy selects initial use, never a guarantee."""
 
     policy: Literal["o200k_double_plus_4096_experimental_v1"]
     tokenizer: Literal["tiktoken"]
@@ -1939,6 +1939,16 @@ class BuildCitedSourceActionControllerWriterPolicyV1(BuildReadBatchActionControl
 
 class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionControllerWriterPolicyV1):
     writer_selection_policy: Literal["source_unit_selection_event_closure_v1"]
+
+
+class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
+    controller_initial_accounting: BuildControllerContinuationAccountingV1
+
+    @model_validator(mode="after")
+    def validate_initial_accounting(self):
+        if self.controller_initial_accounting != self.controller_continuation_accounting:
+            raise ValueError("initial controller accounting differs from continuation accounting")
+        return self
 
 
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
@@ -2721,7 +2731,8 @@ class PlanWorldGraphExecutionV2(StrictModel):
                         if (event.output_token_reserve != writer_budget.output_reserve_tokens
                                 or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
                             raise ValueError("writer envelope exceeds its frozen role budget")
-                    estimated = provider_index > 0 and role == controller
+                    estimated = role == controller and (provider_index > 0
+                        or isinstance(self.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
                     descriptor = self.policy.controller_continuation_accounting
                     expected_kind = "estimated_token_count" if estimated else self.policy.provider_input_accounting.kind
                     expected_estimator = descriptor.policy if estimated else self.policy.provider_input_accounting.estimator
@@ -2899,7 +2910,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -4242,6 +4253,15 @@ def _validate_initial_graph_execution(receipt, execution) -> None:
             ):
                 raise ValueError("V2 source-read scope must match the frozen Graph receipt")
         validate_selected_source_binding(receipt, execution)
+        if isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1):
+            descriptor = execution.policy.controller_initial_accounting
+            assembled = receipt.assembled_input
+            if (assembled.tokenizer_name != descriptor.policy
+                    or assembled.tokenizer_version != descriptor.tokenizer_version
+                    or assembled.budget_policy_version != "build_jev_initial_estimate_v1"
+                    or assembled.provider_envelope_input_tokens > descriptor.request_limit_tokens):
+                raise ValueError("initial receipt differs from frozen controller accounting")
+            return
         if accounting.estimator != receipt.assembled_input.tokenizer_name:
             raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
         if (

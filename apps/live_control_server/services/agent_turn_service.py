@@ -925,11 +925,19 @@ def _freeze_policy_receipt(
     context_read_enabled: bool = False,
     included_history: tuple = (),
     build_jev_expected_state: Mapping[str, Any] | None = None,
+    build_jev_accounting: Any = None,
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
+    initial_accounting = (budget.get("buildJevActions") or {}).get("controller_initial_accounting")
+    if initial_accounting is not None and (
+            view.get("apiMode") != "typesafe_decision" or build_jev_accounting is None
+            or build_jev_accounting.descriptor != initial_accounting
+            or initial_accounting != (budget.get("buildJevActions") or {}).get("controller_continuation_accounting")):
+        raise ValueError("initial controller accounting lacks trusted preparation")
     _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
-        build_jev_expected_state=build_jev_expected_state)
+        build_jev_expected_state=build_jev_expected_state,
+        build_jev_accounting=build_jev_accounting if initial_accounting is not None else None)
     packet = _initial_claim_packet_from_view(
         type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
         bootstrap,
@@ -989,7 +997,8 @@ def _freeze_policy_receipt(
         )
     try:
         provider_body = json.loads(view["payloadJson"])
-        upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body))
+        upper_bound = (build_jev_accounting.estimate(provider_body) if initial_accounting is not None
+            else view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body)))
         if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
             raise AgentTurnServiceError(
                 "The final provider request exceeds its context budget.",
@@ -1042,11 +1051,12 @@ def _freeze_policy_receipt(
             },
             "assembled_input": {
                 "assembler_version": bootstrap.assembler_version,
-                "budget_policy_version": ("build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
+                "budget_policy_version": ("build_jev_initial_estimate_v1" if initial_accounting is not None else
+                    "build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
                 "provider_model_name": view["model"],
                 "provider_model_version": view["model"],
-                "tokenizer_name": budget["estimator"],
-                "tokenizer_version": "v1",
+                "tokenizer_name": initial_accounting["policy"] if initial_accounting is not None else budget["estimator"],
+                "tokenizer_version": initial_accounting["tokenizer_version"] if initial_accounting is not None else "v1",
                 "provider_envelope_input_tokens": upper_bound,
                 "output_token_reserve": budget["outputReserveTokens"],
                 "context_window_limit": budget["contextLimitTokens"],
@@ -1118,7 +1128,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildSelectedSourceActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildInitialEstimatedSelectedSourcePolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
+                else graph_types.BuildSelectedSourceActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("writer_selection_policy") is not None
                 else graph_types.BuildCitedSourceActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("source_writer_output_policy") is not None
@@ -1624,7 +1636,8 @@ class _PolicyExecutionAdapter:
             build_writer_context_budget=self._frozen_build_writer_budget(),
             build_jev_accounting=(getattr(self, "_build_jev_accounting", None)
                 if (getattr(self, "_active_build_driver_projection", None) is not None
-                    and self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)) else None),
+                    and ((self.budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
+                        or (self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)))) else None),
         )
         if (getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False)
                 or getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False)):
@@ -1670,6 +1683,7 @@ class _PolicyExecutionAdapter:
                 context_read_enabled=self.context_read_enabled,
                 build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
                 included_history=getattr(self, "build_history_for_inclusion", ()),
+                build_jev_accounting=getattr(self, "_build_jev_accounting", None),
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -1856,7 +1870,8 @@ class _PolicyExecutionAdapter:
             input_kind, input_estimator = "conservative_upper_bound", self.budget["estimator"]
             prior_attempts = [e for e in execution.events if _is_provider_authorization(e)]
             if (isinstance(execution.policy, graph_types.BuildEstimatedActionControllerWriterPolicyV1)
-                    and prior_attempts and not writing):
+                    and (prior_attempts or isinstance(execution.policy, graph_types.BuildInitialEstimatedSelectedSourcePolicyV1))
+                    and not writing):
                 accounting = getattr(self, "_build_jev_accounting", None)
                 if (accounting is None or accounting.descriptor != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
                     raise ValueError("controller accounting differs from frozen policy")

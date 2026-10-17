@@ -1,6 +1,6 @@
 # AGENT: restore accepted Harness runtime coherence
 
-Status: ACTIVE under PRIME’s responsive source-faithful conversation goal and operator report of unanswered Build messages. Base b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9; branch codex/harness-runtime-coherence, existing buddy-tool-denial-delivery checkout. Serial one bounded repair. PRIME implements; ARCHITECTURE reviews. DOGFOOD retains Ingest/Combat. No new checkout, environment, export or /tmp staging.
+Status: SETTLED — independent review PASS at3a1764249491cac7d02e2c426987833a006e7fc3, merged7bc8c515e1b89130f9e264fc8ca8400ac9c407e8; runtime reply recovery verified. Successor HANDOFF-AGENT-jev-serving-adoption.md owns pinned API adoption. Original activation under PRIME’s responsive source-faithful conversation goal and operator report of unanswered Build messages. Base b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9; branch codex/harness-runtime-coherence, existing buddy-tool-denial-delivery checkout. Serial one bounded repair. PRIME implements; ARCHITECTURE reviews. DOGFOOD retains Ingest/Combat. No new checkout, environment, export or /tmp staging.
 
 ## Evidence and invariant
 

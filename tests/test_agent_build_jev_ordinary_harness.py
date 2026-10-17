@@ -308,11 +308,20 @@ def test_default_ordinary_route_selects_jev_without_a_test_runtime_override(
 
     monkeypatch.setattr(module, "TypeSafeDecisionProvider", make_decision)
     monkeypatch.setattr(module, "OpenAITextProvider", make_writer)
-    response = execute(case, tmp_path, None)
+    from apps.live_control_server.services.build_jev_runtime import prepare_default_build_runtime
+    from pathlib import Path
+    import os
+    configured = os.environ.get("DMB_TEST_JEV_TOKENIZER_FILE", "")
+    if not configured:
+        pytest.skip("Configure the verified offline tokenizer asset for default-runtime conformance")
+    monkeypatch.setenv("DUNGEONBUDDY_JEV_TOKENIZER_FILE", str(Path(configured)))
+    factory = prepare_default_build_runtime()
+    assert factory.accounting is not None
+    response = execute(case, tmp_path, None, build_runtime_factory=factory)
     assert (
         response.knowledge_context.completion.schema_ == "dmb_build_graph_completion_v2"
     )
-    assert len(writer.calls) == 1 and len(decisions.calls) == 4
+    assert len(writer.calls) == 1 and len(decisions.calls) == 5
 
 
 @pytest.mark.parametrize("failure", ["controller", "writer"])

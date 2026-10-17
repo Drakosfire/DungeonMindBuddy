@@ -51,19 +51,21 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     assert turn.graph_context_receipt.assembled_input.context_window_limit == 64000
     assert execution.policy.controller_continuation_accounting.model_dump() == accounting.descriptor
     authorizations = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1)]
-    assert authorizations[0].input_accounting_kind == authorizations[-1].input_accounting_kind == "conservative_upper_bound"
+    assert authorizations[0].input_accounting_kind == "estimated_token_count"
+    assert authorizations[-1].input_accounting_kind == "conservative_upper_bound"
+    assert isinstance(execution.policy, ledger.BuildInitialEstimatedSelectedSourcePolicyV1)
     assert authorizations[0].input_tokens == turn.graph_context_receipt.assembled_input.provider_envelope_input_tokens
-    assert "context_accounting" not in json.loads(decisions.calls[0].content)["state"]
-    for event, request in zip(authorizations[1:-1], decisions.calls[1:], strict=True):
+    assert json.loads(decisions.calls[0].content)["state"]["context_accounting"] == accounting.descriptor
+    for event, request in zip(authorizations[:-1], decisions.calls, strict=True):
         body = json.loads(request.content)
         assert event.input_accounting_kind == "estimated_token_count"
         assert event.input_estimator == accounting.descriptor["policy"]
         assert event.input_tokens == accounting.estimate(body)
         assert body["state"]["context_accounting"] == accounting.descriptor
-        if body["state"]["decision"]["phase"] == "assess":
+        if body["state"].get("decision", {}).get("phase") == "assess":
             assert body["questions"]["joint_support"]["type"] == "noul"
             assert "support" not in body["questions"]
-        assert "contained_passage_slices_v1" not in body["state"]["decision"]["state"]
+        assert "contained_passage_slices_v1" not in body["state"].get("decision", {}).get("state", {})
     # Historical accounting rejects an estimated event at its own boundary.
     legacy_policy = {k: v for k, v in execution.policy.model_dump(mode="json", by_alias=True).items()
         if k in ledger.GraphExecutionPolicyV1.model_fields}
@@ -98,7 +100,7 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     with pytest.raises(ValueError, match="writer envelope"):
         ledger.PlanWorldGraphExecutionV3.model_validate(boundary)
     for event, kind, estimator in [
-        (authorizations[0], "estimated_token_count", accounting.descriptor["policy"]),
+        (authorizations[0], "conservative_upper_bound", execution.policy.provider_input_accounting.estimator),
         (authorizations[-1], "estimated_token_count", accounting.descriptor["policy"]),
         (authorizations[1], "conservative_upper_bound", execution.policy.provider_input_accounting.estimator),
         (authorizations[1], "estimated_token_count", "wrong-tokenizer"),
@@ -168,4 +170,4 @@ def test_writer_runtime_budget_drift_cannot_expand_frozen_policy(build_case, mon
     with pytest.raises(Exception, match="could not complete safely"):
         execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
             writer_transport=writer, accounting=counter()))
-    assert len(decisions.calls) == 4 and writer.calls == []
+    assert len(decisions.calls) == 5 and writer.calls == []

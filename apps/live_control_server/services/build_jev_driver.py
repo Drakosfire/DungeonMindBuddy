@@ -683,9 +683,12 @@ class BuildJevDriver:
                     "The historical assessment commitment does not expose its evidence."
                 )
         accounting = getattr(a, "_build_jev_accounting", None)
-        if accounting is not None and a.fence is not None and any(
+        initial_accounting = (a.budget.get("buildJevActions") or {}).get("controller_initial_accounting")
+        if initial_accounting is not None and (accounting is None or initial_accounting != accounting.descriptor):
+            raise ValueError("initial controller accounting differs from trusted counter")
+        if accounting is not None and (initial_accounting is not None or (a.fence is not None and any(
             isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
-        ):
+        ))):
             state["context_accounting"] = accounting.descriptor
         projection = DriverDecisionProjection(
             canonical(state),
@@ -727,7 +730,8 @@ class BuildJevDriver:
                 isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
             )
             view = prepared_driver_view(prepared, plan,
-                accounting=getattr(a, "_build_jev_accounting", None) if continuation else None)
+                accounting=getattr(a, "_build_jev_accounting", None)
+                if continuation or (a.budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None else None)
             from .build_jev_dispatch import CONTINUATION_SCHEMA, factored_decision
             expected_decision = (factored_decision(self.step)
                 if plan.state().get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA} else self.step.model_dump(mode="json"))
