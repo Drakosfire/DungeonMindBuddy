@@ -31,7 +31,7 @@ No other source, tests, CSS, routes, API, server, schemas, extraction prompt/pro
 - The working document is named “Working recap” (or an equally explicit label chosen in implementation); the source is identified as the published recap.
 - The unchanged notice continues to communicate that the current projection is local and uncommitted and that the canonical recap and World memory are unchanged.
 - Existing node pills, selected source identity, draft staging, and author-node interactions remain unchanged.
-- Run the focused `PublishedRecapLocalAuthoring.test.tsx`, UI typecheck, production build if the existing dependencies support it, and `git diff --check`. Preserve and report inherited failures.
+- Focused `PublishedRecapLocalAuthoring.test.tsx`: 12/12 passed; UI `npm run typecheck`: passed; production build: passed with the existing large-chunk warning; `git diff --check`: passed. The build was initially emitted to `/tmp/dmb-ingest-working-recap-build` before the cache-location restriction was communicated. All nine generated files were moved into `.pytest_cache/dmb-ingest-working-recap-build`; relative-path SHA-256 manifests match exactly and the original `/tmp` directory is gone. This records the original build location truthfully and does not imply it was built in the cache.
 - Perform read-only rendered checks at desktop and narrow widths through an existing surface. Do not use the user’s 5202 tab for interactions or writes; do not change its served assets. If the current environment cannot provide both rendered widths safely, report the missing evidence rather than claiming acceptance.
 - Review the exact cumulative base-to-head diff and present one PR to PRIME. Do not merge it.
 
