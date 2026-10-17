@@ -427,3 +427,116 @@ def test_truncated_complete_calls_mark_usage_and_cost_partial() -> None:
     assert trace["cost"]["status"] == "partial"
     assert trace["usage"]["observed_model_call_count"] == 65
     assert trace["usage"]["model_call_count"] == 2
+
+
+def test_retained_trace_allowlist_size_and_unknown_accounting():
+    from apps.live_control_server.services.agent_turn_trace import MAX_LOG_BYTES, retained_trace_payload
+    trace = AgentTurnTraceBuilder(agent_thread_id='thread', turn_id='client', runtime='test', backend='test', mode='test').finalize(status='error')
+    trace['unexpected'] = {'secret': PRIVACY_SENTINEL}
+    trace['spans'] = [{'name': 'work', 'duration_ms': 12, 'attributes': {'unexpected': PRIVACY_SENTINEL, 'count': 2}}] * 1000
+    trace['context_summary'] = {'unexpected': PRIVACY_SENTINEL, 'count': 3}
+    saved = retained_trace_payload(trace)
+    blob = 'dmb_agent_turn_trace ' + trace_json_bytes(saved)
+    assert PRIVACY_SENTINEL not in blob
+    assert len(blob.encode('utf-8')) <= MAX_LOG_BYTES
+    assert saved['retention']['complete'] is False
+    assert saved['retention']['original_spans'] == 1000
+    assert saved['usage']['model_call_count'] is None
+    assert saved['retention']['provider_accounting'] == 'unknown'
+    assert saved['spans'][0]['attributes'] == {'count': 2}
+
+
+def test_failed_log_attempt_does_not_change_response_or_repeat(monkeypatch):
+    import apps.live_control_server.services.agent_turn_trace as module
+    calls = []
+    def fail(trace):
+        calls.append(trace)
+        raise OSError('private sink unavailable')
+    monkeypatch.setattr(module, 'emit_baseline_trace_log', fail)
+    builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+    assert builder.finalize_and_log(status='error')['status'] == 'error'
+    assert builder.finalize_and_log(status='error')['status'] == 'error'
+    assert builder.logged and len(calls) == 1
+
+
+def test_uvicorn_launch_enables_only_trace_logger_and_is_idempotent(monkeypatch):
+    import io
+    from logging.config import dictConfig
+    from uvicorn.config import LOGGING_CONFIG
+    from apps.live_control_server.services.agent_turn_trace import LOGGER, configure_turn_trace_logging
+    # Restore process logging after reproducing the real launch configuration.
+    handlers, level, propagate, disabled = list(LOGGER.handlers), LOGGER.level, LOGGER.propagate, LOGGER.disabled
+    stream = io.StringIO()
+    try:
+        dictConfig(LOGGING_CONFIG)
+        monkeypatch.setattr('sys.stdout', stream)
+        configure_turn_trace_logging()
+        configure_turn_trace_logging()
+        import asyncio
+        from types import SimpleNamespace
+        from apps.live_control_server import main
+        monkeypatch.setattr("apps.live_control_server.services.build_jev_runtime.prepare_default_build_runtime", lambda: None)
+        monkeypatch.setattr(main, "get_hermes_graph_agent_host", lambda: None)
+        monkeypatch.setattr(main, "shutdown_hermes_graph_agent_host", lambda: None)
+        async def startup():
+            async with main.lifespan(SimpleNamespace(state=SimpleNamespace())):
+                pass
+        asyncio.run(startup())
+        assert sum(bool(getattr(h, 'dmb_turn_trace', False)) for h in LOGGER.handlers) == 1
+        builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+        builder.finalize_and_log(status='ok', observed_model_call_count=0)
+        builder.finalize_and_log(status='ok', observed_model_call_count=0)
+        lines = stream.getvalue().splitlines()
+        assert len(lines) == 1
+        assert json.loads(lines[0].removeprefix('dmb_agent_turn_trace '))['turn_id'] == 'client'
+        assert LOGGER.propagate is False
+    finally:
+        for handler in list(LOGGER.handlers):
+            if handler not in handlers:
+                handler.close()
+        LOGGER.handlers = handlers
+        LOGGER.setLevel(level)
+        LOGGER.propagate = propagate
+        LOGGER.disabled = disabled
+
+
+def test_durable_binding_is_log_only_and_preserves_client_identity(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    import apps.live_control_server.services.agent_turn_trace as module
+    emitted = []
+    monkeypatch.setattr(module, 'emit_baseline_trace_log', lambda trace: emitted.append(trace))
+    turn = SimpleNamespace(turn_id=uuid4(), conversation_id=uuid4(), attempt=2)
+    builder = AgentTurnTraceBuilder(agent_thread_id=None, turn_id='client', runtime='test', backend='test', mode='test')
+    builder.bind_durable_turn(turn)
+    response = builder.finalize_and_log(status='ok')
+    assert response['turn_id'] == 'client'
+    assert 'correlation' not in response
+    assert emitted[0]['correlation'] == {'durable_turn_id': str(turn.turn_id), 'conversation_id': str(turn.conversation_id), 'attempt': 2}
+
+
+def test_emitted_line_drops_unknown_metric_names_and_values(caplog):
+    builder = AgentTurnTraceBuilder(agent_thread_id="thread", turn_id="client", runtime="test", backend="test", mode="test")
+    trace = builder.finalize(status="ok", model_calls=[map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="request-1"), status="ok", sequence=1)])
+    trace["spans"] = [{"name": "read", "duration_ms": 17, "attributes": {"count": 3}}]
+    trace["context_summary"] = {"history_message_count": 4}
+    bags = [trace["usage"], trace["cost"], trace["context_summary"], trace["spans"][0]["attributes"],
+            trace["model_calls"][0]["usage"], trace["model_calls"][0]["cost"], trace["model_calls"][0]["request_summary"]]
+    for bag in bags:
+        bag["PRIVATE_PROMPT_SENTINEL_123"] = 1
+        bag["PRIVATE_CREDENTIAL_SENTINEL_456"] = True
+        bag["PRIVATE_NULL_SENTINEL_789"] = None
+        bag["unexpected"] = PRIVACY_SENTINEL
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        emit_baseline_trace_log(trace)
+    line = next(r.getMessage() for r in caplog.records if r.name == "dmb.agent.turn_trace")
+    assert "SENTINEL" not in line
+    saved = json.loads(line.removeprefix("dmb_agent_turn_trace "))
+    assert saved["usage"]["input_tokens"] == 100
+    assert saved["usage"]["cached_input_tokens"] == 0
+    assert saved["context_summary"] == {"history_message_count": 4}
+    assert saved["spans"][0]["duration_ms"] == 17
+    assert saved["spans"][0]["attributes"] == {"count": 3}
+    assert saved["model_calls"][0]["request_summary"]["message_count"] == 4
+    assert saved["retention"]["scope"] == "allowlisted_metadata"

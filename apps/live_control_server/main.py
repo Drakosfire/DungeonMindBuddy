@@ -74,6 +74,8 @@ load_dungeonmindbuddy_dotenv()
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     """Prepare local Agent dependencies and own deterministic host shutdown."""
+    from apps.live_control_server.services.agent_turn_trace import configure_turn_trace_logging
+    configure_turn_trace_logging()
     from apps.live_control_server.services.build_jev_runtime import prepare_default_build_runtime
     _application.state.build_jev_runtime_factory = prepare_default_build_runtime()
     get_hermes_graph_agent_host()

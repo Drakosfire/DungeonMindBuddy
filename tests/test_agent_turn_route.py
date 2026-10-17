@@ -4165,3 +4165,19 @@ def test_selected_same_pins_different_valid_selector_cannot_rebind_receipt(tmp_p
         TurnSubmission(world_id=work.world_id,conversation_id=uuid4(),idempotency_key=uuid4(),expected_conversation_revision=1,user_text=body.message,
             provenance=_conversation_provenance(body,world_id=work.world_id,work=work,graph_scope=bootstrap.world_scope,graph_envelope=bootstrap.graph_envelope),
             submitted_intent_v2=_submitted_turn_intent(body,world_id=work.world_id),graph_context_receipt=receipt,graph_context_execution=changed_execution)
+
+
+@pytest.mark.parametrize("status", ["ok", "error"])
+def test_route_fallback_trace_finalizes_once_with_unknown_error_calls(monkeypatch, status):
+    import apps.live_control_server.routes.agent as route
+    import apps.live_control_server.services.agent_turn_trace as trace_module
+    emitted = []
+    monkeypatch.setattr(trace_module, "emit_baseline_trace_log", lambda trace: emitted.append(trace_module.retained_trace_payload(trace)))
+    trace = trace_module.AgentTurnTraceBuilder(agent_thread_id=None, turn_id="request-1", runtime="test", backend="test", mode="test")
+    route._finalize_unlogged_agent_trace(trace, status=status)
+    route._finalize_unlogged_agent_trace(trace, status=status)
+    assert len(emitted) == 1
+    assert emitted[0]["status"] == status
+    assert emitted[0]["correlation"] == {}
+    if status == "error":
+        assert emitted[0]["usage"]["model_call_count"] is None

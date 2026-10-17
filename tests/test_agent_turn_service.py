@@ -1128,7 +1128,10 @@ def test_history_projection_requires_exact_canonical_playable_target() -> None:
     ).receipt.playable_target is None
 
 
-def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
+def test_completed_policy_replay_returns_v2_from_stored_receipt_only(monkeypatch: Any) -> None:
+    import apps.live_control_server.services.agent_turn_trace as trace_module
+    emitted = []
+    monkeypatch.setattr(trace_module, "emit_baseline_trace_log", emitted.append)
     from apps.live_control_server.models.agent_turn import AgentTurnResponseV2
 
     turn = _policy_turn()
@@ -1164,6 +1167,9 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
     assert response.primary_work.revision_used == 7
     assert isinstance(response.primary_work.revision_used, int)
     assert response.primary_work.content_basis is None
+    assert emitted[0]["correlation"] == {"durable_turn_id": str(turn.turn_id),
+        "conversation_id": str(turn.conversation_id), "attempt": turn.attempt}
+    assert emitted[0]["usage"]["model_call_count"] == 0
     assert response.answer.text == "The keeper waits below the arch."
     assert response.answer.graph_grounded is False
 
