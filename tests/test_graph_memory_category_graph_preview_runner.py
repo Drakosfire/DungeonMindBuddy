@@ -210,6 +210,56 @@ def test_runner_candidate_warning_diagnostics_match_validation_report(
     assert packaged["diagnostics"]["warning_count"] == len(report["warnings"])
 
 
+def test_runner_rejects_conflicting_canonical_evidence_span_selectors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    other_canonical_span_id = next(
+        span["source_span_id"]
+        for span in span_index["spans"]
+        if span.get("start_line") == 1
+    )
+    assert other_canonical_span_id != canonical_span_id
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        evidence_ref["span_id"] = canonical_span_id
+        evidence_ref["source_span_ref_id"] = other_canonical_span_id
+
+    candidate_path = tmp_path / "conflicting_span_selectors.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/conflicting_span_selectors"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.FAILED
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["evidence_reference_repairs"] == []
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 2
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 2
+    assert manifest["status"] == "failed"
+    assert manifest["health"]["candidate_graph_valid"] is False
+    assert any("conflicting span selectors" in warning for warning in report["warnings"])
+    assert compute_sha256(candidate_path) == original_sha256
+
+
 def test_runner_keeps_candidate_immutable_when_source_is_in_output_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

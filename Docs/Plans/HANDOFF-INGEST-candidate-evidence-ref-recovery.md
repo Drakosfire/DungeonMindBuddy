@@ -189,3 +189,13 @@ memory generation, retained-run mutation, Graph admission/publication, actual
 recap ingestion end-to-end, or rendered UI acceptance. The current tests ran in
 the implementation tree at the previously fetched #1318 base; the only
 newer main commit, #1317, changes disjoint files.
+
+
+## PRIME review follow-up — conflicting valid span selectors — 2026-10-17
+
+PRIME's independent review of head `1c855e2145272de0d46a8688affe1cdb4df12c7a` found that a reference could carry two different canonical span IDs, each independently present in the source index, and still be counted as resolvable. Candidate readiness now requires all non-empty supplied span selectors to agree on one ID; conflicting references remain unresolved in both top-level and nested copies and block readiness. Proven shortened aliases are still canonicalized before this consistency check. The regression exercises two valid spans and verifies the input candidate remains unchanged.
+
+- The exact conflict regression passed: 1 passed.
+- The complete owning runner file reports 35 passed and one existing failure in `test_runner_canonical_line_only_index_reaches_category_prompt`, which still fails with the unrelated fixture validation error `party enrichment incomplete for 1 nodes`.
+- Scoped Ruff, Python compileall, and `git diff --check` passed.
+- Testing used the already-present app runtime; no environment was created. No retained candidate, source, Graph, database, or server state was changed.

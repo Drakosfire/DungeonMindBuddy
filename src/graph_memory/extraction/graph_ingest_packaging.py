@@ -309,6 +309,17 @@ def _evidence_span_ids(evidence_ref: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _evidence_ref_span_ids_are_consistent(
+    evidence_ref: Mapping[str, Any],
+    *,
+    known_span_ids: set[str] | None = None,
+) -> bool:
+    span_ids = _evidence_span_ids(evidence_ref)
+    return bool(span_ids) and len(set(span_ids)) == 1 and (
+        known_span_ids is None or span_ids[0] in known_span_ids
+    )
+
+
 def _candidate_evidence_ref_entries(
     candidate_graph: Mapping[str, Any],
 ) -> list[tuple[str, dict[str, Any]]]:
@@ -749,14 +760,17 @@ def _candidate_counts(
                 evidence_ref_count += 1
                 if isinstance(ref, dict):
                     span_ids = _evidence_span_ids(ref)
+                    span_ids_resolvable = _evidence_ref_span_ids_are_consistent(
+                        ref, known_span_ids=known_span_ids
+                    )
                 elif isinstance(ref, str):
                     span_ids = [ref] if ref else []
+                    span_ids_resolvable = bool(span_ids) and (
+                        known_span_ids is None or span_ids[0] in known_span_ids
+                    )
                 else:
                     continue
-                if span_ids and (
-                    known_span_ids is None
-                    or all(span_id in known_span_ids for span_id in span_ids)
-                ):
+                if span_ids_resolvable:
                     resolvable_count += 1
                 if any(_is_paragraph_span_id(span_id) for span_id in span_ids):
                     paragraph_evidence_ref_count += 1
@@ -769,9 +783,8 @@ def _candidate_counts(
             if not isinstance(ref, dict):
                 continue
             span_ids = _evidence_span_ids(ref)
-            if span_ids and (
-                known_span_ids is None
-                or all(span_id in known_span_ids for span_id in span_ids)
+            if _evidence_ref_span_ids_are_consistent(
+                ref, known_span_ids=known_span_ids
             ):
                 resolvable_count += 1
             if any(_is_paragraph_span_id(span_id) for span_id in span_ids):
@@ -851,6 +864,8 @@ def _write_validation_report(
         if not span_ids:
             warnings.append(f"evidence ref {ref_id} missing span_id")
         else:
+            if len(set(span_ids)) > 1:
+                warnings.append(f"evidence ref {ref_id} has conflicting span selectors")
             for span_id in span_ids:
                 if known_span_ids and span_id not in known_span_ids:
                     warnings.append(f"unresolved evidence ref span_id: {span_id}")
@@ -890,10 +905,8 @@ def _write_validation_report(
     unresolved_count = sum(
         1
         for ref in all_refs
-        if not _evidence_span_ids(ref)
-        or (
-            known_span_ids
-            and any(span_id not in known_span_ids for span_id in _evidence_span_ids(ref))
+        if not _evidence_ref_span_ids_are_consistent(
+            ref, known_span_ids=known_span_ids or None
         )
     )
     if unresolved_count:
