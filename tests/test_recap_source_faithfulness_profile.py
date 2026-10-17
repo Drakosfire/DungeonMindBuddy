@@ -18,7 +18,7 @@ SYNTHETIC_SOURCE_ROWS = [
         "line_start": 1,
         "line_end": 1,
         "text": (
-            "Ephanna planned to use Eldritch Blast to rescue the children, "
+            "Mira planned to cast a starburst spell to rescue the children, "
             "but she did not cast it."
         ),
     },
@@ -26,7 +26,7 @@ SYNTHETIC_SOURCE_ROWS = [
         "source_span_ref_id": "span-names",
         "line_start": 2,
         "line_end": 2,
-        "text": "The team visited Lysandro's house while Lysandra spoke at the gate.",
+        "text": "The team visited Rovan's house while Rovena spoke at the gate.",
     },
     {
         "source_span_ref_id": "span-group",
@@ -38,7 +38,7 @@ SYNTHETIC_SOURCE_ROWS = [
         "source_span_ref_id": "span-places",
         "line_start": 4,
         "line_end": 4,
-        "text": "Fellinor's house and warehouse stand at Edge.",
+        "text": "Tavren's house and storehouse stand in Westgate.",
     },
     {
         "source_span_ref_id": "span-plural",
@@ -61,8 +61,8 @@ SYNTHETIC_SOURCE_GOLD = {
         "span": "span-names",
         "pass": "actor_pass.md",
         "rule": "Keep similarly named people and creatures as separate candidates",
-        "source_witnesses": ("Lysandro's house", "Lysandra spoke"),
-        "distinction": "Lysandro and Lysandra remain distinct without source identity evidence",
+        "source_witnesses": ("Rovan's house", "Rovena spoke"),
+        "distinction": "Rovan and Rovena remain distinct without source identity evidence",
     },
     "population": {
         "span": "span-group",
@@ -75,8 +75,8 @@ SYNTHETIC_SOURCE_GOLD = {
         "span": "span-places",
         "pass": "location_pass.md",
         "rule": "extract them separately instead of combining them",
-        "source_witnesses": ("house and warehouse", "at Edge"),
-        "distinction": "house and warehouse are not collapsed into one place label",
+        "source_witnesses": ("house and storehouse", "in Westgate"),
+        "distinction": "house and storehouse are not collapsed into one place label",
     },
     "referent": {
         "span": "span-plural",
