@@ -59,13 +59,12 @@ No UI, other API routes, schema/migration, extraction producer, provider setting
 
 ### Current implementation evidence
 
-- Root cause reproduced: exact run discovery returns the existing run and its ExtractionRun remains REVIEWABLE; the known-entity and SourceSpanIndex validators pass. GraphIngest added a zero-count repair diagnostic and reserialized the candidate anyway, changing its digest and causing the strict production-lineage check to reject it. No fixture mismatch was found.
-- The packager now skips candidate writes when identity/evidence validation makes no semantic change, does not add a zero repair count, and only writes diagnostic fields that actually change. Real evidence repairs still update the packaged candidate and validation report.
-- Verification passed: focused packaging no-op, actual-repair, and warning tests (3 passed); both API regressions (2 passed); the complete Ingest API suite (27 passed, 10 existing Pydantic warnings); Python compile checks; Ruff on the two changed test files and Ingest service; and `git diff --check`.
-- The complete `tests/test_graph_memory_category_graph_preview_runner.py` file had one unrelated pre-existing failure (42 passed, 1 failed): `test_runner_canonical_line_only_index_reaches_category_prompt` reported `party enrichment incomplete for 1 nodes`. The same failure reproduced against the unmodified packager from `main@6531f003`.
-- The shared packager has an existing Ruff F401 for `FixtureCategoryGraphPassClient` at line 38, unchanged from the base. Whole-file Ruff format check also flags all three large Python files for formatting; no broad reformat was included. Changed test/service Ruff checks passed.
-- No 5202, live provider, retained recap, or rendered Ingest flow was used. This proves synthetic retry/recovery behavior only. Real Session 29 ingestion and persistence acceptance remain open for later dogfooding.
-- Only the leased server/package/tests and the two handoff records are included; Combat changes and 5202 remain untouched.
+- Root cause reproduced: the exact run is found and remains REVIEWABLE, but the candidate package differs from the immutable ExtractionRun only because packaging added a zero-count repair diagnostic and rewrote JSON bytes. The strict lineage check therefore rejects it. No evidence indicated a fixture mismatch.
+- The packager now avoids rewriting a candidate when identity/evidence validation makes no semantic change, avoids adding a zero repair count, and only writes diagnostic updates that actually change. Real evidence repairs still update the packaged candidate and report.
+- Verification passed: focused packaging no-op/actual-repair/warning tests (**3 passed**); both API regressions (**2 passed**); complete `tests/test_live_recap_ingest_graph_preview_api.py` (**27 passed**, with 10 existing Pydantic warnings); Python compile checks; Ruff on the two changed test files and the Ingest service; and `git diff --check`.
+- The complete `tests/test_graph_memory_category_graph_preview_runner.py` file has one unrelated existing failure (**42 passed, 1 failed**): `test_runner_canonical_line_only_index_reaches_category_prompt` reports `party enrichment incomplete for 1 nodes`. The same failure was reproduced with the unmodified package file from `main@6531f003`.
+- The repository package file has a pre-existing Ruff `F401` for `FixtureCategoryGraphPassClient` at line 38, confirmed by the unchanged main diff. Full-file Ruff format check also reports all three large Python files would be reformatted; those unrelated whole-file changes were left out of this slice. The changed test/service Ruff checks pass.
+- No 5202, live provider, retained recap, or rendered ingestion flow was used. This proves synthetic retry and candidate-recovery behavior only; real Session 29 processing and persistence acceptance remain open for later operator dogfooding.
 
 ## Predecessor settlement
 
