@@ -1,3 +1,4 @@
+import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
 import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
 import { useBuildCompose } from "./BuildComposeProposal";
 import { positionLatestAssistantReply } from "./conversationReplyPosition";
@@ -1353,7 +1354,9 @@ function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value 
 }
 
 function isBuildKnowledgeContext(value: unknown, worldId: string): value is WorldBuildKnowledgeContextV1 {
-  if (!hasExactKeys(value, ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"])
+  const required = ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"];
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "saved_source_sections")) required.push("saved_source_sections");
+  if (!hasExactKeys(value, required)
     || value.schema !== "dmb_build_graph_context_response_v1" || !isRecord(value.receipt)
     || value.receipt.schema !== "dmb_build_graph_context_receipt_v1"
     || !isRecord(value.receipt.source_basis) || !isRecord(value.receipt.graph_authority)
@@ -1371,6 +1374,8 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
     || typeof authority.graph_revision !== "string" || !authority.graph_revision
     || authority.admissibility_version !== "gm-v1") return false;
   const receipt = value.receipt as unknown as WorldBuildGraphReceiptV1;
+  if (Object.prototype.hasOwnProperty.call(value, "saved_source_sections")
+    && !isSavedSectionTargets(value.saved_source_sections, receipt.source_basis, value.completion)) return false;
   if (isRecord(value.completion) && value.completion.schema === "dmb_build_authoring_completion_v1") {
     return isBuildAuthoringCompletion(value.completion, receipt.context_receipt_sha256)
       && (value.execution === null || isWorldPlanGraphExecution(value.execution))
@@ -4238,11 +4243,15 @@ export function WorldPlanAgentConversation({
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const planContext = graphContextForTurn(turn);
+    const savedEvidence = planContext?.schema === "dmb_build_graph_context_response_v1" && planContext.completion
+      && verifiedWorldId && planContext.saved_source_sections?.length
+      ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
+          segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
     if (planContext?.completion?.schema === "dmb_build_graph_completion_v2") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
-          ? <BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} />
+          ? <>{savedEvidence}<BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} /></>
           : <p>Select the original World to open these source passages.</p>}
           prompt={verifiedWorldId && history?.conversation_id
             ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
@@ -4309,7 +4318,8 @@ export function WorldPlanAgentConversation({
         <span className="world-plan-agent-conversation__evidence-trail-caret" aria-hidden="true">⌄</span>
       </summary>
       <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
-        {!hasEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
+        {savedEvidence}
+        {!hasEvidence && !savedEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
         {hasEvidence ? <div className="world-plan-agent-conversation__evidence-intro">
           Claims cited in this answer and the source passages you can inspect. The loaded World graph is a separate view.
         </div> : null}

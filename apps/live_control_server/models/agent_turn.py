@@ -21,6 +21,7 @@ from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
     BuildSourcePassageCitationV1,
+    BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
     PlanWorldGraphCompletionV2,
@@ -640,11 +641,37 @@ class AgentTurnResponseV2(AgentTurnResponse):
     plan_context: AgentPlanWorldGraphContextResponseV2
 
 
+class AgentSavedBuildSectionTargetV1(BaseModel):
+    """Historical authored-source selector; it grants no native Graph authority."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_saved_build_section_target_v1"] = Field(default="dmb_saved_build_section_target_v1", alias="schema")
+    kind: Literal["saved_build_section"] = "saved_build_section"
+    world_id: str = Field(min_length=1, max_length=128)
+    turn_id: UUID
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    section_event_id: UUID
+    section_read_id: UUID
+    source_basis: BuildSourceContextBasisV1
+    source_class: Literal["saved_authored_source_not_played_truth"] = "saved_authored_source_not_played_truth"
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    excerpt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class AgentSavedBuildSectionReadV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_saved_build_section_read_v1"] = Field(default="dmb_saved_build_section_read_v1", alias="schema")
+    target: AgentSavedBuildSectionTargetV1
+    content: str = Field(min_length=1, max_length=12000)
+
+
 class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     schema_: Literal["dmb_build_graph_context_response_v1"] = Field(
         default="dmb_build_graph_context_response_v1", alias="schema"
     )
     receipt: BuildGraphContextReceiptV1
+    saved_source_sections: list[AgentSavedBuildSectionTargetV1] = Field(default_factory=list, max_length=16384)
     completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | None
 
 

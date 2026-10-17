@@ -1391,6 +1391,28 @@ def get_world_conversation_history(
     )
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}")
+def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: int,
+        section_event_id: UUID, request: Request):
+    """Open persisted authored evidence; never substitute a current source."""
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params or not 0 <= segment_index <= 127:
+        raise HTTPException(status_code=422, detail={"code": "saved_section_selector_invalid"})
+    from apps.live_control_server.services.agent_saved_sections import open_saved_section
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_saved_section(world_id=verified, turn_id=turn_id,
+            segment_index=segment_index, section_event_id=section_event_id,
+            service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "saved_section_turn_unavailable"}) from exc
+    except (ValidationError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "saved_section_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}")
 def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
         request: Request):
