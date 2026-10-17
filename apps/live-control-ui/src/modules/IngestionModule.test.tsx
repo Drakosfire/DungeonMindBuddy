@@ -571,6 +571,60 @@ describe("IngestionModule", () => {
     expect(document.body).not.toHaveTextContent("stale-B-session-11.md");
   });
 
+  it("ignores deferred Process results across mounted World A→B→A and preserves the recap draft", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const pendingWorldAProcess = deferred<RecapIngestStatus>();
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) => {
+      if (request.operation === "generate_recap_memory") return pendingWorldAProcess.promise;
+      return makeStatus({
+        campaign_id: request.campaign_id,
+        session: request.session,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    });
+
+    const props = { campaignId: "longmont-c2", session: 22 } as const;
+    const { rerender } = render(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    const recap = "Session 22 — A draft that must survive World navigation.";
+    await fillRecapInputs(user, recap, "Session 22 — Route safety");
+    await user.click(await screen.findByRole("button", { name: "Process recap" }));
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "generate_recap_memory",
+      managed_world_id: "elderwyld",
+      session: 22,
+    })));
+
+    rerender(<IngestionModule {...props} managedWorldId="conks-and-cons" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    rerender(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+
+    await act(async () => {
+      pendingWorldAProcess.resolve(makeStatus({
+        campaign_id: "longmont-c2",
+        session: 22,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "candidate_validation_ready",
+            extraction_run_id: "world-a-stale-run",
+            candidate_node_count: 3,
+            candidate_edge_count: 2,
+          },
+        },
+      }));
+      await pendingWorldAProcess.promise;
+    });
+
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    expect(screen.queryByRole("region", { name: "Graph-enriched recap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Recap processed")).not.toBeInTheDocument();
+  });
+
   it("drops a deferred saved-reader projection when the mounted route changes sessions", async () => {
     const oldSessionProjection = deferred<HistoricalRecapWorldProjectionResponse>();
     vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
