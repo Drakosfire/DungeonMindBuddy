@@ -1,7 +1,7 @@
 # COMBAT: generic command-board encounter experience
 
 **Status:** ACTIVE — PRIME authorized the steward to activate C0 on 2026-10-17 after architecture disposition through PRIME. This lease covers C0 only; C1–C4 remain queued.
-**Base:** Current Buddy main is pinned at `f35a152f4fc11b2f108b00c84313f5b275e5b130`. The code branch remains based on `6e7ee2e3d228a5b30277542ecd013779046a03c9`; re-anchor is pending current owner resolution on `apps/live_control_server/main.py` and `apps/live_control_server/routes/live.py`. The original implementation head is preserved.
+**Base:** Current Buddy main is pinned at `f35a152f4fc11b2f108b00c84313f5b275e5b130`. PRIME resolved the current owner order for the exact C0 integration paths; re-anchor this C0 branch to that main while preserving the original implementation head.
 **Branch / checkout:** remote PR branch `codex/combat-c0-durable-encounters`, original implementation head `a7132abb0d53a07718813c66355c023853a1789b`. The assigned `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` checkout is currently on the Ingest branch with unrelated dirty Ingest work; do not switch, reset, stash, or edit that checkout.
 **Serving baseline:** 5202 Ingest status presentation is accepted/live; preserve current 5202/API state for the operator's Ingest dogfood. No live APP-STATE migration, API restart, database mutation, or dist replacement is authorized by this lease.
 **Topology:** serial within Combat: one C0 PR; C1–C4 wait for C0 review/merge. PRIME owns the held MEDIA #1306 migration rebase. PRIME confirmed C0 exclusively owns APP migration `20261017_0031` descending from accepted `20261017_0030`; MEDIA #1306's old `0028` branch must be rebased and renumbered only after C0. No other active C0 implementation lease exists.
@@ -96,7 +96,7 @@ The accepted APP chain is `20261017_0030` on main; C0 owns `20261017_0031` → `
 - `Docs/Plans/HANDOFF-COMBAT-generic-command-board-experience.md` — keep this contract current and record truthful implementation/verification evidence; do not mark the in-flight slice settled before merge.
 - `src/application_state/migrations/versions/20261017_0031_combat_encounters.py`.
 - New files only under `src/application_state/combat_encounters/`: `__init__.py`, `types.py`, `repository.py`, `service.py`, and `rulesets.py`.
-- New files only under `apps/live_control_server/services/` and `apps/live_control_server/routes/`: `combat_encounters.py` in each directory. Add the router in `apps/live_control_server/main.py`.
+- New files only under `apps/live_control_server/services/` and `apps/live_control_server/routes/`: `combat_encounters.py` in each directory. In `apps/live_control_server/main.py`, add only the Combat router import and registration. During the current-main re-anchor, preserve existing Build runtime initialization and all accepted main code. Future Rules branch re-anchors must compose against the accepted main.
 - New files only under `apps/live-control-ui/src/combat/`: `combatTypes.ts` and `combatApi.ts`.
 - `apps/live-control-ui/src/surface/modules/CombatRosterModule.tsx` and its existing `CombatRosterModule.test.tsx`.
 - `apps/live-control-ui/src/surface/modules/StatblockViewModule.tsx` and its existing `StatblockViewModule.test.tsx` — redirect generated-statblock insertion to an explicitly selected durable encounter; do not add Graph selection here.
@@ -150,11 +150,14 @@ PRIME explicitly transferred `apps/live_control_server/routes/live.py` into this
 
 ## Current re-anchor and owner audit — 2026-10-17
 
-A fresh comparison found that current main advanced 110 commits beyond the original C0 base. The C0 PR's changed paths are exactly the lease in §8. The open-PR census checked 21 PRs: current-main changes overlap the C0 diff only at `apps/live_control_server/main.py`. Current main's version includes newer Build runtime initialization; any C0 re-anchor must preserve it while adding the Combat router registration.
+A fresh comparison found that current main advanced 110 commits beyond the original C0 base. The C0 PR's changed paths are exactly the lease in §8. The open-PR census checked 21 PRs. PRIME settled the current shared-path ownership before the source re-anchor:
+
+- `apps/live_control_server/main.py`: C0 owns only the Combat router import and registration regions for this integration. Preserve current main's Build runtime initialization and all accepted main code. RULES PR #763 is paused and #765 has no current active implementation dispatch; any later Rules re-anchor must compose against the accepted main.
+- `apps/live_control_server/routes/live.py`: PRIME's pinned C0 transfer authorizes only the legacy Combat route retirement/integration paths in §8. MEDIA #1306 remains under the operator's DO NOT MERGE/DEPLOY hold; preserve its existing code, do not resume or change its branch, and re-anchor it only after C0.
 
 ### Exclusive C0 paths
 
-The existing §8 lease remains the exact source/test scope. These paths are exclusive to this C0 slice in the current open-PR census:
+The exact §8 lease remains the scope. Besides the two bounded integration paths above, these paths are exclusive to C0 in the current open-PR census:
 
 - `apps/live-control-ui/src/combat/combatApi.ts`
 - `apps/live-control-ui/src/combat/combatTypes.ts`
@@ -174,9 +177,4 @@ The existing §8 lease remains the exact source/test scope. These paths are excl
 - `tests/test_live_combat_encounters.py`
 - `tests/test_statblock_add_to_combat.py`
 
-### Shared-path gates
-
-- `apps/live_control_server/main.py`: C0 adds the router import and registration. Active stacked RULES PRs #763 and #765 also change this file; current main has an additional Build runtime initialization. The sequence/lease owner for this shared router registry must be resolved before re-anchoring it.
-- `apps/live_control_server/routes/live.py`: §8 records that PRIME transferred this path into C0 and froze MEDIA #1306 for rebase after C0. The current open MEDIA PR still exists, and its branch handoff says ACTIVE while listing this same file. Treat these records as inconsistent; do not edit this path until PRIME confirms which pinned lease controls it.
-
-PR #1327 remains open and non-mergeable at original implementation head `a7132abb0d53a07718813c66355c023853a1789b`. This handoff-only audit preserves that code snapshot. No code re-anchor, new worktree/server/environment, live migration, API restart, database mutation, or 5202 change has occurred. The original test evidence applies only to the original head; any re-anchored head requires fresh checks.
+Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is preserved in branch history. The local assigned checkout remains on the Ingest lane with unrelated dirty files; no branch switch, new checkout, server, environment, live migration, API restart, database mutation, or 5202 change is authorized.
