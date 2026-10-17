@@ -1432,7 +1432,32 @@ class BuildGraphCompletionV2(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2
+BUILD_PROPOSAL_READY_TEXT = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+
+
+class BuildAuthoringCompletionV1(StrictModel):
+    """Host acknowledgement of an owned proposal, never factual grounding."""
+    schema_: Literal["dmb_build_authoring_completion_v1"] = Field(
+        default="dmb_build_authoring_completion_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["prepared_page_proposal"] = "prepared_page_proposal"
+    answer_context_status: Literal["proposal_ready"] = "proposal_ready"
+    answer_segments: list[PlanWorldGraphConnectiveSegmentV1] = Field(min_length=1, max_length=1)
+    citation_map: None = None
+    action_id: UUID
+    reservation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    proposal_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_acknowledgement(self):
+        if self.answer_segments[0].text != BUILD_PROPOSAL_READY_TEXT:
+            raise ValueError("Proposal acknowledgement is derived by the host")
+        return self
+
+
+GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3709,6 +3734,24 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, BuildAuthoringCompletionV1):
+        if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                or not isinstance(execution, PlanWorldGraphExecutionV3)
+                or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)
+                or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+                or completion.provider_attempt_id != producing_provider_attempt_id
+                or claim_graph_event_ids):
+            raise ValueError("Authoring completion requires its exact Build writer and no Graph claims")
+        producing = next((e for e in execution.events
+            if isinstance(e, ProviderAttemptAuthorizedEventV3)
+            and e.provider_attempt_id == producing_provider_attempt_id), None)
+        outcomes = [e.outcome for e in execution.events
+            if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == producing_provider_attempt_id]
+        if (producing is None or outcomes[-1:] != ["response_received"]
+                or (producing.provider, producing.model, producing.api_mode) != execution.policy.provider_roles.writer.identity()
+                or producing.envelope_sha256 != completion.envelope_sha256):
+            raise ValueError("Authoring completion requires the acknowledged shared writer envelope")
+        return
     if isinstance(completion, BuildGraphCompletionV2):
         validate_build_passage_completion(completion, receipt, execution,
             producing_provider_attempt_id, claim_graph_event_ids)
@@ -4066,7 +4109,7 @@ class Turn(StrictModel):
             raise ValueError("Build Graph receipt requires governed Build execution and provenance")
         if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
             _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
-            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
                 raise ValueError("Build answer text must match its validated completion segments")
         if (self.completion is None and self.graph_context_execution is not None
                 and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
@@ -4112,7 +4155,7 @@ class TurnResult(StrictModel):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
-        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")

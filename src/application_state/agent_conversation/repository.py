@@ -130,7 +130,7 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         supporting_work=supporting,
         selected_object=selected,
     )
-    return Turn(
+    turn = Turn(
         **{
             key: row[key]
             for key in row
@@ -138,6 +138,10 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         },
         provenance=provenance,
     )
+
+    from .build_authoring import validate_stored_proposal
+    validate_stored_proposal(conn, turn, turn.completion)
+    return turn
 
 
 def _draft_references(

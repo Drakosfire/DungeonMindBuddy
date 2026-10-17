@@ -19,6 +19,7 @@ from .build_document_proposal import BuildWriteCapability
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
+    BuildAuthoringCompletionV1,
     BuildSourcePassageCitationV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -644,7 +645,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
         default="dmb_build_graph_context_response_v1", alias="schema"
     )
     receipt: BuildGraphContextReceiptV1
-    completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | None
+    completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | None
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
