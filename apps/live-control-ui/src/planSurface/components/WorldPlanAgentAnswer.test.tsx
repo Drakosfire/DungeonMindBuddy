@@ -22,8 +22,8 @@ describe("WorldPlanAgentAnswer", () => {
     ].join("\n");
     const { container } = render(<WorldPlanAgentAnswer answer={answer} />);
 
-    expect(container.querySelectorAll(":scope > p")).toHaveLength(3);
-    expect(container.querySelectorAll(":scope > ul > li")).toHaveLength(2);
+    expect(container.querySelectorAll(".world-plan-agent-answer > p")).toHaveLength(3);
+    expect(container.querySelectorAll(".world-plan-agent-answer > ul > li")).toHaveLength(2);
     expect(container.querySelectorAll("strong")).toHaveLength(2);
     const reference = container.querySelector('[data-plan-card-reference="graph"]');
     expect(reference?.textContent).toBe("Lysandra Ironveil");
@@ -46,33 +46,59 @@ describe("WorldPlanAgentAnswer", () => {
     ].join("\n");
     const { container } = render(<WorldPlanAgentAnswer answer={answer} />);
 
-    expect(container.textContent).toBe(answer);
+    expect(container.textContent).toContain("<script>window.compromised = true</script>");
+    expect(container.textContent).toContain("[Open this](javascript:alert(1))");
+    expect(container.textContent).toContain("![remote portrait](https://media.example.invalid/portrait.png)");
     expect(container.querySelector("script, iframe, img, video, audio")).toBeNull();
     expect(container.querySelector("a[href^='javascript:']")).toBeNull();
     expect(request).not.toHaveBeenCalled();
     expect((window as Window & { compromised?: boolean }).compromised).toBeUndefined();
   });
 
-  it("preserves unsupported Markdown as whitespace-preserving readable text", () => {
+  it("renders hard breaks without flattening the rest of the Markdown", () => {
     const answer = "First paragraph.\n\nSecond paragraph with a hard break\\\nnext line.";
     const { container } = render(<WorldPlanAgentAnswer answer={answer} />);
 
-    expect(container.textContent).toBe(answer);
-    expect(container.querySelector("br, img, iframe, script")).toBeNull();
-    expect(container.querySelector("p")).toHaveStyle({ whiteSpace: "pre-wrap" });
+    expect(container.textContent).toContain("Second paragraph with a hard break");
+    expect(container.querySelectorAll("br")).toHaveLength(1);
+    expect(container.querySelector("img, iframe, script")).toBeNull();
   });
 
-  it("keeps hook order stable as validated segment boundaries appear and cease to match", () => {
+  it("keeps the complete answer stable when evidence segments change", () => {
     const answer = "**Saved Plan:** First claim.\n**Evidence:** Second claim.";
     const { container, rerender } = render(<WorldPlanAgentAnswer answer={answer} />);
 
     rerender(<WorldPlanAgentAnswer answer={answer} displaySegments={["**Saved Plan:** First claim.", "**Evidence:** Second claim."]} />);
-    expect(container.querySelectorAll(".world-plan-agent-answer > .world-plan-agent-answer")).toHaveLength(2);
+    expect(container.querySelectorAll("strong")).toHaveLength(2);
 
     rerender(<WorldPlanAgentAnswer answer={answer} displaySegments={["unmatched segment"]} />);
     expect(container.textContent).toContain("Saved Plan:");
     expect(container.textContent).toContain("Evidence:");
     expect(container.querySelectorAll(".world-plan-agent-answer > .world-plan-agent-answer")).toHaveLength(0);
+  });
+
+  it("renders aligned tables and fenced code across evidence segment boundaries", () => {
+    const segments = ["## People\n\n| Name | Job |", "| :--- | ---: |\n| **Nella** | Baker |\n\n```md", "# Literal heading\n```"];
+    const { container } = render(<WorldPlanAgentAnswer answer={segments.join("\n")} displaySegments={segments} />);
+    expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Job" })).toHaveStyle({ textAlign: "right" });
+    expect(screen.getByRole("cell", { name: "Nella" }).querySelector("strong")).not.toBeNull();
+    expect(container.querySelector("pre code")?.textContent).toBe("# Literal heading");
+  });
+
+  it("supports nested lists, task lists, quotes and safe links alongside inert content", () => {
+    const answer = "*Emphasis* and ~~old~~ and `code`\n\n> A quote\n\n3. Third\n   - Child\n\n- [x] Ready\n\n[Source](https://example.com) [Local](/api/action)\n\n<script>bad()</script>\n\n**Still formatted**";
+    const { container } = render(<WorldPlanAgentAnswer answer={answer} />);
+    expect(container.querySelector("ol")).toHaveAttribute("start", "3");
+    expect(container.querySelector("ol ul li")?.textContent).toContain("Child");
+    expect(container.querySelector("blockquote")?.textContent).toContain("A quote");
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Source" })).toHaveAttribute("href", "https://example.com");
+    expect(screen.queryByRole("link", { name: "Local" })).not.toBeInTheDocument();
+    expect(container.querySelector("script, img")).toBeNull();
+    expect(screen.getByText("Still formatted").tagName).toBe("STRONG");
   });
 });
 
@@ -87,14 +113,14 @@ describe("stable Buddy answer rendering", () => {
     expect(screen.getByText("A newer verified answer.")).toBeInTheDocument();
   });
   it("retains structured segments when history delivers equivalent new arrays", () => {
-    const segments = ["First paragraph.", "Second paragraph."];
+    const segments = ["First paragraph.\n", "Second paragraph."];
     const view = render(<WorldPlanAgentAnswer answer={segments.join("\n")} displaySegments={segments} />);
     const first = screen.getByText("First paragraph.");
     const second = screen.getByText("Second paragraph.");
     view.rerender(<WorldPlanAgentAnswer answer={segments.join("\n")} displaySegments={[...segments]} />);
     expect(screen.getByText("First paragraph.")).toBe(first);
     expect(screen.getByText("Second paragraph.")).toBe(second);
-    const updated = ["First paragraph.", "Updated second paragraph."];
+    const updated = ["First paragraph.\n", "Updated second paragraph."];
     view.rerender(<WorldPlanAgentAnswer answer={updated.join("\n")} displaySegments={updated} />);
     expect(screen.getByText("First paragraph.")).toBe(first);
     expect(screen.queryByText("Second paragraph.")).not.toBeInTheDocument();
