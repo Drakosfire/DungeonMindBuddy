@@ -540,3 +540,62 @@ def test_emitted_line_drops_unknown_metric_names_and_values(caplog):
     assert saved["spans"][0]["attributes"] == {"count": 3}
     assert saved["model_calls"][0]["request_summary"]["message_count"] == 4
     assert saved["retention"]["scope"] == "allowlisted_metadata"
+
+
+
+def test_unknown_optional_buckets_do_not_become_zero():
+    from apps.live_control_server.services.agent_turn_trace import retained_trace_payload
+
+    # Synthetic 11-controller + 1-writer fixture with the observed totals;
+    # it contains no source text or copied private request payloads.
+    calls = [{"usage": {"status": "reported", "input_tokens": input_count,
+        "output_tokens": output_count, "total_tokens": input_count + output_count,
+        "cached_input_tokens": None}} for input_count, output_count in
+        zip([8000] * 10 + [10241], [900] * 10 + [1441])]
+    calls.append({"usage": {"status": "reported", "input_tokens": 11766,
+        "output_tokens": 532, "total_tokens": 12298, "cached_input_tokens": 0,
+        "reasoning_tokens": 173}})
+    usage = aggregate_usage(calls)
+    assert usage["status"] == "reported"
+    assert (usage["input_tokens"], usage["output_tokens"], usage["total_tokens"]) == (102007, 10973, 112980)
+    for field in ("cached_input_tokens", "cache_write_input_tokens", "uncached_input_tokens", "reasoning_tokens"):
+        assert usage[field] is None
+    trace = retained_trace_payload({"schema": SCHEMA, "usage": usage, "model_calls": calls})
+    assert trace["usage"]["cached_input_tokens"] is None
+    assert trace["usage"]["reasoning_tokens"] is None
+    assert calls[-1]["usage"]["reasoning_tokens"] == 173
+    assert usage["model_call_count"] == 12
+
+
+def test_optional_buckets_sum_independently_and_preserve_explicit_zero():
+    calls = [{"usage": {"status": "reported", "input_tokens": 10, "output_tokens": 2,
+        "total_tokens": 12, "cached_input_tokens": 0, "reasoning_tokens": 1}},
+        {"usage": {"status": "reported", "input_tokens": 20, "output_tokens": 3,
+        "total_tokens": 23, "cached_input_tokens": 0, "reasoning_tokens": 4}}]
+    usage = aggregate_usage(calls)
+    assert usage["cached_input_tokens"] == 0
+    assert usage["reasoning_tokens"] == 5
+    assert usage["cache_write_input_tokens"] is None
+    assert usage["total_tokens"] == 35  # reasoning is informational
+    partial = aggregate_usage([*calls, {"usage": {"status": "unavailable"}}])
+    assert partial["status"] == "partial"
+    assert partial["cached_input_tokens"] == 0  # reported retained subset only
+    assert partial["usage_reported_call_count"] == 2
+    assert partial["model_call_count"] == 3
+    truncated = aggregate_usage(calls, truncated=True, observed_model_call_count=65)
+    assert truncated["status"] == "partial"
+    assert truncated["observed_model_call_count"] == 65
+    assert truncated["model_call_count"] == 2
+    assert truncated["cached_input_tokens"] == 0
+
+
+def test_invalid_aggregate_counts_are_unknown_and_never_crash():
+    for value in (None, True, False, -1, 1.2, float("nan"), float("inf"), "3", "garbage"):
+        usage = aggregate_usage([{"usage": {"status": "reported", "input_tokens": 10,
+            "output_tokens": value, "total_tokens": 12, "cached_input_tokens": value}}])
+        assert usage["output_tokens"] is None
+        assert usage["cached_input_tokens"] is None
+        assert usage["input_tokens"] == 10
+        assert usage["status"] == "partial"
+    assert aggregate_usage([])["status"] == "unavailable"
+    assert aggregate_usage([{"usage": {"status": "unavailable"}}])["input_tokens"] is None

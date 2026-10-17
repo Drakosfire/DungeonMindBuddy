@@ -345,10 +345,20 @@ def aggregate_usage(
             observed_model_call_count=observed_model_call_count,
         )
 
-    def _sum(field: str) -> int:
-        return sum(int(call["usage"].get(field) or 0) for call in reported)
+    def _sum(field: str) -> int | None:
+        # Counts cover usage-reported retained calls, not missing attempts.
+        # Unknown is distinct from explicit zero; per-call subtotals remain
+        # available in the call rows without masquerading as complete buckets.
+        values = [call["usage"].get(field) for call in reported]
+        if any(type(value) is not int or value < 0 for value in values):
+            return None
+        return sum(values)
 
-    complete = len(reported) == call_count and not truncated
+    core_complete = all(
+        _sum(field) is not None
+        for field in ("input_tokens", "output_tokens", "total_tokens")
+    )
+    complete = len(reported) == call_count and not truncated and core_complete
     usage = {
         "available": True,
         "status": "reported" if complete else "partial",
