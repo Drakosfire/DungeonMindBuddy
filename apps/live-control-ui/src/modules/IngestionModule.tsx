@@ -173,6 +173,12 @@ function hasState(result: RecapIngestStatus | null, state: string): boolean {
   return Boolean(result && result.states.includes(state));
 }
 
+function hasProcessedRecap(result: RecapIngestStatus): boolean {
+  return result.states.some((state) =>
+    ["recap_applied", "recap_reused", "normalized_created", "normalized_reused"].includes(state),
+  );
+}
+
 function slugFromCanonicalPath(path: string | null | undefined): string | null {
   if (!path) {
     return null;
@@ -566,22 +572,54 @@ function buildToastForResult(
 
 export function IngestionModule({ campaignId: planCampaignId, session, managedWorldId, initialSourceSession }: IngestionModuleProps) {
   const projection = useOptionalProjection();
-  const [freshRecapEntry] = useState(isFreshRecapEntryRoute);
+  const freshRecapEntry = isFreshRecapEntryRoute();
+  const requestedRecapSession = requestedRecapSessionFromLocation();
+  const routeCampaignId = resolveInitialReviewCampaignId(planCampaignId);
+  const routeTargetSession = requestedRecapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
+  const routeParams = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+  const routeView = routeParams.get("view");
+  const routeCampaign = routeParams.get("campaign");
+  const routeSession = routeParams.get("session");
+  const routeRunId = routeParams.get("recapReviewRunId");
+  const routeTargetIdentity = JSON.stringify([
+    managedWorldId ?? null,
+    routeCampaignId,
+    routeTargetSession,
+    freshRecapEntry,
+  ]);
+  const routeStateIdentity = JSON.stringify([
+    routeTargetIdentity,
+    routeView,
+    routeCampaign,
+    routeSession,
+    routeRunId,
+  ]);
   const [ingestCampaignId, setIngestCampaignId] = useState(() =>
-    resolveInitialReviewCampaignId(planCampaignId),
+    routeCampaignId,
   );
+  const routeTargetGenerationRef = useRef(0);
+  function getIngestTargetIdentity(campaignId: string, sessionNumber: number): string {
+    return JSON.stringify([routeTargetGenerationRef.current, campaignId, sessionNumber]);
+  }
   const storageKey = useMemo(
     () => draftStorageKey(ingestCampaignId, session),
     [ingestCampaignId, session],
   );
-  const [requestedRecapSession] = useState(requestedRecapSessionFromLocation);
   const initialRecapSession = requestedRecapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
   const [rawText, setRawText] = useState("");
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
-  const selectedIngestTarget = JSON.stringify([ingestCampaignId, recapSession]);
+  const selectedIngestTarget = getIngestTargetIdentity(ingestCampaignId, recapSession);
   const selectedIngestTargetRef = useRef(selectedIngestTarget);
   selectedIngestTargetRef.current = selectedIngestTarget;
+  const previousRouteTargetIdentityRef = useRef(routeTargetIdentity);
+  const previousRouteStateIdentityRef = useRef(routeStateIdentity);
+  const targetSelectionTransitionRef = useRef<{
+    identity: string;
+    campaignId: string;
+    session: number;
+  } | null>(null);
+  const [hydratedIngestTargetIdentity, setHydratedIngestTargetIdentity] = useState<string | null>(null);
   const ingestCampaignIdRef = useRef(ingestCampaignId);
   ingestCampaignIdRef.current = ingestCampaignId;
   const recapSessionRef = useRef(recapSession);
@@ -620,22 +658,55 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [sourceMode, setSourceMode] = useState<IngestionSourceMode>("raw");
   const [loadedArtifact, setLoadedArtifact] = useState<RecapArtifactRecord | null>(null);
   const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
+  const preservedRouteDraftRef = useRef<ReturnableIngestionDraft | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
   const [ignoreDiskResume, setIgnoreDiskResume] = useState(false);
   const inspectedTargetRef = useRef("");
+  const inspectingTargetRef = useRef("");
   const lastToastKeyRef = useRef<string | null>(null);
   /** When set, the result→toast effect leaves the Process result's message in charge. */
   const suppressResultToastRef = useRef(false);
   const hydrateInspectGenerationRef = useRef(0);
+  const initialHydrationRef = useRef(true);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
+  const selectionHydrated = hydrated && hydratedIngestTargetIdentity === selectedIngestTarget;
+
+  function advanceIngestTarget(campaignId: string, sessionNumber: number): string {
+    routeTargetGenerationRef.current += 1;
+    const identity = getIngestTargetIdentity(campaignId, sessionNumber);
+    selectedIngestTargetRef.current = identity;
+    targetSelectionTransitionRef.current = { identity, campaignId, session: sessionNumber };
+    setHydratedIngestTargetIdentity(null);
+    return identity;
+  }
+
+  function preserveCurrentDraftForTargetChange() {
+    if (!rawText.trim()) return;
+    const draft = {
+      version: INGESTION_DRAFT_STORAGE_VERSION,
+      rawText,
+      recapSession,
+      slug,
+      title,
+      showAdvanced,
+      forceStage,
+      forceRecap,
+      ignoreDiskResume,
+    } satisfies IngestionModuleDraft;
+    writeDraft(storageKey, draft);
+    const preserved = { storageKey, campaignId: ingestCampaignId, draft };
+    preservedRouteDraftRef.current = preserved;
+    setReturnableDraft(preserved);
+  }
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
+    preserveCurrentDraftForTargetChange();
     invalidateInFlightRecapOperations();
-    selectedIngestTargetRef.current = JSON.stringify([nextCampaignId, recapSession]);
+    advanceIngestTarget(nextCampaignId, recapSession);
     ingestCampaignIdRef.current = nextCampaignId;
     invalidateInFlightHydrateInspect();
     setIngestCampaignId(nextCampaignId);
@@ -646,6 +717,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setState({ status: "idle" });
     setSourceMode("raw");
     setLoadedArtifact(null);
+    setRawText("");
+    setSlug("");
+    setTitle(canonicalSlugTitleForRecapSession(recapSession)?.title ?? "");
+    setShowAdvanced(false);
+    setForceStage(false);
+    setForceRecap(false);
     setSelectedPriorArtifactId("");
     setPriorIngestionArtifacts([]);
     setPriorSourceReadFailed(false);
@@ -660,8 +737,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function handleRecapSessionChange(nextSession: number) {
     if (nextSession === recapSession) return;
+    preserveCurrentDraftForTargetChange();
     invalidateInFlightRecapOperations();
-    selectedIngestTargetRef.current = JSON.stringify([ingestCampaignId, nextSession]);
+    advanceIngestTarget(ingestCampaignId, nextSession);
     recapSessionRef.current = nextSession;
     invalidateInFlightHydrateInspect();
     setRecapSession(nextSession);
@@ -669,6 +747,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setState({ status: "idle" });
     setSourceMode("raw");
     setLoadedArtifact(null);
+    setRawText("");
+    setSlug("");
+    setTitle(canonicalSlugTitleForRecapSession(nextSession)?.title ?? "");
+    setShowAdvanced(false);
+    setForceStage(false);
+    setForceRecap(false);
     const targetSessionId = nextSession > 0 ? `session-${nextSession}` : "";
     const exactTarget = priorIngestionArtifacts.find(
       (record) => record.campaign_id === ingestCampaignId && record.session_id === targetSessionId,
@@ -686,14 +770,115 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function invalidateInFlightHydrateInspect() {
     hydrateInspectGenerationRef.current += 1;
-    // The operator's newer action now owns this draft; do not keep it behind
-    // the stale disk-inspection request's hydration gate.
-    setHydrated(true);
+    // The selected-target identity prevents old hydration from unlocking the
+    // new target while its status is still being checked.
   }
 
   function invalidateInFlightRecapOperations() {
     recapDraftEpochRef.current += 1;
   }
+
+  useLayoutEffect(() => {
+    if (previousRouteStateIdentityRef.current === routeStateIdentity) return;
+    previousRouteStateIdentityRef.current = routeStateIdentity;
+    const routeSelectionChanged = previousRouteTargetIdentityRef.current !== routeTargetIdentity;
+    previousRouteTargetIdentityRef.current = routeTargetIdentity;
+    const selectionChanged = routeSelectionChanged && (
+      ingestCampaignId !== routeCampaignId || recapSession !== routeTargetSession
+    );
+
+    if (selectionChanged && rawText.trim()) {
+      const draft = {
+        version: INGESTION_DRAFT_STORAGE_VERSION,
+        rawText,
+        recapSession,
+        slug,
+        title,
+        showAdvanced,
+        forceStage,
+        forceRecap,
+        ignoreDiskResume,
+      } satisfies IngestionModuleDraft;
+      writeDraft(storageKey, draft);
+      const preserved = { storageKey, campaignId: ingestCampaignId, draft };
+      preservedRouteDraftRef.current = preserved;
+      setReturnableDraft(preserved);
+    }
+
+    if (selectionChanged) {
+      routeTargetGenerationRef.current += 1;
+      invalidateInFlightRecapOperations();
+      hydrateInspectGenerationRef.current += 1;
+      const identity = getIngestTargetIdentity(routeCampaignId, routeTargetSession);
+      selectedIngestTargetRef.current = identity;
+      targetSelectionTransitionRef.current = { identity, campaignId: routeCampaignId, session: routeTargetSession };
+      setHydrated(false);
+      setHydratedIngestTargetIdentity(null);
+    }
+    if (selectionChanged) {
+      ingestCampaignIdRef.current = routeCampaignId;
+      recapSessionRef.current = routeTargetSession;
+      setIngestCampaignId(routeCampaignId);
+      setRecapSession(routeTargetSession);
+      setHydrated(false);
+      setRawText("");
+      setSlug("");
+      setTitle("");
+      setShowAdvanced(false);
+      setForceStage(false);
+      setForceRecap(false);
+      setLatestResult(null);
+      setState({ status: "idle" });
+      setSourceMode("raw");
+      setLoadedArtifact(null);
+      setPriorSourceReadFailed(false);
+      setIgnoreDiskResume(false);
+      setPrimaryOp(null);
+      setLoadingPriorIngestion(false);
+      setReconciling(false);
+      setToast(null);
+      lastToastKeyRef.current = null;
+      inspectedTargetRef.current = "";
+      if (ingestCampaignId !== routeCampaignId) {
+        setPriorIngestionArtifacts([]);
+        setSelectedPriorArtifactId("");
+      }
+    }
+
+    const readerModeFromRoute = routeView === "recap";
+    const readerCampaign = routeCampaign;
+    const readerSession = routeSession;
+    const readerRunId = routeRunId;
+    const readerRouteMatchesSelection =
+      readerCampaign === routeCampaignId && readerSession === `session-${routeTargetSession}`;
+    const shouldRestoreReader = readerModeFromRoute && readerRouteMatchesSelection;
+    setReaderMode(shouldRestoreReader);
+    setReaderRun(shouldRestoreReader && readerRunId
+      ? { campaign: routeCampaignId, session: readerSession, runId: readerRunId }
+      : null);
+    restoreReaderRoute.current = shouldRestoreReader;
+    readerAttempt.current = null;
+
+  }, [
+    routeTargetIdentity,
+    routeStateIdentity,
+    routeCampaignId,
+    routeTargetSession,
+    routeView,
+    routeCampaign,
+    routeSession,
+    routeRunId,
+    ingestCampaignId,
+    recapSession,
+    rawText,
+    slug,
+    title,
+    showAdvanced,
+    forceStage,
+    forceRecap,
+    ignoreDiskResume,
+    storageKey,
+  ]);
 
   async function postForSelectedIngestTarget(
     request: Parameters<typeof postRecapIngest>[0],
@@ -733,9 +918,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     sessionNumber = recapSession,
   ) {
     if (!Number.isInteger(sessionNumber) || sessionNumber <= 0 || ignoreDiskResume) return;
-    const identity = JSON.stringify([campaignId, sessionNumber]);
-    if (inspectedTargetRef.current === identity) return;
+    const identity = getIngestTargetIdentity(campaignId, sessionNumber);
+    if (inspectedTargetRef.current === identity || inspectingTargetRef.current === identity) return;
     const inspectGeneration = ++hydrateInspectGenerationRef.current;
+    inspectingTargetRef.current = identity;
     setToast(null);
     try {
       const inspected = await postRecapIngest({
@@ -753,7 +939,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       ) return;
       setLatestResult(inspected);
       inspectedTargetRef.current = identity;
-      const synced = syncSlugTitleFromResult(inspected);
+      const synced = hasProcessedRecap(inspected) ? syncSlugTitleFromResult(inspected) : null;
       if (synced) {
         setSlug(synced.slug);
         setTitle(synced.title);
@@ -778,7 +964,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       if (
         inspectGeneration === hydrateInspectGenerationRef.current &&
         selectedIngestTargetRef.current === identity
-      ) setHydrated(true);
+      ) {
+        setHydrated(true);
+        setHydratedIngestTargetIdentity(identity);
+      }
+      if (inspectingTargetRef.current === identity) inspectingTargetRef.current = "";
     }
   }
 
@@ -796,7 +986,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       ? latestResult
       : null;
   const resultOwnsSelection =
-    hydrated &&
+    selectionHydrated &&
     matchingResult !== null;
   // Saved-file proof requires a status result for the current selection.
   const proofResult = resultOwnsSelection ? matchingResult : null;
@@ -835,6 +1025,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     managedWorldId ?? null,
     ingestCampaignId,
     recapSession,
+    selectedIngestTarget,
     selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null,
   ]);
   useLayoutEffect(() => {
@@ -847,13 +1038,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     return () => { reviewEpoch.current += 1; };
   }, [reviewIdentity]);
   useEffect(() => {
-    if (!readerMode || !hydrated || loadingPriorIngestion || readerAttempt.current === reviewIdentity) return;
+    if (!readerMode || !selectionHydrated || loadingPriorIngestion || readerAttempt.current === reviewIdentity) return;
     if (!resultOwnsSelection && !priorIngestionArtifacts.some((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`)) return;
     const restore = restoreReaderRoute.current;
     restoreReaderRoute.current = false;
     readerAttempt.current = reviewIdentity;
     void reviewSavedSource(restore, true);
-  }, [readerMode, hydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session, latestResult?.campaign_id, priorIngestionArtifacts]);
+  }, [readerMode, selectionHydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session, latestResult?.campaign_id, priorIngestionArtifacts]);
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
@@ -875,12 +1066,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     Boolean(rawText.trim()) ||
     (resultOwnsSelection && hasCurrentNormalizedSource);
   useEffect(() => {
-    if (!hydrated || loadingPriorIngestion || rawTextSatisfied || !hasCurrentNormalizedSource || readerMode) return;
+    if (!selectionHydrated || loadingPriorIngestion || rawTextSatisfied || !hasCurrentNormalizedSource || readerMode) return;
     restoreReaderRoute.current = false;
     setReaderMode(true);
-  }, [hydrated, loadingPriorIngestion, rawTextSatisfied, hasCurrentNormalizedSource, readerMode]);
+  }, [selectionHydrated, loadingPriorIngestion, rawTextSatisfied, hasCurrentNormalizedSource, readerMode]);
   const showRecapWelcome =
-    hydrated &&
+    selectionHydrated &&
     !readerMode &&
     !returnableDraft &&
     !hasLoadedRecapContent &&
@@ -961,23 +1152,60 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     (!hasPreviewUnionStore || forceGraphRun) &&
     genericGuardPass;
   useEffect(() => {
+    if (selectionHydrated) return;
     let cancelled = false;
 
     async function hydrateFromStorageAndDisk() {
       const inspectGeneration = hydrateInspectGenerationRef.current;
       const draft = readDraft(storageKey);
-      const routeDraft =
-        requestedRecapSession != null &&
-        draft?.recapSession !== requestedRecapSession &&
-        Boolean(draft?.rawText.trim())
-          ? { storageKey, campaignId: ingestCampaignId, draft: draft! }
-          : null;
+      const routeTransition = targetSelectionTransitionRef.current?.identity === selectedIngestTarget
+        ? targetSelectionTransitionRef.current
+        : null;
+      const routeSessionTarget = routeTransition?.session ?? routeTargetSession;
+      const forcedRouteSelection = routeTransition !== null || (
+        initialHydrationRef.current && requestedRecapSession != null
+      );
+      const mismatchedDiskDraft = Boolean(
+        forcedRouteSelection &&
+        draft &&
+        draft.recapSession !== routeSessionTarget,
+      );
+      const diskRouteDraft = mismatchedDiskDraft && draft?.rawText.trim()
+        ? { storageKey, campaignId: ingestCampaignId, draft }
+        : null;
+      const preservedRouteDraft = preservedRouteDraftRef.current;
+      const preservedMismatchedDraft = preservedRouteDraft && (
+        preservedRouteDraft.campaignId !== ingestCampaignId ||
+        preservedRouteDraft.draft.recapSession !== routeSessionTarget
+      ) ? preservedRouteDraft : null;
+      const routeDraft = diskRouteDraft ?? preservedMismatchedDraft;
       setReturnableDraft(routeDraft);
-      const usableDraft =
-        requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
-          ? null
-          : draft;
-      const defaultRecap = requestedRecapSession ?? usableDraft?.recapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
+      const usableDraft = mismatchedDiskDraft
+        ? null
+        : draft ?? (
+            preservedRouteDraft?.campaignId === ingestCampaignId &&
+            preservedRouteDraft.draft.recapSession === routeSessionTarget
+              ? preservedRouteDraft.draft
+              : null
+          );
+      const defaultRecap = forcedRouteSelection
+        ? routeSessionTarget
+        : usableDraft?.recapSession ?? routeSessionTarget;
+      if (recapSessionRef.current !== defaultRecap) {
+        routeTargetGenerationRef.current += 1;
+        const identity = getIngestTargetIdentity(ingestCampaignId, defaultRecap);
+        selectedIngestTargetRef.current = identity;
+        recapSessionRef.current = defaultRecap;
+        targetSelectionTransitionRef.current = {
+          identity,
+          campaignId: ingestCampaignId,
+          session: defaultRecap,
+        };
+        setRecapSession(defaultRecap);
+        setHydrated(false);
+        setHydratedIngestTargetIdentity(null);
+        return;
+      }
       const restoredSlug = usableDraft?.slug ?? canonicalSlugTitleForRecapSession(defaultRecap)?.slug ?? "";
       const initialSlug =
         usableDraft?.showAdvanced && isNonGenericSlugOrTitle(restoredSlug, "") ? restoredSlug : "";
@@ -1009,7 +1237,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setIgnoreDiskResume(restoredIgnoreDiskResume);
       }
 
-      if (!freshRecapEntry || usableDraft) {
+      if (defaultRecap > 0 && (!freshRecapEntry || usableDraft)) {
+        const inspectionIdentity = selectedIngestTarget;
+        inspectingTargetRef.current = inspectionIdentity;
         try {
           const inspected = await postRecapIngest({
             operation: "inspect_status",
@@ -1021,13 +1251,26 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           if (cancelled || inspectGeneration !== hydrateInspectGenerationRef.current) {
             return;
           }
-          if (!restoredIgnoreDiskResume) {
+          if (inspected.campaign_id !== ingestCampaignId || inspected.session !== defaultRecap) {
+            setLatestResult(null);
+            setState({
+              status: "error",
+              message: "The status response did not match the selected campaign and session.",
+            });
+            setToast({
+              tone: "error",
+              title: "Status belongs to a different recap",
+              detail: "This response was not attached to the selected campaign and session. Refresh the check before continuing.",
+              nextSteps: [],
+              sticky: true,
+            });
+          } else if (!restoredIgnoreDiskResume) {
             const currentResult = inspected;
             setLatestResult(currentResult);
-            if (inspected.campaign_id === ingestCampaignId && inspected.session === defaultRecap) {
-              inspectedTargetRef.current = JSON.stringify([ingestCampaignId, defaultRecap]);
-            }
-            const synced = currentResult.session === recapSession ? syncSlugTitleFromResult(currentResult) : null;
+            inspectedTargetRef.current = getIngestTargetIdentity(ingestCampaignId, defaultRecap);
+            const synced = currentResult.session === defaultRecap && hasProcessedRecap(currentResult)
+              ? syncSlugTitleFromResult(currentResult)
+              : null;
             if (synced) {
               setSlug(synced.slug);
               setTitle(synced.title);
@@ -1056,15 +1299,28 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               sticky: true,
             });
           }
+        } finally {
+          if (inspectingTargetRef.current === inspectionIdentity) {
+            inspectingTargetRef.current = "";
+          }
         }
       }
 
       if (!cancelled && inspectGeneration === hydrateInspectGenerationRef.current) {
         setHydrated(true);
+        setHydratedIngestTargetIdentity(selectedIngestTarget);
+        initialHydrationRef.current = false;
+        if (targetSelectionTransitionRef.current?.identity === selectedIngestTarget) {
+          targetSelectionTransitionRef.current = null;
+        }
+        if (routeDraft && preservedRouteDraftRef.current === routeDraft) {
+          preservedRouteDraftRef.current = routeDraft;
+        } else if (usableDraft && preservedRouteDraftRef.current?.draft === usableDraft) {
+          preservedRouteDraftRef.current = null;
+        }
       }
     }
 
-    setHydrated(false);
     setToast(null);
     lastToastKeyRef.current = null;
     void hydrateFromStorageAndDisk();
@@ -1072,17 +1328,28 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     return () => {
       cancelled = true;
     };
-  }, [storageKey, session, ingestCampaignId, requestedRecapSession, initialSourceSession, freshRecapEntry]);
+  }, [
+    storageKey,
+    session,
+    ingestCampaignId,
+    requestedRecapSession,
+    initialSourceSession,
+    freshRecapEntry,
+    routeTargetIdentity,
+    routeTargetSession,
+    hydrated,
+    selectedIngestTarget,
+  ]);
 
   useEffect(() => {
-    if (!hydrated || recapSession !== 22) {
+    if (!selectionHydrated || recapSession !== 22) {
       return;
     }
     if (isStaleSession22Slug(slug) || isStaleSession22Slug(title)) {
       setSlug(SESSION_22_CANONICAL_SLUG);
       setTitle(SESSION_22_CANONICAL_TITLE);
     }
-  }, [hydrated, recapSession, slug, title]);
+  }, [selectionHydrated, recapSession, slug, title]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1114,7 +1381,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }, [ingestCampaignId, hydrated]);
 
   useEffect(() => {
-    if (!hydrated || loadingPriorIngestion || readerMode || returnableDraft) {
+    if (!selectionHydrated || loadingPriorIngestion || readerMode || returnableDraft) {
       return;
     }
     writeDraft(storageKey, {
@@ -1129,7 +1396,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       ignoreDiskResume,
     });
   }, [
-    hydrated,
+    selectionHydrated,
     loadingPriorIngestion,
     readerMode,
     returnableDraft,
@@ -1145,7 +1412,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   ]);
 
   useEffect(() => {
-    if (!hydrated) {
+    if (!selectionHydrated) {
       return;
     }
     const maybeToast = buildToastForResult(latestResult, {
@@ -1177,7 +1444,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
     lastToastKeyRef.current = key;
     setToast(maybeToast);
-  }, [hydrated, latestResult, state]);
+  }, [selectionHydrated, latestResult, state]);
 
   useEffect(() => {
     if (!toast || toast.sticky) {
@@ -1213,8 +1480,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     closeSavedReader();
     setLoadingPriorIngestion(false);
     const { draft, campaignId } = candidate;
+    advanceIngestTarget(campaignId, draft.recapSession);
+    ingestCampaignIdRef.current = campaignId;
+    recapSessionRef.current = draft.recapSession;
     setIngestCampaignId(campaignId);
-    selectedIngestTargetRef.current = JSON.stringify([campaignId, draft.recapSession]);
     inspectedTargetRef.current = "";
     setRecapSession(draft.recapSession);
     setRawText(draft.rawText);
@@ -1230,7 +1499,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setState({ status: "idle" });
     setToast(null);
     setReturnableDraft(null);
-    setHydrated(true);
+    setHydrated(false);
+    setHydratedIngestTargetIdentity(null);
 
     const params = new URLSearchParams(window.location.search);
     params.set("campaign", campaignId);
@@ -1308,7 +1578,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       return;
     }
 
-    const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+    const targetIdentity = advanceIngestTarget(record.campaign_id, sessionNumber);
     if (rawText.trim()) {
       const draft = {
         version: INGESTION_DRAFT_STORAGE_VERSION,
@@ -1325,13 +1595,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setReturnableDraft({ storageKey, campaignId: ingestCampaignId, draft });
     }
     invalidateInFlightRecapOperations();
-    selectedIngestTargetRef.current = targetIdentity;
+    ingestCampaignIdRef.current = record.campaign_id;
+    recapSessionRef.current = sessionNumber;
     invalidateInFlightHydrateInspect();
+    targetSelectionTransitionRef.current = null;
+    setHydrated(true);
+    setHydratedIngestTargetIdentity(targetIdentity);
     const requestGeneration = hydrateInspectGenerationRef.current;
     setLoadingPriorIngestion(true);
     setPriorSourceReadFailed(false);
     setSourceMode("processed");
     setLoadedArtifact(record);
+    setIngestCampaignId(record.campaign_id);
     setRawText("");
     setRecapSession(sessionNumber);
     setLatestResult(null);
@@ -1458,6 +1733,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         }, targetIdentity);
       if (!response) return;
       const result = applyAutomatedResult(response);
+      setHydrated(true);
+      setHydratedIngestTargetIdentity(targetIdentity);
+      if (targetSelectionTransitionRef.current?.identity === targetIdentity) {
+        targetSelectionTransitionRef.current = null;
+      }
 
       if (result.status === "error") {
         setState({ status: "error", result, message: resultErrorMessage(result, "Ingest failed") });
@@ -1553,6 +1833,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
     } catch (error) {
       if (selectedIngestTargetRef.current !== targetIdentity) return;
+      setHydrated(true);
+      setHydratedIngestTargetIdentity(targetIdentity);
+      if (targetSelectionTransitionRef.current?.identity === targetIdentity) {
+        targetSelectionTransitionRef.current = null;
+      }
       const message = error instanceof Error ? error.message : "Processing failed";
       setState({
         status: "error",
@@ -1877,7 +2162,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showEvidenceShortcut = latestResult !== null;
   const showWorkflowActions = sourceInputSatisfied || busy;
   const showSourceProofRecovery = Boolean(
-    hydrated &&
+    selectionHydrated &&
       showRecapWelcome &&
       sourcePresentButUnverified &&
       recapSourceUnconfirmed,
@@ -1931,7 +2216,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <RequiredBadge satisfied={genericGuardPass} />
             </span>
           </label>
-          {hydrated ? (
+          {selectionHydrated ? (
             <>
               {canReturnToDraft ? (
                 <button
@@ -2053,7 +2338,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 ? <span className="ingest-local-nav__status-title">{toast?.title ?? "Needs attention"}</span>
                 : primaryOp === "process"
                   ? "Processing recap and building World Graph context…"
-                : !hydrated
+                : !selectionHydrated
                         ? "Checking saved recap status…"
                       : toast
                         ? <>
