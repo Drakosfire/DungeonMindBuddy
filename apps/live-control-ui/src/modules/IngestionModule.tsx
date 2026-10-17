@@ -813,6 +813,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showRecapWelcome =
     hydrated &&
     !readerMode &&
+    !returnableDraft &&
     !hasLoadedRecapContent &&
     !busy &&
     state.status !== "error" &&
@@ -1864,14 +1865,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   Return to draft
                 </button>
               ) : null}
-              {canReturnToDraft ? (
+              {canReturnToDraft && !returnableDraft ? (
                 <button
                   type="button"
                   onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap()}
                 >
                   {showRecapWelcome ? "Paste recap" : "New recap"}
                 </button>
-              ) : (
+              ) : !canReturnToDraft ? (
                 <button
                   type="button"
                   className="ingest-local-nav__primary-action"
@@ -1879,7 +1880,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 >
                   {showRecapWelcome ? "Paste recap" : "New recap"}
                 </button>
-              )}
+              ) : null}
               {!readerMode && rawText.trim() && hasCurrentNormalizedSource ? (
                 <button type="button" onClick={() => void reviewSavedSource()}>
                   View saved recap
@@ -2075,6 +2076,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <p role="status" className="module-muted">Preparing the graph-enriched view…</p>
               ) : null}
             </section>
+          ) : returnableDraft ? (
+            <div className="ingestion-prepared-source-notice" role="status">
+              <strong>Draft preserved · Session {returnableDraft.draft.recapSession}</strong>
+              <p>Return to this draft to continue editing under its original session.</p>
+            </div>
           ) : sourceMode === "processed" ? (
             <div className="ingestion-prepared-source-notice" role="status">
               <strong>Graph-enriched recap</strong>

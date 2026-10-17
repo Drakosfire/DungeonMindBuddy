@@ -755,6 +755,49 @@ describe("IngestionModule", () => {
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
   });
 
+  it("keeps a mismatched draft recoverable when a direct saved recap route cannot be verified", async () => {
+    const user = setupIngestUser();
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    const draftText = "Session 11 draft that must survive an unverified Session 10 route.";
+    const storageKey = "dmb.ingestion.longmont-c2.session.11";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 11,
+      slug: "",
+      title: "Session 11 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      campaign_id: "longmont-c2",
+      session: 10,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      entity_spelling_audit: [],
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft preserved · Session 11");
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(within(toolbar).getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "New recap" })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "Paste recap" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}")).toMatchObject({
+      rawText: draftText,
+      recapSession: 11,
+    });
+
+    await user.click(within(toolbar).getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+  });
+
   it("keeps a matching draft editable and offers its saved reader without losing text", async () => {
     const user = setupIngestUser();
     const draftText = "Unfinished notes that must survive opening the saved recap.";
