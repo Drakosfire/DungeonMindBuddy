@@ -134,9 +134,24 @@ def batch_reader(monkeypatch, count=2, *, bad=False):
                               'subject_label': f'Person {i}', 'excerpt': 'leads'} for i in range(count)]}
     spec = {'world_id': 'synthetic', 'graph_revision': 'rev:test', 'source_sha256': sha,
             'build_revision': 1, 'seed_patterns': ['Person'], 'question': 'Who leads?', 'requirements': []}
-    reader = LiveSourceReader(None, Path('/tmp'), spec, markdown, discovery)
+    reader = LiveSourceReader(None, Path('.'), spec, markdown, discovery)
+    from contextlib import contextmanager
+    from apps.live_control_server.integrations.dungeonmind import reviewed_source_wave
+    bound = object()
+    reader.wave_events = []
+    @contextmanager
+    def wave(services, request):
+        assert services is None
+        assert request.source_artifact_id == 'artifact:test'
+        reader.wave_events.append('open')
+        try:
+            yield bound
+        finally:
+            reader.wave_events.append('closed')
+    monkeypatch.setattr(reviewed_source_wave, 'reviewed_source_wave', wave)
     selections, reads = [], []
     def select(services, request):
+        assert services is bound and reader.wave_events[-1] == 'open'
         ids = request.observation_ids
         selections.append(list(ids))
         # Deliberately shared evidence ref across distinct anchors/subjects.
@@ -148,6 +163,7 @@ def batch_reader(monkeypatch, count=2, *, bad=False):
                      epistemic_kind='source_derived_candidate', temporal_scope='unspecified') for key in ids],
                  source_pins=[N(anchor_id='anchor:' + key, evidence_ref_id='shared-ref') for key in ids])
     def open_sources(services, requests, *, repo_root):
+        assert services is bound and reader.wave_events[-1] == 'open'
         reads.append([r.anchor_id for r in requests])
         return tuple(N(graph_revision='rev:test', source_artifact_id='artifact:test',
                        source_revision_id='foreign' if bad else 'source:r1', evidence_ref_id='shared-ref',
@@ -169,6 +185,7 @@ def test_reader_combines_selected_actions_without_cross_subject_support(monkeypa
         assert [p['text'] for p in unit['opened_passages']] == ['anchor:' + unit['assertion_id']]
     again = asyncio.run(reader.retrieve_many(actions))
     assert again == result
+    assert reader.wave_events == ['open', 'closed', 'open', 'closed']
     assert len(reads) == 1  # Same source pins are opened once per reader.
 
 
@@ -187,6 +204,7 @@ def test_reader_rejects_foreign_source_and_non_catalog_actions(monkeypatch):
     with pytest.raises(ValueError, match='Opened source proof'):
         asyncio.run(reader.retrieve_many(actions))
     assert not reader.trace
+    assert reader.wave_events == ['open', 'closed']
     with pytest.raises(ValueError, match='catalog'):
         asyncio.run(reader.retrieve_many([{**actions[0], 'unit_ids': ['foreign']}]))
 
