@@ -1,6 +1,6 @@
 # INGEST: rendered recap and source-durability acceptance
 
-**Status:** ACTIVE — PRIME explicitly dispatched this bounded acceptance slice on 2026-10-17. No operator action is required.
+**Status:** SETTLED — PR #1315 passed independent review and merged at `53c9fd723258a4a528fdfb81ee725497fb7ebbae` from exact head `094e4930ca6c487204e06db317a756c6a009943a` on 2026-10-17.
 **Base:** fetched `origin/main@c7f1ddfb834bbe5ba9fef7149ea7fbb387f9a00f` after merged PR #1316. The three intervening commits touch only the Jev source-assessment handoff, implementation, and tests; none overlap this slice.
 **Branch:** `codex/ingest-rendered-recap-acceptance`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (existing assigned checkout; no new worktree).
@@ -47,6 +47,12 @@ No production code, server routes, schemas, migrations, raw source, Graph candid
 - Keep the rendered API mocked and synthetic, and use no real provider. Stop only servers started by this slice and verify their ports are clear. Do not read/write 5202 data or alter the serving branch.
 - Inspect the exact cumulative base-to-head diff, commit, push, open/update this PR, and report the precise boundary proven and remaining limits. Merge remains PRIME's authority.
 
-## Next direction
+## Next priority at dispatch
 
 The next Ingest priority comes from the first concrete failure observed in an ordinary user flow. Do not create a second implementation slice or require the operator to dogfood before reporting this acceptance evidence to PRIME.
+
+## Settlement
+
+- PRIME reported independent review PASS and merged this evidence-only PR. The merge landed without production changes; its fixtures and limits remain as recorded above.
+- A rendered 5202 Session 10 inspection then exposed a separate selector defect: the route targeted `session-10`, while the prior processed recap selector defaulted to Session 27 because it chose the latest registry record. No artifact was loaded and no retained data was changed.
+- The selector repair is dispatched separately under `HANDOFF-INGEST-session-affinity-default.md`; this acceptance lease is closed.
