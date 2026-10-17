@@ -2658,9 +2658,13 @@ export async function getHistoricalRecapInspection(
 /** Exact-run durable recap projected onto the current governed World. */
 export async function getHistoricalRecapWorldProjection(
   runId: string,
+  managedWorldId?: string,
 ): Promise<HistoricalRecapWorldProjectionResponse> {
+  const selector = managedWorldId
+    ? `?managed_world_id=${encodeURIComponent(managedWorldId)}`
+    : "";
   return apiFetch<HistoricalRecapWorldProjectionResponse>(
-    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/recap-projection`,
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/recap-projection${selector}`,
   );
 }
 

@@ -49,6 +49,18 @@ def test_historical_recap_projection_rejects_query_selectors(
     assert "does not accept query parameters" in str(response.json()["detail"])
 
 
+def test_historical_recap_projection_rejects_duplicate_managed_world_selector(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/live/graph-preview/extraction-runs/exact-run/recap-projection"
+        "?managed_world_id=elderwyld&managed_world_id=conks-and-cons"
+    )
+
+    assert response.status_code == 422
+    assert "accepts one managed_world_id selector" in str(response.json()["detail"])
+
+
 class _FixtureCategoryClient:
     """Deterministic category-pass client for Build launch route proofs."""
 
