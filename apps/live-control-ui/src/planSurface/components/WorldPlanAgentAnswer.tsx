@@ -44,11 +44,13 @@ function renderMarkdown(root: Root, source: string): ReactNode {
         const rows = node.children ?? [];
         const compact = new Set<number>();
         if (rows.length > 1 && rows[0]?.type === "tableRow") {
-          rows[0].children.forEach((_, column) => {
+          const header = rows[0];
+          header.children?.forEach((_, column) => {
             if (rows.slice(1).every(item => {
-              const cell = item.type === "tableRow" ? item.children[column] : undefined;
-              const text = cell?.children.length === 1 && cell.children[0]?.type === "text" ? cell.children[0].value : "";
-              return /^\d{1,3}(?:[–-]\d{1,3})?$/.test(text.trim());
+              const cell = item.type === "tableRow" && "children" in item ? item.children?.[column] : undefined;
+              const text = cell && "children" in cell && cell.children?.length === 1
+                && cell.children[0]?.type === "text" ? cell.children[0].value : "";
+              return /^\d{1,3}(?:[–-]\d{1,3})?$/.test((text ?? "").trim());
             })) compact.add(column);
           });
         }

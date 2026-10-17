@@ -276,7 +276,8 @@ def source_projection(
                 or not text
                 or len(text) != receipt.returned_chars
                 or hashlib.sha256(text.encode()).hexdigest() != receipt.content_sha256
-                or body.get("contentSha256") != receipt.content_sha256
+                # Native contentSha256 identifies the whole source revision.
+                # The receipt and direct text hash above bind the exact excerpt.
                 or body.get("anchorId") != receipt.anchor_id
                 or body.get("evidenceRefId") != receipt.evidence_ref_id
                 or body.get("sourceArtifactId") != receipt.source_artifact_id

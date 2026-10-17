@@ -19,6 +19,7 @@ from .build_document_proposal import BuildWriteCapability
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
+    BuildSourcePassageCitationV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
     PlanWorldGraphCompletionV2,
@@ -812,3 +813,23 @@ class AgentCommandResolutionResponseV1(BaseModel):
         if (self.status == "terminal") != (self.record is not None):
             raise ValueError("resolution response must match record presence")
         return self
+
+
+class AgentSourcePassageOpenTargetV1(BaseModel):
+    """Immutable completion index; never a caller-selected path or Graph claim."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_source_passage_open_target_v1"] = Field(
+        default="dmb_agent_source_passage_open_target_v1", alias="schema")
+    kind: Literal["source_passage"] = "source_passage"
+    world_id: str = Field(min_length=1, max_length=128)
+    turn_id: UUID
+    citation_index: int = Field(strict=True, ge=0, le=16383)
+
+
+class AgentSourcePassageReadResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_source_passage_read_v1"] = Field(
+        default="dmb_agent_source_passage_read_v1", alias="schema")
+    target: AgentSourcePassageOpenTargetV1
+    citation: BuildSourcePassageCitationV1
+    content: str = Field(min_length=1, max_length=12000)

@@ -4692,6 +4692,54 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(0);
   });
 
+  it("rehydrates source-only Build history and opens its exact passage separately from the Prompt", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
+    const turnId = "11111111-1111-4111-8111-111111111111";
+    const passage = "The tower watches the river.";
+    const passageHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(passage))), b => b.toString(16).padStart(2, "0")).join("");
+    const citation = {segment_index: 0, text_sha256: passageHash, provider_attempt_id: turnId,
+      envelope_sha256: "c".repeat(64), read_event_id: turnId, receipt: {
+        source_read_id: "source-read", anchor_id: "anchor", evidence_ref_id: "evidence",
+        source_artifact_id: "artifact", source_revision_id: "revision", outcome: "enough" as const,
+        content_sha256: passageHash, line_start: 1, line_end: 1, returned_chars: passage.length,
+        truncated: false as const, evidence_sufficiency_status: "sufficient" as const}};
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+      receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
+        source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
+        graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
+      completion: {schema: "dmb_build_graph_completion_v2" as const, context_receipt_sha256: receipt.context_receipt_sha256,
+        answer_basis: "opened_source_passages" as const, answer_context_status: "source_grounded" as const,
+        answer_segments: [{kind: "source_passage_claim" as const, text: passage}], citation_map: null, source_citations: [citation]},
+      execution: null, delivery_replay: true, source_open_targets: [], evidence_anchor_statuses: [], related_recap_context_statuses: []};
+    const {context_receipt_sha256: _oldHash, ...receiptForHash} = knowledge.receipt;
+    const digest = await sha256Hex(canonicalJson(receiptForHash));
+    knowledge.receipt.context_receipt_sha256 = digest;
+    knowledge.completion.context_receipt_sha256 = digest;
+    const turn = makeTurn(1, turnId, "What does the lore say?", passage, "build");
+    turn.provenance.primary_work = {...turn.provenance.primary_work, revision: "1", content_sha256: contentSha256};
+    turn.provenance.supporting_work = [
+      ["dmb_build_source_visibility_v1", "internal", "1"],
+      ["dmb_build_graph_binding_v1", receipt.graph_authority.native_world_id, String(receipt.graph_authority.binding_version)],
+      ["world_graph_revision", receipt.graph_authority.native_world_id, receipt.graph_authority.graph_revision],
+    ].map(([kind, object_id, revision]) => ({resolution: "resolved", kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}));
+    setupApi({...history("conversation-a", 1, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [{...turn, knowledge_context: knowledge}]} as WorldAgentConversationHistoryResponse);
+    const open = vi.spyOn(liveApi, "getAgentSourcePassage").mockResolvedValue({
+      schema: "dmb_agent_source_passage_read_v1", target: {schema: "dmb_agent_source_passage_open_target_v1",
+        kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
+    mountComponent();
+    expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
+    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Evidence trail", {selector: "summary"}));
+    fireEvent.click(screen.getByRole("button", {name: "Read passage 1"}));
+    await screen.findByRole("region", {name: "Opened source passage"});
+    expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
+    expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+  });
+
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
     const api = setupApi(history("conversation-a", 5, [
       makeTurn(2, "turn-2", "Middle question", "Middle answer"),

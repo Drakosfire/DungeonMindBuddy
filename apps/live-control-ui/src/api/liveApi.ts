@@ -325,6 +325,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted))?)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
@@ -2948,4 +2949,12 @@ export async function putWorldPlayRunReferenceManifest(
     throw new TypeError("World Play Run manifest does not match the requested Run.");
   }
   return manifest;
+}
+
+export async function getAgentSourcePassage(worldId: string, turnId: string, citationIndex: number):
+  Promise<import("./types").AgentSourcePassageReadResponseV1> {
+  if (!Number.isSafeInteger(citationIndex) || citationIndex < 0 || citationIndex > 16383) {
+    throw new Error("Invalid source passage index");
+  }
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/source-passages/${citationIndex}`);
 }

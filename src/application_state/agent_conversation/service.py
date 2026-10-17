@@ -670,6 +670,15 @@ class AgentConversationService:
             )
         return turn
 
+    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> Turn:
+        """Load one historical turn in its verified World; no pointer/head lookup."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            if turn is None:
+                raise ApplicationStateNotFoundError("turn not found in verified World")
+            return turn
+
     def list_turns(
         self,
         world_id: str,
