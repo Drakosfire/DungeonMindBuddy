@@ -279,7 +279,7 @@ def test_finite_exhaustion_never_reoffers_an_action_or_reissues_a_decision():
         seen.add(request.request_id)
         assert [a.id for a in answer(machine, next_id=aid).actions] == [aid]
         machine.accept_acquisition({aid: (unit(uid, "Unrelated fact."),)})
-    assert machine.step.state["legal_next_actions"] == []
+    assert machine.step.state["legal_next_actions"] == {}
     end = answer(machine)
     assert end.status == "insufficient_evidence" and end.acquired_action_ids == (
         "a0",
