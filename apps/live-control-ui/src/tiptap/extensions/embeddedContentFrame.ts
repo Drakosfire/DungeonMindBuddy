@@ -22,10 +22,12 @@ export function embeddedContentFrame(label: string, initialCollapsed = false, on
     toggle.setAttribute('aria-expanded', String(!collapsed));
   }
   const click = () => { collapsed = !collapsed; onToggle?.(collapsed); paint(); };
-  const retainCaret = (event: MouseEvent) => event.preventDefault();
+  const retainCaret = (event: MouseEvent) => {
+    if (!(event.target instanceof Element) || !event.target.closest('input,textarea,[draggable="true"]')) event.preventDefault();
+  };
   header.addEventListener('mousedown', retainCaret);
   toggle.addEventListener('click', click);
   paint();
-  return { dom, header, content, isCollapsed: () => collapsed, setSummary: (value: string) => { summary.textContent = value; },
+  return { dom, header, title, toggle, content, isCollapsed: () => collapsed, setSummary: (value: string) => { summary.textContent = value; },
     destroy: () => { toggle.removeEventListener('click', click); header.removeEventListener('mousedown', retainCaret); } };
 }

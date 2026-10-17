@@ -10,3 +10,12 @@
 .embedded-content-frame .md-table :is(th,td) p { margin: 0; line-height: 1.4; }
 .embedded-content-frame .md-table th { background: #a3895b12; }
 .embedded-content-frame__numeric-column { width: 3.5rem; }
+.embedded-content-frame__title { flex: 1; min-width: 5rem; width: 10rem; color: inherit; font: 600 .85rem system-ui, sans-serif; border: 0; background: transparent; padding: .2rem 0; }
+.embedded-content-frame__header { flex-wrap: wrap; }
+.embedded-content-frame__header button { margin-inline-start: 0; white-space: nowrap; }
+.embedded-content-frame__result { padding: .65rem .75rem; font: 500 .9rem/1.45 system-ui, sans-serif; background: #b58a3022; border-top: 1px solid #8d785933; }
+.embedded-content-frame__result[hidden], .embedded-content-frame__header button[hidden] { display: none !important; }
+/* The standard Markdown H2 is edited inside the table frame, with no duplicate heading. */
+.tiptap h2:has(+ .embedded-content-frame[data-has-title="true"]) { display: none; }
+.embedded-content-frame__header .embedded-content-frame__drag { border: 0; cursor: grab; font-size: 1.2rem; padding-inline: .2rem; }
+.embedded-content-frame__drag:active { cursor: grabbing; }
