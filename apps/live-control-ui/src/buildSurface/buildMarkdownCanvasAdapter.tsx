@@ -29,7 +29,7 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
     try { setRecoveryReview(session.prepareDraftRecovery()); setRecoveryError(""); }
     catch (error) { setRecoveryError(error instanceof Error ? error.message : "Draft recovery is unavailable."); }
   }
-  function confirmRecovery(mode: "source" | "current" = "source") {
+  function confirmRecovery(mode: "source" | "current" | "normalize" = "source") {
     if (!recoveryReview) return;
     try { session.confirmDraftRecovery(recoveryReview, mode); setRecoveryReview(null); setRecoveryError(""); }
     catch (error) { setRecoveryError(error instanceof Error ? error.message : "The draft was not replaced."); }
@@ -79,8 +79,9 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
           <details><summary>Current page preview</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.editorText}</pre></details>
           <details><summary>Preserved Markdown</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.preservedMarkdown}</pre></details>
           {recoveryReview.currentPageIssue && <p>{recoveryReview.currentPageIssue}</p>}
+          {recoveryReview.canNormalizeCurrent && <p>{recoveryReview.removedSpacers} empty spacer paragraph(s) will be removed. All text, images and tables will be kept.</p>}
           <div style={{ position: "sticky", bottom: 0, background: "var(--surface, #171d28)", padding: ".75rem 0", display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
-            <button type="button" disabled={!canDiscard || !recoveryReview.canKeepCurrent} onClick={() => confirmRecovery("current")}>Keep current page and resume saving</button>
+            <button type="button" disabled={!canDiscard || !(recoveryReview.canKeepCurrent || recoveryReview.canNormalizeCurrent)} onClick={() => confirmRecovery(recoveryReview.canNormalizeCurrent ? "normalize" : "current")}>{recoveryReview.canNormalizeCurrent ? "Keep content, tidy spacing and resume saving" : "Keep current page and resume saving"}</button>
             <button type="button" disabled={!canDiscard || recoveryReview.canUsePreserved === false} onClick={() => confirmRecovery("source")}>Use preserved version</button>
             <button type="button" autoFocus onClick={() => setRecoveryReview(null)}>Cancel review</button>
           </div>

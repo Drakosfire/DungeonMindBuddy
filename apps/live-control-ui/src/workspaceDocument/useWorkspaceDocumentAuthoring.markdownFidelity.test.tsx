@@ -803,10 +803,11 @@ describe("verified protected draft recovery", () => {
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
-  it("keeps the actual current image/table page, resumes Save, and can restore its original seal", async () => {
+  it.each([false, true])("keeps the actual image/table page, with explicit spacer normalization=%s, and restores its original seal", async withSpacer => {
     seed();
     vi.mocked(authenticatedApiFetch).mockResolvedValue({ response: new Response(null, {status:404}), csrf: null, requestEpoch: 0 });
     const currentDoc = markdownToTiptapDoc("# Current page\n\n![Map](dmb-media:11111111-1111-4111-8111-111111111111)\n\n| d20 | Soldier |\n| --- | --- |\n| 1 | Local edit |\n").doc;
+    if (withSpacer) currentDoc.content!.splice(1, 0, { type: "paragraph" });
     const stored = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
     localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify({ ...stored, tiptap_json: currentDoc }));
     let current!: ReturnType<typeof useMarkdownCanvasSession>;
@@ -819,11 +820,19 @@ describe("verified protected draft recovery", () => {
     await waitFor(() => expect(current.editor).not.toBeNull());
     const original = current.editor!.getJSON();
     fireEvent.click(screen.getByRole("button", {name:"Review protected draft",exact:true}));
-    const keep = screen.getByRole("button", {name:"Keep current page and resume saving"});
+    if (withSpacer) {
+      const review = current.prepareDraftRecovery();
+      expect(review.canNormalizeCurrent).toBe(true);
+      expect(review.removedSpacers).toBe(1);
+      expect(() => current.confirmDraftRecovery(review, "current")).toThrow(/structure would change/);
+      expect(localStorage.getItem(key)).toBeNull();
+    }
+    const keep = screen.getByRole("button", {name: withSpacer ? "Keep content, tidy spacing and resume saving" : "Keep current page and resume saving"});
     expect(keep).toBeEnabled();
     fireEvent.click(keep);
     await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
-    await waitFor(() => expect(current.editor?.getJSON()).toEqual(original));
+    const kept = withSpacer ? { ...original, content: original.content!.filter(node => node.type !== "paragraph" || Boolean(node.content?.length)) } : original;
+    await waitFor(() => expect(current.editor?.getJSON()).toEqual(kept));
     expect(current.saveDisabled).toBe(false);
     expect(JSON.parse(localStorage.getItem(key)!).original.tiptap_json).toEqual(original);
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();

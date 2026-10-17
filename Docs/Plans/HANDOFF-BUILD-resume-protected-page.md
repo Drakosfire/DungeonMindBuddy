@@ -41,3 +41,25 @@ remounts saved source and no immediate reseal on supported source. Keep server S
 explicit. Focused owning suites/typecheck/build/cumulative diff, PR, independent
 review then UI5202 delivery. No provider/API/schema/retained draft mutation, no
 /tmp/new checkouts/env/preview. User's live page is observed only during diagnosis.
+
+## Activated serial successor: explicit spacer normalization
+
+Predecessor #1381 merged10e268361d17a729f1c2535a9a98fb5c0cb6e04e and deployed.
+Its exact keep-current check is not sufficient for the ACTUAL Edge draft: normal
+UI review still refuses; readonly visible editor DOM shows an empty root spacer
+paragraph between The place and Economic Activities. Saved source remains clean.
+Reuse same checkout and exact write lease on codex/build-protected-spacing from
+origin/main@10e268361d17a729f1c2535a9a98fb5c0cb6e04e. This is a serial corrective
+successor for the same operator-reported Save loop, no parallel recovery writer.
+
+Keep strict current mode unchanged. Add an explicit separate normalization choice
+ONLY when full schema-normalized model equality differs solely by plain empty
+root paragraph spacers (no content, marks or nondefault attributes). Count and
+disclose removed spacers before choice; require distinct normalized-current mode,
+recompute/fence on confirmation, checkpoint original full JSON before replacement.
+Normalize only those spacers. Any text, image, reference, mark, table, nested or
+other structural mismatch remains blocked. No source/server Save automatically.
+Regression: strict mode rejects a spacer difference; explicit normalized choice
+keeps all authored nodes, enables Save, restores exact original including spacer.
+Verify actual Edge eligibility through normal review only; leave its final choice
+to the operator. Independent review and separate corrective PR before UI adoption.

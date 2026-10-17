@@ -7,6 +7,8 @@ export interface WorkspaceDraftRecoveryReview {
   preservedMarkdown: string;
   editorText: string;
   canKeepCurrent?: boolean;
+  canNormalizeCurrent?: boolean;
+  removedSpacers?: number;
   canUsePreserved?: boolean;
   currentPageIssue?: string | null;
 }
