@@ -262,3 +262,16 @@ def test_known_rejection_can_retry_same_bytes_but_unknown_cannot(database):
         media.read_staged_bytes(row["asset_id"], "rejected-owner", dsn=database)
         == png()
     )
+
+
+def test_truncated_jpeg_cannot_enter_catalog(database):
+    output = io.BytesIO()
+    Image.new("RGB", (32, 32), "orange").save(output, format="JPEG")
+    truncated = output.getvalue()[:-30]
+    with Image.open(io.BytesIO(truncated)) as image:
+        assert image.format == "JPEG"
+        with pytest.raises(OSError):
+            image.load()
+    with pytest.raises(ApplicationStateValidationError):
+        media.stage_image(truncated, "truncated-owner", {}, dsn=database)
+    assert not media.list_assets("truncated-owner", dsn=database)

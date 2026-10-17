@@ -55,6 +55,13 @@ def _image_identity(content: bytes) -> dict[str, Any]:
                         "Unsupported image encoding or dimensions."
                     )
                 image.verify()
+            # verify() checks structure but JPEG may defer pixel decoding.
+            with Image.open(io.BytesIO(content)) as image:
+                if getattr(image, "is_animated", False):
+                    raise ApplicationStateValidationError(
+                        "Animated media is not supported by this image writer."
+                    )
+                image.load()
     except (
         UnidentifiedImageError,
         OSError,
