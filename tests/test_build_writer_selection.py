@@ -51,6 +51,41 @@ def test_whole_event_closure_retains_unselected_sibling_and_uncertainty():
         selection.close_selection(catalog, {key: "invented" for key in catalog})
 
 
+def test_factored_catalog_preserves_distinct_sources_and_fits_accounting(accounting):
+    # Repeated long retained identity/revision metadata must not crowd out text.
+    artifact = "artifact:worldbuilding:" + "abcdef0123456789" * 35
+    catalog = {}
+    for i in range(45):
+        catalog[f"p{i:024x}"] = {
+            "id": f"p{i:024x}", "kind": "native_passage", "source_event_ids": [str(uuid4())],
+            "passage": {"source_artifact_id": artifact,
+                        "source_revision_id": "sha256:" + "a" * 64 + "::" + artifact,
+                        "source_class": "opened_source_passage_not_graph_truth",
+                        "line_start": i + 1, "line_end": i + 1,
+                        "text": f"Witness {i} believes the gate is closed unless a sealed order arrives."},
+        }
+    # Identical text at a different revision remains a distinct origin.
+    catalog["other"] = deepcopy(catalog[next(iter(catalog))])
+    catalog["other"]["passage"]["source_revision_id"] = "sha256:" + "b" * 64
+    before = selection.canonical(catalog)
+    wire = selection.source_projection(catalog)
+    assert selection.canonical(catalog) == before
+    assert len(wire["sources"]) == len(catalog) and len(wire["source_origins"]) == 2
+    assert selection.canonical(selection.source_projection(dict(reversed(list(catalog.items()))))) == selection.canonical(wire)
+    for key, unit in catalog.items():
+        source, row = wire["sources"][key], unit["passage"]
+        assert source["text"] == row["text"]
+        assert (source["line_start"], source["line_end"]) == (row["line_start"], row["line_end"])
+        assert wire["source_origins"][source["origin"]] == {
+            field: row[field] for field in ("source_class", "source_artifact_id", "source_revision_id")}
+    def body(sources):
+        return {"model": "jev-1.14.0", "state": {"context_accounting": accounting.descriptor, **sources},
+                "questions": selection.questions(catalog)}
+    with pytest.raises(ValueError, match="per-question context"):
+        accounting.validate(body({"sources": catalog}), selection.canonical(body({"sources": catalog})).encode())
+    accounting.validate(body(wire), selection.canonical(body(wire)).encode())
+
+
 class SelectionWire(DecisionWire):
     def __init__(self, mode="normal"):
         super().__init__()
@@ -122,7 +157,11 @@ def test_sdk_app_selection_and_exact_single_writer_reopen(build_case, monkeypatc
     if selection_wires:
         wire = selection_wires[0]
         assert wire["state"]["user_question"] == turn.user_text
-        assert selection.digest(wire["state"]["sources"]) == settled.catalog_sha256
+        catalog = selection.acquired_catalog(execution,
+            harness.adapter.context_capture.trace.model_dump(mode="json", by_alias=True))
+        assert selection.digest(catalog) == settled.catalog_sha256
+        for field, value in selection.source_projection(catalog).items():
+            assert wire["state"][field] == value
         captures = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
         item_id = f"unvalidated-controller-decision:{settled.controller_attempt_id}:{turn.graph_context_receipt.context_receipt_sha256}"
         material, = [m for capture in captures for observation in capture.observations
@@ -193,9 +232,9 @@ def test_app_refuses_forged_selection_before_writer(build_case, monkeypatch, tmp
     assert not writer.calls
 
 
-@pytest.mark.parametrize("altered_attempt", [1.0, True], ids=["float", "boolean"])
+@pytest.mark.parametrize("mutation", ["float", "boolean", "origin", "text", "codec"])
 def test_app_refuses_type_drift_even_in_correlated_authorized_envelope(
-    build_case, monkeypatch, tmp_path, accounting, altered_attempt,
+    build_case, monkeypatch, tmp_path, accounting, mutation,
 ):
     import hashlib
 
@@ -209,7 +248,15 @@ def test_app_refuses_type_drift_even_in_correlated_authorized_envelope(
         request = json.loads(proof["request_json"])
         assert type(request["state"]["historical_initial"]["turn_attempt"]) is int
         assert request["state"]["historical_initial"]["turn_attempt"] == 1
-        request["state"]["historical_initial"]["turn_attempt"] = altered_attempt
+        if mutation in {"float", "boolean"}:
+            request["state"]["historical_initial"]["turn_attempt"] = 1.0 if mutation == "float" else True
+        elif mutation == "origin":
+            origin = next(iter(request["state"]["source_origins"].values()))
+            origin["source_class"] = "invented_admitted_truth"
+        elif mutation == "text":
+            next(iter(request["state"]["sources"].values()))["text"] = "Changed evidence"
+        else:
+            request["state"]["source_catalog_codec"] = "unknown_codec"
         text = selection.canonical(request)
         envelope_sha = hashlib.sha256(text.encode()).hexdigest()
         execution = turn.graph_context_execution

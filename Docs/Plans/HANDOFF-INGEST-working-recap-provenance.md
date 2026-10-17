@@ -1,7 +1,7 @@
 # INGEST: clarify working recap provenance
 
 **Status:** ACTIVE — PRIME authorized this bounded UX slice on 2026-10-17.
-**Base:** started from Buddy `main@23066e13e847c74dcefdbb80b24d548b883b31c5`; main advanced to `f35a152f4fc11b2f108b00c84313f5b275e5b130` during implementation. The cumulative main-to-head diff remains limited to this handoff and the two leased UI files.
+**Base:** Current Buddy main `f35a152f4fc11b2f108b00c84313f5b275e5b130` has been merged into this feature branch. The cumulative main-to-head diff remains limited to this handoff and the two leased UI files.
 **Branch:** `codex/ingest-working-recap-provenance`.
 **Checkout:** Reuse the assigned `996b` workspace for focused verification only. Its existing branch is 36 commits behind current main and has unrelated dirty/untracked Ingest work; do not switch branches, reset, stash, or edit any path outside this lease. The two leased source/test files match current main byte-for-byte at the pinned base. Publish the reviewed cumulative change on this named branch.
 **Topology:** Serial; one small Ingest UI PR. PRIME retains review and merge authority. No new worktree, environment, server, provider call, corpus or database write.
