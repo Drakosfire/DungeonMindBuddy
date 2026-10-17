@@ -268,6 +268,56 @@ function derivePaneStateFromResult(result: RecapIngestStatus): IngestionPaneStat
   return { status: "idle" };
 }
 
+type IngestionStatusBadge = {
+  label: string;
+  tone: "neutral" | "success" | "warning";
+};
+
+function ingestionStatusBadge(
+  paneStatus: IngestionPaneState["status"],
+  result: RecapIngestStatus | null,
+  graphPreview?: RecapGraphPreviewReport,
+): IngestionStatusBadge {
+  const processing =
+    paneStatus === "running_full_ingest" ||
+    paneStatus === "building_graph_preview" ||
+    paneStatus === "materializing_preview_supergraph";
+  const graphReady =
+    graphPreview?.status === "candidate_validation_ready" ||
+    graphPreview?.status === "preview_union_store_ready";
+
+  if (paneStatus === "error" || result?.status === "error") {
+    return { label: "Failed", tone: "warning" };
+  }
+  if (processing) {
+    return { label: "Processing", tone: "neutral" };
+  }
+  if (
+    graphPreview?.status === "source_unverified" ||
+    result?.status === "source_unverified" ||
+    result?.states.includes("source_unverified")
+  ) {
+    return { label: "Source unverified", tone: "warning" };
+  }
+  if (graphReady) {
+    return { label: "Graph ready", tone: "success" };
+  }
+  if (graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked") {
+    return { label: "Blocked", tone: "warning" };
+  }
+  if (graphPreview) {
+    return { label: "Graph incomplete", tone: "warning" };
+  }
+
+  const hasProcessedResult =
+    result !== null &&
+    (result.status !== "initialized" ||
+      result.states.some((state) => state !== "ingest_status_inspected"));
+  return hasProcessedResult
+    ? { label: "Graph unavailable", tone: "warning" }
+    : { label: "Not run", tone: "neutral" };
+}
+
 function readDraft(storageKey: string): IngestionModuleDraft | null {
   if (typeof window === "undefined") {
     return null;
@@ -772,6 +822,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+  const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
@@ -2246,10 +2297,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           <div className="ingestion-evidence-header">
             <div>
               <p className="ingestion-flow-kicker">Evidence / Details</p>
-              <strong>Processing result</strong>
+              <strong>Ingestion status</strong>
             </div>
-            <span className={`pill ${graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? "pill-success" : "pill-neutral"}`}>
-              {graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? "graph ready" : "in progress"}
+            <span className={`pill pill-${statusBadge.tone}`} aria-live="polite">
+              {statusBadge.label}
             </span>
           </div>
           {graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? (

@@ -262,6 +262,115 @@ describe("IngestionModule", () => {
     expect(await screen.findByLabelText("Recap/source session")).toHaveValue(29);
   });
 
+  it.each([
+    {
+      name: "a blank recap that has only been inspected",
+      label: "Not run",
+      result: makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      }),
+    },
+    {
+      name: "a saved recap with no graph preview",
+      label: "Graph unavailable",
+      result: makeStatus({
+        session: 29,
+        status: "recap_applied",
+        states: ["recap_applied", "normalized_current"],
+        entity_spelling_audit: [],
+      }),
+    },
+    {
+      name: "a run whose source cannot be verified",
+      label: "Source unverified",
+      result: makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        ingest_report: { graph_preview: { status: "source_unverified" } },
+        entity_spelling_audit: [],
+      }),
+    },
+    {
+      name: "a completed graph extraction",
+      label: "Graph ready",
+      result: makeStatus({
+        session: 29,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "preview_union_store_ready"],
+        ingest_report: { graph_preview: { status: "preview_union_store_ready" } },
+        entity_spelling_audit: [],
+      }),
+    },
+    {
+      name: "a failed run",
+      label: "Failed",
+      result: makeStatus({
+        session: 29,
+        status: "error",
+        states: ["ingest_status_inspected"],
+        errors: ["Extraction failed"],
+        entity_spelling_audit: [],
+      }),
+    },
+  ])("shows $label for $name", async ({ result, label }) => {
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(result);
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={29}
+        managedWorldId="elderwyld"
+        initialSourceSession={29}
+      />,
+    );
+
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText("in progress")).not.toBeInTheDocument();
+  });
+
+  it("shows Processing only while recap work is active", async () => {
+    const user = setupIngestUser();
+    const pendingProcess = deferred<RecapIngestStatus>();
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+      if (request.operation === "generate_recap_memory") return pendingProcess.promise;
+      return makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    });
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={29}
+        managedWorldId="elderwyld"
+        initialSourceSession={29}
+      />,
+    );
+    await fillRecapInputs(user, "The group explored the old city and met its watch.", "Session 29 — The City Watch");
+    const processButton = await screen.findByRole("button", { name: "Process recap" });
+    await waitFor(() => expect(processButton).toBeEnabled());
+    await user.click(processButton);
+
+    expect(await screen.findByText("Processing")).toBeInTheDocument();
+    await act(async () => {
+      pendingProcess.resolve(makeStatus({
+        session: 29,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "preview_union_store_ready"],
+        ingest_report: { graph_preview: { status: "preview_union_store_ready" } },
+        entity_spelling_audit: [],
+      }));
+    });
+    expect(await screen.findByText("Graph ready")).toBeInTheDocument();
+  });
+
   it("defaults the prior recap selector only to the exact campaign and requested session", async () => {
     const session10 = makeRecapArtifactRecord("longmont-c2", 10);
     const session27 = makeRecapArtifactRecord("longmont-c2", 27);
