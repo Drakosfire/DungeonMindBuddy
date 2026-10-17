@@ -1,6 +1,6 @@
 # INGEST: keep selected session and run lineage coherent
 
-**Status:** ACTIVE — implementation is complete and awaiting PRIME review. The operator stays on Build; no operator Ingest dogfood is required for this slice.
+**Status:** ACTIVE — the lineage slice and PRIME’s World-only Process race repair are implemented; awaiting PRIME re-review. The operator stays on Build; no operator Ingest dogfood is required for this slice.
 **Base:** current GitHub `main@9f1d2f66b97ad1503bedab920da92c90314a8963`.
 **Branch:** `codex/ingest-selected-session-run-lineage`.
 **Checkout:** reuse the assigned `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy`; do not create a worktree or change the running app.
@@ -43,4 +43,14 @@ No `liveApi`, API/server, MEDIA, APP-STATE, schema, Graph, extraction/materializ
 
 ## Completion evidence
 
-Implemented only the leased Ingest module and synthetic test paths. The module now tracks route selection across mounted navigation, invalidates old asynchronous work across A→B→A, masks unverified prior status, verifies campaign/session on inspection responses, and preserves a draft under its original session when the selected session changes. Test coverage includes deferred status races, a deferred saved-reader projection across a route-session change, and manual session-change draft recovery.\n\nVerification: **61/61 IngestionModule tests passed**, UI `npm run typecheck` passed, production `npm run build` passed (708 modules; Vite emitted its existing >500 kB chunk warning), and `git diff --check` passed. The suite also printed existing React `act(...)` warnings in unrelated tests.\n\nEvidence limits: all behavior was checked with synthetic fixtures and deferred API mocks. No live recap was processed, no source/candidate or World Graph data was changed, and 5202/API/database were untouched. Real ingestion and operator acceptance remain open; this slice does not establish full ingestion readiness.
+Implemented only the leased Ingest module and synthetic test paths. Route target identities now include the managed World as well as campaign/session. Any World-only target transition advances the generation, invalidates pending Process and status work, clears stale World-derived status, and preserves the current recap draft under its existing campaign/session ownership. Session route changes continue to preserve a returnable draft under its original session.
+
+The regression suite covers deferred status races across session A→B→A, deferred saved-reader projection across a session route change, World A→B→A while a recap Process is pending, and manual session-change draft recovery. The new World regression confirms the stale A response cannot clear or replace the preserved draft after returning to A.
+
+Verification: **62/62 IngestionModule tests passed**, UI build passed (includes TypeScript project build; 708 Vite modules; existing >500 kB chunk warning), and `git diff --check` passed. The suite prints pre-existing React `act(...)` warnings in unrelated tests.
+
+Evidence limits: all behavior was checked with synthetic fixtures and deferred API mocks. No live recap was processed, no source/candidate or World Graph data was changed, and 5202/API/database were untouched. Real ingestion and operator acceptance remain open; this slice does not establish full ingestion readiness.
+
+## PRIME review follow-up
+
+PRIME identified that `routeTargetIdentity` already named the managed World, but the per-request identity and generation guard did not. Because invalidation only ran when campaign/session state differed, a pending `generate_recap_memory` result from World A could be accepted after a mounted A→B→A World switch. The repair binds per-request identity to World and advances the generation on World-only transitions. Draft text and its campaign/session ownership survive the switch; only stale Process/status presentation is cleared.
