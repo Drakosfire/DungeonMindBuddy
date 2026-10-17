@@ -1,6 +1,6 @@
 # INGEST: make Process retries reuse the exact graph run
 
-**Status:** ACTIVE — PRIME authorized this serial successor after PR #1333 merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b`.
+**Status:** SUPERSEDED — PRIME transferred the dormant implementation lease to `HANDOFF-INGEST-process-review-persistence.md` on 2026-10-17. The earlier retry/recovery observations remain unresolved; this status does not claim that defect was fixed.
 **Base:** Buddy `main@6531f0038d79431c6265afb3fd01e6d99458cd2b` (verified on GitHub after PRs #1334 and #1333 merged).
 **Branch:** `codex/ingest-process-idempotency-recovery`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse the assigned checkout; no new worktree or environment).
@@ -69,3 +69,8 @@ No UI, other API routes, schema/migration, extraction producer, provider setting
 ## Predecessor settlement
 
 PR #1333 (`INGEST: reset prior recap selection on route change`) passed independent ARCHITECTURE review and merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b` from head `88510a3d8aeaff0caf9b84b674ee63e1b49836a5`. It fixed mounted same-campaign session-route changes and passed 63 UI tests with typecheck and diff-check. The operator's 5202 page is still on the Session 10 route with Session 27 selected; this is read-only observation of the currently served build and does not verify that merged code has been deployed. The predecessor did not claim live source load/process/save, real recap, or rendered PR acceptance. This settlement does not assert the remaining acceptance gates are complete.
+
+
+## Lease transfer settlement
+
+On 2026-10-17, PRIME explicitly transferred this dormant lease to the serial successor `HANDOFF-INGEST-process-review-persistence.md`. No change in this handoff's originally observed retry/recovery failures is claimed or implied. The successor proves one fresh Process-to-review persistence path and will touch this service only if its owning proof reproduces a concrete defect.
