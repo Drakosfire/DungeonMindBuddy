@@ -2,9 +2,9 @@
 
 **Created:** 2026-10-17.
 **Status:** ACTIVE — PRIME explicitly dispatches this follow-on under the operator’s Ingest-first goal.
-**Base:** fetched `origin/main@168938813fd4b15ff00277142cce51dc50696b97` after #1298 merged.
+**Base:** fetched `origin/main@981384722723a8682e93da03bac80e0b0d37ebcf` after rebasing the final route-safety changes.
 **Branch:** `codex/ingest-recap-route-consistency`.
-**PR title:** `INGEST: make saved recap route intent consistent`.
+**PR:** [#1299](https://github.com/Drakosfire/DungeonMindBuddy/pull/1299), `INGEST: preserve drafts across saved recap routes`.
 **Topology:** serial successor to merged #1298; parallel-independent of open #1244 (server candidate-evidence packaging), #1235 (Graph Review source-observation UI), and #1144 (candidate-kind validation). Their current changed-file lists do not overlap this lane.
 
 ## Mission
@@ -34,6 +34,7 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 - Test a direct exact-session URL without `view=recap`, both with no saved draft and with a different-session draft in the editor slot. It must reach the same graph-enriched reader as picker loading, canonicalize the URL without adding a history step, and preserve the other-session draft across hydration.
 - Test a matching unsaved draft on a direct URL; it remains editable and its text is preserved, with clear status explaining why the reader was not opened automatically.
 - Test loading a saved recap with a different session identity while a draft exists through both the picker and direct URL. The draft remains stored under its original key, the saved reader opens, a remount preserves the draft, and a visible Return to draft action restores the original session and text.
+- If a direct saved-recap route cannot be verified, keep the mismatched draft visibly recoverable. Do not expose an editor whose selected session would not be persisted over the preserved draft key.
 - Preserve unrelated query parameters and exact campaign/session binding.
 - Keep source and Graph-admission claims truthful.
 - Keep the direct-route draft-preservation behavior intentional; do not manufacture a forced-reader route fix.
@@ -44,14 +45,15 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 
 - A direct exact-session URL without `view=recap` still opens the graph-enriched reader when the saved normalized source is verified and no matching draft is present; the URL is canonicalized to `view=recap`.
 - A different-session draft in the editor storage slot is now protected during that direct-route hydration too. The draft candidate is identified before the automatic reader transition, so the persistence effect cannot replace it with the requested saved session’s empty editor state; `Return to draft` recovers it after a reader remount.
+- If the exact-session URL cannot be verified, the preserved draft is shown with a clear “Draft preserved” notice and only the Return to draft action; this avoids showing a blank editable surface whose changes would not be persisted while the candidate draft is protected.
 - When a matching non-empty draft exists, the editor stays open, the status explains that the draft is open, and `View saved recap` opens the saved projection without replacing that draft.
 - Loading another processed recap now suspends draft writes while the reader is active, retains the draft under its original campaign/session local-storage key, and exposes `Return to draft`. The return action restores the draft identity and text; remounting the saved-reader URL also recovers the return action from the original draft key.
-- `npm run test -- src/modules/IngestionModule.test.tsx`: passed, 42 tests.
-- `npx vite build`: passed; Vite reports the repository’s existing large-chunk advisory.
+- `npm run test -- src/modules/IngestionModule.test.tsx`: passed, 43 tests, including successful direct-route return and an unverified-route recovery path.
+- `npx vite build`: passed independently; Vite reports the repository’s existing large-chunk advisory. `npm run build` cannot reach Vite because the package typecheck step reports the existing WorldPlanAgentAnswer errors below.
 - `npm run typecheck`: still stops on five existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 line 47, TS18048 line 49, TS2339 line 50). The edited Ingest files are not named by these diagnostics.
 - `git diff --check`: passed.
 - No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart was performed.
 
 ## Review and completion
 
-One reviewable PR on this branch. PRIME retains merge authority. Record the exact base/head and test evidence in the PR description. The PR is complete when the direct-route behavior is proven and any reproduced ambiguity is corrected without losing unsaved text, or when a replacement in-scope defect is proven and fixed.
+One reviewable PR on this branch. PRIME retains merge authority. PR #1299 is rebased on `main@981384722723a8682e93da03bac80e0b0d37ebcf`; final code head is recorded in the PR description. The PR is ready for a fresh independent review of the cumulative diff and this failure-path safeguard. Do not merge without PRIME’s approval.
