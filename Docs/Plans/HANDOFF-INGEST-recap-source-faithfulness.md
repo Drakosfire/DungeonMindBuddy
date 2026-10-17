@@ -40,3 +40,15 @@ No provider/model execution, fresh Session 29 rerun, candidate comparison, publi
 ## Activation evidence
 
 PRIME confirmed the exact base, existing checkout, single-PR topology, path allowlist, exclusions, and test boundary. The branch is created from the current GitHub `main` SHA above. The first branch commit is this handoff, before profile or test edits.
+
+## Implementation evidence — 2026-10-17
+
+The recap profile now compiles the source-faithfulness rules into its actor, location, collective, beat, encounter-job, and edge pass instructions. The shared evidence rule and Worldbuilding profile are unchanged. The synthetic fixture reaches the real `render_category_pass_prompts` boundary and checks the five source distinctions at their owning pass, the existing quote/evidence fields, and that recap-specific guidance does not leak into the Worldbuilding profile.
+
+Verification passed:
+
+- `python -m pytest -q tests/test_recap_source_faithfulness_profile.py tests/test_extraction_profiles.py tests/test_category_candidate_graph_extractor.py`: 14 passed.
+- `git diff --check`: passed for the modified profile; the new handoff and test were checked for trailing whitespace and final newlines.
+- GitHub's cumulative comparison confirms the branch is based on `main@541a8201405eb231f136a19963dc89b22d92f1b0`, 0 commits behind, with only the three leased paths. Remote file contents match the local tested files byte-for-byte. All `src` and relevant extraction test files in the local checkout are unchanged from that base.
+
+The local linked Git metadata is mounted read-only, so GitHub's branch/content APIs were used to create and update this isolated PR branch. No unrelated dirty files were moved or overwritten. The tests verify prompt construction only; no model/provider run, real-candidate comparison, publication, or rendered Ingest acceptance was performed.
