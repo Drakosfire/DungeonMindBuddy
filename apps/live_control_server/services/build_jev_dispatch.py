@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from uuid import UUID
 
 from .build_jev_accounting import ExperimentalAccounting
+from .build_initial_packet_codec import canonical
 
 PROVIDER = "typesafe"
 MODEL = "jev-1.14.0"
@@ -86,7 +87,7 @@ def _decode(body: str | bytes) -> dict:
 def validate_body(payload: str, expected_state: Mapping[str, Any], *,
                   accounting: ExperimentalAccounting | None = None) -> dict:
     body = _decode(payload)
-    if body["state"] != expected_state:
+    if canonical(body["state"]) != canonical(expected_state):
         raise ValueError("Decision source, question, scope, initial packet or discovery differs")
     for name, question in body["questions"].items():
         if not isinstance(name, str) or not name or not isinstance(question, dict):
@@ -174,6 +175,6 @@ def prepared_driver_view(prepared: Any, projection: Any) -> dict:
     """Exact host-owned compact state AND questions; neither is worker authority."""
     view = prepared_view(prepared, projection.state())
     body = _decode(view["payloadJson"])
-    if body["questions"] != projection.questions():
+    if canonical(body["questions"]) != canonical(projection.questions()):
         raise ValueError("Prepared driver questions/options differ from the parent plan")
     return view

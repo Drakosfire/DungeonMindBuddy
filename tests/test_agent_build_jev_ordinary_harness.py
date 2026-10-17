@@ -655,3 +655,154 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["usage"]["input_tokens"] == 100
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
     assert runtime.calls[-1]["usage"]["status"] == "reported"
+
+
+def test_compact_first_sdk_keeps_nonempty_logical_membership_and_wire_hash(
+    build_case, monkeypatch, tmp_path
+):
+    from graph_memory.interaction.authority_classifier import (
+        claims_from_retrieval_result,
+    )
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession,
+        CoverageState,
+        SourceAnchorState,
+    )
+    from apps.live_control_server.services.build_initial_packet_codec import (
+        decode,
+        CODEC,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _expected_initial_claim_packet,
+    )
+
+    source, request, bootstrap = ordinary_case(build_case, monkeypatch)[0]
+    claims = claims_from_retrieval_result(
+        {
+            "relationships": [
+                {
+                    "edgeId": "rel:seed",
+                    "sourceNodeId": "node:one",
+                    "targetNodeId": "node:two",
+                    "predicate": "guards",
+                    "evidenceRefIds": ["ev:one"],
+                }
+            ],
+            "sourceAnchors": [
+                {
+                    "anchorId": "anchor:one",
+                    "revisionId": "native-rev-3",
+                    "evidenceRefId": "ev:one",
+                    "readable": True,
+                    "supportingGraphObjectIds": [],
+                }
+            ],
+        },
+        revision_id="native-rev-3",
+    )
+    session = GraphRetrievalSession(
+        snapshot=bootstrap.retrieval_session.snapshot,
+        question=request.message,
+        coverage=CoverageState(state="ready"),
+        claims=claims,
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    bootstrap = replace(
+        bootstrap,
+        retrieval_session=session,
+        candidate_relationship_ids=("rel:seed",),
+        candidate_evidence_ref_ids=("ev:one",),
+        evidence_by_anchor_id={"anchor:one": "ev:one"},
+        source_scope_anchors=(
+            {
+                "anchor_id": "anchor:one",
+                "evidence_ref_id": "ev:one",
+                "source_artifact_id": "artifact:one",
+                "source_revision_id": "source-rev:one",
+            },
+        ),
+    )
+    decisions, writer = DecisionWire(), WriterWire()
+    captured = []
+
+    class FirstOnly(BuildJevHarness):
+        async def _decide(self, adapter, driver):
+            await super()._decide(adapter, driver)
+            captured.append(adapter.turn)
+            raise SystemExit("prepared first call proof only")
+
+    with pytest.raises(SystemExit):
+        execute(
+            (source, request, bootstrap),
+            tmp_path,
+            FirstOnly(decision_transport=decisions, writer_transport=writer),
+        )
+    (turn,) = captured
+    assert isinstance(
+        turn.graph_context_execution.policy,
+        ledger.BuildCompactActionControllerWriterPolicyV1,
+    )
+    assert turn.graph_context_execution.policy.initial_packet_codec == CODEC
+    auth = turn.graph_context_execution.events[0]
+    assert auth.included_relationship_ids == ["rel:seed"]
+    assert auth.included_evidence_ref_ids == ["ev:one"]
+    assert auth.envelope_sha256 == sha256(decisions.calls[0].content).hexdigest()
+    assert (
+        turn.graph_context_receipt.assembled_input.assembled_input_sha256
+        == auth.envelope_sha256
+    )
+    state = json.loads(decisions.calls[0].content)["state"]
+    assert decode(state["initialClaimPacket"]) == _expected_initial_claim_packet(
+        bootstrap
+    )
+    assert writer.calls == []
+
+
+@pytest.mark.parametrize("mutation", ["boolean_to_integer", "integer_to_float"])
+def test_compact_sdk_type_substitution_never_dispatches(
+    build_case, monkeypatch, tmp_path, mutation
+):
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    original = BuildJevDriver.authorize
+    checked = []
+
+    def authorize(driver, prepared):
+        body = json.loads(prepared.body)
+        assert body["state"]["schema"] == "dmb_build_jev_driver_decision_v2"
+        if mutation == "boolean_to_integer":
+            from apps.live_control_server.services.build_initial_packet_codec import decode, encode
+            packet = decode(body["state"]["initialClaimPacket"])
+            assert packet["candidates"][0]["selected"] is False
+            packet["candidates"][0]["selected"] = 0
+            body["state"]["initialClaimPacket"] = encode(packet)
+        else:
+            value = body["state"]["source_basis"]["registry_revision"]
+            assert type(value) is int
+            body["state"]["source_basis"]["registry_revision"] = float(value)
+        wire = json.dumps(body).encode()
+        changed = replace(prepared, body=wire, body_size=len(wire),
+                          body_sha256=sha256(wire).hexdigest())
+        # Same Python equality, different JSON types: the exact wire gate must refuse.
+        assert json.loads(prepared.body) == body
+        accepted = original(driver, changed)
+        checked.append(accepted)
+        return accepted
+
+    monkeypatch.setattr(BuildJevDriver, "authorize", authorize)
+    decisions, writer = DecisionWire(), WriterWire()
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
+    case, _ = ordinary_case(build_case, monkeypatch)
+    # Synthetic native projection includes a real JSON boolean in navigation metadata.
+    from copy import deepcopy
+    session = case[2].retrieval_session
+    projection = session.project_for_hermes()
+    projection["candidates"] = [{"node_id": "frank", "selected": False}]
+    monkeypatch.setattr(type(session), "project_for_hermes", lambda self: deepcopy(projection))
+    with pytest.raises(AgentTurnServiceError):
+        execute(case, tmp_path, harness)
+    assert checked == [False]
+    assert decisions.calls == writer.calls == []
+    assert harness.adapter.fence is None
+    assert harness.adapter.turn is None

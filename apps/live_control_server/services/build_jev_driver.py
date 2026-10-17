@@ -555,13 +555,15 @@ class BuildJevDriver:
                     raise ValueError(
                         "Driver requires an acknowledged controller attempt"
                     )
+        from .build_initial_packet_codec import CODEC, encode
+        compact_initial = self._interaction is not None
         state = {
-            **({"interaction": self._interaction} if self._interaction is not None else {}),
-            "schema": "dmb_build_jev_driver_decision_v1",
+            **({"interaction": self._interaction, "initial_packet_codec": CODEC} if compact_initial else {}),
+            "schema": "dmb_build_jev_driver_decision_v2" if compact_initial else "dmb_build_jev_driver_decision_v1",
             "policy": "parent_machine_lossless_v1",
             "source_basis": self._base["source_basis"],
             "graph_scope": self._base["graph_scope"],
-            "initialClaimPacket": self._base["initialClaimPacket"],
+            "initialClaimPacket": encode(self._base["initialClaimPacket"]) if compact_initial else self._base["initialClaimPacket"],
             "decision": intent.model_dump(mode="json"),
             "observation_qualifications": {
                 unit.id: unit.provenance[0]
