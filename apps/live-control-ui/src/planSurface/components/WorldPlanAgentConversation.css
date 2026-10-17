@@ -1206,3 +1206,22 @@
 .world-plan-agent-conversation__working-dot { inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: #d9aa50; animation: conversation-working-pulse 1.4s ease-in-out infinite; }
 @keyframes conversation-working-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .world-plan-agent-conversation__working-dot { animation: none; } }
+
+/* Compact empty composer; writing grows the field before it scrolls. */
+.plan-conversation-dock .world-plan-agent-conversation__composer textarea {
+  min-block-size: 2.5rem;
+  max-block-size: 10rem;
+  padding: 0.55rem 0.8rem;
+  line-height: 1.35;
+  resize: none;
+  border-radius: 1.25rem;
+}
+.world-plan-agent-conversation__composer #world-plan-agent-composer-hint {
+  position: absolute; inline-size: 1px; block-size: 1px;
+  overflow: hidden; clip-path: inset(50%);
+}
+.world-plan-agent-conversation__tools h3 { margin: 0 0 .4rem; font-size: .9rem; }
+.world-plan-agent-conversation__tools p { font-size: .75rem; line-height: 1.4; }
+.world-plan-agent-conversation__tools dt { font-weight: 600; font-size: .8rem; }
+.world-plan-agent-conversation__tools dd { margin: .15rem 0 .65rem; font-size: .75rem; }
+.world-plan-agent-conversation__reply-failure { margin-block: .5rem; font-size: .85rem; }

@@ -229,3 +229,12 @@ it("preserves mounted drafts and reading position through fullscreen, restore, f
   expect(screen.getByLabelText("Conversation writing")).toBe(draft); expect(draft).toHaveValue("Unsent question"); expect(draft).toHaveFocus();
   expect(screen.getByLabelText("Plan writing")).toBe(reader); expect(log.scrollTop).toBe(93);
 });
+
+
+it("can omit the repeated visual heading while retaining conversation accessibility", () => {
+  render(<ConversationDock title="Conversation" showTitle={false} initialExpanded fullscreenEnabled
+    reader="Page" messages="Reply" composer={<input aria-label="Write" />} />);
+  expect(screen.queryByText("Conversation", { selector: "strong" })).not.toBeInTheDocument();
+  expect(screen.getByRole("separator", { name: "Resize conversation" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Expand conversation fullscreen" })).toBeInTheDocument();
+});

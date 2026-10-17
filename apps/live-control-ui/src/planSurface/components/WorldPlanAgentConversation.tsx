@@ -4973,6 +4973,13 @@ export function WorldPlanAgentConversation({
   const presentAvailability = (message: string) => presentationHosts?.composer
     ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
     : null;
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const input = composerInputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.max(40, Math.min(input.scrollHeight, 160))}px`;
+  }, [composerMessage, presentationHosts?.composer, askSlot?.hostElement, visible, pageReady, scopeMatches]);
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -5007,6 +5014,8 @@ export function WorldPlanAgentConversation({
   })();
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
+  const hasUncertainPlayNotice = Boolean(uncertainPlayNoticeRef.current
+    && error === uncertainPlayNoticeRef.current.message);
   const hasUncertainGraphNotice = Boolean(uncertainPlanNoticeRef.current
     && error === uncertainPlanNoticeRef.current.message);
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
@@ -5356,6 +5365,34 @@ export function WorldPlanAgentConversation({
         </div>
   );
   const managementDetails = (<>
+      {isReadOnly ? <details><summary>Advanced</summary>
+        {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
+        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+      </details> : null}
+      <section className="world-plan-agent-conversation__tools" aria-label="Agent tools and access">
+        <h3>Tools and access</h3>
+        <p>Configured for this page. Each reply’s Prompt shows the tools actually exposed to the model.</p>
+        <dl>
+          <dt>Read saved page</dt><dd>{isBuild ? buildMode?.savedSource ? "Connected" : "Save or choose a page first" : isReadOnly ? currentReadOnlyContext ? "Connected" : "Open a Run first" : scopeMatches ? "Connected" : "Open a saved Plan first"}</dd>
+          <dt>World Graph and sources</dt><dd>{useWorldGraphForAsk ? "Enabled" : "Off"}</dd>
+          <dt>Propose page changes</dt><dd>{isBuild ? buildMode?.composeBridge ? "Editor connected; insertion is checked when sending. Preview and approval required." : "No editable page connected" : isReadOnly ? "Unavailable in Play" : editBridge ? "Preview and approval required" : "No editable Plan connected"}</dd>
+          <dt>Generate images</dt><dd>{isBuild ? "Not exposed to this conversation. Use Create image on the page toolbar." : "Not exposed on this surface."}</dd>
+        </dl>
+        <p>Enter to send · Shift+Enter for a new line.</p>
+      </section>
+      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+        <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
+        <details><summary>Saved request details</summary>
+          <p>{pendingPlayTurn.request.message}</p>
+          <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
+          {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
+        </details>
+        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
+          Retry exact saved turn
+        </button>
+      </section> : null}
+
       {otherLocalProposals.length ? (
         <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
           <summary>Other local proposals · {otherLocalProposals.length}</summary>
@@ -5603,18 +5640,6 @@ export function WorldPlanAgentConversation({
     <div className="world-plan-agent-conversation__body">
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
-      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
-        <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
-        <details><summary>Saved request details</summary>
-          <p>{pendingPlayTurn.request.message}</p>
-          <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
-          {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
-        </details>
-        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
-          Retry exact saved turn
-        </button>
-      </section> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
@@ -5674,6 +5699,10 @@ export function WorldPlanAgentConversation({
               && turn.user_text === submittedMessage.message)) ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
+            {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
+              <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
+              <details><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
+            </div> : null}
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
               <div className="world-plan-agent-conversation__turn-debug">
                 <details className="world-plan-agent-conversation__turn-details">
@@ -5746,7 +5775,8 @@ export function WorldPlanAgentConversation({
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
         <textarea
           id="world-plan-agent-message"
-          rows={3}
+          rows={1}
+          ref={composerInputRef}
           value={composerMessage}
           onChange={(event) => {
             composerEditGenerationRef.current += 1;
@@ -5804,7 +5834,7 @@ export function WorldPlanAgentConversation({
         {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"
           ? "Changes can be up to 4,000 characters. Shorten this request to continue."
           : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
-        {error && !authorizationBlocked && !hasUncertainGraphNotice ? <p role="alert">{error}</p> : null}
+        {error && !authorizationBlocked && !hasUncertainGraphNotice && !hasUncertainPlayNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
@@ -5818,7 +5848,7 @@ export function WorldPlanAgentConversation({
     return createPortal(
       <section className="world-plan-agent-conversation world-agent-conversation" aria-label="World conversation" data-testid="world-agent-conversation-host">
         <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel={isBuild ? "Build workspace" : "Play workspace"}
-          conversationLabel="World conversation" title="Conversation"
+          conversationLabel="World conversation" title="Conversation" showTitle={false}
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
@@ -5829,11 +5859,8 @@ export function WorldPlanAgentConversation({
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
             {!currentReadOnlyContext && !isBuild ? <p role="status">Choose a verified World Run to ask about Play.</p> : null}
-            {sharedConversation?.pendingTurn && !sending ? <p role="status">A turn is awaiting confirmation in World history.</p> : null}
-            <details><summary>Advanced</summary>
-              {admittedRun ? <p>Run {admittedRun.runId} · revision {admittedRun.runRevision}</p> : null}
-              <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-            </details></div>} />
+
+</div>} />
       </section>, askSlot.hostElement,
     );
   }

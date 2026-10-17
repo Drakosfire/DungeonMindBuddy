@@ -8,6 +8,7 @@ export interface ConversationDockProps {
   messages: ReactNode;
   composer: ReactNode;
   title?: string;
+  showTitle?: boolean;
   contextLabel?: string;
   contextDetails?: ReactNode;
   collapsedPreview?: ReactNode;
@@ -33,7 +34,7 @@ export interface ConversationDockProps {
  * Paint through --conversation-dock-* variables; no application providers.
  */
 export function ConversationDock({
-  reader, readerLabel = "Workspace content", conversationLabel, messages, composer, title = "Buddy", contextLabel = "Context",
+  reader, readerLabel = "Workspace content", conversationLabel, messages, composer, title = "Buddy", showTitle = true, contextLabel = "Context",
   contextDetails, collapsedPreview, collapseMode = "composer", launcher, fullscreenEnabled = false, headerActions, initialExpanded = false, expanded: controlledExpanded,
   initialHeight = 340, minHeight = 280, maxHeight = 1440,
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
@@ -181,7 +182,7 @@ export function ConversationDock({
           <span aria-hidden="true" />
         </button>
         <header className="conversation-dock__header">
-          <strong>{title}</strong>
+          {showTitle && <strong>{title}</strong>}
           {hasContext && <button type="button" className="conversation-dock__context-toggle"
             aria-expanded={contextOpen} aria-controls={`${id}-context`} title={`${contextOpen ? "Hide" : "Show"} ${contextLabel}`}
             onClick={() => { changeExpanded(true); setContextOpen(!contextOpen); }}>
