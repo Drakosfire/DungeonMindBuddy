@@ -1,0 +1,5 @@
+# MEDIA — Host-independent wizard header
+
+Status: ACTIVE. PRIME owns correction and rollout under authorized reusable media workflow. Base main01980f14b8d386f0d29d19293c46e228d046ac90. Serial successor to CDN1303/custom-ID1304. Both passed independent review and merged; live synthetic upload/readback/public delivery succeeded and exact test object/database were removed. APP0027 and matched main are running5202/5876, existing rows preserved after verified backup restore. Fal key currently401; no inference retries.
+
+Integrated Build witness found its broad `header` rule overrides the shared wizard's flex header, turning Close into a large row. Add an explicit component header class and scoped winning selector. Exact paths: this handoff; apps/live-control-ui/src/media/MediaImageWizard.tsx; apps/live-control-ui/src/media/MediaImageWizard.css. No API/schema/provider behavior. Verify existing wizard tests/typecheck/build and integrated desktop/narrow rendering with Build CSS. Independent review before merge; update UI only afterward. No APP migration or API restart required.
