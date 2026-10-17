@@ -1,6 +1,8 @@
 # AGENT: proposal owner shares the guarded writer dispatch
 
-ACTIVE under PRIME's Graph collaboration goal and ARCHITECTURE's one-writer design guidance. Base70e3471a4339779a667a78b5e70f6b45013138df; branch codex/build-proposal-shared-writer, reusing buddy-tool-denial-delivery and existing dependencies. PRIME implements solo; ARCHITECTURE independently reviews. Serial prerequisite to ordinary Jev adoption. No new worktree, source export, environment or /tmp directory.
+MERGED: PR1321 independently passed at7b626b3d2a59f9c8b92f35c6e83e1fa73f5ceb06 and merged atfd855c140905068e4fe2a61c4dfcb9948952b987. Its implementation lease ended; ordinary turn inclusion/completion remains open.
+
+Original authority under PRIME's Graph collaboration goal and ARCHITECTURE's one-writer design guidance. Base70e3471a4339779a667a78b5e70f6b45013138df; branch codex/build-proposal-shared-writer, reusing buddy-tool-denial-delivery and existing dependencies. PRIME implements solo; ARCHITECTURE independently reviews. Serial prerequisite to ordinary Jev adoption. No new worktree, source export, environment or /tmp directory.
 
 ## Outcome and invariant
 

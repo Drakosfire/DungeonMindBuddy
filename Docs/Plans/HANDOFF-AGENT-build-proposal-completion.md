@@ -21,3 +21,9 @@ No edits to held MEDIA1306's proposal models/service, Harness routing or UI; no 
 ## Acceptance and limits
 
 Verify actual APP proposal persistence and turn completion/reload, exact shared writer attempt and envelope, origin/turn attempt/document basis/argument and result hashes, failed/unknown/missing/foreign proposals, result tampering, no arbitrary model acknowledgement, deterministic no-grounding status, idempotent completion recovery, immutable digest after reported insertion and guarded schema downgrade. Preserve older Build source/Graph completions. Independent review before merge. Ordinary writer inclusion and action selection remain a subsequent integration gate; creative suggestions and source-backed factual proposals must remain explicitly distinct.
+
+## Implementation evidence
+
+The 18 owning APP/SDK tests pass in10.95s, including a real shared SDK dispatch, persisted proposal before turn completion, deterministic acknowledgement, typed API response round-trip, fresh reload, idempotent recovery, insertion-report invariance, wrong owner/result/origin/source/provider identities, SQL grounding refusal and downgrade/upgrade guards. Native managed-World resolution is synthetic; source registry, SDK serialization/gates, proposal owner and conversation storage are actual implementations with disposable PostgreSQL. No retained publication or ordinary runtime selection is claimed.
+
+The combined predecessor run had58 predecessor cases passing and17 owning cases passing; one negative conversation-tamper test encountered the existing proposal SQL constraint before its expected APP check. Its assertion now accepts that stronger owning SQL rejection; the final18-test owning run passes. Scoped Ruff on all modified/new Python modules and cumulative diff checks pass. No real provider call, new dependency environment or retained migration occurred. Independent review remains required.

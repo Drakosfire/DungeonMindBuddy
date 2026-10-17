@@ -1286,6 +1286,8 @@ class AgentConversationService:
                         )
                     except ValueError as exc:
                         raise ApplicationStateValidationError(str(exc)) from exc
+            from .build_authoring import validate_stored_proposal
+            validate_stored_proposal(conn, turn, result.completion)
             updated = repo.complete_claimed_turn(
                 conn,
                 world_id=world_id,
