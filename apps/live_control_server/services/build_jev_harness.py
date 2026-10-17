@@ -92,6 +92,8 @@ class BuildJevHarness:
             budget["buildJevActions"]["acquisition_policy"] = READ_BATCH_POLICY
             from application_state.agent_conversation.source_writer_output import POLICY
             budget["buildJevActions"]["source_writer_output_policy"] = POLICY
+            from application_state.agent_conversation.writer_evidence_selection import POLICY as SELECTION_POLICY
+            budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
         return budget
 
     def configured_budget(self, request):
@@ -170,6 +172,24 @@ class BuildJevHarness:
                 "relevant_ids": list(terminal.relevant_ids),
             }
             graph, sources, sections = driver._material()
+            from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
+            if isinstance(adapter._broker_execution().policy, BuildSelectedSourceActionControllerWriterPolicyV1):
+                from .build_jev_writer_selection import WriterSelectionDriver
+                selector = WriterSelectionDriver(adapter, driver, adapter.build_retrieval_disposition)
+                if selector.catalog:
+                    asyncio.run(self._decide(adapter, selector))
+                    selected = selector.receipt
+                else:
+                    selected = selector.settle_empty()
+                graph = ()
+                sources = tuple(str(eid) for eid in selected.source_event_ids)
+                sections = tuple(str(rid) for rid in selected.section_read_ids)
+                if not selected.expanded_unit_ids:
+                    adapter.build_retrieval_disposition = {
+                        **adapter.build_retrieval_disposition,
+                        "status": "insufficient_evidence", "reason": "writer_selection_no_useful_source_units",
+                        "relevant_ids": [],
+                    }
             from application_state.agent_conversation.types import BuildCitedSourceActionControllerWriterPolicyV1
             if sources or isinstance(adapter._broker_execution().policy, BuildCitedSourceActionControllerWriterPolicyV1):
                 staged = adapter.stage_build_source_writer(
@@ -297,7 +317,11 @@ class BuildJevHarness:
                 )
             )
             self._observe(result, started, "controller")
-            driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
+            from .build_jev_writer_selection import WriterSelectionDriver
+            if isinstance(driver, WriterSelectionDriver):
+                driver.accept_response(result)
+            else:
+                driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
         except Exception as exc:
             self._failed(exc, started, "controller")
             raise

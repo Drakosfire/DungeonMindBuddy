@@ -286,6 +286,15 @@ class ContextTraceCollector:
         self.current_provider_materials = materials
 
     def answer_draft(self, answer: str, *, producing_provider_attempt_id: Any) -> None:
+        """Retain exact unvalidated writer output, preserving historical item identity."""
+        self._provider_output(answer, producing_provider_attempt_id=producing_provider_attempt_id)
+
+    def controller_decision_response(self, response_json: str, *, producing_provider_attempt_id: Any) -> None:
+        """Retain exact normalized SDK response for APP's selection proof check."""
+        self._provider_output(response_json, producing_provider_attempt_id=producing_provider_attempt_id,
+                              controller_response=True)
+
+    def _provider_output(self, answer: str, *, producing_provider_attempt_id: Any, controller_response: bool = False) -> None:
         """Retain exact unvalidated output; it never supplies answer authority."""
         with self.fence.renewer._lock:
             turn = self.fence.renewer._turn
@@ -297,11 +306,18 @@ class ContextTraceCollector:
                 or not any(event.kind == "provider_outcome" and event.provider_attempt_id == producing_provider_attempt_id
                     and event.outcome == "response_received" for event in execution.events)):
                 raise ApplicationStateValidationError("answer draft lacks its producing provider response")
+            if controller_response:
+                from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
+                if (not isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                    or (authorizations[-1].provider, authorizations[-1].model, authorizations[-1].api_mode)
+                    != execution.policy.provider_roles.controller.identity()):
+                    raise ApplicationStateValidationError("controller capture lacks its frozen selection role")
             receipt_sha = turn.graph_context_receipt.context_receipt_sha256
             if (receipt_sha != self.bound_context_receipt_sha256 or self.trace.world_id != turn.world_id
                 or self.trace.turn_id != turn.turn_id or self.trace.conversation_id != turn.conversation_id):
                 raise ApplicationStateValidationError("answer draft differs from its frozen trace context")
-            item_id = f"unvalidated-provider-answer:{producing_provider_attempt_id}:{receipt_sha}"
+            prefix = "unvalidated-controller-decision" if controller_response else "unvalidated-provider-answer"
+            item_id = f"{prefix}:{producing_provider_attempt_id}:{receipt_sha}"
             prior = [material for observation in self.trace.observations
                 if observation.kind == "context_snapshot" for material in observation.materials
                 if material.item_id == item_id]

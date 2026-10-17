@@ -1937,6 +1937,10 @@ class BuildCitedSourceActionControllerWriterPolicyV1(BuildReadBatchActionControl
     source_writer_output_policy: Literal["cited_facts_host_limitations_v1"]
 
 
+class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionControllerWriterPolicyV1):
+    writer_selection_policy: Literal["source_unit_selection_event_closure_v1"]
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -2700,7 +2704,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     RelatedRecapContextProviderInclusionEventV2,
                     BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                     BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                    BuildJevActionSelectionV1,
+                    BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1,
                 ),
             ):
                 continue
@@ -2849,6 +2853,35 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_writer_evidence_selection_v1"]
+    policy: Literal["source_unit_selection_event_closure_v1"]
+    mode: Literal["jev", "empty_catalog"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    controller_response_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    basis_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    terminal_disposition: dict
+    judgments: dict[str, Literal["direct_support", "qualification_or_conflict", "uncertain", "irrelevant"]] = Field(max_length=16384)
+    requested_unit_ids: list[str] = Field(max_length=16384)
+    expanded_unit_ids: list[str] = Field(max_length=16384)
+    omitted_unit_ids: list[str] = Field(max_length=16384)
+    source_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+    section_read_ids: list[UUID] = Field(max_length=128)
+
+    @model_validator(mode="after")
+    def validate_distinct_selection(self):
+        for field in ("requested_unit_ids", "expanded_unit_ids", "omitted_unit_ids",
+                      "source_event_ids", "section_read_ids"):
+            values = getattr(self, field)
+            if len(set(values)) != len(values):
+                raise ValueError("Writer evidence selection contains duplicate selectors")
+        if (self.mode == "jev") != (self.controller_response_sha256 is not None):
+            raise ValueError("Only a genuine Jev selection has a captured response")
+        return self
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
@@ -2856,7 +2889,8 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1,
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
+    | BuildWriterEvidenceSelectionV1,
     Field(discriminator="kind"),
 ]
 
@@ -2865,7 +2899,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -2877,6 +2911,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         latest_outcome: str | None = None
         writer_attempt: UUID | None = None
         action_selection = None
+        writer_selection = None
         authorized_by_id = {}
         acquisition_events = (
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
@@ -2886,6 +2921,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         )
         section_auths, section_reads = {}, set()
         for event in self.events:
+            if writer_selection is not None and isinstance(event, acquisition_events):
+                raise ValueError("acquisition cannot continue after writer evidence selection")
             if isinstance(event, BuildSectionReadAuthorizationV1):
                 if (latest_attempt is None or latest_outcome != "response_received"
                         or event.read_id in section_auths
@@ -2914,13 +2951,39 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                         or event.capability_sha256 != self.policy.action_capability_sha256):
                     raise ValueError("Build action selection differs from its acknowledged controller/capability")
                 action_selection = event
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                authorization = authorized_by_id.get(event.controller_attempt_id)
+                if (not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                    or writer_selection is not None or writer_attempt is not None
+                    or latest_attempt != event.controller_attempt_id or latest_outcome != "response_received"
+                    or authorization is None or authorization.envelope_sha256 != event.controller_envelope_sha256
+                    or (authorization.provider, authorization.model, authorization.api_mode)
+                    != roles.controller.identity()):
+                    raise ValueError("Writer selection lacks its unique acknowledged controller")
+                writer_selection = event
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 authorized_by_id[event.provider_attempt_id] = event
                 identity = (event.provider, event.model, event.api_mode)
                 if identity == roles.controller.identity():
+                    if writer_selection is not None:
+                        raise ValueError("controller cannot resume after writer evidence selection")
                     if writer_attempt is not None:
                         raise ValueError("controller cannot resume after writer authorization")
                 elif identity == roles.writer.identity():
+                    if (isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                        and (action_selection is None or action_selection.operation == "answer_from_sources")):
+                        if writer_selection is None:
+                            raise ValueError("Source writer requires a settled evidence selection")
+                        if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids):
+                            raise ValueError("Source writer exposure differs from selected event closure")
+                        section_events = {e.event_id: e.read_id for e in self.events[:event.sequence]
+                                          if isinstance(e, ValidatedBuildSectionReadV1)}
+                        included_sections = {section_events[eid] for e in self.events[:event.sequence]
+                                             if isinstance(e, BuildSectionProviderInclusionV1)
+                                             and e.provider_attempt_id == event.provider_attempt_id
+                                             for eid in e.section_event_ids}
+                        if included_sections != set(writer_selection.section_read_ids):
+                            raise ValueError("Source writer saved sections differ from selected closure")
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")
                     if latest_attempt is None:
