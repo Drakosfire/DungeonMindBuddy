@@ -1,6 +1,6 @@
 # AGENT: open exact saved-source sections from completed answers
 
-ACTIVE under PRIME responsive source-faithful Graph collaboration goal; basee71d751b0bfbcc96260995c4487aa27bcd26de40. Serial successor to merged1348; reuse buddy-tool-denial-delivery checkout/dependencies, no new worktree/clone/env/export/tmp. PRIME implements solo, ARCHITECTURE independent review/advice. DOGFOOD owns Ingest/Combat UI separately; this lease explicitly owns only Agent evidence seams. No serving/World/provider writes during implementation.
+MERGED #1350 at91c44e0382e2970985f943216bc3b484510543bb; reviewed head2aa7fbace1df1fd860f8dfdc5eb73886c76b26b4 independently passed27backend/43UI-auth cases with no findings. Implementation lease ended; DOGFOOD owns the explicitly authorized matched runtime adoption. Originally ACTIVE under PRIME responsive source-faithful Graph collaboration goal; basee71d751b0bfbcc96260995c4487aa27bcd26de40. Serial successor to merged1348; reuse buddy-tool-denial-delivery checkout/dependencies, no new worktree/clone/env/export/tmp. PRIME implements solo, ARCHITECTURE independent review/advice. DOGFOOD owns Ingest/Combat UI separately; this lease explicitly owns only Agent evidence seams. No serving/World/provider writes during implementation.
 
 ## Contract
 

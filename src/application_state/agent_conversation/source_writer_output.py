@@ -16,6 +16,7 @@ from .types import StrictModel
 
 POLICY = "cited_facts_host_limitations_v1"
 SCHEMA_NAME = "build_cited_source_answer"
+FINITE_SCHEMA_NAME = "build_cited_source_answer_v2"
 LIMITATIONS = {
     "missing_requested_details": "The retrieved evidence does not establish all the requested details.",
     "partial_retrieval": "This answer uses partial retrieval and does not establish corpus completeness.",
@@ -155,6 +156,118 @@ def output_schema() -> dict:
     return CitedSourceAnswer.model_json_schema()
 
 
+def finite_output_schema(packet: dict) -> dict:
+    """Narrow selectors to this exact packet; do not infer knowledge authority."""
+    from .types import ValidatedBuildSectionReadV1
+
+    if (
+        not isinstance(packet, dict)
+        or packet.get("source_writer_output_policy") != POLICY
+    ):
+        raise ValueError("Finite writer schema requires its source policy")
+    passages, exposure = packet.get("opened_passages", []), packet.get("exposure", {})
+    if (
+        not isinstance(passages, list)
+        or len(passages) > 16384
+        or not isinstance(exposure, dict)
+    ):
+        raise ValueError("Malformed writer selector packet")
+    sections = exposure.get("saved_sections", [])
+    if not isinstance(sections, list) or len(sections) > 128:
+        raise ValueError("Malformed saved-section selector packet")
+    handles = set()
+    for passage in passages:
+        fields = (
+            "text",
+            "source_class",
+            "source_artifact_id",
+            "source_revision_id",
+            "line_start",
+            "line_end",
+        )
+        if not isinstance(passage, dict) or set(passage) != {*fields, "handle"}:
+            raise ValueError("Malformed passage selector identity")
+        text = passage["text"]
+        if (
+            not isinstance(text, str)
+            or not text.strip()
+            or len(text) > 12000
+            or passage["source_class"] != "opened_source_passage_not_graph_truth"
+            or any(
+                not isinstance(passage[k], str) or not passage[k].strip()
+                for k in ("source_artifact_id", "source_revision_id")
+            )
+        ):
+            raise ValueError("Malformed passage selector identity")
+        start, end = passage["line_start"], passage["line_end"]
+        if not (start is None and end is None) and not (
+            type(start) is int and type(end) is int and 0 < start <= end
+        ):
+            raise ValueError("Malformed passage selector range")
+        handle = (
+            "p"
+            + hashlib.sha256(
+                json.dumps(
+                    {k: passage[k] for k in fields},
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode()
+            ).hexdigest()[:24]
+        )
+        if passage["handle"] != handle or handle in handles:
+            raise ValueError("Invalid or duplicate passage selector")
+        handles.add(handle)
+    read_ids, event_ids = set(), set()
+    for section in sections:
+        read = ValidatedBuildSectionReadV1.model_validate(section)
+        if (
+            section.get("read_id") != str(read.read_id)
+            or str(read.read_id) in read_ids
+            or read.event_id in event_ids
+        ):
+            raise ValueError("Invalid or duplicate saved-section selector")
+        read_ids.add(str(read.read_id))
+        event_ids.add(read.event_id)
+    schema = output_schema()
+    available = {
+        "PassageFact": ("passage_handles", handles),
+        "SavedFact": ("section_read_ids", read_ids),
+    }
+    for name, (field, values) in available.items():
+        if values:
+            schema["$defs"][name]["properties"][field]["items"] = {
+                "type": "string",
+                "enum": sorted(values),
+            }
+        else:
+            del schema["$defs"][name]
+    choices = schema["properties"]["answer_segments"]["items"]["anyOf"]
+    schema["properties"]["answer_segments"]["items"]["anyOf"] = [
+        choice for choice in choices if choice["$ref"].split("/")[-1] in schema["$defs"]
+    ]
+    return schema
+
+
+def validate_writer_format(fmt: dict, packet: dict) -> None:
+    """Old captures keep their exact schema; V2 is exact packet-derived only."""
+    if not isinstance(fmt, dict):
+        raise ValueError("Source writer request lacks its frozen output schema")
+    name = fmt.get("name")
+    if name == SCHEMA_NAME:
+        schema = output_schema()
+    elif name == FINITE_SCHEMA_NAME:
+        schema = finite_output_schema(packet)
+    else:
+        raise ValueError("Source writer request has an unknown output schema")
+    if (
+        fmt != {"type": "json_schema", "name": name, "schema": schema, "strict": True}
+        or fmt.get("strict") is not True
+    ):
+        raise ValueError("Source writer request lacks its frozen output schema")
+
+
 def validate_completion_proof(result, turn, trace: dict) -> None:
     """Reconstruct the entire V2 completion from the actual captured producer.
 
@@ -213,21 +326,12 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
         )
     request = strict_json(result.writer_request_json)
     fmt = request.get("text", {}).get("format", {})
-    if (
-        request.get("model") != auth.model
-        or request.get("tools") != []
-        or fmt
-        != {
-            "type": "json_schema",
-            "name": SCHEMA_NAME,
-            "schema": output_schema(),
-            "strict": True,
-        }
-    ):
+    if request.get("model") != auth.model or request.get("tools") != []:
         raise ValueError("Source writer request lacks its frozen output schema")
     packet = strict_json(request["input"])
     if packet.get("source_writer_output_policy") != POLICY:
         raise ValueError("Source writer request lacks its frozen output policy")
+    validate_writer_format(fmt, packet)
     expected, bindings = reconstruct(
         result.raw_provider_output_json, packet, turn, auth
     )
