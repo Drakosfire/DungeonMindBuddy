@@ -114,7 +114,7 @@ class WriterProjection:
         return self.source_bindings_json is not None
 
     def kwargs(self) -> dict:
-        from application_state.agent_conversation.source_writer_output import POLICY, SCHEMA_NAME, output_schema
+        from application_state.agent_conversation.source_writer_output import POLICY, FINITE_SCHEMA_NAME, finite_output_schema
         cited = self.source_writer_output_policy == POLICY
         if self.source_writer_output_policy is not None and (not cited or not self.source_only):
             raise ValueError("Unsupported source writer output policy")
@@ -131,8 +131,8 @@ class WriterProjection:
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": SCHEMA_NAME if cited else "build_source_passage_answer",
-                    "schema": output_schema() if cited else source_answer_schema(),
+                    "name": FINITE_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "schema": finite_output_schema(json.loads(self.input_json)) if cited else source_answer_schema(),
                     "strict": True,
                 }
                 if self.source_only

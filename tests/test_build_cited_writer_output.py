@@ -179,6 +179,10 @@ def test_real_writer_completion_proof_blocks_forgery_then_completes_and_reopens(
 
     def guarded(service, result):
         assert isinstance(result, t.CitedSourceTurnResult)
+        from application_state.agent_conversation.source_writer_output import FINITE_SCHEMA_NAME, finite_output_schema
+        wire = json.loads(result.writer_request_json)
+        assert wire["text"]["format"]["name"] == FINITE_SCHEMA_NAME
+        assert wire["text"]["format"]["schema"] == finite_output_schema(json.loads(wire["input"]))
         producing_turn = service.list_turns(result.world_id, result.conversation_id)[0]
         with psycopg.connect(application_state_dsn) as conn:
             trace = conn.execute(
