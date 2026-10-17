@@ -10,6 +10,7 @@ import type {
   HistoricalRecapWorldProjectionResponse,
   WorldGraphRecapProjection,
   WorldGraphProjection,
+  WorldGraphProjectionRequest,
 } from "../api/types";
 import {
   filterNumericRecapArtifactRecords,
@@ -754,10 +755,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
-  const reviewIdentity = JSON.stringify([ingestCampaignId, recapSession, selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null]);
+  const reviewIdentity = JSON.stringify([
+    managedWorldId ?? null,
+    ingestCampaignId,
+    recapSession,
+    selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null,
+  ]);
   useLayoutEffect(() => {
     currentReviewIdentity.current = reviewIdentity;
     reviewEpoch.current += 1;
+    readerAttempt.current = null;
     setReviewSource(null);
     setReviewError(null);
     setReviewLoading(false);
@@ -1501,6 +1508,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     const identity = reviewIdentity;
     const epoch = ++reviewEpoch.current;
     const capturedSession = recapSession;
+    const capturedManagedWorldId = managedWorldId?.trim() ?? "";
     const nodes = graphPreview?.candidate_node_count ?? 0;
     const edges = graphPreview?.candidate_edge_count ?? 0;
     const isCurrent = () => epoch === reviewEpoch.current && identity === currentReviewIdentity.current;
@@ -1512,12 +1520,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       const path = resultOwnsSelection ? latestResult?.paths?.normalized_recap : null;
       if (!record && !path && !runId) throw new Error("No saved recap is available for this session.");
       setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: null });
-      const request = buildWorldGraphRecapProjectionRequest({ campaignId: ingestCampaignId, sessionId: `session-${capturedSession}` });
-      if (!request) throw new Error("World Graph mapping is unavailable for this recap.");
       if (runId) {
         // A selected extraction run is an exact source identity. Never replace
         // it with the current normalized recap for the same session.
-        const historical = await getHistoricalRecapWorldProjection(runId);
+        if (!capturedManagedWorldId) {
+          throw new Error("Select a managed World before opening this exact recap projection.");
+        }
+        const historical = await getHistoricalRecapWorldProjection(runId, capturedManagedWorldId);
         if (!isCurrent()) return;
         if (
           historical.runId !== runId ||
@@ -1537,7 +1546,26 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         ) {
           throw new Error("The exact extraction run is missing its source revision or content digest.");
         }
-        if (historical.worldId !== request.worldId || historical.snapshot.worldId !== request.worldId) {
+        if (
+          historical.managedWorldId !== capturedManagedWorldId ||
+          !Number.isInteger(historical.bindingVersion) ||
+          (historical.bindingVersion ?? 0) < 1
+        ) {
+          throw new Error("Historical recap projection does not match the selected managed World binding.");
+        }
+        const request: WorldGraphProjectionRequest = {
+          schema: "dmb_world_graph_projection_request_v1",
+          worldId: historical.worldId,
+          campaignId: ingestCampaignId,
+          scopeMode: "campaign",
+          focus: {
+            kind: "session",
+            sessionId: `session-${capturedSession}`,
+            campaignId: ingestCampaignId,
+          },
+          admissibility: "gm",
+        };
+        if (historical.snapshot.worldId !== historical.worldId) {
           throw new Error("Historical recap projection does not match the selected World.");
         }
         if (!historical.snapshot.revisionId || !historical.snapshot.headRevisionId) {
@@ -1551,6 +1579,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         if (integrityError) throw new Error(integrityError);
         setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: historical });
       } else {
+        const request = buildWorldGraphRecapProjectionRequest({ campaignId: ingestCampaignId, sessionId: `session-${capturedSession}` });
+        if (!request) throw new Error("World Graph mapping is unavailable for this recap.");
         const projection = await postWorldGraphRecapProjection(request);
         if (!isCurrent()) return;
         if (projection.campaignId !== ingestCampaignId || projection.sessionId !== `session-${capturedSession}` || projection.snapshot.worldId !== request.worldId) {

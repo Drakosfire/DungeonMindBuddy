@@ -26,6 +26,20 @@ def _ingest_application_state(application_state_dsn: str) -> str:
 def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
     from apps.live_control_server.services import recap_ingest_context
 
+    # Keep every repo-relative source/run/Graph fixture under this test's
+    # disposable root. Never clear or populate the checkout's own out/ tree.
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.recap_ingest.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    graph_root = tmp_path / "out"
+    graph_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
+
     class FakeContext:
         def as_lineage(self) -> dict[str, object]:
             return {
@@ -874,12 +888,19 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
 
 
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     from application_state.source import service as source_service
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import get_source_artifact
     from apps.live_control_server.services import historical_recap_world_projection
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord,
+        WorldContainerRecord,
+        WorldContainerRegistryDocument,
+    )
     from graph_memory.projection.world_projection import (
         WorldGraphProjection,
         WorldGraphProjectionFocus,
@@ -988,12 +1009,44 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         historical_recap_world_projection, "project_world_graph", project_fixture
     )
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: ROOT)
+    managed_root = tmp_path / "managed-worlds"
+    world_source_root = managed_root / "corpus/elderwyld-markdown"
+    world_source_root.mkdir(parents=True)
+    registry_path = managed_root / "out/registries/world_containers.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text(
+        json.dumps(
+            WorldContainerRegistryDocument(
+                records=[
+                    WorldContainerRecord(
+                        schema_version="dmb_world_container_record_v2",
+                        world_id="elderwyld",
+                        name="Elderwyld",
+                        source_root_relpath="corpus/elderwyld-markdown",
+                        created_at="2026-01-01T00:00:00Z",
+                        native_graph_binding=NativeGraphBindingRecord(
+                            native_world_id="world:elderwyld",
+                            status="active",
+                            binding_version=3,
+                            validated_at="2026-01-01T00:00:00Z",
+                            validated_head_revision_id="rev:observed-head",
+                        ),
+                    )
+                ]
+            ).model_dump(mode="json"),
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(managed_root))
     projection = client.get(
         f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-projection"
+        "?managed_world_id=elderwyld"
     )
     assert projection.status_code == 200, projection.text
     projected = projection.json()
     assert projected["worldId"] == "world:elderwyld"
+    assert projected["managedWorldId"] == "elderwyld"
+    assert projected["bindingVersion"] == 3
     assert projected["sourceArtifactId"] == artifact.source_artifact_id
     assert projected["nodeViews"]["node:mireward"]["label"] == "Mireward"
     assert observed["request"].world_id == "world:elderwyld"
