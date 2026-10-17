@@ -102,13 +102,16 @@ function mockRecapIngestWithInspect(
 function historicalRecapProjectionForRun(runId: string): HistoricalRecapWorldProjectionResponse {
   const sessionNumber = Number(runId.match(/session-(\d+)/i)?.[1] ?? 22);
   const sessionId = `session-${sessionNumber}`;
+  const sourceArtifactId = `artifact:recap:longmont-c2:${sessionId}`;
+  const graphId = `fixture-world-head-${sessionNumber}`;
+  const nodeId = "loc_mireward";
   return {
     ...session23WorldGraphRecapFixture,
     schema: "dmb_historical_recap_world_projection_v1",
     runId,
     runStatus: "candidate_validation_ready",
     sourceDomain: "recap",
-    sourceArtifactId: `artifact:recap:longmont-c2:${sessionId}`,
+    sourceArtifactId,
     sourceRevisionId: `source-revision-${sessionNumber}`,
     campaignId: "longmont-c2",
     sessionId,
@@ -118,8 +121,44 @@ function historicalRecapProjectionForRun(runId: string): HistoricalRecapWorldPro
     sourceSha256: `sha256:${"a".repeat(64)}`,
     sourceStatus: "available",
     graphStatus: "available",
+    graphId,
+    markdown: `# Session ${sessionNumber} — Mireward Road\n\nThe party presses on near [Mireward](dmb-node:${nodeId}).`,
+    focus: {
+      focusSessionId: sessionId,
+      focusedEvidenceRefIds: [],
+      focusedEdgeIds: [],
+      focusedNodeIds: [nodeId],
+    },
+    nodeViews: {
+      [nodeId]: {
+        nodeId,
+        label: "Mireward",
+        kind: "location",
+        role: "place",
+        aliases: ["Mireward"],
+        sourceDomains: ["recap"],
+        summary: "A road in the synthetic exact-run fixture.",
+        anchoredToFocusSession: true,
+        campaignScope: "longmont-c2",
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [sourceArtifactId],
+      },
+    },
+    mentions: [{
+      mentionId: `mention:${sessionId}:mireward`,
+      nodeId,
+      label: "Mireward",
+      startOffset: null,
+      endOffset: null,
+      evidenceRefIds: [],
+    }],
     snapshot: {
       ...session23WorldGraphRecapFixture.snapshot,
+      revisionId: graphId,
+      headRevisionId: graphId,
       worldId: "world:elderwyld",
       focus: { kind: "session", campaignId: "longmont-c2", sessionId },
     },
@@ -922,7 +961,10 @@ describe("IngestionModule", () => {
     );
     expect(ingest.mock.calls.filter(([body]) => body.operation !== "inspect_status")).toHaveLength(1);
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Session 22 — Mireward Road" })).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
+    expect(document.querySelector("button.recap-node-token")).toHaveTextContent("Mireward");
+    expect(screen.getByText(/Exact extraction run · run-session-22 · source bound by digest/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByText("The party pressed on.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stage + Preview" })).not.toBeInTheDocument();
