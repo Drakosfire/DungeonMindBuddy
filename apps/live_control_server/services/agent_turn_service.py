@@ -1101,9 +1101,12 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.ControllerWriterGraphExecutionPolicyV3
+            policy_class = (graph_types.BuildSectionControllerWriterPolicyV1
+                if budget.get("savedSourceInputPolicy") == "selected_saved_build_sections_v1" else
+                graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
             policy = policy_class(
+                **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
                 source_read_accounting="settled_receipts_v1",
                 **policy_fields,
@@ -1843,6 +1846,27 @@ class _PolicyExecutionAdapter:
                         if (target in allowed and set(refs).issubset(operation.evidence_ref_ids)
                                 and set(refs).issubset(evidence)):
                             build_closures.append((kind, target, refs))
+            if self.budget.get("apiMode") == "typesafe_decision":
+                section_state = json.loads(body["input"]) if writing else body.get("state", {})
+                selected = section_state.get("exposure", {}).get("saved_sections", [])
+                if selected and not isinstance(execution.policy, graph_types.BuildSectionControllerWriterPolicyV1):
+                    raise ValueError("Saved section dispatch requires the explicit selected-section input policy")
+                if selected:
+                    section_records = [graph_types.ValidatedBuildSectionReadV1.model_validate(item) for item in selected]
+                    by_id = {item.event_id: item for item in execution.events
+                        if isinstance(item, graph_types.ValidatedBuildSectionReadV1)}
+                    if any(by_id.get(item.event_id) != item for item in section_records):
+                        raise ValueError("Provider section bytes differ from completed parent reads")
+                    inclusion = graph_types.BuildSectionProviderInclusionV1(
+                        event_id=uuid4(), sequence=len(execution.events), kind="build_section_provider_inclusion_v1",
+                        context_receipt_sha256=execution.context_receipt_sha256,
+                        execution_policy_sha256=execution.execution_policy_sha256,
+                        provider_attempt_id=provider_attempt_id, envelope_sha256=view["payloadSha256"],
+                        section_event_ids=sorted([item.event_id for item in section_records], key=str),
+                        sections_sha256=graph_types.build_sections_digest(section_records))
+                    self.turn = _require_fresh_execution_append(self.fence.append(
+                        "record_build_section_inclusion", "inclusion", inclusion))
+                    execution = self._broker_execution()
             event_fields = dict(
                 event_id=uuid4(), sequence=len(execution.events),
                 provider_attempt_id=provider_attempt_id,
@@ -1959,7 +1983,7 @@ class _PolicyExecutionAdapter:
             )
             return False
 
-    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=()) -> dict[str, Any]:
+    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
         from .build_jev_dispatch import controller_exposure, first_state, request_budget
         if self.failure is not None or self.fence is None or self.budget != request_budget():
@@ -1979,10 +2003,24 @@ class _PolicyExecutionAdapter:
                     and event.provider_attempt_id == prior.provider_attempt_id]
         if outcomes[-1:] != ["response_received"]:
             raise ValueError("Controller exposure requires a resolved controller response")
+        selected_sections = []
+        section_read_ids = tuple(str(read_id) for read_id in section_read_ids)
+        if section_read_ids and not isinstance(execution.policy, _app_state_graph_execution_types().BuildSectionControllerWriterPolicyV1):
+            raise ValueError("Saved section exposure requires the explicit selected-section input policy")
+        if len(set(section_read_ids)) != len(section_read_ids):
+            raise ValueError("Saved section selection must be distinct")
+        for read_id in section_read_ids:
+            matches = [event for event in execution.events
+                if isinstance(event, _app_state_graph_execution_types().ValidatedBuildSectionReadV1)
+                and str(event.read_id) == str(read_id)]
+            if len(matches) != 1:
+                raise ValueError("Saved section selection is not a completed parent read")
+            selected_sections.append(matches[0].model_dump(mode="json", by_alias=True))
+        selected_sections.sort(key=lambda event: event["event_id"])
         graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
         if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
             raise ValueError("Controller exposure requires exact parent payload strings")
-        if (not graph_payloads and not source_payloads or len(set(graph_payloads)) != len(graph_payloads)
+        if (not graph_payloads and not source_payloads and not selected_sections or len(set(graph_payloads)) != len(graph_payloads)
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
@@ -2021,7 +2059,7 @@ class _PolicyExecutionAdapter:
             execution_policy_sha256=execution.execution_policy_sha256,
             graph_payloads=graph_payloads, source_payloads=source_payloads,
             graph_event_ids=tuple(sorted(str(item.event_id) for item in graphs)),
-            source_event_ids=tuple(sorted({str(item.event_id) for item in sources})))
+            source_event_ids=tuple(sorted({str(item.event_id) for item in sources})), saved_sections=selected_sections)
         self._build_controller_exposure = manifest
         return manifest.state()
 
@@ -2060,11 +2098,11 @@ class _PolicyExecutionAdapter:
             "record_validated_build_section", "receipt", event, source_markdown=source.markdown))
         return event.model_dump_json(by_alias=True)
 
-    def stage_build_writer(self, *, graph_payloads=(), source_payloads=()):
+    def stage_build_writer(self, *, graph_payloads=(), source_payloads=(), section_read_ids=()):
         from . import build_jev_writer as writer
         # Reuse the existing parent inclusion/completeness/source proof, never a
         # worker-authored packet or operation-wide evidence union.
-        self.stage_build_controller_exposure(graph_payloads=graph_payloads, source_payloads=source_payloads)
+        self.stage_build_controller_exposure(graph_payloads=graph_payloads, source_payloads=source_payloads, section_read_ids=section_read_ids)
         roles = self._broker_execution().policy.provider_roles
         if roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
             raise ValueError("Frozen writer route is incompatible with GE Responses")
@@ -2128,18 +2166,41 @@ class _PolicyExecutionAdapter:
             raise ValueError("Writer answer shape is invalid")
         if any(not isinstance(s, dict) for s in candidate["answer_segments"]):
             raise ValueError("Writer segment shape is invalid")
-        if any(s.get("kind") == "saved_source_claim" for s in candidate.get("answer_segments", [])):
-            raise ValueError("Saved source body was not supplied to the writer")
+        source_bindings = []
+        graph_types = _app_state_graph_execution_types()
+        execution = self._broker_execution()
+        inclusions = [item for item in execution.events
+            if isinstance(item, graph_types.BuildSectionProviderInclusionV1)
+            and item.provider_attempt_id == self.producing_provider_attempt_id]
+        included = set(inclusions[0].section_event_ids) if len(inclusions) == 1 else set()
+        reads = {str(item.read_id): item for item in execution.events
+            if isinstance(item, graph_types.ValidatedBuildSectionReadV1) and item.event_id in included}
+        for index, segment in enumerate(candidate["answer_segments"]):
+            if segment.get("kind") != "saved_source_claim":
+                continue
+            ids = segment.get("section_read_ids")
+            if (set(segment) != {"kind", "text", "section_read_ids"} or not isinstance(ids, list)
+                    or not isinstance(segment.get("text"), str) or not segment["text"].strip()
+                    or not ids or any(not isinstance(rid, str) or rid not in reads for rid in ids)
+                    or len(set(ids)) != len(ids)):
+                raise ValueError("Saved source claim lacks exact producing-writer included section reads")
+            source_bindings.append(graph_types.BuildSectionSegmentBindingV1(segment_index=index,
+                text_sha256=sha256(segment["text"].encode()).hexdigest(),
+                section_event_ids=sorted([reads[rid].event_id for rid in ids], key=str)))
+            candidate["answer_segments"][index] = {"kind": "saved_source_claim", "text": segment["text"],
+                "content_sha256": self.fence.turn.graph_context_receipt.source_basis.content_sha256}
         turn = self.fence.turn
-        completion, bindings, answer = _parse_policy_completion(final_text, turn,
+        completion, bindings, answer = _parse_policy_completion(json.dumps(candidate), turn,
             self.producing_provider_attempt_id,
-            build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id))
+            build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id),
+            build_section_bindings=source_bindings)
         self.context_capture.answer_context(answer)
         turn = self.stop()
         self.turn = self.service.complete_turn(TurnResult(world_id=turn.world_id,
             conversation_id=turn.conversation_id, turn_id=turn.turn_id,
             expected_revision=turn.revision, assistant_text=answer, completion=completion,
-            producing_provider_attempt_id=self.producing_provider_attempt_id, claim_graph_event_ids=bindings))
+            producing_provider_attempt_id=self.producing_provider_attempt_id, claim_graph_event_ids=bindings,
+            build_section_bindings=source_bindings))
         return self.turn
 
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:
@@ -3410,7 +3471,7 @@ def _parse_policy_completion(
     final_text: str,
     turn: Turn,
     producing_provider_attempt_id: UUID,
-    *, build_evidence: _BuildClaimEvidence | None = None,
+    *, build_evidence: _BuildClaimEvidence | None = None, build_section_bindings=None,
 ) -> tuple[Any, dict[str, list[UUID]], str]:
     """Admit a strict typed answer, then bind every claim to producing evidence."""
     graph_types = _app_state_graph_execution_types()
@@ -3621,8 +3682,10 @@ def _parse_policy_completion(
             "citation_map": typed_citations,
         })
         stage, reason = "binding", "completion_binding"
+        validation_execution = graph_types.project_build_section_answer_bindings(
+            execution, completion, producing_provider_attempt_id, build_section_bindings or [])
         graph_types.validate_execution_completion(
-            completion, receipt, execution, producing_provider_attempt_id, bindings
+            completion, receipt, validation_execution, producing_provider_attempt_id, bindings
         )
         answer_text = "\n".join(segment.text for segment in completion.answer_segments)
         return completion, bindings, answer_text
