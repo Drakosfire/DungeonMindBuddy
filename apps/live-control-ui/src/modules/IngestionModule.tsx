@@ -2612,6 +2612,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       }}
                       selectedCampaignId={ingestCampaignId}
                       onSelectCampaign={handleIngestCampaignSelect}
+                      showProjectionToolbar={false}
                     />
                   )}
                 </>

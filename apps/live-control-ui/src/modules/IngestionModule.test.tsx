@@ -995,7 +995,12 @@ describe("IngestionModule", () => {
       await pendingList.promise;
     });
 
-    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    const recapReader = await screen.findByRole("region", { name: "Graph-enriched recap" });
+    expect(within(recapReader).queryByLabelText("Focus session")).not.toBeInTheDocument();
+    expect(within(recapReader).queryByRole("button", { name: "Load" })).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Campaign")).toHaveLength(1);
+    expect(screen.getByLabelText("Prior processed recap")).toBeInTheDocument();
+    expect(within(recapReader).getByTestId("published-recap-local-authoring")).toBeInTheDocument();
     await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
       expect.objectContaining({ campaignId: "longmont-c2", focus: expect.objectContaining({ sessionId: "session-10" }) }),
     ));

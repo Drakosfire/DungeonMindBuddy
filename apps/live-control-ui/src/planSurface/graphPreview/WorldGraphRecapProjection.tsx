@@ -34,6 +34,7 @@ interface WorldGraphRecapProjectionProps {
   draftSessionId?: string;
   onLoad?: () => void;
   canLoad?: boolean;
+  showProjectionToolbar?: boolean;
   recapRecord?: RecapArtifactRecord | null;
   onRefreshProjection?: () => Promise<unknown>;
 }
@@ -49,6 +50,7 @@ export function WorldGraphRecapProjectionView({
   draftSessionId = selectedSessionId,
   onLoad,
   canLoad = true,
+  showProjectionToolbar = true,
   recapRecord = null,
   onRefreshProjection,
 }: WorldGraphRecapProjectionProps) {
@@ -179,7 +181,7 @@ export function WorldGraphRecapProjectionView({
 
   return (
     <div className="recap-reader-root world-graph-recap-root" data-object-open={objectOpen}>
-      {reviewToolbar}
+      {showProjectionToolbar ? reviewToolbar : null}
       {readAuthorityError ? <p role="alert">{readAuthorityError}</p> : worldLensProjection && !lensSnapshot ? (
         <p role="note">World lens unavailable; node inspection uses this recap's verified native snapshot.</p>
       ) : null}
