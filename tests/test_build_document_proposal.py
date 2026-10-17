@@ -68,10 +68,13 @@ def test_source_sdk_durable_proposal_and_no_replay(request_case):
     wire=Wire(request)
     result=asyncio.run(owner.compose(request,transport=wire))
     assert result.state=='proposed' and result.proposal.replacement_markdown==TABLE
-    assert len(wire.calls)==1
+    assert len(wire.calls)==1 and result.observation['conformance_retry_count']==0
     body=json.loads(wire.calls[0].content)
     assert body['tools']==[] and json.loads(body['input'])['draft_markdown']==source.markdown
-    assert 'json' in body['input'].lower(), 'OpenAI JSON mode requires json in input, not only system instructions'
+    from application_state.build_proposal.types import BuildGeneratedProposal
+    assert body['text']['format'] == {'type':'json_schema','name':'build_document_proposal',
+        'schema':BuildGeneratedProposal.model_json_schema(),'strict':True}
+    assert 'output_format' not in json.loads(body['input'])
     assert result.raw_response==wire.text
     assert BuildProposalService().get('elderwyld',result.action_id)==result
     again=asyncio.run(owner.compose(request,transport=wire))
@@ -169,3 +172,18 @@ def test_routes_require_gm_before_storage(request_case,monkeypatch,method,suffix
         reply=client.request(method,'/api/live/agent/worlds/elderwyld/build-proposals'+suffix,params=params,
             json=request.model_dump(mode='json') if method=='POST' and not suffix else None)
         assert reply.status_code==403
+
+
+
+def test_strict_schema_failure_retains_raw_response_usage_and_never_repairs(request_case):
+    request,_,_=request_case
+    wire=Wire(request,text='{"replacement_markdown":123}')
+    with pytest.raises(Exception):
+        asyncio.run(owner.compose(request,transport=wire))
+    row=BuildProposalService().get('elderwyld',request.idempotency_key)
+    assert row.state=='failed' and row.raw_response==wire.text
+    assert len(wire.calls)==1
+    assert row.observation['input_tokens']==100 and row.observation['output_tokens']==40
+    assert row.observation['conformance_retry_count']==0
+    assert asyncio.run(owner.compose(request,transport=wire))==row
+    assert len(wire.calls)==1

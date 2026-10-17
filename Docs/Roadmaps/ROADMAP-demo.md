@@ -68,10 +68,13 @@ capability uses genuine workspace registry revisions and durable World-conversat
 proposal receipts; it does not fabricate Plan authority or publish Graph facts.
 Existing Graph-backed Ask remains available. Creative additions are proposed lore.
 
-Implementation is under `HANDOFF-AGENT-build-compose-insertion.md`. Backend,
-editor and conversation integration are in development; independent exact-head
-review, rendered desktop/narrow checks, matched deployment and a live synthetic
-provider witness remain gates. This is not yet an available operator capability.
+Buddy#1288 implements the backend, editor bridge and ordinary conversation
+proposal under `HANDOFF-AGENT-build-compose-insertion.md`. Independent review,
+279 UI tests, mounted Save/reopen and desktop/narrow component rendering passed.
+A synthetic JSON-object call succeeded, then operator review required strict
+schema adoption. GE#23 supplies guarded zero-repair strict schemas; the consumer
+and matched rollout follow `HANDOFF-AGENT-build-strict-schema.md`. Operator
+availability remains pending deployment and inspection.
 Cross-document edits, automatic Graph publication and replacing selected text
 remain separate work. DOGFOOD continues Ingest ownership.
 

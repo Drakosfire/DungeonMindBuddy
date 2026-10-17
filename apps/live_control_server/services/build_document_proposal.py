@@ -7,7 +7,7 @@ import os
 import re
 from uuid import UUID
 
-from generationengine import GenerationClient, TextRequest
+from generationengine import GenerationClient, GenerationEngineError, TextRequest
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 
@@ -122,13 +122,14 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     # Graph citation, admission or claim about played truth.
     history = AgentConversationService().list_turns(world, reservation.conversation_id, limit=6)
     messages = [{"user": turn.user_text, "assistant": turn.assistant_text} for turn in history if turn.status == "completed"]
-    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "output_format": "json_object", "instruction": reservation.instruction,
+    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "instruction": reservation.instruction,
         "source_basis": reservation.basis.model_dump(mode="json"), "source_title": snapshot.record.title,
         "draft_markdown": request.draft_markdown, "recent_dialogue": messages,
         "source_class": "proposed_authored_worldbuilding_not_played_truth"}, ensure_ascii=False, separators=(",", ":"))
+    schema = BuildGeneratedProposal.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM,
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
-        "text": {"format": {"type": "json_object"}}, "tools": [], "stream": False}
+        "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": False}
     record, created = store.reserve(reservation)
     if not created:
         return record
@@ -160,19 +161,24 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     try:
         provider = OpenAITextProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
         client = GenerationClient(text_providers={"openai": provider})
-        result = await client.generate_text(TextRequest(provider="openai", model=model,
+        async def preserve_attempt(event):
+            if event.text is not None:
+                advance("response_received", raw_response=event.text)
+        result = await client.generate_structured(TextRequest(provider="openai", model=model,
             user_prompt=packet, system_prompt=SYSTEM, temperature=None, max_output_tokens=4096,
-            reasoning_effort="low", json_object=True, max_transport_retries=0))
+            reasoning_effort="low", json_schema=schema, schema_name="build_document_proposal",
+            max_conformance_retries=0, max_transport_retries=0), on_attempt_completed=preserve_attempt)
         if not isinstance(result.text, str):
             raise BuildComposeError("build_compose_output_unavailable")
         advance("response_received", raw_response=result.text, observation=result.observation.model_dump(mode="json"))
         proposal = _result(result.text)
         advance("proposed", proposal=proposal)
         return record
-    except Exception:
+    except Exception as exc:
         # Preserve uncertainty and forbid unchanged replay after SDK entry.
         if record.state in {"reserved", "authorized", "response_received"}:
-            advance("failed", failure_code="build_compose_failed")
+            fields = {"observation": exc.observation.model_dump(mode="json")} if isinstance(exc, GenerationEngineError) else {}
+            advance("failed", failure_code="build_compose_failed", **fields)
         elif record.state == "sdk_entered":
             advance("unknown", failure_code="provider_outcome_unknown")
         raise
