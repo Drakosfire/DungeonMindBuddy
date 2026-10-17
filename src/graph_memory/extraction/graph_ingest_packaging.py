@@ -301,6 +301,201 @@ def _span_identity(span: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _evidence_span_ids(evidence_ref: Mapping[str, Any]) -> list[str]:
+    return [
+        value.strip()
+        for key in ("span_id", "source_span_ref_id")
+        if isinstance((value := evidence_ref.get(key)), str) and value.strip()
+    ]
+
+
+def _candidate_evidence_ref_entries(
+    candidate_graph: Mapping[str, Any],
+) -> list[tuple[str, dict[str, Any]]]:
+    nodes_key, edges_key, beats_key = _graph_list_fields(dict(candidate_graph))
+    entries: list[tuple[str, dict[str, Any]]] = []
+    for field in (nodes_key, edges_key, beats_key, "source_observations"):
+        objects = candidate_graph.get(field)
+        if not isinstance(objects, list):
+            continue
+        for object_index, obj in enumerate(objects):
+            if not isinstance(obj, dict):
+                continue
+            refs = obj.get("evidence_refs")
+            if not isinstance(refs, list):
+                continue
+            for ref_index, ref in enumerate(refs):
+                if isinstance(ref, dict):
+                    entries.append(
+                        (f"{field}[{object_index}].evidence_refs[{ref_index}]", ref)
+                    )
+    top_refs = candidate_graph.get("evidence_refs")
+    if isinstance(top_refs, list):
+        for ref_index, ref in enumerate(top_refs):
+            if isinstance(ref, dict):
+                entries.append((f"evidence_refs[{ref_index}]", ref))
+    return entries
+
+
+def _legacy_source_span_aliases(
+    source_span_index: Mapping[str, Any],
+) -> tuple[str | None, dict[str, list[dict[str, Any]]]]:
+    """Index only the known pre-v1 alias that omitted the artifact digest."""
+    if source_span_index.get("schema") != "dmb_source_span_index_v1":
+        return None, {}
+    source_artifact_id = source_span_index.get("source_artifact_id")
+    content_sha256 = source_span_index.get("content_sha256")
+    if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
+        return None, {}
+    if not isinstance(content_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", content_sha256):
+        return source_artifact_id, {}
+    source_digest_suffix = f":{content_sha256[:12]}"
+    if not source_artifact_id.endswith(source_digest_suffix):
+        return source_artifact_id, {}
+
+    legacy_artifact_id = source_artifact_id[: -len(source_digest_suffix)]
+    canonical_span_prefix = f"{source_artifact_id}:span:{content_sha256[:12]}:"
+    aliases: dict[str, list[dict[str, Any]]] = {}
+    spans = source_span_index.get("spans")
+    for span in (spans if isinstance(spans, list) else []):
+        if not isinstance(span, dict):
+            continue
+        span_id = _span_identity(span)
+        if not isinstance(span_id, str) or not span_id.startswith(canonical_span_prefix):
+            continue
+        alias = f"{legacy_artifact_id}{span_id[len(source_artifact_id):]}"
+        aliases.setdefault(alias, []).append(span)
+    return source_artifact_id, aliases
+
+
+def _quotes_match_source_span(
+    evidence_ref: Mapping[str, Any], span: Mapping[str, Any], recap_text: str
+) -> bool:
+    quotes = evidence_ref.get("anchor_quotes")
+    if not isinstance(quotes, list) or not quotes:
+        return False
+    normalized_quotes: list[str] = []
+    for quote in quotes:
+        if not isinstance(quote, str) or not quote.strip():
+            return False
+        normalized_quotes.append(quote.strip())
+
+    start_line = span.get("start_line")
+    end_line = span.get("end_line")
+    lines = recap_text.splitlines()
+    if (
+        not isinstance(start_line, int)
+        or isinstance(start_line, bool)
+        or not isinstance(end_line, int)
+        or isinstance(end_line, bool)
+        or start_line < 1
+        or end_line < start_line
+        or end_line > len(lines)
+    ):
+        return False
+    span_text = "\n".join(lines[start_line - 1 : end_line])
+    return all(quote in span_text for quote in normalized_quotes)
+
+
+def _repair_candidate_evidence_span_aliases(
+    candidate_graph: dict[str, Any],
+    *,
+    source_span_index: Mapping[str, Any],
+    recap_text: str,
+) -> list[dict[str, Any]]:
+    """Resolve the exact shortened v1 alias only with source and quote proof."""
+    expected_source_artifact_id, aliases = _legacy_source_span_aliases(source_span_index)
+    if not expected_source_artifact_id or not aliases:
+        return []
+    spans = source_span_index.get("spans")
+    canonical_spans = {
+        span_id: span
+        for span in (spans if isinstance(spans, list) else [])
+        if isinstance(span, dict)
+        for span_id in [_span_identity(span)]
+        if isinstance(span_id, str)
+    }
+    expected_source_ref_id = f"{expected_source_artifact_id}:text"
+    repairs: list[dict[str, Any]] = []
+
+    for reference_path, evidence_ref in _candidate_evidence_ref_entries(candidate_graph):
+        if evidence_ref.get("source_artifact_id") != expected_source_artifact_id:
+            continue
+        if evidence_ref.get("source_ref_id") != expected_source_ref_id:
+            continue
+
+        span_fields = [
+            (key, value)
+            for key in ("span_id", "source_span_ref_id")
+            if isinstance((value := evidence_ref.get(key)), str) and value.strip()
+        ]
+        if not span_fields:
+            continue
+
+        resolved_ids: set[str] = set()
+        legacy_fields: list[tuple[str, str]] = []
+        proof_span: dict[str, Any] | None = None
+        for key, span_id in span_fields:
+            if span_id in canonical_spans:
+                resolved_ids.add(span_id)
+                proof_span = canonical_spans[span_id]
+                continue
+            matches = aliases.get(span_id, [])
+            if len(matches) != 1:
+                resolved_ids.clear()
+                legacy_fields.clear()
+                proof_span = None
+                break
+            span = matches[0]
+            canonical_id = _span_identity(span)
+            if not isinstance(canonical_id, str):
+                resolved_ids.clear()
+                legacy_fields.clear()
+                proof_span = None
+                break
+            resolved_ids.add(canonical_id)
+            legacy_fields.append((key, span_id))
+            proof_span = span
+
+        if (
+            not legacy_fields
+            or len(resolved_ids) != 1
+            or proof_span is None
+            or not _quotes_match_source_span(evidence_ref, proof_span, recap_text)
+        ):
+            continue
+
+        canonical_id = next(iter(resolved_ids))
+        legacy_ids = {span_id for _, span_id in legacy_fields}
+        source_anchor_id = evidence_ref.get("source_anchor_id")
+        valid_anchor_ids = {
+            f"anchor:{canonical_id}",
+            *(f"anchor:{span_id}" for span_id in legacy_ids),
+        }
+        if source_anchor_id is not None and (
+            not isinstance(source_anchor_id, str)
+            or source_anchor_id not in valid_anchor_ids
+        ):
+            continue
+
+        for key, _ in legacy_fields:
+            evidence_ref[key] = canonical_id
+        if evidence_ref.get("label") in legacy_ids:
+            evidence_ref["label"] = canonical_id
+        if source_anchor_id in {f"anchor:{span_id}" for span_id in legacy_ids}:
+            evidence_ref["source_anchor_id"] = f"anchor:{canonical_id}"
+        repairs.append(
+            {
+                "reference_path": reference_path,
+                "legacy_span_ids": sorted(legacy_ids),
+                "canonical_span_id": canonical_id,
+                "anchor_quote_count": len(evidence_ref.get("anchor_quotes", [])),
+                "basis": "unique indexed span with verbatim source quotes",
+            }
+        )
+    return repairs
+
+
 def _is_paragraph_span_id(span_id: str) -> bool:
     return ":recap:paragraph:" in span_id or ":span:" in span_id
 
@@ -553,16 +748,19 @@ def _candidate_counts(
             for ref in obj.get("evidence_refs", []) if isinstance(obj.get("evidence_refs"), list) else []:
                 evidence_ref_count += 1
                 if isinstance(ref, dict):
-                    span_id = ref.get("span_id") or ref.get("source_span_ref_id")
+                    span_ids = _evidence_span_ids(ref)
                 elif isinstance(ref, str):
-                    span_id = ref
+                    span_ids = [ref] if ref else []
                 else:
                     continue
-                if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
+                if span_ids and (
+                    known_span_ids is None
+                    or all(span_id in known_span_ids for span_id in span_ids)
+                ):
                     resolvable_count += 1
-                if isinstance(span_id, str) and _is_paragraph_span_id(span_id):
+                if any(_is_paragraph_span_id(span_id) for span_id in span_ids):
                     paragraph_evidence_ref_count += 1
-                if isinstance(span_id, str) and _is_full_text_span_id(span_id):
+                if any(_is_full_text_span_id(span_id) for span_id in span_ids):
                     full_text_fallback_ref_count += 1
     top_refs = candidate_graph.get("evidence_refs", [])
     if isinstance(top_refs, list):
@@ -570,12 +768,15 @@ def _candidate_counts(
         for ref in top_refs:
             if not isinstance(ref, dict):
                 continue
-            span_id = ref.get("span_id") or ref.get("source_span_ref_id")
-            if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
+            span_ids = _evidence_span_ids(ref)
+            if span_ids and (
+                known_span_ids is None
+                or all(span_id in known_span_ids for span_id in span_ids)
+            ):
                 resolvable_count += 1
-            if isinstance(span_id, str) and _is_paragraph_span_id(span_id):
+            if any(_is_paragraph_span_id(span_id) for span_id in span_ids):
                 paragraph_evidence_ref_count += 1
-            if isinstance(span_id, str) and _is_full_text_span_id(span_id):
+            if any(_is_full_text_span_id(span_id) for span_id in span_ids):
                 full_text_fallback_ref_count += 1
     return GraphIngestHealth(
         candidate_graph_valid=True,
@@ -608,6 +809,7 @@ def _write_validation_report(
     candidate_graph_path: Path,
     candidate_graph: dict[str, Any],
     source_span_index_path: Path | None = None,
+    evidence_reference_repairs: list[dict[str, Any]] | None = None,
 ) -> CandidateValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
@@ -641,15 +843,17 @@ def _write_validation_report(
         if not isinstance(ref, dict):
             continue
         ref_id = ref.get("id")
-        span_id = ref.get("span_id") or ref.get("source_span_ref_id")
+        span_ids = _evidence_span_ids(ref)
         if not isinstance(ref_id, str) or not ref_id:
             warnings.append("evidence ref missing id")
             continue
         known_evidence_ids.add(ref_id)
-        if not isinstance(span_id, str) or not span_id:
+        if not span_ids:
             warnings.append(f"evidence ref {ref_id} missing span_id")
-        elif known_span_ids and span_id not in known_span_ids:
-            warnings.append(f"unresolved evidence ref span_id: {span_id}")
+        else:
+            for span_id in span_ids:
+                if known_span_ids and span_id not in known_span_ids:
+                    warnings.append(f"unresolved evidence ref span_id: {span_id}")
     for field in (nodes_key, edges_key, beats_key, "source_observations"):
         for obj in candidate_graph.get(field, []) if isinstance(candidate_graph.get(field), list) else []:
             if not isinstance(obj, dict):
@@ -663,9 +867,10 @@ def _write_validation_report(
                             f"candidate {field} {obj_id} references unknown evidence ref: {ref}"
                         )
                     if isinstance(ref, dict):
+                        for spref in _evidence_span_ids(ref):
+                            if known_span_ids and spref not in known_span_ids:
+                                warnings.append(f"unresolved evidence ref span_id: {spref}")
                         spref = ref.get("span_id") or ref.get("source_span_ref_id")
-                        if known_span_ids and isinstance(spref, str) and spref not in known_span_ids:
-                            warnings.append(f"unresolved evidence ref span_id: {spref}")
                         if (
                             isinstance(spref, str)
                             and spref
@@ -683,13 +888,22 @@ def _write_validation_report(
     all_refs = (top_refs if isinstance(top_refs, list) else []) + nested_refs
     all_refs = [ref for ref in all_refs if isinstance(ref, dict)]
     unresolved_count = sum(
-        1 for ref in all_refs
-        if not (ref.get("span_id") or ref.get("source_span_ref_id"))
-        or (known_span_ids and
-            (ref.get("span_id") or ref.get("source_span_ref_id")) not in known_span_ids)
+        1
+        for ref in all_refs
+        if not _evidence_span_ids(ref)
+        or (
+            known_span_ids
+            and any(span_id not in known_span_ids for span_id in _evidence_span_ids(ref))
+        )
     )
     if unresolved_count:
         errors.append(f"unresolved nested/top-level evidence references: {unresolved_count}")
+    diagnostics = candidate_graph.get("diagnostics")
+    if isinstance(diagnostics, dict):
+        diagnostics["unresolved_evidence_refs"] = unresolved_count
+        diagnostics["validation_warning_count"] = len(warnings)
+        diagnostics["evidence_reference_repair_count"] = len(evidence_reference_repairs or [])
+        write_json(candidate_graph_path, candidate_graph)
     incomplete_fill_count = sum(
         1 for node in (candidate_graph.get(nodes_key) or [])
         if isinstance(node, dict)
@@ -726,6 +940,7 @@ def _write_validation_report(
         "valid": not errors,
         "errors": errors,
         "warnings": warnings,
+        "evidence_reference_repairs": evidence_reference_repairs or [],
         "diagnostics": {
             "party_fill_incomplete_node_count": incomplete_fill_count,
             "evidence_ref_count": len(all_refs),
@@ -993,6 +1208,7 @@ def run_graph_preview_extraction(
     extraction_summary = "Existing candidate graph artifact wrapped for preview ingestion."
     raw_model_response_path: Path | None = None
     category_pass_steps: list[GraphIngestStepStatus] = []
+    evidence_reference_repairs: list[dict[str, Any]] = []
 
     if options.candidate_graph_path is not None:
         if not options.candidate_graph_path.exists():
@@ -1000,6 +1216,10 @@ def run_graph_preview_extraction(
                 f"candidate graph does not exist: {options.candidate_graph_path}"
             )
         candidate_graph_path = output_dir / "candidate_graph.json"
+        if options.candidate_graph_path.resolve() == candidate_graph_path.resolve():
+            # Never repair the extraction-run source in place when an operator
+            # reuses its directory as the package destination.
+            candidate_graph_path = output_dir / "candidate_graph_packaged.json"
         safe_relative_artifact_uri(candidate_graph_path)
         # Preserve exact production bytes so packaged digests match ExtractionRun components.
         if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
@@ -1011,6 +1231,12 @@ def run_graph_preview_extraction(
             session_id=session_id,
             source_artifact_id=packaged_source_artifact_id,
         )
+        evidence_reference_repairs = _repair_candidate_evidence_span_aliases(
+            candidate_graph,
+            source_span_index=packaged_span_index,
+            recap_text=recap_text,
+        )
+        write_json(candidate_graph_path, candidate_graph)
         validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
@@ -1018,6 +1244,7 @@ def run_graph_preview_extraction(
             candidate_graph_path=candidate_graph_path,
             candidate_graph=candidate_graph,
             source_span_index_path=source_span_index_path,
+            evidence_reference_repairs=evidence_reference_repairs,
         )
         validation_report_path = validation.path
         artifacts["candidate_graph"] = _artifact(
@@ -1132,6 +1359,11 @@ def run_graph_preview_extraction(
                 session_id=session_id,
                 source_artifact_id=packaged_source_artifact_id,
             )
+            evidence_reference_repairs = _repair_candidate_evidence_span_aliases(
+                candidate_graph,
+                source_span_index=packaged_span_index,
+                recap_text=recap_text,
+            )
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
             if extraction.registry_context_graph:
@@ -1175,6 +1407,7 @@ def run_graph_preview_extraction(
                 candidate_graph_path=candidate_graph_path,
                 candidate_graph=candidate_graph,
                 source_span_index_path=source_span_index_path,
+                evidence_reference_repairs=evidence_reference_repairs,
             )
             validation_report_path = validation.path
             artifacts["candidate_graph"] = _artifact(
