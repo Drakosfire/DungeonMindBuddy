@@ -1,6 +1,6 @@
 # AGENT: adopt prepared offline accounting in ordinary Build conversation
 
-ACTIVE under PRIME's responsive source-faithful Graph collaboration goal. Base1828966a830ac2a30e3645ba1b824ac9d0648b66. Serial successor to merged1345. PRIME implements foundations solo; ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout and existing dependencies; no new worktree/environment/source export/tmp. No serving, retained graph/data writes or provider calls during implementation. DOGFOOD owns the separate pinned2f43 runtime rollout and Ingest/Combat.
+MERGED #1346 at a4ce763ccf583eeb97c5a0db643e776d8cb2c143, reviewed head85d53ae1e49c065d77dbf316887ed1a9661c5b06; nine independent owning tests passed, no findings. Implementation lease ended; HANDOFF-AGENT-prepared-default-runtime-rollout.md owns operational adoption. Originally ACTIVE under PRIME's responsive source-faithful Graph collaboration goal. Base1828966a830ac2a30e3645ba1b824ac9d0648b66. Serial successor to merged1345. PRIME implements foundations solo; ARCHITECTURE independently reviews. Reuse buddy-tool-denial-delivery checkout and existing dependencies; no new worktree/environment/source export/tmp. No serving, retained graph/data writes or provider calls during implementation. DOGFOOD owns the separate pinned2f43 runtime rollout and Ingest/Combat.
 
 ## Gap and accepted design
 
