@@ -241,3 +241,24 @@ def test_real_backup_restore_keeps_candidate_and_storage_receipt(database, tmp_p
                 (name,),
             )
             conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+
+
+def test_known_rejection_can_retry_same_bytes_but_unknown_cannot(database):
+    row = media.stage_image(png(), "rejected-owner", {}, dsn=database)
+    first = media.claim_upload(row["asset_id"], "rejected-owner", dsn=database)
+    media.mark_upload_rejected(row["asset_id"], "rejected-owner", first, dsn=database)
+    second = media.claim_upload(row["asset_id"], "rejected-owner", dsn=database)
+    assert second != first
+    with pytest.raises(ApplicationStateConflictError):
+        media.complete_upload(
+            row["asset_id"], "rejected-owner", first, receipt(row), dsn=database
+        )
+    media.mark_upload_unknown(row["asset_id"], "rejected-owner", second, dsn=database)
+    with pytest.raises(ApplicationStateConflictError):
+        media.mark_upload_rejected(
+            row["asset_id"], "rejected-owner", second, dsn=database
+        )
+    assert (
+        media.read_staged_bytes(row["asset_id"], "rejected-owner", dsn=database)
+        == png()
+    )

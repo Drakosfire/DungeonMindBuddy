@@ -297,3 +297,19 @@ def complete_upload(
             (Jsonb(verified_receipt), _uuid(asset_id)),
         )
     return get_asset(asset_id, owner, dsn=dsn)
+
+
+def mark_upload_rejected(
+    asset_id: str | UUID, owner: str, fence: str | UUID, *, dsn: str | None = None
+) -> None:
+    """Trusted adapter only: a definitive rejection accepted no storage write."""
+    with unit_of_work(dsn) as conn:
+        row = _read(conn, _uuid(asset_id), owner, lock=True)
+        if row["fence"] != _uuid(fence) or row["state"] != "uploading":
+            raise ApplicationStateConflictError(
+                "Media upload fence is stale or its outcome is uncertain."
+            )
+        conn.execute(
+            "UPDATE media.storage SET state='staged',fence=NULL,updated_at=clock_timestamp() WHERE asset_id=%s",
+            (_uuid(asset_id),),
+        )
