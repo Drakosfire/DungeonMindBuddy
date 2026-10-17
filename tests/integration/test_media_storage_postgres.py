@@ -46,8 +46,8 @@ def asset(database, monkeypatch):
 
 
 def provider_result(row):
-    return {'success': True, 'result': {'id': row['asset_id'].hex, 'meta': media_storage._metadata(row), 'requireSignedURLs': False,
-                                      'variants': ['https://imagedelivery.net/synthetic/' + row['asset_id'].hex + '/public']}}
+    return {'success': True, 'result': {'id': 'buddy-' + row['asset_id'].hex, 'meta': media_storage._metadata(row), 'requireSignedURLs': False,
+                                      'variants': ['https://imagedelivery.net/synthetic/buddy-' + row['asset_id'].hex + '/public']}}
 
 
 @pytest.mark.anyio
@@ -59,7 +59,8 @@ async def test_upload_verified_before_ready_and_reopens_without_upload(database,
         calls.append(request.method)
         if request.method == 'POST':
             assert b'private swamp' not in request.content and b'owner-a' not in request.content
-            assert asset['asset_id'].hex.encode() in request.content
+            assert ('buddy-' + asset['asset_id'].hex).encode() in request.content
+            assert str(request.url).endswith('/images/v1')
             assert media.get_asset(asset['asset_id'], 'owner-a', dsn=database)['state'] == 'uploading'
             uploaded = True
         return httpx.Response(200, json=provider_result(asset)) if uploaded else httpx.Response(404)
@@ -176,3 +177,11 @@ async def test_crash_after_upload_before_app_ack_reconciles(database, asset, mon
         monkeypatch.setattr(media, 'complete_upload', original)
         assert (await media_storage.save_asset(asset['asset_id'], 'owner-a', dsn=database, client=client))['state'] == 'ready'
     assert posts == 1
+
+
+def test_uuid_shaped_provider_identity_is_rejected(asset):
+    body = provider_result(asset)
+    body['result']['id'] = asset['asset_id'].hex
+    response = httpx.Response(200, json=body, request=httpx.Request('GET', 'https://api.cloudflare.com/synthetic'))
+    with pytest.raises(ApplicationStateIntegrityError):
+        media_storage._verified_receipt(response, asset, 'a' * 32)

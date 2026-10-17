@@ -34,6 +34,11 @@ def configured() -> bool:
         return False
 
 
+def _object_id(row: dict) -> str:
+    # Cloudflare rejects UUID-shaped custom IDs, including bare hex.
+    return 'buddy-' + row['asset_id'].hex
+
+
 def _metadata(row: dict) -> dict[str, str]:
     return {'asset_id': str(row['asset_id']), 'content_sha256': row['content_sha256'],
             'provenance_sha256': row['provenance_sha256'],
@@ -44,7 +49,7 @@ def _verified_receipt(response: httpx.Response, row: dict, account: str) -> dict
     response.raise_for_status()
     body = response.json()
     result = body.get('result')
-    expected_id = row['asset_id'].hex
+    expected_id = _object_id(row)
     if body.get('success') is not True or not isinstance(result, dict):
         raise ApplicationStateIntegrityError('Image CDN returned no verifiable asset.')
     if result.get('id') != expected_id or result.get('meta') != _metadata(row) or result.get('requireSignedURLs') is not False:
@@ -78,7 +83,7 @@ async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None
     fence = media.claim_upload(asset_id, owner, dsn=dsn) if started else row['fence']
     # A provider I/O operation never runs inside an APP transaction.
     endpoint = f'https://api.cloudflare.com/client/v4/accounts/{account}/images/v1'
-    object_url = endpoint + '/' + row['asset_id'].hex
+    object_url = endpoint + '/' + _object_id(row)
     headers = {'Authorization': 'Bearer ' + token}
     post_started = False
     released = False
@@ -90,7 +95,7 @@ async def save_asset(asset_id: str | UUID, owner: str, *, dsn: str | None = None
             post_started = True
             extension = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'}[row['mime_type']]
             uploaded = await client.post(endpoint, headers=headers,
-                data={'id': row['asset_id'].hex, 'metadata': json.dumps(_metadata(row)), 'requireSignedURLs': 'false'},
+                data={'id': _object_id(row), 'metadata': json.dumps(_metadata(row)), 'requireSignedURLs': 'false'},
                 files={'file': (f"{row['asset_id']}.{extension}", content, row['mime_type'])})
             if uploaded.status_code in {400, 401, 403, 413, 415, 422}:
                 media.mark_upload_rejected(asset_id, owner, fence, dsn=dsn)
