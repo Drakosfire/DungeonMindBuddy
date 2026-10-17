@@ -4615,10 +4615,115 @@ export interface ExactRunReviewEvidence {
 
 export interface ExactRunReviewAssertion {
   assertionId: string;
-  kind: "object" | "relationship";
+  kind: "object" | "relationship" | "source_observation";
   label: string;
   summary: string;
+  subjectCandidateNodeId?: string | null;
   evidence: ExactRunReviewEvidence[];
+}
+
+export type WorldbuildingDispositionDecision =
+  | "create_new"
+  | "bind_existing"
+  | "accept"
+  | "reject"
+  | "defer";
+
+export interface WorldbuildingDisposition {
+  assertionId: string;
+  decision: WorldbuildingDispositionDecision;
+  targetNodeId?: string | null;
+}
+
+export interface WorldbuildingWritePlanPrepareRequest {
+  schema: "dmb_worldbuilding_write_plan_prepare_request_v1";
+  runId: string;
+  expectedParentRevisionId: string;
+  dispositions: WorldbuildingDisposition[];
+}
+
+export interface WorldbuildingPlannedAssertion {
+  assertionId: string;
+  assertionKind: string;
+  subjectNodeId?: string | null;
+  targetNodeId?: string | null;
+  predicate?: string | null;
+  label?: string | null;
+  value?: Record<string, unknown>;
+  sourceArtifactId?: string | null;
+  sourceRevisionId?: string | null;
+}
+
+export interface WorldbuildingWritePlanResponse {
+  schema: "dmb_worldbuilding_write_plan_v2" | "dmb_worldbuilding_write_plan_v1";
+  version: 1 | 2;
+  planId: string;
+  planDigest: string;
+  decisionDigest: string;
+  worldId: string;
+  parentRevisionId: string;
+  runId: string;
+  sourceDomain: "worldbuilding";
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  extractionProfile: string;
+  candidatePreviewId: string;
+  candidateSchema: string;
+  candidateVersion: string;
+  effect: {
+    contributionMeta: {
+      sourceKind: "source_extraction";
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      extractionProfile: string;
+      campaignScope: string | null;
+      authoredBy: string;
+    };
+    acceptedProposals: WorldbuildingPlannedAssertion[];
+    rejectedAssertions: WorldbuildingPlannedAssertion[];
+    unresolvedMentions: Array<{
+      mentionId: string;
+      label: string;
+      objectKind: string;
+      aliases: string[];
+      evidenceRefIds: string[];
+      identityResolutionOutcome: string;
+      candidateNodeIds: string[];
+      diagnostics: string[];
+    }>;
+    deferredCandidateIds: string[];
+    nodeIdMap: Record<string, string>;
+    decisionSnapshot: Array<{
+      assertionId: string;
+      candidateKind: "node" | "edge" | "source_observation";
+      decision: WorldbuildingDispositionDecision;
+      targetNodeId?: string | null;
+    }>;
+    candidateEffectMap: Record<string, string[]>;
+    identityOutcomeSnapshot: Record<string, string>;
+  };
+  summary: {
+    createNewNodeCount: number;
+    bindExistingNodeCount: number;
+    acceptedEdgeCount: number;
+    rejectedCandidateCount: number;
+    deferredCandidateCount: number;
+    acceptedAssertionCount: number;
+  };
+  diagnostics: string[];
+  /** The current server contract intentionally marks prepared plans inert. */
+  confirmable: false;
+  confirmableReason: string;
+  prepareBinding?: string | null;
+  sourceAdmission?: {
+    sourceArtifactId: string;
+    sourceRevisionId: string;
+    contentSha256: string;
+    buddySourceRevisionId: string;
+    sourceLocator: string;
+    artifactUri?: string | null;
+    catalogFingerprintSha256: string;
+  };
 }
 
 export type FirstWorldGraphState =

@@ -16,6 +16,8 @@ import type {
   FirstWorldGraphConfirmRequest,
   FirstWorldGraphPlan,
   FirstWorldGraphPrepareRequest,
+  WorldbuildingWritePlanPrepareRequest,
+  WorldbuildingWritePlanResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -148,6 +150,26 @@ export async function prepareFirstWorldGraph(
   };
   return extractPromoteFetch<FirstWorldGraphPlan>(
     "/api/live/extract-promote/worldbuilding/first-world/prepare",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function prepareWorldbuildingWritePlan(
+  body: Omit<WorldbuildingWritePlanPrepareRequest, "schema"> & {
+    schema?: WorldbuildingWritePlanPrepareRequest["schema"];
+  },
+): Promise<WorldbuildingWritePlanResponse> {
+  const payload: WorldbuildingWritePlanPrepareRequest = {
+    schema: "dmb_worldbuilding_write_plan_prepare_request_v1",
+    runId: body.runId,
+    expectedParentRevisionId: body.expectedParentRevisionId,
+    dispositions: body.dispositions,
+  };
+  return extractPromoteFetch<WorldbuildingWritePlanResponse>(
+    "/api/live/extract-promote/worldbuilding/prepare",
     {
       method: "POST",
       body: JSON.stringify(payload),
