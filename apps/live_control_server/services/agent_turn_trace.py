@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import re
+import sys
 import time
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
@@ -460,8 +463,106 @@ def trace_json_bytes(trace: Mapping[str, Any]) -> str:
     return json.dumps(safe, sort_keys=True, default=str, ensure_ascii=False)
 
 
+MAX_LOG_BYTES = 24_000
+_LOG_TOKEN = re.compile(r"^[A-Za-z0-9_.:/@+\-]{1,256}$")
+
+
+def configure_turn_trace_logging() -> None:
+    """Enable only the sanitized trace stream; stdout is retained by the service journal."""
+    if not any(getattr(handler, "dmb_turn_trace", False) for handler in LOGGER.handlers):
+        handler = logging.StreamHandler(sys.stdout)
+        handler.dmb_turn_trace = True  # type: ignore[attr-defined]
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
+
+
+def _log_scalars(value: Mapping[str, Any], keys: Iterable[str]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in keys:
+        item = value.get(key)
+        if item is None or isinstance(item, bool):
+            if key in value:
+                out[key] = item
+        elif isinstance(item, (int, float)) and math.isfinite(item):
+            out[key] = item
+        elif isinstance(item, str) and _LOG_TOKEN.fullmatch(item):
+            out[key] = item
+    return out
+
+
+def _log_metrics(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+    # Metrics have no free-form strings or nested arbitrary observer payloads.
+    keys = [key for key, item in value.items()
+            if isinstance(key, str) and _LOG_TOKEN.fullmatch(key)
+            and (item is None or isinstance(item, (bool, int, float)))]
+    out = _log_scalars(value, keys)
+    out.update(_log_scalars(value, ("status", "currency")))
+    return out
+
+
+def retained_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
+    """Log-only allowlist. The HTTP trace contract is unchanged."""
+    out = _log_scalars(trace, (
+        "schema", "trace_id", "agent_thread_id", "turn_id", "runtime", "backend",
+        "mode", "status", "started_at", "completed_at", "elapsed_ms", "provider", "model",
+    ))
+    out["correlation"] = _log_scalars(trace.get("correlation", {}), (
+        "durable_turn_id", "conversation_id", "attempt",
+    ))
+    out["usage"] = _log_metrics(trace.get("usage"))
+    out["cost"] = _log_metrics(trace.get("cost"))
+    out["context_summary"] = _log_metrics(trace.get("context_summary"))
+    out["warnings"] = [w for w in trace.get("warnings", [])
+                       if isinstance(w, str) and _LOG_TOKEN.fullmatch(w)][:32]
+    calls = trace.get("model_calls") or []
+    spans = trace.get("spans") or []
+    out["model_calls"] = []
+    for call in calls:
+        row = _log_scalars(call, (
+            "call_id", "runtime_api_request_id", "runtime_turn_id", "provider_attempt_id",
+            "sequence", "status", "provider", "requested_model", "response_model", "api_mode",
+            "started_at", "completed_at", "duration_ms", "finish_reason", "retry_count",
+            "retryable", "status_code", "error_type",
+        ))
+        for key in ("usage", "cost", "request_summary"):
+            row[key] = _log_metrics(call.get(key))
+        out["model_calls"].append(row)
+    out["spans"] = []
+    for span in spans:
+        row = _log_scalars(span, (
+            "span_id", "parent_span_id", "kind", "name", "status",
+            "started_at", "completed_at", "duration_ms",
+        ))
+        row["attributes"] = _log_metrics(span.get("attributes"))
+        out["spans"].append(row)
+    out["retention"] = {"complete": True, "original_model_calls": len(calls),
+                        "original_spans": len(spans)}
+    # Error fallback's empty call list does not establish absence of dispatch.
+    if trace.get("status") != "ok" and not calls:
+        out["usage"]["model_call_count"] = None
+        out["usage"]["status"] = "unavailable"
+        out["retention"]["provider_accounting"] = "unknown"
+    while len((LOG_EVENT + " " + trace_json_bytes(out)).encode("utf-8")) > MAX_LOG_BYTES:
+        out["retention"]["complete"] = False
+        if out["spans"]:
+            out["spans"].pop()
+        elif out["model_calls"]:
+            out["model_calls"].pop()
+        else:
+            # Even unexpected metric growth must not exceed the journal bound.
+            for key in ("context_summary", "usage", "cost"):
+                out[key] = {}
+            out["warnings"] = []
+            break
+    return out
+
+
 def emit_baseline_trace_log(trace: Mapping[str, Any]) -> None:
-    LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(trace))
+    LOGGER.info("%s %s", LOG_EVENT, trace_json_bytes(retained_trace_payload(trace)))
 
 
 class AgentTurnTraceBuilder:
@@ -488,6 +589,7 @@ class AgentTurnTraceBuilder:
         self.spans: list[dict[str, Any]] = []
         self.warnings: list[str] = []
         self.logged = False
+        self.correlation: dict[str, Any] = {}
         self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
 
@@ -656,9 +758,21 @@ class AgentTurnTraceBuilder:
                     trace[key] = value
         return trace
 
+    def bind_durable_turn(self, turn: Any) -> None:
+        """Bind known validated APP identity; never query or overwrite client turn_id."""
+        self.correlation = {
+            "durable_turn_id": str(turn.turn_id),
+            "conversation_id": str(turn.conversation_id),
+            "attempt": turn.attempt,
+        }
+
     def finalize_and_log(self, **kwargs: Any) -> dict[str, Any]:
         trace = self.finalize(**kwargs)
         if not self.logged:
-            emit_baseline_trace_log(trace)
             self.logged = True
+            try:
+                emit_baseline_trace_log(dict(trace, correlation=dict(self.correlation)))
+            except Exception:
+                # Observability must neither change authority nor trigger a provider replay.
+                pass
         return trace

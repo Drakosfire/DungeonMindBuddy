@@ -1725,6 +1725,8 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=False,
                 )
             self.turn = accepted
+            if self.trace is not None:
+                self.trace.bind_durable_turn(accepted)
         else:
             receipt = self.turn.graph_context_receipt
             if (
@@ -1781,6 +1783,8 @@ class _PolicyExecutionAdapter:
                 provider_dispatched=False,
             )
         self.turn = claim.turn
+        if self.trace is not None:
+            self.trace.bind_durable_turn(claim.turn)
         self.fence = _ClaimFence(self.service, claim.turn)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
         if (_governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
@@ -4542,6 +4546,7 @@ def _completed_turn_replay(
     trace.runtime = "durable_receipt"
     trace.backend = "application_state"
     trace.mode = "replay"
+    trace.bind_durable_turn(turn)
     final_trace = trace.finalize_and_log(
         status="ok",
         model_calls=0,
@@ -5538,6 +5543,8 @@ def execute_agent_turn(
                         code="conversation_unavailable",
                         status_code=503,
                     ) from exc
+            if durable_turn is not None:
+                trace.bind_durable_turn(durable_turn)
             if (durable_turn is not None and request.build_write_capability is not None
                     and _governed_build_turn(request)):
                 from application_state.agent_conversation.build_authoring import recover_prepared_proposal, recover_prepared_image
@@ -6073,6 +6080,7 @@ def execute_agent_turn(
                     status_code=409,
                 )
         if durable_turn is not None:
+            trace.bind_durable_turn(durable_turn)
             segment_thread_id = _provider_segment_thread_id(
                 durable_turn.provenance, conversation_id=durable_turn.conversation_id
             )
@@ -6218,6 +6226,7 @@ def execute_agent_turn(
                 request, owner=owner or {}, turn=claim.turn, trace_builder=trace
             )
         running_turn = claim.turn
+        trace.bind_durable_turn(running_turn)
         renewer = _TurnClaimRenewer(conversation_service, running_turn)
 
     # Delay runtime lookup/construction until authorization, receipt replay,

@@ -36,3 +36,22 @@ no artificial model call is required. Full goal and Mirathorn acceptance remain.
 Input: private MIND HANDOFF-Buddy-existing-turn-trace-retention.md and
 DOGFOOD-TRACE-ANALYSIS-20261017.md under established Projects scratch. Historical
 cohort is not an A/B benchmark. Core#136 merge9088e5d is not runtime adoption.
+
+Verification at implementation checkpoint:
+- 21 focused trace/startup/route-finalizer/durable-replay cases pass, including
+  real lifespan setup under Uvicorn LOGGING_CONFIG, duplicate setup, bounded
+  sanitization, sink exceptions, retained client/durable distinction and replay.
+- Wider owning trace/route/service run:190 passed,18 failed,15 PostgreSQL setup
+  errors. All18 failing cases reproduced against exact base code loaded in
+  memory (no checkout switch/source export). Fifteen require unavailable disposable
+  localhost54329 PostgreSQL. These are explicit inherited/environment limits,
+  not a claim that all route/service behavior passes. Logs remain in checkout
+  .pytest_cache/trace-retention-*.log. Scoped Ruff and diff-check pass.
+- No provider call or retained-data/runtime change from this telemetry patch.
+  Separately, operator-authorized media acceptance completed on5202: real Flare
+  generation, CDN Save, placement, native drag, normal Save/reload; synthetic
+  page only. This is not telemetry acceptance or an Agent wizard-call witness.
+- Existing structured trace HTTP payload remains unchanged; log projection
+  allowlists scalar fields/numeric metrics. Oversize records drop trailing spans
+  then calls with original counts and complete=false within24000 UTF-8 bytes.
+  Error fallback with no captured calls records unknown count, not proven zero.
