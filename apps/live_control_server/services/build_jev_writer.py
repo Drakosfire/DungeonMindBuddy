@@ -87,14 +87,25 @@ and the required limitation codes. Reserve empty abstention for evidence that ca
 useful relevant context. retrieval_disposition describes the acquisition outcome, not a
 prohibition on citing supplied passages or selected saved sections. Do not infer an absent
 fact or decision from silence in a passage, and do not claim the entire corpus was searched.
+Return requested_detail_gaps (an empty list when no specific requested detail is missing).
+Each gap has only question_span_start and question_span_end: zero-based, end-exclusive Unicode
+code-point offsets into the exact user_question, selecting the requested detail itself, at most
+256 characters. Keep spans ordered and nonoverlapping. Never supply gap prose or a scope.
+The host quotes these exact question slices and says the selected source excerpts do not establish
+them. This is not a claim that a fact does not exist in the World or complete corpus.
+When some useful part is supported, answer that part with cited factual segments and use
+source_grounded_partial; specific unsupported details belong in requested_detail_gaps, not in
+factual claims. Include missing_requested_details when gaps exist. Use wholly insufficient output
+only when the selected excerpts support no useful part. Preserve exceptions and conflicts.
 The host renders limitation messages. No tools, further reads, corpus-completeness claims, Graph
 authority, receipt fields or hashes. Follow the supplied output schema.
 """
 
 def with_cited_output(staged: WriterProjection) -> WriterProjection:
-    from application_state.agent_conversation.source_writer_output import POLICY
+    from application_state.agent_conversation.source_writer_output import POLICY, GAP_POLICY
     packet = json.loads(staged.input_json)
     packet["source_writer_output_policy"] = POLICY
+    packet["requested_detail_gap_policy"] = GAP_POLICY
     return replace(staged, source_writer_output_policy=POLICY,
         input_json=json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
@@ -114,7 +125,7 @@ class WriterProjection:
         return self.source_bindings_json is not None
 
     def kwargs(self) -> dict:
-        from application_state.agent_conversation.source_writer_output import POLICY, FINITE_SCHEMA_NAME, finite_output_schema
+        from application_state.agent_conversation.source_writer_output import POLICY, GAP_SCHEMA_NAME, finite_output_schema
         cited = self.source_writer_output_policy == POLICY
         if self.source_writer_output_policy is not None and (not cited or not self.source_only):
             raise ValueError("Unsupported source writer output policy")
@@ -131,8 +142,8 @@ class WriterProjection:
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": FINITE_SCHEMA_NAME if cited else "build_source_passage_answer",
-                    "schema": finite_output_schema(json.loads(self.input_json)) if cited else source_answer_schema(),
+                    "name": GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "schema": finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
                 if self.source_only

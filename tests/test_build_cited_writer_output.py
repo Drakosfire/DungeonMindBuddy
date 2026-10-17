@@ -179,10 +179,10 @@ def test_real_writer_completion_proof_blocks_forgery_then_completes_and_reopens(
 
     def guarded(service, result):
         assert isinstance(result, t.CitedSourceTurnResult)
-        from application_state.agent_conversation.source_writer_output import FINITE_SCHEMA_NAME, finite_output_schema
+        from application_state.agent_conversation.source_writer_output import GAP_SCHEMA_NAME, finite_output_schema
         wire = json.loads(result.writer_request_json)
-        assert wire["text"]["format"]["name"] == FINITE_SCHEMA_NAME
-        assert wire["text"]["format"]["schema"] == finite_output_schema(json.loads(wire["input"]))
+        assert wire["text"]["format"]["name"] == GAP_SCHEMA_NAME
+        assert wire["text"]["format"]["schema"] == finite_output_schema(json.loads(wire["input"]), requested_detail_gaps=True)
         producing_turn = service.list_turns(result.world_id, result.conversation_id)[0]
         with psycopg.connect(application_state_dsn) as conn:
             trace = conn.execute(
@@ -316,6 +316,8 @@ class SavedThenGraphWire(DecisionWire):
     async def handle_async_request(self, request):
         response = await super().handle_async_request(request)
         body, value = json.loads(request.content), response.json()
+        if body["state"].get("writer_selection_policy"):
+            return response
         state = body["state"]["decision"]["state"]
         acquired = state.get("evidence", [])
         for key, q in body["questions"].items():
