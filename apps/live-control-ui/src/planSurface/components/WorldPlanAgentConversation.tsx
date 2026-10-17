@@ -1179,8 +1179,10 @@ function isWorldPlanGraphCompletion(
 
   const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus;
   if (status === (build ? "source_only_insufficient_evidence" : "plan_only_insufficient_evidence")) {
-    return receipt.graph_packet.evidence_sufficiency_status === "insufficient"
-      && receipt.assembled_input.packet_disposition === "omitted_insufficient"
+    // Build's controller may select source-only final evidence after sufficient
+    // initial discovery. The initial packet is not the final writer exposure.
+    return (build || (receipt.graph_packet.evidence_sufficiency_status === "insufficient"
+      && receipt.assembled_input.packet_disposition === "omitted_insufficient"))
       && graphClaims.length === 0 && citationMap === null
       && value.answer_basis === sourceBasis;
   }
@@ -5364,7 +5366,18 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
   );
+  const connectionSettings = (
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization">
+        <h3>Local connection</h3>
+        <button type="button" onClick={() => setSettingsOpen(false)}>Close connection settings</button>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">This connects this browser to your local Buddy server. Once connected, it stays connected across reloads.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
+  );
   const managementDetails = (<>
+      {settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
@@ -5650,12 +5663,6 @@ export function WorldPlanAgentConversation({
           <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
         </section>
       ) : null}
-      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <button type="button" onClick={connectGraphSession}>Connect local session</button>
-        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">Your local Agent and Graph session persists across reloads. {isReadOnly ? "Play questions use the admitted World Run." : "Plan + World is the default; switch to Plan only for a question that needs that scope."}</p>
-        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
-      </section>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}

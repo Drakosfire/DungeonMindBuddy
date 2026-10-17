@@ -120,3 +120,17 @@ it('keeps reopened proposals readable without executable editor authority', () =
   expect(screen.getByRole('table')).toHaveTextContent('Nella');
   expect(screen.queryByRole('button', { name: 'Insert into page' })).not.toBeInTheDocument();
 });
+
+it.each([true, false])('places a Harness proposal after its requesting turn when loaded: %s', async matching => {
+  const record = receipt();
+  record.after_turn_sequence = 4;
+  record.reservation.origin = {client_turn_id: 'client', durable_turn_id: 'requesting-turn', turn_attempt: 1,
+    broker_operation_id: 'operation', arguments_sha256: 'a'.repeat(64)};
+  vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+  const loaded = {...history, turns: [{turn_id: matching ? 'requesting-turn' : 'unrelated-turn', sequence: 5}]} as WorldAgentConversationHistoryResponse;
+  const hook = renderHook(() => useBuildCompose({worldId: 'world', history: loaded, bridge, enabled: true, onHistory: vi.fn()}));
+  await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
+  expect(hook.result.current.items[0].afterSequence).toBe(matching ? 5 : 4);
+  render(<>{hook.result.current.items[0].element}</>);
+  expect(screen.getByText('Writing details').closest('details')).not.toHaveAttribute('open');
+});
