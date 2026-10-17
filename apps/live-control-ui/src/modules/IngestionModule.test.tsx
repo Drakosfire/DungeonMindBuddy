@@ -1444,14 +1444,17 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByText("The party held the gate.")).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").recapSession).toBe(24);
     expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
     expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
 
     initialView.unmount();
     render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" />);
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     await waitFor(() => expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Return to draft" }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("session")).toBe("session-24"));
     expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
     expect(screen.getByLabelText("Recap/source session")).toHaveValue(24);
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
