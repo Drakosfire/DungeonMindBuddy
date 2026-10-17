@@ -324,6 +324,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted))?)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
@@ -540,6 +541,10 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
     return typeof body?.command_id === "string" && Boolean(body.command_id)
       && Number.isSafeInteger(body.expected_pointer_revision)
       && (body.expected_active_conversation_id === null || typeof body.expected_active_conversation_id === "string");
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals$/.test(pathname)) {
+    return typeof body?.idempotency_key === "string" && Boolean(body.idempotency_key)
+      && typeof body.conversation_id === "string" && Number.isSafeInteger(body.expected_pointer_revision);
   }
   if (pathname === "/api/live/agent/turn") {
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)

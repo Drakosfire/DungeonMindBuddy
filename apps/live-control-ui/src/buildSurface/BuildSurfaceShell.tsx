@@ -1,3 +1,4 @@
+import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
 import { BUILD_STARTER_CONTENT, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -158,8 +159,8 @@ function BuildPresentableSourceView({
   </div>;
 }
 
-function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts }) {
-  usePublishWorldBuildConversation(source, hosts);
+function BuildConversationBinding({ source, hosts, composeBridge }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; composeBridge?: BuildComposeBridge }) {
+  usePublishWorldBuildConversation(source, hosts, composeBridge);
   return null;
 }
 
@@ -301,6 +302,27 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
       revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.content_sha256,
       surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
     } : null, [session.record, session.snapshot, session.phase, session.dirty]);
+  const composeGeneration = useRef({ draft: 0, selection: 0 });
+  const composeCurrent = useRef<BuildComposeEditorState | null>(null);
+  const composeChanged = useRef(session.handleEditorUpdate);
+  composeChanged.current = session.handleEditorUpdate;
+  composeCurrent.current = conversationContext && session.editor ? {
+    editor: session.editor, worldId: conversationContext.worldId, documentId: conversationContext.documentId,
+    revision: conversationContext.revision, contentSha256: conversationContext.contentSha256,
+    visibility: session.record?.visibility_state === "player_safe" ? "player_safe" : "internal",
+    draftGeneration: composeGeneration.current.draft, selectionGeneration: composeGeneration.current.selection,
+    canEdit: Boolean(session.lookupAdmission("editable").ok) && !session.activeCommand,
+  } : null;
+  useEffect(() => {
+    const editor = session.editor;
+    if (!editor) return;
+    const draft = () => { composeGeneration.current.draft++; if (composeCurrent.current?.editor === editor) composeCurrent.current.draftGeneration = composeGeneration.current.draft; };
+    const selection = () => { composeGeneration.current.selection++; if (composeCurrent.current?.editor === editor) composeCurrent.current.selectionGeneration = composeGeneration.current.selection; };
+    editor.on("update", draft); editor.on("selectionUpdate", selection);
+    return () => { editor.off("update", draft); editor.off("selectionUpdate", selection); };
+  }, [session.editor]);
+  const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
+    editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false })), []);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -545,7 +567,7 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
   );
   return <div className="build-workspace-projection">
     <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
-      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} />}
+      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} composeBridge={composeBridge} />}
     </DocumentConversationDock>
   </div>;
 }

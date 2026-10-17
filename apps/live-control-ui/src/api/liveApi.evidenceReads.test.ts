@@ -66,3 +66,48 @@ it('does not attach evidence credentials to a near-miss endpoint', async () => {
   await api.authenticatedApiFetch('/api/live/agent/worlds/world-a/conversation/turns/turn-a/context-trace/export-anything')
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
 })
+
+const buildPaths = [
+  '/api/live/agent/worlds/world%2Fa/build-proposals',
+  '/api/live/agent/worlds/world%2Fa/build-proposals?conversation_id=conversation',
+  '/api/live/agent/worlds/world%2Fa/build-proposals/action',
+  '/api/live/agent/worlds/world%2Fa/build-proposals/action/prompt',
+  '/api/live/agent/worlds/world%2Fa/build-proposals/action/inserted?expected_revision=5',
+]
+it.each(buildPaths)('guards the exact Build endpoint %s', async path => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await api.authenticatedApiFetch(path)
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-build-token')
+  expect(fetch.mock.calls[0][1]?.redirect).toBe('error')
+})
+it.each(buildPaths)('refuses remote credential dispatch for %s', async path => {
+  const api = await setup('https://example.invalid'); api.setNativeGraphAccessToken('synthetic-build-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await expect(api.authenticatedApiFetch(path)).rejects.toMatchObject({ status: 0 })
+  expect(fetch).not.toHaveBeenCalled()
+})
+it('recovers a trusted pre-dispatch session rejection with identical Compose bytes', async () => {
+  const api = await setup(); let calls = 0
+  const body = JSON.stringify({ idempotency_key: 'same-action', conversation_id: 'conversation', expected_pointer_revision: 1 })
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    if (String(url) === '/api/live/agent/local-session') return Response.json({ status: 'active', csrf_token: 'csrf' })
+    calls++; expect(init?.body).toBe(body)
+    expect(new Headers(init?.headers).get('X-DMB-Graph-CSRF')).toBe('csrf')
+    return calls === 1 ? Response.json({ detail: { code: 'graph_auth_csrf_rejected' } }, { status: 403 }) : Response.json({})
+  })
+  await api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body })
+  expect(calls).toBe(2)
+})
+it('does not repeat Compose after an uncertain network failure', async () => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Unknown outcome'))
+  await expect(api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body: '{}' })).rejects.toThrow('Unknown outcome')
+  expect(fetch).toHaveBeenCalledTimes(1)
+})
+it('does not authorize a near-miss Build endpoint', async () => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await api.authenticatedApiFetch('/api/live/agent/worlds/world/build-proposals/action/export')
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+})

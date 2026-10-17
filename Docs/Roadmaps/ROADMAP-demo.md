@@ -59,6 +59,22 @@ the Mirathorn journey. Ordinary Agent Harness adoption, durable citation/history
 and openable passage witnesses, broader semantic evaluation and DOGFOOD/operator
 inspection remain required. Improve ingestion against gold alongside that journey.
 
+## Build conversation writing — operator dogfood priority, 2026-10-16
+
+The next bounded adoption is conversational addition to a saved Build page:
+request an NPC/job table, inspect the inline Markdown proposal, insert at the
+captured caret, manually edit, explicitly Save and reopen. The typed Build
+capability uses genuine workspace registry revisions and durable World-conversation
+proposal receipts; it does not fabricate Plan authority or publish Graph facts.
+Existing Graph-backed Ask remains available. Creative additions are proposed lore.
+
+Implementation is under `HANDOFF-AGENT-build-compose-insertion.md`. Backend,
+editor and conversation integration are in development; independent exact-head
+review, rendered desktop/narrow checks, matched deployment and a live synthetic
+provider witness remain gates. This is not yet an available operator capability.
+Cross-document edits, automatic Graph publication and replacing selected text
+remain separate work. DOGFOOD continues Ingest ownership.
+
 ## Primary priority — Mirathorn worldbuilding in Build, 2026-10-14
 
 Operator-authorized delivery priority: reuse the existing local Markdown hierarchy,

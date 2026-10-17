@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
+import { PreparedRequestInspector } from './PreparedRequestInspector'
 import { getWorldAgentTurnPrompt } from '../../api/liveApi'
 import type { BuddyPromptEvidence, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 
@@ -16,20 +17,6 @@ export function ResponseEvidenceTabs({ evidence, prompt }: { evidence: ReactNode
     </div>
   </section>
 }
-
-type Component = { pointer: string; label: string; value: unknown }
-const pointerPart = (key: string) => key.replace(/~/g, '~0').replace(/\//g, '~1')
-function components(body: Record<string, unknown>): Component[] {
-  return Object.entries(body).flatMap(([key, value]) => {
-    if (['input', 'messages', 'tools'].includes(key) && Array.isArray(value)) {
-      return value.map((item, i) => ({ pointer: `/${pointerPart(key)}/${i}`,
-        label: `${key === 'tools' ? 'Tool' : 'Message'} ${i + 1}${item?.role ? ` · ${item.role}` : item?.type ? ` · ${item.type}` : ''}`,
-        value: item }))
-    }
-    return [{ pointer: `/${pointerPart(key)}`, label: key === 'instructions' ? 'System instructions' : key, value }]
-  })
-}
-const format = (value: unknown) => typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 
 export function BuddyPromptInspector({ trace }: { trace: BuddyTurnContextTrace | null }) {
   // A new identity remount clears private payloads synchronously, before effects.
@@ -56,8 +43,6 @@ function ScopedPromptInspector({ trace }: { trace: BuddyTurnContextTrace }) {
 }
 function CapturedPrompt({ trace, reference }: { trace: BuddyTurnContextTrace; reference: BuddyTracePromptReference }) {
   const [state, setState] = useState<{ evidence?: BuddyPromptEvidence; error?: string }>({})
-  const [selected, setSelected] = useState<string | null>(null)
-  const [raw, setRaw] = useState(false)
   useEffect(() => {
     let active = true
     const controller = new AbortController()
@@ -80,19 +65,8 @@ function CapturedPrompt({ trace, reference }: { trace: BuddyTurnContextTrace; re
   if (state.error) return <p role="alert">{state.error}</p>
   if (!state.evidence) return <p role="status">Loading captured request…</p>
   const evidence = state.evidence
-  const body = JSON.parse(evidence.payload_json) as Record<string, unknown>
-  const parts = components(body)
-  const part = parts.find(item => item.pointer === selected)
   return <>
-    <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
-      <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
-    <div className="buddy-prompt__layout">
-      <nav aria-label="Request components">{parts.map(item => <button key={item.pointer} type="button" aria-pressed={selected === item.pointer}
-        onClick={() => setSelected(item.pointer)}>{item.label}<small>{item.pointer}</small></button>)}</nav>
-      <section aria-label="Captured request"><h5>{part ? part.label : 'Full composed request'}</h5>
-        <pre tabIndex={0}>{part ? format(part.value) : raw ? evidence.payload_json : JSON.stringify(body, null, 2)}</pre>
-      </section>
-    </div>
+    <PreparedRequestInspector payloadJson={evidence.payload_json} />
     <details><summary>Capture identity</summary><p>{reference.provider} · {reference.model} · {reference.api_mode} · {reference.serializer_version}</p>
       <p>{reference.payload_utf8_bytes.toLocaleString()} UTF-8 bytes · SHA-256 {reference.payload_sha256}</p>
       <p>Provider attempt {reference.provider_attempt_id}</p></details>

@@ -1,0 +1,12 @@
+.build-compose-proposal { padding: .75rem 0; min-width: 0; }
+.build-compose-proposal__request { opacity: .85; }
+.build-compose-proposal .world-plan-agent-answer { overflow-x: auto; }
+.build-compose-proposal table { border-collapse: collapse; width: 100%; }
+.build-compose-proposal th, .build-compose-proposal td { padding: .4rem .6rem; border-bottom: 1px solid #667085; text-align: left; }
+.build-compose-proposal > button { margin-top: .75rem; }
+.build-compose-proposal .world-plan-agent-conversation__message--assistant {
+  inline-size: auto; max-inline-size: 100%; margin-inline-start: 0;
+  padding: .65rem 0; border: 0; background: transparent;
+}
+.build-compose-proposal table { min-width: 0; table-layout: fixed; }
+.build-compose-proposal th, .build-compose-proposal td { white-space: normal; overflow-wrap: anywhere; }

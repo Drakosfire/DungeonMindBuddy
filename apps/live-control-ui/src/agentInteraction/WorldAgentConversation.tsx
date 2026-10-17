@@ -1,3 +1,4 @@
+import type { BuildComposeBridge } from "../buildSurface/buildComposeBridge";
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { WorldAgentConversationHistoryResponse } from "../api/types";
@@ -18,7 +19,7 @@ export interface SavedWorldBuildConversationContext {
   surfaceInstanceId: string; title: string; dirty: boolean;
 }
 
-interface BuildConversationRegistration { savedSource: SavedWorldBuildConversationContext | null; presentationHosts?: PlanConversationPresentationHosts }
+interface BuildConversationRegistration { savedSource: SavedWorldBuildConversationContext | null; composeBridge?: BuildComposeBridge | null; presentationHosts?: PlanConversationPresentationHosts }
 
 interface Registration<T> { token: symbol; value: T }
 
@@ -94,14 +95,14 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
   }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, surfaceInstanceId, beatTitle, sceneTitle]);
 }
 
-export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts) {
+export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts, composeBridge?: BuildComposeBridge | null) {
   const registry = useContext(Registry);
   const token = useRef(Symbol("world-build-conversation"));
   useLayoutEffect(() => {
     if (!registry) return;
-    registry.registerBuild(token.current, { savedSource: context, presentationHosts });
+    registry.registerBuild(token.current, { savedSource: context, presentationHosts, composeBridge });
     return () => registry.unregisterBuild(token.current);
-  }, [registry?.registerBuild, registry?.unregisterBuild, context, presentationHosts]);
+  }, [registry?.registerBuild, registry?.unregisterBuild, context, presentationHosts, composeBridge]);
 }
 
 /** One persistent conversation controller; route adapters supply current context and portal hosts. */
@@ -128,6 +129,6 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
   return <WorldPlanAgentConversation {...props} worldName={worldName ?? props.worldName}
     presentationHosts={surface === "plan" ? props.presentationHosts : surface === "build" ? build?.presentationHosts : undefined}
     visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play" || surface === "build"}
-    buildMode={surface === "build" ? { savedSource } : null}
+    buildMode={surface === "build" ? { savedSource, composeBridge: build?.composeBridge ?? null } : null}
     playMode={surface === "play" ? { admittedRun } : null} />;
 }

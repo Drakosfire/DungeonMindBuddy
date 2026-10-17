@@ -1,3 +1,4 @@
+import { useBuildCompose } from "./BuildComposeProposal";
 import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -94,7 +95,7 @@ function buildSourceRequiredMessage(): string {
 export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
-  buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null } | null;
+  buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null; composeBridge?: import("../../buildSurface/buildComposeBridge").BuildComposeBridge | null } | null;
   playMode?: { admittedRun: { worldId: string; runId: string; runRevision: number; surfaceInstanceId: string;
     beatTitle?: string | null; sceneTitle?: string | null } | null } | null;
   presentationHosts?: PlanConversationPresentationHosts;
@@ -2457,6 +2458,10 @@ export function WorldPlanAgentConversation({
     () => proposalOrderKeyForDisplay ? readLocalProposalOrder(proposalOrderKeyForDisplay) : null,
     [proposalOrderKeyForDisplay, proposalOrderRevision],
   );
+  const buildCompose = useBuildCompose({ worldId, history,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible,
+    onHistory: next => { historySnapshotRef.current = next; setHistory(next); } });
+
   const conversationDisplay = useMemo(
     () => buildWorldConversationDisplayEvents(
       history,
@@ -2493,6 +2498,8 @@ export function WorldPlanAgentConversation({
       candidate.kind === "world"
       && candidate.turn.lifecycle_status === "completed"
       && Boolean(candidate.turn.assistant_text?.trim()));
+    const proposal = buildCompose.items.at(-1);
+    if (proposal && (!event || event.kind !== "world" || proposal.afterSequence >= event.turn.sequence)) return `build:${proposal.key}`;
     return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
   })();
   useLayoutEffect(() => {
@@ -3610,6 +3617,15 @@ export function WorldPlanAgentConversation({
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
     if (isBuild) {
+      if (buildMode?.composeBridge && /^(?:(?:please|can you|could you|would you|i want you to)\s+)?(?:create|generate|draft|write|add|insert|append|make)\b/i.test(message)) {
+        if (!visible || !source || source.worldId !== verifiedWorldId || source.worldId !== worldId
+          || !message || message.length > 4000 || sending || buildCompose.busy || historyLoading || historyError
+          || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError || requestRef.current) return;
+        const editGeneration = composerEditGenerationRef.current;
+        const accepted = await buildCompose.submit(message);
+        if (accepted && composerEditGenerationRef.current === editGeneration) setComposerMessage("");
+        return;
+      }
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || message.length > 8000 || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
@@ -4943,7 +4959,7 @@ export function WorldPlanAgentConversation({
     : inferredComposerIntent;
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const composerBusy = isReadOnly
-    ? sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+    ? buildCompose.busy || sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || (detectedComposerIntent === "discuss"
@@ -5171,8 +5187,15 @@ export function WorldPlanAgentConversation({
       </article>
     );
   };
-  const latestConversationEvent = conversationDisplay.events.at(-1) ?? null;
-  const earlierConversationEvents = conversationDisplay.events.slice(0, -1);
+  const displayedConversation = [
+    ...conversationDisplay.events.map((event, index) => ({
+      order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
+      ordinal: index, element: renderConversationEvent(event),
+    })),
+    ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
+  ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);
+  const latestConversationEvent = displayedConversation.at(-1)?.element ?? null;
+  const earlierConversationEvents = displayedConversation.slice(0, -1);
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
   const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
@@ -5562,14 +5585,15 @@ export function WorldPlanAgentConversation({
                 {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
               </button>
             ) : null}
-            {earlierConversationEvents.map(renderConversationEvent)}
+            {earlierConversationEvents.map(item => item.element)}
           </details>
         ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
           <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : null}
+        {latestConversationEvent}
+        {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
         {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {submittedMessage?.scopeKey === scopeKey
@@ -5607,9 +5631,9 @@ export function WorldPlanAgentConversation({
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
-      {sending || composing ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
+      {sending || composing || buildCompose.busy ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
         <span className="world-plan-agent-conversation__working-dot" aria-hidden="true" />
-        {composing ? "Preparing your edit…" : "Working on your reply…"}
+        {composing || buildCompose.busy ? "Preparing your edit…" : "Working on your reply…"}
       </div> : null}
 
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
@@ -5666,7 +5690,7 @@ export function WorldPlanAgentConversation({
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
           disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}
-          placeholder={isReadOnly ? (isBuild ? "Ask about this source or your World…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
+          placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         <div className="world-plan-agent-conversation__composer-footer">
@@ -5705,7 +5729,7 @@ export function WorldPlanAgentConversation({
             || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)
             || (!isReadOnly && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
           >
-            {sending || composing ? "Working…" : saveInFlight ? "Saving…" : "Send"}
+            {sending || composing || buildCompose.busy ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
         </div>
         {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"
