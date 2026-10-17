@@ -198,3 +198,59 @@ def test_actual_sdk_body_admitted_without_transport(accounting):
 
     asyncio.run(run())
     assert len(seen) == 1 and seen[0]["state"] == intent.state
+
+
+def test_shared_preflight_counts_sdk_null_criteria_at_real_dispatch_boundary():
+    from generationengine import GenerationClient, GenerationEngineError
+    from generationengine.types import DecisionRequest
+    from generationengine.decision_dispatch import DecisionDispatchGate
+    from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
+    from apps.live_control_server.services.build_jev_retention import fits
+    from apps.live_control_server.services.build_jev_transitions import DecisionQuestion
+
+    policy = ExperimentalAccounting("synthetic-character-counter", len)
+    state = {"context_accounting": policy.descriptor}
+    question = DecisionQuestion(
+        name="support",
+        kind="choice",
+        question="Choose support.",
+        options=tuple(f"evidence_{i:03}_" + "x" * 68 for i in range(100)),
+    )
+    assert fits(state, (question,), accounting=policy)
+    seen = []
+
+    async def authorize(prepared):
+        body = validate_body(prepared.body.decode(), state, accounting=policy)
+        assert all(v is None for v in body["questions"]["support"]["criteria"].values())
+        seen.append(body)
+        # The previous duplicate-description projection falsely refused the same options.
+        body["questions"]["support"]["criteria"] = {o: o for o in question.options}
+        with pytest.raises(ValueError, match="per-question"):
+            validate_body(json.dumps(body), state, accounting=policy)
+        return False
+
+    async def lifecycle(event):
+        return True
+
+    async def run():
+        provider = TypeSafeDecisionProvider(
+            api_key="synthetic-not-a-credential",
+            dispatch_gate=DecisionDispatchGate(authorize, lifecycle),
+        )
+        client = GenerationClient(decision_providers={"typesafe": provider})
+        try:
+            with pytest.raises(GenerationEngineError):
+                await client.decide(
+                    DecisionRequest(
+                        provider="typesafe",
+                        model=MODEL,
+                        state=state,
+                        questions=[question.model_dump()],
+                        max_transport_retries=0,
+                    )
+                )
+        finally:
+            await client.aclose()
+
+    asyncio.run(run())
+    assert len(seen) == 1

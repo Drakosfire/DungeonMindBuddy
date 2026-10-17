@@ -1,6 +1,6 @@
 # AGENT — explicit experimental context accounting
 
-ACTIVE under PRIME's approved Jev evaluation goal, following ARCHITECTURE design advice. Base98f60ba74b363aa39d8936f1c1f55a8981368255; serial codex/jev-experimental-accounting in the existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new checkout or /tmp directories.
+SETTLED: #1313 merged96c73c18a6765830cbfaca9d5070c0e97545ec82; lease ended. Successor HANDOFF-AGENT-jev-source-faithfulness.md owns typed source assessments. Previously ACTIVE under PRIME's approved Jev evaluation goal, following ARCHITECTURE design advice. Base98f60ba74b363aa39d8936f1c1f55a8981368255; serial codex/jev-experimental-accounting in the existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new checkout or /tmp directories.
 
 Retention #1312 merged84c6b2d35d58f14bb3ebff886294822423e584c7. Fresh Float/Council retained all gold passages but .9 exclusion omitted no units; recorded-score sweeps .5-.9 still exceeded local byte/node admission. Further uncertainty pruning would not solve that policy limit. Vendor limits are tokens, not bytes. No supported exact Jev tokenizer is available.
 
