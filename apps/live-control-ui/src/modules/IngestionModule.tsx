@@ -44,6 +44,12 @@ const INGESTION_DRAFT_STORAGE_VERSION = 3;
 
 type IngestionSourceMode = "raw" | "processed";
 
+type PriorArtifactLookup = {
+  campaignId: string;
+  status: "loading" | "loaded" | "failed";
+  records: RecapArtifactRecord[];
+};
+
 function isIngestSurfacePath(): boolean {
   if (typeof window === "undefined") return false;
   return window.location.pathname.replace(/\/+$/, "") === "/ingest";
@@ -714,10 +720,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
   const preservedRouteDraftRef = useRef<ReturnableIngestionDraft | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
-  const [priorArtifactLookup, setPriorArtifactLookup] = useState<{
-    campaignId: string;
-    status: "loading" | "loaded" | "failed";
-  } | null>(null);
+  const [priorArtifactLookup, setPriorArtifactLookup] = useState<PriorArtifactLookup | null>(null);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
@@ -1087,15 +1090,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   );
   const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
-  const exactSavedArtifact = priorIngestionArtifacts.find(
-    (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
-  );
-  const normalizedRecapPath = resultOwnsSelection ? matchingResult?.paths?.normalized_recap?.trim() : null;
-  const exactReaderRun = selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() : null);
-  const hasAddressableSavedSource = Boolean(exactSavedArtifact || normalizedRecapPath || exactReaderRun);
   const currentArtifactLookup = priorArtifactLookup?.campaignId === ingestCampaignId
     ? priorArtifactLookup
     : null;
+  const exactSavedArtifact = currentArtifactLookup?.status === "loaded"
+    ? currentArtifactLookup.records.find(
+        (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
+      )
+    : undefined;
+  const normalizedRecapPath = resultOwnsSelection ? matchingResult?.paths?.normalized_recap?.trim() : null;
+  const exactReaderRun = selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() : null);
+  const hasAddressableSavedSource = Boolean(exactSavedArtifact || normalizedRecapPath || exactReaderRun);
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
     ingestCampaignId,
@@ -1436,7 +1441,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
-    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading" });
+    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading", records: [] });
     void getRecapArtifacts(ingestCampaignId)
       .then((response) => {
         if (cancelled || ingestCampaignIdRef.current !== ingestCampaignId) return;
@@ -1446,7 +1451,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ),
         );
         setPriorIngestionArtifacts(records);
-        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded" });
+        // Keep lookup completion and its exact rows in one state snapshot. The
+        // cold-reader effect must never observe `loaded` with stale/empty rows.
+        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded", records });
         const currentSession = recapSessionRef.current;
         const targetSessionId = currentSession > 0 ? `session-${currentSession}` : "";
         const exactTarget = records.find(
@@ -1457,7 +1464,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       .catch(() => {
         if (!cancelled && ingestCampaignIdRef.current === ingestCampaignId) {
           setPriorIngestionArtifacts([]);
-          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed" });
+          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed", records: [] });
         }
       });
     return () => {
@@ -2044,7 +2051,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setReviewError(null);
     setReviewSource(null);
     try {
-      const record = priorIngestionArtifacts.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
+      const sourceRecords = preserveSelection
+        ? currentArtifactLookup?.status === "loaded" ? currentArtifactLookup.records : []
+        : priorIngestionArtifacts;
+      const record = sourceRecords.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
       const path = resultOwnsSelection ? latestResult?.paths?.normalized_recap : null;
       if (!record && !path && !runId) throw new Error("No saved recap is available for this session.");
       setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: null });
