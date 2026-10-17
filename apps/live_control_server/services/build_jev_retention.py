@@ -51,7 +51,7 @@ def fits(
                 "type": "noul" if q.kind == "binary" else "choice",
                 "instructions": q.question,
                 **(
-                    {"criteria": {o: o for o in q.options}}
+                    {"criteria": {o: None for o in q.options}}
                     if q.kind == "choice"
                     else {}
                 ),
