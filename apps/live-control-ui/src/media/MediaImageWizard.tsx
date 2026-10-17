@@ -28,6 +28,31 @@ const livePort: ImageGenerationPort = {
   list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
 };
 
+/** Lazy owner-authenticated previews; library reads never run generation or upload. */
+function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGenerationPort }) {
+  const holder = useRef<HTMLSpanElement>(null);
+  const [source, setSource] = useState(record.delivery_url ?? record.data_url ?? '');
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let started = false;
+    const load = () => {
+      if (started || source) return;
+      started = true;
+      port.get(record.asset_id).then(image => {
+        if (active) { setSource(image.delivery_url ?? image.data_url ?? ''); setFailed(!image.delivery_url && !image.data_url); }
+      }).catch(() => { if (active) setFailed(true); });
+    };
+    const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { load(); observer?.disconnect(); }
+    });
+    if (source) return;
+    if (observer && holder.current) observer.observe(holder.current); else load();
+    return () => { active = false; observer?.disconnect(); };
+  }, [port, record.asset_id, source]);
+  return <span ref={holder} className="media-image-wizard__thumbnail">{source && !failed ? <img src={source} alt="" loading="lazy" onError={() => setFailed(true)} /> : <span>{failed ? 'Preview unavailable' : 'Loading preview…'}</span>}</span>;
+}
+
 /** Surface-independent generator. The host owns placement and any eventual document write. */
 export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
   initialPrompt?: string; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
@@ -47,7 +72,10 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const saveBusy = useRef(false);
-  const [step, setStep] = useState(0);
+  const [view, setView] = useState<'create' | 'preview'>('create');
+  const [completion, setCompletion] = useState<GeneratedMediaImage | null>(null);
+  const libraryOpenRef = useRef(false);
+  const browseSequence = useRef(0);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [modelId, setModelId] = useState('');
   const [shape, setShape] = useState('1024x1024');
@@ -87,41 +115,54 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
     if (model.controls.includes('quality')) options.quality = quality;
     if (model.controls.includes('background')) options.background = background;
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
-    try { setResult(await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) })); setStep(2); }
+    try {
+      const generated = await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) });
+      setCompletion(generated.images[0] ?? null);
+      if (libraryOpenRef.current) {
+        void port.list().then(page => setLibrary(page.items)).catch(() => { /* Completion still opens the acknowledged asset. */ });
+      }
+      // Keep the reader's library selection visible; completion is always reachable in chrome.
+      if (!libraryOpenRef.current) { setResult(generated); setView('preview'); }
+    }
     catch (error) { setError(error instanceof Error ? error.message : 'Image generation did not complete.'); }
     finally { inFlight.current = false; setPending(false); }
   };
   const openLibrary = async (more = false) => {
     if (libraryBusy) return;
-    setLibraryBusy(true); setError(''); setLibraryOpen(true);
+    const sequence = ++browseSequence.current;
+    setLibraryBusy(true); setLibraryOpen(true); libraryOpenRef.current = true;
     try {
       const last = more ? library[library.length - 1] : null;
       const cursor = last ? `?before_time=${encodeURIComponent(last.created_at)}&before_id=${encodeURIComponent(last.asset_id)}` : '';
       const page = await port.list(cursor);
-      setLibrary(old => more ? [...old, ...page.items] : page.items);
-    } catch (error) { setError(error instanceof Error ? error.message : 'The image library could not be opened.'); }
-    finally { setLibraryBusy(false); }
+      if (sequence === browseSequence.current) setLibrary(old => more ? [...new Map([...old, ...page.items].map(item => [item.asset_id, item])).values()] : page.items);
+    } catch (error) { if (sequence === browseSequence.current) setError(error instanceof Error ? error.message : 'The image library could not be opened.'); }
+    finally { if (sequence === browseSequence.current) setLibraryBusy(false); }
   };
   const reopen = async (id: string) => {
-    setLibraryBusy(true); setError('');
+    const sequence = ++browseSequence.current;
+    setLibraryBusy(true); setError(''); libraryOpenRef.current = true;
     try {
       const record = await port.get(id);
+      if (sequence !== browseSequence.current) return;
       const prompt = record.provenance.authored_prompt ?? record.provenance.prompt ?? 'Saved image';
-      setPrompt(prompt);
       const savedModel = record.provenance.model ?? 'flux-2-pro';
-      if (models.some(model => model.id === savedModel)) setModelId(savedModel);
-      const settings = record.provenance.settings;
-      if (settings && typeof settings.width === 'number' && typeof settings.height === 'number') setShape(`${settings.width}x${settings.height}`);
-      setPurpose(settings?.purpose === 'map' ? 'map' : 'illustration');
-      const options = settings?.options as Record<string, unknown> | undefined;
-      setFormat(typeof options?.output_format === 'string' ? options.output_format : 'png');
-      setQuality(typeof options?.quality === 'string' ? options.quality : 'high');
-      setBackground(typeof options?.background === 'string' ? options.background : 'opaque');
-      setSeed(typeof options?.seed === 'number' ? String(options.seed) : '');
+      if (!inFlight.current) {
+        setPrompt(prompt);
+        if (models.some(model => model.id === savedModel)) setModelId(savedModel);
+        const settings = record.provenance.settings;
+        if (settings && typeof settings.width === 'number' && typeof settings.height === 'number') setShape(`${settings.width}x${settings.height}`);
+        setPurpose(settings?.purpose === 'map' ? 'map' : 'illustration');
+        const options = settings?.options as Record<string, unknown> | undefined;
+        setFormat(typeof options?.output_format === 'string' ? options.output_format : 'png');
+        setQuality(typeof options?.quality === 'string' ? options.quality : 'high');
+        setBackground(typeof options?.background === 'string' ? options.background : 'opaque');
+        setSeed(typeof options?.seed === 'number' ? String(options.seed) : '');
+      }
       setResult({ prompt: record.provenance.prompt ?? prompt, model: savedModel, images: [{ asset_id: record.asset_id, media_type: record.mime_type, data_url: record.data_url ?? '', state: record.state, delivery_url: record.delivery_url }] });
-      setStep(2); setLibraryOpen(false);
-    } catch (error) { setError(error instanceof Error ? error.message : 'This image could not be opened.'); }
-    finally { setLibraryBusy(false); }
+      setView('preview'); setLibraryOpen(false);
+    } catch (error) { if (sequence === browseSequence.current) setError(error instanceof Error ? error.message : 'This image could not be opened.'); }
+    finally { if (sequence === browseSequence.current) setLibraryBusy(false); }
   };
   const saveImage = async (id: string) => {
     if (saveBusy.current) return;
@@ -145,29 +186,39 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
     catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'The image could not be placed.'); setCollapsed(false); } }
     finally { if (placementAbort.current === controller) placementAbort.current = null; setPlacing(false); }
   };
+  const showCreate = () => { ++browseSequence.current; libraryOpenRef.current = false; setLibraryBusy(false); setLibraryOpen(false); setView('create'); };
   const cancelPlacement = () => { placementAbort.current?.abort(); placementAbort.current = null; setPlacing(false); setCollapsed(false); };
-  const phase = placing ? 'Click the page or drop the image to place it' : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : result ? 'Image ready' : 'Ready';
+  const phase = placing ? 'Click the page or drop the image to place it' : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : completion || result ? 'Image ready' : 'Ready';
   return <section className={'media-image-wizard' + (collapsed ? ' is-collapsed' : '')} aria-label="Create an image" aria-busy={pending}>
     <header className="media-image-wizard__header" role="toolbar" aria-label="Image Studio controls">
-      <div className="media-image-wizard__title-row"><div><h2>Image Studio</h2><p role="status">{phase}</p></div>
+      <div className="media-image-wizard__title-row"><h2>Image Studio</h2>
+        <label className="media-image-wizard__purpose"><span className="sr-only">Creating</span><select aria-label="Image purpose" value={purpose} disabled={pending || placing || saving !== null} onChange={event => setPurpose(event.target.value as 'illustration' | 'map')}><option value="illustration">Illustration</option><option value="map" disabled={!mapFraming}>Map</option></select></label>
         <div className="media-image-wizard__window-actions">
+          <button type="button" disabled={placing || saving !== null || !libraryReady} onClick={() => { setCollapsed(false); void openLibrary(); }}>Image library</button>
           <button type="button" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand image studio' : 'Collapse image studio'} aria-expanded={!collapsed}>{collapsed ? '↗' : '−'}</button>
           <button type="button" onClick={() => { placementAbort.current?.abort(); onClose(); }} disabled={pending || saving !== null} aria-label="Close image studio">×</button>
         </div></div>
-      {placing && <button type="button" onClick={cancelPlacement}>Cancel placement</button>}
-      <div hidden={collapsed}>
-        <div className="media-image-wizard__toolbar-row"><label>Creating<select aria-label="Image purpose" value={purpose} disabled={pending || placing || saving !== null} onChange={event => setPurpose(event.target.value as 'illustration' | 'map')}><option value="illustration">Illustration</option><option value="map" disabled={!mapFraming}>Map</option></select></label>
-          <button type="button" disabled={pending || placing || saving !== null || libraryBusy || !libraryReady} onClick={() => openLibrary()}>Image library</button></div>
-        <nav aria-label="Image creation steps">{['Describe', 'Model & settings', 'Preview'].map((label, index) => <button type="button" key={label} aria-current={step === index ? 'step' : undefined} disabled={pending || placing || (index === 2 && !result)} onClick={() => { setStep(index); setLibraryOpen(false); }}>{index + 1}. {label}</button>)}</nav>
+      <div className="media-image-wizard__status-row"><p role="status">{phase}</p>
+        {placing && <button type="button" onClick={cancelPlacement}>Cancel placement</button>}
+        {!collapsed && (libraryOpen || view === 'preview') && <button type="button" onClick={showCreate}>Create image</button>}
       </div>
+      {completion && <button className="media-image-wizard__completion" type="button" disabled={placing || saving !== null} onClick={() => { setCollapsed(false); void reopen(completion.asset_id); }} aria-label="Open generated image in library"><img src={completion.delivery_url ?? completion.data_url} alt="" /><span>Image generated · Open in library</span></button>}
     </header>
     <div className="media-image-wizard__body" hidden={collapsed}>
-    {libraryOpen && <section className="media-image-wizard__library" aria-label="Image library"><h3>Your images</h3>{library.length === 0 && !libraryBusy && <p>No images yet. Generate your first image to begin.</p>}{library.map(record => <button type="button" key={record.asset_id} disabled={libraryBusy} onClick={() => reopen(record.asset_id)}>{record.provenance.prompt?.slice(0, 80) ?? 'Image'} · {record.state === 'ready' ? 'Saved' : 'Not yet on CDN'}</button>)}{library.length > 0 && <button type="button" disabled={libraryBusy} onClick={() => openLibrary(true)}>More images</button>}<button type="button" onClick={() => setLibraryOpen(false)}>Back to studio</button></section>}
+    {libraryOpen && <section className="media-image-wizard__library" aria-label="Image library"><h3>Your images</h3>
+      {libraryBusy && <p role="status">Loading images…</p>}
+      {library.length === 0 && !libraryBusy && <p>No images yet. Generate your first image to begin.</p>}
+      <div className="media-image-wizard__grid">{library.map(record => <button className="media-image-wizard__card" type="button" key={record.asset_id} disabled={libraryBusy} onClick={() => reopen(record.asset_id)}>
+        <LibraryThumbnail record={record} port={port} /><span className="media-image-wizard__card-caption">{record.provenance.authored_prompt ?? record.provenance.prompt ?? 'Image'} · {record.state === 'ready' ? 'Saved' : 'Not yet on CDN'}</span>
+      </button>)}</div>
+      {library.length > 0 && <button type="button" disabled={libraryBusy} onClick={() => openLibrary(true)}>More images</button>}
+      <button type="button" onClick={showCreate}>Back to studio</button></section>}
     {!libraryReady && models.length > 0 && <p role="status">The media library needs database setup before generation.</p>}
     {error && <p role="alert">{error}</p>}
     {models.length > 0 && !configured && <p role="status">Connect the server’s fal credential to generate images.</p>}
-    {!libraryOpen && step === 0 && <><label>What would you like to see?<textarea autoFocus value={prompt} maxLength={16000} rows={7} onChange={e => setPrompt(e.target.value)} placeholder="A weathered fort town at the edge of a vast swamp, warm lanterns reflected in the water…" /></label><p>A map, a portrait, a place—describe what matters to you.</p><button type="button" disabled={!prompt.trim()} onClick={() => setStep(1)}>Choose model & settings →</button></>}
-    {!libraryOpen && step === 1 && <div className="media-image-wizard__settings">
+    {!libraryOpen && view === 'create' && <fieldset disabled={pending || placing || saving !== null} className="media-image-wizard__creation">
+      <label>What would you like to see?<textarea autoFocus value={prompt} maxLength={16000} rows={6} onChange={e => setPrompt(e.target.value)} placeholder="A weathered fort town at the edge of a vast swamp, warm lanterns reflected in the water…" /></label>
+      <div className="media-image-wizard__settings">
       <label>Model<select value={modelId} onChange={e => { setModelId(e.target.value); setFormat('png'); }}>{models.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
       {model?.description && <p className="media-image-wizard__model-note">{model.description}</p>}
       <label>Shape<select value={shape} onChange={e => setShape(e.target.value)}><option value="1024x1024">Square · 1:1</option><option value="1536x1024">Landscape · 3:2</option><option value="1024x1536">Portrait · 2:3</option></select></label>
@@ -188,12 +239,12 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
           {catalog.has_more && <button type="button" disabled={catalogBusy || pending} onClick={() => readCatalog(true)}>More models</button>}
         </>}
       </details>}
-    </div>}
-    {!libraryOpen && (step === 1 || step === 2) && <footer><p>Generation is billed to DungeonBuddy’s configured fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p><button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button></footer>}
+    </div></fieldset>}
+    {!libraryOpen && <footer><p>Generation is billed to DungeonBuddy’s configured fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p><button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button></footer>}
     {pending && <p>Creating your image. Collapse Image Studio to keep working on your page.</p>}
     {purpose === 'map' && !libraryOpen && <details><summary>Map framing added to your prompt</summary><p>{mapFraming}</p></details>}
     {result && onChoose && <p>Save the image, then drag it onto the page or choose Place on page and click an insertion point.</p>}
-    {result && <figure className="media-image-wizard__result" hidden={step !== 2 || libraryOpen}><figcaption><details><summary>Prompt used</summary><p>{result.prompt}</p></details></figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} draggable={image.state === 'ready' && !!onChoose} onDragStart={event => { if (image.state !== 'ready' || !onChoose) { event.preventDefault(); return; } event.dataTransfer.clearData(); event.dataTransfer.setData('application/x-dmb-media', image.asset_id); event.dataTransfer.effectAllowed='copy'; void choose(image, 'drag'); }} /><div className="media-image-wizard__actions"><a download={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} href={image.data_url}>Download image</a>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && image.state === 'ready' && <button type="button" disabled={placing} onClick={() => void choose(image, 'click')}>{chooseLabel === 'Insert into page' ? 'Place on page' : chooseLabel}</button>}</div></div>)}</figure>}
+    {result && <figure className="media-image-wizard__result" hidden={view !== 'preview' || libraryOpen}><figcaption><details><summary>Prompt used</summary><p>{result.prompt}</p></details></figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} draggable={image.state === 'ready' && !!onChoose} onDragStart={event => { if (image.state !== 'ready' || !onChoose) { event.preventDefault(); return; } event.dataTransfer.clearData(); event.dataTransfer.setData('application/x-dmb-media', image.asset_id); event.dataTransfer.effectAllowed='copy'; void choose(image, 'drag'); }} /><div className="media-image-wizard__actions"><a download={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} href={image.data_url}>Download image</a>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && image.state === 'ready' && <button type="button" disabled={placing} onClick={() => void choose(image, 'click')}>{chooseLabel === 'Insert into page' ? 'Place on page' : chooseLabel}</button>}</div></div>)}</figure>}
     </div>
   </section>;
 }

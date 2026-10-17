@@ -151,7 +151,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
         try:
             row = media.stage_image(image.content, principal.subject, {
                 "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
-                "settings": body.model_dump(exclude={"prompt"}),
+                "settings": body.model_dump(mode="json", exclude={"prompt"}),
                 "observation": result.observation.model_dump(mode="json"),
                 "preparation": preparation.model_dump(mode="json", exclude={'owner_id'}) if preparation else None,
             })
@@ -159,7 +159,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
             raise HTTPException(error.status_code, detail="The image could not be retained in the media library. No CDN save is claimed.") from error
         images.append({"data_url": f"data:{row['mime_type']};base64,{base64.b64encode(image.content).decode('ascii')}", "media_type": row["mime_type"], "asset_id": str(row["asset_id"]), "state": row["state"]})
     return {"images": images, "model": body.model, "prompt": effective_prompt,
-            "settings": body.model_dump(exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
+            "settings": body.model_dump(mode="json", exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
 
 
 def _public_record(row: dict) -> dict:

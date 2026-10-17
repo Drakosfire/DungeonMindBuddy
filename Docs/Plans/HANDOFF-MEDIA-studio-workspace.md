@@ -23,6 +23,7 @@ Exclusive write lease:
 - apps/live-control-ui/src/media/MediaImageWizard.tsx
 - apps/live-control-ui/src/media/MediaImageWizard.css
 - apps/live-control-ui/src/media/MediaImageWizard.test.tsx
+- apps/live-control-ui/src/media/PreparedBuildImage.test.tsx (remove obsolete step interaction in actual Agent-prepared flow)
 - apps/live_control_server/routes/media_images.py
 - tests/test_media_image_generation.py
 
