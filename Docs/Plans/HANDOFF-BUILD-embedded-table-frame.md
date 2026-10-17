@@ -19,3 +19,8 @@ table rendering across surfaces; HTML export/read-only readers remain plain tabl
 Verify actual editor collapse/edit/serialization and existing Build insertion
 Save/reopen boundary, typecheck/build, independent review and PR/merge. Deploy only
 UI5202 after preserving the operator's unsaved draft. Do not Save or discard it.
+
+Live follow-up ACTIVE: operator requests removing redundant generated title/intro
+from their current draft. Preserve other content; verify exact DOM selection before
+editing. Investigate live toggle after an event-loop turn before claiming acceptance.
+Same code write lease; serial corrective PR if needed. Initial merge79a18514.
