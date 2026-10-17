@@ -1653,6 +1653,13 @@ export async function getWorldAgentTurnContextTrace(worldId: string, turnId: str
   );
 }
 
+export async function getWorldAgentTurnPrompt(worldId: string, turnId: string, traceId: string, providerAttemptId: string, signal?: AbortSignal) {
+  return apiFetch<import('./buddyContextTraceTypes').BuddyPromptEvidence>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/prompt/${encodeURIComponent(providerAttemptId)}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
 export interface WorldAgentConversationHistoryOptions {
   limit?: number;
   beforeSequence?: number;

@@ -16,3 +16,21 @@
 .buddy-context-trace__source { background: #f2ead7; color: #3f3528; padding: 10px 14px; border-radius: 8px; margin: 10px 0; }
 .buddy-context-trace__source blockquote { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; line-height: 1.55; }
 @media (max-width: 640px) { .buddy-context-trace__context-columns { grid-template-columns: 1fr; } .buddy-context-trace header { flex-direction: column; gap: 4px; } }
+
+.buddy-context-trace__tabs { display: flex; gap: 6px; border-bottom: 1px solid #3b5163; margin-bottom: 16px; }
+.buddy-context-trace__tabs button { padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: inherit; }
+.buddy-context-trace__tabs button[aria-selected="true"] { border-bottom-color: #d5aa54; color: #f2d390; }
+.buddy-prompt { min-width: 0; }
+.buddy-prompt > p { font-size: .85rem; color: var(--text-secondary, #a8b8ca); }
+.buddy-prompt select { max-width: 100%; margin: 0 0 12px 10px; }
+.buddy-prompt__toolbar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.buddy-prompt__toolbar label { font-size: .85rem; }
+.buddy-prompt__layout { display: grid; grid-template-columns: minmax(140px, 210px) minmax(0, 1fr); gap: 16px; }
+.buddy-prompt__layout nav { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; }
+.buddy-prompt__layout nav button { text-align: left; padding: 8px; overflow-wrap: anywhere; white-space: normal; }
+.buddy-prompt__layout nav button[aria-pressed="true"] { border-color: #d5aa54; background: #3a3326; }
+.buddy-prompt__layout small { display: block; opacity: .65; }
+.buddy-prompt__layout section { min-width: 0; }
+.buddy-prompt pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 65vh; background: #111820; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.buddy-prompt details { margin-top: 12px; font-size: .8rem; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .buddy-prompt__layout { grid-template-columns: 1fr; } .buddy-prompt__layout nav { max-height: 150px; } }

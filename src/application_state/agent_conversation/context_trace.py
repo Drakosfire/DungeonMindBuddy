@@ -311,6 +311,19 @@ class TraceProviderCall(TraceEvent):
         return self
 
 
+class TracePromptReference(TraceEvent):
+    """Private blob handle, validated against the durable dispatch authorization."""
+    kind: Literal["prompt_reference"] = "prompt_reference"
+    evidence_id: UUID
+    provider_attempt_id: UUID
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=128)
+    api_mode: str = Field(min_length=1, max_length=128)
+    serializer_version: str = Field(min_length=1, max_length=128)
+    payload_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    payload_utf8_bytes: int = Field(gt=0, le=16 * 1024 * 1024)
+
+
 class TraceFailure(TraceEvent):
     kind: Literal["failure"] = "failure"
     code: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
@@ -322,7 +335,7 @@ class TraceFailure(TraceEvent):
 
 ContextTraceObservation = Annotated[
     TraceContextSnapshot | TraceContextDecision | TraceGraphTool
-    | TraceSourcePassage | TraceProviderCall | TraceFailure,
+    | TraceSourcePassage | TraceProviderCall | TracePromptReference | TraceFailure,
     Field(discriminator="kind"),
 ]
 

@@ -1689,7 +1689,8 @@ class _PolicyExecutionAdapter:
         self.turn = claim.turn
         self.fence = _ClaimFence(self.service, claim.turn)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
-        if _governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
+        if (_governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+                or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
             self.context_capture = ContextTraceCollector(self.fence)
             if self.context_compaction_report is not None:
                 self.context_capture.compaction(self.context_compaction_report,
@@ -1920,6 +1921,18 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
+            if os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1":
+                try:
+                    if self.context_capture is None:
+                        raise ValueError("prompt capture requires an active trace")
+                    self.context_capture.capture_prompt(view, event)
+                except Exception as exc:
+                    # Authorization is durable, but no SDK/provider IO has happened.
+                    self.record_lifecycle({"transition": "known_not_sent"})
+                    raise AgentTurnServiceError(
+                        "The prepared request could not be captured. No model request was sent.",
+                        code="prompt_capture_unavailable", status_code=503, provider_dispatched=False,
+                    ) from exc
             if _governed_build_turn(self.request):
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
@@ -2222,7 +2235,8 @@ class _PolicyExecutionAdapter:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
         if message.get("toolName") == "observe_context_compaction":
-            if _governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
+            if (_governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+                or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
                 arguments = message.get("arguments")
                 try:
                     if self.context_compaction_report is not None or self.fence is not None:

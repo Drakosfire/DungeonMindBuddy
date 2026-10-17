@@ -480,3 +480,16 @@ def test_answer_draft_cannot_rebind_frozen_trace_context(change):
     with pytest.raises(ApplicationStateValidationError, match='frozen trace context'):
         capture.answer_draft('draft',producing_provider_attempt_id=producer)
     assert store.trace.observations == []
+
+
+def test_prompt_capture_is_strict_even_when_trace_append_returns_only_incomplete(tmp_path, monkeypatch):
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    capture, store, _ = collector()
+    authorization = SimpleNamespace(provider_attempt_id=uuid4(), provider="openai", model="synthetic",
+        api_mode="responses", serializer_version="serializer")
+    view = {"payloadJson":"{}", "payloadSha256":sha256(b"{}").hexdigest(), "payloadUtf8Bytes":2}
+    capture.capture_prompt(view, authorization)
+    assert store.trace.observations[0].kind == "prompt_reference"
+    store.append_context_trace = lambda **_:store.trace
+    with pytest.raises(ApplicationStateValidationError, match="not durably captured"):
+        capture.capture_prompt(view, authorization)
