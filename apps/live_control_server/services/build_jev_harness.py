@@ -323,14 +323,22 @@ class BuildJevHarness:
             for r in event.receipts
         }
         missing = sorted(needed - prior)
-        for start in range(0, len(missing), 8):
+        while missing:
+            execution = adapter._broker_execution()
+            remaining = execution.policy.max_source_read_chars - ledger.source_read_character_usage(
+                execution.policy, execution.events)
+            if remaining <= 0:
+                raise ValueError("Source character allowance is exhausted")
+            max_chars = min(execution.policy.max_chars_per_source_read, remaining)
+            count = min(8, len(missing), remaining // max_chars)
+            batch, missing = missing[:count], missing[count:]
             reply = adapter.broker_source_read(
                 {
                     "toolName": "read_graph_source",
                     "arguments": {
                         "retrievalSessionId": adapter.bootstrap.retrieval_session.id,
-                        "anchorIds": missing[start : start + 8],
-                        "maxChars": 12000,
+                        "anchorIds": batch,
+                        "maxChars": max_chars,
                     },
                 }
             )

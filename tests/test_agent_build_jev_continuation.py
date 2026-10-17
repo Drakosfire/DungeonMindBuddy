@@ -171,3 +171,40 @@ def test_selected_record_closure_ignores_only_unrelated_envelope_metadata(mutati
     else:
         with pytest.raises(ValueError):
             verify_selected_presentation(raw, payloads, "observation-one")
+
+
+def test_source_batch_planning_reserves_only_remaining_character_allowance(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import types as ledger
+
+    used, requests, accepted = [1615], [], []
+    event_id = uuid4()
+    execution = SimpleNamespace(policy=SimpleNamespace(
+        max_source_read_chars=96000, max_chars_per_source_read=12000), events=[])
+    raw = json.dumps({"sourceAnchors": [{"anchorId": f"anchor:{n}"} for n in range(9)]})
+    monkeypatch.setattr(ledger, "source_read_character_usage", lambda policy, events: used[0])
+
+    def read(call):
+        args = call["arguments"]
+        # This owning admission precondition used to reject the first fixed batch of8.
+        assert used[0] + len(args["anchorIds"]) * args["maxChars"] <= 96000
+        requests.append(args)
+        used[0] += 100 * len(args["anchorIds"])
+        return {"resultJson": json.dumps({"schema": "dmb_read_graph_source_batch_v1"})}
+
+    adapter = SimpleNamespace(
+        failure=None, operation_payloads={event_id: raw},
+        bootstrap=SimpleNamespace(retrieval_session=SimpleNamespace(id="session:one")),
+        _broker_execution=lambda: execution,
+        _tool_presentation=lambda: SimpleNamespace(inclusion=lambda tool, payloads: [SimpleNamespace(event_id=event_id)]),
+        broker_graph_operation=lambda call: {"resultJson": raw}, broker_source_read=read,
+    )
+    driver = SimpleNamespace(
+        step=SimpleNamespace(actions=[SimpleNamespace(id="graph:one", kind="graph_observations")]),
+        action_arguments=lambda action_id: {}, accept_acquisition=accepted.append,
+    )
+    BuildJevHarness._acquire(adapter, driver)
+    assert [len(args["anchorIds"]) for args in requests] == [7, 2]
+    assert {aid for args in requests for aid in args["anchorIds"]} == {f"anchor:{n}" for n in range(9)}
+    assert len(accepted) == 1
