@@ -1,7 +1,7 @@
 # Ingest: bind fresh recap sources to their World
 
 Status: ACTIVE — PRIME authorizes DOGFOOD to implement this next Ingest slice under the operator's Ingest assignment. ARCHITECTURE owns independent review; PRIME owns merge.
-Base: Buddy origin/main@ad325a2b61ca7678816ce2c108a7c8bb101a7bf5.
+Base: Buddy origin/main@18dcb5f7fdedee49a7d785ad765ddc8b9e571322.
 Lane: codex/ingest-recap-source-world-binding, /tmp/prime-ingest-recap-source-world-binding. Topology: serial successor to merged #1266/#1276; no unmerged dependency.
 
 ## Outcome and evidence
@@ -69,7 +69,7 @@ Changes in these paths are restricted to adopting the new explicit native-World 
 
 ## Re-anchor and topology settlement — 2026-10-17
 
-GitHub confirms PR #1266 merged at `7cd86c3a3fc875e0994ac53cbe5515bff43b27df` and PR #1276 merged at `448e88d9006b19cfb607d4ac5afde14d6d44d856`. Current `origin/main` is `ad325a2b61ca7678816ce2c108a7c8bb101a7bf5` after merged #1282; the shell fetch succeeded and the intervening main changes are limited to conversation UI files outside this lease.
+GitHub confirms PR #1266 merged at `7cd86c3a3fc875e0994ac53cbe5515bff43b27df` and PR #1276 merged at `448e88d9006b19cfb607d4ac5afde14d6d44d856`. Current `origin/main` is `18dcb5f7fdedee49a7d785ad765ddc8b9e571322` after merged #1283. The intervening main changes touch agent prompt-inspection and conversation-trace files plus Backlog.md; none overlap this lease. This lane was rebased onto that ref.
 
 PR #1244 remains open but its candidate-recovery implementation is held and is not a dependency or stacked parent for this World-binding slice. PRIME explicitly transferred the shared `tests/test_graph_memory_category_graph_preview_runner.py` path from that frozen lane to this lane. This slice may keep the explicit World/v2 identity fixture updates in that file; do not incorporate #1244's legacy repair implementation.
 
