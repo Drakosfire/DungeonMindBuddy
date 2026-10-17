@@ -49,20 +49,25 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       sessionStorage.setItem(key,'1');void showStudio();
     }
   },[record.action_id,active,bridge]);
-  async function insert(image: GeneratedMediaImage) {
-    const start=current.current; const capture=captured.current;
-    if (!start.active || !start.bridge || !capture || busy.current || inserted) return;
+  async function insert(image: GeneratedMediaImage, placement: {mode:'click'|'drag';signal:AbortSignal}) {
+    const start=current.current;
+    if (!start.active || !start.bridge?.pickInsertion || busy.current || inserted) throw new Error('Open the editable page before placing this image.');
     const epoch=studioEpoch.current;
-    busy.current=true;setError('');
+    busy.current=true;
     try {
-      const asset=await mediaRequest(image.asset_id+'/metadata');
+      const capture=await start.bridge.pickInsertion({...placement,assetId:image.asset_id});
+      placement.signal.throwIfAborted();
+      const expected=start.record.reservation.basis;
+      if(capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Place this image on the page used for its image direction.');
+      const asset=await mediaRequest(image.asset_id+'/metadata',undefined,placement.signal);
       if(asset.asset_id!==image.asset_id || asset.state!=='ready') throw new Error('Save this image before inserting it.');
-      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset',{asset_id:image.asset_id,expected_revision:prepared.revision}) as PreparedImage;
-      if(!mounted.current || studioEpoch.current!==epoch || !current.current.active || current.current.record.action_id!==start.record.action_id || current.current.bridge!==start.bridge) return;
+      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset',{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
+      setPrepared(selected);
+      placement.signal.throwIfAborted();
+      if(!mounted.current || studioEpoch.current!==epoch || !current.current.active || current.current.record.action_id!==start.record.action_id || current.current.bridge!==start.bridge) throw new Error('The page changed. Place the image again.');
       start.bridge.insert(capture,mediaMarkdown(asset.asset_id,prepared.alt));
-      setPrepared(selected);setInserted(true);setOpen(false);
-    } catch(reason) {if(mounted.current) setError(reason instanceof Error?reason.message:'The image could not be inserted.');}
-    finally {busy.current=false;}
+      setInserted(true);setOpen(false);
+    } finally {busy.current=false;}
   }
   return <article aria-label="Prepared image" className="build-compose-proposal">
     <p><strong>Image direction ready</strong></p><p>{record.alt}</p>
@@ -71,6 +76,6 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       : <button type="button" disabled={!active || !bridge} onClick={()=>void showStudio()}>Open Image Studio</button>}
     {error&&<p role="alert">{error}</p>}
     {open&&active&&<aside className="build-media-studio"><MediaImageWizard initialPrompt={prepared.prompt} preparationId={prepared.action_id}
-      onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={image=>void insert(image)} /></aside>}
+      onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={(image,_result,placement)=>insert(image,placement)} /></aside>}
   </article>;
 }

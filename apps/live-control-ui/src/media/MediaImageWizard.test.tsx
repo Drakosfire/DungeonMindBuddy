@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
 const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
@@ -117,6 +117,48 @@ describe('MediaImageWizard', () => {
     expect(screen.getByLabelText('Model')).toHaveValue('flux-2-pro');
     expect(screen.getByRole('button', { name: 'Generate image' })).toBeEnabled();
     expect(api.generate).not.toHaveBeenCalled();
+  });
+
+  it('collapses during generation and retains its completed image without another call', async () => {
+    const api=createPort();let finish!: (value: any)=>void;
+    vi.mocked(api.generate).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    await settings(api);fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+    fireEvent.click(screen.getByRole('button',{name:'Collapse image studio'}));
+    expect(screen.queryByRole('button',{name:'Generate image'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Expand image studio'})).toBeEnabled();
+    await act(async()=>finish({images:[{data_url:'data:image/png;base64,original',media_type:'image/png',asset_id:'asset-1',state:'staged'}],prompt:'Edge',model:'flux-2-pro'}));
+    expect(screen.getByText('Image ready')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Expand image studio'}));
+    expect(await screen.findByRole('link',{name:'Download image'})).toHaveAttribute('href','data:image/png;base64,original');
+    expect(api.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes Map framing and sends explicit purpose without rewriting the authored prompt',async()=>{
+    const api=createPort();const caps=await api.capabilities();
+    vi.mocked(api.capabilities).mockResolvedValue({...caps,map_framing:'Top-down orthographic map framing.'});
+    await settings(api);
+    fireEvent.change(screen.getByLabelText('Image purpose'),{target:{value:'map'}});
+    expect(screen.getByText('Map framing added to your prompt')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+    await screen.findByRole('link',{name:'Download image'});
+    expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({purpose:'map',prompt:'Edge'}));
+    expect(screen.getByText(/DungeonBuddy’s configured fal account/)).toBeInTheDocument();
+  });
+
+  it('keeps placement errors inside studio and cancellation prevents a late placement',async()=>{
+    const api=createPort();let signal:AbortSignal|undefined;
+    const choose=vi.fn((_image,_result,placement)=>{signal=placement.signal;return new Promise<void>((_resolve,reject)=>placement.signal.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError'))));});
+    render(<MediaImageWizard initialPrompt="Edge" onClose={()=>{}} onChoose={choose} port={api}/>);
+    fireEvent.click(screen.getByRole('button',{name:/Choose model/}));
+    fireEvent.click(await screen.findByRole('button',{name:'Generate image'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Save image'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Place on page'}));
+    expect(screen.getByRole('button',{name:'Cancel placement'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Cancel placement'}));
+    await waitFor(()=>expect(signal?.aborted).toBe(true));
+    expect(choose).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('link',{name:'Download image'})).toBeInTheDocument();
+    expect(api.generate).toHaveBeenCalledTimes(1);
   });
 
 });

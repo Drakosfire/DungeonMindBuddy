@@ -264,3 +264,18 @@ async def test_capabilities_curate_exact_four_without_catalog_call(setup):
     assert body['default_model_id'] == 'gpt-image-2.5-flare'
     assert {item['id'] for item in body['models']} == {'gpt-image-2.5-flare','gpt-image-2.5-sunburst','seedream-v5-pro','nano-banana-2-lite'}
     provider.list_image_models.assert_not_called()
+
+
+async def test_map_purpose_has_exact_effective_prompt_and_preserves_authored_provenance(setup, monkeypatch):
+    seen=[]
+    def stage(content, owner, provenance):
+        seen.append(provenance)
+        return {'asset_id':'d3796b5d-d783-4195-b2cf-646debf276db','mime_type':'image/png','state':'staged'}
+    monkeypatch.setattr(media_images.media,'stage_image',stage)
+    response=await submit(setup,{'prompt':'Edge, the old fort and swamp','model':'gpt-image-2.5-flare','purpose':'map'})
+    assert response.status_code==200
+    expected=media_images.MAP_FRAMING+'\n\nEdge, the old fort and swamp'
+    assert setup[1].generate_image.call_args.args[0].prompt==expected
+    assert response.json()['prompt']==expected
+    assert seen[0]['prompt']==expected and seen[0]['authored_prompt']=='Edge, the old fort and swamp'
+    assert seen[0]['settings']['purpose']=='map'

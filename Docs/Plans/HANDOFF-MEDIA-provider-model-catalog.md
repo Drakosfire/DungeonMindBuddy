@@ -1,6 +1,6 @@
 # MEDIA — Provider discovery and current image choices
 
-Status: ACTIVE — ARCHITECTURE independently found no blocker at GE #25 head 7bb66c157ba0d926bd013b86e528223c5c8373b8 and accepted the Buddy consumer boundary. Final GE Bugbot supplement and merge remain gates before Buddy merge/runtime adoption. Operator requested current models and GE catalog discovery with Buddy owning selection. PRIME implements; ARCHITECTURE independently reviews; existing checkout buddy-context-loop only. No new checkout/environment. Base edf13b808b06a709212aab4c43a98ce23f13cf50. Stacked across repositories: immutable GE prerequisite #25 head 7bb66c157ba0d926bd013b86e528223c5c8373b8 → Buddy consumer; merge GE first, then pin its accepted merge revision before Buddy final review/merge. PRIME activates implementation after independent boundary acceptance rather than idling on supplemental review.
+Status: MERGED — PR1373 independently accepted878f7bb1d1ae853760042af3dc8b670d1f5bc5a2, merged005de08547288f4cfdb594ec9a9da346148be0e8 and adopted on5202/API8000 with APP0032 unchanged. GE#25 accepted correctedhead ead4dd591de63ffaae91d4b39cf74e530dcff760 and merged63eb8dba90ddc0fc0c2570614a6d6c84c4c96e2f; GE#26 accepted5c1f4998e831dd755f76b0aa7517cb290a2bec08 and mergedaf21356fab4f04210b3699bc846da4b8f27d9323, the exact Buddy pin. Live four-model dropdown, saved Edge prompt reopen and100-entrycatalog verified without generation. Lease complete; floating-studio successor owns listed media paths. Historical implementation scope follows.
 
 ## Product contract
 

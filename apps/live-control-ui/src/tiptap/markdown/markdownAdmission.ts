@@ -314,9 +314,7 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
     case "delete":
       return withMark(visitInlineChildren(node.children, state), { type: "strike" });
     case "break": {
-      warn(state, "Explicit Markdown hard breaks are not supported yet.", nodeStartLine(node));
-      const text = textNode(" ");
-      return text ? [text] : [];
+      return [{ type: "hardBreak" }];
     }
     case "link":
       return visitLink(node, state);

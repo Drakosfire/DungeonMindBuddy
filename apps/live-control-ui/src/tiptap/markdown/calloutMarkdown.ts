@@ -173,7 +173,7 @@ function inlineMarkdown(node: JsonNode): string {
     );
   }
   if (node.type === "mediaImage") return mediaMarkdown(String(node.attrs?.assetId ?? ''), String(node.attrs?.alt ?? ''));
-  if (node.type === "hardBreak") return "\n";
+  if (node.type === "hardBreak") return "\\\n";
   if (node.type === "runbookReference") {
     // In-memory attrs are semantic after versioned load migration.
     const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {}, { labelSource: "semantic" });
@@ -298,7 +298,7 @@ function serializeNode(node: JsonNode): string {
     case "text":
       return inlineMarkdown(node);
     case "hardBreak":
-      return "\n";
+      return "\\\n";
     case "mediaImage":
     case "runbookReference":
     case "graphNodeReference":

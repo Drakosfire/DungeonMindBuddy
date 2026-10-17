@@ -357,8 +357,8 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   },
   { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: true },
   { name: "setext heading (level 2)", markdown: "Heading\n-------", blockedOnMain: true },
-  { name: "hard break (trailing spaces)", markdown: "Line one  \nLine two", blockedOnMain: true },
-  { name: "hard break (backslash)", markdown: "Line one\\\nLine two", blockedOnMain: true },
+  { name: "hard break (trailing spaces)", markdown: "Line one  \nLine two", blockedOnMain: false },
+  { name: "hard break (backslash)", markdown: "Line one\\\nLine two", blockedOnMain: false },
   { name: "raw HTML block", markdown: "<div>unsafe</div>", blockedOnMain: true },
 ];
 

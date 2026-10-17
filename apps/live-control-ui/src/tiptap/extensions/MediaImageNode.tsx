@@ -23,6 +23,7 @@ function MediaImageView({ node }: NodeViewProps) {
   }, [id]);
   return <NodeViewWrapper as="span" className="document-media-image" contentEditable={false} data-media-asset-id={id}
     style={{display:'inline-block',width:'100%',maxWidth:'100%'}}>
+    <span data-drag-handle className="document-media-image__handle" title="Drag image to move" aria-label="Drag image to move">⠿</span>
     {url ? <img src={url} alt={String(node.attrs.alt)} loading="lazy" onError={() => { setUrl(null); setStatus('Image unavailable'); }} style={{display:'block',maxWidth:'100%',height:'auto',borderRadius:8}} />
       : <span role="status">{status}</span>}
   </NodeViewWrapper>;
