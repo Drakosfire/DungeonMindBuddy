@@ -1,6 +1,6 @@
 # Embedded table presentation
 
-Status: ACTIVE — operator requests collapsible, fitted inserted content objects.
+Status: SHIPPED — operator requests collapsible, fitted inserted content objects.
 PRIME implements; ARCHITECTURE independently reviews. Serial branch
 codex/embedded-table-frame, base9a415e61; checkout/tmp/prime-recap-mention-boundaries.
 
@@ -35,3 +35,19 @@ tiptap_markdown_write.py and tests/test_tiptap_markdown_write.py. Permit only
 parser-proven flat canonical editor tables at worldbuilding prepare/commit,
 preserve other unsupported syntax and frontmatter gates. Show actual save reasons.
 Verify actual prepare/commit/readback fixture, preserve operator's unsaved draft.
+
+## Live correction settlement
+PR1296 merged097edc640d2ce0e9ff04d4787cd3d26f3096fe94 after independent
+ARCHITECTURE PASS74c149b2.52 writer and29 UI tests pass; unchanged baseline wording
+assertion still expects Plan where both base/head emit World. Typecheck/build,
+scoped Ruff and diff checks pass. Actual file prepare/commit/readback fixture
+accepts canonical tables and preserves YAML; malformed/unsafe holds remain.
+
+Matched API8000/8002 and UI5202 serve immutable097edc64;5876 UI unchanged. No
+migration/provider or rollout APP mutation (all table fingerprints equal). User's
+unsaved draft recovered with exact text equality. Live Collapse/Expand works after
+reattachment; expanded body710px client/scroll height, max-height none, overflow
+visible. Toolbar computed sticky/top8px. Operator-requested redundant title and
+intro are now absent;20 data rows and original Edge prose retained. The page is
+still unsaved: no operator commit/discard was performed. Lease closed; operator
+Save/acceptance remains open.
