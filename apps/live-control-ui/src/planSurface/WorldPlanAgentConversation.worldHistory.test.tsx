@@ -4740,6 +4740,43 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
   });
 
+  it("rehydrates an owned page proposal without calling it Graph grounded", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
+    const turnId = "11111111-1111-4111-8111-111111111111";
+    const passage = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.";
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+      receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
+        source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
+        graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
+      completion: {schema: "dmb_build_authoring_completion_v1" as const, context_receipt_sha256: receipt.context_receipt_sha256,
+        answer_basis: "prepared_page_proposal" as const, answer_context_status: "proposal_ready" as const,
+        answer_segments: [{kind: "connective" as const, text: passage}], citation_map: null,
+        action_id: turnId, provider_attempt_id: turnId, reservation_sha256: "c".repeat(64),
+        proposal_result_sha256: "d".repeat(64), envelope_sha256: "e".repeat(64)},
+      execution: null, delivery_replay: true, source_open_targets: [], evidence_anchor_statuses: [], related_recap_context_statuses: []};
+    const {context_receipt_sha256: _oldHash, ...receiptForHash} = knowledge.receipt;
+    const digest = await sha256Hex(canonicalJson(receiptForHash));
+    knowledge.receipt.context_receipt_sha256 = digest;
+    knowledge.completion.context_receipt_sha256 = digest;
+    const turn = makeTurn(1, turnId, "Please add an invented NPC.", passage, "build");
+    turn.provenance.primary_work = {...turn.provenance.primary_work, revision: "1", content_sha256: contentSha256};
+    turn.provenance.supporting_work = [
+      ["dmb_build_source_visibility_v1", "internal", "1"],
+      ["dmb_build_graph_binding_v1", receipt.graph_authority.native_world_id, String(receipt.graph_authority.binding_version)],
+      ["world_graph_revision", receipt.graph_authority.native_world_id, receipt.graph_authority.graph_revision],
+    ].map(([kind, object_id, revision]) => ({resolution: "resolved", kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}));
+    setupApi({...history("conversation-a", 1, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [{...turn, knowledge_context: knowledge}]} as WorldAgentConversationHistoryResponse);
+    mountComponent();
+    expect(await screen.findByText("Please add an invented NPC.")).toBeInTheDocument();
+    expect(screen.getByText(passage)).toBeInTheDocument();
+    expect(screen.getByText("Page proposal")).toBeInTheDocument();
+    expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sources")).not.toBeInTheDocument();
+  });
+
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
     const api = setupApi(history("conversation-a", 5, [
       makeTurn(2, "turn-2", "Middle question", "Middle answer"),

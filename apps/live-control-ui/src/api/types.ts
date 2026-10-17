@@ -1101,10 +1101,24 @@ export interface AgentSourcePassageReadResponseV1 {
   content: string;
 }
 
+export interface WorldBuildAuthoringCompletionV1 {
+  schema: "dmb_build_authoring_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "prepared_page_proposal";
+  answer_context_status: "proposal_ready";
+  answer_segments: {kind: "connective"; text: string}[];
+  citation_map: null;
+  action_id: string;
+  reservation_sha256: string;
+  proposal_result_sha256: string;
+  provider_attempt_id: string;
+  envelope_sha256: string;
+}
+
 export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
   schema: "dmb_build_graph_context_response_v1";
   receipt: WorldBuildGraphReceiptV1;
-  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | null;
+  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | null;
 }
 
 export interface WorldPlanEvidenceAnchorStatusV1 {

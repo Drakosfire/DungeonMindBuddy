@@ -99,7 +99,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None, frozen_history=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -109,14 +109,14 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, frozen_history=frozen_history)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, frozen_history=None):
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -135,19 +135,9 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
-    # Source and history are resolved by their owners; none of this packet is a
-    # Graph citation, admission or claim about played truth.
-    history = AgentConversationService().list_turns(world, reservation.conversation_id, limit=6)
-    messages = [{"user": turn.user_text, "assistant": turn.assistant_text} for turn in history if turn.status == "completed"]
-    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "instruction": reservation.instruction,
-        "source_basis": reservation.basis.model_dump(mode="json"), "source_title": snapshot.record.title,
-        "draft_markdown": request.draft_markdown, "recent_dialogue": messages,
-        "source_class": "proposed_authored_worldbuilding_not_played_truth",
-        **({"tool_origin": reservation.origin.model_dump(mode="json")} if reservation.origin else {})}, ensure_ascii=False, separators=(",", ":"))
-    schema = BuildGeneratedProposal.model_json_schema()
-    expected = {"model": model, "input": packet, "instructions": SYSTEM,
-        "max_output_tokens": 4096, "reasoning": {"effort": "low"},
-        "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": False}
+    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history)
+    packet = expected["input"]
+    schema = expected["text"]["format"]["schema"]
     record, created = store.reserve(reservation)
     if not created:
         return record
@@ -214,3 +204,31 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     finally:
         if client is not None:
             await client.aclose()
+
+
+def prepare_writer_request(request, *, frozen_history=None):
+    """Owned deterministic request for trusted staging; never reserves or sends."""
+    snapshot, model = _source(request), _model()
+    return _writer_request(request, snapshot, model, frozen_history=frozen_history)
+
+
+def _writer_request(request, snapshot, model, *, frozen_history=None):
+    reservation = request.reservation_only()
+    world = reservation.basis.world_id
+    if frozen_history is None:
+        history = AgentConversationService().list_turns(world, reservation.conversation_id, limit=6)
+        messages = [{"user": turn.user_text, "assistant": turn.assistant_text} for turn in history if turn.status == "completed"]
+    else:
+        messages = [{"user": item["user"], "assistant": item["assistant"]} for item in frozen_history]
+    packet = json.dumps({"schema": "dmb_build_compose_input_v1", "instruction": reservation.instruction,
+        "source_basis": reservation.basis.model_dump(mode="json"), "source_title": snapshot.record.title,
+        "draft_markdown": request.draft_markdown, "recent_dialogue": messages,
+        **({"dialogue_sources": [{key: item[key] for key in ("turn_id", "user_sha256", "assistant_sha256")}
+            for item in frozen_history]} if frozen_history is not None else {}),
+        "source_class": "proposed_authored_worldbuilding_not_played_truth",
+        **({"tool_origin": reservation.origin.model_dump(mode="json")} if reservation.origin else {})}, ensure_ascii=False, separators=(",", ":"))
+    schema = BuildGeneratedProposal.model_json_schema()
+    expected = {"model": model, "input": packet, "instructions": SYSTEM,
+        "max_output_tokens": 4096, "reasoning": {"effort": "low"},
+        "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": False}
+    return expected

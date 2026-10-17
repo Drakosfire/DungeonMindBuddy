@@ -1852,6 +1852,20 @@ class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV
     saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
 
 
+class BuildActionControllerWriterPolicyV1(BuildSectionControllerWriterPolicyV1):
+    driver_schema: Literal["dmb_build_jev_actions_v1"]
+    action_capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_surface_operations: list[Literal["answer_from_sources", "propose_build_insertion"]] = Field(min_length=1, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_operations(self):
+        if (self.allowed_surface_operations != sorted(set(self.allowed_surface_operations))
+                or "answer_from_sources" not in self.allowed_surface_operations
+                or ("propose_build_insertion" in self.allowed_surface_operations) != (self.action_capability_sha256 is not None)):
+            raise ValueError("Offered Build operations must match the frozen editor capability")
+        return self
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -2610,6 +2624,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     RelatedRecapContextProviderInclusionEventV2,
                     BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                     BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
+                    BuildJevActionSelectionV1,
                 ),
             ):
                 continue
@@ -2722,6 +2737,17 @@ class BuildSectionAnswerBindingV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_jev_action_selected_v1"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    machine_request_id: str = Field(min_length=1, max_length=128)
+    operation: Literal["answer_from_sources", "propose_build_insertion"]
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
@@ -2729,7 +2755,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1,
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1,
     Field(discriminator="kind"),
 ]
 
@@ -2738,7 +2764,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -2749,6 +2775,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         latest_attempt: UUID | None = None
         latest_outcome: str | None = None
         writer_attempt: UUID | None = None
+        action_selection = None
+        authorized_by_id = {}
         acquisition_events = (
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
@@ -2774,12 +2802,26 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
                 raise ValueError("Provider cannot proceed with an unresolved Build section read")
 
+            if isinstance(event, BuildJevActionSelectionV1):
+                prior = authorized_by_id.get(event.controller_attempt_id)
+                if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
+                        or action_selection is not None or writer_attempt is not None
+                        or event.controller_attempt_id != latest_attempt or latest_outcome != "response_received"
+                        or prior is None or (prior.provider, prior.model, prior.api_mode) != roles.controller.identity()
+                        or event.controller_envelope_sha256 != prior.envelope_sha256
+                        or event.operation not in self.policy.allowed_surface_operations
+                        or event.capability_sha256 != self.policy.action_capability_sha256):
+                    raise ValueError("Build action selection differs from its acknowledged controller/capability")
+                action_selection = event
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                authorized_by_id[event.provider_attempt_id] = event
                 identity = (event.provider, event.model, event.api_mode)
                 if identity == roles.controller.identity():
                     if writer_attempt is not None:
                         raise ValueError("controller cannot resume after writer authorization")
                 elif identity == roles.writer.identity():
+                    if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
+                        raise ValueError("Build writer requires a recorded controller-selected operation")
                     if latest_attempt is None:
                         raise ValueError("first provider authorization must be controller")
                     if writer_attempt is not None:
@@ -3734,6 +3776,11 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
+        selections = [e for e in execution.events if isinstance(e, BuildJevActionSelectionV1)]
+        expected = "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources"
+        if len(selections) != 1 or selections[0].operation != expected:
+            raise ValueError("Completion differs from the controller-selected operation")
     if isinstance(completion, BuildAuthoringCompletionV1):
         if (not isinstance(receipt, BuildGraphContextReceiptV1)
                 or not isinstance(execution, PlanWorldGraphExecutionV3)

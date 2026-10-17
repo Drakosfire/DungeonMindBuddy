@@ -34,6 +34,7 @@ import type {
   WorldBuildGraphCompletionV1,
   WorldBuildGraphAnswerStatus,
   WorldBuildSourceAnswerStatus,
+  WorldBuildAuthoringCompletionV1,
   WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
   WorldGraphRecapContextReadResponseV2,
@@ -1338,6 +1339,19 @@ function graphContextForTurn(turn: WorldAgentConversationHistoryTurn) {
   return turn.knowledge_context ?? ("plan_context" in turn ? turn.plan_context : undefined);
 }
 
+function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value is WorldBuildAuthoringCompletionV1 {
+  return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
+    "answer_segments", "citation_map", "action_id", "reservation_sha256", "proposal_result_sha256", "provider_attempt_id", "envelope_sha256"])
+    && value.schema === "dmb_build_authoring_completion_v1" && value.context_receipt_sha256 === receiptHash
+    && value.answer_basis === "prepared_page_proposal" && value.answer_context_status === "proposal_ready"
+    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
+    && isRecord(value.answer_segments[0]) && hasExactKeys(value.answer_segments[0], ["kind", "text"])
+    && value.answer_segments[0].kind === "connective"
+    && value.answer_segments[0].text === "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
+    && [value.reservation_sha256, value.proposal_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
+}
+
 function isBuildKnowledgeContext(value: unknown, worldId: string): value is WorldBuildKnowledgeContextV1 {
   if (!hasExactKeys(value, ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"])
     || value.schema !== "dmb_build_graph_context_response_v1" || !isRecord(value.receipt)
@@ -1357,6 +1371,12 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
     || typeof authority.graph_revision !== "string" || !authority.graph_revision
     || authority.admissibility_version !== "gm-v1") return false;
   const receipt = value.receipt as unknown as WorldBuildGraphReceiptV1;
+  if (isRecord(value.completion) && value.completion.schema === "dmb_build_authoring_completion_v1") {
+    return isBuildAuthoringCompletion(value.completion, receipt.context_receipt_sha256)
+      && (value.execution === null || isWorldPlanGraphExecution(value.execution))
+      && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
+        .every(items => Array.isArray(items) && items.length === 0);
+  }
   if (isRecord(value.completion) && value.completion.schema === "dmb_build_graph_completion_v2") {
     return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256)
       && (value.execution === null || isWorldPlanGraphExecution(value.execution))
@@ -3796,8 +3816,9 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | "proposal_ready"): string {
     switch (status) {
+      case "proposal_ready": return "Authored suggestion awaiting review; nothing is saved or published.";
       case "source_grounded": return "Supported by opened source passages.";
       case "source_grounded_partial": return "Supported by opened source passages; coverage was incomplete.";
       case "source_insufficient_evidence": return "The opened sources did not support an answer.";
@@ -3814,9 +3835,10 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus, surface: string | null): string | null {
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | "proposal_ready", surface: string | null): string | null {
     const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
+      case "proposal_ready": return "Page proposal";
       case "source_grounded": return "Sources";
       case "source_grounded_partial": return "Sources · partial";
       case "source_insufficient_evidence": return "Needs more context";
