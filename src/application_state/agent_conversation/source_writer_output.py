@@ -380,7 +380,7 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
                 turn.graph_context_receipt.source_basis.content_sha256
             )
         segments.append(segment)
-    if not passages:
+    if not passages or (bindings and not citations):
         status = t.derive_execution_answer_context_status(
             context_receipt_sha256=receipt_sha,
             answer_segments=[
