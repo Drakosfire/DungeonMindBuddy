@@ -125,7 +125,7 @@ export function BuildComposeProposal({ record, canInsert, onInsert }: { record: 
   return <article className="build-compose-proposal" aria-label="Page proposal">
     <p className="build-compose-proposal__request"><strong>You</strong> {record.reservation.instruction}</p>
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
-      <p>{record.proposal.summary}</p>
+      <p>Proposed addition to your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}
       {record.inserted_in_draft ? <p role="status">Inserted into the draft. Save the page when you’re ready.</p>
