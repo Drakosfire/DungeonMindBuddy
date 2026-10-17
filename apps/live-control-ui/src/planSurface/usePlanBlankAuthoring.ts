@@ -12,6 +12,7 @@ import type {
   WorkspaceDocumentSnapshot,
 } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import {
   buildInitialWorkspaceDocumentLocalState,
   finalizePromotedWorkspaceDocumentLocalState,
@@ -57,12 +58,16 @@ export interface UsePlanBlankAuthoringArgs {
 export interface PlanBlankAuthoringValue {
   editorContent: JSONContent;
   documentKey: string;
+  isEmpty: boolean;
   statusLabel: string;
   saveDisabled: boolean;
   saveDisabledReason: string | null;
   saveBusy: boolean;
   promotionError: string | null;
   setEditor: (editor: Editor | null) => void;
+  focusEditor: () => void;
+  startWithSessionPrepTemplate: () => void;
+  startWithPrompt: (heading: string) => void;
   handleEditorUpdate: (
     json: JSONContent,
     editor: Editor,
@@ -193,14 +198,13 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
       surface: "plan",
       baseRevision: 0,
       baseContentSha256: "",
-      starterContent: createStarterContentForPlanDocument(sessionDescriptor),
+      starterContent: markdownToTiptapDoc("").doc,
     });
   }, [
     activeDocumentKey,
     draft.campaignId,
     draft.targetSession,
     draft.title,
-    sessionDescriptor,
   ]);
 
   const localState = useMemo(() => {
@@ -234,6 +238,10 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
     editorRef.current = editor;
   }, []);
 
+  const focusEditor = useCallback(() => {
+    editorRef.current?.commands.focus("end");
+  }, []);
+
   const bumpContentRevision = useCallback(() => {
     setContentRevision((value) => value + 1);
   }, []);
@@ -255,6 +263,41 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
     },
     [activeDocumentKey, bumpContentRevision, localState],
   );
+
+  const replaceEditorContent = useCallback((content: JSONContent) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.commands.setContent(content, false);
+    const tiptapJson = editor.getJSON();
+    const now = new Date().toISOString();
+    writeWorkspaceDocumentLocalState(localStorage, {
+      ...localState,
+      document_id: activeDocumentKey,
+      tiptap_json: tiptapJson,
+      exported_markdown: tiptapJsonToSemanticMarkdown(tiptapJson),
+      dirty: true,
+      updated_at: now,
+      last_local_save_at: now,
+    });
+    bumpContentRevision();
+    editor.commands.focus("end");
+  }, [activeDocumentKey, bumpContentRevision, localState]);
+
+  const startWithSessionPrepTemplate = useCallback(() => {
+    replaceEditorContent(createStarterContentForPlanDocument(sessionDescriptor));
+  }, [replaceEditorContent, sessionDescriptor]);
+
+  const startWithPrompt = useCallback((heading: string) => {
+    const trimmed = heading.trim();
+    if (!trimmed) return;
+    replaceEditorContent({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: trimmed }] },
+        { type: "paragraph" },
+      ],
+    });
+  }, [replaceEditorContent]);
 
   const saveMarkdown = useCallback(async () => {
     if (saveDisabledReason) {
@@ -611,12 +654,16 @@ export function usePlanBlankAuthoring(args: UsePlanBlankAuthoringArgs): PlanBlan
   return {
     editorContent: localState.tiptap_json as JSONContent,
     documentKey: activeDocumentKey,
+    isEmpty: localState.exported_markdown.trim().length === 0,
     statusLabel,
     saveDisabled: saveDisabledReason != null || saveBusy,
     saveDisabledReason,
     saveBusy,
     promotionError,
     setEditor,
+    focusEditor,
+    startWithSessionPrepTemplate,
+    startWithPrompt,
     handleEditorUpdate,
     saveMarkdown,
   };

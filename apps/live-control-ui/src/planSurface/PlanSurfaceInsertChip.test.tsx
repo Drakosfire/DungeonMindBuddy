@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,7 @@ import {
   WorldGraphLensProvider,
   WorldGraphLensProjectionProvider,
 } from "../graphLens";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { mockPlanView } from "../test/fixtures";
@@ -92,9 +93,11 @@ function Harness() {
         <WorldGraphLensProvider planCampaignId="longmont-c2">
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
             <SurfaceContextProvider>
-              <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-                <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-              </AppChrome>
+              <PeekRegionProvider>
+                <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                  <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+                </AppChrome>
+              </PeekRegionProvider>
             </SurfaceContextProvider>
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>
@@ -128,21 +131,17 @@ describe("Plan surface insert chip", () => {
     window.history.pushState({}, "", "/plan");
   });
 
-  it("unlocks editing and inserts a graph-node chip into the canvas", async () => {
+  it("inserts a graph-node chip into the editable canvas", async () => {
     const user = userEvent.setup();
     render(<Harness />);
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
     });
 
     const insertBtn = await screen.findByRole("button", { name: "Insert chip" });
-    expect(insertBtn).toBeDisabled();
-
-    await user.click(screen.getByRole("button", { name: /Unlock editing/i }));
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Insert chip" })).toBeEnabled();
-    });
+    expect(insertBtn).toBeEnabled();
 
     const canvas = screen.getByTestId("plan-surface-canvas-editor");
     const before = canvas.querySelectorAll("[data-md-ref-id='npc:glowkindle']").length;
@@ -153,6 +152,6 @@ describe("Plan surface insert chip", () => {
       expect(after).toBeGreaterThan(before);
     });
 
-    expect(within(canvas).getByText("Glowkindle")).toBeInTheDocument();
+    expect(canvas.querySelector("[data-md-ref-id='npc:glowkindle']")).toBeInTheDocument();
   });
 });
