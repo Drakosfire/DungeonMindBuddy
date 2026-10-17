@@ -1,6 +1,8 @@
 # AGENT: truthful estimated context admission for Jev continuations
 
-ACTIVE under PRIME's authorized responsive Graph collaboration experiments. Base1c810a208e27be6efc7f21ed10bdcc18c05c0bb3; serial successor to merged1332. PRIME implements solo; ARCHITECTURE independently reviews. Existing buddy-tool-denial-delivery checkout/dependencies only. No new checkout, environment, source export or /tmp directory. No deployment or retained World changes. DOGFOOD keeps Ingest/Combat/UX.
+SETTLED implementation: PR1334 reviewed head6edcf15857211c1c7d8d1a2c91261549da95bc3f merged8999fa3133e829f0dd177b25b1e1ca976d137af2 after independent20test/codePASS. OfflineFloat/Council completed/reopened. FreshFloat completed and independently passed3/3gold facts; freshCouncil found singular-support and writer-capacity gaps. This establishes truthful admission, not general answer success or serving adoption. Successor: HANDOFF-AGENT-build-jev-joint-support.md.
+
+Original contract under PRIME's authorized responsive Graph collaboration experiments. Base1c810a208e27be6efc7f21ed10bdcc18c05c0bb3; serial successor to merged1332. PRIME implements solo; ARCHITECTURE independently reviews. Existing buddy-tool-denial-delivery checkout/dependencies only. No new checkout, environment, source export or /tmp directory. No deployment or retained World changes. DOGFOOD keeps Ingest/Combat/UX.
 
 ## Failure and decision
 

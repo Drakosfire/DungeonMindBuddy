@@ -274,6 +274,7 @@ class BuildJevDriver:
             phase_input_policy=PHASE_POLICY if with_actions else None,
             evidence_codec=CONTAINED_CODEC if with_actions and getattr(adapter, "_build_jev_accounting", None) is None else None,
             accounting=getattr(adapter, "_build_jev_accounting", None),
+            support_policy=(adapter.budget.get("buildJevActions") or {}).get("support_policy"),
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None

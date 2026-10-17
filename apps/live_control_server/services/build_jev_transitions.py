@@ -101,6 +101,7 @@ class Disposition(_Frozen):
 
 
 FRONTIER_POLICY = "evidence_bound_deferred_frontier_v1"
+JOINT_SUPPORT_POLICY = "combined_relevant_evidence_support_v1"
 
 
 class FrontierDisposition(Disposition):
@@ -175,6 +176,7 @@ class BuildJevTransitions:
         phase_input_policy: Literal["role_separated_controller_inputs_v1"]
         | None = None,
         evidence_codec: Literal["contained_passage_slices_v1"] | None = None,
+        support_policy: Literal["combined_relevant_evidence_support_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
@@ -199,6 +201,9 @@ class BuildJevTransitions:
         ):
             raise ValueError("evidence codec requires explicit phase input policy")
         self._evidence_codec = evidence_codec
+        if support_policy not in {None, JOINT_SUPPORT_POLICY} or (support_policy and not phase_input_policy):
+            raise ValueError("joint support requires the explicit phase input policy")
+        self._support_policy = support_policy
         self._phase_input_policy = phase_input_policy
         self._assessment_judgment: dict | None = None
         self._frontier_policy = frontier_policy
@@ -253,6 +258,9 @@ class BuildJevTransitions:
                 "question": self._question,
                 "scope": self._scope.model_dump(mode="json"),
                 "evidence": [u.model_dump(mode="json") for u in self._units.values()],
+                **({"support_policy": self._support_policy,
+                    "catalog": [a.model_dump(mode="json") for a in self._actions.values()]}
+                   if self._support_policy else {}),
             }
         )
 
@@ -403,6 +411,8 @@ class BuildJevTransitions:
                 "Sufficiency is separate from coverage; neither unread exclusions nor "
                 "defer judgments prove completeness. New evidence invalidates those judgments.",
             }
+        if self._support_policy:
+            state["support_policy"] = self._support_policy
         if self._phase_input_policy:
             state["phase_input_policy"] = self._phase_input_policy
             state["assessment_binding"] = self._assessment_judgment
@@ -471,7 +481,16 @@ class BuildJevTransitions:
                     options=("sufficient", "more_evidence", "conflict", "uncertain"),
                 ),
             )
-            if viewed:
+            if viewed and self._support_policy:
+                questions += (DecisionQuestion(
+                    name="joint_support", kind="binary",
+                    question="Taken together, do the acquired relevant observations and their actually opened passages "
+                    "support a correctly qualified answer to every part of the question? Different units may "
+                    "supply different facts or necessary hops; no single unit must answer everything. "
+                    "Required links, qualifications and support must be present. Shared names, relevance alone "
+                    "and unresolved contradictions are insufficient. Missing evidence is not proof of absence.",
+                ),)
+            elif viewed:
                 questions += (
                     DecisionQuestion(
                         name="support",
@@ -656,10 +675,13 @@ class BuildJevTransitions:
                     >= self._relevant_min
                 }
                 label = answers["sufficiency"]["selected"]
-                self._sufficient = (
-                    label == "sufficient"
-                    and answers.get("support", {}).get("selected") in self._relevant
-                )
+                if self._support_policy:
+                    supported = bool(self._relevant) and (
+                        answers.get("joint_support", {}).get("probability_true", 0) >= self._relevant_min
+                    )
+                else:
+                    supported = answers.get("support", {}).get("selected") in self._relevant
+                self._sufficient = label == "sufficient" and supported
                 self._conflict = label == "conflict" and bool(self._view_units())
                 next_id = answers.get("next", {}).get("selected", "none")
                 if self._phase_input_policy:
