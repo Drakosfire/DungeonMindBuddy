@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 from uuid import UUID
 
+from .build_jev_accounting import ExperimentalAccounting
+from .build_initial_packet_codec import canonical
+
 PROVIDER = "typesafe"
 MODEL = "jev-1.14.0"
 API_MODE = "typesafe_decision"
@@ -36,8 +39,12 @@ def first_state(work: Any, bootstrap: Any, question: str, packet: Mapping[str, A
             or work.object_id != source.document_id or work.revision != source.revision):
         raise ValueError("Jev first dispatch requires an exact saved Build source")
     scope = bootstrap.world_scope
+    focus = scope.focus
+    no_focus = (isinstance(focus, Mapping) and focus.get("kind") == "none"
+        and set(focus) <= {"kind", "campaign_id", "session_id"}
+        and focus.get("campaign_id") is None and focus.get("session_id") is None)
     if (scope.scope_mode != "world" or scope.campaign_id not in {None, ""}
-            or scope.focus != {"kind": "none"} or scope.admissibility != "gm"):
+            or not no_focus or scope.admissibility != "gm"):
         raise ValueError("Jev Build first dispatch requires the admitted whole-World scope")
     return _snapshot({
         "schema": "dmb_build_jev_first_state_v1",
@@ -77,13 +84,16 @@ def _decode(body: str | bytes) -> dict:
     return value
 
 
-def validate_body(payload: str, expected_state: Mapping[str, Any]) -> dict:
+def validate_body(payload: str, expected_state: Mapping[str, Any], *,
+                  accounting: ExperimentalAccounting | None = None) -> dict:
     body = _decode(payload)
-    if body["state"] != expected_state:
+    if canonical(body["state"]) != canonical(expected_state):
         raise ValueError("Decision source, question, scope, initial packet or discovery differs")
     for name, question in body["questions"].items():
         if not isinstance(name, str) or not name or not isinstance(question, dict):
             raise ValueError("Invalid decision question")
+        if accounting is not None:
+            continue
         # All instructions/options/criteria and JSON structure count toward the
         # conservative per-question projection, not just the state text.
         projection = {"state": body["state"], "model": body["model"], "questions": {name: question}}
@@ -91,12 +101,15 @@ def validate_body(payload: str, expected_state: Mapping[str, Any]) -> dict:
         if len(encoded) + 64 * (1 + _json_nodes(projection)) > QUESTION_LIMIT:
             raise ValueError("Decision per-question context exceeds its conservative ceiling")
     raw = payload.encode()
+    if accounting is not None:
+        accounting.validate(body, raw)
+        return body
     if len(raw) + 64 * (1 + _json_nodes(body)) > REQUEST_LIMIT:
         raise ValueError("Decision request context exceeds its conservative ceiling")
     return body
 
 
-def prepared_view(prepared: Any, expected_state: Mapping[str, Any]) -> dict:
+def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accounting: ExperimentalAccounting | None = None) -> dict:
     if (prepared.provider != PROVIDER or prepared.provider_transport != "vercel_ai_gateway"
             or prepared.model != MODEL or prepared.method != "POST" or prepared.url != ENDPOINT
             or type(prepared.body) is not bytes or prepared.body_size != len(prepared.body)
@@ -104,7 +117,7 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any]) -> dict:
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
     payload = prepared.body.decode("utf-8")
-    validate_body(payload, expected_state)
+    validate_body(payload, expected_state, accounting=accounting)
     return {"provider": PROVIDER, "model": MODEL, "apiMode": API_MODE,
             "serializerVersion": SERIALIZER, "providerAttemptId": prepared.attempt_id,
             "payloadJson": payload, "payloadSha256": prepared.body_sha256,
@@ -156,3 +169,85 @@ def controller_exposure(base: Mapping[str, Any], *, event_sequence: int,
         })
     return ControllerExposure(json.dumps(state, ensure_ascii=False, separators=(",", ":"),
         sort_keys=True, allow_nan=False), event_sequence, prior_provider_attempt_id)
+
+
+def prepared_driver_view(prepared: Any, projection: Any, *, accounting: ExperimentalAccounting | None = None) -> dict:
+    """Exact host-owned compact state AND questions; neither is worker authority."""
+    view = prepared_view(prepared, projection.state(), accounting=accounting)
+    body = _decode(view["payloadJson"])
+    if canonical(body["questions"]) != canonical(projection.questions()):
+        raise ValueError("Prepared driver questions/options differ from the parent plan")
+    return view
+
+
+CONTINUATION_SCHEMA = "dmb_build_jev_driver_continuation_v1"
+CONTINUATION_POLICY = "receipt_bound_factored_controller_v1"
+PHASE_SCHEMA = "dmb_build_jev_phase_controller_v1"
+PHASE_POLICY = "role_separated_controller_inputs_v1"
+
+
+def continuation_binding(adapter) -> dict:
+    """Historical admission commitment, never a claim of current exposure."""
+    from application_state.agent_conversation import types as ledger
+
+    if adapter.fence is None:
+        raise ValueError("Continuation requires an existing frozen turn")
+    turn = adapter.fence.turn
+    receipt, execution = turn.graph_context_receipt, adapter._broker_execution()
+    if (receipt is None or not isinstance(execution.policy, ledger.BuildContinuationActionControllerWriterPolicyV1)
+            or execution.context_receipt_sha256 != receipt.context_receipt_sha256):
+        raise ValueError("Continuation policy/receipt differs")
+    attempts = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)]
+    if not attempts or attempts[0].envelope_sha256 != receipt.assembled_input.assembled_input_sha256:
+        raise ValueError("Continuation initial envelope differs from frozen receipt")
+    prior = adapter.last_provider_attempt_id
+    outcomes = [e.outcome for e in execution.events
+                if isinstance(e, ledger.ProviderOutcomeEventV1) and e.provider_attempt_id == prior]
+    if (prior is None or attempts[-1].provider_attempt_id != prior
+            or attempts[-1].provider != PROVIDER or attempts[-1].model != MODEL
+            or outcomes[-1:] != ["response_received"]):
+        raise ValueError("Continuation requires the last acknowledged controller attempt")
+    return dict(context_receipt_sha256=receipt.context_receipt_sha256,
+                initial_envelope_sha256=attempts[0].envelope_sha256,
+                execution_policy_sha256=execution.execution_policy_sha256,
+                turn_id=str(turn.turn_id), turn_attempt=turn.attempt,
+                event_sequence=len(execution.events), prior_provider_attempt_id=str(prior))
+
+
+def factored_decision(intent) -> dict:
+    """Lossless action catalog; actual SDK questions are verified separately."""
+    decision = intent.model_dump(mode="json")
+    decision.pop("questions")
+    state = decision["state"]
+    if "legal_next_actions" in state:
+        actions = state.pop("legal_next_actions")
+        kinds = state.pop("legal_action_kinds")
+        truncated = state.pop("truncated_discovery_hints")
+        if (any(sum(aid in ids for ids in kinds.values()) != 1 for aid in actions)
+                or set(truncated) - set(actions)
+                or any(set(ids) - set(actions) for ids in kinds.values())):
+            raise ValueError("Parent action catalog cannot be factored exactly")
+        reconstructed_kinds = {kind: [aid for aid in actions if aid in ids] for kind, ids in kinds.items()}
+        reconstructed_truncated = [aid for aid in actions if aid in truncated]
+        if canonical(reconstructed_kinds) != canonical(kinds) or canonical(reconstructed_truncated) != canonical(truncated):
+            raise ValueError("Parent action order/duplicates cannot be factored exactly")
+        state["action_catalog"] = dict(
+            columns=["id", "kind", "hint", "hint_truncated"],
+            kinds=list(kinds), availability="all_rows_are_current_legal_unread_actions",
+            rows=[[aid, next(kind for kind, ids in kinds.items() if aid in ids), hint, aid in truncated]
+                  for aid, hint in actions.items()],
+        )
+    return decision
+
+
+def phase_binding(intent, material, assessment_receipt=None) -> dict:
+    """Bind discovery judgments to the complete host basis without exposing it."""
+    if intent.state.get("phase_input_policy") != PHASE_POLICY:
+        raise ValueError("Phase projection requires the explicit input policy")
+    return {
+        "phase": intent.phase,
+        "evidence_basis_sha256": intent.state["coverage_frontier"]["evidence_basis_sha256"],
+        "assessment": intent.state.get("assessment_binding"),
+        "assessment_receipt": assessment_receipt,
+        "acquired_material_sha256": hashlib.sha256(canonical(material).encode()).hexdigest(),
+    }

@@ -9,6 +9,7 @@ import re
 import psycopg
 from pydantic import TypeAdapter, ValidationError
 from dataclasses import dataclass, replace
+from contextlib import contextmanager
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -575,7 +576,17 @@ def _initial_claim_packet_from_view(
     if getattr(view, "api_mode", None) in {"typesafe_decision", "responses"}:
         state = body.get("state", {}) if view.api_mode == "typesafe_decision" else json.loads(body["input"])
         packet = state.get("initialClaimPacket")
-        if packet != expected:
+        if state.get("schema") == "dmb_build_jev_driver_decision_v2":
+            from .build_initial_packet_codec import CODEC, decode
+            try:
+                if (view.api_mode != "typesafe_decision" or state.get("initial_packet_codec") != CODEC):
+                    raise ValueError("Initial packet codec was not explicitly enabled")
+                packet = decode(packet)
+            except (TypeError, KeyError, ValueError) as exc:
+                raise AgentTurnServiceError("The compact initial Graph packet is invalid.",
+                    code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
+        from .build_initial_packet_codec import canonical
+        if canonical(packet) != canonical(expected):
             raise AgentTurnServiceError("The structured initial Graph packet differs.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
         return packet
@@ -856,12 +867,14 @@ def _verify_policy_plan_payload(
     bootstrap: AgentPlanWorldGraphBootstrap | None = None,
     build_jev_expected_state: Mapping[str, Any] | None = None,
     build_writer_projection: Any = None,
+    build_jev_accounting: Any = None,
+    build_writer_context_budget: Any = None,
 ) -> None:
     if view.get("apiMode") == "responses":
         from .build_jev_writer import validate_body
         if not _governed_build_turn(request) or build_writer_projection is None:
             raise ValueError("Writer requires a parent staged Build projection")
-        validate_body(view["payloadJson"], build_writer_projection)
+        validate_body(view["payloadJson"], build_writer_projection, budget=build_writer_context_budget)
         return
     if view.get("apiMode") == "typesafe_decision":
         from .build_jev_dispatch import first_state, validate_body
@@ -871,7 +884,7 @@ def _verify_policy_plan_payload(
         try:
             expected = (build_jev_expected_state if build_jev_expected_state is not None else
                 first_state(work, bootstrap, request.message, _expected_initial_claim_packet(bootstrap)))
-            validate_body(view["payloadJson"], expected)
+            validate_body(view["payloadJson"], expected, accounting=build_jev_accounting)
         except (KeyError, TypeError, ValueError) as exc:
             raise AgentTurnServiceError("The prepared Build decision differs from host authority.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
@@ -911,10 +924,20 @@ def _freeze_policy_receipt(
     *,
     context_read_enabled: bool = False,
     included_history: tuple = (),
+    build_jev_expected_state: Mapping[str, Any] | None = None,
+    build_jev_accounting: Any = None,
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
-    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap)
+    initial_accounting = (budget.get("buildJevActions") or {}).get("controller_initial_accounting")
+    if initial_accounting is not None and (
+            view.get("apiMode") != "typesafe_decision" or build_jev_accounting is None
+            or build_jev_accounting.descriptor != initial_accounting
+            or initial_accounting != (budget.get("buildJevActions") or {}).get("controller_continuation_accounting")):
+        raise ValueError("initial controller accounting lacks trusted preparation")
+    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
+        build_jev_expected_state=build_jev_expected_state,
+        build_jev_accounting=build_jev_accounting if initial_accounting is not None else None)
     packet = _initial_claim_packet_from_view(
         type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
         bootstrap,
@@ -974,7 +997,8 @@ def _freeze_policy_receipt(
         )
     try:
         provider_body = json.loads(view["payloadJson"])
-        upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body))
+        upper_bound = (build_jev_accounting.estimate(provider_body) if initial_accounting is not None
+            else view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body)))
         if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
             raise AgentTurnServiceError(
                 "The final provider request exceeds its context budget.",
@@ -1027,11 +1051,12 @@ def _freeze_policy_receipt(
             },
             "assembled_input": {
                 "assembler_version": bootstrap.assembler_version,
-                "budget_policy_version": ("build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
+                "budget_policy_version": ("build_jev_initial_estimate_v1" if initial_accounting is not None else
+                    "build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
                 "provider_model_name": view["model"],
                 "provider_model_version": view["model"],
-                "tokenizer_name": budget["estimator"],
-                "tokenizer_version": "v1",
+                "tokenizer_name": initial_accounting["policy"] if initial_accounting is not None else budget["estimator"],
+                "tokenizer_version": initial_accounting["tokenizer_version"] if initial_accounting is not None else "v1",
                 "provider_envelope_input_tokens": upper_bound,
                 "output_token_reserve": budget["outputReserveTokens"],
                 "context_window_limit": budget["contextLimitTokens"],
@@ -1103,11 +1128,39 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildSectionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildEncodedAssessmentPolicyV1
+                if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
+                else graph_types.BuildInitialEstimatedSelectedSourcePolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
+                else graph_types.BuildSelectedSourceActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("writer_selection_policy") is not None
+                else graph_types.BuildCitedSourceActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("source_writer_output_policy") is not None
+                else graph_types.BuildReadBatchActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("acquisition_policy") is not None
+                else graph_types.BuildWriterBudgetActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("writer_context_budget") is not None
+                else graph_types.BuildJointSupportActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("support_policy") is not None
+                else graph_types.BuildEstimatedActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_continuation_accounting") is not None
+                else graph_types.BuildContainedActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("evidence_codec") is not None
+                else graph_types.BuildPhaseActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("phase_input_policy") is not None
+                else graph_types.BuildFrontierActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("frontier_policy") is not None
+                else graph_types.BuildContinuationActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_input_policy") is not None
+                else graph_types.BuildCompactActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("initial_packet_codec") is not None
+                else graph_types.BuildActionControllerWriterPolicyV1
+                if budget.get("buildJevActions") is not None else graph_types.BuildSectionControllerWriterPolicyV1
                 if budget.get("savedSourceInputPolicy") == "selected_saved_build_sections_v1" else
                 graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
             policy = policy_class(
+                **(budget.get("buildJevActions") or {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
                 source_read_accounting="settled_receipts_v1",
@@ -1531,6 +1584,15 @@ class _PolicyExecutionAdapter:
         self, body: Mapping[str, Any], tool_name: str,
     ) -> list[str]:
         state = body.get("state")
+        driver = getattr(self, "_active_build_driver_projection", None)
+        if driver is not None:
+            # The driver independently re-derives every compact unit from these
+            # exact parent records; worker-authored byte lists never reach here.
+            return list(driver.graph_payloads) if tool_name == "expand_graph_retrieval" else []
+        if getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False):
+            return []  # Creative proposal packet is proved by its owned exact writer projection.
+        if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
+            return []  # Source inclusion is proved by the exact transformed projection below.
         if getattr(self, "_active_build_writer_projection", None) is not None:
             state = json.loads(body["input"])
         if (getattr(self, "budget", {}).get("apiMode") == "typesafe_decision"
@@ -1573,7 +1635,29 @@ class _PolicyExecutionAdapter:
             view, self.request, self.work, self.playable_target, self.bootstrap,
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
+            build_writer_context_budget=self._frozen_build_writer_budget(),
+            build_jev_accounting=(getattr(self, "_build_jev_accounting", None)
+                if (getattr(self, "_active_build_driver_projection", None) is not None
+                    and ((self.budget.get("buildJevActions") or {}).get("controller_initial_accounting") is not None
+                        or (self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)))) else None),
         )
+        if (getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False)
+                or getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False)):
+            if self.fence is None:
+                raise ValueError("Source writer requires an existing parent claim")
+            return self.fence.turn, [], [], []
+        active_driver = getattr(self, "_active_build_driver_projection", None)
+        if active_driver is not None:
+            from .build_jev_dispatch import CONTINUATION_SCHEMA, CONTINUATION_POLICY, PHASE_SCHEMA, PHASE_POLICY, continuation_binding
+            state = json.loads(view["payloadJson"]).get("state", {})
+            if state.get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}:
+                expected_input = PHASE_POLICY if state["schema"] == PHASE_SCHEMA else CONTINUATION_POLICY
+                if (state.get("input_policy") != expected_input
+                        or "initialClaimPacket" in state
+                        or _canonical_sha256(state.get("historical_initial")) != _canonical_sha256(continuation_binding(self))):
+                    raise ValueError("Continuation differs from the frozen receipt and acknowledged attempt")
+                # A historical commitment is not an exposure of those initial records.
+                return self.fence.turn, [], [], []
         initial = _initial_claim_packet_from_view(
             type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
             self.bootstrap,
@@ -1599,7 +1683,9 @@ class _PolicyExecutionAdapter:
                 self.request, self.work, self.bootstrap,
                 self.playable_target, view, self.budget,
                 context_read_enabled=self.context_read_enabled,
+                build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
                 included_history=getattr(self, "build_history_for_inclusion", ()),
+                build_jev_accounting=getattr(self, "_build_jev_accounting", None),
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -1710,7 +1796,7 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
-        if self.failure is not None:
+        if self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None:
             return False
         if (self.budget.get("apiMode") == "typesafe_decision"
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
@@ -1783,7 +1869,24 @@ class _PolicyExecutionAdapter:
                 )
             body = json.loads(view["payloadJson"])
             upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
-            if upper_bound + output_reserve > self.budget["contextLimitTokens"]:
+            input_kind, input_estimator = "conservative_upper_bound", self.budget["estimator"]
+            prior_attempts = [e for e in execution.events if _is_provider_authorization(e)]
+            if (isinstance(execution.policy, graph_types.BuildEstimatedActionControllerWriterPolicyV1)
+                    and (prior_attempts or isinstance(execution.policy, graph_types.BuildInitialEstimatedSelectedSourcePolicyV1))
+                    and not writing):
+                accounting = getattr(self, "_build_jev_accounting", None)
+                if (accounting is None or accounting.descriptor != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
+                    raise ValueError("controller accounting differs from frozen policy")
+                accounting.validate(body, view["payloadJson"].encode())
+                upper_bound = accounting.estimate(body)
+                input_kind, input_estimator = "estimated_token_count", accounting.descriptor["policy"]
+            context_limit = self.budget["contextLimitTokens"]
+            writer_budget = self._frozen_build_writer_budget() if writing else None
+            if writer_budget is not None:
+                if writer_budget != (self.budget.get("buildJevActions") or {}).get("writer_context_budget"):
+                    raise ValueError("writer budget differs from frozen policy")
+                context_limit = writer_budget["context_limit_tokens"]
+            if upper_bound + output_reserve > context_limit:
                 raise AgentTurnServiceError(
                     "The final provider request exceeds the frozen budget.",
                     code="provider_envelope_over_budget", status_code=413,
@@ -1824,6 +1927,12 @@ class _PolicyExecutionAdapter:
                 if getattr(event, "kind", None) in {"validated_graph_operation", "validated_graph_operation_v3"}
                 and event.event_id in exposed]
             source_ids = {item.event_id for item in source_exposure if item.complete}
+            active_writer = getattr(self, "_active_build_writer_projection", None)
+            if getattr(active_writer, "source_only", False):
+                source_ids = {UUID(sid) for sid in active_writer.source_event_ids}
+            active_driver = getattr(self, "_active_build_driver_projection", None)
+            if active_driver is not None:
+                source_ids = {UUID(sid) for sid in active_driver.source_event_ids}
             included_source_events = [event for event in execution.events
                 if getattr(event, "kind", None) == "validated_source_read_v2" and event.event_id in source_ids]
             context_ids = {item.event_id for item in context_exposure if item.complete}
@@ -1843,7 +1952,9 @@ class _PolicyExecutionAdapter:
             })
             build_closures = []
             if _governed_build_turn(self.request):
-                build_closures = _build_initial_claim_evidence(
+                from .build_jev_dispatch import CONTINUATION_SCHEMA, PHASE_SCHEMA
+                continuation = active_driver is not None and body.get("state", {}).get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}
+                build_closures = [] if writing or continuation else _build_initial_claim_evidence(
                     view, self.bootstrap, self.initial_session_projection,
                 )
                 if writing:
@@ -1859,6 +1970,12 @@ class _PolicyExecutionAdapter:
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
+                if active_driver is not None:
+                    selected = [event.model_dump(mode="json", by_alias=True) for event in execution.events
+                        if isinstance(event, graph_types.ValidatedBuildSectionReadV1)
+                        and str(event.read_id) in active_driver.section_read_ids]
+                    if len(selected) != len(active_driver.section_read_ids):
+                        raise ValueError("Driver section inclusion differs from completed reads")
                 if selected and not isinstance(execution.policy, graph_types.BuildSectionControllerWriterPolicyV1):
                     raise ValueError("Saved section dispatch requires the explicit selected-section input policy")
                 if selected:
@@ -1886,8 +2003,8 @@ class _PolicyExecutionAdapter:
                 provider=view["provider"], model=view["model"],
                 api_mode=view["apiMode"],
                 tool_schema_sha256=_canonical_sha256(body.get("tools", [])),
-                input_accounting_kind="conservative_upper_bound",
-                input_estimator=self.budget["estimator"],
+                input_accounting_kind=input_kind,
+                input_estimator=input_estimator,
                 input_tokens=upper_bound,
                 output_token_reserve=output_reserve,
                 included_assertion_ids=assertions,
@@ -1979,7 +2096,9 @@ class _PolicyExecutionAdapter:
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": provider_attempt_id,
                     "provider": view["provider"], "model": view["model"],
-                    "outcome": "authorized", "input_upper_bound": upper_bound,
+                    # Legacy trace audits the conservative wire bound. The
+                    # authorization ledger separately records empirical admission.
+                    "outcome": "authorized", "input_upper_bound": view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body)),
                     "input_estimator": self.budget["estimator"],
                 })
             return True
@@ -1993,10 +2112,19 @@ class _PolicyExecutionAdapter:
             )
             return False
 
-    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=()) -> dict[str, Any]:
+    def create_build_jev_driver(self, *, with_actions=False):
+        """Explicit parent capability; ordinary runtime selection is unchanged."""
+        from .build_jev_driver import BuildJevDriver
+        return BuildJevDriver(self, with_actions=with_actions)
+
+    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
         from .build_jev_dispatch import controller_exposure, first_state, request_budget
-        if self.failure is not None or self.fence is None or self.budget != request_budget():
+        expected_budget = request_budget()
+        if self.budget.get("buildJevActions") is not None:
+            from .build_jev_harness import BuildJevHarness
+            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None))
+        if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()
         if not isinstance(execution.policy, _app_state_graph_execution_types().ControllerWriterGraphExecutionPolicyV3):
@@ -2030,7 +2158,8 @@ class _PolicyExecutionAdapter:
         graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
         if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
             raise ValueError("Controller exposure requires exact parent payload strings")
-        if (not graph_payloads and not source_payloads and not selected_sections or len(set(graph_payloads)) != len(graph_payloads)
+        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids
+                and not isinstance(execution.policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1) or len(set(graph_payloads)) != len(graph_payloads)
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
@@ -2038,6 +2167,15 @@ class _PolicyExecutionAdapter:
         sources = presenter.inclusion("read_graph_source", list(source_payloads))
         sources.extend(presenter.bundled_source_inclusion(list(graph_payloads)))
         by_event = {event.event_id: event for event in execution.events}
+        if source_read_event_ids:
+            from .graph_tool_presentation import Exposure
+            if len(set(source_read_event_ids)) != len(source_read_event_ids):
+                raise ValueError("Source read event selection must be distinct")
+            for event_id in source_read_event_ids:
+                event_id = UUID(str(event_id))
+                if event_id not in self.source_payloads or event_id not in by_event:
+                    raise ValueError("Source read event is not a completed parent read")
+                sources.append(Exposure(event_id, complete=True))
         for exposure in graphs:
             event = by_event.get(exposure.event_id)
             if (getattr(event, "kind", None) != "validated_graph_operation_v3"
@@ -2116,10 +2254,38 @@ class _PolicyExecutionAdapter:
         roles = self._broker_execution().policy.provider_roles
         if roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
             raise ValueError("Frozen writer route is incompatible with GE Responses")
-        staged = writer.projection(self._build_controller_exposure)
+        staged = writer.with_dialogue(writer.projection(self._build_controller_exposure),
+            getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
+        staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         self._build_writer_projection = staged
         return staged
+
+    def stage_build_source_writer(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()):
+        from . import build_jev_writer as writer
+        self.stage_build_controller_exposure(graph_payloads=graph_payloads,
+            source_payloads=source_payloads, section_read_ids=section_read_ids,
+            source_read_event_ids=source_read_event_ids)
+        if self._broker_execution().policy.provider_roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
+            raise ValueError("Frozen source writer route is incompatible")
+        staged = writer.source_projection(self._build_controller_exposure,
+            self._broker_execution(), self.source_payloads)
+        staged = writer.with_dialogue(staged, getattr(self, "build_frozen_history", ()))
+        self._build_controller_exposure = None
+        staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
+        if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
+            staged = writer.with_cited_output(staged)
+        self._build_writer_projection = staged
+        return staged
+
+    def _frozen_build_writer_budget(self):
+        if self.fence is None:
+            return None
+        graph_types = _app_state_graph_execution_types()
+        policy = self._broker_execution().policy
+        if isinstance(policy, graph_types.BuildWriterBudgetActionControllerWriterPolicyV1):
+            return policy.writer_context_budget.model_dump(mode="json", by_alias=True)
+        return None
 
     def authorize_prepared_build_writer(self, prepared: Any) -> bool:
         from . import build_jev_writer as writer
@@ -2130,7 +2296,7 @@ class _PolicyExecutionAdapter:
                 or staged.prior_provider_attempt_id != str(self.last_provider_attempt_id)):
             return False
         try:
-            view = writer.prepared_view(prepared, staged)
+            view = writer.prepared_view(prepared, staged, budget=self._frozen_build_writer_budget())
         except (AttributeError, KeyError, TypeError, ValueError):
             return False
         self._prepared_build_authorizing = view
@@ -2142,6 +2308,7 @@ class _PolicyExecutionAdapter:
             self._active_build_writer_projection = None
         if accepted:
             self._prepared_build_writer = prepared
+            self._prepared_build_writer_projection = staged
             self._build_writer_projection = None
         return accepted
 
@@ -2171,7 +2338,13 @@ class _PolicyExecutionAdapter:
             if observation.kind == "context_snapshot" for m in observation.materials if m.item_id == draft_id]
         if captured != [final_text]:
             raise ValueError("Raw writer answer capture is incomplete")
-        candidate = json.loads(final_text)
+        staged = getattr(self, "_prepared_build_writer_projection", None)
+        cited = getattr(staged, "source_writer_output_policy", None) is not None
+        if cited:
+            from application_state.agent_conversation.source_writer_output import normalize
+            candidate = normalize(final_text, json.loads(staged.input_json))
+        else:
+            candidate = json.loads(final_text)
         if not isinstance(candidate, dict) or not isinstance(candidate.get("answer_segments"), list):
             raise ValueError("Writer answer shape is invalid")
         if any(not isinstance(s, dict) for s in candidate["answer_segments"]):
@@ -2200,17 +2373,37 @@ class _PolicyExecutionAdapter:
             candidate["answer_segments"][index] = {"kind": "saved_source_claim", "text": segment["text"],
                 "content_sha256": self.fence.turn.graph_context_receipt.source_basis.content_sha256}
         turn = self.fence.turn
-        completion, bindings, answer = _parse_policy_completion(json.dumps(candidate), turn,
-            self.producing_provider_attempt_id,
-            build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id),
-            build_section_bindings=source_bindings)
+        staged = getattr(self, "_prepared_build_writer_projection", None)
+        if cited:
+            from application_state.agent_conversation.source_writer_output import reconstruct
+            execution = self._broker_execution()
+            auth = next(e for e in execution.events if isinstance(e, graph_types.ProviderAttemptAuthorizedEventV1)
+                and e.provider_attempt_id == self.producing_provider_attempt_id)
+            completion, source_bindings = reconstruct(final_text, json.loads(staged.input_json), turn, auth)
+            bindings = {}
+            answer = "\n".join(segment.text for segment in completion.answer_segments)
+        elif getattr(staged, "source_only", False):
+            prepared = self._prepared_build_writer
+            completion = writer.source_completion(candidate, staged,
+                receipt_hash=turn.graph_context_receipt.context_receipt_sha256,
+                attempt_id=self.producing_provider_attempt_id, envelope_hash=prepared.body_sha256)
+            bindings = {}
+            answer = "\n".join(segment.text for segment in completion.answer_segments)
+        else:
+            completion, bindings, answer = _parse_policy_completion(json.dumps(candidate), turn,
+                self.producing_provider_attempt_id,
+                build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id),
+                build_section_bindings=source_bindings)
         self.context_capture.answer_context(answer)
         turn = self.stop()
-        self.turn = self.service.complete_turn(TurnResult(world_id=turn.world_id,
+        result_class = graph_types.CitedSourceTurnResult if cited else TurnResult
+        proof = {"writer_request_json": self._prepared_build_writer.body.decode("utf-8"),
+            "raw_provider_output_json": final_text} if cited else {}
+        self.turn = self.service.complete_turn(result_class(world_id=turn.world_id,
             conversation_id=turn.conversation_id, turn_id=turn.turn_id,
             expected_revision=turn.revision, assistant_text=answer, completion=completion,
             producing_provider_attempt_id=self.producing_provider_attempt_id, claim_graph_event_ids=bindings,
-            build_section_bindings=source_bindings))
+            build_section_bindings=source_bindings, **proof))
         return self.turn
 
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:
@@ -2301,6 +2494,62 @@ class _PolicyExecutionAdapter:
                 )
             )
             return False
+
+    @contextmanager
+    def build_native_acquisition(self, driver):
+        """One parent-owned native read lifetime, never across inference."""
+        from .build_jev_transitions import AcquisitionIntent
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+        from apps.live_control_server.integrations.dungeonmind.reviewed_source_wave import reviewed_source_wave
+        from graph_memory.retrieval.models import WorldGraphObservationSelectionRequest
+
+        if getattr(self, "_build_native_acquisition_services", None) is not None:
+            raise ValueError("nested native acquisition")
+        step = driver.step
+        if driver is not getattr(self, "_build_jev_driver", None) or not isinstance(step, AcquisitionIntent):
+            raise ValueError("native acquisition requires current parent driver intent")
+        execution = self._broker_execution() if self.fence is not None else None
+        types = _app_state_graph_execution_types()
+        graph_actions = [a for a in step.actions if a.kind == "graph_observations"]
+        if not isinstance(getattr(execution, "policy", None), types.BuildReadBatchActionControllerWriterPolicyV1) or not graph_actions:
+            yield
+            return
+        authorizations = [e for e in execution.events if isinstance(e, types.ProviderAttemptAuthorizedEventV1)
+                          and e.provider_attempt_id == self.last_provider_attempt_id]
+        outcomes = [e.outcome for e in execution.events if isinstance(e, types.ProviderOutcomeEventV1)
+                    and e.provider_attempt_id == self.last_provider_attempt_id]
+        if (self.failure is not None or not _governed_build_turn(self.request)
+                or outcomes[-1:] != ["response_received"] or len(authorizations) != 1
+                or (authorizations[0].provider, authorizations[0].model, authorizations[0].api_mode)
+                != execution.policy.provider_roles.controller.identity()):
+            raise ValueError("native acquisition requires acknowledged controller response")
+        arguments = driver.action_arguments(graph_actions[0].id)
+        source = self.bootstrap.build_source_discovery
+        scope = self.bootstrap.world_scope
+        if (not source or source.get("status") != "complete"
+                or source.get("world_id") != scope.world_id
+                or source.get("graph_revision") != scope.revision_id
+                or source.get("source_artifact_id") != driver._scope.source_artifact_id
+                or source.get("source_revision_id") != driver._scope.source_revision_id
+                or scope.world_id != driver._scope.world_id
+                or scope.revision_id != driver._scope.graph_revision):
+            raise ValueError("native acquisition source scope differs")
+        request = WorldGraphObservationSelectionRequest.model_validate({
+            "schema": "dmb_world_graph_observation_selection_v1",
+            "worldId": scope.world_id, "campaignId": "", "scopeMode": "world",
+            "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+            "admissibility": "gm", "revisionPin": scope.revision_id,
+            "sourceArtifactId": source["source_artifact_id"],
+            "sourceRevisionId": source["source_revision_id"],
+            "observationIds": arguments["observationIds"],
+        })
+        services = world_graph_reads.direct_services_from_config(scope.world_id)
+        with reviewed_source_wave(services, request) as bound:
+            self._build_native_acquisition_services = bound
+            try:
+                yield
+            finally:
+                self._build_native_acquisition_services = None
 
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
@@ -2431,7 +2680,11 @@ class _PolicyExecutionAdapter:
                 "revisionPin": self.bootstrap.world_scope.revision_id,
             }
             stage = "native_retrieval"
-            services = direct_services_from_config(self.bootstrap.world_scope.world_id)
+            services = getattr(self, "_build_native_acquisition_services", None)
+            if services is not None and request.operation != "observations":
+                return denied("native_acquisition_operation_mismatch", 409)
+            if services is None:
+                services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
                 source = self.bootstrap.build_source_discovery
@@ -2903,6 +3156,8 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
+                **({"native_services": self._build_native_acquisition_services}
+                   if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )
             if (
                 internal.get("schema") != "dmb_internal_read_graph_source_batch_v2"
@@ -3468,13 +3723,14 @@ class _PolicyExecutionAdapter:
         if self.fence is None:
             return self.turn
         turn, error = self.fence.stop()
-        self.turn = turn
+        completed = self.turn if self.turn is not None and self.turn.status == "completed" else None
+        self.turn = completed or turn
         if error is not None:
             raise AgentTurnServiceError(
                 "The Plan Graph claim renewal became indeterminate.",
                 code="turn_claim_indeterminate", status_code=503,
             ) from error
-        return turn
+        return self.turn
 
 
 def _parse_policy_completion(
@@ -4993,7 +5249,10 @@ def project_plan_turn_context(
         turn, available_slots=64 - len(evidence_targets)
     )
     context_type = AgentBuildGraphContextResponseV1 if isinstance(receipt, BuildGraphContextReceiptV1) else AgentPlanWorldGraphContextResponseV2
+    from .agent_saved_sections import saved_section_targets
+    saved_options = {"saved_source_sections": saved_section_targets(turn)} if isinstance(receipt, BuildGraphContextReceiptV1) else {}
     return context_type(
+        **saved_options,
         receipt=receipt,
         completion=turn.completion,
         execution=execution_projection,
@@ -5197,6 +5456,7 @@ def execute_agent_turn(
     plan_graph_resolver: PlanGraphResolver | None = None,
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
+    build_runtime_factory: Any | None = None,
     conversation_service: AgentConversationService | None = None,
     trace_builder: AgentTurnTraceBuilder | None = None,
     operator_subject: str | None = None,
@@ -5276,6 +5536,13 @@ def execute_agent_turn(
                         code="conversation_unavailable",
                         status_code=503,
                     ) from exc
+            if (durable_turn is not None and request.build_write_capability is not None
+                    and _governed_build_turn(request)):
+                from application_state.agent_conversation.build_authoring import recover_prepared_proposal
+                recovered = recover_prepared_proposal(conversation_service, durable_turn,
+                    request.build_write_capability.idempotency_key)
+                if recovered is not None:
+                    durable_turn = recovered
             if durable_turn is not None and durable_turn.status == "completed":
                 return _completed_turn_replay(
                     request, owner=owner, turn=durable_turn, trace_builder=trace
@@ -5950,11 +6217,18 @@ def execute_agent_turn(
 
     # Delay runtime lookup/construction until authorization, receipt replay,
     # current work, pointer, and graph validation have all succeeded.
+    unavailable_type = ()
     try:
         with trace.phase("runtime_creation"):
+            from .build_jev_harness import BuildJevHarness
+            from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
+            default_build_jev = (_governed_build_turn(request) and policy_bootstrap is not None
+                and isinstance(policy_bootstrap.build_source_discovery, Mapping)
+                and policy_bootstrap.build_source_discovery.get("status") == "complete")
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
-            ) or default_hermes_agent_runtime()
+            ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()
+                if default_build_jev else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)
@@ -5975,6 +6249,11 @@ def execute_agent_turn(
                     code="turn_persistence_indeterminate",
                     status_code=getattr(persist_exc, "status_code", 503),
                 ) from persist_exc
+        if isinstance(exc, unavailable_type):
+            raise AgentTurnServiceError(
+                "Graph conversation is unavailable until its offline tokenizer is configured.",
+                code="build_jev_runtime_unavailable", status_code=503, provider_dispatched=False,
+            ) from exc
         raise AgentTurnServiceError(
             "The Agent runtime could not be constructed.",
             code="runtime_unavailable",
@@ -6001,7 +6280,8 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = _policy_request_budget()
+        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, BuildJevHarness)
+            else _policy_request_budget())
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
@@ -6025,6 +6305,8 @@ def execute_agent_turn(
             admission_span_id=admission_span_id,
             expected_conversation_id=policy_conversation_id,
         )
+        if isinstance(selected_runtime, BuildJevHarness):
+            return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(

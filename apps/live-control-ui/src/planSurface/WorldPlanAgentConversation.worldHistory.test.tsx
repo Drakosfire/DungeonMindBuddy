@@ -4692,6 +4692,156 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(0);
   });
 
+  it("keeps local connection controls inside settings with an explicit close", async () => {
+    setupApi(history("conversation-a", 1, []));
+    mountComponent();
+    await screen.findByLabelText("Message DungeonBuddy");
+    expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Settings"}));
+    expect(screen.getByRole("heading", {name: "Local connection"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Close connection settings"}));
+    expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
+  });
+
+  it.each(["valid", "receipt", "source", "graph-claim"])("renders final source-only Build evidence after sufficient discovery: %s", async (mutation) => {
+    const context = await planGraphContext("graph_grounded");
+    const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
+    const turnId = "11111111-1111-4111-8111-111111111111";
+    const passage = "The tower watches the river.";
+    const passageHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(passage))), b => b.toString(16).padStart(2, "0")).join("");
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+      receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
+        source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
+        graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
+      completion: {schema: "dmb_build_graph_completion_v1" as const, context_receipt_sha256: receipt.context_receipt_sha256,
+        answer_basis: "saved_source" as const, answer_context_status: "source_only_insufficient_evidence" as const,
+        answer_segments: [{kind: "saved_source_claim" as const, text: passage, content_sha256: contentSha256}], citation_map: null},
+      execution: null, delivery_replay: true, source_open_targets: [], evidence_anchor_statuses: [], related_recap_context_statuses: []};
+    expect(knowledge.receipt.graph_packet.evidence_sufficiency_status).toBe("sufficient");
+    expect(knowledge.receipt.assembled_input.packet_disposition).toBe("included");
+    const {context_receipt_sha256: _oldHash, ...receiptForHash} = knowledge.receipt;
+    const digest = await sha256Hex(canonicalJson(receiptForHash));
+    knowledge.receipt.context_receipt_sha256 = digest;
+    knowledge.completion.context_receipt_sha256 = digest;
+    if (mutation === "receipt") knowledge.receipt.context_receipt_sha256 = "f".repeat(64);
+    if (mutation === "source") knowledge.completion.answer_segments[0]!.content_sha256 = "f".repeat(64);
+    if (mutation === "graph-claim") knowledge.completion.answer_segments = [{kind: "graph_claim", text: passage} as never];
+    const turn = makeTurn(1, turnId, "What does the lore say?", passage, "build");
+    turn.provenance.primary_work = {...turn.provenance.primary_work, revision: "1", content_sha256: contentSha256};
+    turn.provenance.supporting_work = [
+      ["dmb_build_source_visibility_v1", "internal", "1"],
+      ["dmb_build_graph_binding_v1", receipt.graph_authority.native_world_id, String(receipt.graph_authority.binding_version)],
+      ["world_graph_revision", receipt.graph_authority.native_world_id, receipt.graph_authority.graph_revision],
+    ].map(([kind, object_id, revision]) => ({resolution: "resolved", kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}));
+    const target = {schema: "dmb_saved_build_section_target_v1" as const, kind: "saved_build_section" as const,
+      world_id: worldId, turn_id: turnId, segment_index: 0, section_event_id: turnId, section_read_id: turnId,
+      source_basis: knowledge.receipt.source_basis, source_class: "saved_authored_source_not_played_truth" as const,
+      line_start: 1, line_end: 1, excerpt_sha256: passageHash, text_sha256: passageHash};
+    setupApi({...history("conversation-a", 1, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [{...turn, knowledge_context: {...knowledge, saved_source_sections: [target]}}]} as WorldAgentConversationHistoryResponse);
+    const open = vi.spyOn(liveApi, "getAgentSavedSection").mockResolvedValue({
+      schema: "dmb_saved_build_section_read_v1", target, content: passage});
+    mountComponent();
+    if (mutation !== "valid") {
+      expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+      expect(open).not.toHaveBeenCalled();
+      return;
+    }
+    expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Evidence trail"));
+    fireEvent.click(screen.getByRole("button", {name: "Read saved lines 1–1"}));
+    await screen.findByRole("region", {name: "Opened saved-source section"});
+    expect(open).toHaveBeenCalledWith(target);
+  });
+
+  it("rehydrates source-only Build history and opens its exact passage separately from the Prompt", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
+    const turnId = "11111111-1111-4111-8111-111111111111";
+    const passage = "The tower watches the river.";
+    const passageHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(passage))), b => b.toString(16).padStart(2, "0")).join("");
+    const citation = {segment_index: 0, text_sha256: passageHash, provider_attempt_id: turnId,
+      envelope_sha256: "c".repeat(64), read_event_id: turnId, receipt: {
+        source_read_id: "source-read", anchor_id: "anchor", evidence_ref_id: "evidence",
+        source_artifact_id: "artifact", source_revision_id: "revision", outcome: "enough" as const,
+        content_sha256: passageHash, line_start: 1, line_end: 1, returned_chars: passage.length,
+        truncated: false as const, evidence_sufficiency_status: "sufficient" as const}};
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+      receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
+        source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
+        graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
+      completion: {schema: "dmb_build_graph_completion_v2" as const, context_receipt_sha256: receipt.context_receipt_sha256,
+        answer_basis: "opened_source_passages" as const, answer_context_status: "source_grounded" as const,
+        answer_segments: [{kind: "source_passage_claim" as const, text: passage}], citation_map: null, source_citations: [citation]},
+      execution: null, delivery_replay: true, source_open_targets: [], evidence_anchor_statuses: [], related_recap_context_statuses: []};
+    const {context_receipt_sha256: _oldHash, ...receiptForHash} = knowledge.receipt;
+    const digest = await sha256Hex(canonicalJson(receiptForHash));
+    knowledge.receipt.context_receipt_sha256 = digest;
+    knowledge.completion.context_receipt_sha256 = digest;
+    const turn = makeTurn(1, turnId, "What does the lore say?", passage, "build");
+    turn.provenance.primary_work = {...turn.provenance.primary_work, revision: "1", content_sha256: contentSha256};
+    turn.provenance.supporting_work = [
+      ["dmb_build_source_visibility_v1", "internal", "1"],
+      ["dmb_build_graph_binding_v1", receipt.graph_authority.native_world_id, String(receipt.graph_authority.binding_version)],
+      ["world_graph_revision", receipt.graph_authority.native_world_id, receipt.graph_authority.graph_revision],
+    ].map(([kind, object_id, revision]) => ({resolution: "resolved", kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}));
+    setupApi({...history("conversation-a", 1, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [{...turn, knowledge_context: knowledge}]} as WorldAgentConversationHistoryResponse);
+    const open = vi.spyOn(liveApi, "getAgentSourcePassage").mockResolvedValue({
+      schema: "dmb_agent_source_passage_read_v1", target: {schema: "dmb_agent_source_passage_open_target_v1",
+        kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
+    mountComponent();
+    expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
+    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Evidence trail", {selector: "summary"}));
+    fireEvent.click(screen.getByRole("button", {name: "Read passage 1"}));
+    await screen.findByRole("region", {name: "Opened source passage"});
+    expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
+    expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+  });
+
+  it("rehydrates an owned page proposal without calling it Graph grounded", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
+    const turnId = "11111111-1111-4111-8111-111111111111";
+    const passage = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.";
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+      receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
+        source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
+        graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
+      completion: {schema: "dmb_build_authoring_completion_v1" as const, context_receipt_sha256: receipt.context_receipt_sha256,
+        answer_basis: "prepared_page_proposal" as const, answer_context_status: "proposal_ready" as const,
+        answer_segments: [{kind: "connective" as const, text: passage}], citation_map: null,
+        action_id: turnId, provider_attempt_id: turnId, reservation_sha256: "c".repeat(64),
+        proposal_result_sha256: "d".repeat(64), envelope_sha256: "e".repeat(64)},
+      execution: null, delivery_replay: true, source_open_targets: [], evidence_anchor_statuses: [], related_recap_context_statuses: []};
+    const {context_receipt_sha256: _oldHash, ...receiptForHash} = knowledge.receipt;
+    const digest = await sha256Hex(canonicalJson(receiptForHash));
+    knowledge.receipt.context_receipt_sha256 = digest;
+    knowledge.completion.context_receipt_sha256 = digest;
+    const turn = makeTurn(1, turnId, "Please add an invented NPC.", passage, "build");
+    turn.provenance.primary_work = {...turn.provenance.primary_work, revision: "1", content_sha256: contentSha256};
+    turn.provenance.supporting_work = [
+      ["dmb_build_source_visibility_v1", "internal", "1"],
+      ["dmb_build_graph_binding_v1", receipt.graph_authority.native_world_id, String(receipt.graph_authority.binding_version)],
+      ["world_graph_revision", receipt.graph_authority.native_world_id, receipt.graph_authority.graph_revision],
+    ].map(([kind, object_id, revision]) => ({resolution: "resolved", kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null}));
+    setupApi({...history("conversation-a", 1, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [{...turn, knowledge_context: knowledge}]} as WorldAgentConversationHistoryResponse);
+    mountComponent();
+    expect(await screen.findByText("Please add an invented NPC.")).toBeInTheDocument();
+    expect(screen.getByText(passage)).toBeInTheDocument();
+    expect(screen.getByText("Page proposal")).toBeInTheDocument();
+    expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sources")).not.toBeInTheDocument();
+  });
+
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
     const api = setupApi(history("conversation-a", 5, [
       makeTurn(2, "turn-2", "Middle question", "Middle answer"),
@@ -5343,7 +5493,7 @@ describe("World Plan conversation consumer", () => {
     const savedRequest = JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!).request;
 
     expect(screen.getByRole("button", { name: "Open Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Connect local session", hidden: true })).not.toBeVisible();
+    expect(screen.queryByRole("button", { name: "Connect local session", hidden: true })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open Settings" }));
     expect(screen.getByRole("button", { name: "Connect local session" })).toBeVisible();
     vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("test-csrf");

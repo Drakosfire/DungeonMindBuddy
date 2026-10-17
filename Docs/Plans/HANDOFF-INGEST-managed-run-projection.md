@@ -1,6 +1,6 @@
 # Ingest — verify selected managed World on exact-run projection
 
-Status: ACTIVE — PRIME authorizes DOGFOOD under the operator's Ingest assignment. ARCHITECTURE independently reviews; PRIME merges. Re-anchored base origin/main@119043228c60142e670bbad61d2cd73ed96426ba after merged #1286; its only overlapping `liveApi.ts` change is in the separate authorization helper, outside DOGFOOD's leased historical projection client function. Lane codex/ingest-managed-run-projection, /tmp/prime-ingest-recap-source-world-binding. Serial successor to merged #1284@44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93. Parallel-independent of PRIME's next Agent source-navigation work; no unmerged dependency or shared implementation paths. Source binding implementation lease ended. Prior test services are stopped.
+Status: SETTLED — PR #1287 merged at `6c8d7b05a0e274d20325e953a66a7c8805e8fbfd`; implementation lease released. The original assignment's synthetic acceptance evidence is historical and did not authorize operator data changes.
 
 ## One outcome
 
@@ -56,4 +56,8 @@ Rendered witness used a unique disposable APP-STATE database, synthetic Session 
 
 Acceptance limitations: the isolated app has no local Agent session service, so `/api/live/agent/local-session` returns 503 and the global Graph badge says “Needs attention”; the exact recap projection reads still succeed. On the narrow screenshot, the shared hover summary card sits against and is partially clipped by the right viewport edge. Its shared styling is in `apps/live-control-ui/src/graphReference/graphReference.css`, outside this exclusive lease; do not expand this slice silently. PRIME should track that narrow hover-card issue separately. No full World integration, live Graph object expansion, real recap/provider use, retained Graph publication, or operator draft interaction is claimed.
 
-The API and UI previews were stopped; ports 5206 and 8006 have no remaining listeners, and the unique disposable APP-STATE database was confirmed dropped. 5202/8000 remain untouched. Keep this PR in draft pending independent ARCHITECTURE review and PR CI; PRIME retains merge authority.
+The API and UI previews were stopped; ports 5206 and 8006 had no remaining listeners, and the unique disposable APP-STATE database was confirmed dropped. 5202/8000 remained untouched.
+
+## Settlement — 2026-10-17
+
+PR #1287 merged from head `570f8c1ae0d4d1481f54dc68c08606ec87215635`. It established exact-run projection binding across managed/native World identities and request-generation changes. The historical synthetic witness demonstrated Process → durable APP source → exact-run projection → rendered node pill, including fresh reload, but did not use a real recap/provider or admit/publish Graph data. Its narrow hover-summary card clipped at the viewport edge; that shared styling issue remains outside this settled lease. No full World integration, live Graph expansion, retained publication, or operator draft interaction was established. The implementation lease is released.

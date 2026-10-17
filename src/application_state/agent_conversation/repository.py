@@ -130,7 +130,7 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         supporting_work=supporting,
         selected_object=selected,
     )
-    return Turn(
+    turn = Turn(
         **{
             key: row[key]
             for key in row
@@ -138,6 +138,10 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         },
         provenance=provenance,
     )
+
+    from .build_authoring import validate_stored_proposal
+    validate_stored_proposal(conn, turn, turn.completion)
+    return turn
 
 
 def _draft_references(
@@ -958,6 +962,64 @@ def complete_claimed_turn(
             conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
             status="completed", closed_at=row["completed_at"],
         )
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def complete_prepared_build_turn(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    expected_attempt: int,
+    assistant_text: str,
+    completion: GraphTurnCompletion | None,
+    graph_context_execution: PlanWorldGraphExecution | None = None,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET status = 'completed', revision = revision + 1,
+                assistant_text = %s, failure_code = NULL,
+                completion = %s,
+                graph_context_execution = %s,
+                claim_expires_at = NULL,
+                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status IN ('running', 'interrupted')
+              AND revision = %s AND attempt = %s
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                assistant_text,
+                None
+                if completion is None
+                else Jsonb(completion.model_dump(mode="json", by_alias=True)),
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is not None:
+        # Recovery does not rewrite the terminal incident trace of the original
+        # interrupted attempt. An open trace can close normally; closed evidence
+        # remains immutable even though the persisted proposal is now deliverable.
+        trace_row = conn.execute(
+            "SELECT payload->>'closed_at' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s FOR UPDATE",
+            (turn_id, expected_attempt),
+        ).fetchone()
+        if trace_row is None or trace_row[0] is None:
+            close_context_trace_locked(
+                conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                status="completed", closed_at=row["completed_at"],
+            )
     return None if row is None else _turn_from_row(conn, row)
 
 

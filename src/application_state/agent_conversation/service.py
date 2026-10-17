@@ -670,6 +670,15 @@ class AgentConversationService:
             )
         return turn
 
+    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> Turn:
+        """Load one historical turn in its verified World; no pointer/head lookup."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            if turn is None:
+                raise ApplicationStateNotFoundError("turn not found in verified World")
+            return turn
+
     def list_turns(
         self,
         world_id: str,
@@ -840,6 +849,7 @@ class AgentConversationService:
         duplicate_key: str,
         source_passages: list[TraceSourcePassage] | None = None,
         build_source_markdown: str | None = None,
+        writer_selection_proof: dict | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -951,6 +961,17 @@ class AgentConversationService:
                 )
             elif source_passages:
                 raise ApplicationStateValidationError("passage observations require a validated source-read event")
+            from .types import BuildWriterEvidenceSelectionV1
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                from .writer_evidence_selection import validate_selection_proof
+                captured = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt),
+                ).fetchone()
+                try:
+                    validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             events = [*execution.events, event]
             try:
                 execution_type = type(execution)
@@ -1014,6 +1035,24 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
         )
+
+    def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection):
+        from .types import BuildJevActionSelectionV1
+        if not isinstance(selection, BuildJevActionSelectionV1):
+            raise ApplicationStateValidationError("A typed Build selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id")
+
+    def record_build_writer_evidence_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof=None):
+        from .types import BuildWriterEvidenceSelectionV1
+        if not isinstance(selection, BuildWriterEvidenceSelectionV1):
+            raise ApplicationStateValidationError("A typed writer evidence selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", writer_selection_proof=producer_proof)
 
     def record_provider_outcome(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
@@ -1193,6 +1232,16 @@ class AgentConversationService:
         return renewed
 
     def complete_turn(self, result: TurnResult) -> Turn:
+        return self._complete_turn(result, prepared_recovery=False)
+
+    def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
+        """Recover an immutable acknowledged proposal, never a provider claim."""
+        return self._complete_turn(result, prepared_recovery=True)
+
+    def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool) -> Turn:
+        from .types import BuildAuthoringCompletionV1, BuildActionControllerWriterPolicyV1
+        if prepared_recovery and not isinstance(result.completion, BuildAuthoringCompletionV1):
+            raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
@@ -1229,12 +1278,26 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "completed turn has a different recorded result or a different claim fence"
                 )
-            if turn.revision != result.expected_revision or turn.status != "running":
+            allowed_status = {"running", "interrupted"} if prepared_recovery else {"running"}
+            if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
             execution = turn.graph_context_execution
+            if prepared_recovery and not isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
+                raise ApplicationStateValidationError("Recovery requires the controller-selected Build action policy")
             if execution is not None:
                 if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
+                from .types import BuildCitedSourceActionControllerWriterPolicyV1
+                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, BuildAuthoringCompletionV1):
+                    from .source_writer_output import validate_completion_proof
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    try:
+                        validate_completion_proof(result, turn, captured[0] if captured else {})
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 payload = result.completion.model_dump(mode="json", by_alias=True)
                 digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
                 try:
@@ -1277,7 +1340,10 @@ class AgentConversationService:
                         )
                     except ValueError as exc:
                         raise ApplicationStateValidationError(str(exc)) from exc
-            updated = repo.complete_claimed_turn(
+            from .build_authoring import validate_stored_proposal
+            validate_stored_proposal(conn, turn, result.completion)
+            completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
+            updated = completion_update(
                 conn,
                 world_id=world_id,
                 turn_id=turn.turn_id,

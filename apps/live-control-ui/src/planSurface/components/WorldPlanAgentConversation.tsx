@@ -1,3 +1,5 @@
+import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
+import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
 import { useBuildCompose } from "./BuildComposeProposal";
 import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
@@ -32,6 +34,8 @@ import type {
   WorldBuildGraphReceiptV1,
   WorldBuildGraphCompletionV1,
   WorldBuildGraphAnswerStatus,
+  WorldBuildSourceAnswerStatus,
+  WorldBuildAuthoringCompletionV1,
   WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
   WorldGraphRecapContextReadResponseV2,
@@ -1175,8 +1179,10 @@ function isWorldPlanGraphCompletion(
 
   const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus;
   if (status === (build ? "source_only_insufficient_evidence" : "plan_only_insufficient_evidence")) {
-    return receipt.graph_packet.evidence_sufficiency_status === "insufficient"
-      && receipt.assembled_input.packet_disposition === "omitted_insufficient"
+    // Build's controller may select source-only final evidence after sufficient
+    // initial discovery. The initial packet is not the final writer exposure.
+    return (build || (receipt.graph_packet.evidence_sufficiency_status === "insufficient"
+      && receipt.assembled_input.packet_disposition === "omitted_insufficient"))
       && graphClaims.length === 0 && citationMap === null
       && value.answer_basis === sourceBasis;
   }
@@ -1336,8 +1342,23 @@ function graphContextForTurn(turn: WorldAgentConversationHistoryTurn) {
   return turn.knowledge_context ?? ("plan_context" in turn ? turn.plan_context : undefined);
 }
 
+function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value is WorldBuildAuthoringCompletionV1 {
+  return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
+    "answer_segments", "citation_map", "action_id", "reservation_sha256", "proposal_result_sha256", "provider_attempt_id", "envelope_sha256"])
+    && value.schema === "dmb_build_authoring_completion_v1" && value.context_receipt_sha256 === receiptHash
+    && value.answer_basis === "prepared_page_proposal" && value.answer_context_status === "proposal_ready"
+    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
+    && isRecord(value.answer_segments[0]) && hasExactKeys(value.answer_segments[0], ["kind", "text"])
+    && value.answer_segments[0].kind === "connective"
+    && value.answer_segments[0].text === "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
+    && [value.reservation_sha256, value.proposal_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
+}
+
 function isBuildKnowledgeContext(value: unknown, worldId: string): value is WorldBuildKnowledgeContextV1 {
-  if (!hasExactKeys(value, ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"])
+  const required = ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"];
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "saved_source_sections")) required.push("saved_source_sections");
+  if (!hasExactKeys(value, required)
     || value.schema !== "dmb_build_graph_context_response_v1" || !isRecord(value.receipt)
     || value.receipt.schema !== "dmb_build_graph_context_receipt_v1"
     || !isRecord(value.receipt.source_basis) || !isRecord(value.receipt.graph_authority)
@@ -1355,6 +1376,20 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
     || typeof authority.graph_revision !== "string" || !authority.graph_revision
     || authority.admissibility_version !== "gm-v1") return false;
   const receipt = value.receipt as unknown as WorldBuildGraphReceiptV1;
+  if (Object.prototype.hasOwnProperty.call(value, "saved_source_sections")
+    && !isSavedSectionTargets(value.saved_source_sections, receipt.source_basis, value.completion)) return false;
+  if (isRecord(value.completion) && value.completion.schema === "dmb_build_authoring_completion_v1") {
+    return isBuildAuthoringCompletion(value.completion, receipt.context_receipt_sha256)
+      && (value.execution === null || isWorldPlanGraphExecution(value.execution))
+      && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
+        .every(items => Array.isArray(items) && items.length === 0);
+  }
+  if (isRecord(value.completion) && value.completion.schema === "dmb_build_graph_completion_v2") {
+    return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256)
+      && (value.execution === null || isWorldPlanGraphExecution(value.execution))
+      && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
+        .every(items => Array.isArray(items) && items.length === 0);
+  }
   if ((value.completion !== null && !isWorldPlanGraphCompletion(value.completion, receipt))
     || (value.execution !== null && !isWorldPlanGraphExecution(value.execution))) return false;
   const completion = value.completion as WorldBuildGraphCompletionV1 | null;
@@ -2315,6 +2350,7 @@ export function WorldPlanAgentConversation({
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const connectionOptionsRef = useRef<HTMLDetailsElement | null>(null);
   const [traceVisible, setTraceVisible] = useState(false);
   const [openedTraceTurns, setOpenedTraceTurns] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -3253,6 +3289,12 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  function openConnectionSettings() {
+    setSettingsOpen(true);
+    const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
+    if (options instanceof HTMLDetailsElement) options.open = true;
+  }
+
   function connectGraphSession() {
     void connectNativeGraphSession().then(() => setGraphCredentialStatus("Local Agent and Graph session active."))
       .catch(() => setGraphCredentialStatus("Local Agent and Graph session unavailable."));
@@ -3788,8 +3830,12 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | "proposal_ready"): string {
     switch (status) {
+      case "proposal_ready": return "Authored suggestion awaiting review; nothing is saved or published.";
+      case "source_grounded": return "Supported by opened source passages.";
+      case "source_grounded_partial": return "Supported by opened source passages; coverage was incomplete.";
+      case "source_insufficient_evidence": return "The opened sources did not support an answer.";
       case "graph_grounded":
         return "Grounded in World Graph evidence.";
       case "graph_grounded_partial":
@@ -3803,9 +3849,13 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus, surface: string | null): string | null {
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | "proposal_ready", surface: string | null): string | null {
     const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
+      case "proposal_ready": return "Page proposal";
+      case "source_grounded": return "Sources";
+      case "source_grounded_partial": return "Sources · partial";
+      case "source_insufficient_evidence": return "Needs more context";
       case "graph_grounded": return `World + ${work}`;
       case "graph_grounded_partial": return `World + ${work} · partial`;
       case "source_only_insufficient_evidence":
@@ -4202,6 +4252,22 @@ export function WorldPlanAgentConversation({
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const planContext = graphContextForTurn(turn);
+    const savedEvidence = planContext?.schema === "dmb_build_graph_context_response_v1" && planContext.completion
+      && verifiedWorldId && planContext.saved_source_sections?.length
+      ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
+          segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
+    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2") {
+      return <details className="world-plan-agent-conversation__evidence-trail">
+        <summary>Evidence trail</summary>
+        <ResponseEvidenceTabs evidence={verifiedWorldId
+          ? <>{savedEvidence}<BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} /></>
+          : <p>Select the original World to open these source passages.</p>}
+          prompt={verifiedWorldId && history?.conversation_id
+            ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
+              conversationId={history.conversation_id} running={false} />
+            : <p>The saved request is unavailable.</p>} />
+      </details>;
+    }
     const targets = planContext?.source_open_targets ?? [];
     const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = planContext?.completion?.citation_map?.entries ?? [];
@@ -4261,7 +4327,8 @@ export function WorldPlanAgentConversation({
         <span className="world-plan-agent-conversation__evidence-trail-caret" aria-hidden="true">⌄</span>
       </summary>
       <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
-        {!hasEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
+        {savedEvidence}
+        {!hasEvidence && !savedEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
         {hasEvidence ? <div className="world-plan-agent-conversation__evidence-intro">
           Claims cited in this answer and the source passages you can inspect. The loaded World graph is a separate view.
         </div> : null}
@@ -4915,6 +4982,13 @@ export function WorldPlanAgentConversation({
   const presentAvailability = (message: string) => presentationHosts?.composer
     ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
     : null;
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const input = composerInputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.max(40, Math.min(input.scrollHeight, 160))}px`;
+  }, [composerMessage, presentationHosts?.composer, askSlot?.hostElement, visible, pageReady, scopeMatches]);
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -4949,6 +5023,8 @@ export function WorldPlanAgentConversation({
   })();
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
+  const hasUncertainPlayNotice = Boolean(uncertainPlayNoticeRef.current
+    && error === uncertainPlayNoticeRef.current.message);
   const hasUncertainGraphNotice = Boolean(uncertainPlanNoticeRef.current
     && error === uncertainPlanNoticeRef.current.message);
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
@@ -5297,7 +5373,46 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
   );
+  const connectionSettings = (
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization">
+        <h3>Local connection</h3>
+        <button type="button" onClick={() => setSettingsOpen(false)}>Close connection settings</button>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">This connects this browser to your local Buddy server. Once connected, it stays connected across reloads.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
+  );
   const managementDetails = (<>
+      {settingsOpen ? connectionSettings : null}
+      {isReadOnly ? <details><summary>Advanced</summary>
+        {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
+        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+      </details> : null}
+      <section className="world-plan-agent-conversation__tools" aria-label="Agent tools and access">
+        <h3>Tools and access</h3>
+        <p>Configured for this page. Each reply’s Prompt shows the tools actually exposed to the model.</p>
+        <dl>
+          <dt>Read saved page</dt><dd>{isBuild ? buildMode?.savedSource ? "Connected" : "Save or choose a page first" : isReadOnly ? currentReadOnlyContext ? "Connected" : "Open a Run first" : scopeMatches ? "Connected" : "Open a saved Plan first"}</dd>
+          <dt>World Graph and sources</dt><dd>{useWorldGraphForAsk ? "Enabled" : "Off"}</dd>
+          <dt>Propose page changes</dt><dd>{isBuild ? buildMode?.composeBridge ? "Editor connected; insertion is checked when sending. Preview and approval required." : "No editable page connected" : isReadOnly ? "Unavailable in Play" : editBridge ? "Preview and approval required" : "No editable Plan connected"}</dd>
+          <dt>Generate images</dt><dd>{isBuild ? "Not exposed to this conversation. Use Create image on the page toolbar." : "Not exposed on this surface."}</dd>
+        </dl>
+        <p>Enter to send · Shift+Enter for a new line.</p>
+      </section>
+      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+        <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
+        <details><summary>Saved request details</summary>
+          <p>{pendingPlayTurn.request.message}</p>
+          <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
+          {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
+        </details>
+        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
+          Retry exact saved turn
+        </button>
+      </section> : null}
+
       {otherLocalProposals.length ? (
         <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
           <summary>Other local proposals · {otherLocalProposals.length}</summary>
@@ -5545,18 +5660,6 @@ export function WorldPlanAgentConversation({
     <div className="world-plan-agent-conversation__body">
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
-      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
-        <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
-        <details><summary>Saved request details</summary>
-          <p>{pendingPlayTurn.request.message}</p>
-          <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
-          {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
-        </details>
-        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
-          Retry exact saved turn
-        </button>
-      </section> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
@@ -5564,15 +5667,9 @@ export function WorldPlanAgentConversation({
           <p>{pendingGraphAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
         </section>
       ) : null}
-      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <button type="button" onClick={connectGraphSession}>Connect local session</button>
-        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">Your local Agent and Graph session persists across reloads. {isReadOnly ? "Play questions use the admitted World Run." : "Plan + World is the default; switch to Plan only for a question that needs that scope."}</p>
-        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
-      </section>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
@@ -5616,6 +5713,10 @@ export function WorldPlanAgentConversation({
               && turn.user_text === submittedMessage.message)) ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
+            {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
+              <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
+              <details><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
+            </div> : null}
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
               <div className="world-plan-agent-conversation__turn-debug">
                 <details className="world-plan-agent-conversation__turn-details">
@@ -5688,7 +5789,8 @@ export function WorldPlanAgentConversation({
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
         <textarea
           id="world-plan-agent-message"
-          rows={3}
+          rows={1}
+          ref={composerInputRef}
           value={composerMessage}
           onChange={(event) => {
             composerEditGenerationRef.current += 1;
@@ -5746,7 +5848,7 @@ export function WorldPlanAgentConversation({
         {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"
           ? "Changes can be up to 4,000 characters. Shorten this request to continue."
           : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
-        {error && !authorizationBlocked && !hasUncertainGraphNotice ? <p role="alert">{error}</p> : null}
+        {error && !authorizationBlocked && !hasUncertainGraphNotice && !hasUncertainPlayNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
@@ -5760,22 +5862,19 @@ export function WorldPlanAgentConversation({
     return createPortal(
       <section className="world-plan-agent-conversation world-agent-conversation" aria-label="World conversation" data-testid="world-agent-conversation-host">
         <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel={isBuild ? "Build workspace" : "Play workspace"}
-          conversationLabel="World conversation" title="Conversation"
+          conversationLabel="World conversation" title="Conversation" showTitle={false}
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
+          headerActions={<>{newConversationButton}<details ref={connectionOptionsRef} className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
           </details></>}
           contextDetails={isBuild ? buildContextDetails : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
             {!currentReadOnlyContext && !isBuild ? <p role="status">Choose a verified World Run to ask about Play.</p> : null}
-            {sharedConversation?.pendingTurn && !sending ? <p role="status">A turn is awaiting confirmation in World history.</p> : null}
-            <details><summary>Advanced</summary>
-              {admittedRun ? <p>Run {admittedRun.runId} · revision {admittedRun.runRevision}</p> : null}
-              <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-            </details></div>} />
+
+</div>} />
       </section>, askSlot.hostElement,
     );
   }

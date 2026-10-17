@@ -126,12 +126,13 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
       expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
   }
   return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
-    items: [...(records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: record.after_turn_sequence,
+    items: [...(records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: Math.max(record.after_turn_sequence,
+      history?.turns.find(turn => turn.turn_id === record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
       element: <BuildComposeProposal key={record.action_id} record={record}
         recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge)
           && history?.active_conversation_id === record.reservation.conversation_id
           && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : []),
-      ...(imageRecords.scope===scope ? imageRecords.values.map(record=>({key:record.action_id,afterSequence:record.after_turn_sequence,
+      ...(imageRecords.scope===scope ? imageRecords.values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence, history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
         element:<PreparedBuildImage key={record.action_id} record={record} bridge={bridge}
           active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision} />})):[])] };
 }
@@ -159,9 +160,11 @@ function BuildPrompt({ record }: { record: BuildProposalRecord }) {
 }
 export function BuildComposeProposal({ record, canInsert, onInsert, recovered = false }: { record: BuildProposalRecord; canInsert: boolean; onInsert: () => void; recovered?: boolean }) {
   return <article className="build-compose-proposal" aria-label="Page proposal">
-    <p className="build-compose-proposal__request"><strong>{record.reservation.origin ? "Writing instruction" : "You"}</strong> {record.reservation.instruction}</p>
+    <div className="build-compose-proposal__request">{record.reservation.origin
+      ? <details><summary>Writing details</summary><p>{record.reservation.instruction}</p></details>
+      : <p><strong>You</strong> {record.reservation.instruction}</p>}</div>
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
-      <p>Proposed addition to your page</p>
+      <p>Authored suggestion for your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />
       {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}

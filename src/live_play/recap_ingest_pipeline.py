@@ -402,6 +402,9 @@ def _normalize_one(
     corpus: Path,
     canonical_recap_rel: str,
     normalized_recap_rel: str,
+    session: int,
+    title: str | None,
+    slug: str | None,
     force: bool = False,
 ) -> tuple[str, str | None, list[dict[str, str]]]:
     """Return outcome, error, and any reversibly archived prior artifact."""
@@ -410,6 +413,9 @@ def _normalize_one(
         content = _expected_normalized_content(
             corpus=corpus,
             canonical_recap_rel=canonical_recap_rel,
+            session=session,
+            title=title,
+            slug=slug,
         )
     except (FileNotFoundError, ValueError) as exc:
         return "failed", str(exc), []
@@ -448,7 +454,94 @@ def _normalize_one(
     return ("refreshed" if archived else "created"), None, archived
 
 
-def _expected_normalized_content(*, corpus: Path, canonical_recap_rel: str) -> str:
+def _specific_normalization_title(
+    *,
+    session: int,
+    canonical_title: str,
+    title: str | None,
+    slug: str | None,
+) -> str:
+    """Resolve the title used to rebuild and verify a normalized recap.
+
+    A specific request title or slug supplies the title for a generic source.
+    A specific canonical title remains authoritative; a supplied specific
+    title that conflicts with it fails closed instead of making an unrelated
+    derivative appear current.
+    """
+    canonical_title = canonical_title.strip()
+    if not canonical_title:
+        # Preserve the existing behavior for legacy canonical files without a
+        # title field. The explicit-title contract applies to generic titles.
+        return canonical_title
+    canonical_is_generic = _is_generic_title(
+        session=session,
+        title=canonical_title,
+        slug=None,
+    )
+
+    requested_title = (title or "").strip()
+    requested_slug = (slug or "").strip()
+    specific_title = (
+        requested_title
+        if requested_title
+        and not _is_generic_title(session=session, title=requested_title, slug=None)
+        else None
+    )
+    specific_slug = (
+        requested_slug
+        if requested_slug and not is_generic_recap_tail(requested_slug)
+        else None
+    )
+
+    candidates: list[tuple[str, str]] = []
+    if specific_title:
+        candidates.append(
+            (
+                specific_title,
+                _slug_tail(session=session, title=specific_title, slug=None),
+            )
+        )
+    if specific_slug:
+        candidates.append(
+            (
+                f"Session {session} - {specific_slug}",
+                _slug_tail(session=session, title=None, slug=specific_slug),
+            )
+        )
+
+    candidate_tails = {tail.casefold() for _, tail in candidates}
+    if len(candidate_tails) > 1:
+        raise ValueError("normalization title and slug inputs conflict")
+
+    if canonical_is_generic:
+        if not candidates:
+            raise ValueError(
+                "normalize blocked: generic recap title requires non-generic slug/title"
+            )
+        return candidates[0][0]
+
+    canonical_tail = _slug_tail(
+        session=session, title=canonical_title, slug=None
+    ).casefold()
+    # The selected title is an explicit source assertion. A slug alone is a
+    # path hint and can be stale when status has already resolved a linked
+    # canonical/normalized pair from disk; in that case the canonical title
+    # remains authoritative.
+    if specific_title and candidate_tails != {canonical_tail}:
+        raise ValueError(
+            "normalization title/slug conflicts with the specific canonical recap title"
+        )
+    return canonical_title
+
+
+def _expected_normalized_content(
+    *,
+    corpus: Path,
+    canonical_recap_rel: str,
+    session: int | None = None,
+    title: str | None = None,
+    slug: str | None = None,
+) -> str:
     recap_path = resolve_under_corpus(corpus, canonical_recap_rel)
     if not recap_path.is_file():
         raise FileNotFoundError(
@@ -456,17 +549,22 @@ def _expected_normalized_content(*, corpus: Path, canonical_recap_rel: str) -> s
         )
     text = recap_path.read_text(encoding="utf-8")
     fm, body = _parse_minimal_frontmatter(text)
-    title = str(fm.get("title") or "").strip()
-    if _GENERIC_RECAP_TITLE_RE.match(title):
-        raise ValueError("normalize blocked: generic recap title requires non-generic slug/title")
+    source_title = str(fm.get("title") or "").strip()
+    source_session = int(fm.get("session") or session or 0)
+    normalized_title = _specific_normalization_title(
+        session=source_session,
+        canonical_title=source_title,
+        title=title,
+        slug=slug,
+    )
     recap_raw, _ = _extract_recap_raw(body)
     clean = _clean_body(recap_raw)
     return _build_normalized_content(
         fm=fm,
         body_clean=clean,
-        session=int(fm.get("session") or 0),
+        session=source_session,
         normalized_from=canonical_recap_rel,
-        title=title,
+        title=normalized_title,
     )
 
 
@@ -620,15 +718,55 @@ def run_pipeline(
                 record_archived_artifacts(status.ingest_report, archived)
 
     if options.normalize:
+        normalization_inspection = inspect_recap_ingest_status(
+            campaign_id=options.campaign_id,
+            session=options.session,
+            title=options.title,
+            slug=options.slug,
+            corpus=corpus_dir,
+        )
+        normalization_paths = normalization_inspection.get("paths", {})
+        canonical_recap_rel = str(
+            normalization_paths.get("canonical_recap") or paths.canonical_recap_rel
+        )
+        normalized_recap_rel = str(
+            normalization_paths.get("normalized_recap") or paths.normalized_recap_rel
+        )
+        status.paths["canonical_recap"] = canonical_recap_rel
+        status.paths["normalized_recap"] = normalized_recap_rel
         ok, err, archived = _normalize_one(
             corpus=corpus_dir,
-            canonical_recap_rel=paths.canonical_recap_rel,
-            normalized_recap_rel=paths.normalized_recap_rel,
+            canonical_recap_rel=canonical_recap_rel,
+            normalized_recap_rel=normalized_recap_rel,
+            session=options.session,
+            title=options.title,
+            slug=options.slug,
             force=options.force_normalize,
         )
         if ok == "failed":
             status.add_state("normalized_skipped")
-            status.add_error(err or "normalize step failed")
+            error = err or "normalize step failed"
+            if "conflicts with the specific canonical recap title" in error:
+                status.add_state("canonical_recap_conflict")
+                status.add_state("derivative_reconciliation_required")
+                status.add_warning(error)
+                status.add_next_action(
+                    "Use the specific title in the canonical recap, or review the source before continuing."
+                )
+            elif "normalization title and slug inputs conflict" in error:
+                status.add_state("derivative_reconciliation_required")
+                status.add_warning(error)
+                status.add_next_action(
+                    "Provide a matching specific recap title and slug before normalizing."
+                )
+            elif "generic recap title requires non-generic slug/title" in error:
+                status.add_state("derivative_reconciliation_required")
+                status.add_warning(error)
+                status.add_next_action(
+                    "Provide a specific recap title or slug before normalizing this generic source."
+                )
+            else:
+                status.add_error(error)
             return status.to_dict()
         if ok == "stale":
             status.add_state("normalized_stale")
@@ -1122,12 +1260,31 @@ def inspect_recap_ingest_status(
             expected_normalized = _expected_normalized_content(
                 corpus=corpus_dir,
                 canonical_recap_rel=str(status.paths["canonical_recap"]),
+                session=session,
+                title=title,
+                slug=slug,
             )
         except (FileNotFoundError, UnicodeDecodeError, ValueError) as exc:
+            error = str(exc)
             normalized_state = "unknown"
             status.add_state("normalized_provenance_unknown")
             status.add_state("derivative_reconciliation_required")
-            status.add_warning(f"normalized recap could not be checked against its canonical source: {exc}")
+            if "conflicts with the specific canonical recap title" in error:
+                status.add_state("canonical_recap_conflict")
+                status.add_next_action(
+                    "Use the specific title in the canonical recap, or review the source before continuing."
+                )
+            elif "normalization title and slug inputs conflict" in error:
+                status.add_next_action(
+                    "Provide a matching specific recap title and slug before normalizing."
+                )
+            elif "generic recap title requires non-generic slug/title" in error:
+                status.add_next_action(
+                    "Provide a specific recap title or slug before normalizing this generic source."
+                )
+            status.add_warning(
+                f"normalized recap could not be checked against its canonical source: {error}"
+            )
         else:
             expected_digest = sha256_bytes(expected_normalized.encode("utf-8"))
             actual_digest = sha256_bytes(normalized_path.read_bytes())

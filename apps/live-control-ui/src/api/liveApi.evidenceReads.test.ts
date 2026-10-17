@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'prompt'] as const
+const cases = ['trace', 'prompt', 'source-passage'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -8,6 +8,7 @@ async function setup(base = '') {
 }
 type Api = Awaited<ReturnType<typeof setup>>
 function read(api: Api, kind: typeof cases[number]) {
+  if (kind === 'source-passage') return api.getAgentSourcePassage('world/a', 'turn-a', 0)
   return kind === 'trace' ? api.getWorldAgentTurnContextTrace('world/a', 'turn-a')
     : api.getWorldAgentTurnPrompt('world/a', 'turn-a', 'trace-a', 'provider-a')
 }
@@ -19,7 +20,7 @@ describe.each(cases)('Agent %s evidence read authorization', kind => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ fixture: true }))
     await read(api, kind)
     const [url, init] = fetch.mock.calls[0]
-    expect(String(url)).toContain('/worlds/world%2Fa/conversation/turns/turn-a/context-trace')
+    expect(String(url)).toContain('/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-evidence-token')
     expect(init?.redirect).toBe('error')
     expect(init?.credentials).toBe('same-origin')
@@ -110,4 +111,17 @@ it('does not authorize a near-miss Build endpoint', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
   await api.authenticatedApiFetch('/api/live/agent/worlds/world/build-proposals/action/export')
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+})
+
+it.each(['export', '0/export', '-1', '1.5'])('does not authorize a near-miss passage selector %s', async selector => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-evidence-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await api.authenticatedApiFetch('/api/live/agent/worlds/world-a/conversation/turns/turn-a/source-passages/' + selector)
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+})
+it.each([-1, 16384, 0.5, NaN])('rejects an invalid source index before fetching: %s', async index => {
+  const api = await setup()
+  const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('unexpected fetch'))
+  await expect(api.getAgentSourcePassage('world', 'turn', index)).rejects.toThrow('Invalid source passage index')
+  expect(fetch).not.toHaveBeenCalled()
 })

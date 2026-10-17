@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from src.graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
@@ -19,6 +21,64 @@ EVIDENCE_RULE = (
     "not summaries, not your own node labels, not regex, not invented snippets. "
     "Copy exact words from the source packet."
 )
+
+# These instructions belong to recap extraction only. Keep them out of the
+# shared EVIDENCE_RULE, which is also used by Worldbuilding profiles.
+_RECAP_SOURCE_FAITHFULNESS = (
+    "Preserve the source's modality, attribution, time, and scope. Keep plans, "
+    "intentions, proposals, possibilities, and reported beliefs distinct from "
+    "events that actually occurred. Do not treat similar names, spelling, "
+    "possessives, topic proximity, or a shared location as proof that two "
+    "mentions identify the same entity. Resolve references only as specifically "
+    "as the source supports; do not add unstated membership, identity, or events."
+)
+
+_PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
+    "actor_pass": (
+        "Keep similarly named people and creatures as separate candidates unless "
+        "the source explicitly establishes that they are the same entity."
+    ),
+    "location_pass": (
+        "When coordinated place nouns name distinct buildings or sites, extract "
+        "them separately instead of combining them into one composite location. "
+        "Keep a compound name together when it refers to one place."
+    ),
+    "collective_pass": (
+        "Include source-mentioned informal populations (for example, children, "
+        "refugees, or townsfolk) when they function as meaningful participants "
+        "or subjects. Do not invent a name, membership, origin, or continuity "
+        "beyond what the source states."
+    ),
+    "beat_pass": (
+        "Describe what happened separately from what was intended or planned. "
+        "An intended action is not a completed action; retain the source's "
+        "attribution and uncertainty in the beat summary."
+    ),
+    "encounter_job_pass": (
+        "Do not describe an intended or proposed encounter action as having "
+        "occurred unless the source says it occurred."
+    ),
+    "edge_pass": (
+        "Keep broad plural references broad unless the source directly identifies "
+        "the specific listed node or subgroup. Do not bind an event to the nearest "
+        "topically related node by proximity alone. Evidence must support the "
+        "relationship itself, not only the existence of its endpoints."
+    ),
+}
+
+
+def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassSpec:
+    pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id)
+    if pass_guidance is None:
+        return spec
+    return replace(
+        spec,
+        instruction=(
+            f"{spec.instruction}\n\n"
+            f"Source-faithfulness requirements: {_RECAP_SOURCE_FAITHFULNESS} "
+            f"{pass_guidance}"
+        ),
+    )
 
 DEFAULT_SEMANTIC_STATE = {
     "canon_state": "played_canon",
@@ -116,10 +176,14 @@ def _build_recap_profile(
         profile_version=profile_version,
         admitted_source_domains=frozenset({"recap"}),
         admitted_document_classes=None,
-        node_passes=_NODE_PASSES,
-        beat_pass=_BEAT_PASS,
-        encounter_job_pass=_ENCOUNTER_JOB_PASS if enable_encounter_job_pass else None,
-        edge_pass=_EDGE_PASS,
+        node_passes=tuple(_with_recap_source_faithfulness(spec) for spec in _NODE_PASSES),
+        beat_pass=_with_recap_source_faithfulness(_BEAT_PASS),
+        encounter_job_pass=(
+            _with_recap_source_faithfulness(_ENCOUNTER_JOB_PASS)
+            if enable_encounter_job_pass
+            else None
+        ),
+        edge_pass=_with_recap_source_faithfulness(_EDGE_PASS),
         evidence_rule=EVIDENCE_RULE,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
         enable_encounter_job_pass=enable_encounter_job_pass,

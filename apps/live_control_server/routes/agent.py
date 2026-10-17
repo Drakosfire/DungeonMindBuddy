@@ -1391,6 +1391,52 @@ def get_world_conversation_history(
     )
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}")
+def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: int,
+        section_event_id: UUID, request: Request):
+    """Open persisted authored evidence; never substitute a current source."""
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params or not 0 <= segment_index <= 127:
+        raise HTTPException(status_code=422, detail={"code": "saved_section_selector_invalid"})
+    from apps.live_control_server.services.agent_saved_sections import open_saved_section
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_saved_section(world_id=verified, turn_id=turn_id,
+            segment_index=segment_index, section_event_id=section_event_id,
+            service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "saved_section_turn_unavailable"}) from exc
+    except (ValidationError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "saved_section_binding_invalid"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}")
+def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
+        request: Request):
+    """Explicit authenticated historical source read, separate from Graph claims."""
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    if request.query_params or not 0 <= citation_index <= 16383:
+        raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})
+    from apps.live_control_server.services.agent_source_passages import (
+        open_source_passage, SourcePassageOpenError,
+    )
+    try:
+        result = open_source_passage(world_id=verified_world_id, turn_id=turn_id,
+            citation_index=citation_index, service=_conversation_service(request))
+        return result.model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,
+            detail={"code": "source_passage_turn_unavailable"}) from exc
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "source_passage_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)
 def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request) -> AgentTurnContextTraceResponseV1:
     """Explicit authenticated read; normal history never includes passage bytes."""
@@ -1585,6 +1631,7 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
                 request.app.state, "agent_turn_runtime", None
             ),
             conversation_service=_conversation_service(request),
+            build_runtime_factory=getattr(getattr(request.app, "state", None), "build_jev_runtime_factory", None),
             trace_builder=trace,
             operator_subject=principal.subject,
         )

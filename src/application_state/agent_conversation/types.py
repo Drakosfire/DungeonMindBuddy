@@ -1374,7 +1374,90 @@ class BuildGraphCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1
+class SourcePassageClaimV1(StrictModel):
+    kind: Literal["source_passage_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class BuildSourcePassageCitationV1(StrictModel):
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    read_event_id: UUID
+    receipt: SourceReadAnchorReceiptV2
+
+
+class BuildGraphCompletionV2(StrictModel):
+    """Passage attribution, explicitly separate from admitted Graph claims."""
+    schema_: Literal["dmb_build_graph_completion_v2"] = Field(
+        default="dmb_build_graph_completion_v2", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["opened_source_passages", "saved_source_and_opened_passages"]
+    answer_context_status: Literal["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]
+    answer_segments: list[Annotated[
+        SourcePassageClaimV1 | SavedSourceClaimV1 | PlanWorldGraphConnectiveSegmentV1,
+        Field(discriminator="kind"),
+    ]] = Field(min_length=1, max_length=128)
+    citation_map: None = None
+    source_citations: list[BuildSourcePassageCitationV1] = Field(
+        min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> BuildGraphCompletionV2:
+        claims = {i: s for i, s in enumerate(self.answer_segments)
+                  if isinstance(s, SourcePassageClaimV1)}
+        if {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Every passage claim requires exact source citations")
+        if self.answer_context_status == "source_insufficient_evidence":
+            if claims or any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+                raise ValueError("Source abstention cannot carry factual claims")
+        elif not claims:
+            raise ValueError("Source-grounded answers require passage claims")
+        keys = [(c.segment_index, c.read_event_id, c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Passage citations must be distinct")
+        saved = any(isinstance(s, SavedSourceClaimV1) for s in self.answer_segments)
+        if self.answer_basis != ("saved_source_and_opened_passages" if saved else "opened_source_passages"):
+            raise ValueError("Passage basis must follow its typed segments")
+        for c in self.source_citations:
+            if c.text_sha256 != hashlib.sha256(claims[c.segment_index].text.encode()).hexdigest():
+                raise ValueError("Passage citation text differs")
+            if (c.receipt.outcome != "enough" or c.receipt.truncated
+                    or c.receipt.evidence_sufficiency_status != "sufficient"
+                    or not c.receipt.content_sha256 or not c.receipt.source_revision_id):
+                raise ValueError("Passage citation requires complete, sufficient source")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Build completion exceeds storage size limit")
+        return self
+
+
+BUILD_PROPOSAL_READY_TEXT = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+
+
+class BuildAuthoringCompletionV1(StrictModel):
+    """Host acknowledgement of an owned proposal, never factual grounding."""
+    schema_: Literal["dmb_build_authoring_completion_v1"] = Field(
+        default="dmb_build_authoring_completion_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["prepared_page_proposal"] = "prepared_page_proposal"
+    answer_context_status: Literal["proposal_ready"] = "proposal_ready"
+    answer_segments: list[PlanWorldGraphConnectiveSegmentV1] = Field(min_length=1, max_length=1)
+    citation_map: None = None
+    action_id: UUID
+    reservation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    proposal_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_acknowledgement(self):
+        if self.answer_segments[0].text != BUILD_PROPOSAL_READY_TEXT:
+            raise ValueError("Proposal acknowledgement is derived by the host")
+        return self
+
+
+GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -1769,6 +1852,113 @@ class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV
     saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
 
 
+class BuildActionControllerWriterPolicyV1(BuildSectionControllerWriterPolicyV1):
+    driver_schema: Literal["dmb_build_jev_actions_v1"]
+    action_capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_surface_operations: list[Literal["answer_from_sources", "propose_build_insertion"]] = Field(min_length=1, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_operations(self):
+        if (self.allowed_surface_operations != sorted(set(self.allowed_surface_operations))
+                or "answer_from_sources" not in self.allowed_surface_operations
+                or ("propose_build_insertion" in self.allowed_surface_operations) != (self.action_capability_sha256 is not None)):
+            raise ValueError("Offered Build operations must match the frozen editor capability")
+        return self
+
+
+class BuildCompactActionControllerWriterPolicyV1(BuildActionControllerWriterPolicyV1):
+    initial_packet_codec: Literal["dmb_build_initial_packet_table_v1"]
+
+
+class BuildContinuationActionControllerWriterPolicyV1(BuildCompactActionControllerWriterPolicyV1):
+    controller_input_policy: Literal["receipt_bound_factored_controller_v1"]
+
+
+class BuildFrontierActionControllerWriterPolicyV1(BuildContinuationActionControllerWriterPolicyV1):
+    frontier_policy: Literal["evidence_bound_deferred_frontier_v1"]
+
+
+class BuildPhaseActionControllerWriterPolicyV1(BuildFrontierActionControllerWriterPolicyV1):
+    phase_input_policy: Literal["role_separated_controller_inputs_v1"]
+
+
+class BuildControllerContinuationAccountingV1(StrictModel):
+    """Empirical controller admission; role policy selects initial use, never a guarantee."""
+
+    policy: Literal["o200k_double_plus_4096_experimental_v1"]
+    tokenizer: Literal["tiktoken"]
+    tokenizer_version: str = Field(min_length=1, max_length=128)
+    encoding: Literal["o200k_base"]
+    multiplier: Literal[2]
+    reserve: Literal[4096]
+    raw_wire_limit_bytes: Literal[256_000]
+    question_limit_tokens: Literal[32_000]
+    request_limit_tokens: Literal[64_000]
+    guaranteed_upper_bound: Literal[False]
+
+
+class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
+    controller_continuation_accounting: BuildControllerContinuationAccountingV1
+
+
+class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionControllerWriterPolicyV1):
+    support_policy: Literal["combined_relevant_evidence_support_v1"]
+
+
+class BuildWriterContextBudgetV1(StrictModel):
+    schema_: Literal["dmb_build_writer_context_budget_v1"] = Field(alias="schema")
+    provider: Literal["openai"]
+    model: Literal["gpt-6-luna"]
+    api_mode: Literal["responses"]
+    estimator: Literal["utf8_json_bytes_plus_64_per_node_v1"]
+    context_limit_tokens: Literal[128_000]
+    max_request_bytes: Literal[128_000]
+    output_reserve_tokens: Literal[4096]
+
+    def identity(self):
+        return self.provider, self.model, self.api_mode
+
+
+class BuildWriterBudgetActionControllerWriterPolicyV1(BuildJointSupportActionControllerWriterPolicyV1):
+    writer_context_budget: BuildWriterContextBudgetV1
+
+    @model_validator(mode="after")
+    def validate_writer_budget_role(self):
+        if self.provider_roles.writer.identity() != self.writer_context_budget.identity():
+            raise ValueError("writer budget requires its exact frozen provider role")
+        return self
+
+
+class BuildReadBatchActionControllerWriterPolicyV1(BuildWriterBudgetActionControllerWriterPolicyV1):
+    acquisition_policy: Literal["jointly_judged_independent_reads_v1"]
+
+
+class BuildCitedSourceActionControllerWriterPolicyV1(BuildReadBatchActionControllerWriterPolicyV1):
+    source_writer_output_policy: Literal["cited_facts_host_limitations_v1"]
+
+
+class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionControllerWriterPolicyV1):
+    writer_selection_policy: Literal["source_unit_selection_event_closure_v1"]
+
+
+class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
+    controller_initial_accounting: BuildControllerContinuationAccountingV1
+
+    @model_validator(mode="after")
+    def validate_initial_accounting(self):
+        if self.controller_initial_accounting != self.controller_continuation_accounting:
+            raise ValueError("initial controller accounting differs from continuation accounting")
+        return self
+
+
+class BuildEncodedAssessmentPolicyV1(BuildInitialEstimatedSelectedSourcePolicyV1):
+    assessment_codec: Literal["lossless_assessment_columns_v1"]
+
+
+class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
+    evidence_codec: Literal["contained_passage_slices_v1"]
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -1843,7 +2033,7 @@ class ProviderAttemptAuthorizedEventV1(GraphExecutionEventBaseV1):
     model: str = Field(min_length=1, max_length=256)
     api_mode: str = Field(min_length=1, max_length=64)
     tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound"]
+    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound", "estimated_token_count"]
     input_estimator: str = Field(min_length=1, max_length=128)
     input_tokens: int = Field(strict=True, ge=0)
     output_token_reserve: int = Field(strict=True, ge=0)
@@ -2515,6 +2705,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
 
         # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
         legacy_events: list[dict[str, object]] = []
+        provider_index = 0
         for event in self.events:
             if isinstance(
                 event,
@@ -2527,10 +2718,37 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     RelatedRecapContextProviderInclusionEventV2,
                     BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                     BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
+                    BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1,
                 ),
             ):
                 continue
             payload = event.model_dump(mode="json", by_alias=True)
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                if isinstance(self.policy, BuildEstimatedActionControllerWriterPolicyV1):
+                    role = (event.provider, event.model, event.api_mode)
+                    controller = self.policy.provider_roles.controller.identity()
+                    writer = self.policy.provider_roles.writer.identity()
+                    if role not in {controller, writer} or (provider_index == 0 and role != controller):
+                        raise ValueError("provider accounting role differs from frozen policy")
+                    if isinstance(self.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
+                        writer_budget = self.policy.writer_context_budget
+                        if (event.output_token_reserve != writer_budget.output_reserve_tokens
+                                or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
+                            raise ValueError("writer envelope exceeds its frozen role budget")
+                    estimated = role == controller and (provider_index > 0
+                        or isinstance(self.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
+                    descriptor = self.policy.controller_continuation_accounting
+                    expected_kind = "estimated_token_count" if estimated else self.policy.provider_input_accounting.kind
+                    expected_estimator = descriptor.policy if estimated else self.policy.provider_input_accounting.estimator
+                    if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
+                        raise ValueError("provider attempt accounting differs from accepted role policy")
+                    if estimated and event.input_tokens > descriptor.request_limit_tokens:
+                        raise ValueError("controller request estimate exceeds frozen policy")
+                    # Structural validator projection only; original event remains
+                    # explicitly estimated in the stored ledger and its hashes.
+                    payload["input_accounting_kind"] = self.policy.provider_input_accounting.kind
+                    payload["input_estimator"] = self.policy.provider_input_accounting.estimator
+                provider_index += 1
             if isinstance(event, ProviderAttemptAuthorizedEventV2):
                 payload["kind"] = "provider_attempt_authorized"
                 payload.pop("included_source_read_event_ids", None)
@@ -2639,6 +2857,46 @@ class BuildSectionAnswerBindingV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_jev_action_selected_v1"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    machine_request_id: str = Field(min_length=1, max_length=128)
+    operation: Literal["answer_from_sources", "propose_build_insertion"]
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_writer_evidence_selection_v1"]
+    policy: Literal["source_unit_selection_event_closure_v1"]
+    mode: Literal["jev", "empty_catalog"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    controller_response_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    basis_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    terminal_disposition: dict
+    judgments: dict[str, Literal["direct_support", "qualification_or_conflict", "uncertain", "irrelevant"]] = Field(max_length=16384)
+    requested_unit_ids: list[str] = Field(max_length=16384)
+    expanded_unit_ids: list[str] = Field(max_length=16384)
+    omitted_unit_ids: list[str] = Field(max_length=16384)
+    source_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+    section_read_ids: list[UUID] = Field(max_length=128)
+
+    @model_validator(mode="after")
+    def validate_distinct_selection(self):
+        for field in ("requested_unit_ids", "expanded_unit_ids", "omitted_unit_ids",
+                      "source_event_ids", "section_read_ids"):
+            values = getattr(self, field)
+            if len(set(values)) != len(values):
+                raise ValueError("Writer evidence selection contains duplicate selectors")
+        if (self.mode == "jev") != (self.controller_response_sha256 is not None):
+            raise ValueError("Only a genuine Jev selection has a captured response")
+        return self
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
@@ -2646,7 +2904,8 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1,
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
+    | BuildWriterEvidenceSelectionV1,
     Field(discriminator="kind"),
 ]
 
@@ -2655,7 +2914,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -2666,6 +2925,9 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         latest_attempt: UUID | None = None
         latest_outcome: str | None = None
         writer_attempt: UUID | None = None
+        action_selection = None
+        writer_selection = None
+        authorized_by_id = {}
         acquisition_events = (
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
@@ -2674,6 +2936,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         )
         section_auths, section_reads = {}, set()
         for event in self.events:
+            if writer_selection is not None and isinstance(event, acquisition_events):
+                raise ValueError("acquisition cannot continue after writer evidence selection")
             if isinstance(event, BuildSectionReadAuthorizationV1):
                 if (latest_attempt is None or latest_outcome != "response_received"
                         or event.read_id in section_auths
@@ -2691,12 +2955,52 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
                 raise ValueError("Provider cannot proceed with an unresolved Build section read")
 
+            if isinstance(event, BuildJevActionSelectionV1):
+                prior = authorized_by_id.get(event.controller_attempt_id)
+                if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
+                        or action_selection is not None or writer_attempt is not None
+                        or event.controller_attempt_id != latest_attempt or latest_outcome != "response_received"
+                        or prior is None or (prior.provider, prior.model, prior.api_mode) != roles.controller.identity()
+                        or event.controller_envelope_sha256 != prior.envelope_sha256
+                        or event.operation not in self.policy.allowed_surface_operations
+                        or event.capability_sha256 != self.policy.action_capability_sha256):
+                    raise ValueError("Build action selection differs from its acknowledged controller/capability")
+                action_selection = event
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                authorization = authorized_by_id.get(event.controller_attempt_id)
+                if (not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                    or writer_selection is not None or writer_attempt is not None
+                    or latest_attempt != event.controller_attempt_id or latest_outcome != "response_received"
+                    or authorization is None or authorization.envelope_sha256 != event.controller_envelope_sha256
+                    or (authorization.provider, authorization.model, authorization.api_mode)
+                    != roles.controller.identity()):
+                    raise ValueError("Writer selection lacks its unique acknowledged controller")
+                writer_selection = event
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                authorized_by_id[event.provider_attempt_id] = event
                 identity = (event.provider, event.model, event.api_mode)
                 if identity == roles.controller.identity():
+                    if writer_selection is not None:
+                        raise ValueError("controller cannot resume after writer evidence selection")
                     if writer_attempt is not None:
                         raise ValueError("controller cannot resume after writer authorization")
                 elif identity == roles.writer.identity():
+                    if (isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                        and (action_selection is None or action_selection.operation == "answer_from_sources")):
+                        if writer_selection is None:
+                            raise ValueError("Source writer requires a settled evidence selection")
+                        if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids):
+                            raise ValueError("Source writer exposure differs from selected event closure")
+                        section_events = {e.event_id: e.read_id for e in self.events[:event.sequence]
+                                          if isinstance(e, ValidatedBuildSectionReadV1)}
+                        included_sections = {section_events[eid] for e in self.events[:event.sequence]
+                                             if isinstance(e, BuildSectionProviderInclusionV1)
+                                             and e.provider_attempt_id == event.provider_attempt_id
+                                             for eid in e.section_event_ids}
+                        if included_sections != set(writer_selection.section_read_ids):
+                            raise ValueError("Source writer saved sections differ from selected closure")
+                    if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
+                        raise ValueError("Build writer requires a recorded controller-selected operation")
                     if latest_attempt is None:
                         raise ValueError("first provider authorization must be controller")
                     if writer_attempt is not None:
@@ -3008,7 +3312,13 @@ def validate_graph_provider_envelope(
     available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
     if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
         raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
-    if event.input_tokens + event.output_token_reserve > inputs.assembled_input.context_window_limit:
+    context_limit = inputs.assembled_input.context_window_limit
+    if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
+            and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
+        context_limit = execution.policy.writer_context_budget.context_limit_tokens
+        if event.output_token_reserve != execution.policy.writer_context_budget.output_reserve_tokens:
+            raise ValueError("writer reserve differs from its frozen role budget")
+    if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
     operation_event_ids = {e.event_id for e in graph_events}
     if not set(event.included_graph_event_ids).issubset(operation_event_ids):
@@ -3612,6 +3922,37 @@ def derive_graph_execution_evidence_status(
     return "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
 
 
+def validate_build_passage_completion(completion, receipt, execution, attempt_id, graph_bindings) -> None:
+    if (not isinstance(receipt, BuildGraphContextReceiptV1)
+            or not isinstance(execution, PlanWorldGraphExecutionV3)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+            or graph_bindings):
+        raise ValueError("Passage completion requires its exact Build receipt and no Graph claims")
+    validate_selected_source_binding(receipt, execution)
+    validate_build_section_completion(completion, execution, attempt_id)
+    producing = next((e for e in execution.events
+        if isinstance(e, ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == attempt_id), None)
+    outcomes = [e.outcome for e in execution.events
+        if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == attempt_id]
+    roles = getattr(execution.policy, "provider_roles", None)
+    if (producing is None or outcomes[-1:] != ["response_received"] or roles is None
+            or (producing.provider, producing.model, producing.api_mode) != roles.writer.identity()
+            or producing.included_graph_event_ids or producing.included_assertion_ids
+            or producing.included_relationship_ids or producing.included_evidence_ref_ids
+            or not producing.included_source_read_event_ids):
+        raise ValueError("Passage completion requires a source-only producing writer response")
+    reads = {e.event_id: e for e in execution.events if isinstance(e, ValidatedSourceReadEventV2)
+        and e.event_id in producing.included_source_read_event_ids}
+    for citation in completion.source_citations:
+        event = reads.get(citation.read_event_id)
+        if (citation.provider_attempt_id != attempt_id or citation.envelope_sha256 != producing.envelope_sha256
+                or event is None or citation.receipt not in event.receipts):
+            raise ValueError("Passage citation was not included in its producing writer envelope")
+    for segment in completion.answer_segments:
+        if isinstance(segment, SavedSourceClaimV1) and segment.content_sha256 != receipt.source_basis.content_sha256:
+            raise ValueError("Saved source segment differs from the frozen source")
+
+
 def validate_execution_completion(
     completion: GraphTurnCompletion,
     receipt: GraphContextReceipt,
@@ -3620,6 +3961,39 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
+        if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)):
+            raise ValueError("Cited source policy requires its reconstructed source completion")
+        if isinstance(completion, BuildGraphCompletionV1) and (completion.citation_map is not None
+                or any(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in completion.answer_segments)):
+            raise ValueError("Cited saved-only completion cannot carry Graph authority")
+    if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
+        selections = [e for e in execution.events if isinstance(e, BuildJevActionSelectionV1)]
+        expected = "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources"
+        if len(selections) != 1 or selections[0].operation != expected:
+            raise ValueError("Completion differs from the controller-selected operation")
+    if isinstance(completion, BuildAuthoringCompletionV1):
+        if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                or not isinstance(execution, PlanWorldGraphExecutionV3)
+                or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)
+                or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+                or completion.provider_attempt_id != producing_provider_attempt_id
+                or claim_graph_event_ids):
+            raise ValueError("Authoring completion requires its exact Build writer and no Graph claims")
+        producing = next((e for e in execution.events
+            if isinstance(e, ProviderAttemptAuthorizedEventV3)
+            and e.provider_attempt_id == producing_provider_attempt_id), None)
+        outcomes = [e.outcome for e in execution.events
+            if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == producing_provider_attempt_id]
+        if (producing is None or outcomes[-1:] != ["response_received"]
+                or (producing.provider, producing.model, producing.api_mode) != execution.policy.provider_roles.writer.identity()
+                or producing.envelope_sha256 != completion.envelope_sha256):
+            raise ValueError("Authoring completion requires the acknowledged shared writer envelope")
+        return
+    if isinstance(completion, BuildGraphCompletionV2):
+        validate_build_passage_completion(completion, receipt, execution,
+            producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(receipt, BuildGraphContextReceiptV1) != isinstance(completion, BuildGraphCompletionV1):
         raise ValueError("Completion and frozen receipt must identify the same surface contract")
     validate_selected_source_binding(receipt, execution)
@@ -3883,6 +4257,15 @@ def _validate_initial_graph_execution(receipt, execution) -> None:
             ):
                 raise ValueError("V2 source-read scope must match the frozen Graph receipt")
         validate_selected_source_binding(receipt, execution)
+        if isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1):
+            descriptor = execution.policy.controller_initial_accounting
+            assembled = receipt.assembled_input
+            if (assembled.tokenizer_name != descriptor.policy
+                    or assembled.tokenizer_version != descriptor.tokenizer_version
+                    or assembled.budget_policy_version != "build_jev_initial_estimate_v1"
+                    or assembled.provider_envelope_input_tokens > descriptor.request_limit_tokens):
+                raise ValueError("initial receipt differs from frozen controller accounting")
+            return
         if accounting.estimator != receipt.assembled_input.tokenizer_name:
             raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
         if (
@@ -3973,7 +4356,7 @@ class Turn(StrictModel):
             raise ValueError("Build Graph receipt requires governed Build execution and provenance")
         if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
             _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
-            if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
                 raise ValueError("Build answer text must match its validated completion segments")
         if (self.completion is None and self.graph_context_execution is not None
                 and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
@@ -4015,17 +4398,24 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if self.build_section_bindings and not isinstance(self.completion, BuildGraphCompletionV1):
+        if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
-        if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")
         if self.completion is None and self.producing_provider_attempt_id is not None:
             raise ValueError("completion binding inputs require a completion")
         return self
+
+
+class CitedSourceTurnResult(TurnResult):
+    """Internal producer proof, not a persisted completion field."""
+
+    writer_request_json: str = Field(min_length=1, max_length=512000)
+    raw_provider_output_json: str = Field(min_length=1, max_length=1048576)
 
 
 class TurnFailure(StrictModel):

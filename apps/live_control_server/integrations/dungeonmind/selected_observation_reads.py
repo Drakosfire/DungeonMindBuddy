@@ -7,9 +7,11 @@ from . import world_graph_reads as reads
 def select_observations_direct(services, request):
     try:
         projection = reads._map_retrieval_context(request, services.binding)
-        native = services.retrieval.select_reviewed_source_observations(
-            ReviewedObservationSelectionRequest(projection, request.source_artifact_id,
-                request.source_revision_id, tuple(request.observation_ids), request.max_bytes))
+        selection = ReviewedObservationSelectionRequest(projection, request.source_artifact_id,
+            request.source_revision_id, tuple(request.observation_ids), request.max_bytes)
+        wave = getattr(services, "reviewed_source_wave", None)
+        native = (wave.select(selection) if wave is not None else
+                  services.retrieval.select_reviewed_source_observations(selection))
         if native.status != "complete":
             raise reads.DirectWorldGraphReadError(
                 "Exact source observation selection is unavailable" if native.status == "unavailable"

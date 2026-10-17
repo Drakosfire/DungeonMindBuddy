@@ -1,0 +1,7 @@
+# AGENT: circular conversation entrance
+
+Status: ACTIVE. Operator requests correcting the image-only launcher's shape in context after #1371. PRIME implements; ARCHITECTURE independently reviews. Serial successor from fetched main 1eec7987cc782e29374f91479f6beb94181a6b7e, branch codex/conversation-circular-launcher, existing buddy-tool-denial-delivery checkout. Open PRs checked; no overlapping implementation.
+
+Invariant: the shared Build/Plan image entrance is a compact circle with centered, unclipped 2.1rem image and at least 44px button. Existing generic .plan-agent-bar width5rem and prior button2rem leave empty pill space and clip the enlarged image. Scope overrides to this dock only: remove inherited bar width, use square2.75rem centered button, circular compact wrapper. Preserve accessible label, keyboard, focus return, source drafts and conversation state.
+
+Exclusive writes: this handoff and apps/live-control-ui/src/planSurface/components/PlanConversationDockAdapter.css. One PR, independent review before merge. UI typecheck/diff check and rendered desktop/narrow measurements plus open/close; no new mirror tests for this reversible CSS correction. Reuse current pinned UI build tools/output, overlay only leased CSS on current accepted release; preserve prior1370/1371 components. No new worktree, environment, server, provider call, API/DB change, source write or forced user-tab reload. 5202 static output remains buddy-main-af6779d/ui-dist; API8000/native8001/APP0030 preserved. Foundation goal remains paused.

@@ -133,38 +133,6 @@ from apps.live_control_server.services.statblock_draft_store import (
     store_statblock_draft,
 )
 
-from apps.live_control_server.services.combat_state import (
-    AddGeneratedStatblockCombatRequest,
-    AddGeneratedStatblockCombatResponse,
-    CombatEncounterState,
-    CombatEntityNotFoundError,
-    CombatEntityPatchRequest,
-    CombatHpDeltaRequest,
-    CombatMutationResponse,
-    CombatSetActiveRequest,
-    CombatTurnRequest,
-    add_generated_statblock_to_combat,
-    advance_combat_turn,
-    apply_combat_hp_delta,
-    load_or_initialize_current_combat,
-    patch_combat_entity,
-    set_active_combat_turn,
-    sort_combat_initiative,
-)
-from apps.live_control_server.services.combat_saves import (
-    CombatSaveNotFoundError,
-    CombatSaveSlotResponse,
-    LoadCombatSaveRequest,
-    NewCombatEncounterRequest,
-    SaveCurrentCombatRequest,
-    UnsafeSaveIdError,
-    list_combat_backups,
-    list_combat_saves,
-    load_combat_save,
-    new_combat_encounter,
-    save_current_as,
-    unload_current_combat,
-)
 from apps.live_control_server.services.location_corpus_index import (
     LocationCorpusIndexResponse,
     build_location_corpus_index,
@@ -487,187 +455,83 @@ def get_generated_statblock_view_detail(
     return response.model_dump(mode="json")
 
 
-@router.get(
-    "/combat/current",
-    response_model=CombatEncounterState,
-)
-def get_current_combat() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = load_or_initialize_current_combat(base=base, packet=packet)
-    return response.model_dump(mode="json")
+def _retired_checkout_local_combat_route() -> None:
+    raise HTTPException(
+        status_code=410,
+        detail="Checkout-local Combat is retired. Use World-owned Combat encounters.",
+    )
 
 
-@router.patch(
-    "/combat/current/entities/{entity_id}",
-    response_model=CombatMutationResponse,
-)
+@router.get("/combat/current", status_code=410)
+def get_current_combat() -> None:
+    _retired_checkout_local_combat_route()
+
+
+@router.patch("/combat/current/entities/{entity_id}", status_code=410)
 def patch_current_combat_entity(
     entity_id: Annotated[str, Path(min_length=1)],
-    body: CombatEntityPatchRequest,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = patch_combat_entity(
-            base=base, packet=packet, entity_id=entity_id, patch=body
-        )
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del entity_id
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/entities/{entity_id}/hp-delta",
-    response_model=CombatMutationResponse,
-)
+@router.post("/combat/current/entities/{entity_id}/hp-delta", status_code=410)
 def post_current_combat_entity_hp_delta(
     entity_id: Annotated[str, Path(min_length=1)],
-    body: CombatHpDeltaRequest,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = apply_combat_hp_delta(
-            base=base, packet=packet, entity_id=entity_id, delta=body
-        )
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del entity_id
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/sort-initiative",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_sort_initiative() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = sort_combat_initiative(base=base, packet=packet)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/sort-initiative", status_code=410)
+def post_current_combat_sort_initiative() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/active-turn",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_active_turn(body: CombatSetActiveRequest) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = set_active_combat_turn(base=base, packet=packet, request=body)
-    except CombatEntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/current/active-turn", status_code=410)
+def post_current_combat_active_turn() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post(
-    "/combat/current/turn",
-    response_model=CombatMutationResponse,
-)
-def post_current_combat_turn(body: CombatTurnRequest | None = None) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or CombatTurnRequest()
-    response = advance_combat_turn(base=base, packet=packet, request=request)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/turn", status_code=410)
+def post_current_combat_turn() -> None:
+    _retired_checkout_local_combat_route()
 
 
-class CombatSavesListResponse(BaseModel):
-    schema_version: Literal["dmb_combat_saves_list_v1"] = "dmb_combat_saves_list_v1"
-    saves: list[Any] = Field(default_factory=list)
-    backups: list[str] = Field(default_factory=list)
+@router.get("/combat/saves", status_code=410)
+def get_combat_saves() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.get("/combat/saves", response_model=CombatSavesListResponse)
-def get_combat_saves() -> dict[str, Any]:
-    base = session_dir()
-    return {
-        "saves": [
-            summary.model_dump(mode="json") for summary in list_combat_saves(base)
-        ],
-        "backups": list_combat_backups(base),
-    }
+@router.post("/combat/current/load", status_code=410)
+def post_combat_current_load() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/load", response_model=CombatSaveSlotResponse)
-def post_combat_current_load(body: LoadCombatSaveRequest) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    try:
-        response = load_combat_save(base=base, packet=packet, save_id=body.save_id)
-    except UnsafeSaveIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except CombatSaveNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/current/unload", status_code=410)
+def post_combat_current_unload() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/unload", response_model=CombatSaveSlotResponse)
-def post_combat_current_unload() -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    response = unload_current_combat(base=base, packet=packet)
-    return response.model_dump(mode="json")
+@router.post("/combat/current/new", status_code=410)
+def post_combat_current_new() -> None:
+    _retired_checkout_local_combat_route()
 
 
-@router.post("/combat/current/new", response_model=CombatSaveSlotResponse)
-def post_combat_current_new(
-    body: NewCombatEncounterRequest | None = None,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or NewCombatEncounterRequest()
-    response = new_combat_encounter(base=base, packet=packet, request=request)
-    return response.model_dump(mode="json")
-
-
-@router.post("/combat/saves", response_model=CombatSaveSlotResponse)
-def post_combat_save_current(body: SaveCurrentCombatRequest) -> dict[str, Any]:
-    base = session_dir()
-    try:
-        response = save_current_as(base=base, request=body)
-    except UnsafeSaveIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except CombatSaveNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+@router.post("/combat/saves", status_code=410)
+def post_combat_save_current() -> None:
+    _retired_checkout_local_combat_route()
 
 
 @router.post(
     "/statblocks/view/generated/{artifact_id}/combat/add",
-    response_model=AddGeneratedStatblockCombatResponse,
+    status_code=410,
 )
 def post_generated_statblock_combat_add(
     artifact_id: Annotated[str, Path(min_length=1)],
-    body: AddGeneratedStatblockCombatRequest | None = None,
-) -> dict[str, Any]:
-    base = session_dir()
-    packet, _, _, _ = load_session(base)
-    request = body or AddGeneratedStatblockCombatRequest()
-    try:
-        response = add_generated_statblock_to_combat(
-            base=base,
-            root=repo_root(),
-            packet=packet,
-            artifact_id=artifact_id,
-            request=request,
-        )
-    except UnsafeArtifactIdError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except StatblockDraftNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except StatblockViewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail="generated statblock combat add failed"
-        ) from exc
-    return response.model_dump(mode="json")
+) -> None:
+    del artifact_id
+    _retired_checkout_local_combat_route()
 
 
 @router.get(

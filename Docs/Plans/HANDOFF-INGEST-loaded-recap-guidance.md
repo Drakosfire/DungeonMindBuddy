@@ -1,7 +1,7 @@
 # HANDOFF — INGEST loaded-recap guidance
 
 **Created:** 2026-10-16.
-**Status:** ACTIVE — PRIME explicitly authorizes this bounded UX repair under the operator’s Ingest-first goal.
+**Status:** SETTLED — PR #1298 merged as `168938813fd4b15ff00277142cce51dc50696b97` after independent review PASS at head `090ee2a9cf502bd62bf0cbbe1fc679e7d8f083f5`.
 **Base:** fetched `origin/main@4bd38f74e5f51e5032261718eab052f64edbb5ae`.
 **Branch:** `codex/ingest-loaded-recap-guidance`.
 **PR title:** `INGEST: clarify saved recap navigation status`.
@@ -48,3 +48,7 @@ The navigation status now follows the reader state: it says the saved recap is o
 ## Review and completion
 
 One reviewable UI-only PR on this branch. PRIME retains merge authority. Record exact head SHA and verification evidence in the PR description. The scope ends when truthful navigation status is proven at the UI test boundary and the PR is ready for independent review.
+
+## Settlement receipt
+
+The loaded-recap navigation repair is complete. The merged UI reports saved-reader opening/viewing/error states without implying World Graph admission, while editable new-source guidance remains unchanged. The focused `IngestionModule.test.tsx` suite passed 41 tests on the final test version; independent review and merge are recorded above.

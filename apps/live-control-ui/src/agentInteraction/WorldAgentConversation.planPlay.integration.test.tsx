@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
@@ -561,6 +561,63 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it.each(["build", "play"] as const)("opens the closed %s options from the authorization recovery button", async surface => {
+    vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
+    render(<Harness initial={surface} />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    const options = screen.getByLabelText("Conversation options");
+    expect(options).not.toHaveAttribute("open");
+    fireEvent.change(input, {target: {value: "Help with this page"}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Open Settings"}));
+    expect(options).toHaveAttribute("open");
+    expect(screen.getByRole("button", {name: "Connect local session"})).toBeVisible();
+    fireEvent.click(screen.getByRole("button", {name: "Close connection settings"}));
+    expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
+  });
+
+  it("keeps Build tools and keyboard help in Options and grows a compact composer", async () => {
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(input).toHaveAttribute("rows", "1");
+    expect(input).toHaveStyle({ height: "40px" });
+    Object.defineProperty(input, "scrollHeight", { configurable: true, value: 120 });
+    fireEvent.change(input, { target: { value: "First line\nSecond line\nThird line" } });
+    expect(input).toHaveStyle({ height: "120px" });
+    Object.defineProperty(input, "scrollHeight", { configurable: true, value: 20 });
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input).toHaveStyle({ height: "40px" });
+    const options = screen.getByLabelText("Conversation options");
+    expect(options).toContainElement(screen.getByLabelText("Agent tools and access"));
+    fireEvent.click(within(options).getByText("Conversation options", { selector: "summary" }));
+    expect(within(options).getByText("World Graph and sources")).toBeVisible();
+    expect(within(options).getByText("Generate images")).toBeVisible();
+    expect(within(options).getByText(/Not exposed to this conversation/)).toBeVisible();
+    expect(within(options).getByText("Enter to send · Shift+Enter for a new line.")).toBeVisible();
+    expect(screen.queryByText("Conversation", { selector: "strong" })).not.toBeInTheDocument();
+  });
+
+  it("puts an unanswered Build failure beside its message and recovery in Options without resending", async () => {
+    vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("The Plan Graph provider did not return a durably acknowledged answer.", 503, { code: "plan_context_delivery_failure" }));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: "Do you have image tools?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    const failure = await screen.findByText(/Buddy couldn’t finish this reply/);
+    expect(failure.closest("article")).toHaveTextContent("Do you have image tools?");
+    const options = screen.getByLabelText("Conversation options");
+    expect(options).toContainElement(screen.getByLabelText("Saved turn recovery"));
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   });
 
   it.each(["correct", "wrong_hash", "wrong_key"] as const)("recovers Build using the durable correlation and exact source basis: %s", async scenario => {

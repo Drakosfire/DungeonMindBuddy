@@ -188,7 +188,12 @@ def test_process_saves_normalizes_and_builds_graph_in_one_request(
         "materialize_recap_preview_supergraph",
         lambda **kwargs: (
             graph_calls.append(kwargs)
-            or {"status": "candidate_validation_ready", "candidate_node_count": 4, "candidate_edge_count": 3}
+            or {
+                "status": "candidate_validation_ready",
+                "extraction_run_id": "run-session-22-fixture",
+                "candidate_node_count": 4,
+                "candidate_edge_count": 3,
+            }
         ),
     )
 
@@ -208,7 +213,9 @@ def test_process_saves_normalizes_and_builds_graph_in_one_request(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["ingest_report"]["graph_preview"]["status"] == "candidate_validation_ready"
+    graph_preview = body["ingest_report"]["graph_preview"]
+    assert graph_preview["status"] == "candidate_validation_ready"
+    assert graph_preview["extraction_run_id"] == "run-session-22-fixture"
     assert len(graph_calls) == 1
     canonical = corpus / str(body["paths"]["canonical_recap"])
     normalized = corpus / str(body["paths"]["normalized_recap"])
@@ -511,6 +518,66 @@ def test_inspect_status_does_not_restore_the_retired_normalize_step(
     actions = response.json()["ingest_report"]["graph_preview"]["next_actions"]
     assert "Process recap" in actions
     assert "apply_normalize" not in actions
+
+
+def test_inspect_status_verifies_generic_canonical_with_explicit_title_without_writes(
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    session = 10
+    title = "Session 10 - Festival Crafting Elementals"
+    slug = "Festival Crafting Elementals"
+    canonical_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md"
+    canonical = corpus / canonical_rel
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        "---\ntitle: Session 10 - Recap:\nsession: 10\n---\n"
+        "# Session 10 Recap\n\nThe festival elementals arrive.\n",
+        encoding="utf-8",
+    )
+    normalized_rel = (
+        f"Longmont Campaign/Campaign 2/Session Recaps/_normalized/{title}.md"
+    )
+    normalized = corpus / normalized_rel
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text(
+        _expected_normalized_content(
+            corpus=corpus,
+            canonical_recap_rel=canonical_rel,
+            session=session,
+            title=title,
+            slug=slug,
+        ),
+        encoding="utf-8",
+    )
+    canonical_before = canonical.read_bytes()
+    normalized_before = normalized.read_bytes()
+    graph_paths: list[str | None] = []
+
+    def inspect_graph(**kwargs: object) -> dict[str, object]:
+        graph_paths.append(kwargs.get("normalized_recap_path"))  # type: ignore[arg-type]
+        return {"status": "missing", "next_actions": []}
+
+    monkeypatch.setattr(
+        recap_ingest_route, "inspect_recap_graph_preview_status", inspect_graph
+    )
+    monkeypatch.setattr(recap_ingest_route, "_pipeline_corpus_root", lambda: corpus)
+    body = recap_ingest_route.post_recap_ingest(
+        recap_ingest_route.RecapIngestRequest(
+            operation="inspect_status",
+            campaign_id="longmont-c2",
+            session=session,
+            title=title,
+            slug=slug,
+        )
+    )
+
+    assert "normalized_current" in body["states"]
+    assert "normalized_provenance_unknown" not in body["states"]
+    assert graph_paths == [str(normalized)]
+    assert canonical.read_bytes() == canonical_before
+    assert normalized.read_bytes() == normalized_before
 
 
 def test_graph_preview_requires_a_current_normalized_source(

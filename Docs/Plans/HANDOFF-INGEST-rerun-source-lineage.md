@@ -1,67 +1,67 @@
-# INGEST: source-aware derivative reruns
+# INGEST: verify generic canonical recap lineage from an explicit title
 
-**Status:** ACTIVE under the user-authorized Ingest-first goal: preserve source provenance and make rerun effects understandable.
-**Base:** fetched `origin/main@d2df98ff7d7be67658d4705f3879dd1ddb6a1700` after #1254 merged. The merged reviewed-observation batch read changes agent retrieval files; its cumulative file list does not overlap this Ingest lease.
-**Branch:** `codex/ingest-rerun-provenance`.
-**Checkout:** `/home/drakosfire/.codex/worktrees/ingest-rerun-provenance/DungeonMindBuddy`.
-**Topology:** parallel-independent from open #1237 (local-navigation UI), #1235 (source-observation review), #1244 (candidate graph evidence references), and #1251 (candidate readiness). The changed-path lists for those PRs and merged #1253/#1254 were rechecked against this lease; none overlap. This remains a server-side pipeline contract and does not amend those PRs.
-**Runtime/data boundary:** disposable test corpus only. Do not write to retained Session 29 files, live Corpus, World Graph, database, 5202, or 5204. No provider call except a mocked breadcrumb generator in tests.
+**Status:** SETTLED — PR #1311 merged at `98f60ba74b363aa39d8936f1c1f55a8981368255`; implementation lease released.
+**Historical base:** fetched `origin/main@1a9d1304f89132db9b54f4590210be1ffa7541d9`.
+**Historical branch:** `codex/ingest-session10-normalization-provenance`.
+**Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (existing assigned checkout; no new worktree).
+**Topology:** serial successor to the integrated #1255 derivative-lineage work. One PR for this successor; PRIME owns independent review and merge.
+**Runtime/data boundary:** disposable test corpus only. Preserve existing user/session/corpus data. Do not write retained recaps, live Corpus, World Graph, database, or 5202/5204; do not restart or switch the serving source. No provider calls.
 
-## Objective
+## Predecessor state
 
-Make each recap-derived stage report whether its output is current, stale, edited, or unverified against its inputs. An unchanged rerun must be a no-op. A changed-source rerun must not silently reuse stale work or overwrite edits. Explicit refresh must archive the prior output and report the archive path.
+PR #1255 (`INGEST: make recap derivative reruns provenance-safe`) head `9dc85143f301183c25a03f3914661187aecdf8a1` is an ancestor of the fetched main base. Its source-aware derivative and fail-closed Graph-readiness behavior is present in this base. The previous status in this handoff named the old branch/base and prohibited UI changes while #1237 owned them; those coordinates are superseded by this successor. Keep #1255's verification record below as predecessor evidence, not as verification of this slice.
 
-Stages: canonical recap, normalized recap, frontmatter seed, routing-only breadcrumb, and session-memory JSONL/meta. The canonical recap remains the prose authority; an explicit `force_recap` replacement must archive the prior recap and surface its path.
+## Mission
+
+When a canonical recap has a generic title but the operator supplies a specific non-generic recap title or slug, status inspection and normalization must use that explicit input consistently to compute expected normalized content and its provenance. A valid existing derivative must no longer be reported as unknown solely because the source frontmatter title is generic. Stale, edited, or conflicting derivatives must remain visible and preserved until an explicit safe refresh.
+
+The Session 10 rendered observation that motivated this successor showed canonical `title: "Session 10 - Recap:"`, an existing normalized recap titled `Session 10 - Festival Crafting Elementals` whose `normalized_from` points to that canonical file, and UI status `normalized_provenance_unknown` / `derivative_reconciliation_required` with graph preview blocked. The UI supplied the specific session title, but provenance inspection rejected the canonical title before using it. This observed source is evidence only; never modify it as part of this slice.
 
 ## Contract and invariants
 
-- Deterministic normalized recap and session-memory output are current when recomputing from the exact current inputs produces byte-identical output. Existing mismatching bytes are preserved by default and reported as edited/stale; same-path presence alone never means current.
-- A canonical recap with different existing content is a conflict unless `force_recap` is explicit. Explicit replacement archives the prior prose before installing the new version.
-- The frontmatter seed is deterministic but reviewable. Its `dmb_recap_derivative_provenance_v1` sidecar records the normalized-recap digest and the deterministic generated-seed digest. If the seed was hand-edited while those inputs remain current, report `edited_current_inputs` and allow the reviewed seed to feed breadcrumb routing. If the normalized recap changed, report stale and require an explicit seed refresh/review before routing.
-- Routing-only breadcrumb generation is non-deterministic. Its sidecar records the exact normalized-recap digest, active (possibly reviewed) seed digest, output path/digest, stage identity, campaign, and session. A breadcrumb without valid lineage is `provenance_unknown`; preserve it and do not spend on or overwrite it automatically.
-- Default reruns do not rewrite current artifacts. Stale, edited, unknown, partial, or corrupt outputs stop dependent stages and return concise states, warnings, exact paths/digests, and a next action.
-- Optional per-stage refresh flags (`force_normalize`, `force_seed`, `force_breadcrumb`, `force_session_memory`) are backward-compatible. An explicit refresh first builds/validates the replacement, copies all prior stage outputs and lineage into a collision-safe sibling `_archive`, installs the replacement atomically where possible, and reports archived paths. Failure must leave the previous bytes recoverable.
-- Memory JSONL/meta are compared against computed expected bytes before any write. `--check` is not the first validation after overwrite.
-- A stale or invalid upstream artifact blocks downstream materialization; a successful refresh updates only the requested stage and leaves downstream outputs visibly stale until separately refreshed.
-- Keep request status summaries free of raw recap text and registry contents. Preserve existing response compatibility.
-- No UI files are leased: #1237 owns `IngestionModule.tsx` exclusively. The API must expose understandable status through the current response fields; a follow-up UI control for explicit refresh can be added after #1237’s lease settles. Do not claim full end-to-end Ingest completion here.
+- Canonical recap bytes remain the prose/source authority and are never rewritten by this slice.
+- For a generic canonical frontmatter title, use the explicit non-generic title/slug from the request as a deterministic normalization input. Expected-output calculation, `inspect_status`, and explicit normalization must use the same effective title and normalization inputs.
+- Recompute the complete deterministic expected derivative from the canonical source bytes, explicit normalization inputs, and current normalization schema, then compare all output bytes. A matching filename or self-reported output frontmatter alone never establishes provenance.
+- A non-generic canonical title is authoritative. If a supplied non-generic title conflicts with it, fail closed with an actionable reconciliation status; do not silently override the canonical title or mark an unrelated derivative current. A slug without a title is a path hint and yields to a disk-resolved canonical/normalized pair, preserving the existing disk-chain resolution behavior.
+- Preserve mismatched, edited, stale, and unverified derivatives by default. Existing explicit refresh/archive semantics remain intact.
+- Status inspection must be read-only and must not call providers. Status and execution must agree on whether the derivative is current.
+- No broad UI redesign or copy changes are included. Fix the source/provenance contract at the owning backend boundary.
 
-## Write lease
+## Exact write lease
 
 - `Docs/Plans/HANDOFF-INGEST-rerun-source-lineage.md`
-- `src/live_play/recap_derivative_provenance.py` (new hash, lineage, archive, and atomic-write helpers)
 - `src/live_play/recap_ingest_pipeline.py`
-- `src/live_play/recap_ingest_status.py` (PRIME explicitly authorized this status-mapping amendment on 2026-10-16 after a lease omission was identified)
-- `src/agent/corpus_writer.py` (allowlist for provenance sidecars)
-- `scripts/build_recap_frontmatter_seed.py` (same lineage/refresh behavior for the CLI entry point)
+- `src/live_play/recap_ingest_status.py` (only if the owning status calculation requires it)
 - `apps/live_control_server/routes/recap_ingest.py`
-- `scripts/materialize_session_memory.py`
-- `tests/test_recap_derivative_provenance.py` (new)
 - `tests/test_live_recap_ingest_pipeline.py`
 - `tests/test_live_recap_ingest_api.py`
-- `tests/test_recap_frontmatter_seed.py`
-- `tests/test_corpus_writer.py` (sidecar allowlist)
 
-No UI, graph extraction/packaging, unrelated readiness APIs, corpus, database, World Graph, or deployment files are leased.
+No other paths are leased. Return for an explicit extension if another path is required. Do not touch the parked `stash@{0}` or other worktrees.
 
-## Failure cases to prove
+## Acceptance and failure cases
 
-- Repeating unchanged normalization, seed, breadcrumb, and materialization reuses current bytes and makes no data writes.
-- Changed canonical/normalized/seed/breadcrumb inputs make only their downstream outputs stale.
-- Existing legacy breadcrumb without sidecar remains untouched, reports unknown provenance, and does not trigger an LLM call.
-- Corrupt sidecar, wrong stage/session/path, or output digest mismatch fails closed.
-- Hand-edited normalized/breadcrumb/memory output is detected and preserved without explicit refresh. A hand-edited seed remains usable when its provenance proves the normalized input is still current; its edit is visible in status.
-- Explicit canonical or derivative refresh archives old bytes before replacement; generation/write failure leaves old bytes recoverable.
-- Memory drift is detected before write.
-- A refresh does not silently mark downstream stages current.
+- On a disposable corpus, a generic canonical title plus an explicit specific title produces the exact expected normalized bytes; status reports current only when installed bytes match those bytes.
+- A stale normalized body remains stale and is preserved by status inspection and ordinary rerun.
+- A specific canonical title that conflicts with the supplied title/slug yields an actionable reconciliation result; neither source nor derivative is silently rewritten or accepted as current.
+- Status and execution use identical effective title and deterministic normalization inputs, with matching digests for the same canonical bytes/request.
+- Repeated unchanged status inspection performs no writes and no provider calls.
+- An explicit permitted normalization refresh uses the same effective inputs, preserves the existing archive contract, and never changes canonical source bytes.
 
 ## Verification and release boundary
 
-- The focused provenance, pipeline, seed, materializer, and corpus-writer suites pass: 110 tests. The owning tests/test_live_recap_ingest_api.py suite now passes: 27 tests. Combined repository coverage for these suites is 137 passed; all tests use disposable corpora.
-- Added API regressions for two orchestration gaps found during PRIME/ARCHITECTURE review: Graph build/materialize requests stop before World-context resolution when normalized source is stale/unverified, while current normalized content remains eligible for graph-first work even if optional legacy derivatives are stale; a combined explicit normalization/seed/breadcrumb/session-memory refresh continues through each requested stage and reaches ready_for_planning_activation. The two supplied review reproductions also pass against the route.
-- The explicit breadcrumb-refresh regression verifies that a wrong source_recap_path or breadcrumb text mismatch returns HTTP 422 before archiving and leaves both installed breadcrumb and provenance sidecar byte-identical.
-- Ruff on every changed Python module/test and git diff --check pass.
-- Additional direct route checks proved: a three-stage explicit refresh returns ready_for_planning_activation and reports all six prior artifacts; an edited seed is preserved until explicit refresh; and a legacy breadcrumb without lineage remains unchanged and triggers zero routing-model calls.
-- Tests use disposable corpora only. No retained recap, live Corpus, provider, database, World Graph, 5202, or 5204 state was changed. No rendered UI or full ingestion acceptance is claimed.
+Implemented and verified on this lease:
 
-Merge, deployment, and rendered end-to-end acceptance remain separate gates.
+- The pipeline suite plus the focused route-dispatch status check pass: 34 tests total, using disposable corpora. Coverage includes creating and reusing the exact derivative from a generic canonical title, read-only status and matching digests, preservation of stale derivative bytes, fail-closed specific-title conflicts, and source-byte preservation.
+- Python `compileall`, cumulative `git diff --check`, and Ruff formatting checks for the changed code ranges pass. Ruff reports the same seven pre-existing findings as `origin/main` on these files (import ordering, three `datetime.UTC` suggestions, and two unused unpacked test variables); no new Ruff findings are present.
+- The full ASGI/TestClient suite could not be verified in this checkout: `uv run` cannot build the environment because the local `out/hermes-agent` distribution is absent and package DNS is unavailable. Using cached dependencies, even a trivial FastAPI `TestClient` request hangs; direct dispatch through the Ingest route passes. Treat rendered/full API acceptance as outstanding.
+- No retained recap, live Corpus, World Graph, database, provider, or serving runtime was modified. 5202 remains untouched.
+
+The cumulative base-to-head diff is ready for independent PRIME review. Do not claim rendered end-to-end ingestion readiness from these backend checks; a later operator witness may verify the coherent flow without asking them to edit or submit this real recap.
+
+## Predecessor verification — PR #1255
+
+The #1255 implementation reported 137 passing tests across provenance, pipeline, seed, materializer, corpus-writer, and API suites; Ruff and cumulative diff check passed. Tests used disposable corpora. The PR did not alter retained recaps, live Corpus, providers, database, World Graph, or serving runtimes. Rendered Ingest acceptance remained outstanding. This evidence belongs to that predecessor and does not substitute for the successor checks above.
+
+## Settlement — 2026-10-17
+
+PR #1311 merged at `98f60ba74b363aa39d8936f1c1f55a8981368255` from head `1fe58d2d7453d684015e7910e4835d5b9fdb8613`. Its 34 focused pipeline/route-dispatch tests passed on disposable corpora; compile, formatting, and cumulative diff checks passed. The implementation resolves generic canonical-title lineage using the explicit title/slug while preserving stale derivatives and canonical bytes. No retained recap, live Corpus, World Graph, provider, database, or serving runtime was changed. Rendered and durable APP-source acceptance remained outstanding at merge and is handled by the successor handoff.
