@@ -3302,7 +3302,8 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
   Object.defineProperty(Range.prototype,"getClientRects",{configurable:true,value:()=>[rect]});
   Object.defineProperty(Range.prototype,"getBoundingClientRect",{configurable:true,value:()=>rect});
   try {
-    const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,"# Authored session\n\nSource quotation retained.\n");
+    const envelope="---\r\ntitle: Preserved Plan metadata\r\n---\r\n";
+    const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,envelope+"# Authored session\n\nSource quotation retained.\n");
     const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockResolvedValue({schema_version:"dmb_tiptap_markdown_write_prepare_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:record.title,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:8,file_exists:true,writer_ok:true,writer_confirm_token:"structure-save",warnings:[],diagnostics:[]});
     let saved="";
     const commit=vi.spyOn(liveApi,"commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request=>{
@@ -3330,6 +3331,7 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
     fireEvent.click(screen.getByRole("button",{name:"Save Plan",exact:true}));
     await waitFor(()=>expect(commit).toHaveBeenCalledOnce());
     await screen.findByText("Saved to this World.");
+    expect(saved.startsWith(envelope)).toBe(true);
     const identities=saved.match(/id=(?:beat|scene):[^ ]+/g);expect(identities).toHaveLength(2);expect(saved).toContain("Source quotation retained.");
     mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:"New Scene",exact:true});
     const editor=screen.getByTestId("world-owned-plan-markdown-editor");

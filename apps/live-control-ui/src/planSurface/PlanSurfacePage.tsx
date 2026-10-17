@@ -1,3 +1,4 @@
+import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
@@ -1741,7 +1742,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                     setEditorGeneration((value) => value + 1);
                     return;
                   }
-                  const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                  const next = preserveLeadingYamlFrontmatter(markdownRef.current, defaultMarkdownDocumentAdapter.exportMarkdown(json));
                   const nextImport = markdownToTiptapDoc(next);
                   const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
                   if (nextFidelityIssues.length) {
