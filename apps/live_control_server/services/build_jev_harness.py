@@ -29,7 +29,9 @@ from . import build_document_proposal as proposal_owner
 from . import build_jev_dispatch as decision_policy
 from . import build_jev_writer as writer_policy
 from .build_jev_driver import AcquisitionBinding, digest, sdk_answers
-from .build_jev_transitions import AcquisitionIntent, DecisionIntent, Disposition
+from .build_jev_transitions import (
+    AcquisitionIntent, DecisionIntent, Disposition, FrontierDisposition, FRONTIER_POLICY,
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,7 @@ class BuildJevHarness:
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
         budget["buildJevActions"] = dict(
+            frontier_policy=FRONTIER_POLICY,
             initial_packet_codec=CODEC,
             controller_input_policy=decision_policy.CONTINUATION_POLICY,
             driver_schema="dmb_build_jev_actions_v1",
@@ -142,7 +145,7 @@ class BuildJevHarness:
             terminal = driver.step
             if terminal.status == "refused":
                 raise ValueError(f"Jev refused delivery: {terminal.reason}")
-            adapter.build_retrieval_disposition = {
+            adapter.build_retrieval_disposition = terminal.writer_summary() if isinstance(terminal, FrontierDisposition) else {
                 "status": terminal.status,
                 "reason": terminal.reason,
                 "relevant_ids": list(terminal.relevant_ids),
@@ -159,7 +162,9 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
-            if terminal.status in {"insufficient_evidence", "unresolved_conflict"}:
+            if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
+                    or (isinstance(terminal, FrontierDisposition)
+                        and terminal.coverage_status != "catalog_exhausted")):
                 candidate = json.loads(result.text)
                 if candidate.get("answer_context_status") in {
                     "source_grounded",
