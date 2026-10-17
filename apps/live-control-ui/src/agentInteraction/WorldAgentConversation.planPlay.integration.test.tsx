@@ -563,6 +563,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
+  it.each(["build", "play"] as const)("opens the closed %s options from the authorization recovery button", async surface => {
+    vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
+    render(<Harness initial={surface} />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    const options = screen.getByLabelText("Conversation options");
+    expect(options).not.toHaveAttribute("open");
+    fireEvent.change(input, {target: {value: "Help with this page"}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Open Settings"}));
+    expect(options).toHaveAttribute("open");
+    expect(screen.getByRole("button", {name: "Connect local session"})).toBeVisible();
+    fireEvent.click(screen.getByRole("button", {name: "Close connection settings"}));
+    expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
+  });
+
   it("keeps Build tools and keyboard help in Options and grows a compact composer", async () => {
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));

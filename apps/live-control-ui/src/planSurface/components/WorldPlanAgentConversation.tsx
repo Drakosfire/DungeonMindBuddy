@@ -1179,8 +1179,10 @@ function isWorldPlanGraphCompletion(
 
   const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus;
   if (status === (build ? "source_only_insufficient_evidence" : "plan_only_insufficient_evidence")) {
-    return receipt.graph_packet.evidence_sufficiency_status === "insufficient"
-      && receipt.assembled_input.packet_disposition === "omitted_insufficient"
+    // Build's controller may select source-only final evidence after sufficient
+    // initial discovery. The initial packet is not the final writer exposure.
+    return (build || (receipt.graph_packet.evidence_sufficiency_status === "insufficient"
+      && receipt.assembled_input.packet_disposition === "omitted_insufficient"))
       && graphClaims.length === 0 && citationMap === null
       && value.answer_basis === sourceBasis;
   }
@@ -2348,6 +2350,7 @@ export function WorldPlanAgentConversation({
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const connectionOptionsRef = useRef<HTMLDetailsElement | null>(null);
   const [traceVisible, setTraceVisible] = useState(false);
   const [openedTraceTurns, setOpenedTraceTurns] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -3284,6 +3287,12 @@ export function WorldPlanAgentConversation({
         ? `The command was not sent because its recovery envelope could not be saved. ${reason.message}`
         : "The command was not sent because browser storage is unavailable.");
     }
+  }
+
+  function openConnectionSettings() {
+    setSettingsOpen(true);
+    const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
+    if (options instanceof HTMLDetailsElement) options.open = true;
   }
 
   function connectGraphSession() {
@@ -5364,7 +5373,18 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
   );
+  const connectionSettings = (
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization">
+        <h3>Local connection</h3>
+        <button type="button" onClick={() => setSettingsOpen(false)}>Close connection settings</button>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">This connects this browser to your local Buddy server. Once connected, it stays connected across reloads.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
+  );
   const managementDetails = (<>
+      {settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
@@ -5647,15 +5667,9 @@ export function WorldPlanAgentConversation({
           <p>{pendingGraphAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
         </section>
       ) : null}
-      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <button type="button" onClick={connectGraphSession}>Connect local session</button>
-        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">Your local Agent and Graph session persists across reloads. {isReadOnly ? "Play questions use the admitted World Run." : "Plan + World is the default; switch to Plan only for a question that needs that scope."}</p>
-        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
-      </section>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
@@ -5852,7 +5866,7 @@ export function WorldPlanAgentConversation({
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
+          headerActions={<>{newConversationButton}<details ref={connectionOptionsRef} className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
           </details></>}
           contextDetails={isBuild ? buildContextDetails : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
