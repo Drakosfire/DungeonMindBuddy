@@ -344,7 +344,21 @@ describe("IngestionModule", () => {
           { key: "canonical_recap", relpath: "Session 10.md", exists: true },
           { key: "normalized_recap", relpath: "Session 10 normalized.md", exists: true },
         ],
-        graph_preview: { status: "missing", node_count: 0, edge_count: 0 },
+        graph_preview: {
+          status: "missing",
+          run_dir: null,
+          manifest_path: null,
+          candidate_graph_path: null,
+          preview_union_store_path: null,
+          preview_union_store_valid: null,
+          node_count: 0,
+          edge_count: 0,
+          evidence_ref_count: 0,
+          extracted_nodes: [],
+          next_actions: ["build_graph_preview_bundle"],
+          can_open_union_graph: false,
+          blocked_reason: null,
+        },
       },
       entity_spelling_audit: [],
     }));
@@ -399,14 +413,29 @@ describe("IngestionModule", () => {
     expect(within(graphPanel).queryByText(/nodes: 0|edges: 0/)).not.toBeInTheDocument();
   });
 
-  it("does not call an unverified source ready when no extraction has run", async () => {
+  it("does not confuse a source-check error with a graph extraction failure", async () => {
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
       session: 10,
-      status: "recap_applied",
-      states: ["ingest_status_inspected", "recap_reused", "normalized_reused"],
+      status: "source_unverified",
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "source_unverified"],
+      errors: ["The normalized recap is missing."],
       ingest_report: {
         corpus_impact: [],
-        graph_preview: { status: "missing", node_count: 0, edge_count: 0 },
+        graph_preview: {
+          status: "missing",
+          run_dir: null,
+          manifest_path: null,
+          candidate_graph_path: null,
+          preview_union_store_path: null,
+          preview_union_store_valid: null,
+          node_count: 0,
+          edge_count: 0,
+          evidence_ref_count: 0,
+          extracted_nodes: [],
+          next_actions: ["restore_or_load_verified_source"],
+          can_open_union_graph: false,
+          blocked_reason: "normalized recap missing",
+        },
       },
       entity_spelling_audit: [],
     }));
@@ -422,10 +451,14 @@ describe("IngestionModule", () => {
 
     await userEvent.setup().click(await screen.findByText("Evidence & details"));
     const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
-    expect(within(graphPanel).getByRole("status")).toHaveTextContent(
+    expect(await screen.findByText("Source unverified")).toBeInTheDocument();
+    expect(graphPanel).toHaveTextContent("Graph extraction: not run");
+    expect(within(graphPanel).getByText(
       "Graph extraction has not run yet. Complete the source checks before processing.",
-    );
+    )).toBeInTheDocument();
     expect(within(graphPanel).queryByText(/Source ready/)).not.toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: failed")).not.toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: blocked")).not.toBeInTheDocument();
     const processButton = within(screen.getByRole("navigation", { name: "Ingest workspace navigation" }))
       .queryByRole("button", { name: "Process recap" });
     expect(processButton === null || (processButton as HTMLButtonElement).disabled).toBe(true);
@@ -435,9 +468,16 @@ describe("IngestionModule", () => {
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
       session: 10,
       status: "error",
-      states: ["ingest_status_inspected", "recap_generation_failed"],
+      states: ["ingest_status_inspected", "graph_preview_failed"],
       errors: ["Graph extraction failed during setup."],
-      ingest_report: { graph_preview: { status: "missing", node_count: 0, edge_count: 0 } },
+      ingest_report: {
+        graph_preview: {
+          status: "failed",
+          extraction_run_id: "session-10-run",
+          node_count: 0,
+          edge_count: 0,
+        },
+      },
       entity_spelling_audit: [],
     }));
 
@@ -457,13 +497,18 @@ describe("IngestionModule", () => {
     expect(within(graphPanel).queryByText(/Source ready/)).not.toBeInTheDocument();
   });
 
-  it("keeps a blocked graph preview distinct from the no-run state", async () => {
+  it("keeps a real blocked extraction distinct from the no-run state", async () => {
     vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
       session: 10,
       status: "recap_applied",
-      states: ["ingest_status_inspected", "recap_reused", "normalized_reused"],
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "graph_source_bundle_ready"],
       ingest_report: {
-        graph_preview: { status: "missing", blocked_reason: "Graph provider is unavailable." },
+        graph_preview: {
+          status: "source_span_bundle_ready",
+          extraction_run_id: "session-10-run",
+          extraction_mode: "llm_blocked",
+          blocked_reason: "Graph provider is unavailable.",
+        },
       },
       entity_spelling_audit: [],
     }));
@@ -479,7 +524,7 @@ describe("IngestionModule", () => {
 
     await userEvent.setup().click(await screen.findByText("Evidence & details"));
     const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
-    expect(within(graphPanel).getByText("Graph extraction: blocked")).toBeInTheDocument();
+    expect(graphPanel).toHaveTextContent("Graph extraction: blocked");
     expect(within(graphPanel).getByText("Graph provider is unavailable.")).toBeInTheDocument();
     expect(within(graphPanel).queryByText("Graph extraction: not run")).not.toBeInTheDocument();
   });
@@ -2034,6 +2079,10 @@ describe("IngestionModule", () => {
     );
     expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction has not run yet.").length).toBeGreaterThan(0);
+    await user.click(screen.getByText("Evidence & details"));
+    const graphPanel = screen.getByRole("region", { name: "Graph preview status" });
+    expect(graphPanel).toHaveTextContent("Graph extraction: candidate pending");
+    expect(graphPanel).not.toHaveTextContent("Graph extraction: blocked");
   });
 
   it("enables materialize_preview_supergraph with category extraction and no candidate path", async () => {

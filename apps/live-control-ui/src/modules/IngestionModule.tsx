@@ -280,7 +280,22 @@ type IngestionStatusBadge = {
 };
 
 function graphPreviewIsBlocked(graphPreview?: RecapGraphPreviewReport): boolean {
-  return Boolean(graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked");
+  if (!graphPreview) return false;
+  if (graphPreview.extraction_mode === "llm_blocked") return true;
+  if (graphPreview.status === "missing" || graphPreview.status === "source_unverified") return false;
+  const reason = graphPreview.blocked_reason?.trim();
+  return Boolean(
+    reason &&
+      !(graphPreview.status === "source_span_bundle_ready" &&
+        reason === "Graph source bundle ready. Candidate graph extraction has not run yet."),
+  );
+}
+
+function graphPreviewHasExtractionFailure(
+  graphPreview?: RecapGraphPreviewReport,
+  result?: RecapIngestStatus | null,
+): boolean {
+  return graphPreview?.status === "failed" || Boolean(result?.states.includes("graph_preview_failed"));
 }
 
 function graphPreviewHasRunEvidence(graphPreview?: RecapGraphPreviewReport): boolean {
@@ -303,12 +318,16 @@ function graphPreviewHasNotRun(
   paneStatus?: IngestionPaneState["status"],
   result?: RecapIngestStatus | null,
 ): boolean {
+  const graphWorkInProgress = [
+    "running_full_ingest",
+    "building_graph_preview",
+    "materializing_preview_supergraph",
+  ].includes(paneStatus ?? "");
   return graphPreview?.status === "missing" &&
     !graphPreviewHasRunEvidence(graphPreview) &&
     !graphPreviewIsBlocked(graphPreview) &&
-    paneStatus !== "error" &&
-    result?.status !== "error" &&
-    !result?.errors.length;
+    !graphPreviewHasExtractionFailure(graphPreview, result) &&
+    !graphWorkInProgress;
 }
 
 function ingestionStatusBadge(
@@ -339,6 +358,9 @@ function ingestionStatusBadge(
     result?.states.includes("source_unverified")
   ) {
     return { label: "Source unverified", tone: "warning" };
+  }
+  if (graphPreviewHasExtractionFailure(graphPreview, result)) {
+    return { label: "Failed", tone: "warning" };
   }
   if (graphPreviewIsBlocked(graphPreview)) {
     return { label: "Blocked", tone: "warning" };
@@ -2745,19 +2767,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               Graph extraction:{" "}
               {graphPreview?.status === "preview_union_store_ready"
                 ? "preview graph materialized"
-                : graphPreviewIsBlocked(graphPreview)
-                  ? "blocked"
-                  : graphPreview?.status === "candidate_validation_ready"
-                    ? "candidate ready"
-                    : graphPreview?.status === "source_span_bundle_ready"
-                      ? "candidate pending"
-                      : isRunningFullIngest
-                        ? "extracting"
-                        : state.status === "error" || proofResult?.status === "error" || proofResult?.errors.length
-                          ? "failed"
-                          : graphPreviewHasNotRun(graphPreview, state.status, proofResult)
-                          ? "not run"
-                        : graphPreview?.status ?? "pending"}
+                : graphPreview?.status === "source_unverified"
+                  ? "source unverified"
+                  : graphPreviewHasExtractionFailure(graphPreview, proofResult)
+                    ? "failed"
+                    : graphPreviewIsBlocked(graphPreview)
+                      ? "blocked"
+                      : graphPreview?.status === "candidate_validation_ready"
+                        ? "candidate ready"
+                        : graphPreview?.status === "source_span_bundle_ready"
+                          ? "candidate pending"
+                          : isRunningFullIngest
+                            ? "extracting"
+                            : graphPreviewHasNotRun(graphPreview, state.status, proofResult)
+                              ? "not run"
+                              : graphPreview?.status ?? "pending"}
             </p>
             {graphPreviewHasNotRun(graphPreview, state.status, proofResult) ? (
               <p className="module-muted" role="status">
