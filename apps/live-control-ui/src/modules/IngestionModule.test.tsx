@@ -165,6 +165,33 @@ function historicalRecapProjectionForRun(runId: string): HistoricalRecapWorldPro
   };
 }
 
+function makeRecapArtifactRecord(campaignId: string, sessionNumber: number) {
+  const sessionId = `session-${sessionNumber}`;
+  return {
+    schema_version: "dmb_recap_artifact_record_v1" as const,
+    artifact_id: `artifact:recap:${campaignId}:${sessionId}`,
+    campaign_id: campaignId,
+    session_id: sessionId,
+    source_recap_path: `corpus/${campaignId}/Session ${sessionNumber}.md`,
+    run_bundle_uri: "bundle",
+    run_manifest_uri: "manifest",
+    source_span_index_uri: "index",
+    graph_run_refs: [],
+    default_projection_mode: "preview_union" as const,
+    registered_at: "2026-06-29T00:00:00Z",
+    updated_at: "2026-06-29T00:00:00Z",
+    registry_source: "scan" as const,
+  };
+}
+
+function makeRecapArtifactRegistry(records: ReturnType<typeof makeRecapArtifactRecord>[]) {
+  return {
+    schema_version: "dmb_recap_artifacts_registry_v1" as const,
+    version: "1",
+    records,
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -233,6 +260,127 @@ describe("IngestionModule", () => {
   it("uses an explicit source session for a standalone recap entry", async () => {
     render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
     expect(await screen.findByLabelText("Recap/source session")).toHaveValue(29);
+  });
+
+  it("defaults the prior recap selector only to the exact campaign and requested session", async () => {
+    const session10 = makeRecapArtifactRecord("longmont-c2", 10);
+    const session27 = makeRecapArtifactRecord("longmont-c2", 27);
+    const otherCampaignSession10 = makeRecapArtifactRecord("longmont-c1", 10);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10",
+    );
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([session10, session27, otherCampaignSession10]),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const priorRecap = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(priorRecap).toHaveValue(session10.artifact_id));
+    expect(screen.getByRole("textbox", { name: "Write or paste a recap" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
+    expect(priorRecap.querySelector(`option[value="${otherCampaignSession10.artifact_id}"]`)).toBeNull();
+  });
+
+  it("leaves the prior recap selector empty when the requested session has no exact match", async () => {
+    const session27 = makeRecapArtifactRecord("longmont-c2", 27);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10",
+    );
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([session27]),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const priorRecap = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(priorRecap).toHaveDisplayValue("Load a processed recap…"));
+    expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
+  });
+
+  it("uses the latest session target when a prior recap list resolves late", async () => {
+    const user = setupIngestUser();
+    const pendingList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    const getRecapArtifacts = vi.mocked(liveApi.getRecapArtifacts);
+    getRecapArtifacts.mockReturnValue(pendingList.promise);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2",
+    );
+    render(
+      <IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" initialSourceSession={10} />,
+    );
+    await waitFor(() => expect(getRecapArtifacts).toHaveBeenCalledTimes(1));
+
+    const sessionInput = screen.getByLabelText("Recap/source session");
+    await user.clear(sessionInput);
+    fireEvent.change(sessionInput, { target: { value: "11" } });
+    await waitFor(() => expect(sessionInput).toHaveValue(11));
+    expect(getRecapArtifacts).toHaveBeenCalledTimes(1);
+
+    const exactChangedSession = makeRecapArtifactRecord("longmont-c2", 11);
+    await act(async () => {
+      pendingList.resolve(
+        makeRecapArtifactRegistry([
+          makeRecapArtifactRecord("longmont-c2", 10),
+          exactChangedSession,
+          makeRecapArtifactRecord("longmont-c2", 27),
+        ]),
+      );
+      await Promise.resolve();
+    });
+    const changedSessionSelector = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(changedSessionSelector).toHaveValue(exactChangedSession.artifact_id));
+  });
+
+  it("ignores prior recap lists returned after the campaign changes", async () => {
+    const user = setupIngestUser();
+    const oldCampaignList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    const newCampaignList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    const getRecapArtifacts = vi.mocked(liveApi.getRecapArtifacts);
+    getRecapArtifacts.mockImplementation((campaignId) =>
+      campaignId === "longmont-c2" ? oldCampaignList.promise : newCampaignList.promise,
+    );
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10",
+    );
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(getRecapArtifacts).toHaveBeenCalledTimes(1));
+
+    await user.selectOptions(screen.getByLabelText("Campaign"), "longmont-c1");
+    await waitFor(() =>
+      expect(getRecapArtifacts.mock.calls.some(([campaignId]) => campaignId === "longmont-c1")).toBe(true),
+    );
+    expect(screen.queryByLabelText("Prior processed recap")).not.toBeInTheDocument();
+
+    await act(async () => {
+      oldCampaignList.resolve(makeRecapArtifactRegistry([makeRecapArtifactRecord("longmont-c2", 10)]));
+      await Promise.resolve();
+    });
+    expect(screen.queryByLabelText("Prior processed recap")).not.toBeInTheDocument();
+
+    const exactNewTarget = makeRecapArtifactRecord("longmont-c1", 10);
+    await act(async () => {
+      newCampaignList.resolve(
+        makeRecapArtifactRegistry([
+          exactNewTarget,
+          makeRecapArtifactRecord("longmont-c1", 27),
+        ]),
+      );
+      await Promise.resolve();
+    });
+
+    const priorRecap = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(priorRecap).toHaveValue(exactNewTarget.artifact_id));
+    expect(within(priorRecap).queryByRole("option", { name: /Session 27/ })).toBeInTheDocument();
+    expect(priorRecap.querySelector('option[value="artifact:recap:longmont-c2:session-10"]')).toBeNull();
   });
 
   it("keeps a blank recap editor empty and its prompt independent of session examples", async () => {
