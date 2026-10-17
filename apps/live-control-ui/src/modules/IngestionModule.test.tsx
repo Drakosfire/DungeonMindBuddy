@@ -940,6 +940,143 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("does not let early Graph availability consume a cold reader attempt before source hydration", async () => {
+    const pendingGraphSession = deferred<string>();
+    const pendingStatus = deferred<RecapIngestStatus>();
+    const pendingList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockReturnValue(pendingGraphSession.promise);
+    vi.mocked(liveApi.getRecapArtifacts).mockReturnValue(pendingList.promise);
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+      if (request.operation === "inspect_status") return pendingStatus.promise;
+      return makeStatus({ campaign_id: request.campaign_id, session: request.session });
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(liveApi.ensureNativeGraphSession).toHaveBeenCalled());
+    await waitFor(() => expect(recapIngestApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 10,
+    })));
+
+    await act(async () => {
+      pendingGraphSession.resolve("csrf-token");
+      await pendingGraphSession.promise;
+    });
+    expect(screen.queryByText("No saved recap is available for this session.")).not.toBeInTheDocument();
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    await act(async () => {
+      pendingStatus.resolve(makeStatus({
+        campaign_id: "longmont-c2",
+        session: 10,
+        status: "recap_reused",
+        states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+        paths: { canonical_recap: null, normalized_recap: null },
+        ingest_report: { corpus_impact: [] },
+        entity_spelling_audit: [],
+      }));
+      await pendingStatus.promise;
+    });
+    await waitFor(() => expect(liveApi.getRecapArtifacts).toHaveBeenCalledWith("longmont-c2"));
+    await act(async () => {
+      pendingList.resolve(makeRecapArtifactRegistry([exactArtifact]));
+      await pendingList.promise;
+    });
+
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: "longmont-c2", focus: expect.objectContaining({ sessionId: "session-10" }) }),
+    ));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    expect(screen.queryByText("No saved recap is available for this session.")).not.toBeInTheDocument();
+  });
+
+  it("retries a failed cold reader when the native Graph session is reconnected", async () => {
+    const user = setupIngestUser();
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockRejectedValue(new Error("Local Graph session unavailable"));
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(makeRecapArtifactRegistry([exactArtifact]));
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection)
+      .mockRejectedValueOnce(new Error("Local Graph session unavailable"))
+      .mockImplementation(async (request) => ({
+        ...session23WorldGraphRecapFixture,
+        campaignId: request.campaignId,
+        sessionId: request.focus.sessionId!,
+        snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+      }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    expect(await screen.findByText("Local Graph session unavailable.")).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Local Graph session unavailable")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+  });
+
+  it("restores a successfully opened reader after Graph access is revoked and reconnected", async () => {
+    const user = setupIngestUser();
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.spyOn(liveApi, "revokeNativeGraphSession").mockResolvedValue();
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(makeRecapArtifactRegistry([exactArtifact]));
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Revoke local Graph session" }));
+    expect(await screen.findByText("Local Graph session revoked.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Held the Mireward gate during Session 23/)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+  });
+
   it.each([
     ["empty", makeRecapArtifactRegistry([]), "No saved recap is available for this session."],
     ["unavailable", new Error("Registry unavailable"), "Saved recaps could not be checked."],

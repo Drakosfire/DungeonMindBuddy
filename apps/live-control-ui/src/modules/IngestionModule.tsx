@@ -2130,6 +2130,32 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
+  function handleNativeGraphAccessChanged(available: boolean) {
+    if (available && readerMode) {
+      // Local Graph can become ready before the route and its saved-source list
+      // hydrate. Do not let that early callback consume the one-shot reader
+      // attempt; the restore effect will retry when an exact source is known.
+      if (!selectionHydrated || loadingPriorIngestion || !hasAddressableSavedSource) return;
+      if (readerAttempt.current === reviewIdentity && !reviewError) return;
+
+      reviewEpoch.current += 1;
+      setReviewSource(null);
+      setReviewError(null);
+      setReviewLoading(false);
+      restoreReaderRoute.current = true;
+      void reviewSavedSource(true, true);
+      return;
+    }
+
+    reviewEpoch.current += 1;
+    // Revocation invalidates even a previously successful projection so that
+    // reconnecting can restore the selected source again.
+    readerAttempt.current = null;
+    setReviewSource(null);
+    setReviewLoading(false);
+    if (available) setReviewError(null);
+  }
+
   function openGraphReviewWorkbench() {
     if (typeof window === "undefined" || !canOpenGraphReview || !exactGraphReviewRunId || !managedWorldId) return;
     const params = new URLSearchParams(window.location.search);
@@ -2591,13 +2617,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
           <details id="ingestion-evidence-details" ref={evidenceDetailsRef}><summary>Evidence &amp; details</summary>
-          <NativeGraphAccessControl onChanged={(available) => {
-            reviewEpoch.current += 1;
-            setReviewSource(null);
-            setReviewError(null);
-            setReviewLoading(false);
-            if (available && readerMode) void reviewSavedSource(true);
-          }} />
+          <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged} />
           <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
