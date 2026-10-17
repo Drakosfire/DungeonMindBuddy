@@ -43,6 +43,13 @@ No Graph Review UI/API paths owned by #1235, other test modules, schemas/migrati
 - Run relevant ingestion tests, lint/type checks for changed paths, and `git diff --check` once the test runtime is available.
 - Inspect the exact cumulative `main@e63131e1...` to head diff, publish one serial PR, and present it to PRIME. No merge authority.
 
+## Implementation and current verification
+
+- Added `tests/test_live_recap_ingest_process_review_persistence.py`. It owns its temporary corpus/run root, consumes the existing unique `application_state_dsn` fixture, uses the deterministic fake category extractor, processes synthetic Session 29 input once, and checks exact run/source/candidate/span identity after creating a fresh `TestClient`.
+- `pytest --collect-only` collects the test; `pytest --setup-plan` confirms the disposable APP-STATE fixture is wired before the test setup. `ruff check` and `git diff --check` pass.
+- The owning test was attempted. It fails during `application_state_dsn` setup because `127.0.0.1:54329` is not listening; the test body did not run. Do not substitute a retained database or start a new service. Completion still requires running it on an already available disposable APP-STATE test service.
+- The exact Session 29 source is locally available and hash-verified against the gold manifest, but this portable test intentionally uses synthetic text and does not read or commit that recap.
+
 ## Handoff transfer
 
 PRIME explicitly transferred the dormant lease from `HANDOFF-INGEST-process-idempotency-recovery.md` to this serial successor on 2026-10-17. That handoff's two historical idempotency/recovery failures remain unresolved observations unless separately proven and fixed. This slice does not claim to repair retry reuse or provider-free recovery.
