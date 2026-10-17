@@ -18,7 +18,9 @@ import type {
 } from "../../api/types";
 import { persistGenerationAttempt, readGenerationAttempt, scopedWorkbenchJoinKey, type StatblockDraftScope } from "./statblockDraftScope";
 import type {
+  AttackMechanic_Output,
   GeneratedStatblockCandidateV1,
+  RuleElement_Output,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
@@ -39,6 +41,49 @@ const activeResponse: ReadStatblockCandidateResponseV1 = {
   source_draft_id: "td_fixture",
   source_draft_version: 1,
 };
+
+function movementCandidate(candidateId: string): GeneratedStatblockCandidateV1 {
+  const result = structuredClone(candidate);
+  result.candidate_id = candidateId;
+  const sourceElement = result.definition.rule_elements[0];
+  const attack = sourceElement.mechanic as AttackMechanic_Output;
+  const movementEffect = {
+    kind: "movement" as const,
+    movement_mode_key: "swim",
+    distance: { value: 20, unit: "feet" as const },
+  };
+  const attackElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_strike",
+    mechanic: {
+      ...attack,
+      hit_effects: [movementEffect],
+      miss_effects: [movementEffect],
+    },
+  };
+  const saveElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_surge",
+    name: "Marsh Surge",
+    mechanic: {
+      kind: "save_effect",
+      save: { ability: "dexterity", dc: 14 },
+      target: attack.target,
+      success_effects: [movementEffect],
+      failure_effects: [movementEffect],
+    },
+  };
+  result.definition = {
+    ...result.definition,
+    movement: {
+      modes: [
+        { key: "ground", mode: "walk", distance: { value: 30, unit: "feet" }, qualifiers: ["land"] },
+      ],
+    },
+    rule_elements: [attackElement, saveElement],
+  };
+  return result;
+}
 
 /** Legacy fixtures still prove scope and lineage through the owning draft read. */
 function legacyDraftFixture(overrides: Partial<ThreatDraftV1> = {}): ThreatDraftV1 {
@@ -658,9 +703,13 @@ describe("World-scoped mounted Workbench", () => {
   });
 });
 
-function admitLegacyCandidate(id: string, draftId: string) {
+function admitLegacyCandidate(
+  id: string,
+  draftId: string,
+  candidateData: GeneratedStatblockCandidateV1 = candidate,
+) {
   vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
-    ...activeResponse, candidate_id: id, candidate: { ...candidate, candidate_id: id },
+    ...activeResponse, candidate_id: id, candidate: { ...candidateData, candidate_id: id },
     source_draft_id: draftId, source_draft_version: 1,
   });
   vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(legacyDraftFixture({
@@ -670,8 +719,12 @@ function admitLegacyCandidate(id: string, draftId: string) {
   }));
 }
 
-async function loadId(id: string, draftId?: string) {
-  if (draftId) admitLegacyCandidate(id, draftId);
+async function loadId(
+  id: string,
+  draftId?: string,
+  candidateData?: GeneratedStatblockCandidateV1,
+) {
+  if (draftId) admitLegacyCandidate(id, draftId, candidateData);
   const user = userEvent.setup();
   render(<StatblockWorkbenchModule />);
   await user.type(screen.getByPlaceholderText("cand_…"), id);
@@ -1814,6 +1867,83 @@ describe("StatblockWorkbenchModule", () => {
       expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_accept1")).toBe(
         "11111111-2222-4333-8444-555555555555",
       );
+    });
+
+    it("keeps an explicit movement repair exact through preview and Accept/Save", async () => {
+      const candidateId = "cand_movement_repair";
+      const draftId = "td_movement_repair";
+      const sourceCandidate = movementCandidate(candidateId);
+      const validateSpy = vi
+        .spyOn(liveApi, "validateStatblockDefinition")
+        .mockResolvedValueOnce(successValidate("invalid"))
+        .mockResolvedValueOnce(successValidate("valid"));
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: draftId,
+        operation_id: "op_movement_repair",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_movement_repair",
+          revision_id: "rev_movement_repair",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = await loadId(candidateId, draftId, sourceCandidate);
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+
+      await user.selectOptions(screen.getByLabelText("Movement mode kind 0"), "swim");
+      await validateWorkingCopy(user);
+      const danglingPreview = validateSpy.mock.calls[0][0].definition;
+      expect(danglingPreview.movement.modes[0]).toMatchObject({ key: "ground", mode: "swim" });
+      expect(danglingPreview.rule_elements[0].mechanic).toMatchObject({
+        hit_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+        miss_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+      });
+      expect(danglingPreview.rule_elements[1].mechanic).toMatchObject({
+        success_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+        failure_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+      });
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+
+      const modeKeyInput = screen.getByLabelText("Movement mode key 0");
+      await user.clear(modeKeyInput);
+      await user.type(modeKeyInput, "waterway");
+      const movementReferenceLabels = [
+        "Movement mode reference marsh_strike hit effects 0",
+        "Movement mode reference marsh_strike miss effects 0",
+        "Movement mode reference marsh_surge success effects 0",
+        "Movement mode reference marsh_surge failure effects 0",
+      ];
+      for (const label of movementReferenceLabels) {
+        expect(screen.getByLabelText(label)).toHaveProperty("value", "swim");
+        await user.clear(screen.getByLabelText(label));
+        await user.type(screen.getByLabelText(label), "waterway");
+      }
+      await validateWorkingCopy(user);
+
+      const acceptedDefinition = validateSpy.mock.calls[1][0].definition;
+      expect(acceptedDefinition.movement.modes[0]).toMatchObject({ key: "waterway", mode: "swim" });
+      expect(acceptedDefinition.rule_elements[0].mechanic).toMatchObject({
+        hit_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+        miss_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+      });
+      expect(acceptedDefinition.rule_elements[1].mechanic).toMatchObject({
+        success_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+        failure_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+      });
+      expect(acceptedDefinition.identity).toEqual(sourceCandidate.definition.identity);
+
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await waitFor(() => expect(acceptSpy).toHaveBeenCalledTimes(1));
+      expect(acceptSpy.mock.calls[0][0]).toBe(draftId);
+      expect(acceptSpy.mock.calls[0][1].source_candidate_id).toBe(candidateId);
+      expect(acceptSpy.mock.calls[0][1].definition).toEqual(acceptedDefinition);
+      expect(acceptSpy.mock.calls[0][1].validation_receipt.status).toBe("valid");
+      await waitFor(() => expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy());
     });
 
     it("shows mechanics_saved locator and not-published wording", async () => {
