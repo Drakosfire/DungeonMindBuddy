@@ -17,6 +17,16 @@ RULES = (
     "Conflicting testimony remains useful evidence. Do not infer absent facts from "
     "silence. Do not write an answer or claim corpus completeness."
 )
+RULES += (
+    " Label meanings: direct_support means the source establishes a useful supported part of "
+    "an answer, even if requested specifics remain unavailable. qualification_or_conflict "
+    "means a condition, exception, attribution or competing account materially changes an "
+    "answer. uncertain means potentially useful evidence that cannot safely be excluded. "
+    "irrelevant means the source contributes no useful supported information or "
+    "qualification. Evidence that cannot answer every requested detail can still support a "
+    "useful partial answer; relevance is not full answer sufficiency. Do not add filler "
+    "merely because the topic or place matches."
+)
 
 
 def canonical(value):

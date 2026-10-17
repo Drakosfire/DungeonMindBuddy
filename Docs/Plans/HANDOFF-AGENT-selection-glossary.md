@@ -20,3 +20,7 @@ Fresh ordinary V3 Toll completed with specific requested-detail gaps, but the co
 ## Verification and completion
 
 Freeze glossary bytes from the private instruction-delta artifact; prove sources/questions/options unchanged in controlled experiments. Existing deterministic accounting validates frozen Toll/Float/Council wire below existing allowances (maximum per-question23796/22992/24822). Run focused owning selection tests plus lint/cumulative diff. Push one bounded PR and obtain exact-head independent review. After merge, fresh ordinary Toll must retain useful supported context, produce one tool-free answer with actual V3 detail gaps and correct citations, and recover durable history. No semantic or serving completion claim until that happens; Mirathorn lifecycle/operator acceptance remains open.
+
+## Implementation evidence
+
+Production RULES append exactly the reviewed private glossary bytes; no source/question/option/type/threshold change. Twenty owning selection cases pass in23.14s; scoped Ruff and cumulative diff checks pass. No prompt-string mirror test was added. Frozen Float6 and Council17 selected units preserve their required facts and qualifications; all exception/conflict/chain controls retain required sources, and the old mayor roster remains uncertain. All four diagnostic calls are Jev-only with no Luna, retrieval or World writes. Independent semantic review supports bounded adoption while explicitly retaining whole-source/precision and single-draw limits. Fresh ordinary usefulness and serving adoption remain outstanding.
