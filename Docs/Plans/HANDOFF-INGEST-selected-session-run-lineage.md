@@ -1,7 +1,7 @@
 # INGEST: keep selected session and run lineage coherent
 
 **Status:** ACTIVE — implementation is complete and awaiting PRIME review. The operator stays on Build; no operator Ingest dogfood is required for this slice.
-**Base:** current GitHub `main@9020dc459b78c49f3aaea01bd5594ffb0f266e3b`.
+**Base:** current GitHub `main@9f1d2f66b97ad1503bedab920da92c90314a8963`.
 **Branch:** `codex/ingest-selected-session-run-lineage`.
 **Checkout:** reuse the assigned `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy`; do not create a worktree or change the running app.
 **Topology:** parallel-independent from open PR #1235. Its exact files are Graph Review/API observation-review paths and do not overlap this lease. Combat PR #1327 is separate. PR #1324 (status presentation) merged at `c3df3d8384a205b28ffbe6c2f5d88d7bd2c04ea8`; PR #1318 (session-affinity selector) and #1244 (candidate evidence refs) are also merged, so their old ACTIVE handoffs no longer lease implementation paths. No live runtime or data owner is introduced.
