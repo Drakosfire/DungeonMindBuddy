@@ -835,9 +835,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setToast(null);
       lastToastKeyRef.current = null;
       inspectedTargetRef.current = "";
+      const targetSessionId = routeTargetSession > 0 ? `session-${routeTargetSession}` : "";
+      const exactTarget = priorIngestionArtifacts.find(
+        (record) => record.campaign_id === routeCampaignId && record.session_id === targetSessionId,
+      );
+      setSelectedPriorArtifactId(
+        ingestCampaignId === routeCampaignId ? exactTarget?.artifact_id || "" : "",
+      );
       if (ingestCampaignId !== routeCampaignId) {
         setPriorIngestionArtifacts([]);
-        setSelectedPriorArtifactId("");
       }
     }
 
