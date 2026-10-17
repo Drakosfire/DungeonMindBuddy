@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import tests.test_live_recap_ingest_graph_preview_api as shared_ingest
@@ -28,6 +29,7 @@ def process_client_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[TestClient, Path]:
     """Own all recap/run artifacts under tmp_path and APP-STATE under its disposable DSN."""
+    seed_session = shared_ingest.ROOT / "evals/c2_live_prep/live/session_22"
     monkeypatch.setattr(shared_ingest, "ROOT", tmp_path)
     monkeypatch.setattr(recap_ingest_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
@@ -38,7 +40,11 @@ def process_client_env(
     graph_root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
     monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
-    monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path / "live_session"))
+    for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
+        shutil.copy2(seed_session / name, tmp_path / name)
+    (tmp_path / "event_log.jsonl").write_text("", encoding="utf-8")
+    (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
+    monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
 
     class FakeContext:
         def as_lineage(self) -> dict[str, object]:
@@ -95,7 +101,7 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
         "managed_world_id": "elderwyld",
         "session": 29,
         "raw_text": raw_text,
-        "slug": "Session 29 Process review fixture",
+        "slug": "Process review fixture",
         "title": "Session 29 - Process review fixture",
         "include_graph_extraction": True,
         "graph_model_id": "deepseek/deepseek-v4.1-flash",
