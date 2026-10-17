@@ -1,6 +1,6 @@
 # AGENT: retain correlated sanitized turn traces
 
-Status: ACTIVE. Operator refreshed PRIME goal explicitly requires implementation,
+Status: MERGED AND ADOPTED (#1376, ae394d6d3b98e49a4111c9e268efaa9174d24eca); implementation lease released. Operator refreshed PRIME goal required implementation,
 independent ARCHITECTURE review, merge and coordinated adoption.
 Base: origin/main@4144e98ece3e14f5b3470e77b40a513cf0698f3b.
 Branch: codex/agent-trace-retention. Reuse buddy-context-loop checkout/dependencies.
