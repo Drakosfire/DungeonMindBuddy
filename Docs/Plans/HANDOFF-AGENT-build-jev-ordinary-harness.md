@@ -20,7 +20,7 @@ Freeze chosen completed dialogue IDs/hashes and exact text in the controller and
 - apps/live_control_server/services/build_document_proposal.py: trusted frozen history/request staging through shared writer seam; no arbitrary generated-text import.
 - src/application_state/agent_conversation/types.py, service.py, build_authoring.py: policy/event selection binding and proposal completion proof.
 - src/application_state/migrations/versions/20261017_0031_build_jev_actions.py if real PostgreSQL execution constraints require an additive policy/event admission; descend0030, never a competing head.
-- apps/live_control_server/models/agent_turn.py and existing conversation history/preview UI consumers only as required to present the authoring completion truthfully.
+- apps/live_control_server/models/agent_turn.py; apps/live-control-ui/src/api/types.ts; apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx and BuildComposeProposal.tsx; existing conversation history/preview UI consumers only as required to present the authoring completion truthfully.
 - tests/test_agent_build_jev_ordinary_harness.py (new), tests/application_state/test_build_jev_action_selection.py (new), focused existing driver/writer/proposal tests if their owning contracts change, and focused existing history/preview UI tests for adoption.
 
 Held MEDIA1306 remains unmerged/undeployed; its overlapping future Agent dispatch patch must rebase onto this accepted owner change. Its Build proposal models/service and media runtime remain outside this lease. DOGFOOD retains Ingest/Combat and serving5202/8000; no serving/source checkout or retained DB change in implementation.
