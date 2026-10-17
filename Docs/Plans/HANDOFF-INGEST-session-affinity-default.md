@@ -1,10 +1,14 @@
 # INGEST: preserve campaign and session affinity in prior recap selection
 
-**Status:** ACTIVE — follow-up to merged PR #1318. Rendered same-campaign route navigation still leaves a previously selected recap from the old session selected; this bounded repair resets the selector to an exact match or its placeholder.
+**Status:** SETTLED — PR #1333 (`INGEST: reset prior recap selection on route change`) merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b` from head `88510a3d8aeaff0caf9b84b674ee63e1b49836a5`. Its exact-session route reset supersedes this handoff's active lease.
 **Base:** current GitHub `main@1c810a208e27be6efc7f21ed10bdcc18c05c0bb3`.
 **Branch:** `codex/ingest-session-affinity-route-reset`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse the assigned checkout).
 **Topology:** one independent Ingest UI PR. PR #1318 is settled at merge commit `1ed861d7c123fd62d7583204eff7f2236a5680e4` from head `e3c231dab039f6842864888c8fb71e5a2ead58d7`; this follow-up repairs the mounted-route case its initial exact-match default did not cover. Open PR #1235 remains limited to disjoint Graph Review/API observation-review paths. No new worktree, live service, or retained-data lane is introduced.
+
+## Settlement
+
+PR #1333 passed independent ARCHITECTURE review and merged. It fixed the mounted same-campaign session-route case that the original PR #1318 did not cover. Its UI suite passed 63 tests with typecheck and diff-check. This handoff no longer grants a write lease. Rendered post-merge selector behavior, source load/process/save, real recap ingestion and persistence acceptance remain unverified and are tracked separately.
 
 ## Mission
 

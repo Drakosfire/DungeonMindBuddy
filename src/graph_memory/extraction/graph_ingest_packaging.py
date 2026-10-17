@@ -925,10 +925,20 @@ def _write_validation_report(
         errors.append(f"unresolved nested/top-level evidence references: {unresolved_count}")
     diagnostics = candidate_graph.get("diagnostics")
     if isinstance(diagnostics, dict):
-        diagnostics["unresolved_evidence_refs"] = unresolved_count
-        diagnostics["warning_count"] = len(warnings)
-        diagnostics["evidence_reference_repair_count"] = len(evidence_reference_repairs or [])
-        write_json(candidate_graph_path, candidate_graph)
+        diagnostic_updates = {
+            "unresolved_evidence_refs": unresolved_count,
+            "warning_count": len(warnings),
+        }
+        repair_count = len(evidence_reference_repairs or [])
+        if repair_count:
+            diagnostic_updates["evidence_reference_repair_count"] = repair_count
+        diagnostics_changed = False
+        for key, value in diagnostic_updates.items():
+            if diagnostics.get(key) != value:
+                diagnostics[key] = value
+                diagnostics_changed = True
+        if diagnostics_changed:
+            write_json(candidate_graph_path, candidate_graph)
     incomplete_fill_count = sum(
         1 for node in (candidate_graph.get(nodes_key) or [])
         if isinstance(node, dict)
@@ -1250,6 +1260,9 @@ def run_graph_preview_extraction(
         if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
             shutil.copy2(options.candidate_graph_path, candidate_graph_path)
         candidate_graph = json.loads(candidate_graph_path.read_text())
+        original_candidate_semantics = json.dumps(
+            candidate_graph, sort_keys=True, separators=(",", ":")
+        )
         candidate_graph = _require_candidate_graph_identity(
             candidate_graph,
             campaign_id=campaign_id,
@@ -1261,7 +1274,11 @@ def run_graph_preview_extraction(
             source_span_index=packaged_span_index,
             recap_text=recap_text,
         )
-        write_json(candidate_graph_path, candidate_graph)
+        candidate_semantics = json.dumps(
+            candidate_graph, sort_keys=True, separators=(",", ":")
+        )
+        if candidate_semantics != original_candidate_semantics:
+            write_json(candidate_graph_path, candidate_graph)
         validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
