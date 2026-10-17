@@ -35,3 +35,9 @@ No API/server/schema, extraction/materializer, raw source, graph publication, pr
 - UI typecheck is blocked by five existing TypeScript errors in untouched `src/planSurface/components/WorldPlanAgentAnswer.tsx` (lines 47, 49, and 50). I did not run the production build because its first step is the same failing TypeScript check; no changed Ingest path is named in the diagnostics.
 - Inspect the exact cumulative `origin/main` to head diff. Commit and push this branch, then open one PR for PRIME review. Do not merge or mutate 5202.
 - Rendered acceptance is limited to read-only inspection of the current selector state. PRIME says the user may inspect and author now; extraction richness/readiness remains unproven. A new recap can be processed as dogfood, but any result should be treated as an experiment. Do not load a prior recap from the affected selector until this repair is reviewed. No recap was loaded, processed, or modified during the observed mismatch.
+
+## Rendered discovery and review boundary
+
+- The triggering browser route targeted `world=elderwyld`, `campaign=longmont-c2`, `session=session-10`. The rendered selector showed Session 27, matching the latest-registry-item failure recorded in `HANDOFF-INGEST-rendered-recap-acceptance.md`; the user did not load that artifact. No retained recap or database state was changed.
+- This is the before-fix rendered observation. The current PR has not been rendered on 5202, and this handoff does not claim the corrected selector has passed browser acceptance. 5202 remains untouched.
+- Review target: [PR #1318](https://github.com/Drakosfire/DungeonMindBuddy/pull/1318), exact cumulative base `53c9fd723258a4a528fdfb81ee725497fb7ebbae` → head `7fb24a86d8b4d7cb3c0c52a3efe232da4475839f`. The same 49-test and typecheck limits above are recorded in the PR body. PRIME has placed this PR next in its review queue; no review or merge has occurred yet.
