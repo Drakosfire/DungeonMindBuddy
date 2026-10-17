@@ -114,7 +114,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   saveDisabledReason: string | null;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
-  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview) => void;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current") => void;
   restoreDraftRecovery: () => void;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   activeCommand: ActiveDocumentCommand | null;

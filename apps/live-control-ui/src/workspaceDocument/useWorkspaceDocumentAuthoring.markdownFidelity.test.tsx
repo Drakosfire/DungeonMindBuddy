@@ -2,9 +2,11 @@ import { StrictMode, useState } from "react";
 import type { Content } from "@tiptap/react";
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
+import { Editor as TiptapEditor } from "@tiptap/core";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  authenticatedApiFetch,
   commitTiptapMarkdownWrite,
   getWorkspaceDocumentSnapshot,
   prepareTiptapMarkdownWrite,
@@ -15,7 +17,7 @@ import {
   readWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
-import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { BuildDraftRecovery, useBuildMarkdownCanvasSlots } from "../buildSurface/buildMarkdownCanvasAdapter";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
@@ -38,6 +40,7 @@ afterAll(() => {
 
 vi.mock("../api/liveApi", () => ({
   getWorkspaceDocumentSnapshot: vi.fn(),
+  authenticatedApiFetch: vi.fn().mockResolvedValue({ response: { ok: false } }),
   prepareTiptapMarkdownWrite: vi.fn(),
   commitTiptapMarkdownWrite: vi.fn(),
 }));
@@ -749,7 +752,7 @@ describe("verified protected draft recovery", () => {
     act(() => first.result.current.setEditor(editorWithJson(projection)));
     const original = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
     const review = first.result.current.prepareDraftRecovery();
-    expect(first.result.current.saveDisabledReason).toMatch(/protect a recovered draft/);
+    expect(first.result.current.saveDisabledReason).toMatch(/protected after an earlier editing problem/);
     expect(localStorage.getItem(key)).toBeNull();
     act(() => first.result.current.confirmDraftRecovery(review));
     const checkpoint = JSON.parse(localStorage.getItem(key)!);
@@ -789,7 +792,7 @@ describe("verified protected draft recovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review protected draft", exact: true }));
     const dialog = screen.getByRole("dialog", { name: "Review protected draft" });
     expect(dialog).toHaveTextContent("Unsaved local wording");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Keep recovery copy and rebuild" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Use preserved version" }));
     await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
     await waitFor(() => expect(current.editor?.getText()).toContain("Original wording."));
     fireEvent.click(screen.getByRole("button", { name: "Restore protected draft" }));
@@ -798,6 +801,70 @@ describe("verified protected draft recovery", () => {
     expect(current.dirty).toBe(true);
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("keeps the actual current image/table page, resumes Save, and can restore its original seal", async () => {
+    seed();
+    vi.mocked(authenticatedApiFetch).mockResolvedValue({ response: new Response(null, {status:404}), csrf: null, requestEpoch: 0 });
+    const currentDoc = markdownToTiptapDoc("# Current page\n\n![Map](dmb-media:11111111-1111-4111-8111-111111111111)\n\n| d20 | Soldier |\n| --- | --- |\n| 1 | Local edit |\n").doc;
+    const stored = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify({ ...stored, tiptap_json: currentDoc }));
+    let current!: ReturnType<typeof useMarkdownCanvasSession>;
+    function Canvas() {
+      current = useMarkdownCanvasSession();
+      return <><BuildDraftRecovery session={current} />{current.phase.startsWith("ready") ? <MarkdownEditorCore documentKey={current.documentKey}
+        content={current.editorContent as Content} editable onEditorChange={current.setEditor} onUpdate={current.handleEditorUpdate} /> : null}</>;
+    }
+    render(<MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source"><Canvas /></MarkdownCanvasSessionProvider>);
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    const original = current.editor!.getJSON();
+    fireEvent.click(screen.getByRole("button", {name:"Review protected draft",exact:true}));
+    const keep = screen.getByRole("button", {name:"Keep current page and resume saving"});
+    expect(keep).toBeEnabled();
+    fireEvent.click(keep);
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
+    await waitFor(() => expect(current.editor?.getJSON()).toEqual(original));
+    expect(current.saveDisabled).toBe(false);
+    expect(JSON.parse(localStorage.getItem(key)!).original.tiptap_json).toEqual(original);
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name:"Restore protected draft"}));
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(true));
+    await waitFor(() => expect(current.editor?.getJSON()).toEqual(original));
+  });
+  it("actual Discard controls replace the protected projection with the supported saved page", async () => {
+    seed();
+    let current!: ReturnType<typeof useMarkdownCanvasSession>;
+    function Canvas() {
+      current = useMarkdownCanvasSession();
+      return <><BuildDraftRecovery session={current} />{current.phase.startsWith("ready") ? <MarkdownEditorCore documentKey={current.documentKey}
+        content={current.editorContent as Content} editable onEditorChange={current.setEditor} onUpdate={current.handleEditorUpdate} /> : null}</>;
+    }
+    render(<MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source"><Canvas /></MarkdownCanvasSessionProvider>);
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", {name:"Discard draft",exact:true}));
+    fireEvent.click(screen.getByRole("button", {name:"Discard changes",exact:true}));
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
+    await waitFor(() => expect(current.editor?.getText()).toContain("Original wording."));
+    expect(current.editor?.getText()).not.toContain("Unsaved local wording");
+    expect(current.phase).toBe("ready_clean");
+  });
+
+  it.each(["source", "editor"])("does not resume a currently unsupported %s", async kind => {
+    seed(kind === "source" ? "# Source\n\n<div>Unsupported</div>" : source);
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({documentId:DOC_ID,surface:"build",kind:"worldbuilding_source"}));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    const editor = new TiptapEditor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+      content: kind === "editor" ? {type:"doc",content:[{type:"codeBlock",content:[{type:"text",text:"Unsupported code"}]}]} : projection });
+    try {
+      act(() => result.current.setEditor(editor));
+      const before = localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+      const review = result.current.prepareDraftRecovery();
+      expect(review.canKeepCurrent).toBe(false);
+      expect(() => result.current.confirmDraftRecovery(review, "current")).toThrow();
+      expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(before);
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(result.current.exportedMarkdownAuthoritative).toBe(true);
+    } finally { editor.destroy(); }
   });
 
   it.each(["quota", "readback"])("leaves projection and seal intact when checkpoint %s fails", async failure => {

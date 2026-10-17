@@ -143,7 +143,7 @@ describe("protected Build draft review in navigation", () => {
     const dialog = screen.getByRole("dialog", { name: "Review protected draft" });
     expect(dialog).toHaveTextContent("Local wording");
     expect(dialog).toHaveTextContent("# Preserved source");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Keep current draft" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel review" }));
     expect(confirm).not.toHaveBeenCalled();
     expect(discard).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
