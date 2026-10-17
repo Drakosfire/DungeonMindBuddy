@@ -1,6 +1,6 @@
 # AGENT — bounded evidence relevance packets
 
-ACTIVE under PRIME's approved Jev/one-writer goal. Base 1a9d1304f89132db9b54f4590210be1ffa7541d9; serial branch codex/build-jev-evidence-retention, existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new worktrees or /tmp directories.
+SETTLED: #1312 merged84c6b2d35d58f14bb3ebff886294822423e584c7; write lease ended. Successor HANDOFF-AGENT-jev-context-estimate.md owns explicit estimate evaluation. Previously ACTIVE under PRIME's approved Jev/one-writer goal. Base 1a9d1304f89132db9b54f4590210be1ffa7541d9; serial branch codex/build-jev-evidence-retention, existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new worktrees or /tmp directories.
 
 The corrected live cases opened all gold passages, but coverage acquisition expanded the next decision beyond the conservative local context gate. ARCHITECTURE recommends independently bounded retention judgments before global assessment, rather than unverified token estimates or long-context opt-in.
 

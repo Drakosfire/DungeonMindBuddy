@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from .build_jev_accounting import ExperimentalAccounting
 from .build_jev_compaction import project_evidence
 from .build_jev_dispatch import MODEL, validate_body
 
@@ -35,7 +36,12 @@ def packet_state(
     }
 
 
-def fits(state: dict, questions: tuple[DecisionQuestion, ...]) -> bool:
+def fits(
+    state: dict,
+    questions: tuple[DecisionQuestion, ...],
+    *,
+    accounting: ExperimentalAccounting | None = None,
+) -> bool:
     """Apply the existing local admission policy; this is not vendor token counting."""
     body = {
         "model": MODEL,
@@ -54,7 +60,11 @@ def fits(state: dict, questions: tuple[DecisionQuestion, ...]) -> bool:
         },
     }
     try:
-        validate_body(json.dumps(body, ensure_ascii=True, separators=(",", ":")), state)
+        validate_body(
+            json.dumps(body, ensure_ascii=True, separators=(",", ":")),
+            state,
+            accounting=accounting,
+        )
     except ValueError:
         return False
     return True
@@ -77,13 +87,24 @@ def packet_questions(
 
 
 def packets(
-    question: str, scope: SourceScope, units: tuple[AcquiredEvidence, ...]
+    question: str,
+    scope: SourceScope,
+    units: tuple[AcquiredEvidence, ...],
+    *,
+    accounting: ExperimentalAccounting | None = None,
 ) -> list[tuple[AcquiredEvidence, ...]]:
     result, current = [], ()
+
+    def state_for(batch):
+        state = packet_state(question, scope, batch)
+        if accounting is not None:
+            state["context_accounting"] = accounting.descriptor
+        return state
+
     for unit in units:
         proposed = (*current, unit)
         if not fits(
-            packet_state(question, scope, proposed), packet_questions(proposed)
+            state_for(proposed), packet_questions(proposed), accounting=accounting
         ):
             if not current:
                 raise ValueError(
@@ -92,7 +113,7 @@ def packets(
             result.append(current)
             current = (unit,)
             if not fits(
-                packet_state(question, scope, current), packet_questions(current)
+                state_for(current), packet_questions(current), accounting=accounting
             ):
                 raise ValueError(
                     "single evidence unit exceeds retention context policy"

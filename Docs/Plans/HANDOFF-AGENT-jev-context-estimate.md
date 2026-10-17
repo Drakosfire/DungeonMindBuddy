@@ -1,0 +1,19 @@
+# AGENT — explicit experimental context accounting
+
+ACTIVE under PRIME's approved Jev evaluation goal, following ARCHITECTURE design advice. Base98f60ba74b363aa39d8936f1c1f55a8981368255; serial codex/jev-experimental-accounting in the existing buddy-tool-denial-delivery checkout. PRIME implements; ARCHITECTURE independently reviews. No new checkout or /tmp directories.
+
+Retention #1312 merged84c6b2d35d58f14bb3ebff886294822423e584c7. Fresh Float/Council retained all gold passages but .9 exclusion omitted no units; recorded-score sweeps .5-.9 still exceeded local byte/node admission. Further uncertainty pruning would not solve that policy limit. Vendor limits are tokens, not bytes. No supported exact Jev tokenizer is available.
+
+Implement named, explicit opt-in o200k_double_plus_4096_experimental_v1 accounting: twice locally counted o200k tokens plus4096 reserve for whole prepared SDK request and state+each question;256000-byte independent raw-wire bound; unchanged32000/64000 token targets and no long-context opt-in. Host must supply the local frozen tokenizer implementation; no model/encoding fallback or downloads. This estimate is empirically conservative on captured wires, not a guaranteed Jev upper bound. Freeze descriptor into decision state/request identity. Default legacy requests/receipts stay unchanged. Ordinary APP admission still uses its existing contract; do not claim this experimental estimate in guaranteed-upper-bound fields or enable ordinary runtime selection.
+
+Exact writes: this handoff; new apps/live_control_server/services/build_jev_accounting.py; existing services/build_jev_dispatch.py, build_jev_retention.py, build_jev_transitions.py; tests/test_build_jev_accounting.py; Docs/Plans/HANDOFF-AGENT-build-jev-retention.md factual settlement. Parallel-independent of DOGFOOD Ingest acceptance and held MEDIA #1306; no routing/APP/Graph/schema/serving changes. No provider calls in implementation/review.
+
+Verify legacy behavior unchanged; explicit policy binding; all43 recorded wires estimate-vs-usage; separate calibration/evaluation packets; actual SDK prepared bodies; Unicode/escaped JSON/digits/code/many-question/oversize cases; missing tokenizer fails closed; no truncation/retries. Preserve exact source/response hashes and uncertainty/no-replay semantics. Finish one PR, independent exact-head review before a separately recorded live trial. Unseen semantic cases and ordinary integration remain acceptance gates.
+
+## Author evidence and limitations
+
+128 focused tests pass, including legacy dispatch, compaction, transition and retention suites and15 accounting cases. Scoped Ruff, changed-module Pyright and cumulative diff checks pass. Tests cover actual SDK serialization with dispatch denied, independent raw/question/request ceilings, special-looking tokens as literal source text, adversarial Unicode/escaped JSON/digits/code, missing/invalid offline counters, explicit descriptor binding and unchanged legacy gates.
+
+Audit of43 acknowledged original wires: estimate exceeds every reported input count; smallest margin4171 tokens; largest observed Jev/o200k ratio1.859813. Twelve earlier wires are calibration and31 retention-trial wires are retrospective evaluation: all had already been inspected before policy freeze, so this is explicitly not an unseen holdout. Future unseen validation remains required.
+
+Actual SDK prepared bodies for the previously refused requests pass the opt-in policy without transport: Float request37176 estimate, maximum individual question31946,68149 raw bytes; Council29046/24496/50973. Float's per-question estimate is close to32000, reinforcing that future overflows must be recorded rather than relaxed automatically. No new model calls, source clipping, long-context headers, retries, Graph/history writes or runtime adoption. Private audit path remains jev-context-accounting-audit-20261017.json in the existing experiment directory.
