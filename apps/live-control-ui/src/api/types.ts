@@ -1115,8 +1115,24 @@ export interface WorldBuildAuthoringCompletionV1 {
   envelope_sha256: string;
 }
 
+export interface SavedBuildSectionTargetV1 {
+  schema: "dmb_saved_build_section_target_v1";
+  kind: "saved_build_section";
+  world_id: string; turn_id: string; segment_index: number;
+  section_event_id: string; section_read_id: string;
+  source_basis: WorldBuildGraphReceiptV1["source_basis"];
+  source_class: "saved_authored_source_not_played_truth";
+  line_start: number; line_end: number; excerpt_sha256: string; text_sha256: string;
+}
+export interface SavedBuildSectionReadV1 {
+  schema: "dmb_saved_build_section_read_v1";
+  target: SavedBuildSectionTargetV1;
+  content: string;
+}
+
 export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
   schema: "dmb_build_graph_context_response_v1";
+  saved_source_sections?: SavedBuildSectionTargetV1[];
   receipt: WorldBuildGraphReceiptV1;
   completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | null;
 }

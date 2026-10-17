@@ -5227,7 +5227,10 @@ def project_plan_turn_context(
         turn, available_slots=64 - len(evidence_targets)
     )
     context_type = AgentBuildGraphContextResponseV1 if isinstance(receipt, BuildGraphContextReceiptV1) else AgentPlanWorldGraphContextResponseV2
+    from .agent_saved_sections import saved_section_targets
+    saved_options = {"saved_source_sections": saved_section_targets(turn)} if isinstance(receipt, BuildGraphContextReceiptV1) else {}
     return context_type(
+        **saved_options,
         receipt=receipt,
         completion=turn.completion,
         execution=execution_projection,

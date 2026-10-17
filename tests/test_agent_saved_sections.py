@@ -1,0 +1,202 @@
+"""Ordinary SDK→APP completion→fresh authenticated historical authored read."""
+
+from copy import deepcopy
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation import types as ledger
+from apps.live_control_server.routes import agent
+from apps.live_control_server.services.agent_saved_sections import (
+    saved_section_targets,
+    open_saved_section,
+)
+from apps.live_control_server.services.agent_source_passages import (
+    SourcePassageOpenError,
+)
+from apps.live_control_server.services.agent_turn_service import (
+    project_plan_turn_context,
+)
+from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+from tests.test_agent_build_jev_ordinary_harness import (
+    ordinary_case,
+    build_case as _build_case,
+)
+from tests.test_agent_build_governed_graph import execute
+from tests.test_build_cited_writer_output import SavedThenGraphWire, OutputWire
+from tests.test_build_jev_estimated_continuations import counter
+
+
+@pytest.fixture
+def build_case(tmp_path, monkeypatch, application_state_dsn):
+    return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+
+
+@pytest.fixture(params=["saved_only", "saved"])
+def completed(build_case, monkeypatch, tmp_path, request):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    execute(
+        case,
+        tmp_path,
+        BuildJevHarness(
+            decision_transport=SavedThenGraphWire(),
+            writer_transport=OutputWire(request.param),
+            accounting=counter(),
+        ),
+    )
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("elderwyld")
+    turn = service.list_turns("elderwyld", pointer.active_conversation_id)[0]
+    assert turn.status == "completed"
+    return turn
+
+
+def test_exact_projection_fresh_read_and_reopen_without_current_source(
+    completed, monkeypatch
+):
+    turn = completed
+    targets = saved_section_targets(turn)
+    assert len(targets) == 1
+    projected = project_plan_turn_context(turn, delivery_replay=True)
+    assert projected.saved_source_sections == targets
+    target = targets[0]
+    # A current document lookup is neither needed nor allowed after edits/deletion.
+    monkeypatch.setattr(
+        agent,
+        "_historical_work_resolver",
+        lambda *_a, **_k: pytest.fail("Current document lookup"),
+    )
+    opened = open_saved_section(
+        world_id=turn.world_id,
+        turn_id=turn.turn_id,
+        segment_index=target.segment_index,
+        section_event_id=target.section_event_id,
+    )
+    assert opened.target == target
+    read = next(
+        e
+        for e in turn.graph_context_execution.events
+        if isinstance(e, ledger.ValidatedBuildSectionReadV1)
+        and e.event_id == target.section_event_id
+    )
+    assert opened.content == read.text
+    assert target.source_class == "saved_authored_source_not_played_truth"
+    fresh = AgentConversationService().inspect_turn(
+        world_id=turn.world_id, turn_id=turn.turn_id
+    )
+    assert saved_section_targets(fresh) == targets
+    assert "text" not in target.model_dump() and "content" not in target.model_dump()
+
+
+@pytest.mark.parametrize("selector", ["world", "turn", "event", "segment"])
+def test_foreign_selectors_never_find_another_section(completed, selector):
+    target = saved_section_targets(completed)[0]
+    args = dict(
+        world_id=completed.world_id,
+        turn_id=completed.turn_id,
+        segment_index=target.segment_index,
+        section_event_id=target.section_event_id,
+    )
+    if selector == "world":
+        args["world_id"] = "foreign-world"
+    elif selector == "turn":
+        args["turn_id"] = uuid4()
+    elif selector == "event":
+        args["section_event_id"] = uuid4()
+    else:
+        args["segment_index"] = 127
+    with pytest.raises(Exception):
+        open_saved_section(**args)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["text", "basis", "visibility", "binding_hash", "inclusion", "unfinished"],
+)
+def test_mutated_in_memory_records_are_revalidated(completed, mutation):
+    turn = deepcopy(completed)
+    read = next(
+        e
+        for e in turn.graph_context_execution.events
+        if isinstance(e, ledger.ValidatedBuildSectionReadV1)
+    )
+    binding = next(
+        e
+        for e in turn.graph_context_execution.events
+        if isinstance(e, ledger.BuildSectionAnswerBindingV1)
+    )
+    if mutation == "text":
+        read.text = "newer replacement"
+    elif mutation == "basis":
+        read.source_basis.world_id = "foreign-world"
+    elif mutation == "visibility":
+        read.source_basis.visibility = "public"
+    elif mutation == "binding_hash":
+        binding.bindings[0].text_sha256 = "f" * 64
+    elif mutation == "inclusion":
+        inclusion = next(
+            e
+            for e in turn.graph_context_execution.events
+            if isinstance(e, ledger.BuildSectionProviderInclusionV1)
+        )
+        inclusion.section_event_ids = [uuid4()]
+    else:
+        turn.status = "running"
+    if mutation == "unfinished":
+        assert saved_section_targets(turn) == []
+    else:
+        with pytest.raises((ValueError, KeyError)):
+            saved_section_targets(turn)
+
+
+def test_missing_binding_cannot_be_recovered_from_current_source(completed):
+    turn = deepcopy(completed)
+    turn.graph_context_execution.events = [
+        e
+        for e in turn.graph_context_execution.events
+        if not isinstance(e, ledger.BuildSectionAnswerBindingV1)
+    ]
+    with pytest.raises(ValueError):
+        saved_section_targets(turn)
+
+
+def test_authenticated_http_selector_and_error_contract(completed, monkeypatch):
+    target = saved_section_targets(completed)[0]
+    monkeypatch.setattr(
+        agent, "enforce_native_graph_gm", lambda _: SimpleNamespace(subject="operator")
+    )
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    app = FastAPI()
+    app.include_router(agent.router, prefix="/api/live")
+    path = f"/api/live/agent/worlds/{completed.world_id}/conversation/turns/{completed.turn_id}/saved-sections/{target.segment_index}/{target.section_event_id}"
+    with TestClient(app) as client:
+        response = client.get(path)
+        assert response.status_code == 200, response.text
+        assert response.json()["target"] == target.model_dump(
+            mode="json", by_alias=True
+        )
+        assert client.get(path + "?path=other").status_code == 422
+        assert (
+            client.get(
+                path.replace(str(target.section_event_id), str(uuid4()))
+            ).status_code
+            == 404
+        )
+        monkeypatch.setattr(
+            agent,
+            "enforce_native_graph_gm",
+            lambda _: (_ for _ in ()).throw(HTTPException(status_code=403)),
+        )
+        assert client.get(path).status_code == 403
+
+
+def test_bad_selector_before_any_app_read():
+    with pytest.raises(SourcePassageOpenError) as e:
+        open_saved_section(
+            world_id="a", turn_id=uuid4(), segment_index=True, section_event_id=uuid4()
+        )
+    assert e.value.status_code == 422
