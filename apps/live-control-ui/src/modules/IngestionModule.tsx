@@ -714,6 +714,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
   const preservedRouteDraftRef = useRef<ReturnableIngestionDraft | null>(null);
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
+  const [priorArtifactLookup, setPriorArtifactLookup] = useState<{
+    campaignId: string;
+    status: "loading" | "loaded" | "failed";
+  } | null>(null);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
@@ -1083,6 +1087,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   );
   const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
+  const exactSavedArtifact = priorIngestionArtifacts.find(
+    (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
+  );
+  const normalizedRecapPath = resultOwnsSelection ? matchingResult?.paths?.normalized_recap?.trim() : null;
+  const exactReaderRun = selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() : null);
+  const hasAddressableSavedSource = Boolean(exactSavedArtifact || normalizedRecapPath || exactReaderRun);
+  const currentArtifactLookup = priorArtifactLookup?.campaignId === ingestCampaignId
+    ? priorArtifactLookup
+    : null;
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
     ingestCampaignId,
@@ -1101,12 +1114,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }, [reviewIdentity]);
   useEffect(() => {
     if (!readerMode || !selectionHydrated || loadingPriorIngestion || readerAttempt.current === reviewIdentity) return;
-    if (!resultOwnsSelection && !priorIngestionArtifacts.some((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`)) return;
+    // An inspect-status response can own this selection without identifying a
+    // readable source. Wait for either an exact source address or the campaign's
+    // artifact lookup to finish before recording an automatic attempt.
+    if (!hasAddressableSavedSource && currentArtifactLookup?.status !== "loaded" && currentArtifactLookup?.status !== "failed") return;
     const restore = restoreReaderRoute.current;
     restoreReaderRoute.current = false;
     readerAttempt.current = reviewIdentity;
+    if (!hasAddressableSavedSource && currentArtifactLookup?.status === "failed") {
+      setReviewError("Saved recaps could not be checked. Retry after the recap list is available.");
+      return;
+    }
     void reviewSavedSource(restore, true);
-  }, [readerMode, selectionHydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session, latestResult?.campaign_id, priorIngestionArtifacts]);
+  }, [readerMode, selectionHydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session, latestResult?.campaign_id, priorIngestionArtifacts, hasAddressableSavedSource, currentArtifactLookup?.status]);
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
@@ -1416,6 +1436,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
+    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading" });
     void getRecapArtifacts(ingestCampaignId)
       .then((response) => {
         if (cancelled || ingestCampaignIdRef.current !== ingestCampaignId) return;
@@ -1425,6 +1446,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ),
         );
         setPriorIngestionArtifacts(records);
+        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded" });
         const currentSession = recapSessionRef.current;
         const targetSessionId = currentSession > 0 ? `session-${currentSession}` : "";
         const exactTarget = records.find(
@@ -1435,6 +1457,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       .catch(() => {
         if (!cancelled && ingestCampaignIdRef.current === ingestCampaignId) {
           setPriorIngestionArtifacts([]);
+          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed" });
         }
       });
     return () => {

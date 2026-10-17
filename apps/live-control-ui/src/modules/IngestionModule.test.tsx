@@ -892,6 +892,84 @@ describe("IngestionModule", () => {
     expect(screen.queryByText("Session 10 — Mireward Road")).not.toBeInTheDocument();
   });
 
+  it("waits for the exact saved-recap list before restoring an addressless cold reader route", async () => {
+    const pendingList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    vi.mocked(liveApi.getRecapArtifacts).mockReturnValue(pendingList.promise);
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(liveApi.getRecapArtifacts).toHaveBeenCalledWith("longmont-c2"));
+    await waitFor(() => expect(recapIngestApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 10,
+    })));
+
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    await act(async () => {
+      pendingList.resolve(makeRecapArtifactRegistry([exactArtifact]));
+      await pendingList.promise;
+    });
+
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: "longmont-c2", focus: expect.objectContaining({ sessionId: "session-10" }) }),
+    ));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["empty", makeRecapArtifactRegistry([]), "No saved recap is available for this session."],
+    ["unavailable", new Error("Registry unavailable"), "Saved recaps could not be checked."],
+  ] as const)("reports an addressless cold reader route after the saved-recap list is %s", async (_state, lookupResult, message) => {
+    if (lookupResult instanceof Error) {
+      vi.mocked(liveApi.getRecapArtifacts).mockRejectedValue(lookupResult);
+    } else {
+      vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(lookupResult);
+    }
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+  });
+
   it("preserves the recap draft under its original session when the operator changes sessions", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
     vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
