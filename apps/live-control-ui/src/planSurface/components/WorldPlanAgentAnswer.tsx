@@ -42,10 +42,20 @@ function renderMarkdown(root: Root, source: string): ReactNode {
       case "table": {
         if (!("children" in node)) return literal(node);
         const rows = node.children ?? [];
+        const compact = new Set<number>();
+        if (rows.length > 1 && rows[0]?.type === "tableRow") {
+          rows[0].children.forEach((_, column) => {
+            if (rows.slice(1).every(item => {
+              const cell = item.type === "tableRow" ? item.children[column] : undefined;
+              const text = cell?.children.length === 1 && cell.children[0]?.type === "text" ? cell.children[0].value : "";
+              return /^\d{1,3}(?:[–-]\d{1,3})?$/.test(text.trim());
+            })) compact.add(column);
+          });
+        }
         const row = (item: MarkdownNode, index: number) => {
           const Cell = index === 0 ? "th" : "td";
           return <tr key={index}>{"children" in item && item.children?.map((cell, column) => (
-            <Cell key={column} scope={index === 0 ? "col" : undefined}
+            <Cell key={column} scope={index === 0 ? "col" : undefined} data-compact-column={compact.has(column) || undefined}
               style={{ textAlign: "align" in node ? node.align?.[column] ?? undefined : undefined }}>{children(cell as MarkdownNode)}</Cell>
           ))}</tr>;
         };

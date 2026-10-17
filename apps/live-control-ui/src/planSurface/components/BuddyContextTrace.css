@@ -31,6 +31,7 @@
 .buddy-prompt__layout nav button[aria-pressed="true"] { border-color: #d5aa54; background: #3a3326; }
 .buddy-prompt__layout small { display: block; opacity: .65; }
 .buddy-prompt__layout section { min-width: 0; }
+.buddy-prompt__layout pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .buddy-prompt pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 65vh; background: #111820; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
 .buddy-prompt details { margin-top: 12px; font-size: .8rem; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .buddy-prompt__layout { grid-template-columns: 1fr; } .buddy-prompt__layout nav { max-height: 150px; } }

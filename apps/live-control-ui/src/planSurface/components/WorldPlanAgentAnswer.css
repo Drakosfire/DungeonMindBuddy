@@ -12,7 +12,8 @@
 .world-plan-agent-answer pre { overflow-x: auto; padding: .75em; background: #0002; border-radius: .4em; white-space: pre; }
 .world-plan-agent-answer code { font-family: ui-monospace, monospace; font-size: .9em; }
 .world-plan-agent-answer__table { max-width: 100%; overflow-x: auto; margin-block: .75em; }
-.world-plan-agent-answer table { width: 100%; border-collapse: collapse; font-size: .95em; }
+.world-plan-agent-answer table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: .95em; }
 .world-plan-agent-answer :is(th,td) { border: 1px solid #8893a566; padding: .4em .65em; text-align: start; vertical-align: top; }
 .world-plan-agent-answer th { background: #8893a51a; }
+.world-plan-agent-answer :is(th,td)[data-compact-column] { width: 1%; white-space: nowrap; overflow-wrap: normal; }
 .world-plan-agent-answer__literal { white-space: pre-wrap; }

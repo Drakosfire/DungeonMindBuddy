@@ -8,5 +8,5 @@
   inline-size: auto; max-inline-size: 100%; margin-inline-start: 0;
   padding: .65rem 0; border: 0; background: transparent;
 }
-.build-compose-proposal table { min-width: 0; table-layout: fixed; }
+.build-compose-proposal table { min-width: 0; table-layout: auto; }
 .build-compose-proposal th, .build-compose-proposal td { white-space: normal; overflow-wrap: anywhere; }

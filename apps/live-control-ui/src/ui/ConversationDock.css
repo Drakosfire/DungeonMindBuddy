@@ -93,7 +93,7 @@
 .conversation-dock__launcher button { color: inherit; background: transparent; border: 0; min-block-size: 2.5rem; cursor: pointer; }
 .conversation-dock.is-fullscreen { grid-template-rows: minmax(0,1fr); }
 .conversation-dock.is-fullscreen .conversation-dock__conversation { position: fixed; inset: 0; z-index: 100; block-size: 100dvh; padding: max(.75rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right)) max(.75rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left)); }
-.conversation-dock.is-fullscreen .conversation-dock__messages, .conversation-dock.is-fullscreen .conversation-dock__composer { inline-size: min(100%,72rem); margin-inline: auto; }
+.conversation-dock.is-fullscreen .conversation-dock__messages, .conversation-dock.is-fullscreen .conversation-dock__composer { inline-size: min(100%,68rem); margin-inline: auto; padding-inline: clamp(.75rem, 4vw, 3rem); box-sizing: border-box; }
 .conversation-dock__header { flex-wrap: nowrap; min-block-size: 2.5rem; }
 .conversation-dock__context { max-block-size: min(12rem,30dvh); }
 @media(max-width:36rem) { .conversation-dock__header { gap:.15rem; } .conversation-dock__header button { padding:.25rem; } .conversation-dock .conversation-dock__context-toggle { max-inline-size:30%; } }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BuddyPromptInspector, ResponseEvidenceTabs } from './BuddyPromptInspector'
 import type { BuddyPromptEvidence, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { getWorldAgentTurnPrompt } from '../../api/liveApi'
+import { PreparedRequestInspector } from './PreparedRequestInspector'
 vi.mock('../../api/liveApi', () => ({ getWorldAgentTurnPrompt: vi.fn() }))
 const load = vi.mocked(getWorldAgentTurnPrompt)
 const reference = (id: string, sequence = 0): BuddyTracePromptReference => ({ kind: 'prompt_reference', sequence, elapsed_ms: 0,
@@ -20,6 +21,20 @@ function payload(t: BuddyTurnContextTrace, ref: BuddyTracePromptReference, instr
 }
 beforeEach(() => { load.mockReset() })
 describe('The Prompt in response evidence', () => {
+  it('pretty prints JSON-valued input strings while keeping exact input and envelope bytes available', () => {
+    const input = '{"instruction":"Make a table","draft_markdown":"# Edge\\nA fort town"}'
+    const payloadJson = JSON.stringify({ input, instructions: 'Ordinary prose' })
+    render(<PreparedRequestInspector payloadJson={payloadJson} />)
+    fireEvent.click(screen.getByRole('button', { name: 'input /input' }))
+    const text = () => screen.getByLabelText('Captured request').querySelector('pre')?.textContent
+    expect(text()).toBe(JSON.stringify(JSON.parse(input), null, 2))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Exact JSON bytes' }))
+    expect(text()).toBe(input)
+    fireEvent.click(screen.getByRole('button', { name: 'Show full request' }))
+    expect(text()).toBe(payloadJson)
+    fireEvent.click(screen.getByRole('button', { name: 'System instructions /instructions' }))
+    expect(text()).toBe('Ordinary prose')
+  })
   it('is a separate tab, loads only when opened, and shows exact envelope components', async () => {
     const t = trace()
     load.mockResolvedValue(payload(t, reference('one')))

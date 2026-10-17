@@ -75,6 +75,7 @@ def test_source_sdk_durable_proposal_and_no_replay(request_case):
     assert body['text']['format'] == {'type':'json_schema','name':'build_document_proposal',
         'schema':BuildGeneratedProposal.model_json_schema(),'strict':True}
     assert 'output_format' not in json.loads(body['input'])
+    assert 'Return only' not in body['instructions'] and 'JSON with exactly' not in body['instructions']
     assert result.raw_response==wire.text
     assert BuildProposalService().get('elderwyld',result.action_id)==result
     again=asyncio.run(owner.compose(request,transport=wire))
