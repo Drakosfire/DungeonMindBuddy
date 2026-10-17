@@ -208,6 +208,38 @@ def test_real_writer_completion_proof_blocks_forgery_then_completes_and_reopens(
         draft["materials"].extend(deepcopy(draft["materials"]))
         with pytest.raises(ValueError, match="captured producer bytes"):
             validate_completion_proof(result, producing_turn, changed_trace)
+        # Independent review reproduced this exact legacy-type bypass on real APP.
+        legacy = t.BuildGraphCompletionV1(
+            context_receipt_sha256=result.completion.context_receipt_sha256,
+            answer_basis="saved_source",
+            answer_context_status="source_only_insufficient_evidence",
+            answer_segments=[{"kind": "connective", "text": "UNVALIDATED LEGACY FACT"}],
+            citation_map=None,
+        )
+        legacy_plain = t.TurnResult(
+            world_id=result.world_id,
+            conversation_id=result.conversation_id,
+            turn_id=result.turn_id,
+            expected_revision=result.expected_revision,
+            assistant_text="UNVALIDATED LEGACY FACT",
+            completion=legacy,
+            producing_provider_attempt_id=result.producing_provider_attempt_id,
+            claim_graph_event_ids={},
+        )
+        with pytest.raises(
+            ApplicationStateValidationError, match="producer output proof"
+        ):
+            original(service, legacy_plain)
+        with pytest.raises(ApplicationStateValidationError, match="normalization"):
+            original(
+                service,
+                result.model_copy(
+                    update={
+                        "completion": legacy,
+                        "assistant_text": "UNVALIDATED LEGACY FACT",
+                    }
+                ),
+            )
         # Each invalid completion reaches the actual APP transaction and is refused.
         for changed in [
             t.TurnResult.model_validate(
@@ -315,9 +347,12 @@ class OutputWire(WriterWire):
         value = response.json()
         output = value["output"][0]["content"][0]
         answer = json.loads(output["text"])
-        if self.variant == "saved":
+        if self.variant in {"saved", "saved_only"}:
             packet = json.loads(json.loads(request.content)["input"])
             section = packet["exposure"]["saved_sections"][0]
+            if self.variant == "saved_only":
+                answer["answer_segments"] = []
+                answer["answer_context_status"] = "source_grounded_partial"
             answer["answer_segments"].append(
                 {
                     "kind": "saved_source_claim",
@@ -390,3 +425,107 @@ def test_ordinary_output_variants_keep_single_writer_and_saved_indexes(
             for b in e.bindings
         ]
         assert len(bindings) == 1 and bindings[0].segment_index == 1
+
+
+class SavedOnlyDecisionWire(DecisionWire):
+    def __init__(self, *, empty=False):
+        super().__init__()
+        self.empty = empty
+
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        body, value = json.loads(request.content), response.json()
+        for key, q in body["questions"].items():
+            if key == "next":
+                selected = (
+                    "none"
+                    if self.empty
+                    else next(
+                        (x for x in q["criteria"] if x.startswith("saved:")), "none"
+                    )
+                )
+                value["answers"][key].update(
+                    choice=selected,
+                    probabilities={x: float(x == selected) for x in q["criteria"]},
+                )
+        import httpx2
+
+        return httpx2.Response(200, request=request, json=value)
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_saved_only_and_empty_evidence_use_mandatory_proof_and_reopen(
+    build_case, monkeypatch, tmp_path, empty
+):
+    case, reads = ordinary_case(build_case, monkeypatch)
+    original = AgentConversationService.complete_turn
+    seen = []
+
+    def guarded(service, result):
+        assert isinstance(result, t.CitedSourceTurnResult)
+        assert isinstance(result.completion, t.BuildGraphCompletionV1)
+        packet = json.loads(json.loads(result.writer_request_json)["input"])
+        assert packet["opened_passages"] == []
+        plain = t.TurnResult.model_validate(
+            result.model_dump(
+                by_alias=True,
+                exclude={"writer_request_json", "raw_provider_output_json"},
+            )
+        )
+        with pytest.raises(
+            ApplicationStateValidationError, match="producer output proof"
+        ):
+            original(service, plain)
+        forged = result.completion.model_copy(deep=True)
+        forged.answer_segments[0].text = "Uncaptured saved fact"
+        with pytest.raises(ApplicationStateValidationError, match="normalization"):
+            original(
+                service,
+                result.model_copy(
+                    update={
+                        "completion": forged,
+                        "assistant_text": "\n".join(
+                            s.text for s in forged.answer_segments
+                        ),
+                    }
+                ),
+            )
+        if not empty:
+            assert result.build_section_bindings
+            with pytest.raises(ApplicationStateValidationError, match="normalization"):
+                original(
+                    service, result.model_copy(update={"build_section_bindings": []})
+                )
+        seen.append(result)
+        return original(service, result)
+
+    monkeypatch.setattr(AgentConversationService, "complete_turn", guarded)
+    wire = OutputWire("abstention" if empty else "saved_only")
+    response = execute(
+        case,
+        tmp_path,
+        BuildJevHarness(
+            decision_transport=SavedOnlyDecisionWire(empty=empty),
+            writer_transport=wire,
+            accounting=counter(),
+        ),
+    )
+    assert (
+        len(wire.calls) == 1 and len(seen) == 1 and reads == {"graph": 0, "source": 0}
+    )
+    service = AgentConversationService()
+    turn = service.list_turns(
+        "elderwyld", service.get_world_pointer("elderwyld").active_conversation_id
+    )[0]
+    assert turn.status == "completed" and turn.assistant_text == response.answer.text
+    assert turn.completion.citation_map is None
+    assert not any(
+        isinstance(s, t.PlanWorldGraphClaimSegmentV1)
+        for s in turn.completion.answer_segments
+    )
+    if empty:
+        assert all(
+            s.text in LIMITATIONS.values() for s in turn.completion.answer_segments
+        )
+    else:
+        assert turn.completion.answer_segments[0].kind == "saved_source_claim"

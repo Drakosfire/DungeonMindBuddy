@@ -71,8 +71,8 @@ class CitedSourceAnswer(StrictModel):
                 raise ValueError(
                     "Abstention requires host limitations without factual claims"
                 )
-        elif not any(isinstance(s, PassageFact) for s in facts):
-            raise ValueError("Source-grounded output requires opened-passage facts")
+        elif not facts:
+            raise ValueError("Source-grounded output requires cited source facts")
         if self.answer_context_status == "source_grounded" and self.limitations:
             raise ValueError("Full support cannot carry limitations")
         if (
@@ -228,7 +228,37 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
     packet = strict_json(request["input"])
     if packet.get("source_writer_output_policy") != POLICY:
         raise ValueError("Source writer request lacks its frozen output policy")
-    candidate = normalize(result.raw_provider_output_json, packet)
+    expected, bindings = reconstruct(
+        result.raw_provider_output_json, packet, turn, auth
+    )
+
+    # Citation order is not authority; membership, multiplicity and every field are.
+    def citation_keys(completion):
+        return sorted(
+            json.dumps(c.model_dump(mode="json"), sort_keys=True)
+            for c in getattr(completion, "source_citations", ())
+        )
+
+    actual = result.completion
+    if (
+        type(actual) is not type(expected)
+        or actual.model_dump(exclude={"source_citations"})
+        != expected.model_dump(exclude={"source_citations"})
+        or citation_keys(actual) != citation_keys(expected)
+        or result.build_section_bindings != bindings
+    ):
+        raise ValueError(
+            "Source completion differs from captured typed writer normalization"
+        )
+
+
+def reconstruct(raw_output: str, packet: dict, turn, auth):
+    """Select the persisted shape from actual input, never caller preference."""
+    from . import types as t
+
+    execution = turn.graph_context_execution
+    receipt_sha = turn.graph_context_receipt.context_receipt_sha256
+    candidate = normalize(raw_output, packet)
     included_ids = set(getattr(auth, "included_source_read_event_ids", ()))
     reads = [
         e
@@ -350,6 +380,32 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
                 turn.graph_context_receipt.source_basis.content_sha256
             )
         segments.append(segment)
+    if not passages:
+        status = t.derive_execution_answer_context_status(
+            context_receipt_sha256=receipt_sha,
+            answer_segments=[
+                t.SavedSourceClaimV1.model_validate(s)
+                if s["kind"] == "saved_source_claim"
+                else t.PlanWorldGraphConnectiveSegmentV1.model_validate(s)
+                for s in segments
+            ],
+            citation_map=None,
+            receipt=turn.graph_context_receipt,
+            execution=execution,
+            producing_provider_attempt_id=auth.provider_attempt_id,
+            claim_graph_event_ids={},
+        )
+        expected = t.BuildGraphCompletionV1(
+            context_receipt_sha256=receipt_sha,
+            answer_basis="saved_source",
+            answer_context_status={
+                "plan_only_insufficient_evidence": "source_only_insufficient_evidence",
+                "plan_only_graph_unused": "source_only_graph_unused",
+            }.get(status, status),
+            answer_segments=segments,
+            citation_map=None,
+        )
+        return expected, bindings
     expected = t.BuildGraphCompletionV2(
         context_receipt_sha256=receipt_sha,
         answer_basis="saved_source_and_opened_passages"
@@ -360,21 +416,4 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
         source_citations=citations,
     )
 
-    # Citation order is not authority; membership, multiplicity and every field are.
-    def citation_keys(completion):
-        return sorted(
-            json.dumps(c.model_dump(mode="json"), sort_keys=True)
-            for c in completion.source_citations
-        )
-
-    actual = result.completion
-    if (
-        not isinstance(actual, t.BuildGraphCompletionV2)
-        or actual.model_dump(exclude={"source_citations"})
-        != expected.model_dump(exclude={"source_citations"})
-        or citation_keys(actual) != citation_keys(expected)
-        or result.build_section_bindings != bindings
-    ):
-        raise ValueError(
-            "Source completion differs from captured typed writer normalization"
-        )
+    return expected, bindings

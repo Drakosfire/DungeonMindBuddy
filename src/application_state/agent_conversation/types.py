@@ -3883,6 +3883,12 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
+        if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1)):
+            raise ValueError("Cited source policy requires its reconstructed source completion")
+        if isinstance(completion, BuildGraphCompletionV1) and (completion.citation_map is not None
+                or any(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in completion.answer_segments)):
+            raise ValueError("Cited saved-only completion cannot carry Graph authority")
     if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
         selections = [e for e in execution.events if isinstance(e, BuildJevActionSelectionV1)]
         expected = "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources"

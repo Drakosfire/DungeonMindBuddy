@@ -2136,7 +2136,8 @@ class _PolicyExecutionAdapter:
         graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
         if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
             raise ValueError("Controller exposure requires exact parent payload strings")
-        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids or len(set(graph_payloads)) != len(graph_payloads)
+        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids
+                and not isinstance(execution.policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1) or len(set(graph_payloads)) != len(graph_payloads)
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
@@ -2351,7 +2352,15 @@ class _PolicyExecutionAdapter:
                 "content_sha256": self.fence.turn.graph_context_receipt.source_basis.content_sha256}
         turn = self.fence.turn
         staged = getattr(self, "_prepared_build_writer_projection", None)
-        if getattr(staged, "source_only", False):
+        if cited:
+            from application_state.agent_conversation.source_writer_output import reconstruct
+            execution = self._broker_execution()
+            auth = next(e for e in execution.events if isinstance(e, graph_types.ProviderAttemptAuthorizedEventV1)
+                and e.provider_attempt_id == self.producing_provider_attempt_id)
+            completion, source_bindings = reconstruct(final_text, json.loads(staged.input_json), turn, auth)
+            bindings = {}
+            answer = "\n".join(segment.text for segment in completion.answer_segments)
+        elif getattr(staged, "source_only", False):
             prepared = self._prepared_build_writer
             completion = writer.source_completion(candidate, staged,
                 receipt_hash=turn.graph_context_receipt.context_receipt_sha256,

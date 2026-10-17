@@ -1266,8 +1266,8 @@ class AgentConversationService:
             if execution is not None:
                 if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
-                from .types import BuildCitedSourceActionControllerWriterPolicyV1, BuildGraphCompletionV2
-                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and isinstance(result.completion, BuildGraphCompletionV2):
+                from .types import BuildCitedSourceActionControllerWriterPolicyV1
+                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, BuildAuthoringCompletionV1):
                     from .source_writer_output import validate_completion_proof
                     captured = conn.execute(
                         "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",

@@ -318,7 +318,7 @@ def source_projection(
     exposure: Any, execution: Any, raw_sources: dict
 ) -> WriterProjection:
     """Select only complete parent read bodies; observations never enter the wire."""
-    from application_state.agent_conversation.types import ValidatedSourceReadEventV2
+    from application_state.agent_conversation.types import ValidatedSourceReadEventV2, BuildCitedSourceActionControllerWriterPolicyV1
 
     state = exposure.state()
     scope = execution.policy.source_read_scope
@@ -329,7 +329,7 @@ def source_projection(
     ):
         raise ValueError("Source writer scope differs from the frozen execution")
     selected = state["exposure"]["source_event_ids"]
-    if not selected:
+    if not selected and not isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1):
         raise ValueError("Source-only writer requires opened source passages")
     events = {
         str(e.event_id): e
