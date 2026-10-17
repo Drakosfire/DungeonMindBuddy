@@ -164,3 +164,12 @@ def controller_exposure(base: Mapping[str, Any], *, event_sequence: int,
         })
     return ControllerExposure(json.dumps(state, ensure_ascii=False, separators=(",", ":"),
         sort_keys=True, allow_nan=False), event_sequence, prior_provider_attempt_id)
+
+
+def prepared_driver_view(prepared: Any, projection: Any) -> dict:
+    """Exact host-owned compact state AND questions; neither is worker authority."""
+    view = prepared_view(prepared, projection.state())
+    body = _decode(view["payloadJson"])
+    if body["questions"] != projection.questions():
+        raise ValueError("Prepared driver questions/options differ from the parent plan")
+    return view

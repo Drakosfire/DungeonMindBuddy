@@ -1,6 +1,8 @@
 # AGENT: inspect the exact passage behind a source-only answer
 
-ACTIVE under PRIME's authorized Graph collaboration goal. Base157f8d11e39772a7e857bc41e110479daa8d6ef7; branch codex/build-source-passage-reader in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. One serial PR, no new checkout, /tmp directory, environment, retained mutation, provider call or serving change. Predecessor1317 is merged; DOGFOOD1244 and heldMEDIA1306 have disjoint ownership.
+MERGED and implementation lease ended. PR1319 received independent ARCHITECTURE PASS at8a293e29bc724aeb50e20a1b9d44dd714ce1283e and merged at454211e1cb2152d483cf9fb5323667227d1b9406. Ordinary Jev adoption, retained Mirathorn lifecycle and operator acceptance remain open.
+
+Original bounded authority: under PRIME's authorized Graph collaboration goal. Base157f8d11e39772a7e857bc41e110479daa8d6ef7; branch codex/build-source-passage-reader in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. One serial PR, no new checkout, /tmp directory, environment, retained mutation, provider call or serving change. Predecessor1317 is merged; DOGFOOD1244 and heldMEDIA1306 have disjoint ownership.
 
 ## One outcome
 
