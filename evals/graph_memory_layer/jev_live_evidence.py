@@ -98,6 +98,16 @@ class LiveSourceReader:
                   for a in actions if a["kind"] == "saved_build_section"}
         if not graph_actions:
             return output
+        from graph_memory.retrieval.models import WorldGraphObservationSelectionRequest
+        from apps.live_control_server.integrations.dungeonmind.reviewed_source_wave import reviewed_source_wave
+        first_ids = [self.units[uid]["assertion_id"] for uid in graph_actions[0]["unit_ids"]][:8]
+        request = WorldGraphObservationSelectionRequest(**{"schema": "dmb_world_graph_observation_selection_v1"},
+            **self.common, sourceArtifactId=self.discovery["source_artifact_id"],
+            sourceRevisionId=self.scope["source_revision"], observationIds=first_ids)
+        with reviewed_source_wave(self.services, request) as services:
+            return self._retrieve_graph_wave(graph_actions, output, services)
+
+    def _retrieve_graph_wave(self, graph_actions, output, services):
         from apps.live_control_server.integrations.dungeonmind.selected_observation_reads import select_observations_direct
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_source_anchors_direct_v2
         from graph_memory.retrieval.models import WorldGraphObservationSelectionRequest, WorldGraphSourceAnchorReadRequest
@@ -110,7 +120,7 @@ class LiveSourceReader:
                 **self.common, sourceArtifactId=self.discovery["source_artifact_id"],
                 sourceRevisionId=self.scope["source_revision"], observationIds=ids)
             try:
-                selected = select_observations_direct(self.services, request)
+                selected = select_observations_direct(services, request)
             except Exception as exc:
                 attempts.append({"ids": ids, "outcome": getattr(exc, "code", type(exc).__name__)})
                 if getattr(exc, "code", None) == "observation_selection_overflow" and len(ids) > 1:
@@ -135,7 +145,7 @@ class LiveSourceReader:
         for offset in range(0, len(ids), 8):
             acquire(ids[offset:offset+8])
         new = sorted(set(pins) - self.anchor_cache.keys())
-        reads = read_source_anchors_direct_v2(self.services, tuple(
+        reads = read_source_anchors_direct_v2(services, tuple(
             WorldGraphSourceAnchorReadRequest(**{"schema": "dmb_world_graph_source_anchor_read_request_v1"},
                 **self.common, anchorId=key, maxChars=12000) for key in new), repo_root=self.root) if new else ()
         if len(reads) != len(new):

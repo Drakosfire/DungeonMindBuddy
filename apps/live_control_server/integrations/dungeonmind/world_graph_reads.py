@@ -77,6 +77,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Literal, Mapping, Sequence
 
 if TYPE_CHECKING:
+    from .reviewed_source_wave import ReviewedSourceWave
     from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
 
 from dungeonmind.application.graph_snapshot import (
@@ -308,6 +309,7 @@ class DirectWorldGraphReadServices:
     projection: WorldGraphProjectionService
     retrieval: WorldGraphRetrievalService
     binding: DirectAuthorityBinding
+    reviewed_source_wave: ReviewedSourceWave | None = None
 
 
 def _verified_authority_lookup(getter: Any, world_id: str, *, what: str) -> Any:
@@ -3134,7 +3136,9 @@ def read_source_anchors_direct_v2(
             raise ValueError("source-read batch contexts differ")
         projection = _map_retrieval_context(requests[0], services.binding)
         ids = tuple(_dnd_anchor_id(item.anchor_id) for item in requests)
-        native = services.retrieval.resolve_source_anchors(SourceAnchorBatchRequest(projection, ids))
+        wave = getattr(services, "reviewed_source_wave", None)
+        native = (wave.resolve(projection, ids) if wave is not None else
+                  services.retrieval.resolve_source_anchors(SourceAnchorBatchRequest(projection, ids)))
         if (native.snapshot.world_id != projection.world_id
                 or native.snapshot.revision_id != projection.revision_pin
                 or tuple(item.anchor_id for item in native.resolutions) != ids
