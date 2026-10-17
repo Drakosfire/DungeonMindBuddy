@@ -1105,11 +1105,13 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildSectionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildActionControllerWriterPolicyV1
+                if budget.get("buildJevActions") is not None else graph_types.BuildSectionControllerWriterPolicyV1
                 if budget.get("savedSourceInputPolicy") == "selected_saved_build_sections_v1" else
                 graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
             policy = policy_class(
+                **(budget.get("buildJevActions") or {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
                 source_read_accounting="settled_receipts_v1",
@@ -1538,6 +1540,8 @@ class _PolicyExecutionAdapter:
             # The driver independently re-derives every compact unit from these
             # exact parent records; worker-authored byte lists never reach here.
             return list(driver.graph_payloads) if tool_name == "expand_graph_retrieval" else []
+        if getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False):
+            return []  # Creative proposal packet is proved by its owned exact writer projection.
         if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
             return []  # Source inclusion is proved by the exact transformed projection below.
         if getattr(self, "_active_build_writer_projection", None) is not None:
@@ -1583,7 +1587,8 @@ class _PolicyExecutionAdapter:
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
         )
-        if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
+        if (getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False)
+                or getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False)):
             if self.fence is None:
                 raise ValueError("Source writer requires an existing parent claim")
             return self.fence.turn, [], [], []
@@ -2016,15 +2021,19 @@ class _PolicyExecutionAdapter:
             )
             return False
 
-    def create_build_jev_driver(self):
+    def create_build_jev_driver(self, *, with_actions=False):
         """Explicit parent capability; ordinary runtime selection is unchanged."""
         from .build_jev_driver import BuildJevDriver
-        return BuildJevDriver(self)
+        return BuildJevDriver(self, with_actions=with_actions)
 
     def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
         from .build_jev_dispatch import controller_exposure, first_state, request_budget
-        if self.failure is not None or self.fence is None or self.budget != request_budget():
+        expected_budget = request_budget()
+        if self.budget.get("buildJevActions") is not None:
+            from .build_jev_harness import BuildJevHarness
+            expected_budget = BuildJevHarness.budget(self.request)
+        if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()
         if not isinstance(execution.policy, _app_state_graph_execution_types().ControllerWriterGraphExecutionPolicyV3):
@@ -2153,7 +2162,8 @@ class _PolicyExecutionAdapter:
         roles = self._broker_execution().policy.provider_roles
         if roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
             raise ValueError("Frozen writer route is incompatible with GE Responses")
-        staged = writer.projection(self._build_controller_exposure)
+        staged = writer.with_dialogue(writer.projection(self._build_controller_exposure),
+            getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
         self._build_writer_projection = staged
         return staged
@@ -2167,6 +2177,7 @@ class _PolicyExecutionAdapter:
             raise ValueError("Frozen source writer route is incompatible")
         staged = writer.source_projection(self._build_controller_exposure,
             self._broker_execution(), self.source_payloads)
+        staged = writer.with_dialogue(staged, getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
         self._build_writer_projection = staged
         return staged
@@ -3528,13 +3539,14 @@ class _PolicyExecutionAdapter:
         if self.fence is None:
             return self.turn
         turn, error = self.fence.stop()
-        self.turn = turn
+        completed = self.turn if self.turn is not None and self.turn.status == "completed" else None
+        self.turn = completed or turn
         if error is not None:
             raise AgentTurnServiceError(
                 "The Plan Graph claim renewal became indeterminate.",
                 code="turn_claim_indeterminate", status_code=503,
             ) from error
-        return turn
+        return self.turn
 
 
 def _parse_policy_completion(
@@ -5336,6 +5348,13 @@ def execute_agent_turn(
                         code="conversation_unavailable",
                         status_code=503,
                     ) from exc
+            if (durable_turn is not None and request.build_write_capability is not None
+                    and _governed_build_turn(request)):
+                from application_state.agent_conversation.build_authoring import recover_prepared_proposal
+                recovered = recover_prepared_proposal(conversation_service, durable_turn,
+                    request.build_write_capability.idempotency_key)
+                if recovered is not None:
+                    durable_turn = recovered
             if durable_turn is not None and durable_turn.status == "completed":
                 return _completed_turn_replay(
                     request, owner=owner, turn=durable_turn, trace_builder=trace
@@ -6012,9 +6031,13 @@ def execute_agent_turn(
     # current work, pointer, and graph validation have all succeeded.
     try:
         with trace.phase("runtime_creation"):
+            from .build_jev_harness import BuildJevHarness
+            default_build_jev = (_governed_build_turn(request) and policy_bootstrap is not None
+                and isinstance(policy_bootstrap.build_source_discovery, Mapping)
+                and policy_bootstrap.build_source_discovery.get("status") == "complete")
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
-            ) or default_hermes_agent_runtime()
+            ) or (BuildJevHarness() if default_build_jev else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)
@@ -6061,7 +6084,8 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = _policy_request_budget()
+        budget = (selected_runtime.budget(request) if isinstance(selected_runtime, BuildJevHarness)
+            else _policy_request_budget())
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
@@ -6085,6 +6109,8 @@ def execute_agent_turn(
             admission_span_id=admission_span_id,
             expected_conversation_id=policy_conversation_id,
         )
+        if isinstance(selected_runtime, BuildJevHarness):
+            return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(

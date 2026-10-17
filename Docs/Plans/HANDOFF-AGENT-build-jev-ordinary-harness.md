@@ -28,3 +28,14 @@ Held MEDIA1306 remains unmerged/undeployed; its overlapping future Agent dispatc
 ## Acceptance
 
 Exercise the actual ordinary Build route with mocked SDK transports and real disposable APP: source-scoped question→one cited answer; discussion/follow-up→model-selected insertion→durable preview→explicit draft insertion→Save/reopen using the existing editor boundary. Check forged/caller-selected actions, unknown choices, stale capability/history/source, changed arguments, foreign proposal, missing selection, controller/writer uncertainty, duplicate dispatch and proposal-persisted/turn-incomplete recovery. No fixed authorization call cap, retries or uncertain replay. Verify existing Plan/Build contracts and preserve provenance. Real corpus/provider/operator witnesses follow independent review and a matched rollout; synthetic tests alone cannot close the full goal.
+
+
+## Review evidence and limits
+
+Re-anchored accepted main c2b18ebd980fcc154e94f19b7e7338de1505007e. No migration0031 is required: the actual PostgreSQL owner accepts the new policy/selection events through existing0030 constraints. DOGFOOD's C0 may allocate0031 after rechecking current heads.
+
+The ordinary SDK/APP suite passes15 tests: default runtime selection, cited source answer (four Jev decisions and exactly one tool-free writer), model-selected insertion (one Jev and one writer), unknown controller/writer outcomes without replay, changed caret/instruction refusal, missing/duplicated/wrong-capability/wrong-envelope selection rejection, explicit Markdown Save/reopen, and persisted-proposal crash recovery without new model calls. A second real ordinary turn proves exact frozen dialogue reaches the writer as non-evidence reference. The source/Graph bootstrap is synthetic; SDK transports are mocked; APP and workspace persistence are real disposable owners.
+
+Prior focused driver/shared-writer/source-writer/authoring suites passed88 tests before the final recovery/follow-up additions. The ordinary/proposal/Build regression suite then passed63 tests; final owning15 pass includes subsequent follow-up. Mounted history checks11 pass, proposal component13 pass, TypeScript and scoped Ruff pass. One inherited Starlette/AnyIO deprecation warning remains.
+
+This adopts Jev only for governed Build with complete exact-source discovery. Other surfaces and incomplete-discovery routes keep their existing Harness. It does not prove production corpus retrieval, full-World search, final answer quality, latency savings, rendered operator acceptance, Graph-off authoring, or the complete Mirathorn lifecycle. Authoring is explicitly creative and does not claim Graph factual support. No provider, retained World write, new environment/checkout, serving rollout or MEDIA activation occurred.

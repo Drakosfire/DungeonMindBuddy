@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
@@ -119,6 +119,22 @@ def projection(exposure: Any) -> WriterProjection:
         exposure.prior_provider_attempt_id,
         bool(state.get("exposure", {}).get("saved_sections")),
     )
+
+
+def with_dialogue(staged: WriterProjection, history: tuple | list) -> WriterProjection:
+    """Carry the parent's frozen complete pairs; dialogue is never source evidence."""
+    if not history:
+        return staged
+    for pair in history:
+        UUID(pair["turn_id"])
+        for role in ("user", "assistant"):
+            if hashlib.sha256(pair[role].encode()).hexdigest() != pair[f"{role}_sha256"]:
+                raise ValueError("Frozen dialogue text differs from its parent digest")
+    packet = json.loads(staged.input_json)
+    packet["dialogue_reference"] = list(history)
+    packet["dialogue_policy"] = "conversation_reference_only_not_source_evidence"
+    return replace(staged, input_json=json.dumps(packet, ensure_ascii=False,
+        separators=(",", ":"), sort_keys=True, allow_nan=False))
 
 
 def validate_body(payload: str, expected: WriterProjection) -> dict:

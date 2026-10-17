@@ -153,7 +153,7 @@ export function BuildComposeProposal({ record, canInsert, onInsert, recovered = 
   return <article className="build-compose-proposal" aria-label="Page proposal">
     <p className="build-compose-proposal__request"><strong>{record.reservation.origin ? "Writing instruction" : "You"}</strong> {record.reservation.instruction}</p>
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
-      <p>Proposed addition to your page</p>
+      <p>Authored suggestion for your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />
       {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}

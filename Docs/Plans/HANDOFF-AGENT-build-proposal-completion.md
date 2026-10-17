@@ -1,6 +1,8 @@
 # AGENT: durable conversation completion for a prepared Build proposal
 
-ACTIVE under PRIME's Graph collaboration goal, following ARCHITECTURE's shared-writer design. Basefd855c140905068e4fe2a61c4dfcb9948952b987; branch codex/build-proposal-completion in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. Serial successor to1321. No new checkout, export, dependency environment or /tmp directory.
+IMPLEMENTED: independently reviewed and merged as b3f22927a3bd5d143d2c02512d2c106a5ada5fd1 (PR1322). The bounded implementation lease is closed; ordinary runtime adoption is owned by HANDOFF-AGENT-build-jev-ordinary-harness.md.
+
+Original contract under PRIME's Graph collaboration goal, following ARCHITECTURE's shared-writer design. Basefd855c140905068e4fe2a61c4dfcb9948952b987; branch codex/build-proposal-completion in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. Serial successor to1321. No new checkout, export, dependency environment or /tmp directory.
 
 ## Outcome
 

@@ -1024,6 +1024,15 @@ class AgentConversationService:
             duplicate_key="provider_attempt_id",
         )
 
+    def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection):
+        from .types import BuildJevActionSelectionV1
+        if not isinstance(selection, BuildJevActionSelectionV1):
+            raise ApplicationStateValidationError("A typed Build selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id")
+
     def record_provider_outcome(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,

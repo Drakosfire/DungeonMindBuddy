@@ -81,6 +81,13 @@ def validate_stored_proposal(conn, turn, completion):
             raise ValueError(
                 "Authoring completion differs from its exact proposal owner record"
             )
+        from .types import BuildActionControllerWriterPolicyV1, BuildJevActionSelectionV1
+        if isinstance(turn.graph_context_execution.policy, BuildActionControllerWriterPolicyV1):
+            choices = [e for e in turn.graph_context_execution.events if isinstance(e, BuildJevActionSelectionV1)]
+            if (len(choices) != 1 or choices[0].operation != "propose_build_insertion"
+                    or choices[0].broker_operation_id != origin.broker_operation_id
+                    or choices[0].arguments_sha256 != origin.arguments_sha256):
+                raise ValueError("Proposal origin differs from the controller-selected operation")
         expected_arguments = sha256(
             json.dumps(
                 {"instruction": reservation.instruction},
@@ -115,3 +122,28 @@ def validate_stored_proposal(conn, turn, completion):
         raise ApplicationStateIntegrityError(
             "Build authoring completion failed proposal-owner integrity validation"
         ) from exc
+
+
+def recover_prepared_proposal(service, turn, action_id):
+    """Finish only an already persisted, acknowledged proposal; never dispatch."""
+    from application_state.build_proposal.service import BuildProposalService
+    from application_state.errors import ApplicationStateNotFoundError
+    from .types import BuildActionControllerWriterPolicyV1, TurnResult
+
+    if (turn.status != "running" or turn.graph_context_execution is None
+            or not isinstance(turn.graph_context_execution.policy, BuildActionControllerWriterPolicyV1)):
+        return None
+    try:
+        record = BuildProposalService().get(turn.world_id, action_id)
+    except ApplicationStateNotFoundError:
+        return None
+    if record.state != "proposed":
+        return None
+    completion = completion_for_proposal(record, turn.graph_context_receipt)
+    # The completion transaction independently validates the actual proposal,
+    # turn, source, action selection, writer acknowledgement and result digest.
+    return service.complete_turn(TurnResult(world_id=turn.world_id,
+        conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+        expected_revision=turn.revision, assistant_text=BUILD_PROPOSAL_READY_TEXT,
+        completion=completion, producing_provider_attempt_id=record.authorization.provider_attempt_id,
+        claim_graph_event_ids={}))
