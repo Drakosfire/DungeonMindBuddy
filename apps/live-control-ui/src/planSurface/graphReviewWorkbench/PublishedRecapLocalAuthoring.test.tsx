@@ -170,6 +170,20 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
   });
 
+  it("labels the reader as a working recap and keeps its published source explicit", () => {
+    renderHost();
+
+    expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
+
+    const notice = screen.getByTestId("published-recap-working-projection-notice");
+    expect(notice).toHaveTextContent("Working projection");
+    expect(notice).toHaveTextContent("Source: Published recap.");
+    expect(notice).toHaveTextContent(
+      "Node changes are local and uncommitted. The canonical recap and World memory are unchanged.",
+    );
+  });
+
   it("keeps the local Author Node expandable without losing its right-anchored host", () => {
     renderHost();
 
