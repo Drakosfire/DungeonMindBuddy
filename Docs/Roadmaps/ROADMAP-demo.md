@@ -46,9 +46,11 @@ even when residual output appears valid. Buddy #1275 freezes
 controller/writer roles, #1277 authorizes actual first Build Jev requests and #1278
 binds subsequent decisions to completed parent Graph/source exposures. #1279
 adds one evidence-bound Graph writer with durable completion and source targets.
-The next [saved Build section producer](../Plans/HANDOFF-AGENT-build-saved-section-admission.md)
-adds separately attributed authored passages; this is required before reproducing
-the full pilot cases through ordinary conversation. Production controller selection and
+#1280 adds exact saved-section authorization/receipts in the same ordered ledger.
+The next [section inclusion consumer](../Plans/HANDOFF-AGENT-build-section-provider-inclusion.md)
+binds actual Jev/writer inputs and normalized source segments to those reads.
+Saved-section source opening and ordinary runtime selection remain open before
+claiming full pilot parity in ordinary conversation. Production controller selection and
 ordinary runtime adoption follow separately. Jev judges relevance and missing
 evidence; code owns acquisition, uniqueness, caching and stopping.
 

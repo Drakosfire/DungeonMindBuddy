@@ -5,6 +5,13 @@ ACTIVE serial consumer. PRIME implements solo; ARCHITECTURE reviews. Base
 codex/build-section-provider-inclusion; non-serving /tmp/prime-recap-mention-boundaries.
 #1280 is merged; open Ingest/UI leases are disjoint.
 
+Resumed by PRIME under the standing foundation goal after prompt inspection #1283
+merged at 18dcb5f7fdedee49a7d785ad765ddc8b9e571322 and Ingest #1284
+merged at 44f3a3e57d162fbcf4c8a1de649a5b5395ed3d93. The prompt slice
+completed its agent_turn_service.py write lease; ownership transfers back to this
+consumer. Preserve merged exact-request capture while integrating current main.
+The paused implementation is preserved in this lane; no serving or provider calls.
+
 One capability: actually include selected validated saved Build passages in Jev
 and single-writer requests and bind saved-source answer segments to the producing
 writer's exact included reads. New explicit selected-section policy is required;

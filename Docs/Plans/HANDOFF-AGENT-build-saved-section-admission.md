@@ -1,6 +1,9 @@
 # AGENT — saved Build section admission
 
-ACTIVE serial producer. PRIME implements solo; ARCHITECTURE reviews. Base
+SETTLED — #1280 merged at 9f0dabf32031f0b6c972956c505d4ae75fa55695.
+Successor: [provider/answer inclusion](HANDOFF-AGENT-build-section-provider-inclusion.md).
+
+Serial producer. PRIME implements solo; ARCHITECTURE reviews. Base
 04f9f09bbf94ab42e894ecb5e86ae5914adac96b; branch
 codex/build-saved-section-admission; non-serving /tmp/prime-recap-mention-boundaries.
 Current open Ingest/UI leases are disjoint. #1279 is merged; no implementation

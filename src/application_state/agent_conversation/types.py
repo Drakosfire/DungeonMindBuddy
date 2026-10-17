@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal, NoReturn
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -1762,6 +1762,10 @@ class ControllerWriterGraphExecutionPolicyV3(SettledGraphExecutionPolicyV3):
     provider_roles: GraphControllerWriterRolesV1
 
 
+class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV3):
+    saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -2519,6 +2523,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     ValidatedRelatedRecapContextEventV2,
                     RelatedRecapContextProviderInclusionEventV2,
                     BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+                    BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 ),
             ):
                 continue
@@ -2588,13 +2593,57 @@ class ValidatedBuildSectionReadV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildSectionProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_provider_inclusion_v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    section_event_ids: list[UUID] = Field(min_length=1, max_length=128)
+    sections_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_ids(self):
+        if self.section_event_ids != sorted(set(self.section_event_ids), key=str):
+            raise ValueError("Build inclusion read IDs must be sorted and distinct")
+        return self
+
+
+class BuildSectionSegmentBindingV1(StrictModel):
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    section_event_ids: list[UUID] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_ids(self):
+        if self.section_event_ids != sorted(set(self.section_event_ids), key=str):
+            raise ValueError("Build answer read IDs must be sorted and distinct")
+        return self
+
+
+class BuildSectionAnswerBindingV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_answer_binding_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    bindings: list[BuildSectionSegmentBindingV1] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_indices(self):
+        indices = [item.segment_index for item in self.bindings]
+        if indices != sorted(set(indices)):
+            raise ValueError("Build segment bindings must be sorted and unique")
+        return self
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
-    | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1,
+    | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1,
     Field(discriminator="kind"),
 ]
 
@@ -2603,7 +2652,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -2665,6 +2714,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             elif isinstance(event, CompletionBindingEventV1):
                 if writer_attempt is None or event.provider_attempt_id != writer_attempt:
                     raise ValueError("completion must bind the authorized writer attempt")
+        validate_build_section_inclusions(self)
         return self
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
@@ -2673,6 +2723,99 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             if isinstance(event, SourceScopeExtensionEventV3):
                 pins.update({pin.anchor_id: pin for pin in event.pins})
         return pins
+
+
+def build_sections_digest(reads) -> str:
+    return _canonical_sha256([event.model_dump(mode="json", by_alias=True)
+        for event in sorted(reads, key=lambda item: str(item.event_id))])
+
+
+def validate_build_section_inclusions(execution) -> None:
+    reads, inclusions, attempts, outcomes = {}, {}, {}, {}
+    pending = None
+    answers = []
+    for event in execution.events:
+        if pending is not None:
+            if (not isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    or event.provider_attempt_id != pending.provider_attempt_id
+                    or event.envelope_sha256 != pending.envelope_sha256):
+                raise ValueError("Saved section inclusion must immediately precede exact provider authorization")
+            pending = None
+        if isinstance(event, ValidatedBuildSectionReadV1):
+            reads[event.event_id] = event
+        elif isinstance(event, BuildSectionProviderInclusionV1):
+            latest = next(reversed(attempts.values()), None)
+            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+                    or latest is None or outcomes.get(latest.provider_attempt_id) != "response_received"
+                    or (latest.provider, latest.model, latest.api_mode) != execution.policy.provider_roles.controller.identity()
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256
+                    or event.provider_attempt_id in inclusions or event.provider_attempt_id in attempts
+                    or any(rid not in reads for rid in event.section_event_ids)
+                    or event.sections_sha256 != build_sections_digest([reads[rid] for rid in event.section_event_ids])):
+                raise ValueError("Saved section inclusion differs from exact completed reads and policy")
+            inclusions[event.provider_attempt_id] = event
+            pending = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            attempts[event.provider_attempt_id] = event
+        elif isinstance(event, ProviderOutcomeEventV1):
+            outcomes[event.provider_attempt_id] = event.outcome
+        elif isinstance(event, BuildSectionAnswerBindingV1):
+            auth = attempts.get(event.provider_attempt_id)
+            inclusion = inclusions.get(event.provider_attempt_id)
+            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+                    or answers or auth is None or inclusion is None
+                    or (auth.provider, auth.model, auth.api_mode) != execution.policy.provider_roles.writer.identity()
+                    or event.envelope_sha256 != auth.envelope_sha256
+                    or outcomes.get(event.provider_attempt_id) != "response_received"
+                    or any(not set(item.section_event_ids).issubset(inclusion.section_event_ids) for item in event.bindings)):
+                raise ValueError("Saved answer binding lacks its producing writer's exact included reads")
+            answers.append(event)
+        elif isinstance(event, CompletionBindingEventV1) and answers:
+            if (answers[0].provider_attempt_id != event.provider_attempt_id
+                    or answers[0].completion_sha256 != event.completion_sha256):
+                raise ValueError("Saved answer binding differs from final completion")
+
+
+def project_build_section_answer_bindings(execution, completion, attempt_id, bindings):
+    """Pure validation projection; only complete_turn can persist these bindings."""
+    if not bindings:
+        return execution
+    auth = next((event for event in execution.events
+        if isinstance(event, ProviderAttemptAuthorizedEventV1) and event.provider_attempt_id == attempt_id), None)
+    if auth is None:
+        raise ValueError("Saved answer binding has no producing authorization")
+    event = BuildSectionAnswerBindingV1(kind="build_section_answer_binding_v1",
+        event_id=uuid4(), sequence=len(execution.events), provider_attempt_id=attempt_id,
+        envelope_sha256=auth.envelope_sha256,
+        completion_sha256=_canonical_sha256(completion.model_dump(mode="json", by_alias=True)), bindings=bindings)
+    return type(execution).model_validate(execution.model_dump(mode="json", by_alias=True)
+        | {"events": [*[item.model_dump(mode="json", by_alias=True) for item in execution.events],
+            event.model_dump(mode="json", by_alias=True)]})
+
+
+def validate_build_section_completion(completion, execution, producing_provider_attempt_id) -> None:
+    bindings = [event for event in execution.events if isinstance(event, BuildSectionAnswerBindingV1)]
+    if not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1):
+        if bindings:
+            raise ValueError("Saved section answer binding requires explicit source input policy")
+        return
+    segments = {index: segment for index, segment in enumerate(completion.answer_segments)
+        if isinstance(segment, SavedSourceClaimV1)}
+    if not segments:
+        if bindings:
+            raise ValueError("Saved answer bindings have no source segments")
+        return
+    if (len(bindings) != 1 or bindings[0].provider_attempt_id != producing_provider_attempt_id
+            or bindings[0].completion_sha256 != _canonical_sha256(completion.model_dump(mode="json", by_alias=True))
+            or {item.segment_index for item in bindings[0].bindings} != set(segments)):
+        raise ValueError("Every saved source segment needs its exact completion-bound reads")
+    reads = {event.event_id: event for event in execution.events if isinstance(event, ValidatedBuildSectionReadV1)}
+    for item in bindings[0].bindings:
+        segment = segments[item.segment_index]
+        if (item.text_sha256 != hashlib.sha256(segment.text.encode()).hexdigest()
+                or any(reads[rid].source_basis.content_sha256 != segment.content_sha256 for rid in item.section_event_ids)):
+            raise ValueError("Saved segment text or source differs from included read binding")
 
 
 def _related_recap_descriptor_key(
@@ -2885,9 +3028,10 @@ def validate_selected_source_binding(
 ) -> None:
     validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
     for event in execution.events if execution is not None else ():
-        if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
+        if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+                BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1)):
             if (not isinstance(receipt, BuildGraphContextReceiptV1)
-                    or event.source_basis != receipt.source_basis
+                    or (hasattr(event, "source_basis") and event.source_basis != receipt.source_basis)
                     or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)):
                 raise ValueError("Saved section differs from its frozen Build source authority")
 
@@ -3476,6 +3620,7 @@ def validate_execution_completion(
     if isinstance(receipt, BuildGraphContextReceiptV1) != isinstance(completion, BuildGraphCompletionV1):
         raise ValueError("Completion and frozen receipt must identify the same surface contract")
     validate_selected_source_binding(receipt, execution)
+    validate_build_section_completion(completion, execution, producing_provider_attempt_id)
     if isinstance(completion, (PlanWorldGraphCompletionV2, BuildGraphCompletionV1)):
         if not isinstance(execution, PlanWorldGraphExecutionV2):
             raise ValueError("V2 completion requires a V2 execution record")  # noqa: TRY004
@@ -3827,6 +3972,9 @@ class Turn(StrictModel):
             _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
             if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
                 raise ValueError("Build answer text must match its validated completion segments")
+        if (self.completion is None and self.graph_context_execution is not None
+                and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
+            raise ValueError("Saved answer bindings require a completed answer")
         if self.completion is not None:
             if self.graph_context_receipt is None:
                 raise ValueError("Graph completion requires its frozen context receipt")
@@ -3860,9 +4008,12 @@ class TurnResult(StrictModel):
     completion: GraphTurnCompletion | None = None
     producing_provider_attempt_id: UUID | None = None
     claim_graph_event_ids: dict[str, list[UUID]] | None = None
+    build_section_bindings: list[BuildSectionSegmentBindingV1] = Field(default_factory=list, max_length=128)
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
+        if self.build_section_bindings and not isinstance(self.completion, BuildGraphCompletionV1):
+            raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
         if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):

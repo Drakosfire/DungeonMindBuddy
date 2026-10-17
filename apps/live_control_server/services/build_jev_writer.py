@@ -34,14 +34,24 @@ Use {"kind":"connective","text":"prose"} only for transitions or explaining
 insufficient evidence, never to introduce factual claims. The host builds citations.'''
 
 
+SOURCE_INSTRUCTIONS = INSTRUCTIONS.replace(
+    "The saved source basis identifies a document; its body has not been supplied.\nDo not emit saved_source_claim, citations, evidence metadata, or controller judgments.",
+    "Selected saved_sections are authored reference, never admitted Graph or played truth. "
+    "For a claim from those passages emit {\"kind\":\"saved_source_claim\",\"text\":\"prose\","
+    "\"section_read_ids\":[\"exact supplied read_id\"]}. Cite every supporting selected read. "
+    "Do not emit content hashes, citation maps, evidence metadata or controller judgments.").replace(
+    "Every factual\nsegment must be", "For admitted Graph facts use")
+
+
 @dataclass(frozen=True)
 class WriterProjection:
     input_json: str
     event_sequence: int
     prior_provider_attempt_id: str
+    has_saved_sections: bool = False
 
     def kwargs(self) -> dict:
-        return {"model": MODEL, "input": self.input_json, "instructions": INSTRUCTIONS,
+        return {"model": MODEL, "input": self.input_json, "instructions": SOURCE_INSTRUCTIONS if self.has_saved_sections else INSTRUCTIONS,
                 "max_output_tokens": OUTPUT_RESERVE, "reasoning": {"effort": "low"},
                 "text": {"format": {"type": "json_object"}}, "tools": [], "stream": False}
 
@@ -52,7 +62,8 @@ def projection(exposure: Any) -> WriterProjection:
         input_policy="complete_exposed_graph_and_opened_sources_v1")
     # The writer receives no Jev judgments, repeated conversation or tool schemas.
     return WriterProjection(json.dumps(state, ensure_ascii=False, separators=(",", ":"),
-        sort_keys=True, allow_nan=False), exposure.event_sequence, exposure.prior_provider_attempt_id)
+        sort_keys=True, allow_nan=False), exposure.event_sequence, exposure.prior_provider_attempt_id,
+        bool(state.get("exposure", {}).get("saved_sections")))
 
 
 def validate_body(payload: str, expected: WriterProjection) -> dict:
@@ -91,5 +102,5 @@ def prepared_view(prepared: Any, expected: WriterProjection) -> dict:
 def text_request(staged: WriterProjection):
     from generationengine import TextRequest
     return TextRequest(provider=PROVIDER, model=MODEL, user_prompt=staged.input_json,
-        system_prompt=INSTRUCTIONS, temperature=None, max_output_tokens=OUTPUT_RESERVE,
+        system_prompt=staged.kwargs()["instructions"], temperature=None, max_output_tokens=OUTPUT_RESERVE,
         reasoning_effort="low", json_object=True, max_transport_retries=0)

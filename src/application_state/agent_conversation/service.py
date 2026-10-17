@@ -47,6 +47,9 @@ from application_state.agent_conversation.types import (
     BuildGraphContextReceiptV1,
     BuildSectionReadAuthorizationV1,
     ValidatedBuildSectionReadV1,
+    BuildSectionProviderInclusionV1,
+    BuildSectionAnswerBindingV1,
+    project_build_section_answer_bindings,
     validate_selected_source_binding,
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
@@ -1022,6 +1025,14 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
         )
 
+    def record_build_section_inclusion(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, inclusion: BuildSectionProviderInclusionV1,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=inclusion, duplicate_key="event_id")
+
     def authorize_build_section_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
@@ -1202,6 +1213,8 @@ class AgentConversationService:
                 if (
                     turn.assistant_text == result.assistant_text
                     and turn.completion == result.completion
+                    and [item for event in (turn.graph_context_execution.events if turn.graph_context_execution else [])
+                        if isinstance(event, BuildSectionAnswerBindingV1) for item in event.bindings] == result.build_section_bindings
                     and turn.revision == result.expected_revision + 1
                     and (
                         turn.graph_context_execution is None
@@ -1224,6 +1237,11 @@ class AgentConversationService:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
                 payload = result.completion.model_dump(mode="json", by_alias=True)
                 digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+                try:
+                    execution = project_build_section_answer_bindings(execution, result.completion,
+                        result.producing_provider_attempt_id, result.build_section_bindings)
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
                 binding = CompletionBindingEventV1(
                     event_id=uuid4(), sequence=len(execution.events), kind="completion_binding",
                     provider_attempt_id=result.producing_provider_attempt_id,
