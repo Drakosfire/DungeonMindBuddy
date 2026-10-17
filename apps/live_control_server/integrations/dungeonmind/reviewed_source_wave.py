@@ -75,4 +75,3 @@ def reviewed_source_wave(
             yield replace(services, reviewed_source_wave=wave)
         finally:
             wave.close()
-
