@@ -1,6 +1,6 @@
 # AGENT: separate support assessment from retrieval navigation
 
-ACTIVE under PRIME's responsive Graph collaboration goal and ARCHITECTURE's explicit projection guidance. Base9020dc459b78c49f3aaea01bd5594ffb0f266e3b (merged1329). Serial successor; frontier write lease transfers after its merge. PRIME implements solo, ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/dependencies. No new worktree, clone, source export, environment or /tmp directory. No serving/retained-data changes; DOGFOOD retains Ingest/Combat and operator Build ownership.
+SETTLED implementation/review lease. Merged via PR1330 at9f1d2f66b97ad1503bedab920da92c90314a8963 after ARCHITECTURE code PASS exactcc9beedf02b85974f282b71c5dcda9ab4aa42ec6 and56independent tests;173author tests pass. Runtime/operator acceptance remain open; the contained-passage successor owns overlapping paths. Original authority: ACTIVE under PRIME's responsive Graph collaboration goal and ARCHITECTURE's explicit projection guidance. Base9020dc459b78c49f3aaea01bd5594ffb0f266e3b (merged1329). Serial successor; frontier write lease transfers after its merge. PRIME implements solo, ARCHITECTURE independently reviews. Reuse existing buddy-tool-denial-delivery checkout/dependencies. No new worktree, clone, source export, environment or /tmp directory. No serving/retained-data changes; DOGFOOD retains Ingest/Combat and operator Build ownership.
 
 ## Evidence, critique and bounded outcome
 

@@ -4,10 +4,19 @@ from __future__ import annotations
 
 from copy import deepcopy
 import hashlib
+import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .build_jev_transitions import AcquiredEvidence, SourceScope
+
+
+CONTAINED_CODEC = "contained_passage_slices_v1"
+CONTAINED_RULE = (
+    " contained_passage_slices_v1 maps each literal container to flat "
+    "[handle,start,end,...] triples: exact half-open Unicode code-point slices. "
+    "Expand before reading references; surrounding container text does not share a slice's provenance."
+)
 
 
 _FIELDS = ("id", "subject", "source_class", "epistemic_kind", "temporal_scope")
@@ -77,9 +86,25 @@ def _expand(segments: list, dictionary: dict[str, str], used: set[str]) -> str:
 
 
 def verify_projection(
-    payload: dict, scope: SourceScope, units: tuple[AcquiredEvidence, ...]
+    payload: dict,
+    scope: SourceScope,
+    units: tuple[AcquiredEvidence, ...],
+    *,
+    codec: str | None = None,
 ) -> None:
     """Independently expand the view and compare every original unit's bytes."""
+    if codec is not None:
+        if codec != CONTAINED_CODEC:
+            raise ValueError("unsupported evidence codec")
+        from .build_initial_packet_codec import canonical
+
+        expanded = expand_contained_passages(payload)
+        expected = project_evidence(scope, units)
+        if canonical(expanded) != canonical(expected):
+            raise ValueError(
+                "contained evidence does not reconstruct exact parent projection"
+            )
+        return
     if set(payload) != {"scope", "evidence", "passages"} or payload[
         "scope"
     ] != scope.model_dump(mode="json"):
@@ -131,7 +156,9 @@ def verify_projection(
         raise ValueError("unreferenced injected passage")
 
 
-def project_evidence(scope: SourceScope, units: tuple[AcquiredEvidence, ...]) -> dict:
+def project_evidence(
+    scope: SourceScope, units: tuple[AcquiredEvidence, ...], *, codec: str | None = None
+) -> dict:
     """Intern exact strings only. Output does not contain or replace host proofs."""
     bodies = set()
     for unit in units:
@@ -161,4 +188,90 @@ def project_evidence(scope: SourceScope, units: tuple[AcquiredEvidence, ...]) ->
         "passages": dictionary,
     }
     verify_projection(payload, scope, units)
+    if codec is not None:
+        if codec != CONTAINED_CODEC:
+            raise ValueError("unsupported evidence codec")
+        payload = encode_contained_passages(payload)
+        verify_projection(payload, scope, units, codec=codec)
     return deepcopy(payload)
+
+
+def _cost(value: dict) -> int:
+    from .build_jev_dispatch import _json_nodes
+
+    return len(
+        json.dumps(
+            value, ensure_ascii=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    ) + 64 * _json_nodes(value)
+
+
+def encode_contained_passages(payload: dict) -> dict:
+    """Exact text reuse only; handles and every evidence layer remain distinct."""
+    literal = expand_contained_passages(payload)
+    bodies = literal["passages"]
+    containers, aliases = {}, {}
+    for handle in sorted(bodies, key=lambda h: (-len(bodies[h]), h)):
+        text = bodies[handle]
+        target = next((key for key, value in containers.items() if text in value), None)
+        if target is None:
+            containers[handle] = text
+        else:
+            start = containers[target].find(text)
+            aliases.setdefault(target, []).extend((handle, start, start + len(text)))
+    if not aliases:
+        return literal
+    compact = {**literal, "passages": containers, CONTAINED_CODEC: aliases}
+    # Include the grammar's actual conservative cost, not just body-byte savings.
+    if _cost(compact) + _cost({"grammar": CONTAINED_RULE}) >= _cost(literal):
+        return literal
+    from .build_initial_packet_codec import canonical
+
+    if canonical(expand_contained_passages(compact)) != canonical(literal):
+        raise ValueError("contained codec failed exact round trip")
+    return compact
+
+
+def expand_contained_passages(payload: dict) -> dict:
+    """No reference chains, implicit units, normalization or recovery from raw IO."""
+    if not isinstance(payload, dict) or set(payload) not in (
+        {"scope", "evidence", "passages"},
+        {"scope", "evidence", "passages", CONTAINED_CODEC},
+    ):
+        raise ValueError("contained projection schema differs")
+    bodies = payload["passages"]
+    if not isinstance(bodies, dict) or not all(
+        isinstance(k, str) and k and isinstance(v, str) and v for k, v in bodies.items()
+    ):
+        raise ValueError("invalid literal passage dictionary")
+    result = deepcopy(payload)
+    if CONTAINED_CODEC not in result:
+        return result
+    groups = result.pop(CONTAINED_CODEC)
+    if not isinstance(groups, dict) or not groups:
+        raise ValueError("invalid contained passage groups")
+    expanded = result["passages"]
+    for container, rows in groups.items():
+        if (
+            container not in bodies
+            or not isinstance(rows, list)
+            or not rows
+            or len(rows) % 3
+        ):
+            raise ValueError(
+                "contained passage requires a literal container and complete triples"
+            )
+        text = bodies[container]
+        for index in range(0, len(rows), 3):
+            handle, start, end = rows[index : index + 3]
+            if (
+                not isinstance(handle, str)
+                or not handle
+                or handle in expanded
+                or type(start) is not int
+                or type(end) is not int
+                or not 0 <= start < end <= len(text)
+            ):
+                raise ValueError("invalid contained passage handle or Unicode offsets")
+            expanded[handle] = text[start:end]
+    return result

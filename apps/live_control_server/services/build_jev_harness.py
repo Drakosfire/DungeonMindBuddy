@@ -66,7 +66,9 @@ class BuildJevHarness:
         budget = decision_policy.request_budget()
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
+        from .build_jev_compaction import CONTAINED_CODEC
         budget["buildJevActions"] = dict(
+            evidence_codec=CONTAINED_CODEC,
             phase_input_policy=decision_policy.PHASE_POLICY,
             frontier_policy=FRONTIER_POLICY,
             initial_packet_codec=CODEC,
