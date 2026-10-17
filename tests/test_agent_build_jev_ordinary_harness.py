@@ -90,6 +90,8 @@ class WriterWire(httpx.AsyncBaseTransport):
                     "assumptions": ["Nia is invented."],
                 }
             )
+        elif body["text"]["format"].get("name") == "build_cited_source_answer" and not packet["opened_passages"]:
+            text = json.dumps({"answer_context_status": "source_insufficient_evidence", "answer_segments": []})
         else:
             text = json.dumps(
                 {
@@ -103,6 +105,12 @@ class WriterWire(httpx.AsyncBaseTransport):
                     ],
                 }
             )
+        if body["text"]["format"].get("name") == "build_cited_source_answer":
+            answer = json.loads(text)
+            answer["limitations"] = ["partial_retrieval"] if self.answer_status != "source_grounded" else []
+            if packet.get("retrieval_disposition", {}).get("status") == "insufficient_evidence":
+                answer["limitations"].append("missing_requested_details")
+            text = json.dumps(answer)
         return httpx.Response(
             200,
             request=request,

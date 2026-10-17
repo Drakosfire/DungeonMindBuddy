@@ -88,7 +88,8 @@ def test_one_native_session_reaches_graph_and_source_then_closes_before_sdk(
         monkeypatch, harness
     )
     result = execute(case, tmp_path, harness)
-    assert result.answer.text == "Frank believes the western gate is haunted."
+    assert result.answer.text == ("Frank believes the western gate is haunted.\n"
+        "This answer uses partial retrieval and does not establish corpus completeness.")
     assert events == ["open", "close"] and not handles[0].active
     assert graph_services == source_services == handles
     assert reads == {"graph": 1, "source": 1} and len(writer.calls) == 1

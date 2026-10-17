@@ -1118,7 +1118,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildReadBatchActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildCitedSourceActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("source_writer_output_policy") is not None
+                else graph_types.BuildReadBatchActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("acquisition_policy") is not None
                 else graph_types.BuildWriterBudgetActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("writer_context_budget") is not None
@@ -2134,7 +2136,8 @@ class _PolicyExecutionAdapter:
         graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
         if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
             raise ValueError("Controller exposure requires exact parent payload strings")
-        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids or len(set(graph_payloads)) != len(graph_payloads)
+        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids
+                and not isinstance(execution.policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1) or len(set(graph_payloads)) != len(graph_payloads)
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
@@ -2248,6 +2251,8 @@ class _PolicyExecutionAdapter:
         staged = writer.with_dialogue(staged, getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
+        if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
+            staged = writer.with_cited_output(staged)
         self._build_writer_projection = staged
         return staged
 
@@ -2311,7 +2316,13 @@ class _PolicyExecutionAdapter:
             if observation.kind == "context_snapshot" for m in observation.materials if m.item_id == draft_id]
         if captured != [final_text]:
             raise ValueError("Raw writer answer capture is incomplete")
-        candidate = json.loads(final_text)
+        staged = getattr(self, "_prepared_build_writer_projection", None)
+        cited = getattr(staged, "source_writer_output_policy", None) is not None
+        if cited:
+            from application_state.agent_conversation.source_writer_output import normalize
+            candidate = normalize(final_text, json.loads(staged.input_json))
+        else:
+            candidate = json.loads(final_text)
         if not isinstance(candidate, dict) or not isinstance(candidate.get("answer_segments"), list):
             raise ValueError("Writer answer shape is invalid")
         if any(not isinstance(s, dict) for s in candidate["answer_segments"]):
@@ -2341,7 +2352,15 @@ class _PolicyExecutionAdapter:
                 "content_sha256": self.fence.turn.graph_context_receipt.source_basis.content_sha256}
         turn = self.fence.turn
         staged = getattr(self, "_prepared_build_writer_projection", None)
-        if getattr(staged, "source_only", False):
+        if cited:
+            from application_state.agent_conversation.source_writer_output import reconstruct
+            execution = self._broker_execution()
+            auth = next(e for e in execution.events if isinstance(e, graph_types.ProviderAttemptAuthorizedEventV1)
+                and e.provider_attempt_id == self.producing_provider_attempt_id)
+            completion, source_bindings = reconstruct(final_text, json.loads(staged.input_json), turn, auth)
+            bindings = {}
+            answer = "\n".join(segment.text for segment in completion.answer_segments)
+        elif getattr(staged, "source_only", False):
             prepared = self._prepared_build_writer
             completion = writer.source_completion(candidate, staged,
                 receipt_hash=turn.graph_context_receipt.context_receipt_sha256,
@@ -2355,11 +2374,14 @@ class _PolicyExecutionAdapter:
                 build_section_bindings=source_bindings)
         self.context_capture.answer_context(answer)
         turn = self.stop()
-        self.turn = self.service.complete_turn(TurnResult(world_id=turn.world_id,
+        result_class = graph_types.CitedSourceTurnResult if cited else TurnResult
+        proof = {"writer_request_json": self._prepared_build_writer.body.decode("utf-8"),
+            "raw_provider_output_json": final_text} if cited else {}
+        self.turn = self.service.complete_turn(result_class(world_id=turn.world_id,
             conversation_id=turn.conversation_id, turn_id=turn.turn_id,
             expected_revision=turn.revision, assistant_text=answer, completion=completion,
             producing_provider_attempt_id=self.producing_provider_attempt_id, claim_graph_event_ids=bindings,
-            build_section_bindings=source_bindings))
+            build_section_bindings=source_bindings, **proof))
         return self.turn
 
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:

@@ -36,7 +36,8 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     response = execute(case, tmp_path, BuildJevHarness(
         decision_transport=decisions, writer_transport=writer, accounting=accounting,
     ))
-    assert response.answer.text == "Frank believes the western gate is haunted."
+    assert response.answer.text == ("Frank believes the western gate is haunted.\n"
+        "This answer uses partial retrieval and does not establish corpus completeness.")
     assert reads == {"graph": 1, "source": 1} and len(writer.calls) == 1
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]

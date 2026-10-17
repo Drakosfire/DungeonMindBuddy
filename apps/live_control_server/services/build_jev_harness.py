@@ -90,6 +90,8 @@ class BuildJevHarness:
             budget["buildJevActions"]["support_policy"] = JOINT_SUPPORT_POLICY
             budget["buildJevActions"]["writer_context_budget"] = writer_policy.role_budget()
             budget["buildJevActions"]["acquisition_policy"] = READ_BATCH_POLICY
+            from application_state.agent_conversation.source_writer_output import POLICY
+            budget["buildJevActions"]["source_writer_output_policy"] = POLICY
         return budget
 
     def configured_budget(self, request):
@@ -168,7 +170,8 @@ class BuildJevHarness:
                 "relevant_ids": list(terminal.relevant_ids),
             }
             graph, sources, sections = driver._material()
-            if sources:
+            from application_state.agent_conversation.types import BuildCitedSourceActionControllerWriterPolicyV1
+            if sources or isinstance(adapter._broker_execution().policy, BuildCitedSourceActionControllerWriterPolicyV1):
                 staged = adapter.stage_build_source_writer(
                     graph_payloads=graph,
                     source_read_event_ids=sources,
