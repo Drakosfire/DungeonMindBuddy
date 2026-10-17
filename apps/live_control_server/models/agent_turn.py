@@ -14,6 +14,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from application_state.agent_conversation.context_trace import TurnContextTraceV1
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+from .build_document_proposal import BuildWriteCapability
 
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV1,
@@ -227,6 +228,7 @@ class AgentTurnRequest(BaseModel):
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
     selected_knowledge: AgentKnowledgeSelection | None = None
+    build_write_capability: BuildWriteCapability | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
     message: str = Field(min_length=1, max_length=8000)
 
@@ -246,6 +248,17 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
+        capability = self.build_write_capability
+        if capability is not None:
+            basis = capability.basis
+            work = self.primary_work
+            if (self.surface.surface_id != "build" or self.owner_scope is None
+                    or self.owner_scope.kind != "world" or basis.world_id != self.owner_scope.world_id
+                    or work is None or work.kind != "build" or work.object_id != basis.document_id
+                    or work.expected_revision != basis.registry_revision
+                    or work.expected_content_sha256 != basis.content_sha256
+                    or self.graph_request.mode != "world"):
+                raise ValueError("Build writing requires the exact saved Build and requested World Graph")
         if self.selected_knowledge is not None and (
             self.surface.surface_id != "ingest"
             or self.owner_scope is None or self.owner_scope.kind != "world"

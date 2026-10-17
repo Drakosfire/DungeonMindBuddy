@@ -48,7 +48,7 @@ beforeEach(() => {
   vi.mocked(proposals.listBuildProposals).mockResolvedValue([]);
   vi.mocked(proposals.composeBuildProposal).mockImplementation(async request => ({ schema_version: 'dmb_build_document_proposal_v1',
     action_id: request.idempotency_key, reservation: { idempotency_key: request.idempotency_key, conversation_id: request.conversation_id,
-      expected_pointer_revision: request.expected_pointer_revision, basis: request.basis, instruction: request.instruction },
+      expected_pointer_revision: request.expected_pointer_revision, basis: request.basis, instruction: request.instruction, origin: request.origin },
     request_fingerprint: 'b'.repeat(64), after_turn_sequence: 0, revision: 5, state: 'proposed', created_at: '2026-10-16T00:00:00Z', updated_at: '', claim_expires_at: '',
     authorization: null, proposal: { replacement_markdown: '| NPC | Job |\n| --- | --- |\n| Nella | Ferrier |', summary: 'A proposed NPC.', assumptions: ['Nella is invented.'] },
     failure_code: null, inserted_in_draft: false }));
@@ -109,8 +109,20 @@ function OpenConversation() {
   const agent = useAgentInteraction();
   return <button onClick={() => agent.setPaneOpen(true)}>Open conversation</button>;
 }
-it('routes the ordinary Build composer to a reviewed page insertion using the published bridge', async () => {
+it('uses the Harness for a discussion follow-up and exposes its durable preview even if the reply is lost', async () => {
   vi.mocked(api.getWorldAgentConversationHistory).mockResolvedValue(history);
+  let saved: proposals.BuildProposalRecord[] = [];
+  vi.mocked(proposals.listBuildProposals).mockImplementation(async () => saved);
+  vi.mocked(api.postWorldBuildAgentTurn).mockImplementation(async request => {
+    const cap = request.build_write_capability!;
+    expect(cap.basis.document_id).toBe(DOC);
+    expect(cap.draft_markdown).toContain('A fort town.');
+    const generate = vi.mocked(proposals.composeBuildProposal).getMockImplementation()!;
+    saved = [await generate({ ...cap, instruction: 'Prepare the discussed Nella, a ferrier, as a table.',
+      origin: { client_turn_id: request.turn_id, durable_turn_id: '55555555-5555-4555-8555-555555555555',
+        broker_operation_id: 'host:g1', arguments_sha256: 'd'.repeat(64) } })];
+    throw new Error('Synthetic connection lost after the Harness tool prepared its preview');
+  });
   render(<AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
     <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell /><OpenConversation /></BuildCanvasTestProvider>
     <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld" />
@@ -118,18 +130,21 @@ it('routes the ordinary Build composer to a reviewed page insertion using the pu
   await waitFor(() => expect(session.phase).toBe('ready_clean'));
   fireEvent.click(screen.getByRole('button', { name: 'Open conversation' }));
   const composer = await screen.findByLabelText('Message DungeonBuddy');
-  fireEvent.change(composer, { target: { value: 'Create six NPCs with jobs and add them as a table.' } });
+  fireEvent.change(composer, { target: { value: 'Sounds good; please put that on the page as a table.' } });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled());
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   const insert = await screen.findByRole('button', { name: 'Insert into page' });
-  expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
-  expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1);
+  expect(api.postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  expect(proposals.composeBuildProposal).not.toHaveBeenCalled();
+  expect(session.dirty).toBe(false);
+  expect(session.editor!.state.doc.textContent).not.toContain('Nella');
   fireEvent.click(insert);
   await waitFor(() => expect(session.dirty).toBe(true));
   expect(session.editor!.state.doc.textContent).toContain('Nella');
+  expect(api.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
 });
 
-it.each(['click', 'enter'])('previews a natural table request by %s while preserving an uncertain read-only Ask', async method => {
+it.each(['click', 'enter'])('holds a new Harness request by %s while preserving an uncertain earlier turn', async method => {
   vi.mocked(api.getWorldAgentConversationHistory).mockResolvedValue(history);
   const key = 'dmb:world-play-pending-turn:v1:elderwyld';
   const pending = JSON.stringify({ schema: 'dmb_world_play_pending_turn_v1', request: {
@@ -141,12 +156,6 @@ it.each(['click', 'enter'])('previews a natural table request by %s while preser
     message: 'Do you have write tools? Can you see the page?',
   } });
   localStorage.setItem(key, pending);
-  const generate = vi.mocked(proposals.composeBuildProposal).getMockImplementation()!;
-  let finish!: () => void;
-  vi.mocked(proposals.composeBuildProposal).mockImplementation(async request => {
-    await new Promise<void>(resolve => { finish = resolve; });
-    return generate(request);
-  });
   render(<AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
     <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell /><OpenConversation /></BuildCanvasTestProvider>
     <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld" />
@@ -157,17 +166,10 @@ it.each(['click', 'enter'])('previews a natural table request by %s while preser
   fireEvent.change(composer, { target: { value: 'What do you know about Edge?' } });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled());
   fireEvent.change(composer, { target: { value: 'I want a table of 20 soldiers names on a d20 table.' } });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled());
+  expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   if (method === 'enter') fireEvent.keyDown(composer, { key: 'Enter' });
   else fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
-  await waitFor(() => expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1));
-  const retry = screen.getByRole('button', { name: 'Retry exact saved turn' });
-  expect(retry).toBeDisabled();
-  fireEvent.click(retry);
-  expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
-  await act(async () => { finish(); });
-  await screen.findByRole('button', { name: 'Insert into page' });
-  expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1);
+  expect(proposals.composeBuildProposal).not.toHaveBeenCalled();
   expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
   expect(localStorage.getItem(key)).toBe(pending);
   expect(session.dirty).toBe(false);

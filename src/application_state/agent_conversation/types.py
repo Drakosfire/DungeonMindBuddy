@@ -770,6 +770,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
         default="dmb_build_graph_intent_v1", alias="schema"
     )
     surface_id: Literal["build"]
+    build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
     primary_work: SubmittedPrimaryWorkIntentV1
     playable_target: None = None
@@ -851,6 +852,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
     payload = intent.model_dump(
         mode="json", by_alias=True, exclude={"client_thread_id"}
     )
+    if payload.get("build_write_capability_sha256") is None:
+        payload.pop("build_write_capability_sha256", None)
     return _fingerprint(payload)
 
 

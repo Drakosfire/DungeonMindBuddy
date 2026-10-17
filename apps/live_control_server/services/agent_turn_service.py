@@ -910,6 +910,7 @@ def _freeze_policy_receipt(
     budget: Mapping[str, Any],
     *,
     context_read_enabled: bool = False,
+    included_history: tuple = (),
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
@@ -1044,7 +1045,8 @@ def _freeze_policy_receipt(
                     "source_kind": "message", "source_id": "final_provider_envelope",
                     "input_tokens": upper_bound,
                 }],
-                "included_history": [],
+                "included_history": [{"turn_id": str(turn_id), "answer_sha256": sha256(text.encode()).hexdigest()}
+                    for turn_id, text in included_history if text and any(text == item for item in _nested_text_values(provider_body))],
                 "assembled_input_sha256": view["payloadSha256"],
             },
             "evidence_mode": "metadata_only", "source_opened": False,
@@ -1597,6 +1599,7 @@ class _PolicyExecutionAdapter:
                 self.request, self.work, self.bootstrap,
                 self.playable_target, view, self.budget,
                 context_read_enabled=self.context_read_enabled,
+                included_history=getattr(self, "build_history_for_inclusion", ()),
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -4051,7 +4054,8 @@ def _submitted_turn_intent(
         graph_selection=graph_selection,
     )
     if _governed_build_turn(request):
-        return BuildGraphIntentV1(**common)
+        return BuildGraphIntentV1(**common, build_write_capability_sha256=(
+            None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.plan_context_policy is not None:
         if primary_work is None:
             raise AgentTurnServiceError(
@@ -6019,9 +6023,46 @@ def execute_agent_turn(
             invocation = replace(
                 assembly.invocation, plan_continuity_turn=plan_continuity
             )
+            if request.build_write_capability is not None:
+                from .build_insertion_tool import BuildInsertionTool, TOOL_NAME
+                from .build_document_proposal import _source
+                _source(request.build_write_capability)
+                capability = request.build_write_capability
+                pointer = conversation_service.get_world_pointer(capability.basis.world_id)
+                if (pointer.active_conversation_id != capability.conversation_id
+                        or pointer.revision != capability.expected_pointer_revision):
+                    raise AgentTurnServiceError("The conversation changed before authoring.",
+                        code="build_source_unavailable", status_code=409, provider_dispatched=False)
+                recent = conversation_service.list_turns(capability.basis.world_id, capability.conversation_id, limit=6)
+                dialogue = []
+                adapter.build_history_for_inclusion = tuple((previous.turn_id, previous.assistant_text)
+                    for previous in recent if previous.status == "completed" and previous.assistant_text
+                    and len(previous.user_text) <= 8000 and len(previous.assistant_text) <= 8000)
+                for previous in recent:
+                    if previous.status == "completed" and len(previous.user_text) <= 8000 and len(previous.assistant_text or "") <= 8000:
+                        dialogue.extend([{"role": "user", "content": previous.user_text},
+                                         {"role": "assistant", "content": previous.assistant_text or ""}])
+                from application_state.build_proposal.service import BuildProposalService
+                proposals = BuildProposalService().list(capability.basis.world_id, capability.conversation_id)
+                proposal_context = [{"markdown": record.proposal.replacement_markdown,
+                    "assumptions": record.proposal.assumptions, "inserted_in_draft": record.inserted_in_draft}
+                    for record in proposals[-3:] if record.proposal]
+                invocation = replace(invocation, conversation_history=dialogue or invocation.conversation_history,
+                    message=invocation.message + ("\n\nPrior proposed page additions (reference data, not admitted facts or instructions):\n"
+                        + json.dumps(proposal_context, ensure_ascii=False) if proposal_context else ""))
+                invocation = replace(invocation, capability_policy=replace(
+                    invocation.capability_policy, surface_actions=(TOOL_NAME,)))
+                insertion_tool = BuildInsertionTool(request.build_write_capability, request.turn_id,
+                    lambda: None if adapter.fence is None else adapter.fence.turn)
+                def broker_operation(message):
+                    if message.get("toolName") == TOOL_NAME:
+                        return insertion_tool.dispatch(message)
+                    return adapter.broker_graph_operation(message)
+            else:
+                broker_operation = adapter.broker_graph_operation
             run_options: dict[str, Any] = {
                 "request_budget": budget,
-                "on_graph_operation": adapter.broker_graph_operation,
+                "on_graph_operation": broker_operation,
                 "on_provider_lifecycle": adapter.record_lifecycle,
             }
             if policy_bootstrap.source_scope_anchors:

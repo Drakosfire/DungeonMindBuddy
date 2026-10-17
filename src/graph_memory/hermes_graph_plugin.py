@@ -27,6 +27,7 @@ from apps.live_control_server.services.graph_tool_transport import (
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     HERMES_GRAPH_INTERACTION_TOOL_NAMES,
+    PROPOSE_BUILD_INSERTION,
     ORDERED_INTERACTION_TOOL_NAMES,
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
@@ -184,7 +185,7 @@ def default_graph_only_capability_policy(
     )
     names = tuple(
         name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-        if name != READ_RELATED_RECAP_CONTEXT_TOOL_NAME
+        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION}
     )
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
@@ -462,10 +463,16 @@ def _handler_for(tool_name: str):
     def _handler(args: dict, **kwargs: Any) -> str:
         del kwargs
         try:
-            payload, denied = apply_capability_policy_to_arguments(tool_name, args)
+            payload, denied = apply_capability_policy_to_arguments(tool_name, args,
+                effect="write" if tool_name == PROPOSE_BUILD_INSERTION else "read")
             if denied is not None:
                 return denied
             assert payload is not None
+            if tool_name == PROPOSE_BUILD_INSERTION:
+                broker = _active_parent_graph_broker.get()
+                if not _parent_graph_broker_required.get() or not callable(broker):
+                    return _policy_denied_error(code="build_insertion_broker_unavailable", message="No parent authoring capability is available.")
+                return broker(tool_name, payload)[0]
             if _parent_graph_broker_required.get():
                 if tool_name not in PAGED_TOOLS:
                     return _policy_denied_error(code="plan_graph_tool_not_permitted",

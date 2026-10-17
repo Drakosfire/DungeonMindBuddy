@@ -31,6 +31,7 @@ cannot retarget insertion. No partial provider events invented from other calls.
 
 ## Exclusive expected write set
 - this handoff
+- apps/live_control_server/routes/agent.py (reject client-forged tool origins)
 - apps/live_control_server/models/agent_turn.py
 - apps/live_control_server/models/build_document_proposal.py
 - apps/live_control_server/services/agent_runtime.py

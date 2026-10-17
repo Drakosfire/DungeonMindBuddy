@@ -313,6 +313,18 @@ class HermesAgentRuntimeAdapter:
                         ),
                     ),
                 )
+            if invocation.capability_policy.surface_actions:
+                surface = invocation.context_packet.surface_context
+                if surface is None or surface.surface_id != "build" or surface.current_work is None or surface.current_work.kind != "build":
+                    raise ValueError("Build insertion requires the current Build surface")
+                from .hermes_graph_interaction_tools import PROPOSE_BUILD_INSERTION
+                if invocation.capability_policy.surface_actions != (PROPOSE_BUILD_INSERTION,):
+                    raise ValueError("Unsupported surface action")
+                parent_policy = replace(parent_policy,
+                    enabled_tool_names=(*parent_policy.enabled_tool_names, PROPOSE_BUILD_INSERTION),
+                    tool_rules=(*parent_policy.tool_rules, HermesToolCapabilityRule(
+                        tool_name=PROPOSE_BUILD_INSERTION, toolset=TOOLSET_NAME,
+                        require_graph_scope=False, allowed_effects=frozenset({"write"}))))
             request = replace(
                 request,
                 provider_authorization_required=True,

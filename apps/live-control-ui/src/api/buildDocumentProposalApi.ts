@@ -8,6 +8,7 @@ export interface BuildProposalBasis {
 export interface BuildProposalRequest {
   idempotency_key: string; conversation_id: string; expected_pointer_revision: number;
   basis: BuildProposalBasis; instruction: string; draft_markdown: string;
+  origin?: { client_turn_id: string; durable_turn_id: string; broker_operation_id: string; arguments_sha256: string } | null;
 }
 export interface BuildProposalRecord {
   schema_version: 'dmb_build_document_proposal_v1'; action_id: string;

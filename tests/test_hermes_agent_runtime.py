@@ -269,7 +269,7 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert (
         request.capability_policy.enabled_tool_names == tuple(
             name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-            if name != "read_related_recap_context"
+            if name not in {"read_related_recap_context", "propose_build_insertion"}
         )
     )
     assert all(
@@ -553,3 +553,30 @@ def test_map_invocation_carries_play_surface_context_block_without_mutating_ques
         request.surface_context_block or ""
     )
     assert "beat:hold-the-gate" not in (request.surface_context_block or "")
+
+
+def test_build_insertion_tool_requires_separate_explicit_surface_capability():
+    class CapturingHost(_FakeHost):
+        def execute(self, request, **_kwargs):
+            self.calls.append(request)
+            return self.result
+    host = CapturingHost(_hermes_ok_result())
+    adapter = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext, AgentCurrentWorkContext
+    base = _invocation()
+    invocation = _invocation(capability_policy=AgentCapabilityPolicy(
+        policy_id=WORLD_GRAPH_READ_POLICY.policy_id, surface_actions=("propose_build_insertion",)),
+        context_packet=replace(base.context_packet, surface_context=AgentSurfaceContext(surface_id="build",
+            current_work=AgentCurrentWorkContext(kind="build", work_object_id="doc", title="Edge", object_revision=1))))
+    from apps.live_control_server.services.agent_turn_service import _policy_request_budget
+    adapter.run_with_provider_authorization(invocation, lambda _: True,
+        request_budget=_policy_request_budget(), on_graph_operation=lambda _: {})
+    request = host.calls[-1]
+    assert request.capability_policy.enabled_tool_names == ("expand_graph_retrieval", "propose_build_insertion")
+    rule = request.capability_policy.rule_for("propose_build_insertion")
+    assert rule.allowed_effects == frozenset({"write"}) and not rule.require_graph_scope
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    assert deserialize_hermes_graph_agent_turn_request(wire).capability_policy == request.capability_policy
+    ordinary = map_invocation_to_hermes_request(_invocation())
+    assert "propose_build_insertion" not in ordinary.capability_policy.enabled_tool_names
