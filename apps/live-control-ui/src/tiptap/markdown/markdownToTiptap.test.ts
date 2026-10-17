@@ -111,12 +111,11 @@ describe("markdownToTiptapDoc", () => {
     expect(paragraph.content?.find((node) => node.text === "code")?.marks).toEqual([{ type: "code" }]);
   });
 
-  it("fails closed on ordinary Markdown links instead of emitting an unmounted link mark", () => {
+  it("imports supported web links as mounted link marks", () => {
     const imported = markdownToTiptapDoc("Read [the rules](https://example.com/rules).");
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 1 }),
-    ]));
-    expect(JSON.stringify(imported.doc)).not.toContain('"type":"link"');
+    expect(imported.diagnostics).toEqual([]);
+    expect(JSON.stringify(imported.doc)).toContain('"type":"link"');
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toContain('[the rules](https://example.com/rules)');
   });
 
   it("imports typed ref links as runbookReference nodes", () => {
@@ -457,39 +456,12 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed when ordinary links inside table cells would be destroyed on export", () => {
-    const imported = markdownToTiptapDoc([
-      "Threat | Note",
-      "--- | ---",
-      "Latchling | See [wiki](https://example.com/latchling)",
-      "",
-    ].join("\n"));
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warning",
-        line: 3,
-        message: expect.stringContaining("Ordinary Markdown links"),
-      }),
-    ]));
-    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
-    expect(exported).not.toContain("](https://example.com/latchling)");
-  });
-
-  it("fails closed when ordinary links inside callout table cells would be destroyed", () => {
-    const imported = markdownToTiptapDoc([
-      "> [!GM-NOTE]",
-      "> Threat | Note",
-      "> --- | ---",
-      "> Latchling | See [wiki](https://example.com/latchling)",
-      "",
-    ].join("\n"));
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warning",
-        line: 4,
-        message: expect.stringContaining("Ordinary Markdown links"),
-      }),
-    ]));
+  it.each(["", "> [!GM-NOTE]\n"])("retains web links in table cells with callout prefix %s", prefix => {
+    const lines = ["Threat | Note", "--- | ---", "Latchling | See [wiki](https://example.com/latchling)"];
+    const source = prefix + lines.map(line => prefix ? "> " + line : line).join("\n");
+    const imported = markdownToTiptapDoc(source);
+    expect(imported.diagnostics).toEqual([]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toContain('[wiki](https://example.com/latchling)');
   });
 
   it("fails closed on aligned tables inside callouts via the table parse path", () => {

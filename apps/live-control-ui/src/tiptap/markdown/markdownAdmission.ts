@@ -1,3 +1,4 @@
+import { webSourceHref } from "./webSourceHref";
 import { mediaAssetId } from "../../media/mediaReferences";
 import type {
   Blockquote,
@@ -293,7 +294,14 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
     return sourceTextNodes(node, state);
   }
 
-  warn(state, "Ordinary Markdown links are not supported by the mounted editor schema.", nodeStartLine(node));
+  const href = webSourceHref(url);
+  if (href && node.title == null) {
+    const children = visitInlineChildren(node.children, state);
+    if (children.length > 0 && children.every(child => child.type === "text")) {
+      return withMark(children, { type: "link", attrs: { href } });
+    }
+  }
+  warn(state, "Ordinary Markdown links require an absolute HTTP/HTTPS URL, text label, and no title.", nodeStartLine(node));
   return sourceTextNodes(node, state);
 }
 

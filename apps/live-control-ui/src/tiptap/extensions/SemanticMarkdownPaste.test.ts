@@ -1,4 +1,5 @@
 import { Editor } from "@tiptap/core";
+import { WebSourceLink } from "./WebSourceLink";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vitest";
 
@@ -12,7 +13,7 @@ function createPasteEditor() {
   document.body.appendChild(element);
   const editor = new Editor({
     element,
-    extensions: [StarterKit, CalloutNode, ...DECISION_CONSEQUENCE_EXTENSIONS, SemanticMarkdownPaste],
+    extensions: [StarterKit, WebSourceLink, CalloutNode, ...DECISION_CONSEQUENCE_EXTENSIONS, SemanticMarkdownPaste],
     content: { type: "doc", content: [{ type: "paragraph" }] },
   });
   return {
@@ -64,6 +65,22 @@ describe("looksLikeSemanticMarkdown", () => {
 });
 
 describe("SemanticMarkdownPaste", () => {
+  it("pastes a supported source link even without a heading", () => {
+    const { editor, cleanup } = createPasteEditor();
+    try {
+      expect(simulatePaste(editor, {text: 'Read [Mirathorn](https://example.com/source).'})).toBe(true);
+      expect(editor.view.dom.querySelector('a')?.getAttribute('href')).toBe('https://example.com/source');
+    } finally { cleanup(); }
+  });
+  it("pastes headings and web source links as structure rather than literal Markdown", () => {
+    const { editor, cleanup } = createPasteEditor();
+    try {
+      expect(simulatePaste(editor, {text: '# Arrival\n\nRead [Mirathorn](http://127.0.0.1:5202/build?world=elderwyld&documentId=source).'})).toBe(true);
+      expect(editor.getHTML()).toContain('<h1>Arrival</h1>');
+      expect(editor.getHTML()).toContain('href="http://127.0.0.1:5202/build?world=elderwyld&amp;documentId=source"');
+    } finally { cleanup(); }
+  });
+
   it("inserts supported semantic Markdown when import diagnostics are clean", () => {
     const markdown = [
       "> [!DECISION-CONSEQUENCE]",
@@ -94,7 +111,7 @@ describe("SemanticMarkdownPaste", () => {
       "    > - Consequence beat",
       "    > - Next pressure",
       "",
-      "See [rules](https://example.com/rules).",
+      "See [rules](javascript:alert).",
       "",
     ].join("\n");
     expect(markdownToTiptapDoc(markdown).diagnostics.some((d) => d.level === "warning")).toBe(true);

@@ -275,12 +275,12 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     ]));
   });
 
-  it("rejects marks that are not mounted by the editor schema", () => {
+  it("rejects unsupported web link attributes", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
       content: [{
         type: "paragraph",
-        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com" } }] }],
+        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", title: "Not supported" } }] }],
       }],
     });
 

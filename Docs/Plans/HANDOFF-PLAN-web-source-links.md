@@ -34,6 +34,7 @@ Exclusive expected write lease:
 - apps/live-control-ui/src/tiptap/markdown/calloutMarkdown.ts
 - apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.ts
 - apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.test.ts
+- apps/live-control-ui/src/tiptap/extensions/SemanticMarkdownPaste.ts (recognize a supported link-only paragraph as semantic paste)
 - apps/live-control-ui/src/tiptap/extensions/SemanticMarkdownPaste.test.ts
 
 Verify actual mounted default schema, hyperlink href/label roundtrip in paragraphs,
