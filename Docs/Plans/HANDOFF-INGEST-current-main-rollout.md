@@ -1,57 +1,59 @@
-# INGEST: prepare and verify a matched-main dogfood rollout
+# INGEST: refresh and verify a matched-main runtime for 5202
 
-**Status:** ACTIVE for non-disruptive preparation only. PRIME authorized this bounded prep on 2026-10-17. The operator has active work on the shared 5202 preview; do not stop, rebuild in place, or reconfigure 5202/8000 while that work is ongoing. No runtime write lease is active.
-**Source:** Buddy `main@af6779d00155d4e7cfca6859295b381df1ea7e1d` (PR #1340, on top of #1333, #1336, and #1339).
-**Topology:** one docs-only PR now; matched-main artifact preparation uses the existing clean checkout and rollout state. Any serving-unit switch is a later, separately gated operation after the operator's active 5202 work reaches a quiet window.
+**Status:** ACTIVE for the exact rollout below. PRIME explicitly authorized refreshing the existing non-serving a044 candidate, resolving its independent runtime dependencies, checking migration 0030/shared-reader compatibility, and using standing same-port restart authority once all gates pass. This supersedes the preparation-only limits in the merged #1341 handoff.
+**Authority:** PRIME direction received 2026-10-17. No further operator approval is needed for the bounded preparation, backup, dependency repair, compatible migration, and matched-main 5202/8000 rollout described here.
+**Source:** Current main is 6c438883fc71ccb36dbb96fc910dfa8d7403dbec. The only change after runtime source af6779d00155d4e7cfca6859295b381df1ea7e1d is the #1341 operational handoff; use exact tracked runtime source at af6779d, tree 01e03adca73b811057dbae81cb9634ebe38647fc.
+**Topology:** Serial successor to merged #1341. This contract and rollout occupy one Ingest transition slice; no new product-code PR or source publication is authorized.
 
-## Why ingestion dogfood is not ready on 5202
+## Dogfood readiness
 
-The open route is `/ingest?world=elderwyld&campaign=longmont-c2&session=session-10`. The route selector says Session 10 while “Prior processed recap” has Session 27 selected and warns that the normalized recap is stale or its source lineage is unverified. Session 10 is present as an option. The source was not loaded or processed.
+The currently served 5202 UI/API are stale and are not ready for real recap processing or acceptance. The route for Elderwyld Session 10 showed Session 27 selected in the prior-processed-recap area with stale/unverified lineage, while the source editor was blank. The user may give visual feedback on this old screen, but exact-session selection, processing, retry, review, and persistence must be judged only after the matched-main runtime is live.
 
-Read-only runtime evidence identifies the current serving pair and explains why its label is insufficient:
+When matched-main is ready, invite the operator to use the real Session 10 recap in its exact campaign/session: load or paste the source, process it, inspect the enriched node-bearing projection and linked evidence, open its exact review, and verify reopening. Normal mode should present enriched nodes, with raw Markdown available only through Advanced. Publication remains a separate action; this rollout does not publish source observations or graph assertions on the operator’s behalf.
 
-- `dungeonmindbuddy-dogfood-ui-main-cb11bf86.service` serves port 5202 from the shared `996b` checkout. Its HTML references `/assets/index-CIUSveQG.js`, last modified at 11:15:51 UTC. PR #1333 merged at 11:46:54 UTC, #1339 at 12:27:44 UTC, and #1340 at 12:37:52 UTC. Thus the served UI bundle predates all three changes.
-- `dungeonmindbuddy-dogfood-api-main-cb11bf86.service` serves port 8000. It started before those merges; `/health` returned `{"status":"ok"}`, which does not prove the loaded source revision.
-- Both processes use the shared checkout, currently branch `codex/combat-c0-durable-encounters` at `fa3e3c9a0b2168db43808743744957e620eb205c`, with dirty Build, Combat, and Ingest work. The active UI serves built `dist`, not the current source tree. Preserve the branch, all dirty files, and that serving bundle.
-- `main-cb11bf86` is a historical service label, not proof of current-main source identity.
-- The alternate `dungeonmindbuddy-main-ui-main-892cc46b.service` and `dungeonmindbuddy-main-api-main-01980f14.service` pair is active on 5876/8002, but is also an older candidate. The UI serves `index-DU514xbf.js` (SHA-256 `4eb543f769579e8201e4df6bac512eed03e0b256c3dc884b0f01acb03f2928e2`). The API launch script loads the same project `.env` and sets both artifact and managed-World roots to `/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy`, as 8000 does; it only changes the local operator profile. Therefore this pair shares durable data with 5202/8000 and is not an isolated ingestion test target. Do not update or process a real recap on 5876/8002.
+## Exact lease and forbidden state
 
-No recap was loaded or processed. No database, source, ingestion candidate, World Graph, or conversation state was changed; no service was restarted and no build was written into the serving checkout.
+The only source/runtime candidate that may be changed is the existing non-serving candidate:
 
-## Bounded preparation lease
+- Source: /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/source
+- Runtime: /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime
+- Candidate root for rollback snapshots, manifests, logs and the fresh pre-migration database backup: /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/
 
-PRIME designated the existing clean checkout `/home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy`, verified clean at exactly `af6779d00155d4e7cfca6859295b381df1ea7e1d`, as read-only source. Its UI `node_modules` symlink points to the shared dirty checkout; use it read-only, with no package install or dependency sync.
+Refresh only tracked application source to exact af6779d. Preserve the existing out/hermes-agent local source input and all non-tracked candidate inputs: record their hashes, archive the pre-refresh source and runtime inventory into the existing candidate root, and restore preserved inputs after refreshing. Do not make another checkout, source export, worktree, environment, candidate, or candidate root. Resolve every symlink before writing; the existing runtime must remain independent and must not resolve into active e778.
 
-The only new build output and rollback copy may be placed under the existing rollout-state root at:
+Use the existing shared package cache only to install the exact dependency lock for af6779d into the existing a044 runtime. Do not mutate another runtime or shared package cache. Do not print or copy secrets. Keep the project .env read-only and the existing user source, graph, conversation, and ingestion state intact.
 
-`/home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-af6779d/`
+The prepared UI bundle and rollback copy remain read-only at /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-af6779d/ui-dist and rollback-5202-ui-dist. Verify the prepared bundle manifest still corresponds to af6779d before serving it.
 
-Store the static UI bundle, build/typecheck metadata, and a rollback copy there, separate from the 5202 `dist`. The existing UI bundle was copied to `rollback-5202-ui-dist`; `diff -qr` confirmed byte identity and the sorted file-hash manifest digest is `f772ebfdee1452d69f4664fd1dfe024f7fd3169ba1aee67630fbcea569cb6b9c`. `rollback-manifest.json` records the captured service identities, paths, and what cannot be proven about the API process's original imported bytes. Do not create another checkout, source export, environment, dependency copy, or temporary directory. Keep the user's prior source/data/World state and the existing `app-pre-0029-20261017T083129Z.dump` unchanged.
+Only these existing user services may be stopped/restarted/reconfigured for the matched-main same-port transition:
+- dungeonmindbuddy-dogfood-ui-main-cb11bf86.service on 5202
+- dungeonmindbuddy-dogfood-api-main-cb11bf86.service on 8000
+- dungeonmindbuddy-main-ui-main-892cc46b.service on 5876
+- dungeonmindbuddy-main-api-main-01980f14.service on 8002
 
-The documentation write set for this PR is only:
+The 8000 and 8002 APIs share the configured .env and durable data roots. Before a schema change, stop the old 8002 reader/writer and verify it is down; do not leave old application code running against the upgraded schema. Preserve prior unit definitions, executable identities, bundle hashes, runtime inventory, and health evidence for rollback. Keep the publication service on 8001 unchanged.
 
-- `Docs/Plans/HANDOFF-INGEST-current-main-rollout.md` — this operational contract and evidence.
+Do not alter the dirty 996b checkout, the dirty PRIME cited-writer checkout, any other candidate/runtime, service unrelated to the four listed above, project .env, durable source/World/Conversation data, or publication state.
 
-The build may read the pinned source and existing dependency symlink and may write only the output path above. It must not edit either checkout, the shared `node_modules`, the 5202 `dist`, `.env`, runtime configuration, or any retained data. Do not print or copy secret environment values.
+## Gates before rollout
 
-## Settlement of merged Ingest slices
+1. Re-anchor to the source and runtime pins above. Confirm the a044 source/runtime paths and their resolved targets; prove no serving process consumes them. Capture checksums and a recoverable archive of the source tree and runtime package inventory before mutation. Preserve out/hermes-agent as an input.
+2. Refresh tracked source to exact af6779d without modifying the source or runtime identity paths. Confirm tree provenance and preserved local input hashes.
+3. Read the exact committed dependency lock. Install only its locked packages into the existing isolated runtime, using the shared package cache. Verify package versions, required imports, generationengine provenance/pin, and API startup. A passing health check alone is insufficient.
+4. Record current database revision, relevant agent.turn counts, and integrity checks. Confirm the existing schema is 20261017_0029 and the exact main head is 20261017_0030. Create and verify a fresh restorable backup under the existing a044 candidate root before any migration. Preserve the older app-pre-0029-20261017T083129Z.dump unchanged.
+5. Prove migration 0029→0030 source and rollback behavior. It broadens the allowed agent.turn completion state for Build authoring; verify it does not rewrite or drop existing user rows. Stop 8002 before migration. Apply the migration only against the configured database after the backup succeeds; verify schema 0030, integrity, and preserved row counts/data. If migration or startup fails before new user writes, restore through the captured rollback plan and verify the prior 0029 state.
+6. Verify the prepared UI bundle’s hashes and exact source pin. Run the candidate API with the existing .env and isolated a044 runtime before switching ports; verify startup, required imports, and readiness. Capture rollback unit definitions and old UI/API identities.
+7. Only after all gates pass, stop incompatible 5876/8002 and switch 5202/8000 to the matched-main UI/API. Confirm served JavaScript hash, API source/runtime identity, health/readiness, and a rendered Session 10 route with no Session 27 preselection. Keep existing data roots. Do not process the real recap automatically.
+8. Ask the operator to dogfood Session 10. If the route, candidate/evidence view, exact review, or reopening fails, preserve the source and trace and repair the in-scope Ingest defect before declaring readiness. Publication is explicitly out of scope.
 
-- PR #1333 merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b`: exact campaign/session route changes reset and reselect the prior recap by exact identity. The live Session 10/Session 27 mismatch is served-build evidence, not proof the current-main UI regressed.
-- PR #1336 merged at `bcaacb31926967ecd9d728182235cd1f276eccbe`: identical Process retries reuse the exact graph run; provider-free recovery preserves immutable candidate bytes for no-op validation. Its synthetic owning suite passed 27 tests; real recap processing and persistence were not exercised.
-- PR #1339 merged at `135083b7550fcf02fcf7931eb4cf631e44f38bad`: Graph Review opens the exact processed run and is unavailable without exact run identity. Its focused UI suite passed 65 tests with typecheck and diff-check; this did not prove the serving 5202 asset contains the change.
-- PR #1340 advanced main to `af6779d00155d4e7cfca6859295b381df1ea7e1d`; it is an agent acquisition change and does not alter Ingest UI/API behavior.
+## Prior preparation and known blockers
 
-## Preparation and verification
+The merged #1341 record identified the active 5202/8000 pair as using the dirty 996b checkout and stale UI asset, and the alternate 5876/8002 pair as sharing the same durable data. It prepared the exact af6779d UI bundle and byte-identical 5202 UI rollback copy, but did not establish runtime compatibility or grant a runtime mutation lease. Those two gates are addressed here.
 
-Read-only service preflight: the current 8000 FastAPI lifespan starts and shuts down the Hermes host; it does not run a database migration. The commit range from merge base `4df937278edb363fdc88a5a00f9afdeaea2d0cc0` to `af6779d` changes API/agent code but no migration/schema files or Python dependency lock/manifests. The existing Python 3.13.12 runtime is identified in `rollback-manifest.json`; exact compatibility of that runtime with the new source has not yet been proven by starting the main app. A point-in-time `ss` snapshot showed no established client sockets on 8000, which is not by itself a durable quiet-window guarantee.
+Read-only preflight found the database at 20261017_0029 while main requires 20261017_0030. The existing e778 runtime cannot import current main: startup probe failed at apps/live_control_server/routes/media_images.py because generationengine lacks ImageOptions. It also lacks aiofiles, asyncstdlib, fal-client, httpx-sse, msgpack, and typesafe-sdk. Do not run current main source on e778. The a044 runtime has its own site-packages and is not currently serving; re-verify all paths and consumers before using it.
 
-1. Keep the 5202/8000 services unchanged until the operator's active 5202 work reaches a quiet window. Record unit, PID, source, bundle digest, configuration identity without secrets, schema/version, and the existing data-root fingerprints before any later switch.
-2. Build and typecheck exact `af6779d` into the separate output path, keeping compiler cache files there as well. **Prepared:** `tsc --noEmit` passed for app and node configs; Vite 6.4.2 built 707 modules successfully. The existing chunk-size warning remains. Output is under `rollout-candidates/buddy-main-af6779d/ui-dist`; `build-manifest.json` records the commit/tree, commands, cache path, asset names, and SHA-256 digests. Main JS is `index-dgaQSK7d.js` (SHA-256 `d6f78dd9410c353733c2d58aaaf4ee59a4758fd9151e7347fd731a7d3cf23ece`). No 5202 bundle or service was changed.
-3. **5876/8002 check complete:** both old-candidate services are active, but 8002 points at the same `.env` and durable data roots as 8000. This is a shared-data hazard, so do not update those units or use them for real-recap acceptance.
-4. Before a later serving switch, verify that the operator's active 5202 work is quiet, capture read-only persistence baselines, and preserve the exact previous bundle and service identities for rollback. Reuse the configured `.env`, runtime, and managed data roots; no migration or reset is authorized by this handoff.
+Previous escalation attempts without host permissions failed to access the user systemd bus or localhost; the approved host execution path is required for service and database checks. Preserve command failures and exact compatibility errors in the rollout evidence.
 
-## Rendered acceptance before real recap dogfood
+## Completion evidence
 
-On the matched-main runtime, verify the exact Session 10 route at desktop and narrow widths. The selected processed recap must match campaign and session exactly or stay empty; it must never preselect Session 27. Confirm source-lineage warnings, load/process actions, retry recovery, exact Graph Review navigation, and the stable document/review surface while tools open. Then compare before/after persistence fingerprints and prove the UI/API source identities match this handoff. Only after these checks should the operator run a real recap. Record candidate, evidence, review, and persistence outcomes without publishing to the World Graph unless separately authorized.
-
-This preparation is not live ingestion acceptance. The 5202 served JS SHA is `5056a7fa2397bd59aa54da90bc7374c2b5a1f9ebbbe1bddfc68528689718d132`, which differs from the prepared main JS bundle. The route discrepancy, stale served bundle, and pre-merge API process remain open until rendered matched-main behavior and the owning persistence boundary are verified.
+Record exact source/tree and runtime/package hashes, backup integrity, before/after schema and row counts, migration result, service/process identities, served UI digest, API startup/readiness, and rendered Session 10 acceptance. Do not report real ingestion success until the operator’s actual recap is processed and the exact candidate/review can be reopened.
