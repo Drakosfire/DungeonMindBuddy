@@ -557,6 +557,8 @@ class BoundedRecapPassClient:
             if receipt["kind"] == "provider_failure":
                 entry["observation"] = _safe_observation_snapshot(receipt["observation"])
                 entry["failure_code"] = receipt["failure_code"]
+                if "provider_failure_diagnostics" in receipt:
+                    entry["provider_failure_diagnostics"] = receipt["provider_failure_diagnostics"]
                 entry["external_outcome"] = "known_failure"
                 if receipt["failure_code"] == "STRUCTURED_OUTPUT_INVALID":
                     entry["consumer_outcome"] = "invalid_structured_output"
