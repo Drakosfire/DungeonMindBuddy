@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE for non-disruptive preparation only. PRIME authorized this bounded prep on 2026-10-17. The operator has active work on the shared 5202 preview; do not stop, rebuild in place, or reconfigure 5202/8000 while that work is ongoing. No runtime write lease is active.
 **Source:** Buddy `main@af6779d00155d4e7cfca6859295b381df1ea7e1d` (PR #1340, on top of #1333, #1336, and #1339).
-**Topology:** one docs-only PR now; matched-main artifact preparation uses the existing clean checkout and rollout state. Any serving-unit switch is a later, separately gated operation after the operator releases Build.
+**Topology:** one docs-only PR now; matched-main artifact preparation uses the existing clean checkout and rollout state. Any serving-unit switch is a later, separately gated operation after the operator's active 5202 work reaches a quiet window.
 
 ## Why ingestion dogfood is not ready on 5202
 
@@ -22,11 +22,11 @@ No recap was loaded or processed. No database, source, ingestion candidate, Worl
 
 PRIME designated the existing clean checkout `/home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy`, verified clean at exactly `af6779d00155d4e7cfca6859295b381df1ea7e1d`, as read-only source. Its UI `node_modules` symlink points to the shared dirty checkout; use it read-only, with no package install or dependency sync.
 
-The only new build output may be placed under the existing rollout-state root at:
+The only new build output and rollback copy may be placed under the existing rollout-state root at:
 
 `/home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-af6779d/`
 
-Store the static UI bundle and build/typecheck metadata there, separate from the 5202 `dist`. Do not create another checkout, source export, environment, dependency copy, or temporary directory. Keep the user's prior source/data/World state and the existing `app-pre-0029-20261017T083129Z.dump` unchanged.
+Store the static UI bundle, build/typecheck metadata, and a rollback copy there, separate from the 5202 `dist`. The existing UI bundle was copied to `rollback-5202-ui-dist`; `diff -qr` confirmed byte identity and the sorted file-hash manifest digest is `f772ebfdee1452d69f4664fd1dfe024f7fd3169ba1aee67630fbcea569cb6b9c`. `rollback-manifest.json` records the captured service identities, paths, and what cannot be proven about the API process's original imported bytes. Do not create another checkout, source export, environment, dependency copy, or temporary directory. Keep the user's prior source/data/World state and the existing `app-pre-0029-20261017T083129Z.dump` unchanged.
 
 The documentation write set for this PR is only:
 
@@ -43,10 +43,12 @@ The build may read the pinned source and existing dependency symlink and may wri
 
 ## Preparation and verification
 
-1. Keep the 5202/8000 services unchanged while Build is active. Record unit, PID, source, bundle digest, configuration identity without secrets, schema/version, and the existing data-root fingerprints before any later switch.
+Read-only service preflight: the current 8000 FastAPI lifespan starts and shuts down the Hermes host; it does not run a database migration. The commit range from merge base `4df937278edb363fdc88a5a00f9afdeaea2d0cc0` to `af6779d` changes API/agent code but no migration/schema files or Python dependency lock/manifests. The existing Python 3.13.12 runtime is identified in `rollback-manifest.json`; exact compatibility of that runtime with the new source has not yet been proven by starting the main app. A point-in-time `ss` snapshot showed no established client sockets on 8000, which is not by itself a durable quiet-window guarantee.
+
+1. Keep the 5202/8000 services unchanged until the operator's active 5202 work reaches a quiet window. Record unit, PID, source, bundle digest, configuration identity without secrets, schema/version, and the existing data-root fingerprints before any later switch.
 2. Build and typecheck exact `af6779d` into the separate output path, keeping compiler cache files there as well. **Prepared:** `tsc --noEmit` passed for app and node configs; Vite 6.4.2 built 707 modules successfully. The existing chunk-size warning remains. Output is under `rollout-candidates/buddy-main-af6779d/ui-dist`; `build-manifest.json` records the commit/tree, commands, cache path, asset names, and SHA-256 digests. Main JS is `index-dgaQSK7d.js` (SHA-256 `d6f78dd9410c353733c2d58aaaf4ee59a4758fd9151e7347fd731a7d3cf23ece`). No 5202 bundle or service was changed.
 3. **5876/8002 check complete:** both old-candidate services are active, but 8002 points at the same `.env` and durable data roots as 8000. This is a shared-data hazard, so do not update those units or use them for real-recap acceptance.
-4. Before a later serving switch, verify that the operator has released Build, capture read-only persistence baselines, and preserve the exact previous bundle and service identities for rollback. Reuse the configured `.env`, runtime, and managed data roots; no migration or reset is authorized by this handoff.
+4. Before a later serving switch, verify that the operator's active 5202 work is quiet, capture read-only persistence baselines, and preserve the exact previous bundle and service identities for rollback. Reuse the configured `.env`, runtime, and managed data roots; no migration or reset is authorized by this handoff.
 
 ## Rendered acceptance before real recap dogfood
 
