@@ -37,7 +37,8 @@ class DecisionWire(httpx2.AsyncBaseTransport):
         if self.timeout:
             raise httpx2.ReadTimeout("synthetic timeout", request=request)
         body = json.loads(request.content)
-        state = body["state"]["decision"]["state"]
+        selecting = body["state"].get("writer_selection_policy") is not None
+        state = {} if selecting else body["state"]["decision"]["state"]
         acquired = state.get("evidence", [])
         answers = {}
         for key, q in body["questions"].items():
@@ -45,7 +46,9 @@ class DecisionWire(httpx2.AsyncBaseTransport):
                 answers[key] = {"type": "noul", "noul": 0.99}
                 continue
             labels = q["criteria"]
-            if key == "operation":
+            if selecting:
+                selected = "direct_support"
+            elif key == "operation":
                 selected = self.operation
             elif key == "sufficiency":
                 selected = "sufficient" if acquired else "more_evidence"
