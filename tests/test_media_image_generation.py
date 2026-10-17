@@ -21,10 +21,11 @@ TOKEN = 'media-wizard-synthetic-operator-token-32chars'
 
 @pytest.fixture
 def setup(monkeypatch):
+    monkeypatch.delenv('DUNGEONBUDDY_FAL_KEY', raising=False)
     for name, value in {'DMB_AGENT_GRAPH_AUTH_MODE': 'local_operator', 'DMB_AGENT_GRAPH_AUTH_ENVIRONMENT': 'local', 'DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN': TOKEN, 'FAL_KEY': 'synthetic-never-sent'}.items():
         monkeypatch.setenv(name, value)
     client = SimpleNamespace(generate_image=AsyncMock(return_value=SimpleNamespace(images=[GeneratedImage(content=b'\x89PNG\r\n\x1a\n', media_type='image/png')], observation=SimpleNamespace(model_dump=lambda **kwargs: {'provider': 'fal', 'latency_ms': 10}))), aclose=AsyncMock())
-    monkeypatch.setattr(media_images.GenerationClient, 'from_env', lambda: client)
+    monkeypatch.setattr(media_images, '_image_client', lambda: client)
     app = FastAPI()
     app.include_router(media_images.router)
     return app, client
@@ -63,3 +64,40 @@ async def test_missing_credential_does_not_submit(setup, monkeypatch):
     monkeypatch.delenv('FAL_KEY')
     assert (await submit(setup, {'prompt': 'Edge', 'model': 'flux-2-pro'})).status_code == 503
     setup[1].generate_image.assert_not_called()
+
+
+@pytest.mark.parametrize(('dedicated', 'generic', 'expected'), [
+    ('buddy-key', 'generic-key', 'buddy-key'),
+    ('buddy-key', '', 'buddy-key'),
+    ('  ', 'generic-key', 'generic-key'),
+    ('', '', ''),
+])
+def test_dedicated_key_resolution(monkeypatch, dedicated, generic, expected):
+    monkeypatch.setenv('DUNGEONBUDDY_FAL_KEY', dedicated)
+    monkeypatch.setenv('FAL_KEY', generic)
+    assert media_images._fal_key() == expected
+
+
+def test_client_receives_dedicated_key(monkeypatch):
+    monkeypatch.setenv('DUNGEONBUDDY_FAL_KEY', 'synthetic-buddy-key')
+    provider = object()
+    seen = {}
+    def construct_provider(*, api_key):
+        seen['key'] = api_key
+        return provider
+    monkeypatch.setattr(media_images, 'FalProvider', construct_provider)
+    monkeypatch.setattr(media_images, 'GenerationClient', lambda *, image_provider: image_provider)
+    assert media_images._image_client() is provider
+    assert seen['key'] == 'synthetic-buddy-key'
+
+
+async def test_dedicated_key_only_enables_capabilities_and_generation(setup, monkeypatch):
+    monkeypatch.delenv('FAL_KEY')
+    monkeypatch.setenv('DUNGEONBUDDY_FAL_KEY', 'synthetic-buddy-key')
+    app, provider = setup
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test', headers={'Authorization': f'Bearer {TOKEN}'}) as http:
+        response = await http.get('/api/live/media/images/capabilities')
+        assert response.json()['configured'] is True
+        assert 'synthetic-buddy-key' not in response.text
+    assert (await submit(setup, {'prompt': 'Edge', 'model': 'flux-2-pro'})).status_code == 200
+    provider.generate_image.assert_awaited_once()
