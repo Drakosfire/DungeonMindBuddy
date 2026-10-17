@@ -98,7 +98,25 @@ def read_prompt(world_id: str, action_id: UUID):
         "reference": reference.model_dump(mode="json"), "payload_json": read_blob(reference)}
 
 
+async def compose_with_writer(
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None,
+):
+    """Trusted parent seam: one proposal call, jointly authorized; never import text.
+
+    The parent owns its durable turn gate. This owner keeps reservation, exact
+    request/schema, output validation and uncertainty. Neither owner may replay
+    an existing action to repair a missing turn completion.
+    """
+    if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
+        raise BuildComposeError("build_compose_writer_origin_required")
+    return await _compose(request, transport=transport, writer_gate=writer_gate)
+
+
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
+    return await _compose(request, transport=transport)
+
+
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None):
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -146,14 +164,25 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
         authorization = BuildProviderAuthorization(provider_attempt_id=UUID(prepared.attempt_id), model=model,
             payload_sha256=prepared.body_sha256, payload_utf8_bytes=prepared.body_size, evidence_id=evidence_id)
         advance("authorized", authorization=authorization)
-        return True
+        # Both durable authorizations must acknowledge the same prepared bytes.
+        # Partial authorization never licenses a send or automatic retry.
+        return True if writer_gate is None else await writer_gate.authorize(prepared) is True
     async def lifecycle(event):
         if (record.authorization is None
                 or str(record.authorization.provider_attempt_id) != event.request.attempt_id
                 or record.authorization.payload_sha256 != event.request.body_sha256):
             return False
+        # The turn records first. If it refuses sending, the proposal stays
+        # authorized and can accept the SDK's known-not-sent recovery event.
+        # If it refuses a received response, the proposal stays sdk_entered;
+        # outer recovery retains unknown rather than claiming a ready preview.
+        if writer_gate is not None and await writer_gate.record(event) is not True:
+            return False
         if event.outcome == "known_not_sent":
-            advance("failed", failure_code="provider_known_not_sent")
+            if record.state == "sdk_entered":
+                advance("unknown", failure_code="provider_outcome_unknown")
+            else:
+                advance("failed", failure_code="provider_known_not_sent")
         else:
             advance({"sending": "sdk_entered", "response_received": "response_received", "outcome_unknown": "unknown"}[event.outcome])
         return True

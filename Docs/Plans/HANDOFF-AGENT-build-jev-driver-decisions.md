@@ -1,6 +1,8 @@
 # AGENT: parent-owned Jev driver decision projection
 
-ACTIVE under PRIME's Graph collaboration goal. Base454211e1cb2152d483cf9fb5323667227d1b9406; branch codex/build-jev-driver-decisions in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. Serial implementation PR, no new checkout/environment, /tmp directory, provider experiment, retained mutation or serving change.
+MERGED: PR1320 independently passed at8554d4fef2c54947db152585a70f720cdf2aef3f and merged at70e3471a4339779a667a78b5e70f6b45013138df. Implementation lease ended; ordinary adoption and retained lifecycle remain open.
+
+Original authority under PRIME's Graph collaboration goal. Base454211e1cb2152d483cf9fb5323667227d1b9406; branch codex/build-jev-driver-decisions in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. Serial implementation PR, no new checkout/environment, /tmp directory, provider experiment, retained mutation or serving change.
 
 ## One outcome
 
