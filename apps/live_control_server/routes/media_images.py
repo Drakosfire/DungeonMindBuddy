@@ -7,7 +7,7 @@ from typing import Literal
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from generationengine import GenerationClient, GenerationEngineError, ImageOptions, ImageRequest
 from generationengine.providers.fal_provider import FalProvider
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -22,11 +22,23 @@ from application_state.errors import ApplicationStateError
 router = APIRouter(prefix="/api/live/media/images", tags=["media"])
 
 
+# Buddy owns curation and exposed controls; GE owns provider discovery/execution.
+IMAGE_MODELS = [
+    {"id": "gpt-image-2.5-flare", "label": "GPT Image 2.5 Flare", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"], "description": "Recommended starting point for general image generation."},
+    {"id": "nano-banana-2-lite", "label": "Nano Banana 2 Lite", "formats": ["png", "jpeg", "webp"], "controls": ["seed"], "description": "Uses the selected aspect ratio and provider-default resolution."},
+    {"id": "gpt-image-2.5-sunburst", "label": "GPT Image 2.5 Sunburst", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"], "description": "Premium detail option; may take longer than Flare."},
+    {"id": "seedream-v5-pro", "label": "Seedream V5 Pro", "formats": ["png", "jpeg"], "controls": [], "description": "Explicit image dimensions; PNG or JPEG output."},
+    {"id": "flux-2-pro", "label": "FLUX 2 Pro", "formats": ["png", "jpeg"], "controls": ["seed"]},
+    {"id": "gpt-image-1.5", "label": "GPT Image 1.5", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"]},
+]
+DEFAULT_IMAGE_MODEL = "gpt-image-2.5-flare"
+
+
 class ImagePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     preparation_id: UUID | None = None
     prompt: str = Field(min_length=1, max_length=16000)
-    model: Literal["flux-2-pro", "gpt-image-1.5"]
+    model: Literal["flux-2-pro", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "nano-banana-2-lite", "seedream-v5-pro"]
     width: Literal[1024, 1536] = 1024
     height: Literal[1024, 1536] = 1024
     options: ImageOptions = Field(default_factory=ImageOptions)
@@ -38,8 +50,9 @@ class ImagePreviewRequest(BaseModel):
         if (self.width, self.height) not in {(1024, 1024), (1536, 1024), (1024, 1536)}:
             raise ValueError("Choose square, landscape or portrait.")
         explicit = set(self.options.model_dump(exclude_none=True))
-        allowed = {"quality", "background", "output_format"} if self.model == "gpt-image-1.5" else {"seed", "output_format"}
-        if explicit - allowed or (self.model == "flux-2-pro" and self.options.output_format == "webp"):
+        selected = next(item for item in IMAGE_MODELS if item["id"] == self.model)
+        allowed = set(selected["controls"]) | {"output_format"}
+        if explicit - allowed or (self.options.output_format is not None and self.options.output_format not in selected["formats"]):
             raise ValueError("These settings are not supported by the selected model.")
         return self
 
@@ -62,10 +75,38 @@ def image_capabilities(request: Request, response: Response):
     except ApplicationStateError:
         library_ready = False
     return {"configured": bool(_fal_key()), "library_ready": library_ready,
-            "storage_configured": media_storage.configured(), "models": [
-        {"id": "flux-2-pro", "label": "FLUX 2 Pro", "formats": ["png", "jpeg"], "controls": ["seed"]},
-        {"id": "gpt-image-1.5", "label": "GPT Image 1.5", "formats": ["png", "jpeg", "webp"], "controls": ["quality", "background"]},
-    ]}
+            "storage_configured": media_storage.configured(), "models": IMAGE_MODELS[:4],
+            "default_model_id": DEFAULT_IMAGE_MODEL}
+
+
+@router.get("/catalog")
+async def image_model_catalog(
+    request: Request, response: Response,
+    cursor: str | None = Query(default=None, max_length=4096),
+    limit: int = Query(default=100, ge=1, le=100),
+):
+    """Explicit provider discovery; never inference, storage or document writes."""
+    enforce_native_graph_gm(request)
+    response.headers["Cache-Control"] = "no-store"
+    if not _fal_key():
+        raise HTTPException(503, detail="The model catalog needs the server's fal credential.")
+    client = None
+    try:
+        client = _image_client()
+        page = await client.list_image_models(category="text-to-image", cursor=cursor, limit=limit)
+    except GenerationEngineError as error:
+        raise HTTPException(502, detail={"code": error.failure.code.value, "message": "The fal model catalog is unavailable. Your model selection is unchanged."}) from error
+    except (ValueError, ImportError) as error:
+        raise HTTPException(503, detail="Model discovery is not configured on this server.") from error
+    finally:
+        if client is not None:
+            await client.aclose()
+    selectable = {item["id"] for item in IMAGE_MODELS[:4]}
+    result = page.model_dump(mode="json")
+    for item in result["models"]:
+        item["selectable"] = item["executable_model"] in selectable
+    return result
+
 
 
 @router.post("/generate")

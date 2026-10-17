@@ -22,7 +22,7 @@ describe('MediaImageWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
     await screen.findByRole('link', { name: 'Download image' });
     expect(api.generate).toHaveBeenCalledTimes(1);
-    expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({ options: { quality: 'low', background: 'opaque', output_format: 'png' } }));
+    expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({ options: { quality: 'low', background: 'auto', output_format: 'png' } }));
   });
   it('blocks duplicate submission and retains preview after failure', async () => {
     const api = createPort(); await settings(api);
@@ -77,4 +77,46 @@ describe('MediaImageWizard', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Seed must be');
     expect(api.generate).not.toHaveBeenCalled();
   });
+  it('uses the server default and keeps provider discovery explicit and non-generating', async () => {
+    const api = createPort();
+    vi.mocked(api.capabilities).mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, default_model_id: 'gpt-image-2.5-flare', models: [
+      { id: 'gpt-image-2.5-flare', label: 'Flare', formats: ['png','jpeg','webp'], controls: ['quality','background'] },
+      { id: 'seedream-v5-pro', label: 'Seedream', formats: ['png','jpeg'], controls: [] },
+    ] });
+    api.catalog = vi.fn().mockResolvedValue({ models: [
+      { endpoint_id: 'bytedance/seedream/v5/pro/text-to-image', metadata: { display_name: 'Remote Seedream' }, executable_model: 'seedream-v5-pro', selectable: true },
+      { endpoint_id: 'future/model', metadata: { display_name: 'Future Model' }, executable_model: null, selectable: false },
+    ], next_cursor: 'next', has_more: true, fetched_at: '2026-10-17T20:00:00Z' });
+    render(<MediaImageWizard onClose={() => {}} initialPrompt="Map of Edge" port={api} />);
+    fireEvent.click(screen.getByRole('button', { name: /Choose model/ }));
+    await screen.findByRole('option', { name: 'Flare' });
+    expect(screen.getByLabelText('Model')).toHaveValue('gpt-image-2.5-flare');
+    expect(api.catalog).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Explore the fal model catalog'));
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    await screen.findByText('Remote Seedream');
+    expect(screen.getByText('Not supported by this studio')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Use this model' })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'webp' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Use this model' }));
+    expect(screen.getByLabelText('Model')).toHaveValue('seedream-v5-pro');
+    expect(screen.getByLabelText('Format')).toHaveValue('png');
+    expect(screen.queryByLabelText('Quality')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More models' }));
+    await screen.findByText('Remote Seedream');
+    expect(api.catalog).toHaveBeenLastCalledWith('next');
+    expect(api.generate).not.toHaveBeenCalled();
+  });
+
+  it('keeps a selected model and prompt usable when catalog discovery fails', async () => {
+    const api = createPort(); api.catalog = vi.fn().mockRejectedValue(new Error('Catalog unavailable'));
+    await settings(api);
+    fireEvent.click(screen.getByText('Explore the fal model catalog'));
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Catalog unavailable');
+    expect(screen.getByLabelText('Model')).toHaveValue('flux-2-pro');
+    expect(screen.getByRole('button', { name: 'Generate image' })).toBeEnabled();
+    expect(api.generate).not.toHaveBeenCalled();
+  });
+
 });

@@ -28,3 +28,9 @@
 .media-image-wizard__library { padding: 1rem 0; }
 .media-image-wizard__library > button { display: block; width: 100%; text-align: left; margin-bottom: .5rem; }
 .media-image-wizard__actions { flex-wrap: wrap; }
+
+.media-image-wizard__model-note, .media-image-wizard__catalog { grid-column: 1 / -1; font-size: .85rem; margin: 0; color: #c5cedb; }
+.media-image-wizard__catalog summary { cursor: pointer; padding: .5rem 0; }
+.media-image-wizard__catalog ul { padding: 0; list-style: none; }
+.media-image-wizard__catalog li { padding: .75rem 0; border-bottom: 1px solid #546078; overflow-wrap: anywhere; }
+.media-image-wizard__catalog small { display: block; margin: .25rem 0; }

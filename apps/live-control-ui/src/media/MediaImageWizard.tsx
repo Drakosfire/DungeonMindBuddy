@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
 import './MediaImageWizard.css';
 
-type Model = { id: string; label: string; formats: string[]; controls: string[] };
+type Model = { id: string; label: string; formats: string[]; controls: string[]; description?: string };
 export type GeneratedMediaImage = { data_url: string; media_type: string; asset_id: string; state: string; delivery_url?: string | null };
 export type MediaRecord = { asset_id: string; state: string; mime_type: string; data_url?: string; delivery_url?: string | null; created_at: string; provenance: { prompt?: string; model?: string; settings?: Record<string, unknown> } };
 export type ImageGenerationResult = { images: GeneratedMediaImage[]; model: string; prompt: string; observation?: { latency_ms?: number; cost_usd?: number | null } };
 export type ImageGenerationInput = { prompt: string; model: string; width: number; height: number; options: Record<string, string | number>; preparation_id?: string };
+type CatalogModel = { endpoint_id: string; metadata: Record<string, unknown>; executable_model: string | null; selectable: boolean };
+type CatalogPage = { models: CatalogModel[]; next_cursor: string | null; has_more: boolean; fetched_at: string };
 export type ImageGenerationPort = {
-  capabilities: () => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[] }>;
+  capabilities: () => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string }>;
+  catalog?: (cursor?: string) => Promise<CatalogPage>;
   list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
   get: (assetId: string) => Promise<MediaRecord>;
   save: (assetId: string) => Promise<MediaRecord>;
@@ -21,7 +24,7 @@ async function request(path: string, input?: ImageGenerationInput | Record<strin
   return body;
 }
 const livePort: ImageGenerationPort = {
-  capabilities: () => request('capabilities'), generate: input => request('generate', input),
+  capabilities: () => request('capabilities'), catalog: cursor => request('catalog' + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '')), generate: input => request('generate', input),
   list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
 };
 
@@ -40,22 +43,35 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
   const saveBusy = useRef(false);
   const [step, setStep] = useState(0);
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [modelId, setModelId] = useState('flux-2-pro');
+  const [modelId, setModelId] = useState('');
   const [shape, setShape] = useState('1024x1024');
   const [format, setFormat] = useState('png');
   const [quality, setQuality] = useState('high');
-  const [background, setBackground] = useState('opaque');
+  const [background, setBackground] = useState('auto');
   const [seed, setSeed] = useState('');
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<ImageGenerationResult | null>(null);
+  const [catalog, setCatalog] = useState<CatalogPage | null>(null);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
+  const catalogInFlight = useRef(false);
   const model = models.find(item => item.id === modelId);
   useEffect(() => {
     let active = true;
-    port.capabilities().then(data => { if (active) { setModels(data.models); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) setError(error.message); });
+    port.capabilities().then(data => { if (active) { setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) setError(error.message); });
     return () => { active = false; };
   }, [port]);
+  const readCatalog = async (more = false) => {
+    if (!port.catalog || catalogInFlight.current) return;
+    catalogInFlight.current = true; setCatalogBusy(true); setCatalogError('');
+    try {
+      const page = await port.catalog(more ? catalog?.next_cursor ?? undefined : undefined);
+      setCatalog(old => more && old ? { ...page, models: [...new Map([...old.models, ...page.models].map(item => [item.endpoint_id, item])).values()] } : page);
+    } catch (error) { setCatalogError(error instanceof Error ? error.message : 'The model catalog is unavailable.'); }
+    finally { catalogInFlight.current = false; setCatalogBusy(false); }
+  };
   const submit = async () => {
     if (inFlight.current || !model || !configured || !libraryReady || !prompt.trim()) return;
     if (seed && model.controls.includes('seed') && (!/^\d+$/.test(seed) || Number(seed) > 4294967295)) { setError('Seed must be a whole number from 0 to 4294967295.'); return; }
@@ -125,11 +141,25 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', prepar
     {!libraryOpen && step === 0 && <><label>What would you like to see?<textarea autoFocus value={prompt} maxLength={16000} rows={7} onChange={e => setPrompt(e.target.value)} placeholder="A weathered fort town at the edge of a vast swamp, warm lanterns reflected in the water…" /></label><p>A map, a portrait, a place—describe what matters to you.</p><button type="button" disabled={!prompt.trim()} onClick={() => setStep(1)}>Choose model & settings →</button></>}
     {!libraryOpen && step === 1 && <div className="media-image-wizard__settings">
       <label>Model<select value={modelId} onChange={e => { setModelId(e.target.value); setFormat('png'); }}>{models.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
-      <label>Shape<select value={shape} onChange={e => setShape(e.target.value)}><option value="1024x1024">Square · 1024 × 1024</option><option value="1536x1024">Landscape · 1536 × 1024</option><option value="1024x1536">Portrait · 1024 × 1536</option></select></label>
+      {model?.description && <p className="media-image-wizard__model-note">{model.description}</p>}
+      <label>Shape<select value={shape} onChange={e => setShape(e.target.value)}><option value="1024x1024">Square · 1:1</option><option value="1536x1024">Landscape · 3:2</option><option value="1024x1536">Portrait · 2:3</option></select></label>
       <label>Format<select value={format} onChange={e => setFormat(e.target.value)}>{model?.formats.map(value => <option key={value}>{value}</option>)}</select></label>
       {model?.controls.includes('quality') && <label>Quality<select value={quality} onChange={e => setQuality(e.target.value)}>{['low', 'medium', 'high'].map(value => <option key={value}>{value}</option>)}</select></label>}
       {model?.controls.includes('background') && <label>Background<select value={background} onChange={e => setBackground(e.target.value)}>{['opaque', 'transparent', 'auto'].map(value => <option key={value}>{value}</option>)}</select></label>}
       {model?.controls.includes('seed') && <label>Seed (optional)<input inputMode="numeric" value={seed} onChange={e => setSeed(e.target.value)} placeholder="Random" /></label>}
+      {port.catalog && <details className="media-image-wizard__catalog"><summary>Explore the fal model catalog</summary>
+        <p>Models listed by fal. Only choices supported by this studio can be selected. Listing order is not a quality ranking.</p>
+        <button type="button" disabled={catalogBusy || pending} onClick={() => readCatalog()}>{catalogBusy ? 'Reading catalog…' : catalog ? 'Refresh catalog' : 'Load catalog'}</button>
+        {catalogError && <p role="alert">{catalogError}</p>}
+        {catalog && <><p>Last read: {new Date(catalog.fetched_at).toLocaleString()}. Pages may change while browsing.</p>
+          <ul>{catalog.models.map(item => <li key={item.endpoint_id}><strong>{typeof item.metadata.display_name === 'string' ? item.metadata.display_name : item.endpoint_id}</strong>
+            <small>{item.endpoint_id}</small>
+            {typeof item.metadata.description === 'string' && <p>{item.metadata.description}</p>}
+            {item.selectable && models.some(model => model.id === item.executable_model) ? <button type="button" disabled={pending} onClick={() => { setModelId(item.executable_model!); setFormat('png'); }}>Use this model</button> : <span>Not supported by this studio</span>}
+          </li>)}</ul>
+          {catalog.has_more && <button type="button" disabled={catalogBusy || pending} onClick={() => readCatalog(true)}>More models</button>}
+        </>}
+      </details>}
     </div>}
     {!libraryOpen && (step === 1 || step === 2) && <footer><p>Generation uses your fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p><button type="button" disabled={pending || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button></footer>}
     {pending && <p role="status">Creating your image. You can keep working on your page while this runs.</p>}
