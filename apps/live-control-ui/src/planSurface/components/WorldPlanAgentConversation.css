@@ -1201,3 +1201,8 @@
 .plan-conversation-dock .world-plan-agent-conversation__composer textarea:focus-visible { border-color: #d9a840; outline: 2px solid #d9a840; outline-offset: 2px; }
 .world-plan-agent-conversation__reply-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .world-plan-agent-conversation__answer-basis { color: #aebbc7; font-size: .7rem; }
+
+.world-plan-agent-conversation__working { display: flex; align-items: center; gap: .55rem; padding: .5rem .25rem; font-size: 14px; line-height: 1.4; color: #d5ddeb; }
+.world-plan-agent-conversation__working-dot { inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: #d9aa50; animation: conversation-working-pulse 1.4s ease-in-out infinite; }
+@keyframes conversation-working-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .world-plan-agent-conversation__working-dot { animation: none; } }

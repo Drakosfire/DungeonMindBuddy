@@ -2268,8 +2268,13 @@ describe("World Plan conversation consumer", () => {
     expect(latestFrameId).not.toBe(canceledFrameId);
     act(() => latestFrame(0));
     const jumpButton = await screen.findByRole("button", { name: "Jump to latest reply" });
+    vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue({top:100} as DOMRect);
+    const reply = viewport.querySelectorAll<HTMLElement>(".world-plan-agent-conversation__message--assistant");
+    vi.spyOn(reply[reply.length-1]!, "getBoundingClientRect").mockReturnValue({top:320} as DOMRect);
     fireEvent.click(jumpButton);
-    expect(viewport.scrollTop).toBe(500);
+    // A long reply starts below the current viewport: jump to its beginning,
+    // rather than the bottom of all 500px of transcript.
+    expect(viewport.scrollTop).toBe(220);
     expect(screen.queryByRole("button", { name: "Jump to latest reply" })).not.toBeInTheDocument();
   });
 
