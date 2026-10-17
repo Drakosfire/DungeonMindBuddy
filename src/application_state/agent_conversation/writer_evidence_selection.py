@@ -68,7 +68,7 @@ def acquired_catalog(execution, trace):
                     "returned_chars": receipt.returned_chars, "outcome": "enough",
                 }
                 text = p.get("text")
-                if (any(p.get(k) != v for k, v in expected.items())
+                if (canonical({k: p.get(k) for k in expected}) != canonical(expected)
                     or not isinstance(text, str) or not text
                     or len(text) != receipt.returned_chars
                     or hashlib.sha256(text.encode()).hexdigest() != receipt.content_sha256):
@@ -80,7 +80,7 @@ def acquired_catalog(execution, trace):
                 unit = {"id": key, "kind": "native_passage", "passage": row,
                         "source_event_ids": [str(event.event_id)]}
                 if key in units:
-                    if units[key]["passage"] != row:
+                    if canonical(units[key]["passage"]) != canonical(row):
                         raise ValueError("Selection passage identity collision")
                     units[key]["source_event_ids"] = sorted(set(
                         units[key]["source_event_ids"] + unit["source_event_ids"]))
@@ -184,7 +184,7 @@ def validate_selection_proof(turn, selection, trace, proof):
     receipt = turn.graph_context_receipt
     if (trace.get("world_id") != turn.world_id or trace.get("turn_id") != str(turn.turn_id)
         or trace.get("conversation_id") != str(turn.conversation_id)
-        or trace.get("attempt") != turn.attempt):
+        or canonical(trace.get("attempt")) != canonical(turn.attempt)):
         raise ValueError("Selection capture belongs to another World/turn/attempt")
     catalog = acquired_catalog(execution, trace)
     auths = [e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV3)]
@@ -231,8 +231,9 @@ def validate_selection_proof(turn, selection, trace, proof):
         if isinstance(preceding, t.BuildSectionProviderInclusionV1):
             expected_history["event_sequence"] -= 1
         expected_state = selection_state(turn, catalog, selection.terminal_disposition, expected_history)
-        if (historical != expected_history or request["state"] != expected_state
-            or request["questions"] != questions(catalog)):
+        if (canonical(historical) != canonical(expected_history)
+            or canonical(request["state"]) != canonical(expected_state)
+            or canonical(request["questions"]) != canonical(questions(catalog))):
             raise ValueError("Selection question, scope, catalog, disposition or questions drifted")
         item_id = f"unvalidated-controller-decision:{auth.provider_attempt_id}:{receipt.context_receipt_sha256}"
         captures = [m for o in trace.get("observations", [])
@@ -260,7 +261,7 @@ def validate_selection_proof(turn, selection, trace, proof):
             raise ValueError("Selection saved-section exposure differs from its catalog")
     state = selection_state(turn, catalog, selection.terminal_disposition, historical)
     if (selection.catalog_sha256 != digest(catalog) or selection.basis_sha256 != state["basis_sha256"]
-        or selection.judgments != judgments):
+        or canonical(selection.judgments) != canonical(judgments)):
         raise ValueError("Selection receipt differs from its exact source basis or judgments")
     closure = close_selection(catalog, judgments)
     for field, expected in closure.items():

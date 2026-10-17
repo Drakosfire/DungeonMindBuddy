@@ -193,6 +193,44 @@ def test_app_refuses_forged_selection_before_writer(build_case, monkeypatch, tmp
     assert not writer.calls
 
 
+@pytest.mark.parametrize("altered_attempt", [1.0, True], ids=["float", "boolean"])
+def test_app_refuses_type_drift_even_in_correlated_authorized_envelope(
+    build_case, monkeypatch, tmp_path, accounting, altered_attempt,
+):
+    import hashlib
+
+    case, _, _, writer, harness = run_case(build_case, monkeypatch, tmp_path, accounting)
+    original = selection.validate_selection_proof
+    checked = []
+
+    def validate(turn, event, trace, proof):
+        # Use the actual SDK/APP append boundary and its protected response.
+        original(turn, event, trace, proof)
+        request = json.loads(proof["request_json"])
+        assert type(request["state"]["historical_initial"]["turn_attempt"]) is int
+        assert request["state"]["historical_initial"]["turn_attempt"] == 1
+        request["state"]["historical_initial"]["turn_attempt"] = altered_attempt
+        text = selection.canonical(request)
+        envelope_sha = hashlib.sha256(text.encode()).hexdigest()
+        execution = turn.graph_context_execution
+        events = list(execution.events)
+        index = next(i for i, item in enumerate(events)
+                     if isinstance(item, ledger.ProviderAttemptAuthorizedEventV3)
+                     and item.provider_attempt_id == event.controller_attempt_id)
+        events[index] = events[index].model_copy(update={"envelope_sha256": envelope_sha})
+        changed_turn = turn.model_copy(update={
+            "graph_context_execution": execution.model_copy(update={"events": events}),
+        })
+        changed_event = event.model_copy(update={"controller_envelope_sha256": envelope_sha})
+        with pytest.raises(ValueError, match="question, scope, catalog, disposition or questions drifted"):
+            original(changed_turn, changed_event, trace, {**proof, "request_json": text})
+        checked.append(True)
+
+    monkeypatch.setattr(selection, "validate_selection_proof", validate)
+    execute(case, tmp_path, harness)
+    assert checked == [True] and len(writer.calls) == 1
+
+
 @pytest.mark.parametrize("mode", ["unknown_attempt", "incomplete"])
 def test_uncertain_or_incomplete_selection_never_replays_or_writes(build_case, monkeypatch, tmp_path, accounting, mode):
     case, _, decisions, writer, harness = run_case(build_case, monkeypatch, tmp_path, accounting, mode)
