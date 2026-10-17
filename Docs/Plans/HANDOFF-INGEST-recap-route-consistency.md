@@ -9,7 +9,7 @@
 
 ## Mission
 
-Make direct saved-recap URLs and picker-loaded recaps behave consistently without hiding or discarding an operator’s unsaved draft. Establish the expected read-versus-edit behavior from current code and prove it in the owning UI tests before making the smallest necessary fix.
+Make direct saved-recap URLs and picker-loaded recaps behave consistently without hiding or discarding an operator’s unsaved draft. Preserve current edit intent and fix the picker path that currently clears the active draft while it opens a saved recap.
 
 ## Current-code evidence and invariant
 
@@ -18,7 +18,7 @@ Make direct saved-recap URLs and picker-loaded recaps behave consistently withou
 - A matching non-empty local draft suppresses automatic reader entry. This preserves editable operator text and must not be overridden merely to force the reader.
 - The prior dogfood observation reported a different direct-link view from picker navigation. Reproduce both the no-draft and matching-draft cases at the UI boundary. If the draft-preservation path is the distinction, make that path clear and offer an explicit way to open the saved reader while retaining the draft.
 
-> **Invariant:** view intent follows verified saved-source state and explicit draft intent. Read-only projection never overwrites, clears, or obscures an unsaved draft without a visible, reversible operator action. Do not imply that a local projection or candidate was admitted to World memory.
+> **Invariant:** view intent follows verified saved-source state and explicit draft intent. Preserve a non-empty draft under its original storage key and campaign/session identity across reader navigation and remount. Read-only projection never overwrites, clears, or obscures an unsaved draft without a visible, reversible operator action. Do not imply that a local projection or candidate was admitted to World memory.
 
 ## Exact write set
 
@@ -32,10 +32,11 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 ## Acceptance
 
 - Test a direct exact-session URL without `view=recap` and no matching draft; it must reach the same graph-enriched reader as picker loading and canonicalize the URL without adding a history step.
-- Test a matching unsaved draft; it remains editable, its text is preserved, and the operator has a clear non-destructive route to the saved recap reader if the prior inconsistency is explained by draft preservation.
+- Test a matching unsaved draft on a direct URL; it remains editable and its text is preserved, with clear status explaining why the reader was not opened automatically.
+- Test loading a saved recap with a different session identity while a draft exists; the draft remains stored under its original key, the saved reader opens, a remount preserves the draft, and a visible Return to draft action restores the original session and text.
 - Preserve unrelated query parameters and exact campaign/session binding.
 - Keep source and Graph-admission claims truthful.
-- If current behavior is intentional and no user-visible ambiguity reproduces, choose the next concrete Ingest usability defect within the same two UI files and document why it fits this handoff; do not manufacture a route fix.
+- Keep the direct-route draft-preservation behavior intentional; do not manufacture a forced-reader route fix.
 - Verify with the focused IngestionModule UI suite, package typecheck/build where available, and `git diff --check`.
 - No provider calls, Process, Graph Review mutation, admission, publication, persistence write, or 5202 change/restart.
 
