@@ -275,6 +275,7 @@ class BuildJevDriver:
             evidence_codec=CONTAINED_CODEC if with_actions and getattr(adapter, "_build_jev_accounting", None) is None else None,
             accounting=getattr(adapter, "_build_jev_accounting", None),
             support_policy=(adapter.budget.get("buildJevActions") or {}).get("support_policy"),
+            acquisition_policy=(adapter.budget.get("buildJevActions") or {}).get("acquisition_policy"),
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None
@@ -714,6 +715,11 @@ class BuildJevDriver:
         ):
             return False
         try:
+            expected_acquisition = self._machine._acquisition_policy
+            if (a.budget.get("buildJevActions") or {}).get("acquisition_policy") != expected_acquisition:
+                return False
+            if a.fence is not None and getattr(a._broker_execution().policy, "acquisition_policy", None) != expected_acquisition:
+                return False
             if (self.step.state.get("phase_input_policy") == PHASE_POLICY
                     and plan.state().get("schema") != PHASE_SCHEMA):
                 return False

@@ -100,6 +100,7 @@ class Disposition(_Frozen):
     retention_judgments: tuple[dict, ...] = ()
 
 
+READ_BATCH_POLICY = "jointly_judged_independent_reads_v1"
 FRONTIER_POLICY = "evidence_bound_deferred_frontier_v1"
 JOINT_SUPPORT_POLICY = "combined_relevant_evidence_support_v1"
 
@@ -177,6 +178,7 @@ class BuildJevTransitions:
         | None = None,
         evidence_codec: Literal["contained_passage_slices_v1"] | None = None,
         support_policy: Literal["combined_relevant_evidence_support_v1"] | None = None,
+        acquisition_policy: Literal["jointly_judged_independent_reads_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
@@ -203,6 +205,9 @@ class BuildJevTransitions:
         self._evidence_codec = evidence_codec
         if support_policy not in {None, JOINT_SUPPORT_POLICY} or (support_policy and not phase_input_policy):
             raise ValueError("joint support requires the explicit phase input policy")
+        if acquisition_policy not in {None, READ_BATCH_POLICY} or (acquisition_policy and not support_policy):
+            raise ValueError("read batching requires explicit joint support policy")
+        self._acquisition_policy = acquisition_policy
         self._support_policy = support_policy
         self._phase_input_policy = phase_input_policy
         self._assessment_judgment: dict | None = None
@@ -259,7 +264,8 @@ class BuildJevTransitions:
                 "scope": self._scope.model_dump(mode="json"),
                 "evidence": [u.model_dump(mode="json") for u in self._units.values()],
                 **({"support_policy": self._support_policy,
-                    "catalog": [a.model_dump(mode="json") for a in self._actions.values()]}
+                    "catalog": [a.model_dump(mode="json") for a in self._actions.values()],
+                    **({"acquisition_policy": self._acquisition_policy} if self._acquisition_policy else {})}
                    if self._support_policy else {}),
             }
         )
@@ -413,6 +419,8 @@ class BuildJevTransitions:
             }
         if self._support_policy:
             state["support_policy"] = self._support_policy
+        if self._acquisition_policy:
+            state["acquisition_policy"] = self._acquisition_policy
         if self._phase_input_policy:
             state["phase_input_policy"] = self._phase_input_policy
             state["assessment_binding"] = self._assessment_judgment
@@ -636,7 +644,7 @@ class BuildJevTransitions:
                 )
                 candidates = useful + unknown
                 self._step = (
-                    AcquisitionIntent(actions=(candidates[0],))
+                    AcquisitionIntent(actions=tuple(candidates) if self._acquisition_policy else (candidates[0],))
                     if candidates
                     else self._terminal_answer()
                     if self._sufficient or not self._deferred

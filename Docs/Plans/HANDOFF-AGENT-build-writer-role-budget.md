@@ -1,6 +1,8 @@
 # AGENT: independent writer context allowance
 
-ACTIVE under PRIME's responsive Graph collaboration program. Base91a6d4eeaa2886674d489a30ae953de5e68a9a7b (merged1335). Serial successor; PRIME implements solo; ARCHITECTURE independently reviews. Existing buddy-tool-denial-delivery checkout/runtime/dependencies only. No new checkout, environment, source export or /tmp directory. No provider, deployment or retained-data changes during implementation verification. DOGFOOD keeps Ingest/Combat/UX ownership.
+SETTLED implementation: PR1337 reviewed6153c95297156bd2d6cefd8caffd63aa1e56cbf8 merged7cf6b81f54c57898bb235ffe89913bc296059abe after independent13tests/codePASS and114affectedauthorPASS. Exact Council SDK bytes accepted provider-free. Fresh combined-policy Council completed87.5197s/55newJev+1Luna; citations/reopenPASS, Thalia gold omissionsHOLD. Float3/3gold/sourcePASS21.0542s. Serving/browser/lifecycle acceptance remain open. Successor HANDOFF-AGENT-build-coverage-read-batches.md targets repeated assessments.
+
+Original contract under PRIME's responsive Graph collaboration program. Base91a6d4eeaa2886674d489a30ae953de5e68a9a7b (merged1335). Serial successor; PRIME implements solo; ARCHITECTURE independently reviews. Existing buddy-tool-denial-delivery checkout/runtime/dependencies only. No new checkout, environment, source export or /tmp directory. No provider, deployment or retained-data changes during implementation verification. DOGFOOD keeps Ingest/Combat/UX ownership.
 
 ## Proven failure and invariant
 

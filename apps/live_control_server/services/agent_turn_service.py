@@ -1117,7 +1117,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildWriterBudgetActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildReadBatchActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("acquisition_policy") is not None
+                else graph_types.BuildWriterBudgetActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("writer_context_budget") is not None
                 else graph_types.BuildJointSupportActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("support_policy") is not None
