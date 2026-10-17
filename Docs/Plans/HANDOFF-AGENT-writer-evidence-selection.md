@@ -1,6 +1,6 @@
 # AGENT: select source evidence before the single writer
 
-**Status:** ACTIVE design/implementation under PRIME's responsive source-faithful Graph collaboration goal; PRIME implements solo and ARCHITECTURE independently reviews. No ordinary adoption or completion claimed.
+**Status:** Implemented in #1360, independently PASS at 1348c494edee92b9e92a6ee545575844448e6a5d and merged at 23066e13e847c74dcefdbb80b24d548b883b31c5. Ordinary adoption remains unproven: the first fresh HTTP Float run refused the metadata-heavy selection request before dispatch. Successor HANDOFF-AGENT-selection-wire.md owns that bounded repair.
 **Base:** `main@541a8201405eb231f136a19963dc89b22d92f1b0`.
 **Branch:** `codex/jev-writer-selection`.
 **Checkout:** existing `buddy-tool-denial-delivery/DungeonMindBuddy`; reuse dependencies, fixtures and private research directory. No new checkout, clone, export, environment, server or /tmp task directory.

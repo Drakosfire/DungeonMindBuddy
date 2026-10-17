@@ -139,6 +139,36 @@ def response_judgments(catalog, response):
     return result
 
 
+def source_projection(catalog):
+    """Factor identities; keep every source text and its distinct origin/lines.
+
+    Producing event/read IDs remain in the hashed parent catalog and closure,
+    rather than repeating operational bookkeeping in the relevance input.
+    """
+    origins, sources = {}, {}
+    for key, unit in catalog.items():
+        if unit["kind"] == "native_passage":
+            row = unit["passage"]
+            origin = {field: row[field] for field in
+                      ("source_class", "source_artifact_id", "source_revision_id")}
+        elif unit["kind"] == "saved_section":
+            row = unit["section"]
+            origin = {"source_class": row["source_class"], "source_basis": row["source_basis"]}
+        else:
+            raise ValueError("Unsupported selection source kind")
+        identity = canonical(origin)
+        origins[identity] = origin
+        sources[key] = {"kind": unit["kind"], "text": row["text"],
+                        "line_start": row["line_start"], "line_end": row["line_end"],
+                        "origin": identity}
+    names = {identity: f"o{i}" for i, identity in enumerate(sorted(origins))}
+    for row in sources.values():
+        row["origin"] = names[row["origin"]]
+    return {"source_catalog_codec": "shared_source_origins_v1",
+            "source_origins": {names[key]: origins[key] for key in sorted(origins)},
+            "sources": sources}
+
+
 def selection_state(turn, catalog, terminal, historical_initial):
     """Exact final-controller input; this does not claim catalog completeness."""
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
@@ -165,7 +195,7 @@ def selection_state(turn, catalog, terminal, historical_initial):
         },
         "terminal_disposition": terminal,
         "catalog_sha256": digest(catalog),
-        "sources": catalog,
+        **source_projection(catalog),
         "rules": RULES,
     }
     state["basis_sha256"] = digest({key: value for key, value in state.items()
