@@ -1,8 +1,8 @@
 # INGEST: verify generic canonical recap lineage from an explicit title
 
-**Status:** ACTIVE — PRIME dispatched this bounded successor on 2026-10-17.
-**Base:** fetched `origin/main@1a9d1304f89132db9b54f4590210be1ffa7541d9`.
-**Branch:** `codex/ingest-session10-normalization-provenance`.
+**Status:** SETTLED — PR #1311 merged at `98f60ba74b363aa39d8936f1c1f55a8981368255`; implementation lease released.
+**Historical base:** fetched `origin/main@1a9d1304f89132db9b54f4590210be1ffa7541d9`.
+**Historical branch:** `codex/ingest-session10-normalization-provenance`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (existing assigned checkout; no new worktree).
 **Topology:** serial successor to the integrated #1255 derivative-lineage work. One PR for this successor; PRIME owns independent review and merge.
 **Runtime/data boundary:** disposable test corpus only. Preserve existing user/session/corpus data. Do not write retained recaps, live Corpus, World Graph, database, or 5202/5204; do not restart or switch the serving source. No provider calls.
@@ -61,3 +61,7 @@ The cumulative base-to-head diff is ready for independent PRIME review. Do not c
 ## Predecessor verification — PR #1255
 
 The #1255 implementation reported 137 passing tests across provenance, pipeline, seed, materializer, corpus-writer, and API suites; Ruff and cumulative diff check passed. Tests used disposable corpora. The PR did not alter retained recaps, live Corpus, providers, database, World Graph, or serving runtimes. Rendered Ingest acceptance remained outstanding. This evidence belongs to that predecessor and does not substitute for the successor checks above.
+
+## Settlement — 2026-10-17
+
+PR #1311 merged at `98f60ba74b363aa39d8936f1c1f55a8981368255` from head `1fe58d2d7453d684015e7910e4835d5b9fdb8613`. Its 34 focused pipeline/route-dispatch tests passed on disposable corpora; compile, formatting, and cumulative diff checks passed. The implementation resolves generic canonical-title lineage using the explicit title/slug while preserving stale derivatives and canonical bytes. No retained recap, live Corpus, World Graph, provider, database, or serving runtime was changed. Rendered and durable APP-source acceptance remained outstanding at merge and is handled by the successor handoff.

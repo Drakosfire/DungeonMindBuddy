@@ -188,7 +188,12 @@ def test_process_saves_normalizes_and_builds_graph_in_one_request(
         "materialize_recap_preview_supergraph",
         lambda **kwargs: (
             graph_calls.append(kwargs)
-            or {"status": "candidate_validation_ready", "candidate_node_count": 4, "candidate_edge_count": 3}
+            or {
+                "status": "candidate_validation_ready",
+                "extraction_run_id": "run-session-22-fixture",
+                "candidate_node_count": 4,
+                "candidate_edge_count": 3,
+            }
         ),
     )
 
@@ -208,7 +213,9 @@ def test_process_saves_normalizes_and_builds_graph_in_one_request(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["ingest_report"]["graph_preview"]["status"] == "candidate_validation_ready"
+    graph_preview = body["ingest_report"]["graph_preview"]
+    assert graph_preview["status"] == "candidate_validation_ready"
+    assert graph_preview["extraction_run_id"] == "run-session-22-fixture"
     assert len(graph_calls) == 1
     canonical = corpus / str(body["paths"]["canonical_recap"])
     normalized = corpus / str(body["paths"]["normalized_recap"])
