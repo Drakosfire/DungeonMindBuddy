@@ -11,6 +11,12 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
   const [url, setUrl] = useState<string | null>(null);
   const [status, setStatus] = useState('Loading image…');
   const id = String(node.attrs.assetId);
+  const [editable, setEditable] = useState(editor.isEditable);
+  useEffect(() => {
+    const sync = () => { setEditable(editor.isEditable && !editor.isDestroyed); if (!editor.isEditable) { resize.current = null; setPreviewWidth(null); } };
+    editor.on('update', sync); editor.on('destroy', sync);
+    return () => { editor.off('update', sync); editor.off('destroy', sync); };
+  }, [editor]);
   const width = Number(node.attrs.width ?? 100);
   const collapsed = node.attrs.collapsed === true;
   const frame = useRef<HTMLElement | null>(null);
@@ -40,18 +46,18 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
   return <NodeViewWrapper as="span" className="document-media-image" contentEditable={false} data-media-asset-id={id}
     ref={frame} style={{width: `${previewWidth ?? width}%`}}>
     <span className="document-media-image__toolbar">
-      <span data-drag-handle draggable={editor.isEditable} className="document-media-image__handle" title="Drag image to move" aria-label="Drag image to move">⠿</span>
+      <span data-drag-handle draggable={editable} className="document-media-image__handle" title="Drag image to move" aria-label="Drag image to move">⠿</span>
       <span className="document-media-image__title" title={title}>{title}</span>
       <button type="button" aria-label={collapsed ? 'Expand image' : 'Collapse image'} aria-expanded={!collapsed}
-        onMouseDown={event => event.preventDefault()} onClick={() => updateAttributes({width, collapsed: !collapsed})}
-        disabled={!editor.isEditable}>{collapsed ? 'Expand' : 'Collapse'}</button>
+        onMouseDown={event => event.preventDefault()} onClick={() => { if (editor.isEditable && !editor.isDestroyed) updateAttributes({width, collapsed: !collapsed}); }}
+        disabled={!editable}>{collapsed ? 'Expand' : 'Collapse'}</button>
     </span>
     <span className="document-media-image__body" hidden={collapsed}>
       {url ? <img src={url} alt={String(node.attrs.alt)} draggable={false} loading="lazy" onError={() => { setUrl(null); setStatus('Image unavailable'); }} />
         : <span role="status">{status}</span>}
-      {editor.isEditable && <button type="button" className="document-media-image__resize" aria-label="Resize image" title="Drag to resize; arrow keys adjust size" role="slider" aria-valuemin={20} aria-valuemax={100} aria-valuenow={previewWidth ?? width}
+      {editable && <button type="button" className="document-media-image__resize" aria-label="Resize image" title="Drag to resize; arrow keys adjust size" role="slider" aria-valuemin={20} aria-valuemax={100} aria-valuenow={previewWidth ?? width}
         onPointerDown={event => {
-          if (event.button !== 0) return;
+          if (event.button !== 0 || !editor.isEditable || editor.isDestroyed) return;
           event.preventDefault(); event.stopPropagation();
           const parent = frame.current?.parentElement?.getBoundingClientRect().width ?? 0;
           if (parent <= 0) return;
@@ -59,12 +65,13 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
           event.currentTarget.setPointerCapture(event.pointerId);
         }} onPointerMove={event => {
           const active = resize.current;
-          if (!active) return;
+          if (!active || !editor.isEditable || editor.isDestroyed) { finishResize(false); return; }
           active.next = Math.round(Math.max(20, Math.min(100, active.width + (event.clientX - active.x) / active.parent * 100)));
           setPreviewWidth(active.next);
         }} onPointerUp={() => finishResize(true)} onPointerCancel={() => finishResize(false)} onLostPointerCapture={() => finishResize(false)}
         onDragStart={event => event.preventDefault()}
         onKeyDown={event => {
+          if (!editor.isEditable || editor.isDestroyed) return;
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); event.stopPropagation();
           const next = event.key === 'Home' ? 20 : event.key === 'End' ? 100 : Math.max(20, Math.min(100, width + (event.key === 'ArrowLeft' ? -5 : 5)));
