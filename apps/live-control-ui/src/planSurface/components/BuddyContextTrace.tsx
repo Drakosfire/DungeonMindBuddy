@@ -75,6 +75,7 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}
       {event.input_upper_bound != null && <p className="buddy-context-trace__muted">Input ceiling: {number(event.input_upper_bound)} · conservative estimate, not actual token usage.</p>}
       {event.input_tokens == null && event.output_tokens == null && <p className="buddy-context-trace__muted">Actual token usage was not captured for this observation.</p>}</>
+    case 'prompt_reference': return <p>Complete prepared request captured. Open The Prompt to inspect it.</p>
     case 'failure': return <><strong className="buddy-context-trace__failure">{event.phase === 'trace_capture' ? 'Trace capture incomplete' : 'Execution failed'}</strong><p>{event.phase} · {event.code}</p></>
   }
 }

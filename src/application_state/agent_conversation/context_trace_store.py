@@ -15,6 +15,7 @@ from application_state.agent_conversation.context_trace import (
     TraceContextSnapshot,
     TraceGraphTool,
     TraceSourcePassage,
+    TracePromptReference,
     TurnContextTraceV1,
 )
 from application_state.errors import (
@@ -292,6 +293,11 @@ class TurnContextTraceStore:
                 raise ApplicationStateValidationError(
                     "source passage observations must be committed with their validated source-read event"
                 )
+            if isinstance(observation, TracePromptReference):
+                validate_prompt_authorization(observation, turn[6], trace.execution_start_sequence)
+                if any(isinstance(item, TracePromptReference) and item.provider_attempt_id == observation.provider_attempt_id
+                       for item in trace.observations):
+                    raise ApplicationStateValidationError("provider request already has a prompt reference")
             if isinstance(observation, TraceGraphTool):
                 _validate_graph_tool_observation(observation, turn[6])
             if isinstance(observation, TraceContextSnapshot):
@@ -364,17 +370,25 @@ class TurnContextTraceStore:
         from application_state.agent_conversation.service import _ready_dsn
 
         with unit_of_work(_ready_dsn()) as conn:
-            if conn.execute(
-                "SELECT 1 FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+            turn = conn.execute(
+                "SELECT graph_context_execution, conversation_id FROM agent.turn WHERE world_id=%s AND turn_id=%s",
                 (world_id, turn_id),
-            ).fetchone() is None:
+            ).fetchone()
+            if turn is None:
                 raise ApplicationStateNotFoundError("trace turn is unavailable in this World")
             rows = conn.execute(
                 "SELECT payload FROM agent.turn_context_trace "
                 "WHERE turn_id=%s ORDER BY attempt",
                 (turn_id,),
             ).fetchall()
-        return [_load_trace(row[0]) for row in rows]
+        traces = [_load_trace(row[0]) for row in rows]
+        for trace in traces:
+            if trace.world_id != world_id or trace.turn_id != turn_id or trace.conversation_id != turn[1]:
+                raise ApplicationStateValidationError("stored trace binding differs from its turn")
+            for observation in trace.observations:
+                if isinstance(observation, TracePromptReference):
+                    validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
+        return traces
 
 
 def _historical_sources_available(conn, trace: TurnContextTraceV1,
@@ -473,3 +487,17 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
             raise ApplicationStateValidationError(
                 "graph trace result IDs differ from the authoritative execution receipt"
             )
+
+
+def validate_prompt_authorization(observation: TracePromptReference, execution: object, start_sequence: int) -> None:
+    events = execution.get("events", []) if isinstance(execution, dict) else []
+    matches = [event for event in events if isinstance(event, dict)
+        and event.get("kind") in {"provider_attempt_authorized", "provider_attempt_authorized_v2", "provider_attempt_authorized_v3"}
+        and event.get("provider_attempt_id") == str(observation.provider_attempt_id)
+        and event.get("sequence", -1) >= start_sequence]
+    if len(matches) != 1 or any(matches[0].get(key) != expected for key, expected in {
+        "provider": observation.provider, "model": observation.model,
+        "api_mode": observation.api_mode, "serializer_version": observation.serializer_version,
+        "envelope_sha256": observation.payload_sha256,
+    }.items()):
+        raise ApplicationStateValidationError("prompt reference differs from this attempt's durable provider authorization")

@@ -13,6 +13,7 @@ Enable capture explicitly in the local developer runtime with DMB_AGENT_PROMPT_C
 
 Exclusive expected write set:
 - this handoff
+- Backlog.md (operator-requested next authoring insight only; no second runtime capability)
 - apps/live_control_server/services/agent_prompt_evidence.py (new)
 - apps/live_control_server/services/agent_context_trace_collector.py
 - apps/live_control_server/services/agent_turn_service.py
@@ -21,6 +22,8 @@ Exclusive expected write set:
 - src/application_state/agent_conversation/context_trace_store.py
 - apps/live-control-ui/src/api/buddyContextTraceTypes.ts
 - apps/live-control-ui/src/api/liveApi.ts (prompt read only)
+- apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx (primary Evidence trail placement)
+- apps/live-control-ui/src/planSurface/components/BuddyContextTraceLoader.tsx (prompt-only lazy view)
 - apps/live-control-ui/src/planSurface/components/BuddyContextTrace.tsx
 - apps/live-control-ui/src/planSurface/components/BuddyContextTrace.css
 - apps/live-control-ui/src/planSurface/components/BuddyPromptInspector.tsx (new)

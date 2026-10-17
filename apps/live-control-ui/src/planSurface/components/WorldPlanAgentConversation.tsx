@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
+import { ResponseEvidenceTabs } from "./BuddyPromptInspector";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 
 import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
@@ -4186,12 +4187,12 @@ export function WorldPlanAgentConversation({
     const citationByClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
     const evidenceStatuses = planContext?.evidence_anchor_statuses ?? [];
     const recapStatuses = planContext?.related_recap_context_statuses ?? [];
-    if (targets.length === 0 && evidenceStatuses.length === 0 && recapStatuses.length === 0 && claims.length === 0) return null;
+    const hasEvidence = targets.length > 0 || evidenceStatuses.length > 0 || recapStatuses.length > 0 || claims.length > 0;
 
     const evidenceCount = targets.filter((target) => target.kind === "evidence_anchor").length;
     const recapCount = targets.length - evidenceCount;
     const referenceCount = citations.reduce((count, citation) => count + citation.evidence_ref_ids.length, 0);
-    const summary = [
+    const summary = !hasEvidence ? "Sources and prepared request" : [
       `${claims.length} ${claims.length === 1 ? "claim" : "claims"}`,
       `${referenceCount} cited Graph ${referenceCount === 1 ? "reference" : "references"}`,
       `${evidenceCount} Graph source ${evidenceCount === 1 ? "passage" : "passages"}`,
@@ -4238,10 +4239,11 @@ export function WorldPlanAgentConversation({
         <span className="world-plan-agent-conversation__evidence-trail-summary">{summary}</span>
         <span className="world-plan-agent-conversation__evidence-trail-caret" aria-hidden="true">⌄</span>
       </summary>
-      <div className="world-plan-agent-conversation__evidence-trail-content">
-        <div className="world-plan-agent-conversation__evidence-intro">
+      <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
+        {!hasEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
+        {hasEvidence ? <div className="world-plan-agent-conversation__evidence-intro">
           Claims cited in this answer and the source passages you can inspect. The loaded World graph is a separate view.
-        </div>
+        </div> : null}
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           const claimTargets = targets.filter((target) => target.claim_id === claim.claim_id);
@@ -4298,7 +4300,10 @@ export function WorldPlanAgentConversation({
             </section> : null}
           </div>;
         })}
-      </div>
+      </div>} prompt={verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
+        enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
+        running={turn.lifecycle_status === "running" || turn.lifecycle_status === "accepted"}
+      /> : <p>No complete request was captured for this response.</p>} />
     </details>;
   }
 

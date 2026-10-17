@@ -493,3 +493,11 @@ Design synthesis: **keep native state/persistence/composition; steal prototype t
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
 - 2026-08-16 pass 2: converted root backlog from “worth doing” list to strict dispatch inventory; tracker-owned work delegated without duplicate status and READY reduced to seven bounded slices.
 - 2026-09-08 pass 3: re-anchored after PR #694 and the Stage 2A/2B durability work. Status-bearing headings reduced **17 → 7** (`2 READY`, `2 BLOCKED`, `3 DEFERRED`). Demo-Ready/CON-READY/Threat-owned work moved to pointer-only delegation; pre-cutover graph-authority assumptions were corrected; broad durability umbrellas were retired after real APP-STATE/World recovery proof; browser-local statblock persistence was retired as a product durability target.
+
+
+## [IDEA] Route authored facts to their subject's document and Graph provenance — captured 2026-10-16
+**Context:** Operator writing Edge in Build while discussing facts about Mirathorn with the Agent.
+**Insight:** The open document is the current workspace; each new fact may belong to a different subject and source document. The operator wants facts to produce useful nodes and relationships with openable links to their actual source passages.
+**Action:** Design a reviewable authoring proposal that names the destination document/passage and proposed nodes/relationships together. A Mirathorn addition discussed while Edge is open should target the appropriate Mirathorn document, preserve the originating conversation reference, and ask when the subject/destination is ambiguous. Distinguish new authored lore from retrieval of already established facts. Commit source text before deriving admitted Graph knowledge; never silently treat conversation prose as canon or edit the wrong page.
+**Surfaces when:** Build Agent authoring, cross-document edit proposals, selection annotations, and authored-source Graph ingestion.
+**Refs:** Operator Build dogfood, Edge document `6e0e35c4-41d7-48a6-9f57-6adbca2a0c19`; `Docs/Plans/HANDOFF-AGENT-full-prompt-inspection.md` (predecessor only).

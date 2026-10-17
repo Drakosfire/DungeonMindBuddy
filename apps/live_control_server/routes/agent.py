@@ -1409,6 +1409,37 @@ def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request)
         raise HTTPException(status_code=409, detail={"code": "context_trace_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}")
+def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider_attempt_id: UUID, request: Request):
+    """Explicit developer evidence read, under the same GM/World scope as traces."""
+    from fastapi.responses import JSONResponse
+    from application_state.agent_conversation.context_trace import TracePromptReference
+    from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError, read_prompt
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
+    try:
+        attempts = _conversation_service(request).list_context_trace_attempts(world_id=verified, turn_id=turn_id)
+        matches = [(trace, item) for trace in attempts if trace.trace_id == trace_id
+            and trace.world_id == verified and trace.turn_id == turn_id
+            for item in trace.observations if isinstance(item, TracePromptReference)
+            and item.provider_attempt_id == provider_attempt_id]
+        if len(matches) != 1:
+            raise HTTPException(status_code=404, detail={"code": "prompt_not_captured"})
+        trace, reference = matches[0]
+        text = read_prompt(reference)
+        return JSONResponse({"schema": "dmb_agent_prompt_evidence_v1", "world_id": verified,
+            "conversation_id": str(trace.conversation_id), "turn_id": str(turn_id), "trace_id": str(trace_id),
+            "attempt": trace.attempt, "reference": reference.model_dump(mode="json"), "payload_json": text},
+            headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "prompt_evidence_unavailable"}) from exc
+    except PromptEvidenceError as exc:
+        raise HTTPException(status_code=409, detail={"code": str(exc)}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/commands/{command_id}", response_model=AgentNewConversationStatusV1)
 def get_new_world_conversation_status(
     world_id: str, command_id: UUID, request: Request,
