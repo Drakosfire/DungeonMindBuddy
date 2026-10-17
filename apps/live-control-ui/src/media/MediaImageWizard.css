@@ -1,0 +1,26 @@
+.media-image-wizard { color: #e7e4dd; background: #17202d; border: 1px solid #546078; border-radius: 14px; padding: 1.25rem; width: min(44rem, calc(100vw - 2rem)); max-height: min(82vh, 58rem); overflow: auto; box-shadow: 0 18px 50px #0008; }
+.media-image-wizard header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.media-image-wizard h2 { margin: .2rem 0 1rem; font-size: 1.5rem; }
+.media-image-wizard__eyebrow { color: #dfb85b; font-size: .72rem; letter-spacing: .16em; margin: 0; }
+.media-image-wizard nav { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.media-image-wizard button, .media-image-wizard a { padding: .5rem .75rem; border-radius: 7px; }
+.media-image-wizard [aria-current=step] { border-color: #dfb85b; color: #f0ca74; }
+.media-image-wizard label { display: flex; flex-direction: column; gap: .4rem; font-size: .9rem; }
+.media-image-wizard input, .media-image-wizard select, .media-image-wizard textarea { padding: .65rem; background: #0e1520; color: #f5f1e9; border: 1px solid #59657b; border-radius: 6px; font: inherit; min-width: 0; }
+.media-image-wizard textarea { resize: vertical; width: 100%; box-sizing: border-box; line-height: 1.5; }
+.media-image-wizard__settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.media-image-wizard footer { margin-top: 1rem; }
+.media-image-wizard footer p { font-size: .8rem; color: #b2bbca; }
+.media-image-wizard__result { margin: 1rem 0 0; }
+.media-image-wizard__result img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.media-image-wizard__result figcaption { margin: .5rem 0; font-size: .9rem; }
+.media-image-wizard__actions { display: flex; gap: 1rem; padding-top: .8rem; align-items: center; }
+.build-media-studio { position: fixed; z-index: 120; right: 1rem; top: 5rem; }
+@media (max-width: 600px) { .build-media-studio { right: .5rem; top: .5rem; } .media-image-wizard { width: calc(100vw - 3.5rem); max-height: 88vh; } .media-image-wizard__settings { grid-template-columns: 1fr; } }
+.media-image-wizard { font-family: ui-sans-serif, system-ui, sans-serif; }
+.media-image-wizard button, .media-image-wizard a { background: #293449; color: #f5f1e9; border: 1px solid #65728b; font: inherit; cursor: pointer; text-decoration: none; }
+.media-image-wizard button:disabled { opacity: .45; cursor: default; }
+.media-image-wizard [aria-current=step] { background: #473d28; color: #ffe1a0; }
+.media-image-wizard :focus-visible { outline: 2px solid #f0ca74; outline-offset: 3px; }
+.media-image-wizard { box-sizing: border-box; }
+@media (max-width: 600px) { .media-image-wizard { width: calc(100vw - 2rem); } }

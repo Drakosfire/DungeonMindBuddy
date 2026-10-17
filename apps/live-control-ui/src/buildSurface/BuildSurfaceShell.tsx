@@ -1,3 +1,4 @@
+import { MediaImageWizard } from "../media/MediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
 import { BUILD_STARTER_CONTENT, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
@@ -45,6 +46,7 @@ function BuildPresentableSourceView({
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
   const [outlineVersion, setOutlineVersion] = useState(0);
+  const [mediaOpen, setMediaOpen] = useState(false);
   const { openTool, setPaneOpen, surfaceInteractionPublication } = useAgentInteraction();
   const referenceTool = surfaceInteractionPublication?.tools.find(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID);
   useEffect(() => {
@@ -153,8 +155,10 @@ function BuildPresentableSourceView({
       <div role="group" aria-label="Worldbuilding tools">
         <button type="button" disabled={referenceTool?.availability.status !== "enabled"} onClick={() => openTool(BUILD_FIND_EXISTING_TOOL_ID)}>Link existing node</button>
         <button type="button" onClick={() => setPaneOpen(true)}>Ask Agent</button>
+        <button type="button" onClick={() => setMediaOpen(true)}>Create image</button>
       </div>
     </div>
+    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} /></aside>}
     <MarkdownCanvas slots={editSlots} />
   </div>;
 }
