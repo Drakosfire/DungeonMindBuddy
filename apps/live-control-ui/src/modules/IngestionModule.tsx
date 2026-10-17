@@ -599,7 +599,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   );
   const routeTargetGenerationRef = useRef(0);
   function getIngestTargetIdentity(campaignId: string, sessionNumber: number): string {
-    return JSON.stringify([routeTargetGenerationRef.current, campaignId, sessionNumber]);
+    return JSON.stringify([managedWorldId ?? null, routeTargetGenerationRef.current, campaignId, sessionNumber]);
   }
   const storageKey = useMemo(
     () => draftStorageKey(ingestCampaignId, session),
@@ -613,6 +613,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const selectedIngestTargetRef = useRef(selectedIngestTarget);
   selectedIngestTargetRef.current = selectedIngestTarget;
   const previousRouteTargetIdentityRef = useRef(routeTargetIdentity);
+  const previousManagedWorldIdRef = useRef(managedWorldId ?? null);
   const previousRouteStateIdentityRef = useRef(routeStateIdentity);
   const targetSelectionTransitionRef = useRef<{
     identity: string;
@@ -783,29 +784,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     previousRouteStateIdentityRef.current = routeStateIdentity;
     const routeSelectionChanged = previousRouteTargetIdentityRef.current !== routeTargetIdentity;
     previousRouteTargetIdentityRef.current = routeTargetIdentity;
+    const managedWorldChanged = previousManagedWorldIdRef.current !== (managedWorldId ?? null);
+    previousManagedWorldIdRef.current = managedWorldId ?? null;
     const selectionChanged = routeSelectionChanged && (
       ingestCampaignId !== routeCampaignId || recapSession !== routeTargetSession
     );
+    const ingestTargetChanged = selectionChanged || (routeSelectionChanged && managedWorldChanged);
 
-    if (selectionChanged && rawText.trim()) {
-      const draft = {
-        version: INGESTION_DRAFT_STORAGE_VERSION,
-        rawText,
-        recapSession,
-        slug,
-        title,
-        showAdvanced,
-        forceStage,
-        forceRecap,
-        ignoreDiskResume,
-      } satisfies IngestionModuleDraft;
-      writeDraft(storageKey, draft);
-      const preserved = { storageKey, campaignId: ingestCampaignId, draft };
-      preservedRouteDraftRef.current = preserved;
-      setReturnableDraft(preserved);
+    if (ingestTargetChanged) {
+      preserveCurrentDraftForTargetChange();
     }
 
-    if (selectionChanged) {
+    if (ingestTargetChanged) {
       routeTargetGenerationRef.current += 1;
       invalidateInFlightRecapOperations();
       hydrateInspectGenerationRef.current += 1;
@@ -814,6 +804,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       targetSelectionTransitionRef.current = { identity, campaignId: routeCampaignId, session: routeTargetSession };
       setHydrated(false);
       setHydratedIngestTargetIdentity(null);
+      setPrimaryOp(null);
+      setLatestResult(null);
+      setState({ status: "idle" });
+      setToast(null);
+      inspectedTargetRef.current = "";
+      inspectingTargetRef.current = "";
     }
     if (selectionChanged) {
       ingestCampaignIdRef.current = routeCampaignId;
