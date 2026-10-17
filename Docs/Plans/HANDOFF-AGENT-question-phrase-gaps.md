@@ -28,3 +28,9 @@ No Graph, acquisition, selection, UI, ingestion, schema migration, provider, dep
 ## Verification
 
 Exercise the actual mocked SDK/APP seam, raw producer/envelope reconstruction, invalid phrase/capability/foreign question refusal, unchanged facts/citation indexes/history, capacity and historical V1/V2. Run focused tests/lint/cumulative diff, push one PR, independent exact-head review. Then changed-format ordinary Toll under standing approval, one writer with no unchanged retry, to evaluate supported partial facts plus specific unknowns. No serving or full Mirathorn completion claim from synthetic success or frozen pilots.
+
+## Implementation evidence
+
+New build_cited_source_answer_v4 uses exact_question_phrase_selected_excerpts_v1. Only question_phrase is accepted; code requires unique case-sensitive membership (including overlapping duplicate detection), locates/sorts spans and refuses overlap. Old offset fields and never-served V3 capability/format are rejected without an adapter. Live historical V1/V2 producer shapes remain unchanged. Fixed host rendering/capacity/positive citations/APP proof remain intact. Generic writer instructions permit source-supported qualitative constraints alongside missing exact values.
+
+Sixty focused cases pass in37.20s across phrase gaps, cited-writer proof and selection. Cases include actual mocked SDK→APP failure/reopen, exact/foreign/case/repeated/overlap/Unicode/Markdown/numeric/prose-scope refusal and completion capacity. Scoped Ruff and cumulative diff pass. No provider or serving/retained writes during implementation. Read-only retirement preflight is retained privately; V3 failures remain in Git and research artifacts. Fresh model semantics and serving adoption remain separate.
