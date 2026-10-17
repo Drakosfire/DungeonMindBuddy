@@ -27,6 +27,8 @@ After hydration, the trace showed `selectionHydrated=true`, `resultOwnsSelection
 
 The cold-route regression resolves Graph availability before inspect-status or artifact-list hydration and verifies there is no premature error, then confirms the exact Session 10 projection starts automatically when the source arrives. A second test verifies a failed projection retries after explicitly reconnecting Graph. Existing manual-load and A→B→A guards remain covered.
 
+ARCHITECTURE found an additional reconnect defect in review of `d0d2bfc6cd638f298d21ab21ce05717e3440c13b`: after a successful reader projection, revoking Graph access cleared `reviewSource` but retained `readerAttempt` with no error. Reconnect therefore hit the successful-attempt guard and did not request another projection, leaving the selected source empty. The fix clears the consumed attempt when Graph becomes unavailable; only an explicit later availability callback can retry. A success→revoke→reconnect regression failed on that reviewed head because projection was called once instead of twice, and passes with the repair.
+
 ## Exact write lease
 
 - `Docs/Plans/HANDOFF-INGEST-cold-reader-resume.md` — this bounded contract and truthful settlement.
@@ -39,12 +41,12 @@ No other product paths, APIs, shared navigation, schemas, migrations, dependenci
 
 - Reproduce the failure with Graph availability resolving before Session 10 selection/status/artifact hydration.
 - Assert that callback does not consume the reader attempt; after the exact saved source arrives, assert automatic projection and rendering without clicking Load.
-- Assert that a failed projection retries after an explicit Graph reconnect.
+- Assert that a failed projection retries after an explicit Graph reconnect, and that a successful projection is restored after revoke/reconnect without duplicate initial restoration.
 - Assert a completed lookup with no matching address reports no saved recap without looping, and that explicit manual load still works.
 - Preserve A→B→A stale-response fences with focused coverage if the change touches their lifecycle.
 - Run the owning `IngestionModule.test.tsx` suite, applicable typecheck/build, and `git diff --check` against the cumulative current-main diff.
 - No **Process**, extraction/provider call, candidate confirmation, World write, or retained database change. The user's Session 10 browser state is not a fixture and must not be mutated.
-- Verification against exact base `0dbdd85a8db8038ef7fe21e083dbe3cc8905462d`: the new early-callback regression fails with the premature `No saved recap is available for this session` alert. The corrected branch passes both the early-callback and reconnect-retry regressions; all 75 `IngestionModule.test.tsx` tests pass, UI typecheck and production build pass, and `git diff --check` passes. The build retains its existing >500 KB chunk warning and the suite emits existing React `act(...)` warnings. PRIME restored the normal 5202 index; a fresh hidden tab shows no diagnostic panel. Do not claim the repair is live until the corrected PR is reviewed, merged, and rolled out.
+- Verification against exact base `0dbdd85a8db8038ef7fe21e083dbe3cc8905462d`: the early-callback regression fails with the premature `No saved recap is available for this session` alert. On published head `d0d2bfc6cd638f298d21ab21ce05717e3440c13b`, the added success→revoke→reconnect regression failed because `postWorldGraphRecapProjection` was called once, not twice. The corrected working tree passes the early-callback, failed-projection retry, and success→revoke→reconnect regressions; all 76 `IngestionModule.test.tsx` tests pass, UI typecheck and production build pass, and `git diff --check` passes. The build retains its existing >500 KB chunk warning and the suite emits existing React `act(...)` warnings. PRIME restored the normal 5202 index; a fresh hidden tab shows no diagnostic panel. Do not claim the repair is live until the corrected PR is reviewed, merged, and rolled out.
 
 ## Completion boundary
 

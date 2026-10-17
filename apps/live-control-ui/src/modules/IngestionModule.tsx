@@ -2148,6 +2148,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
 
     reviewEpoch.current += 1;
+    // Revocation invalidates even a previously successful projection so that
+    // reconnecting can restore the selected source again.
+    readerAttempt.current = null;
     setReviewSource(null);
     setReviewLoading(false);
     if (available) setReviewError(null);

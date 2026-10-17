@@ -1036,6 +1036,47 @@ describe("IngestionModule", () => {
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
   });
 
+  it("restores a successfully opened reader after Graph access is revoked and reconnected", async () => {
+    const user = setupIngestUser();
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.spyOn(liveApi, "revokeNativeGraphSession").mockResolvedValue();
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(makeRecapArtifactRegistry([exactArtifact]));
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Revoke local Graph session" }));
+    expect(await screen.findByText("Local Graph session revoked.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Held the Mireward gate during Session 23/)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+  });
+
   it.each([
     ["empty", makeRecapArtifactRegistry([]), "No saved recap is available for this session."],
     ["unavailable", new Error("Registry unavailable"), "Saved recaps could not be checked."],
