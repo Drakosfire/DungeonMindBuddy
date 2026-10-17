@@ -347,10 +347,10 @@ class OutputWire(WriterWire):
         value = response.json()
         output = value["output"][0]["content"][0]
         answer = json.loads(output["text"])
-        if self.variant in {"saved", "saved_only"}:
+        if self.variant in {"saved", "saved_only", "unknown_saved"}:
             packet = json.loads(json.loads(request.content)["input"])
             section = packet["exposure"]["saved_sections"][0]
-            if self.variant == "saved_only":
+            if self.variant in {"saved_only", "unknown_saved"}:
                 answer["answer_segments"] = []
                 answer["answer_context_status"] = "source_grounded_partial"
             answer["answer_segments"].append(
@@ -360,6 +360,8 @@ class OutputWire(WriterWire):
                     "section_read_ids": [section["read_id"]],
                 }
             )
+            if self.variant == "unknown_saved":
+                answer["answer_segments"][0]["section_read_ids"] = ["foreign"]
         elif self.variant == "abstention":
             answer.update(
                 answer_context_status="source_insufficient_evidence",
@@ -379,7 +381,7 @@ class OutputWire(WriterWire):
 
 
 @pytest.mark.parametrize(
-    "variant", ["abstention", "suggestion", "saved", "unknown_handle"]
+    "variant", ["abstention", "suggestion", "saved", "saved_only", "unknown_handle", "unknown_saved"]
 )
 def test_ordinary_output_variants_keep_single_writer_and_saved_indexes(
     build_case, monkeypatch, tmp_path, variant
@@ -388,12 +390,12 @@ def test_ordinary_output_variants_keep_single_writer_and_saved_indexes(
     wire = OutputWire(variant)
     harness = BuildJevHarness(
         decision_transport=SavedThenGraphWire()
-        if variant == "saved"
+        if variant in {"saved", "saved_only", "unknown_saved"}
         else DecisionWire(),
         writer_transport=wire,
         accounting=counter(),
     )
-    if variant == "unknown_handle":
+    if variant in {"unknown_handle", "unknown_saved"}:
         with pytest.raises(Exception, match="could not complete safely"):
             execute(case, tmp_path, harness)
         assert len(wire.calls) == 1
@@ -417,14 +419,20 @@ def test_ordinary_output_variants_keep_single_writer_and_saved_indexes(
         )
         assert {c.segment_index for c in turn.completion.source_citations} == {0}
     else:
-        assert turn.completion.answer_segments[1].kind == "saved_source_claim"
+        saved_index = 0 if variant == "saved_only" else 1
+        assert turn.completion.answer_segments[saved_index].kind == "saved_source_claim"
+        if variant == "saved_only":
+            assert isinstance(turn.completion, t.BuildGraphCompletionV1)
+            packet = json.loads(json.loads(wire.calls[0].content)["input"])
+            assert packet["opened_passages"]  # Unselected ambient passages do not force V2.
+            assert turn.completion.citation_map is None
         bindings = [
             b
             for e in turn.graph_context_execution.events
             if isinstance(e, t.BuildSectionAnswerBindingV1)
             for b in e.bindings
         ]
-        assert len(bindings) == 1 and bindings[0].segment_index == 1
+        assert len(bindings) == 1 and bindings[0].segment_index == saved_index
 
 
 class SavedOnlyDecisionWire(DecisionWire):

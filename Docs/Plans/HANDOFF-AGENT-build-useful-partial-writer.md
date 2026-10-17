@@ -1,6 +1,6 @@
 # AGENT: preserve useful cited context when specifics are missing
 
-ACTIVE under PRIME's source-faithful ordinary Graph collaboration goal. Base2f43bbffd5dfe042a5a913bd49efa94d0d3898f1. Serial successor to merged1342. PRIME implements solo; ARCHITECTURE independently reviews. Reuse current buddy-tool-denial-delivery checkout/dependencies; no new checkout/environment/export/tmp. DOGFOOD owns Ingest/Combat/rollout, no serving or retained state changes here.
+MERGED in #1344 at d61381bd92c921057aa9e4495e9727ed52041ab8, reviewed head9eb54fe683bab64a03a505b02f01cc920b11531a. Selected-source completion successor owns the current serial lane. Originally ACTIVE under PRIME's source-faithful ordinary Graph collaboration goal. Base2f43bbffd5dfe042a5a913bd49efa94d0d3898f1. Serial successor to merged1342. PRIME implements solo; ARCHITECTURE independently reviews. Reuse current buddy-tool-denial-delivery checkout/dependencies; no new checkout/environment/export/tmp. DOGFOOD owns Ingest/Combat/rollout, no serving or retained state changes here.
 
 ## Evidence and bounded change
 
@@ -11,3 +11,7 @@ Clarify the generic one-shot cited-writer instruction: missing requested specifi
 ## Exact write lease and topology
 
 This handoff; factual settlement in HANDOFF-AGENT-build-cited-writer-output.md; apps/live_control_server/services/build_jev_writer.py only the CITED_PASSAGE_INSTRUCTIONS wording. No runtime, APP types/service, schema, dependencies, UI or acquisition/controller changes. One serial PR, independently review exact head before merge. Existing owning SDK/APP tests verify envelope/proof compatibility; no test that merely repeats the prompt string. After acceptance run one changed-prompt Toll trial with unchanged question/source/gold, no retries/fallback; record exact passages, semantic/source review, latency, tokens, reported cost and limitations. Held semantic result stays held until evidence proves improvement. Full Mirathorn/operator lifecycle remains open.
+
+## Observed changed-prompt result
+
+Independent exact-head review PASS and24 owning tests passed. Fresh ordinary-useful-partial-live-toll-20261017-01 had7Jev+1Luna in15.085s and51 opened passages (the earlier47 count was shorthand from the predecessor, not this run). Raw writer produced a useful source-faithful saved-section partial answer, independently reviewed against exact source/gold. Delivery failed before completion because saved-only facts with ambient opened passages were routed to V2. No answer was committed; this is not delivered acceptance or controlled proof the prompt caused improvement. Preserve raw response and repair shape choice from selected facts, with no further paid call.
