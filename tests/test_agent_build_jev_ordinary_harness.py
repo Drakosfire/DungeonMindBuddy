@@ -37,7 +37,8 @@ class DecisionWire(httpx2.AsyncBaseTransport):
         if self.timeout:
             raise httpx2.ReadTimeout("synthetic timeout", request=request)
         body = json.loads(request.content)
-        state = body["state"]["decision"]["state"]
+        selecting = body["state"].get("writer_selection_policy") is not None
+        state = {} if selecting else body["state"]["decision"]["state"]
         acquired = state.get("evidence", [])
         answers = {}
         for key, q in body["questions"].items():
@@ -45,7 +46,9 @@ class DecisionWire(httpx2.AsyncBaseTransport):
                 answers[key] = {"type": "noul", "noul": 0.99}
                 continue
             labels = q["criteria"]
-            if key == "operation":
+            if selecting:
+                selected = "direct_support"
+            elif key == "operation":
                 selected = self.operation
             elif key == "sufficiency":
                 selected = "sufficient" if acquired else "more_evidence"
@@ -73,7 +76,7 @@ class DecisionWire(httpx2.AsyncBaseTransport):
 
 
 class WriterWire(httpx.AsyncBaseTransport):
-    def __init__(self, *, timeout=False, answer_status="source_grounded"):
+    def __init__(self, *, timeout=False, answer_status="source_grounded_partial"):
         self.calls, self.timeout, self.answer_status = [], timeout, answer_status
 
     async def handle_async_request(self, request):
@@ -90,6 +93,8 @@ class WriterWire(httpx.AsyncBaseTransport):
                     "assumptions": ["Nia is invented."],
                 }
             )
+        elif body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2"} and not packet["opened_passages"]:
+            text = json.dumps({"answer_context_status": "source_insufficient_evidence", "answer_segments": []})
         else:
             text = json.dumps(
                 {
@@ -103,6 +108,12 @@ class WriterWire(httpx.AsyncBaseTransport):
                     ],
                 }
             )
+        if body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2"}:
+            answer = json.loads(text)
+            answer["limitations"] = ["partial_retrieval"] if self.answer_status != "source_grounded" else []
+            if packet.get("retrieval_disposition", {}).get("status") == "insufficient_evidence":
+                answer["limitations"].append("missing_requested_details")
+            text = json.dumps(answer)
         return httpx.Response(
             200,
             request=request,
@@ -134,6 +145,23 @@ class WriterWire(httpx.AsyncBaseTransport):
 
 def ordinary_case(build_case, monkeypatch, *, authoring=False):
     adapter, _, calls, _ = driver_case(build_case, monkeypatch)
+    # This fixture fakes native IO; real scoped-session conformance is exercised
+    # separately. Keep ordinary APP/SDK behavior real without claiming native IO.
+    from contextlib import contextmanager
+    from apps.live_control_server.integrations.dungeonmind import reviewed_source_wave
+    from graph_memory.interaction import expansion_executor
+
+    @contextmanager
+    def synthetic_wave(services, request):
+        yield services
+
+    monkeypatch.setattr(reviewed_source_wave, "reviewed_source_wave", synthetic_wave)
+    original_source_read = expansion_executor.execute_read_graph_source
+
+    def synthetic_source_read(arguments, *, receipt_version, native_services=None):
+        return original_source_read(arguments, receipt_version=receipt_version)
+
+    monkeypatch.setattr(expansion_executor, "execute_read_graph_source", synthetic_source_read)
     # The native selected-observation adapter, with all host admission/persistence
     # still real, returns the same source-bound synthetic observation as object read.
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads
@@ -218,7 +246,7 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
     )[0]
     assert turn.status == "completed" and len(turn.completion.source_citations) == 1
     assert isinstance(
-        turn.graph_context_execution.policy, ledger.BuildActionControllerWriterPolicyV1
+        turn.graph_context_execution.policy, ledger.BuildContainedActionControllerWriterPolicyV1
     )
     selections = [
         e
@@ -226,6 +254,12 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
         if isinstance(e, ledger.BuildJevActionSelectionV1)
     ]
     assert len(selections) == 1 and selections[0].operation == "answer_from_sources"
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    disposition = packet["retrieval_disposition"]
+    assert disposition["coverage_status"] == "heuristic_exclusions"
+    assert disposition["deferred_unread_ids"] == []
+    assert "coverage_judgments" not in disposition
+    assert turn.graph_context_execution.policy.frontier_policy == "evidence_bound_deferred_frontier_v1"
     assert response.knowledge_context.delivery_replay is False
 
 
@@ -654,6 +688,7 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["status"] == "error"
     assert runtime.calls[-1]["usage"]["input_tokens"] == 100
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
+    assert runtime.calls[-1]["usage"]["total_tokens"] == 140
     assert runtime.calls[-1]["usage"]["status"] == "reported"
 
 
@@ -806,3 +841,58 @@ def test_compact_sdk_type_substitution_never_dispatches(
     assert decisions.calls == writer.calls == []
     assert harness.adapter.fence is None
     assert harness.adapter.turn is None
+
+
+def test_writer_cannot_claim_full_support_when_frontier_is_heuristic(
+    build_case, monkeypatch, tmp_path
+):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    case, _ = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DecisionWire(), WriterWire(answer_status="source_grounded")
+    with pytest.raises(AgentTurnServiceError) as rejected:
+        execute(case, tmp_path, BuildJevHarness(decision_transport=decisions, writer_transport=writer))
+    assert "unresolved retrieval" in str(rejected.value.__cause__)
+    assert len(writer.calls) == 1  # consumed; never rewrite/retry the writer
+
+
+def test_ordinary_deferred_actions_stay_unread_and_citations_survive_reopen(
+    build_case, monkeypatch, tmp_path
+):
+    class DeferredWire(DecisionWire):
+        async def handle_async_request(self, request):
+            response = await super().handle_async_request(request)
+            value = response.json()
+            for key, answer in value["answers"].items():
+                if key.startswith("use_"):
+                    answer["probabilities"] = {"not_useful": .6, "useful": .1, "unknown": .3}
+            return httpx2.Response(200, request=request, json=value)
+    case, calls = ordinary_case(build_case, monkeypatch)
+    decisions, writer = DeferredWire(), WriterWire()
+    response = execute(case, tmp_path, BuildJevHarness(decision_transport=decisions, writer_transport=writer))
+    assert response.answer.text == "Frank believes the western gate is haunted."
+    assert calls == {"graph": 1, "source": 1} and len(writer.calls) == 1
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    frontier = packet["retrieval_disposition"]
+    assert frontier["coverage_status"] == "heuristic_partial"
+    assert frontier["deferred_unread_ids"] and frontier["excluded_unread_count"] == 0
+    assert "probabilities" not in json.dumps(frontier)
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
+    assert turn.status == "completed" and len(turn.completion.source_citations) == 1
+    policy = turn.graph_context_execution.policy
+    assert type(policy) is ledger.BuildContainedActionControllerWriterPolicyV1
+    # Reading historical policy bytes must not introduce new frontier fields.
+    old = policy.model_dump(mode="json", by_alias=True)
+    old.pop("evidence_codec")
+    phase = ledger.BuildPhaseActionControllerWriterPolicyV1.model_validate(old)
+    assert "evidence_codec" not in phase.model_dump()
+    old.pop("phase_input_policy")
+    frontier = ledger.BuildFrontierActionControllerWriterPolicyV1.model_validate(old)
+    assert "phase_input_policy" not in frontier.model_dump()
+    old.pop("frontier_policy")
+    historical = ledger.BuildContinuationActionControllerWriterPolicyV1.model_validate(old)
+    assert historical.model_dump(mode="json", by_alias=True) == old
+    from pydantic import TypeAdapter
+    restored = TypeAdapter(ledger.BuildFrontierActionControllerWriterPolicyV1 | ledger.BuildContinuationActionControllerWriterPolicyV1).validate_python(old)
+    assert type(restored) is ledger.BuildContinuationActionControllerWriterPolicyV1
+    assert "frontier_policy" not in restored.model_dump()

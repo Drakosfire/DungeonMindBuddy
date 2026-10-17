@@ -1,10 +1,14 @@
 # INGEST: preserve campaign and session affinity in prior recap selection
 
-**Status:** ACTIVE — PRIME explicitly dispatched this bounded selector repair after PR #1315 merged on 2026-10-17.
-**Base:** fetched `origin/main@53c9fd723258a4a528fdfb81ee725497fb7ebbae`.
-**Branch:** `codex/ingest-session-affinity-default`.
+**Status:** SETTLED — PR #1333 (`INGEST: reset prior recap selection on route change`) merged at `6531f0038d79431c6265afb3fd01e6d99458cd2b` from head `88510a3d8aeaff0caf9b84b674ee63e1b49836a5`. Its exact-session route reset supersedes this handoff's active lease.
+**Base:** current GitHub `main@1c810a208e27be6efc7f21ed10bdcc18c05c0bb3`.
+**Branch:** `codex/ingest-session-affinity-route-reset`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse the assigned checkout).
-**Topology:** parallel-independent with draft PR #1235, whose checked changed-file list is limited to Graph Review/API observation-review paths and does not overlap this write set. PRIME owns independent review and merge of this one PR. PR #1315 is merged. PR #1244 edits the recap evidence materializer and separate handoff/tests, is not a dependency, and remains held per PRIME.
+**Topology:** one independent Ingest UI PR. PR #1318 is settled at merge commit `1ed861d7c123fd62d7583204eff7f2236a5680e4` from head `e3c231dab039f6842864888c8fb71e5a2ead58d7`; this follow-up repairs the mounted-route case its initial exact-match default did not cover. Open PR #1235 remains limited to disjoint Graph Review/API observation-review paths. No new worktree, live service, or retained-data lane is introduced.
+
+## Settlement
+
+PR #1333 passed independent ARCHITECTURE review and merged. It fixed the mounted same-campaign session-route case that the original PR #1318 did not cover. Its UI suite passed 63 tests with typecheck and diff-check. This handoff no longer grants a write lease. Rendered post-merge selector behavior, source load/process/save, real recap ingestion and persistence acceptance remain unverified and are tracked separately.
 
 ## Mission
 
@@ -17,27 +21,26 @@ When a user opens Ingest for a campaign/session, the prior processed recap selec
 - The selector must show only artifacts whose `campaign_id` matches the selected campaign.
 - When the campaign changes, stale options from the previous campaign must not remain selectable while the new list is loading.
 - An exact matching artifact may be preselected; it must not be loaded automatically.
+- When a mounted route changes sessions within the same campaign, immediately replace a prior-session selection with the exact target-session artifact, or clear it to the placeholder when there is no exact match.
 - Explicit user selection, local draft contents, source lineage checks, and load/reopen behavior remain unchanged.
 
 ## Exact write lease
 
 - `Docs/Plans/HANDOFF-INGEST-session-affinity-default.md` — this bounded contract and evidence.
-- `Docs/Plans/HANDOFF-INGEST-rendered-recap-acceptance.md` — factual settlement of merged PR #1315 and pointer to this successor only.
-- `apps/live-control-ui/src/modules/IngestionModule.tsx` — exact-match defaulting against the latest session target when a campaign list resolves, campaign-change request invalidation, and clearing prior-campaign options. No unrelated presentation changes.
-- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regression coverage for exact match, no match, explicit load remaining explicit, and stale list responses after target changes.
+- `apps/live-control-ui/src/modules/IngestionModule.tsx` — exact-match defaulting and mounted-route reselection, campaign-change request invalidation, and clearing prior-campaign options. No source loading or processing changes.
+- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regression coverage for exact match, no match, explicit load remaining explicit, mounted route changes, and stale list responses after target changes.
 
 No API/server/schema, extraction/materializer, raw source, graph publication, provider, database, retained artifact, or 5202 changes are leased. Return to PRIME before expanding scope or write paths.
 
 ## Verification
 
-- Complete `IngestionModule.test.tsx`: **49 passed**, including existing draft-preservation and lineage tests.
-- `git diff origin/main --check` passed.
-- UI typecheck is blocked by five existing TypeScript errors in untouched `src/planSurface/components/WorldPlanAgentAnswer.tsx` (lines 47, 49, and 50). I did not run the production build because its first step is the same failing TypeScript check; no changed Ingest path is named in the diagnostics.
-- Inspect the exact cumulative `origin/main` to head diff. Commit and push this branch, then open one PR for PRIME review. Do not merge or mutate 5202.
-- Rendered acceptance is limited to read-only inspection of the current selector state. PRIME says the user may inspect and author now; extraction richness/readiness remains unproven. A new recap can be processed as dogfood, but any result should be treated as an experiment. Do not load a prior recap from the affected selector until this repair is reviewed. No recap was loaded, processed, or modified during the observed mismatch.
+- Complete `IngestionModule.test.tsx`: **63 passed**, including the new mounted Session 27 → Session 10 selector regression plus existing draft-preservation and lineage tests. Existing unrelated React `act(...)` warnings remain.
+- UI typecheck passed. `git diff --check` against `main@1c810a208e27be6efc7f21ed10bdcc18c05c0bb3` passed. The cumulative product diff is limited to the two leased Ingest UI files; no production build was written over serving assets.
+- Commit the bounded changes to `codex/ingest-session-affinity-route-reset` based on current main and open one PR for PRIME review. Do not merge or mutate 5202.
+- Rendered inspection remains before-fix evidence only: on the Session 10 route the selector visibly showed Session 27 while the source editor remained empty; Session 10 was also present in the options. No recap was loaded, processed, or modified. Recheck the corrected selector only after the reviewed build is available; real ingestion and persistence acceptance remain open.
 
 ## Rendered discovery and review boundary
 
-- The triggering browser route targeted `world=elderwyld`, `campaign=longmont-c2`, `session=session-10`. The rendered selector showed Session 27, matching the latest-registry-item failure recorded in `HANDOFF-INGEST-rendered-recap-acceptance.md`; the user did not load that artifact. No retained recap or database state was changed.
-- This is the before-fix rendered observation. The current PR has not been rendered on 5202, and this handoff does not claim the corrected selector has passed browser acceptance. 5202 remains untouched.
-- Review target: [PR #1318](https://github.com/Drakosfire/DungeonMindBuddy/pull/1318), exact cumulative base `53c9fd723258a4a528fdfb81ee725497fb7ebbae` → head `7fb24a86d8b4d7cb3c0c52a3efe232da4475839f`. The same 49-test and typecheck limits above are recorded in the PR body. PRIME has placed this PR next in its review queue; no review or merge has occurred yet.
+- The triggering browser route targeted `world=elderwyld`, `campaign=longmont-c2`, `session=session-10`. The rendered selector showed Session 27 even though Session 10 was present; the editor was empty and the user did not load the prior artifact. No retained recap or database state was changed.
+- PR #1318 implemented exact-session defaulting and merged at `1ed861d7c123fd62d7583204eff7f2236a5680e4` from head `e3c231dab039f6842864888c8fb71e5a2ead58d7`. Its initial-mount test did not cover navigating between sessions while the component stayed mounted. The current repair adds that case.
+- This remains before-fix rendered evidence. 5202 has not been updated or changed, and this handoff does not claim the corrected selector has passed browser acceptance. Real ingestion and persistence acceptance remain open.

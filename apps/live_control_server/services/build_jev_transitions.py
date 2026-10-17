@@ -14,7 +14,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .build_jev_accounting import ExperimentalAccounting
-from .build_jev_dispatch import MODEL
+from .build_jev_dispatch import MODEL, PHASE_POLICY
 
 
 class _Frozen(BaseModel):
@@ -74,7 +74,7 @@ class DecisionIntent(_Frozen):
     kind: Literal["decision"] = "decision"
     request_id: str
     model: str = MODEL
-    phase: Literal["select", "assess", "coverage", "retention"]
+    phase: Literal["select", "assess", "navigate", "coverage", "retention", "writer_selection"]
     state: dict
     questions: tuple[DecisionQuestion, ...]
 
@@ -98,6 +98,36 @@ class Disposition(_Frozen):
     acquired_action_ids: tuple[str, ...]
     excluded_unread_ids: tuple[str, ...]
     retention_judgments: tuple[dict, ...] = ()
+
+
+READ_BATCH_POLICY = "jointly_judged_independent_reads_v1"
+FRONTIER_POLICY = "evidence_bound_deferred_frontier_v1"
+JOINT_SUPPORT_POLICY = "combined_relevant_evidence_support_v1"
+
+
+class FrontierDisposition(Disposition):
+    """Current coverage and historical judgments are separate from semantic support."""
+
+    frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] = FRONTIER_POLICY
+    coverage_status: Literal[
+        "catalog_exhausted", "heuristic_exclusions", "heuristic_partial"
+    ]
+    evidence_basis_sha256: str
+    deferred_unread_ids: tuple[str, ...]
+    coverage_judgments: tuple[dict, ...]
+
+    def writer_summary(self) -> dict:
+        # Full per-action answers remain host-side, never repeated in the writer packet.
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "relevant_ids": list(self.relevant_ids),
+            "coverage_status": self.coverage_status,
+            "evidence_basis_sha256": self.evidence_basis_sha256,
+            "deferred_unread_ids": list(self.deferred_unread_ids),
+            "excluded_unread_count": len(self.excluded_unread_ids),
+            "coverage_judgments_sha256": _digest(self.coverage_judgments),
+        }
 
 
 Step = DecisionIntent | AcquisitionIntent | Disposition
@@ -143,15 +173,48 @@ class BuildJevTransitions:
         exclusion_min: float = 0.9,
         retention_policy: Literal["question_relevance_packets_v1"] | None = None,
         accounting: ExperimentalAccounting | None = None,
+        frontier_policy: Literal["evidence_bound_deferred_frontier_v1"] | None = None,
+        phase_input_policy: Literal["role_separated_controller_inputs_v1"]
+        | None = None,
+        evidence_codec: Literal["contained_passage_slices_v1"] | None = None,
+        support_policy: Literal["combined_relevant_evidence_support_v1"] | None = None,
+        acquisition_policy: Literal["jointly_judged_independent_reads_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
         if retention_policy not in {None, "question_relevance_packets_v1"}:
             raise ValueError("unsupported retention policy")
-        if accounting is not None and retention_policy is None:
+        if accounting is not None and retention_policy is None and phase_input_policy is None:
             raise ValueError(
                 "experimental accounting requires explicit retention policy"
             )
+        if frontier_policy not in {None, FRONTIER_POLICY}:
+            raise ValueError("unsupported frontier policy")
+        if frontier_policy and retention_policy:
+            raise ValueError("frontier requires the complete acquired evidence view")
+        if phase_input_policy not in {None, PHASE_POLICY} or (
+            phase_input_policy and not frontier_policy
+        ):
+            raise ValueError("phase input policy requires the explicit frontier policy")
+        from .build_jev_compaction import CONTAINED_CODEC
+
+        if evidence_codec not in {None, CONTAINED_CODEC} or (
+            evidence_codec and not phase_input_policy
+        ):
+            raise ValueError("evidence codec requires explicit phase input policy")
+        self._evidence_codec = evidence_codec
+        if support_policy not in {None, JOINT_SUPPORT_POLICY} or (support_policy and not phase_input_policy):
+            raise ValueError("joint support requires the explicit phase input policy")
+        if acquisition_policy not in {None, READ_BATCH_POLICY} or (acquisition_policy and not support_policy):
+            raise ValueError("read batching requires explicit joint support policy")
+        self._acquisition_policy = acquisition_policy
+        self._support_policy = support_policy
+        self._phase_input_policy = phase_input_policy
+        self._assessment_judgment: dict | None = None
+        self._frontier_policy = frontier_policy
+        self._deferred: set[str] = set()
+        self._coverage_basis: str | None = None
+        self._coverage_judgments: list[dict] = []
         self._accounting = accounting
         self._retention_policy = retention_policy
         self._retained: set[str] = set()
@@ -178,7 +241,9 @@ class BuildJevTransitions:
         self._excluded: set[str] = set()
         self._requests: set[str] = set()
         self._sufficient, self._conflict = False, False
-        self._step: Step = self._decision("assess")
+        self._step: Step = self._decision(
+            "navigate" if self._phase_input_policy else "assess"
+        )
 
     @property
     def step(self) -> Step:
@@ -192,6 +257,22 @@ class BuildJevTransitions:
             and any(uid not in self._units for uid in a.unit_ids)
         ]
 
+    def _basis(self) -> str:
+        return _digest(
+            {
+                "question": self._question,
+                "scope": self._scope.model_dump(mode="json"),
+                "evidence": [u.model_dump(mode="json") for u in self._units.values()],
+                **({"support_policy": self._support_policy,
+                    "catalog": [a.model_dump(mode="json") for a in self._actions.values()],
+                    **({"acquisition_policy": self._acquisition_policy} if self._acquisition_policy else {})}
+                   if self._support_policy else {}),
+            }
+        )
+
+    def _offered(self) -> list[ReadAction]:
+        return [a for a in self._available() if a.id not in self._excluded]
+
     def _finish(
         self,
         status: Literal[
@@ -202,7 +283,7 @@ class BuildJevTransitions:
         ],
         reason: str,
     ) -> Disposition:
-        return Disposition(
+        result = Disposition(
             status=status,
             reason=reason,
             evidence=tuple(self._units.values()),
@@ -212,6 +293,24 @@ class BuildJevTransitions:
             excluded_unread_ids=tuple(
                 sorted(self._excluded & {a.id for a in self._available()})
             ),
+        )
+
+        if not self._frontier_policy:
+            return result
+        unread = {a.id for a in self._available()}
+        deferred = tuple(sorted(self._deferred & unread))
+        return FrontierDisposition(
+            **result.model_dump(),
+            coverage_status=(
+                "heuristic_partial"
+                if unread - self._excluded
+                else "heuristic_exclusions"
+                if unread
+                else "catalog_exhausted"
+            ),
+            evidence_basis_sha256=self._basis(),
+            deferred_unread_ids=deferred,
+            coverage_judgments=tuple(self._coverage_judgments),
         )
 
     def _view_units(self) -> tuple[AcquiredEvidence, ...]:
@@ -246,14 +345,44 @@ class BuildJevTransitions:
         )
 
     def _decision(
-        self, phase: Literal["assess", "coverage"]
+        self, phase: Literal["assess", "navigate", "coverage"]
     ) -> DecisionIntent | Disposition:
         from .build_jev_compaction import project_evidence
 
-        available = self._available()
+        available = self._offered() if self._frontier_policy else self._available()
         viewed = self._view_units()
+        navigation = self._phase_input_policy and phase in {"navigate", "coverage"}
+        presentation = (
+            {
+                "scope": self._scope.model_dump(mode="json"),
+                "acquired_discovery": [
+                    {
+                        "action_id": aid,
+                        "hint": self._actions[aid].label[:96],
+                        "hint_truncated": len(self._actions[aid].label) > 96,
+                        "units": [
+                            {
+                                "id": u.id,
+                                "subject": u.subject,
+                                "source_class": u.source_class,
+                                "epistemic_kind": u.epistemic_kind,
+                                "temporal_scope": u.temporal_scope,
+                            }
+                            for uid, u in self._units.items()
+                            if uid in self._actions[aid].unit_ids
+                        ],
+                    }
+                    for aid in self._actions
+                    if aid in self._visited
+                ],
+                "evidence_presentation": "discovery_metadata_only; observation and passage bodies absent; "
+                "not admitted Graph facts, source evidence, sufficiency or claim inclusion",
+            }
+            if navigation
+            else project_evidence(self._scope, viewed, codec=self._evidence_codec)
+        )
         state = {
-            **project_evidence(self._scope, viewed),
+            **presentation,
             "user_question": self._question,
             "legal_next_actions": {a.id: a.label[:96] for a in available},
             "legal_action_kinds": {
@@ -272,7 +401,62 @@ class BuildJevTransitions:
             "relevance_threshold": self._relevant_min,
             "unread_exclusion_threshold": self._exclusion_min,
         }
-        if phase == "coverage":
+        from .build_jev_compaction import CONTAINED_CODEC, CONTAINED_RULE
+
+        if CONTAINED_CODEC in presentation:
+            state["rules"] += CONTAINED_RULE
+        if self._frontier_policy:
+            state["coverage_frontier"] = {
+                "policy": self._frontier_policy,
+                "evidence_basis_sha256": self._basis(),
+                "current_coverage_judged": self._coverage_basis == self._basis(),
+                "deferred_unread_ids": sorted(self._deferred),
+                "excluded_unread_count": len(self._excluded),
+                "rule": "Deferred actions were NOT read or proved irrelevant. If support is missing, "
+                "choose a deferred action that may resolve it, or none to abstain. "
+                "Sufficiency is separate from coverage; neither unread exclusions nor "
+                "defer judgments prove completeness. New evidence invalidates those judgments.",
+            }
+        if self._support_policy:
+            state["support_policy"] = self._support_policy
+        if self._acquisition_policy:
+            state["acquisition_policy"] = self._acquisition_policy
+        if self._phase_input_policy:
+            state["phase_input_policy"] = self._phase_input_policy
+            state["assessment_binding"] = self._assessment_judgment
+            if navigation:
+                state["rules"] = (
+                    "Choose retrieval using discovery hints and the acknowledged support assessment only. "
+                    "Observation and passage bodies are absent, not summarized or included as facts. "
+                    "Metadata/hints cannot establish support, truth, absence, or corpus completeness. "
+                    "Preserve source classes, epistemic and temporal qualifications; authored material is not played truth. "
+                    "Ambiguous unread hints warrant unknown. Navigation selects reads, never an answer."
+                )
+            else:
+                for key in (
+                    "legal_next_actions",
+                    "legal_action_kinds",
+                    "truncated_discovery_hints",
+                ):
+                    state.pop(key)
+                state["coverage_frontier"].pop("deferred_unread_ids")
+                state["coverage_frontier"]["deferred_unread_count"] = len(
+                    self._deferred
+                )
+        if phase == "navigate":
+            if not self._phase_input_policy:
+                raise ValueError("navigation requires the explicit phase input policy")
+            if not available:
+                return self._terminal_answer()
+            questions = (
+                DecisionQuestion(
+                    name="next",
+                    kind="choice",
+                    question="Which legal unread action most usefully supplies the missing support or necessary relation? Choose none to stop selecting.",
+                    options=("none", *(a.id for a in available)),
+                ),
+            )
+        elif phase == "coverage":
             state["coverage_rule"] = (
                 "Evaluate whether unread actions can add missing coverage, a necessary hop, qualification "
                 "or competing claim for the exact question. Choose unknown when hints are ambiguous. "
@@ -305,7 +489,16 @@ class BuildJevTransitions:
                     options=("sufficient", "more_evidence", "conflict", "uncertain"),
                 ),
             )
-            if viewed:
+            if viewed and self._support_policy:
+                questions += (DecisionQuestion(
+                    name="joint_support", kind="binary",
+                    question="Taken together, do the acquired relevant observations and their actually opened passages "
+                    "support a correctly qualified answer to every part of the question? Different units may "
+                    "supply different facts or necessary hops; no single unit must answer everything. "
+                    "Required links, qualifications and support must be present. Shared names, relevance alone "
+                    "and unresolved contradictions are insufficient. Missing evidence is not proof of absence.",
+                ),)
+            elif viewed:
                 questions += (
                     DecisionQuestion(
                         name="support",
@@ -314,7 +507,7 @@ class BuildJevTransitions:
                         options=("none", *(u.id for u in viewed)),
                     ),
                 )
-            if available:
+            if available and not self._phase_input_policy:
                 questions += (
                     DecisionQuestion(
                         name="next",
@@ -381,8 +574,17 @@ class BuildJevTransitions:
                             raise ValueError("invalid choice score keys")
                         for probability in distribution.values():
                             _probability(probability)
-            available = self._available()
-            if request.phase == "retention":
+            available = self._offered() if self._frontier_policy else self._available()
+            if request.phase == "navigate":
+                next_id = answers["next"]["selected"]
+                self._step = (
+                    AcquisitionIntent(actions=(self._actions[next_id],))
+                    if next_id != "none"
+                    else self._terminal_answer()
+                    if self._coverage_basis == self._basis() or not available
+                    else self._decision("coverage")
+                )
+            elif request.phase == "retention":
                 units = self._retention_pending.pop(0)
                 for i, unit in enumerate(units):
                     answer = answers[f"retain_{i}"]
@@ -409,6 +611,46 @@ class BuildJevTransitions:
                     self._retention_decision()
                     if self._retention_pending
                     else self._decision("assess")
+                )
+            elif request.phase == "coverage" and self._frontier_policy:
+                useful, unknown = [], []
+                self._excluded.clear()
+                self._deferred.clear()
+                for i, action in enumerate(available):
+                    answer = answers[f"use_{i}"]
+                    scores = answer.get("probabilities") or {}
+                    # Identical conservative exclusion math to the baseline controller.
+                    exclusion_score = scores.get("not_useful", 0) / max(
+                        1.0, sum(scores.values())
+                    )
+                    if answer["selected"] == "useful":
+                        useful.append(action)
+                    elif answer["selected"] == "unknown":
+                        unknown.append(action)
+                    elif scores and exclusion_score >= self._exclusion_min:
+                        self._excluded.add(action.id)
+                    else:
+                        self._deferred.add(action.id)
+                self._coverage_basis = self._basis()
+                self._coverage_judgments.append(
+                    {
+                        "request_id": request_id,
+                        "evidence_basis_sha256": self._coverage_basis,
+                        "action_ids": [a.id for a in available],
+                        "answers": json.loads(json.dumps(answers)),
+                        "excluded_ids": sorted(self._excluded),
+                        "deferred_ids": sorted(self._deferred),
+                    }
+                )
+                candidates = useful + unknown
+                self._step = (
+                    AcquisitionIntent(actions=tuple(candidates) if self._acquisition_policy else (candidates[0],))
+                    if candidates
+                    else self._terminal_answer()
+                    if self._sufficient or not self._deferred
+                    else self._decision(
+                        "navigate" if self._phase_input_policy else "assess"
+                    )
                 )
             elif request.phase == "coverage":
                 chosen, excluded = [], []
@@ -441,13 +683,38 @@ class BuildJevTransitions:
                     >= self._relevant_min
                 }
                 label = answers["sufficiency"]["selected"]
-                self._sufficient = (
-                    label == "sufficient"
-                    and answers.get("support", {}).get("selected") in self._relevant
-                )
+                if self._support_policy:
+                    supported = bool(self._relevant) and (
+                        answers.get("joint_support", {}).get("probability_true", 0) >= self._relevant_min
+                    )
+                else:
+                    supported = answers.get("support", {}).get("selected") in self._relevant
+                self._sufficient = label == "sufficient" and supported
                 self._conflict = label == "conflict" and bool(self._view_units())
                 next_id = answers.get("next", {}).get("selected", "none")
-                if self._sufficient or next_id == "none":
+                if self._phase_input_policy:
+                    self._assessment_judgment = {
+                        "request_id": request_id,
+                        "evidence_basis_sha256": self._basis(),
+                        "answers_sha256": _digest(answers),
+                        "sufficiency": label,
+                        "supported": self._sufficient,
+                        "conflict": self._conflict,
+                    }
+                    self._step = (
+                        self._terminal_answer()
+                        if not available or self._coverage_basis == self._basis()
+                        else self._decision(
+                            "coverage" if self._sufficient else "navigate"
+                        )
+                    )
+                elif (
+                    self._frontier_policy
+                    and self._coverage_basis == self._basis()
+                    and (self._sufficient or next_id == "none")
+                ):
+                    self._step = self._terminal_answer()
+                elif self._sufficient or next_id == "none":
                     self._step = (
                         self._decision("coverage")
                         if available
@@ -470,7 +737,9 @@ class BuildJevTransitions:
         )
         return self._finish(
             status,
-            "heuristic_unread_exclusions"
+            "heuristic_deferred_frontier"
+            if self._frontier_policy and self._deferred
+            else "heuristic_unread_exclusions"
             if self._excluded & {a.id for a in self._available()}
             else "catalog_exhausted",
         )
@@ -519,6 +788,13 @@ class BuildJevTransitions:
             self._units = staged
             self._visited.update(a.id for a in intent.actions)
             self._excluded.difference_update(a.id for a in intent.actions)
+            if self._frontier_policy:
+                # New support may connect a previously negative action. Audit survives;
+                # current conclusions do not survive a different exact evidence basis.
+                self._coverage_basis = None
+                self._assessment_judgment = None
+                self._excluded.clear()
+                self._deferred.clear()
             if self._retention_policy and newly_acquired:
                 from .build_jev_retention import packets
 

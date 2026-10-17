@@ -8,6 +8,7 @@ import type { HistoricalRecapWorldProjectionResponse, RecapIngestStatus } from "
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
 import { SurfaceShell } from "../surface/SurfaceShell";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { IngestionModule } from "./IngestionModule";
 
 function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStatus {
@@ -231,8 +232,9 @@ describe("IngestionModule", () => {
       version: "1",
       records: [],
     });
-    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) =>
       makeStatus({
+        session: request.session,
         status: "initialized",
         states: ["ingest_status_inspected"],
         entity_spelling_audit: [],
@@ -330,6 +332,245 @@ describe("IngestionModule", () => {
 
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.queryByText("in progress")).not.toBeInTheDocument();
+  });
+
+  it.each(["source_unverified", "candidate_validation_ready"] as const)(
+    "explains that a retained unverified graph result (%s) is history and does not start processing",
+    async (graphStatus) => {
+      const inspectSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+        session: 29,
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        paths: { canonical_recap: null, normalized_recap: null },
+        ingest_report: {
+          corpus_impact: [],
+          graph_preview: {
+            status: graphStatus,
+            extraction_run_id: "retained-session-29-run",
+            blocked_reason: "selected normalized recap is unavailable for content verification",
+          },
+        },
+        entity_spelling_audit: [],
+      }));
+
+      render(
+        <IngestionModule
+          campaignId="longmont-c2"
+          session={29}
+          managedWorldId="elderwyld"
+          initialSourceSession={29}
+        />,
+      );
+
+      const guidance = await screen.findByRole("status", { name: "Recap source verification guidance" });
+      expect(guidance).toHaveAttribute("data-retained-graph-run", "true");
+      expect(guidance).toHaveTextContent("Saved graph result kept as history");
+      expect(guidance).toHaveTextContent("cannot be matched to a verified recap");
+      expect(guidance).toHaveTextContent("Load the correct saved recap or use Paste recap above");
+      expect(guidance).not.toHaveTextContent("retained-session-29-run");
+      expect(screen.queryByRole("button", { name: "Process recap" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Open Graph Review" })).not.toBeInTheDocument();
+      expect(inspectSpy.mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
+    },
+  );
+
+  it("treats a verified saved recap with a missing graph preview as ready for first extraction", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+      session: 10,
+      status: "recap_applied",
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "normalized_current"],
+      ingest_report: {
+        corpus_impact: [
+          { key: "canonical_recap", relpath: "Session 10.md", exists: true },
+          { key: "normalized_recap", relpath: "Session 10 normalized.md", exists: true },
+        ],
+        graph_preview: {
+          status: "missing",
+          run_dir: null,
+          manifest_path: null,
+          candidate_graph_path: null,
+          preview_union_store_path: null,
+          preview_union_store_valid: null,
+          node_count: 0,
+          edge_count: 0,
+          evidence_ref_count: 0,
+          extracted_nodes: [],
+          next_actions: ["build_graph_preview_bundle"],
+          can_open_union_graph: false,
+          blocked_reason: null,
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={10}
+        managedWorldId="elderwyld"
+        initialSourceSession={10}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByText("Evidence & details"));
+    const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
+    expect(await screen.findByText("Not extracted")).toBeInTheDocument();
+    expect(within(graphPanel).getByText("Graph extraction: not run")).toBeInTheDocument();
+    expect(within(graphPanel).getByRole("status")).toHaveTextContent(
+      "Source ready. Choose Process in the Ingest navigation to extract graph candidates.",
+    );
+    expect(within(graphPanel).queryByText(/status: missing|nodes: 0|edges: 0/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Process recap" })).toBeEnabled();
+  });
+
+  it("shows only reported metrics after a partial graph extraction", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+      session: 10,
+      status: "recap_applied",
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "normalized_current"],
+      ingest_report: {
+        graph_preview: {
+          status: "source_span_bundle_ready",
+          extraction_run_id: "session-10-run",
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={10}
+        managedWorldId="elderwyld"
+        initialSourceSession={10}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByText("Evidence & details"));
+    const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
+    expect(graphPanel).toHaveTextContent("Graph extraction: candidate pending");
+    expect(within(graphPanel).getByText("status: source_span_bundle_ready")).toBeInTheDocument();
+    expect(within(graphPanel).queryByText(/nodes: 0|edges: 0/)).not.toBeInTheDocument();
+  });
+
+  it("does not confuse a source-check error with a graph extraction failure", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+      session: 10,
+      status: "source_unverified",
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "source_unverified"],
+      errors: ["The normalized recap is missing."],
+      ingest_report: {
+        corpus_impact: [],
+        graph_preview: {
+          status: "missing",
+          run_dir: null,
+          manifest_path: null,
+          candidate_graph_path: null,
+          preview_union_store_path: null,
+          preview_union_store_valid: null,
+          node_count: 0,
+          edge_count: 0,
+          evidence_ref_count: 0,
+          extracted_nodes: [],
+          next_actions: ["restore_or_load_verified_source"],
+          can_open_union_graph: false,
+          blocked_reason: "normalized recap missing",
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={10}
+        managedWorldId="elderwyld"
+        initialSourceSession={10}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByText("Evidence & details"));
+    const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
+    expect(await screen.findByText("Source unverified")).toBeInTheDocument();
+    const guidance = await screen.findByRole("status", { name: "Recap source verification guidance" });
+    expect(guidance).toHaveAttribute("data-retained-graph-run", "false");
+    expect(guidance).toHaveTextContent("Recap source needs verification");
+    expect(guidance).not.toHaveTextContent("Saved graph result kept as history");
+    expect(graphPanel).toHaveTextContent("Graph extraction: not run");
+    expect(within(graphPanel).getByText(
+      "Graph extraction has not run yet. Complete the source checks before processing.",
+    )).toBeInTheDocument();
+    expect(within(graphPanel).queryByText(/Source ready/)).not.toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: failed")).not.toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: blocked")).not.toBeInTheDocument();
+    const processButton = within(screen.getByRole("navigation", { name: "Ingest workspace navigation" }))
+      .queryByRole("button", { name: "Process recap" });
+    expect(processButton === null || (processButton as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("keeps a current extraction error distinct from the no-run state", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+      session: 10,
+      status: "error",
+      states: ["ingest_status_inspected", "graph_preview_failed"],
+      errors: ["Graph extraction failed during setup."],
+      ingest_report: {
+        graph_preview: {
+          status: "failed",
+          extraction_run_id: "session-10-run",
+          node_count: 0,
+          edge_count: 0,
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={10}
+        managedWorldId="elderwyld"
+        initialSourceSession={10}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByText("Evidence & details"));
+    const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
+    expect(within(graphPanel).getByText("Graph extraction: failed")).toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: not run")).not.toBeInTheDocument();
+    expect(within(graphPanel).queryByText(/Source ready/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a real blocked extraction distinct from the no-run state", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus({
+      session: 10,
+      status: "recap_applied",
+      states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "graph_source_bundle_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "source_span_bundle_ready",
+          extraction_run_id: "session-10-run",
+          extraction_mode: "llm_blocked",
+          blocked_reason: "Graph provider is unavailable.",
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={10}
+        managedWorldId="elderwyld"
+        initialSourceSession={10}
+      />,
+    );
+
+    await userEvent.setup().click(await screen.findByText("Evidence & details"));
+    const graphPanel = await screen.findByRole("region", { name: "Graph preview status" });
+    expect(graphPanel).toHaveTextContent("Graph extraction: blocked");
+    expect(within(graphPanel).getByText("Graph provider is unavailable.")).toBeInTheDocument();
+    expect(within(graphPanel).queryByText("Graph extraction: not run")).not.toBeInTheDocument();
   });
 
   it("shows Processing only while recap work is active", async () => {
@@ -502,6 +743,459 @@ describe("IngestionModule", () => {
     const priorRecap = await screen.findByLabelText("Prior processed recap");
     await waitFor(() => expect(priorRecap).toHaveDisplayValue("Load a processed recap…"));
     expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
+  });
+
+  it("reselects only the matching prior recap when the mounted route changes sessions", async () => {
+    const session10 = makeRecapArtifactRecord("longmont-c2", 10);
+    const session27 = makeRecapArtifactRecord("longmont-c2", 27);
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([session10, session27]),
+    );
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(27));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+    const priorRecap = await screen.findByLabelText("Prior processed recap");
+    await waitFor(() => expect(priorRecap).toHaveValue(session27.artifact_id));
+
+    window.history.replaceState({}, "", route(10));
+    rerender(<IngestionModule {...props} />);
+
+    await waitFor(() => expect(priorRecap).toHaveValue(session10.artifact_id));
+    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Write or paste a recap" })).toHaveValue("");
+    expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(
+      ([request]) => request.operation !== "generate_recap_memory",
+    )).toBe(true);
+  });
+
+  it("follows mounted route session changes and ignores an earlier A response after A→B→A", async () => {
+    const firstA = deferred<RecapIngestStatus>();
+    const sessionB = deferred<RecapIngestStatus>();
+    const secondA = deferred<RecapIngestStatus>();
+    const requests = vi.mocked(recapIngestApi.postRecapIngest);
+    let hasVisitedB = false;
+    const statusFor = (sessionNumber: number, path: string) => makeStatus({
+      session: sessionNumber,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      warnings: [path],
+      entity_spelling_audit: [],
+    });
+    requests.mockImplementation((body) => {
+      if (body.operation !== "inspect_status") return Promise.resolve(makeStatus({ session: body.session }));
+      if (body.session === 10) return hasVisitedB ? secondA.promise : firstA.promise;
+      if (body.session === 11) {
+        hasVisitedB = true;
+        return sessionB.promise;
+      }
+      return Promise.resolve(makeStatus({ session: body.session }));
+    });
+
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(10));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+
+    await waitFor(() => expect(requests).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status", session: 10 })));
+    await act(async () => { await Promise.resolve(); });
+    const initialACallCount = requests.mock.calls.filter(([request]) => request.operation === "inspect_status" && request.session === 10).length;
+    window.history.replaceState({}, "", route(11));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(requests).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status", session: 11 })));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+
+    window.history.replaceState({}, "", route(10));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(requests.mock.calls.filter(([request]) => request.operation === "inspect_status" && request.session === 10).length).toBeGreaterThan(initialACallCount));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(10);
+
+    await act(async () => {
+      firstA.resolve(makeStatus({
+        ...statusFor(10, "stale-first-A-session-10.md"),
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_unverified",
+            extraction_run_id: "stale-first-A-run",
+          },
+        },
+      }));
+      await firstA.promise;
+    });
+    expect(document.body).not.toHaveTextContent("stale-first-A-session-10.md");
+    expect(screen.queryByRole("status", { name: "Recap source verification guidance" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      secondA.resolve(makeStatus({
+        ...statusFor(10, "current-second-A-session-10.md"),
+      }));
+      await secondA.promise;
+    });
+    await waitFor(() => expect(document.body).toHaveTextContent("current-second-A-session-10.md"));
+    await act(async () => {
+      sessionB.resolve(makeStatus({
+        ...statusFor(11, "stale-B-session-11.md"),
+        status: "source_unverified",
+        states: ["ingest_status_inspected", "source_unverified"],
+        ingest_report: {
+          graph_preview: {
+            status: "source_unverified",
+            extraction_run_id: "stale-session-B-run",
+          },
+        },
+      }));
+      await sessionB.promise;
+    });
+    expect(document.body).not.toHaveTextContent("stale-B-session-11.md");
+    expect(screen.queryByRole("status", { name: "Recap source verification guidance" })).not.toBeInTheDocument();
+  });
+
+  it("ignores deferred Process results across mounted World A→B→A and preserves the recap draft", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const pendingWorldAProcess = deferred<RecapIngestStatus>();
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) => {
+      if (request.operation === "generate_recap_memory") return pendingWorldAProcess.promise;
+      return makeStatus({
+        campaign_id: request.campaign_id,
+        session: request.session,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    });
+
+    const props = { campaignId: "longmont-c2", session: 22 } as const;
+    const { rerender } = render(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    const recap = "Session 22 — A draft that must survive World navigation.";
+    await fillRecapInputs(user, recap, "Session 22 — Route safety");
+    await user.click(await screen.findByRole("button", { name: "Process recap" }));
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "generate_recap_memory",
+      managed_world_id: "elderwyld",
+      session: 22,
+    })));
+
+    rerender(<IngestionModule {...props} managedWorldId="conks-and-cons" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    rerender(<IngestionModule {...props} managedWorldId="elderwyld" />);
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+
+    await act(async () => {
+      pendingWorldAProcess.resolve(makeStatus({
+        campaign_id: "longmont-c2",
+        session: 22,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+        ingest_report: {
+          graph_preview: {
+            status: "candidate_validation_ready",
+            extraction_run_id: "world-a-stale-run",
+            candidate_node_count: 3,
+            candidate_edge_count: 2,
+          },
+        },
+      }));
+      await pendingWorldAProcess.promise;
+    });
+
+    expect(screen.getByLabelText("Write or paste a recap")).toHaveValue(recap);
+    expect(screen.queryByRole("region", { name: "Graph-enriched recap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Recap processed")).not.toBeInTheDocument();
+  });
+
+  it("drops a deferred saved-reader projection when the mounted route changes sessions", async () => {
+    const oldSessionProjection = deferred<HistoricalRecapWorldProjectionResponse>();
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
+      makeRecapArtifactRegistry([
+        makeRecapArtifactRecord("longmont-c2", 10),
+        makeRecapArtifactRecord("longmont-c2", 11),
+      ]),
+    );
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: {
+        ...makeStatus().paths,
+        canonical_recap: `Session ${request.session}.md`,
+        normalized_recap: `Session ${request.session}.md`,
+      },
+    }));
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation((runId) =>
+      runId === "run-session-10"
+        ? oldSessionProjection.promise
+        : Promise.resolve(historicalRecapProjectionForRun(runId)),
+    );
+
+    const route = (sessionNumber: number) =>
+      `/ingest?world=elderwyld&campaign=longmont-c2&session=session-${sessionNumber}&view=recap&recapReviewRunId=run-session-${sessionNumber}`;
+    window.history.replaceState({}, "", route(10));
+    const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
+    const { rerender } = render(<IngestionModule {...props} />);
+    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-10", "elderwyld"));
+
+    window.history.replaceState({}, "", route(11));
+    rerender(<IngestionModule {...props} />);
+    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-11", "elderwyld"));
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(await screen.findByText("Session 11 — Mireward Road")).toBeInTheDocument();
+
+    await act(async () => {
+      oldSessionProjection.resolve(historicalRecapProjectionForRun("run-session-10"));
+      await oldSessionProjection.promise;
+    });
+    expect(screen.getByText("Session 11 — Mireward Road")).toBeInTheDocument();
+    expect(screen.queryByText("Session 10 — Mireward Road")).not.toBeInTheDocument();
+  });
+
+  it("waits for the exact saved-recap list before restoring an addressless cold reader route", async () => {
+    const pendingList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    vi.mocked(liveApi.getRecapArtifacts).mockReturnValue(pendingList.promise);
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(liveApi.getRecapArtifacts).toHaveBeenCalledWith("longmont-c2"));
+    await waitFor(() => expect(recapIngestApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 10,
+    })));
+
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    await act(async () => {
+      pendingList.resolve(makeRecapArtifactRegistry([exactArtifact]));
+      await pendingList.promise;
+    });
+
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: "longmont-c2", focus: expect.objectContaining({ sessionId: "session-10" }) }),
+    ));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not let early Graph availability consume a cold reader attempt before source hydration", async () => {
+    const pendingGraphSession = deferred<string>();
+    const pendingStatus = deferred<RecapIngestStatus>();
+    const pendingList = deferred<Awaited<ReturnType<typeof liveApi.getRecapArtifacts>>>();
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockReturnValue(pendingGraphSession.promise);
+    vi.mocked(liveApi.getRecapArtifacts).mockReturnValue(pendingList.promise);
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+      if (request.operation === "inspect_status") return pendingStatus.promise;
+      return makeStatus({ campaign_id: request.campaign_id, session: request.session });
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    await waitFor(() => expect(liveApi.ensureNativeGraphSession).toHaveBeenCalled());
+    await waitFor(() => expect(recapIngestApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 10,
+    })));
+
+    await act(async () => {
+      pendingGraphSession.resolve("csrf-token");
+      await pendingGraphSession.promise;
+    });
+    expect(screen.queryByText("No saved recap is available for this session.")).not.toBeInTheDocument();
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    await act(async () => {
+      pendingStatus.resolve(makeStatus({
+        campaign_id: "longmont-c2",
+        session: 10,
+        status: "recap_reused",
+        states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+        paths: { canonical_recap: null, normalized_recap: null },
+        ingest_report: { corpus_impact: [] },
+        entity_spelling_audit: [],
+      }));
+      await pendingStatus.promise;
+    });
+    await waitFor(() => expect(liveApi.getRecapArtifacts).toHaveBeenCalledWith("longmont-c2"));
+    await act(async () => {
+      pendingList.resolve(makeRecapArtifactRegistry([exactArtifact]));
+      await pendingList.promise;
+    });
+
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: "longmont-c2", focus: expect.objectContaining({ sessionId: "session-10" }) }),
+    ));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    expect(screen.queryByText("No saved recap is available for this session.")).not.toBeInTheDocument();
+  });
+
+  it("retries a failed cold reader when the native Graph session is reconnected", async () => {
+    const user = setupIngestUser();
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockRejectedValue(new Error("Local Graph session unavailable"));
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(makeRecapArtifactRegistry([exactArtifact]));
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection)
+      .mockRejectedValueOnce(new Error("Local Graph session unavailable"))
+      .mockImplementation(async (request) => ({
+        ...session23WorldGraphRecapFixture,
+        campaignId: request.campaignId,
+        sessionId: request.focus.sessionId!,
+        snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+      }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    expect(await screen.findByText("Local Graph session unavailable.")).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Local Graph session unavailable")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+  });
+
+  it("restores a successfully opened reader after Graph access is revoked and reconnected", async () => {
+    const user = setupIngestUser();
+    const exactArtifact = makeRecapArtifactRecord("longmont-c2", 10);
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.spyOn(liveApi, "revokeNativeGraphSession").mockResolvedValue();
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("csrf-token");
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(makeRecapArtifactRegistry([exactArtifact]));
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.sessionId!,
+      snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Revoke local Graph session" }));
+    expect(await screen.findByText("Local Graph session revoked.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Held the Mireward gate during Session 23/)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    await waitFor(() => expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Held the Mireward gate during Session 23/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["empty", makeRecapArtifactRegistry([]), "No saved recap is available for this session."],
+    ["unavailable", new Error("Registry unavailable"), "Saved recaps could not be checked."],
+  ] as const)("reports an addressless cold reader route after the saved-recap list is %s", async (_state, lookupResult, message) => {
+    if (lookupResult instanceof Error) {
+      vi.mocked(liveApi.getRecapArtifacts).mockRejectedValue(lookupResult);
+    } else {
+      vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(lookupResult);
+    }
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      campaign_id: request.campaign_id,
+      session: request.session,
+      status: "recap_reused",
+      states: ["recap_reused", "normalized_reused", "normalized_current", "ingest_status_inspected"],
+      paths: { canonical_recap: null, normalized_recap: null },
+      ingest_report: { corpus_impact: [] },
+      entity_spelling_audit: [],
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10&view=recap",
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+  });
+
+  it("preserves the recap draft under its original session when the operator changes sessions", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => makeStatus({
+      session: request.session,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      entity_spelling_audit: [],
+    }));
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const recapInput = await screen.findByRole("textbox", { name: "Write or paste a recap" });
+    await user.type(recapInput, "Session 10 source text that must stay bound to Session 10.");
+    await user.clear(screen.getByLabelText("Session title"));
+    await user.type(screen.getByLabelText("Session title"), "Session 10 - The Guard Arrives");
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "11" } });
+    });
+
+    expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Draft preserved · Session 10/)).toBeInTheDocument();
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await user.click(within(toolbar).getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(
+      "Session 10 source text that must stay bound to Session 10.",
+    );
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(10);
   });
 
   it("uses the latest session target when a prior recap list resolves late", async () => {
@@ -1270,6 +1964,7 @@ describe("IngestionModule", () => {
   });
 
   it("Process uses the combined operation and opens the node-bearing recap", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
     const user = setupIngestUser();
     const result = makeStatus({
       status: "ready_for_planning_activation",
@@ -1326,6 +2021,86 @@ describe("IngestionModule", () => {
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.getByText(/Exact extraction run · run-session-22/)).toBeInTheDocument();
     expect(screen.getByText(/current admitted World Graph/)).toBeInTheDocument();
+  });
+
+  it("opens Graph Review for the exact Process run and current source context", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          extraction_run_id: "run-session-22",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation(async (runId, managedWorldId) => ({
+      ...historicalRecapProjectionForRun(runId),
+      managedWorldId: managedWorldId ?? "elderwyld",
+    }));
+    const onPopState = vi.fn();
+    const onRunsChanged = vi.fn();
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(
+      user,
+      "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    const graphReview = await screen.findByRole("button", { name: "Open Graph Review" });
+    expect(graphReview).toBeEnabled();
+
+    await user.click(graphReview);
+
+    const params = new URLSearchParams(window.location.search);
+    expect(window.location.pathname).toBe("/ingest");
+    expect(params.get("world")).toBe("elderwyld");
+    expect(params.get("campaign")).toBe("longmont-c2");
+    expect(params.get("session")).toBe("session-22");
+    expect(params.get("extractionRunId")).toBe("run-session-22");
+    expect(params.get("sourceArtifactId")).toBe("artifact:recap:longmont-c2:session-22");
+    expect(onPopState).toHaveBeenCalledTimes(1);
+    expect(onRunsChanged).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("popstate", onPopState);
+    window.removeEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+  });
+
+  it("keeps Graph Review unavailable when the current result has no exact run ID", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(
+      user,
+      "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+
+    const unavailable = await screen.findByRole("button", { name: "Graph Review unavailable: exact extraction run required" });
+    expect(unavailable).toBeDisabled();
+    expect(screen.getByText("Graph Review needs an exact extraction run for this session.")).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBeNull();
   });
 
   it("does not substitute the current session projection when the exact extraction run is unavailable", async () => {
@@ -1581,6 +2356,10 @@ describe("IngestionModule", () => {
     );
     expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction has not run yet.").length).toBeGreaterThan(0);
+    await user.click(screen.getByText("Evidence & details"));
+    const graphPanel = screen.getByRole("region", { name: "Graph preview status" });
+    expect(graphPanel).toHaveTextContent("Graph extraction: candidate pending");
+    expect(graphPanel).not.toHaveTextContent("Graph extraction: blocked");
   });
 
   it("enables materialize_preview_supergraph with category extraction and no candidate path", async () => {

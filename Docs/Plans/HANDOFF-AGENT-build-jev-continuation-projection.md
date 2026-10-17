@@ -1,6 +1,6 @@
 # AGENT: receipt-bound ordinary Jev continuation projection
 
-ACTIVE under PRIME's responsive source-faithful Graph collaboration goal and ARCHITECTURE's continuation design judgment. Base 4df937278edb363fdc88a5a00f9afdeaea2d0cc0, merged initial codec PR1326. PRIME implements solo in the existing buddy-tool-denial-delivery checkout. ARCHITECTURE independently reviews. Serial topology; one successor PR. No new checkout, source export, environment or /tmp directory. DOGFOOD owns Ingest and Combat C0; no overlapping runtime or schema migration lease.
+SETTLED implementation/review lease. Merged via PR1328 at6e7ee2e3d228a5b30277542ecd013779046a03c9 after independent review ofd0f9a3e5d7edcaaacf4fc8f3a4ea164fbba633dd; runtime rollout and product acceptance remain open. The serial frontier successor owns the overlapping paths. Original authority: ACTIVE under PRIME's responsive source-faithful Graph collaboration goal and ARCHITECTURE's continuation design judgment. Base 4df937278edb363fdc88a5a00f9afdeaea2d0cc0, merged initial codec PR1326. PRIME implements solo in the existing buddy-tool-denial-delivery checkout. ARCHITECTURE independently reviews. Serial topology; one successor PR. No new checkout, source export, environment or /tmp directory. DOGFOOD owns Ingest and Combat C0; no overlapping runtime or schema migration lease.
 
 ## Evidence and invariant
 

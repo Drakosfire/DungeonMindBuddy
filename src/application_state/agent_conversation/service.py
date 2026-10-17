@@ -849,6 +849,7 @@ class AgentConversationService:
         duplicate_key: str,
         source_passages: list[TraceSourcePassage] | None = None,
         build_source_markdown: str | None = None,
+        writer_selection_proof: dict | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -960,6 +961,17 @@ class AgentConversationService:
                 )
             elif source_passages:
                 raise ApplicationStateValidationError("passage observations require a validated source-read event")
+            from .types import BuildWriterEvidenceSelectionV1
+            if isinstance(event, BuildWriterEvidenceSelectionV1):
+                from .writer_evidence_selection import validate_selection_proof
+                captured = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt),
+                ).fetchone()
+                try:
+                    validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             events = [*execution.events, event]
             try:
                 execution_type = type(execution)
@@ -1032,6 +1044,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id")
+
+    def record_build_writer_evidence_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof=None):
+        from .types import BuildWriterEvidenceSelectionV1
+        if not isinstance(selection, BuildWriterEvidenceSelectionV1):
+            raise ApplicationStateValidationError("A typed writer evidence selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", writer_selection_proof=producer_proof)
 
     def record_provider_outcome(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
@@ -1266,6 +1287,17 @@ class AgentConversationService:
             if execution is not None:
                 if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
                     raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
+                from .types import BuildCitedSourceActionControllerWriterPolicyV1
+                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, BuildAuthoringCompletionV1):
+                    from .source_writer_output import validate_completion_proof
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    try:
+                        validate_completion_proof(result, turn, captured[0] if captured else {})
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 payload = result.completion.model_dump(mode="json", by_alias=True)
                 digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
                 try:

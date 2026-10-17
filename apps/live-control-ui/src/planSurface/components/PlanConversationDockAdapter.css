@@ -58,8 +58,8 @@
   grid-column: 1;
   grid-row: var(--plan-composer-input-row, 1);
   inline-size: 100%;
-  min-block-size: 3.15rem;
-  max-block-size: 8rem;
+  min-block-size: 2.5rem;
+  max-block-size: 10rem;
   height: auto;
 }
 
@@ -79,7 +79,7 @@
   align-self: stretch;
   grid-column: 2;
   grid-row: var(--plan-composer-input-row, 1);
-  min-block-size: 3.15rem;
+  min-block-size: 2.5rem;
 }
 
 .plan-conversation-dock__composer .world-plan-agent-conversation__target-disclosure,
@@ -142,11 +142,12 @@
 
 .plan-conversation-dock__management > div {
   position: absolute;
-  bottom: 100%;
+  top: calc(100% + 0.35rem);
+  bottom: auto;
   right: 0;
   z-index: 2;
-  inline-size: 15rem;
-  max-block-size: 10rem;
+  inline-size: min(21rem, calc(100vw - 2rem));
+  max-block-size: min(28rem, calc(var(--conversation-dock-height) - 7rem));
   overflow: auto;
   padding: 0.5rem;
   border: 1px solid var(--conversation-dock-border);
@@ -224,10 +225,23 @@
 .plan-conversation-dock .conversation-dock__header { min-block-size: 2rem; gap: .3rem; }
 .plan-conversation-dock .conversation-dock__header button, .plan-conversation-dock__management > summary { font-size: 13px; }
 .plan-conversation-dock .plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea {
-  min-block-size: 5.2rem; max-block-size: 10rem; field-sizing: content;
+  min-block-size: 2.5rem; max-block-size: 10rem; field-sizing: content;
   font-size: 14px; line-height: 1.4; padding: .55rem .65rem;
 }
 @media (max-width: 42rem) {
   .plan-conversation-dock .conversation-dock__context-toggle span:first-child { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; }
   .plan-conversation-dock .conversation-dock__context-toggle::before { content: none; }
+}
+
+.plan-conversation-dock.is-fullscreen .plan-conversation-dock__management > div { max-block-size: calc(100dvh - 8rem); }
+
+@media (max-width: 42rem) {
+  .plan-conversation-dock .conversation-dock__header { position: relative; }
+  .plan-conversation-dock__management { position: static; }
+  .plan-conversation-dock__management > div {
+    left: 0;
+    right: 0;
+    inline-size: 100%;
+    max-block-size: min(28rem, calc(var(--conversation-dock-height) - 10rem));
+  }
 }

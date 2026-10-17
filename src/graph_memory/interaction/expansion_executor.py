@@ -550,6 +550,7 @@ def execute_read_graph_source(
     *,
     root: Path | None = None,
     receipt_version: Literal[1, 2] = 1,
+    native_services: Any = None,
 ) -> dict[str, Any]:
     if receipt_version not in (1, 2):
         raise ValueError("unsupported internal source-read receipt version")
@@ -585,6 +586,7 @@ def execute_read_graph_source(
             try:
                 batch = retrieval_service.read_source_anchors_internal_v2(
                     authorized_requests, repo_root=artifact_data_root(default=root),
+                    **({"native_services": native_services} if native_services is not None else {}),
                 )
                 if len(batch) != len(authorized_requests) or any(
                     not isinstance(item, WorldGraphRetrievalServiceError)

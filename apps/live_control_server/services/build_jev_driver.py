@@ -14,11 +14,13 @@ from application_state.agent_conversation import types as ledger
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
 )
-from .build_jev_dispatch import first_state
+from .build_jev_dispatch import first_state, PHASE_SCHEMA, PHASE_POLICY, phase_binding
+from .build_jev_compaction import CONTAINED_CODEC
 from .build_jev_transitions import (
     AcquiredEvidence,
     AcquisitionIntent,
     BuildJevTransitions,
+    FRONTIER_POLICY,
     DecisionIntent,
     DecisionQuestion,
     OpenedPassage,
@@ -181,6 +183,7 @@ class BuildJevDriver:
         ):
             raise ValueError("Driver must be created once before first authorization")
         self._adapter = adapter
+        self._assessment_receipt = None
         self._base = first_state(
             adapter.work,
             adapter.bootstrap,
@@ -266,7 +269,13 @@ class BuildJevDriver:
             self._catalog[aid] = (action, (start, end))
             actions.append(action)
         self._machine = BuildJevTransitions(
-            adapter.request.message, self._scope, tuple(actions)
+            adapter.request.message, self._scope, tuple(actions),
+            frontier_policy=FRONTIER_POLICY if with_actions else None,
+            phase_input_policy=PHASE_POLICY if with_actions else None,
+            evidence_codec=CONTAINED_CODEC if with_actions and getattr(adapter, "_build_jev_accounting", None) is None else None,
+            accounting=getattr(adapter, "_build_jev_accounting", None),
+            support_policy=(adapter.budget.get("buildJevActions") or {}).get("support_policy"),
+            acquisition_policy=(adapter.budget.get("buildJevActions") or {}).get("acquisition_policy"),
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None
@@ -564,6 +573,31 @@ class BuildJevDriver:
             tuple(sorted(sections)),
         )
 
+    def _phase_commitment(self, intent):
+        judgment = intent.state.get("assessment_binding")
+        receipt = self._assessment_receipt if judgment is not None else None
+        if judgment is not None:
+            if (receipt is None or receipt["request_id"] != judgment["request_id"]
+                    or receipt["answers_sha256"] != judgment["answers_sha256"]
+                    or receipt["evidence_basis_sha256"] != judgment["evidence_basis_sha256"]):
+                raise ValueError("Navigation assessment commitment differs")
+            execution = self._adapter._broker_execution()
+            matches = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
+                       and str(e.provider_attempt_id) == receipt["provider_attempt_id"]]
+            if (len(matches) != 1 or matches[0].envelope_sha256 != receipt["envelope_sha256"]
+                    or matches[0].provider != "typesafe"
+                    or matches[0].model != intent.model
+                    or matches[0].api_mode != "typesafe_decision"
+                    or [e.outcome for e in execution.events if isinstance(e, ledger.ProviderOutcomeEventV1)
+                        and str(e.provider_attempt_id) == receipt["provider_attempt_id"]][-1:] != ["response_received"]):
+                raise ValueError("Navigation assessment was not acknowledged")
+        return phase_binding(intent, self._material(), receipt)
+
+    def _presented_material(self, intent):
+        material = self._material()  # Always revalidate the complete host acquisition basis.
+        return ((), (), ()) if (intent.state.get("phase_input_policy") == PHASE_POLICY
+                               and intent.phase in {"navigate", "coverage"}) else material
+
     def stage(self) -> DriverDecisionProjection:
         intent = self.step
         if (
@@ -573,7 +607,7 @@ class BuildJevDriver:
         ):
             raise ValueError("No fresh parent-owned decision")
         a = self._adapter
-        graph, sources, sections = self._material()
+        graph, sources, sections = self._presented_material(intent)
         if a.fence is not None:
             if graph or sources or sections:
                 a.stage_build_controller_exposure(
@@ -638,6 +672,21 @@ class BuildJevDriver:
             state.pop("initial_packet_codec")
             state.update(schema=CONTINUATION_SCHEMA, input_policy=CONTINUATION_POLICY,
                          historical_initial=continuation_binding(a), decision=factored_decision(intent))
+        if intent.state.get("phase_input_policy") == PHASE_POLICY:
+            state.update(schema=PHASE_SCHEMA, input_policy=PHASE_POLICY,
+                         phase_binding=self._phase_commitment(intent))
+            if intent.phase in {"navigate", "coverage"}:
+                state["observation_qualifications"] = {}
+                state["interpretation"] = (
+                    "Navigation discovery only. Observation and passage bodies are absent; "
+                    "no Graph/source/section evidence is included in this request. "
+                    "The historical assessment commitment does not expose its evidence."
+                )
+        accounting = getattr(a, "_build_jev_accounting", None)
+        if accounting is not None and a.fence is not None and any(
+            isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+        ):
+            state["context_accounting"] = accounting.descriptor
         projection = DriverDecisionProjection(
             canonical(state),
             canonical(wire_questions(intent)),
@@ -666,13 +715,30 @@ class BuildJevDriver:
         ):
             return False
         try:
-            view = prepared_driver_view(prepared, plan)
+            expected_acquisition = self._machine._acquisition_policy
+            if (a.budget.get("buildJevActions") or {}).get("acquisition_policy") != expected_acquisition:
+                return False
+            if a.fence is not None and getattr(a._broker_execution().policy, "acquisition_policy", None) != expected_acquisition:
+                return False
+            if (self.step.state.get("phase_input_policy") == PHASE_POLICY
+                    and plan.state().get("schema") != PHASE_SCHEMA):
+                return False
+            continuation = a.fence is not None and any(
+                isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+            )
+            view = prepared_driver_view(prepared, plan,
+                accounting=getattr(a, "_build_jev_accounting", None) if continuation else None)
             from .build_jev_dispatch import CONTINUATION_SCHEMA, factored_decision
             expected_decision = (factored_decision(self.step)
-                if plan.state().get("schema") == CONTINUATION_SCHEMA else self.step.model_dump(mode="json"))
+                if plan.state().get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA} else self.step.model_dump(mode="json"))
             if canonical(plan.state()["decision"]) != canonical(expected_decision):
                 return False
-            if self.step.request_id != plan.request_id or self._material() != (
+            if plan.state().get("schema") == PHASE_SCHEMA and (
+                canonical(plan.state().get("phase_binding")) != canonical(self._phase_commitment(self.step))
+                or plan.state().get("input_policy") != PHASE_POLICY
+            ):
+                return False
+            if self.step.request_id != plan.request_id or self._presented_material(self.step) != (
                 plan.graph_payloads,
                 plan.source_event_ids,
                 plan.section_read_ids,
@@ -743,7 +809,16 @@ class BuildJevDriver:
             self._selection_intent = None
             result = self.step
         else:
+            phase = self._machine.step.phase
             result = self._machine.accept_decision(plan.request_id, model, answers)
+            if self._machine._phase_input_policy and phase == "assess":
+                judgment = self._machine._assessment_judgment
+                self._assessment_receipt = {
+                    "request_id": plan.request_id, "provider_attempt_id": str(a.last_provider_attempt_id),
+                    "envelope_sha256": prepared.body_sha256,
+                    "answers_sha256": judgment["answers_sha256"],
+                    "evidence_basis_sha256": judgment["evidence_basis_sha256"],
+                }
         self._pending = None
         return result
 

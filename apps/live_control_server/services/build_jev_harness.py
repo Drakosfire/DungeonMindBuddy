@@ -29,7 +29,9 @@ from . import build_document_proposal as proposal_owner
 from . import build_jev_dispatch as decision_policy
 from . import build_jev_writer as writer_policy
 from .build_jev_driver import AcquisitionBinding, digest, sdk_answers
-from .build_jev_transitions import AcquisitionIntent, DecisionIntent, Disposition
+from .build_jev_transitions import (
+    AcquisitionIntent, DecisionIntent, Disposition, FrontierDisposition, FRONTIER_POLICY,
+)
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,8 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None):
+        self.accounting = accounting
         self.decision_transport, self.writer_transport = (
             decision_transport,
             writer_transport,
@@ -60,11 +63,15 @@ class BuildJevHarness:
         raise ValueError("Jev requires the trusted Buddy parent adapter")
 
     @staticmethod
-    def budget(request):
+    def budget(request, *, accounting=None):
         budget = decision_policy.request_budget()
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
+        from .build_jev_compaction import CONTAINED_CODEC
         budget["buildJevActions"] = dict(
+            evidence_codec=CONTAINED_CODEC,
+            phase_input_policy=decision_policy.PHASE_POLICY,
+            frontier_policy=FRONTIER_POLICY,
             initial_packet_codec=CODEC,
             controller_input_policy=decision_policy.CONTINUATION_POLICY,
             driver_schema="dmb_build_jev_actions_v1",
@@ -74,7 +81,23 @@ class BuildJevHarness:
             allowed_surface_operations=["answer_from_sources"]
             + (["propose_build_insertion"] if cap else []),
         )
+        if accounting is not None:
+            # Trusted injection only. Exercise the loaded counter before any SDK send.
+            accounting.estimate({"offline_preflight": "🐐 café 中文 123"})
+            budget["buildJevActions"].pop("evidence_codec")
+            budget["buildJevActions"]["controller_continuation_accounting"] = accounting.descriptor
+            from .build_jev_transitions import JOINT_SUPPORT_POLICY, READ_BATCH_POLICY
+            budget["buildJevActions"]["support_policy"] = JOINT_SUPPORT_POLICY
+            budget["buildJevActions"]["writer_context_budget"] = writer_policy.role_budget()
+            budget["buildJevActions"]["acquisition_policy"] = READ_BATCH_POLICY
+            from application_state.agent_conversation.source_writer_output import POLICY
+            budget["buildJevActions"]["source_writer_output_policy"] = POLICY
+            from application_state.agent_conversation.writer_evidence_selection import POLICY as SELECTION_POLICY
+            budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
         return budget
+
+    def configured_budget(self, request):
+        return self.budget(request, accounting=self.accounting)
 
     def execute_response(self, adapter, *, owner, trace):
         from .agent_turn_service import (
@@ -122,6 +145,7 @@ class BuildJevHarness:
     def execute(self, adapter):
         self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
+        adapter._build_jev_accounting = self.accounting
         driver = adapter.create_build_jev_driver(with_actions=True)
         adapter.build_frozen_history = driver._interaction["history"]
         adapter.build_history_for_inclusion = tuple(
@@ -142,13 +166,32 @@ class BuildJevHarness:
             terminal = driver.step
             if terminal.status == "refused":
                 raise ValueError(f"Jev refused delivery: {terminal.reason}")
-            adapter.build_retrieval_disposition = {
+            adapter.build_retrieval_disposition = terminal.writer_summary() if isinstance(terminal, FrontierDisposition) else {
                 "status": terminal.status,
                 "reason": terminal.reason,
                 "relevant_ids": list(terminal.relevant_ids),
             }
             graph, sources, sections = driver._material()
-            if sources:
+            from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
+            if isinstance(adapter._broker_execution().policy, BuildSelectedSourceActionControllerWriterPolicyV1):
+                from .build_jev_writer_selection import WriterSelectionDriver
+                selector = WriterSelectionDriver(adapter, driver, adapter.build_retrieval_disposition)
+                if selector.catalog:
+                    asyncio.run(self._decide(adapter, selector))
+                    selected = selector.receipt
+                else:
+                    selected = selector.settle_empty()
+                graph = ()
+                sources = tuple(str(eid) for eid in selected.source_event_ids)
+                sections = tuple(str(rid) for rid in selected.section_read_ids)
+                if not selected.expanded_unit_ids:
+                    adapter.build_retrieval_disposition = {
+                        **adapter.build_retrieval_disposition,
+                        "status": "insufficient_evidence", "reason": "writer_selection_no_useful_source_units",
+                        "relevant_ids": [],
+                    }
+            from application_state.agent_conversation.types import BuildCitedSourceActionControllerWriterPolicyV1
+            if sources or isinstance(adapter._broker_execution().policy, BuildCitedSourceActionControllerWriterPolicyV1):
                 staged = adapter.stage_build_source_writer(
                     graph_payloads=graph,
                     source_read_event_ids=sources,
@@ -159,7 +202,9 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
-            if terminal.status in {"insufficient_evidence", "unresolved_conflict"}:
+            if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
+                    or (isinstance(terminal, FrontierDisposition)
+                        and terminal.coverage_status != "catalog_exhausted")):
                 candidate = json.loads(result.text)
                 if candidate.get("answer_context_status") in {
                     "source_grounded",
@@ -177,6 +222,11 @@ class BuildJevHarness:
         known = all(
             type(observation.get(k)) is int for k in ("input_tokens", "output_tokens")
         )
+        usage = {**observation, "status": "reported" if known else "unavailable"}
+        if known and usage.get("total_tokens") is None:
+            # GE input already includes its cached subset; reasoning is not
+            # another billable output bucket. Keep the raw observation intact.
+            usage["total_tokens"] = observation["input_tokens"] + observation["output_tokens"]
         call = dict(
             provider=observation.get("provider"),
             requested_model=observation.get("resolved_model"),
@@ -185,7 +235,7 @@ class BuildJevHarness:
             status=status,
             duration_ms=elapsed,
             api_duration=elapsed / 1000,
-            usage={**observation, "status": "reported" if known else "unavailable"},
+            usage=usage,
             inference_observation=observation,
         )
         index = self._inflight.pop(phase, None)
@@ -267,7 +317,11 @@ class BuildJevHarness:
                 )
             )
             self._observe(result, started, "controller")
-            driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
+            from .build_jev_writer_selection import WriterSelectionDriver
+            if isinstance(driver, WriterSelectionDriver):
+                driver.accept_response(result)
+            else:
+                driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
         except Exception as exc:
             self._failed(exc, started, "controller")
             raise
@@ -276,6 +330,11 @@ class BuildJevHarness:
 
     @staticmethod
     def _acquire(adapter, driver):
+        with adapter.build_native_acquisition(driver):
+            return BuildJevHarness._acquire_in_wave(adapter, driver)
+
+    @staticmethod
+    def _acquire_in_wave(adapter, driver):
         bindings, graph_reads = {}, {}
         needed = set()
         for action in driver.step.actions:

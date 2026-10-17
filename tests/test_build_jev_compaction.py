@@ -300,3 +300,195 @@ def test_ambiguous_reference_types_and_duplicate_host_ids_are_refused(fault):
         payload["evidence"][0]["observation"][1] = True
         with pytest.raises(ValueError):
             verify_projection(payload, SCOPE, (original,))
+
+
+def contained_case():
+    from apps.live_control_server.services.build_jev_compaction import CONTAINED_CODEC
+
+    snippets = tuple(
+        f"Paragraph {i}: " + (f"🐐 café {i} distinct detail. " * 12) for i in range(4)
+    )
+    graph = structured(texts=snippets)
+    saved_text = (
+        "🧙 prefix\n" + "\nheading\n".join(snippets) + "\nrepeat\n" + snippets[0]
+    )
+    saved = unit("saved", saved_text).model_copy(
+        update={"source_class": "saved_build_world_reference"}
+    )
+    units = (graph, saved)
+    return units, project_evidence(SCOPE, units, codec=CONTAINED_CODEC)
+
+
+def test_contained_codec_exact_unicode_roundtrip_preserves_distinct_authority():
+    from apps.live_control_server.services.build_jev_compaction import (
+        CONTAINED_CODEC,
+        expand_contained_passages,
+        _cost,
+        CONTAINED_RULE,
+    )
+
+    units, compact = contained_case()
+    literal = project_evidence(SCOPE, units)
+    assert CONTAINED_CODEC in compact
+    assert expand_contained_passages(compact) == literal
+    assert _cost(compact) + _cost({"grammar": CONTAINED_RULE}) < _cost(literal)
+    assert compact["evidence"] == literal["evidence"]
+    assert len(compact["passages"]) == 1
+    container, rows = next(iter(compact[CONTAINED_CODEC].items()))
+    for index in range(0, len(rows), 3):
+        handle, start, end = rows[index : index + 3]
+        assert compact["passages"][container][start:end] == literal["passages"][handle]
+        assert start == compact["passages"][container].find(literal["passages"][handle])
+    assert compact == project_evidence(
+        SCOPE, tuple(reversed(units)), codec=CONTAINED_CODEC
+    )
+    assert units[0].provenance != units[1].provenance
+    assert {u.source_class for u in units} == {
+        "admitted_graph_observation_and_opened_passages",
+        "saved_build_world_reference",
+    }
+    verify_projection(compact, SCOPE, units, codec=CONTAINED_CODEC)
+    with pytest.raises(ValueError):
+        verify_projection(compact, SCOPE, units)  # no implicit historical codec upgrade
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "missing_container",
+        "chain",
+        "cycle",
+        "duplicate",
+        "unknown_alias",
+        "bool_start",
+        "float_end",
+        "negative",
+        "too_long",
+        "empty",
+        "reversed",
+        "bad_triple",
+        "empty_group",
+        "changed_container",
+        "wrong_offset",
+        "extra_field",
+        "qualification",
+        "qualification_type",
+    ],
+)
+def test_contained_corruption_cannot_reconstruct_parent(fault):
+    from apps.live_control_server.services.build_jev_compaction import CONTAINED_CODEC
+
+    units, compact = contained_case()
+    bad = deepcopy(compact)
+    groups = bad[CONTAINED_CODEC]
+    container = next(iter(groups))
+    rows = groups[container]
+    alias = rows[0]
+    if fault == "missing_container":
+        bad["passages"].pop(container)
+    elif fault == "chain":
+        groups[alias] = groups.pop(container)
+    elif fault == "cycle":
+        groups[alias] = [container, 0, 1]
+    elif fault == "duplicate":
+        rows.extend(rows[:3])
+    elif fault == "unknown_alias":
+        rows.extend(["foreign", 0, 1])
+    elif fault == "bool_start":
+        rows[1] = True
+    elif fault == "float_end":
+        rows[2] = float(rows[2])
+    elif fault == "negative":
+        rows[1] = -1
+    elif fault == "too_long":
+        rows[2] = len(bad["passages"][container]) + 1
+    elif fault == "empty":
+        rows[2] = rows[1]
+    elif fault == "reversed":
+        rows[1], rows[2] = rows[2], rows[1]
+    elif fault == "bad_triple":
+        rows.pop()
+    elif fault == "empty_group":
+        groups[container] = []
+    elif fault == "changed_container":
+        bad["passages"][container] = "changed" + bad["passages"][container]
+    elif fault == "wrong_offset":
+        rows[1] += 1  # UTF-16/UTF-8 offsets must not replace Unicode code points.
+    elif fault == "extra_field":
+        bad["hidden"] = "injected"
+    elif fault == "qualification":
+        bad["evidence"][0]["epistemic_kind"] = "fact"
+    else:
+        bad["evidence"][0]["temporal_scope"] = {"as_of": False}
+    with pytest.raises(ValueError):
+        verify_projection(bad, SCOPE, units, codec=CONTAINED_CODEC)
+
+
+def test_contained_type_sensitive_qualification_and_no_overlap_fallback():
+    from apps.live_control_server.services.build_jev_compaction import CONTAINED_CODEC
+
+    units, compact = contained_case()
+    graph = units[0].model_copy(update={"temporal_scope": {"flag": False}})
+    # Find the graph row independently of serialization order.
+    compact = project_evidence(SCOPE, (graph, units[1]), codec=CONTAINED_CODEC)
+    next(row for row in compact["evidence"] if row["id"] == graph.id)["temporal_scope"][
+        "flag"
+    ] = 0
+    with pytest.raises(ValueError, match="exact parent"):
+        verify_projection(compact, SCOPE, (graph, units[1]), codec=CONTAINED_CODEC)
+    small = (unit("a", "tiny"), unit("b", "tiny overlap"))
+    assert project_evidence(SCOPE, small, codec=CONTAINED_CODEC) == project_evidence(
+        SCOPE, small
+    )
+    disjoint = (unit("a", "AAA"), unit("b", "BBB"))
+    assert project_evidence(SCOPE, disjoint, codec=CONTAINED_CODEC) == project_evidence(
+        SCOPE, disjoint
+    )
+
+
+def test_contained_overlapping_sources_and_deterministic_equal_containers():
+    from apps.live_control_server.services.build_jev_compaction import (
+        encode_contained_passages,
+        expand_contained_passages,
+        CONTAINED_CODEC,
+    )
+
+    fragment = "🐐 overlapping text " * 40
+    shared = "prefix " + fragment + " suffix"
+    payload = {
+        "scope": {},
+        "evidence": [],
+        "passages": {"p1": shared, "p2": shared, "p3": fragment, "p4": fragment[5:]},
+    }
+    encoded = encode_contained_passages(payload)
+    assert expand_contained_passages(encoded) == payload
+    assert set(encoded["passages"]) == {"p1"}
+    assert set(encoded[CONTAINED_CODEC]) == {"p1"}
+
+
+def test_contained_codec_never_hides_irreducible_context_or_changes_default():
+    import json
+    from apps.live_control_server.services.build_jev_compaction import CONTAINED_CODEC
+    from apps.live_control_server.services import build_jev_dispatch as policy
+
+    units = (unit("a", "a" * 18000), unit("b", "b" * 18000))
+    literal = project_evidence(SCOPE, units)
+    compact = project_evidence(SCOPE, units, codec=CONTAINED_CODEC)
+    assert compact == literal and CONTAINED_CODEC not in compact
+    body = json.dumps(
+        {
+            "model": policy.MODEL,
+            "state": compact,
+            "questions": {
+                "sufficiency": {
+                    "type": "choice",
+                    "instructions": "Enough support?",
+                    "criteria": {"yes": None, "no": None},
+                }
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="conservative ceiling"):
+        policy.validate_body(body, compact)
+    with pytest.raises(ValueError, match="unsupported evidence codec"):
+        project_evidence(SCOPE, units, codec="unknown")

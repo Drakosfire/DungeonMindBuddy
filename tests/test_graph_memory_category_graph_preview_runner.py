@@ -134,6 +134,52 @@ def _shortened_candidate_fixture(
     return source, artifact, span_index, candidate, legacy_span_id, canonical_span_id
 
 
+def test_runner_preserves_candidate_bytes_when_no_repair_is_needed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, legacy_span_id, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    for ref in [
+        *candidate["evidence_refs"],
+        *(ref for node in candidate["nodes"] for ref in node["evidence_refs"]),
+    ]:
+        if ref["span_id"] == legacy_span_id:
+            ref["span_id"] = canonical_span_id
+            ref["source_span_ref_id"] = canonical_span_id
+            ref["source_anchor_id"] = f"anchor:{canonical_span_id}"
+            ref["label"] = canonical_span_id
+
+    monkeypatch.chdir(tmp_path)
+    candidate_path = tmp_path / "canonical_candidate_graph.json"
+    original_bytes = json.dumps(candidate, indent=2, sort_keys=True).encode() + b"\n"
+    candidate_path.write_bytes(original_bytes)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/unchanged_candidate"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    assert result.candidate_graph_path.read_bytes() == original_bytes
+    packaged = _load_manifest(result.candidate_graph_path)
+    manifest = _load_manifest(result.manifest_path)
+    report = _load_manifest(result.validation_report_path)
+    assert "evidence_reference_repair_count" not in packaged["diagnostics"]
+    assert report["evidence_reference_repairs"] == []
+    candidate_ref = manifest["artifacts"]["candidate_graph"]
+    assert candidate_ref["sha256"] == compute_sha256(result.candidate_graph_path)
+
+
 def test_runner_repairs_only_proven_legacy_candidate_span_aliases(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
