@@ -24,3 +24,14 @@ Live follow-up ACTIVE: operator requests removing redundant generated title/intr
 from their current draft. Preserve other content; verify exact DOM selection before
 editing. Investigate live toggle after an event-loop turn before claiming acceptance.
 Same code write lease; serial corrective PR if needed. Initial merge79a18514.
+
+Operator follow-up extends this corrective slice: natural expanded table height,
+no internal scrollbar; floating/sticky authoring toolbar; server still rejects
+all pipe tables despite editor support. Additional exclusive paths:
+apps/live-control-ui/src/buildSurface/buildSurface.css;
+apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.ts and
+useWorkspaceDocumentAuthoring.test.tsx; apps/live_control_server/services/
+tiptap_markdown_write.py and tests/test_tiptap_markdown_write.py. Permit only
+parser-proven flat canonical editor tables at worldbuilding prepare/commit,
+preserve other unsupported syntax and frontmatter gates. Show actual save reasons.
+Verify actual prepare/commit/readback fixture, preserve operator's unsaved draft.
