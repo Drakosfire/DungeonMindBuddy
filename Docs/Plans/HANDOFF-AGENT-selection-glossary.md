@@ -1,6 +1,6 @@
 # AGENT: distinguish useful partial evidence from full answer sufficiency
 
-**Status:** ACTIVE; PRIME implements solo and ARCHITECTURE independently reviews.
+**Status:** Implemented in #1364, independently PASS at 621f910ac2e195fb8f5fd2643676cbaf81956877 and merged at f51f5b7745d28ba9b3afcc427193d253b0ab2b2d. Fresh ordinary Toll retains its useful saved section; completion then fails on V3 numeric offsets. HANDOFF-AGENT-question-phrase-gaps.md owns that separate producer repair. No serving or full semantic acceptance claimed.
 **Base:** main@42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc; branch codex/jev-partial-context-glossary.
 **Lane:** reuse existing buddy-tool-denial-delivery checkout/dependencies/research directory. No new checkout, environment, source export, server or /tmp task files.
 **Topology:** serial successor to merged #1363. DOGFOOD C0 #1327 and Ingest acceptance paths remain separate. No provider or serving/retained writes during implementation/review.
