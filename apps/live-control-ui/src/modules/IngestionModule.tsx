@@ -1079,10 +1079,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const exactGraphReviewRunId = resultOwnsSelection ? graphPreview?.extraction_run_id?.trim() || null : null;
+  const sourceUnverified = Boolean(
+    graphPreview?.status === "source_unverified" ||
+    proofResult?.status === "source_unverified" ||
+    proofResult?.states.includes("source_unverified"),
+  );
+  const retainedUnverifiedGraphRun = sourceUnverified && Boolean(exactGraphReviewRunId);
   const canOpenGraphReview = Boolean(
     isIngestSurfacePath()
     && managedWorldId
     && exactGraphReviewRunId
+    && !sourceUnverified
     && (graphPreview?.status === "preview_union_store_ready" || graphPreview?.status === "candidate_validation_ready"),
   );
   const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
@@ -2442,7 +2449,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 >
                   {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
                 </button>
-                {isIngestSurfacePath() && (hasPreviewUnionStore || graphPreview?.status === "candidate_validation_ready") ? (
+                {isIngestSurfacePath() && !sourceUnverified && (hasPreviewUnionStore || graphPreview?.status === "candidate_validation_ready") ? (
                   <>
                     <button
                       type="button"
@@ -2522,6 +2529,43 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </div>
         ) : null}
       </nav>
+
+      {sourceUnverified && !busy ? (
+        <section
+          className="ingestion-boundary-card"
+          role="status"
+          aria-label="Recap source verification guidance"
+          data-retained-graph-run={retainedUnverifiedGraphRun ? "true" : "false"}
+        >
+          <strong>
+            {retainedUnverifiedGraphRun
+              ? "Saved graph result kept as history"
+              : "Recap source needs verification"}
+          </strong>
+          {retainedUnverifiedGraphRun ? (
+            <>
+              <p>
+                This graph result cannot be matched to a verified recap for the selected campaign and
+                Session {recapSession}, so it is not available as the current result.
+              </p>
+              <p>
+                Load the correct saved recap or use <strong>Paste recap</strong> above, then choose
+                Process through the normal workflow. The historical result stays unchanged.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                We cannot confirm the recap source for the selected campaign and Session {recapSession},
+                so there is no current graph result to review.
+              </p>
+              <p>
+                Load the correct saved recap or use <strong>Paste recap</strong> above before processing.
+              </p>
+            </>
+          )}
+        </section>
+      ) : null}
 
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
