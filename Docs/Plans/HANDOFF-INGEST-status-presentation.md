@@ -1,6 +1,6 @@
 # INGEST: show truthful processing status
 
-**Status:** ACTIVE — PRIME authorized this bounded UI correction on 2026-10-17. The lease is limited to the status presentation and its existing owning test; it does not authorize processing a recap or changing source/graph state.
+**Status:** SETTLED — PR #1324 (`INGEST: show truthful processing status`) merged at `2b284ff96dea8bd42cf1e3dd6f3a647ab0a4f4f5` from head `c3df3d8384a205b28ffbe6c2f5d88d7bd2c04ea8`. The merge is present in current `main@7cf6b81f54c57898bb235ffe89913bc296059abe`.
 **Base:** `main@c2b18ebd980fcc154e94f19b7e7338de1505007e` (verified as current GitHub main before branch creation).
 **Branch:** `codex/ingest-status-presentation`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse assigned checkout).
@@ -10,6 +10,10 @@
 ## Mission
 
 Make the Ingest status label tell the operator what actually happened. A blank draft must not imply that work is running, and incomplete or unverified evidence must not be presented as progress. Keep the source/review surface and processing behavior unchanged.
+
+## Settlement
+
+PR #1324 implemented this status-only correction in the leased Ingest module and its existing test. It passed the recorded 58-test component suite, UI typecheck, and `git diff --check`; its body records the existing React `act(...)` warnings and the absence of a new production build or serving-asset change. The rendered 5202 state and real Session 29 ingestion remained unverified at merge. The historical implementation evidence below is retained as-is.
 
 ## Observed failure
 

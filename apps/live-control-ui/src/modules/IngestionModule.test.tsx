@@ -8,6 +8,7 @@ import type { HistoricalRecapWorldProjectionResponse, RecapIngestStatus } from "
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
 import { SurfaceShell } from "../surface/SurfaceShell";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { IngestionModule } from "./IngestionModule";
 
 function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStatus {
@@ -1491,6 +1492,7 @@ describe("IngestionModule", () => {
   });
 
   it("Process uses the combined operation and opens the node-bearing recap", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
     const user = setupIngestUser();
     const result = makeStatus({
       status: "ready_for_planning_activation",
@@ -1547,6 +1549,86 @@ describe("IngestionModule", () => {
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.getByText(/Exact extraction run · run-session-22/)).toBeInTheDocument();
     expect(screen.getByText(/current admitted World Graph/)).toBeInTheDocument();
+  });
+
+  it("opens Graph Review for the exact Process run and current source context", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          extraction_run_id: "run-session-22",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation(async (runId, managedWorldId) => ({
+      ...historicalRecapProjectionForRun(runId),
+      managedWorldId: managedWorldId ?? "elderwyld",
+    }));
+    const onPopState = vi.fn();
+    const onRunsChanged = vi.fn();
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(
+      user,
+      "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    const graphReview = await screen.findByRole("button", { name: "Open Graph Review" });
+    expect(graphReview).toBeEnabled();
+
+    await user.click(graphReview);
+
+    const params = new URLSearchParams(window.location.search);
+    expect(window.location.pathname).toBe("/ingest");
+    expect(params.get("world")).toBe("elderwyld");
+    expect(params.get("campaign")).toBe("longmont-c2");
+    expect(params.get("session")).toBe("session-22");
+    expect(params.get("extractionRunId")).toBe("run-session-22");
+    expect(params.get("sourceArtifactId")).toBe("artifact:recap:longmont-c2:session-22");
+    expect(onPopState).toHaveBeenCalledTimes(1);
+    expect(onRunsChanged).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("popstate", onPopState);
+    window.removeEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
+  });
+
+  it("keeps Graph Review unavailable when the current result has no exact run ID", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "ready_for_planning_activation",
+      states: ["raw_text_received", "recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          candidate_node_count: 3,
+          candidate_edge_count: 2,
+        },
+      },
+    });
+    mockRecapIngestWithInspect(() => result);
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(
+      user,
+      "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+
+    const unavailable = await screen.findByRole("button", { name: "Graph Review unavailable: exact extraction run required" });
+    expect(unavailable).toBeDisabled();
+    expect(screen.getByText("Graph Review needs an exact extraction run for this session.")).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBeNull();
   });
 
   it("does not substitute the current session projection when the exact extraction run is unavailable", async () => {
