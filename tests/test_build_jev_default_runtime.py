@@ -193,12 +193,25 @@ def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
             "/api/live/agent/turn", json=request.model_dump(mode="json", by_alias=True)
         )
         assert response.status_code == 200, response.text
+        trace_usage = response.json()["answer"]["trace"]["usage"]
+        assert trace_usage["status"] == "reported"
+        assert trace_usage["total_tokens"] == (
+            trace_usage["input_tokens"] + trace_usage["output_tokens"]
+        ) > 0
+        assert trace_usage["model_call_count"] == len(decisions.calls) + len(writer.calls)
         assert reads == {"graph": 1, "source": 1} and len(writer.calls) == 1
         service = AgentConversationService()
         turn = service.list_turns(
             "elderwyld", service.get_world_pointer("elderwyld").active_conversation_id
         )[0]
         assert turn.status == "completed"
+        captures = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+        observed = [event for capture in captures for event in capture.observations
+                    if event.kind == "provider_call" and event.outcome == "response_received"
+                    and event.input_tokens is not None and event.output_tokens is not None]
+        assert len(observed) == trace_usage["model_call_count"]
+        assert sum(event.input_tokens for event in observed) == trace_usage["input_tokens"]
+        assert sum(event.output_tokens for event in observed) == trace_usage["output_tokens"]
         policy = turn.graph_context_execution.policy
         assert isinstance(policy, ledger.BuildCitedSourceActionControllerWriterPolicyV1)
         assert (
@@ -305,3 +318,23 @@ def test_wrong_tokenizer_version_is_unavailable_before_asset_read(
     assert factory.unavailable_reason == "tokenizer_dependency_version"
     with pytest.raises(prepared.BuildJevRuntimeUnavailable):
         factory.create()
+
+
+@pytest.mark.parametrize("observation, expected_total, expected_status", [
+    ({"input_tokens": 100, "output_tokens": 40, "cached_input_tokens": 30, "reasoning_tokens": 8}, 140, "reported"),
+    ({"input_tokens": 100, "output_tokens": 40, "total_tokens": 150}, 150, "reported"),
+    ({"input_tokens": 0, "output_tokens": 0}, 0, "reported"),
+    ({"input_tokens": 100, "output_tokens": None}, None, "unavailable"),
+    ({"input_tokens": True, "output_tokens": 40}, None, "unavailable"),
+])
+def test_ge_usage_total_preserves_buckets_and_unknowns(observation, expected_total, expected_status):
+    runtime = BuildJevHarness()
+    runtime.calls, runtime.timings, runtime._inflight = [], [], {}
+    runtime.adapter = SimpleNamespace(context_capture=None)
+    original = dict(observation)
+    runtime._record_observation(observation, 10, "writer", status="error")
+    call = runtime.calls[0]
+    assert observation == original and call["inference_observation"] == original
+    assert call["usage"].get("total_tokens") == expected_total
+    assert call["usage"]["status"] == expected_status
+    assert call["status"] == "error"

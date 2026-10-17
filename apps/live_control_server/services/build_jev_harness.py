@@ -202,6 +202,11 @@ class BuildJevHarness:
         known = all(
             type(observation.get(k)) is int for k in ("input_tokens", "output_tokens")
         )
+        usage = {**observation, "status": "reported" if known else "unavailable"}
+        if known and usage.get("total_tokens") is None:
+            # GE input already includes its cached subset; reasoning is not
+            # another billable output bucket. Keep the raw observation intact.
+            usage["total_tokens"] = observation["input_tokens"] + observation["output_tokens"]
         call = dict(
             provider=observation.get("provider"),
             requested_model=observation.get("resolved_model"),
@@ -210,7 +215,7 @@ class BuildJevHarness:
             status=status,
             duration_ms=elapsed,
             api_duration=elapsed / 1000,
-            usage={**observation, "status": "reported" if known else "unavailable"},
+            usage=usage,
             inference_observation=observation,
         )
         index = self._inflight.pop(phase, None)
