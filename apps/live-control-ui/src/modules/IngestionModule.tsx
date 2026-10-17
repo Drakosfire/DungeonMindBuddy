@@ -268,6 +268,63 @@ function derivePaneStateFromResult(result: RecapIngestStatus): IngestionPaneStat
   return { status: "idle" };
 }
 
+type IngestionStatusBadge = {
+  label: string;
+  tone: "neutral" | "success" | "warning";
+};
+
+function graphPreviewIsBlocked(graphPreview?: RecapGraphPreviewReport): boolean {
+  return Boolean(graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked");
+}
+
+function ingestionStatusBadge(
+  paneStatus: IngestionPaneState["status"],
+  result: RecapIngestStatus | null,
+  graphPreview?: RecapGraphPreviewReport,
+): IngestionStatusBadge {
+  const processing =
+    paneStatus === "running_full_ingest" ||
+    paneStatus === "building_graph_preview" ||
+    paneStatus === "materializing_preview_supergraph";
+  const graphReady =
+    graphPreview?.status === "candidate_validation_ready" ||
+    graphPreview?.status === "preview_union_store_ready";
+
+  if (paneStatus === "error") {
+    return { label: "Failed", tone: "warning" };
+  }
+  if (processing) {
+    return { label: "Processing", tone: "neutral" };
+  }
+  if (result?.status === "error") {
+    return { label: "Failed", tone: "warning" };
+  }
+  if (
+    graphPreview?.status === "source_unverified" ||
+    result?.status === "source_unverified" ||
+    result?.states.includes("source_unverified")
+  ) {
+    return { label: "Source unverified", tone: "warning" };
+  }
+  if (graphPreviewIsBlocked(graphPreview)) {
+    return { label: "Blocked", tone: "warning" };
+  }
+  if (graphReady) {
+    return { label: "Graph ready", tone: "success" };
+  }
+  if (graphPreview) {
+    return { label: "Graph incomplete", tone: "warning" };
+  }
+
+  const hasProcessedResult =
+    result !== null &&
+    (result.status !== "initialized" ||
+      result.states.some((state) => state !== "ingest_status_inspected"));
+  return hasProcessedResult
+    ? { label: "Graph unavailable", tone: "warning" }
+    : { label: "Not run", tone: "neutral" };
+}
+
 function readDraft(storageKey: string): IngestionModuleDraft | null {
   if (typeof window === "undefined") {
     return null;
@@ -458,7 +515,7 @@ function buildToastForResult(
   if (!allowInspectResume && result.states.includes("ingest_status_inspected") && result.errors.length === 0) return null;
   const graphPreview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const graphReady = graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready";
-  const graphBlocked = Boolean(graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked");
+  const graphBlocked = graphPreviewIsBlocked(graphPreview);
   const stagedConflict = result.states.includes("staged_raw_notes_conflict");
   if (stagedConflict) {
     return {
@@ -772,6 +829,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+  const statusBadge = ingestionStatusBadge(state.status, proofResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
@@ -1458,9 +1516,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
       if (result.status === "ready_for_planning_activation" || result.ingest_report?.graph_preview) {
         const preview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-        const graphBlocked =
-          preview?.extraction_mode === "llm_blocked" ||
-          Boolean(preview?.blocked_reason && preview?.status !== "preview_union_store_ready");
+        const graphBlocked = graphPreviewIsBlocked(preview);
         const graphMaterialized = preview?.status === "preview_union_store_ready";
         const resultError = result.errors[0]?.trim() || "";
         const blockedReason = preview?.blocked_reason?.trim() || "";
@@ -2246,10 +2302,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           <div className="ingestion-evidence-header">
             <div>
               <p className="ingestion-flow-kicker">Evidence / Details</p>
-              <strong>Processing result</strong>
+              <strong>Ingestion status</strong>
             </div>
-            <span className={`pill ${graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? "pill-success" : "pill-neutral"}`}>
-              {graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? "graph ready" : "in progress"}
+            <span className={`pill pill-${statusBadge.tone}`} aria-live="polite">
+              {statusBadge.label}
             </span>
           </div>
           {graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready" ? (
