@@ -254,6 +254,11 @@ interface StoredPendingPlayTurn {
   request: WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1;
 }
 
+function isBuildWritingRequest(message: string): boolean {
+  return /^(?:(?:please|can you|could you|would you|i want you to)\s+)?(?:create|generate|draft|write|add|insert|append|make)\b/i.test(message)
+    || /^i\s+(?:want|need|would like)\s+(?:a|an|another|two|some)\s+(?:d\d+\s+)?(?:table|list|paragraph|description|scene|section)\b/i.test(message);
+}
+
 function pendingPlayTurnStorageKey(worldId: string): string {
   return `${PENDING_PLAY_TURN_STORAGE_PREFIX}${encodeURIComponent(worldId)}`;
 }
@@ -3527,7 +3532,7 @@ export function WorldPlanAgentConversation({
 
   async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
     const request = stored.request;
-    if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending) return;
+    if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     const token = Symbol("world-readonly-turn");
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
@@ -3617,10 +3622,10 @@ export function WorldPlanAgentConversation({
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
     if (isBuild) {
-      if (buildMode?.composeBridge && /^(?:(?:please|can you|could you|would you|i want you to)\s+)?(?:create|generate|draft|write|add|insert|append|make)\b/i.test(message)) {
+      if (buildMode?.composeBridge && isBuildWritingRequest(message)) {
         if (!visible || !source || source.worldId !== verifiedWorldId || source.worldId !== worldId
           || !message || message.length > 4000 || sending || buildCompose.busy || historyLoading || historyError
-          || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError || requestRef.current) return;
+          || pendingPlayLoadError || (sharedConversation?.pendingTurn?.surface === "plan") || requestRef.current) return;
         const editGeneration = composerEditGenerationRef.current;
         const accepted = await buildCompose.submit(message);
         if (accepted && composerEditGenerationRef.current === editGeneration) setComposerMessage("");
@@ -4958,13 +4963,17 @@ export function WorldPlanAgentConversation({
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
+  // A saved read-only Ask cannot write the document. Its uncertain receipt must
+  // remain recoverable, but does not own the independent Build proposal lane.
+  const buildWritingRequest = isBuild && Boolean(buildMode?.composeBridge) && isBuildWritingRequest(composerMessage.trim());
+  const independentBuildWriting = buildWritingRequest && !pendingPlayLoadError && sharedConversation?.pendingTurn?.surface !== "plan";
   const composerBusy = isReadOnly
-    ? buildCompose.busy || sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+    ? buildCompose.busy || sending || (!independentBuildWriting && (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
-  const messageLimit = isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
+  const messageLimit = buildWritingRequest ? 4000 : isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
@@ -5542,8 +5551,13 @@ export function WorldPlanAgentConversation({
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
       {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
+        <details><summary>Saved request details</summary>
+          <p>{pendingPlayTurn.request.message}</p>
+          <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
+          {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
+        </details>
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || requestRef.current !== null}>
+        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
           Retry exact saved turn
         </button>
       </section> : null}
