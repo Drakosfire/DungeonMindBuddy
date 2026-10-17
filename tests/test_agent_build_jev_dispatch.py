@@ -285,3 +285,37 @@ def test_first_state_accepts_real_nullable_none_focus_only(build_case, focus, ac
     else:
         with pytest.raises(ValueError, match="whole-World scope"):
             policy.first_state(work, scoped, request.message, owner._expected_initial_claim_packet(scoped))
+
+
+@pytest.mark.parametrize('mutation', ['none', 'reorder', 'missing', 'unknown_reference', 'qualification'])
+def test_compact_initial_admission_proves_exact_logical_packet(build_case, mutation):
+    from copy import deepcopy
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_initial_packet_codec import CODEC, encode
+    _, _, bootstrap = build_case
+    expected = deepcopy(owner._expected_initial_claim_packet(bootstrap))
+    # Include exact qualified synthetic rows in the projection actually expected
+    # by the admission seam, not in a caller-supplied authority packet.
+    projection = bootstrap.retrieval_session.project_for_hermes()
+    projection['claim_ledger'] = [dict(claim_id='one', epistemic_kind='belief', evidence_ref_ids=[]),
+                                 dict(claim_id='two', epistemic_kind='reported', evidence_ref_ids=[])]
+    expected = owner._expected_initial_claim_packet(bootstrap, projection)
+    value = deepcopy(expected)
+    if mutation == 'reorder':
+        value['claimLedger'].reverse()
+    elif mutation == 'missing':
+        value['claimLedger'].pop()
+    elif mutation == 'qualification':
+        value['claimLedger'][0]['epistemic_kind'] = 'fact'
+    compact = encode(value)
+    if mutation == 'unknown_reference':
+        compact['tables']['claimLedger']['references'] = [[0,0,999]]
+    body = json.dumps(dict(state=dict(schema='dmb_build_jev_driver_decision_v2',
+        initial_packet_codec=CODEC, initialClaimPacket=compact)))
+    view = SimpleNamespace(api_mode='typesafe_decision', payload_json=body)
+    if mutation == 'none':
+        assert owner._initial_claim_packet_from_view(view, bootstrap, frozen_projection=projection) == expected
+    else:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):
+            owner._initial_claim_packet_from_view(view, bootstrap, frozen_projection=projection)

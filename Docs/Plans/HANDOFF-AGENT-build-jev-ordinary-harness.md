@@ -1,6 +1,8 @@
 # AGENT: ordinary Build conversation through Jev and one writer
 
-ACTIVE under PRIME's Graph collaboration goal and ARCHITECTURE's end-to-end runtime design. Baseb3f22927a3bd5d143d2c02512d2c106a5ada5fd1; branch codex/build-jev-ordinary-harness in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. One serial implementation PR, reusing all existing dependencies; no new worktree, clone/export, environment or /tmp directory.
+IMPLEMENTED: independently reviewed and merged as cac8118788622d140250511e5c2b2f361096326c (PR1325). Implementation lease closed; actual ordinary first-packet budget failure and its successor are owned by HANDOFF-AGENT-build-jev-initial-packet-codec.md. Runtime activation and complete Mirathorn acceptance remain open.
+
+Original contract under PRIME's Graph collaboration goal and ARCHITECTURE's end-to-end runtime design. Baseb3f22927a3bd5d143d2c02512d2c106a5ada5fd1; branch codex/build-jev-ordinary-harness in the existing buddy-tool-denial-delivery checkout. PRIME implements solo; ARCHITECTURE independently reviews. One serial implementation PR, reusing all existing dependencies; no new worktree, clone/export, environment or /tmp directory.
 
 ## Product outcome
 

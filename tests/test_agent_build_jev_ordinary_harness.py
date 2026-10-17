@@ -655,3 +655,104 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["usage"]["input_tokens"] == 100
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
     assert runtime.calls[-1]["usage"]["status"] == "reported"
+
+
+def test_compact_first_sdk_keeps_nonempty_logical_membership_and_wire_hash(
+    build_case, monkeypatch, tmp_path
+):
+    from graph_memory.interaction.authority_classifier import (
+        claims_from_retrieval_result,
+    )
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession,
+        CoverageState,
+        SourceAnchorState,
+    )
+    from apps.live_control_server.services.build_initial_packet_codec import (
+        decode,
+        CODEC,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _expected_initial_claim_packet,
+    )
+
+    source, request, bootstrap = ordinary_case(build_case, monkeypatch)[0]
+    claims = claims_from_retrieval_result(
+        {
+            "relationships": [
+                {
+                    "edgeId": "rel:seed",
+                    "sourceNodeId": "node:one",
+                    "targetNodeId": "node:two",
+                    "predicate": "guards",
+                    "evidenceRefIds": ["ev:one"],
+                }
+            ],
+            "sourceAnchors": [
+                {
+                    "anchorId": "anchor:one",
+                    "revisionId": "native-rev-3",
+                    "evidenceRefId": "ev:one",
+                    "readable": True,
+                    "supportingGraphObjectIds": [],
+                }
+            ],
+        },
+        revision_id="native-rev-3",
+    )
+    session = GraphRetrievalSession(
+        snapshot=bootstrap.retrieval_session.snapshot,
+        question=request.message,
+        coverage=CoverageState(state="ready"),
+        claims=claims,
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    bootstrap = replace(
+        bootstrap,
+        retrieval_session=session,
+        candidate_relationship_ids=("rel:seed",),
+        candidate_evidence_ref_ids=("ev:one",),
+        evidence_by_anchor_id={"anchor:one": "ev:one"},
+        source_scope_anchors=(
+            {
+                "anchor_id": "anchor:one",
+                "evidence_ref_id": "ev:one",
+                "source_artifact_id": "artifact:one",
+                "source_revision_id": "source-rev:one",
+            },
+        ),
+    )
+    decisions, writer = DecisionWire(), WriterWire()
+    captured = []
+
+    class FirstOnly(BuildJevHarness):
+        async def _decide(self, adapter, driver):
+            await super()._decide(adapter, driver)
+            captured.append(adapter.turn)
+            raise SystemExit("prepared first call proof only")
+
+    with pytest.raises(SystemExit):
+        execute(
+            (source, request, bootstrap),
+            tmp_path,
+            FirstOnly(decision_transport=decisions, writer_transport=writer),
+        )
+    (turn,) = captured
+    assert isinstance(
+        turn.graph_context_execution.policy,
+        ledger.BuildCompactActionControllerWriterPolicyV1,
+    )
+    assert turn.graph_context_execution.policy.initial_packet_codec == CODEC
+    auth = turn.graph_context_execution.events[0]
+    assert auth.included_relationship_ids == ["rel:seed"]
+    assert auth.included_evidence_ref_ids == ["ev:one"]
+    assert auth.envelope_sha256 == sha256(decisions.calls[0].content).hexdigest()
+    assert (
+        turn.graph_context_receipt.assembled_input.assembled_input_sha256
+        == auth.envelope_sha256
+    )
+    state = json.loads(decisions.calls[0].content)["state"]
+    assert decode(state["initialClaimPacket"]) == _expected_initial_claim_packet(
+        bootstrap
+    )
+    assert writer.calls == []

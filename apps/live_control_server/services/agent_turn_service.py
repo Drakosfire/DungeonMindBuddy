@@ -575,6 +575,15 @@ def _initial_claim_packet_from_view(
     if getattr(view, "api_mode", None) in {"typesafe_decision", "responses"}:
         state = body.get("state", {}) if view.api_mode == "typesafe_decision" else json.loads(body["input"])
         packet = state.get("initialClaimPacket")
+        if state.get("schema") == "dmb_build_jev_driver_decision_v2":
+            from .build_initial_packet_codec import CODEC, decode
+            try:
+                if (view.api_mode != "typesafe_decision" or state.get("initial_packet_codec") != CODEC):
+                    raise ValueError("Initial packet codec was not explicitly enabled")
+                packet = decode(packet)
+            except (TypeError, KeyError, ValueError) as exc:
+                raise AgentTurnServiceError("The compact initial Graph packet is invalid.",
+                    code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
         if packet != expected:
             raise AgentTurnServiceError("The structured initial Graph packet differs.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
@@ -1105,7 +1114,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildCompactActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("initial_packet_codec") is not None
+                else graph_types.BuildActionControllerWriterPolicyV1
                 if budget.get("buildJevActions") is not None else graph_types.BuildSectionControllerWriterPolicyV1
                 if budget.get("savedSourceInputPolicy") == "selected_saved_build_sections_v1" else
                 graph_types.ControllerWriterGraphExecutionPolicyV3
