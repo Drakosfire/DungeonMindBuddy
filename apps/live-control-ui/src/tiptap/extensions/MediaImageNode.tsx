@@ -14,8 +14,10 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
   const [editable, setEditable] = useState(editor.isEditable);
   useEffect(() => {
     const sync = () => { setEditable(editor.isEditable && !editor.isDestroyed); if (!editor.isEditable) { resize.current = null; setPreviewWidth(null); } };
-    editor.on('update', sync); editor.on('destroy', sync);
-    return () => { editor.off('update', sync); editor.off('destroy', sync); };
+    const dom = editor.view.dom;
+    dom.addEventListener('dmb-media-editability', sync);
+    editor.on('destroy', sync);
+    return () => { dom.removeEventListener('dmb-media-editability', sync); editor.off('destroy', sync); };
   }, [editor]);
   const width = Number(node.attrs.width ?? 100);
   const collapsed = node.attrs.collapsed === true;
@@ -92,7 +94,12 @@ export const MediaImageNode = Node.create({
   renderHTML({node}) { return ['span',{'data-media-asset-id':node.attrs.assetId,'data-media-alt':node.attrs.alt,...(node.attrs.width != null || node.attrs.collapsed != null ? {'data-media-presentation':`dmb-image:v1 width=${node.attrs.width} collapsed=${node.attrs.collapsed}`} : {})},node.attrs.alt]; },
   addProseMirrorPlugins() { return [new Plugin({view: view => {
     const destroy = mediaDragScroll(view.dom);
-    return {destroy};
+    let editable = view.editable;
+    return {destroy, update: next => {
+      if (editable === next.editable) return;
+      editable = next.editable;
+      next.dom.dispatchEvent(new Event('dmb-media-editability'));
+    }};
   }})]; },
   addNodeView() { return ReactNodeViewRenderer(MediaImageView); },
 });

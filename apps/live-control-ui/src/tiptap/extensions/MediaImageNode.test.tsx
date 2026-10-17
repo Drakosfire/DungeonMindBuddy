@@ -56,7 +56,7 @@ it('refuses stale control mutation after the editor becomes read-only', async ()
  const view=await mount();
  const slider=view.getByRole('slider'); const collapse=view.getByRole('button',{name:'Collapse image'});
  const before=tiptapJsonToSemanticMarkdown(editor.getJSON());
- act(() => editor.setEditable(false));
+ act(() => editor.setEditable(false, false));
  fireEvent.keyDown(slider,{key:'ArrowLeft'});
  fireEvent.click(collapse);
  fireEvent.pointerDown(slider,{button:0,pointerId:1,clientX:1000});
@@ -75,8 +75,17 @@ it('cancels an active resize on a transition to read-only', async () => {
  const view=await mount();const slider=view.getByRole('slider');const before=editor.getJSON();
  vi.spyOn(view.container.querySelector('.document-media-image')!.parentElement!, 'getBoundingClientRect').mockReturnValue({width:1000} as DOMRect);
  slider.setPointerCapture=vi.fn();fireEvent.pointerDown(slider,{button:0,pointerId:1,clientX:1000});fireEvent.pointerMove(slider,{pointerId:1,clientX:200});
- act(() => editor.setEditable(false));fireEvent.pointerUp(slider,{pointerId:1});
+ act(() => editor.setEditable(false, false));fireEvent.pointerUp(slider,{pointerId:1});
  expect(editor.getJSON()).toEqual(before);
  await waitFor(() => expect(view.queryByRole('slider')).not.toBeInTheDocument());
  expect(view.getByRole('button',{name:'Collapse image'})).toBeDisabled();
+});
+
+it('reveals controls when production toggles Read to Edit without emitting an authored update', async () => {
+ const view=await mount(false);const before=editor.getJSON();
+ const updates=vi.fn();editor.on('update',updates);
+ act(() => editor.setEditable(true, false));
+ await waitFor(() => expect(view.getByRole('slider')).toBeInTheDocument());
+ expect(view.getByRole('button',{name:'Collapse image'})).toBeEnabled();
+ expect(editor.getJSON()).toEqual(before);expect(updates).not.toHaveBeenCalled();
 });
