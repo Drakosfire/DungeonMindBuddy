@@ -14,12 +14,14 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
   enabled: boolean; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
+  const historyVersion = history?.turns.map(turn => `${turn.turn_id}:${turn.lifecycle_status}`).join('|') ?? '';
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
   if (generation.current.scope !== scope) generation.current = { scope, epoch: generation.current.epoch + 1 };
   const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory });
   current.current = { scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory };
   const [records, setRecords] = useState<{ scope: string; values: BuildProposalRecord[] }>({ scope: '', values: [] });
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
@@ -36,7 +38,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
           .sort((a, b) => a.created_at.localeCompare(b.created_at)) })); })
       .catch(() => { if (active) setError('Earlier page proposals could not be loaded.'); });
     return () => { active = false; controller.abort(); };
-  }, [scope, worldId, enabled, history?.conversation_id]);
+  }, [scope, worldId, enabled, history?.conversation_id, historyVersion, refreshNonce]);
   function put(record: BuildProposalRecord, ownerScope: string, epoch = current.current.epoch, previousScope?: string) {
     if (mounted.current && ((current.current.scope === ownerScope && current.current.epoch === epoch)
       || (previousScope !== undefined && current.current.scope === previousScope && current.current.epoch === epoch - 1))) setRecords(previous => ({ scope: ownerScope,
@@ -92,7 +94,18 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
       catch { setError('Inserted into your draft. Its history receipt could not be updated; save the page normally.'); }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'This proposal cannot be inserted here.'); }
   }
-  return { busy, error, submit,
+  async function prepareHarnessCapability() {
+    const start = current.current;
+    if (!start.enabled || !start.bridge || !start.history?.conversation_id
+      || start.history.active_conversation_id !== start.history.conversation_id) return undefined;
+    const captured = await start.bridge.capture();
+    if (!mounted.current || current.current.scope !== start.scope || current.current.epoch !== start.epoch) return undefined;
+    const action = crypto.randomUUID();
+    captures.current.set(action, captured);
+    return { idempotency_key: action, conversation_id: start.history.conversation_id,
+      expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
+  }
+  return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
     items: records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: record.after_turn_sequence,
       element: <BuildComposeProposal key={record.action_id} record={record}
         canInsert={captures.current.has(record.action_id) && Boolean(bridge)
@@ -123,7 +136,7 @@ function BuildPrompt({ record }: { record: BuildProposalRecord }) {
 }
 export function BuildComposeProposal({ record, canInsert, onInsert }: { record: BuildProposalRecord; canInsert: boolean; onInsert: () => void }) {
   return <article className="build-compose-proposal" aria-label="Page proposal">
-    <p className="build-compose-proposal__request"><strong>You</strong> {record.reservation.instruction}</p>
+    <p className="build-compose-proposal__request"><strong>{record.reservation.origin ? "Writing instruction" : "You"}</strong> {record.reservation.instruction}</p>
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
       <p>Proposed addition to your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />

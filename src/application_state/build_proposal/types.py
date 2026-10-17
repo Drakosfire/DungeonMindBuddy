@@ -28,16 +28,25 @@ class BuildProposalBasis(StrictModel):
     selection_generation: int = Field(strict=True, ge=0)
 
 
+class BuildProposalOrigin(StrictModel):
+    client_turn_id: UUID
+    durable_turn_id: UUID
+    turn_attempt: int = Field(strict=True, ge=1)
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class BuildProposalReservation(StrictModel):
     idempotency_key: UUID
     conversation_id: UUID
     expected_pointer_revision: int = Field(strict=True, ge=1)
     basis: BuildProposalBasis
     instruction: str = Field(min_length=1, max_length=4000)
+    origin: BuildProposalOrigin | None = None
 
     @property
     def fingerprint(self) -> str:
-        return sha256(json.dumps(self.model_dump(mode="json"), ensure_ascii=False,
+        return sha256(json.dumps(self.model_dump(mode="json", exclude_none=True), ensure_ascii=False,
             sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 

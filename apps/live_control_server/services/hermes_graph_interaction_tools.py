@@ -61,9 +61,12 @@ ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
 )
 
+PROPOSE_BUILD_INSERTION = "propose_build_insertion"
+
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     *ORDERED_INTERACTION_TOOL_NAMES,
+    PROPOSE_BUILD_INSERTION,
 )
 
 HERMES_GRAPH_INTERACTION_TOOL_NAMES = frozenset(ORDERED_INTERACTION_TOOL_NAMES)
@@ -262,10 +265,18 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
     ]
 
 
+def propose_build_insertion_definition() -> dict[str, Any]:
+    return {"type": "function", "function": {"name": PROPOSE_BUILD_INSERTION,
+        "description": "Prepare an addition to the currently mounted Build page ONLY when the user asks to put content on the page. Use the discussed content and their requested changes in instruction. The host chooses the document and insertion point. Returns a durable Markdown preview awaiting approval; never inserts, saves or publishes. Never say applied or saved. No document IDs, paths, or Graph authority arguments.",
+        "parameters": {"type": "object", "properties": {"instruction": {"type": "string", "minLength": 1, "maxLength": 4000}},
+                       "required": ["instruction"], "additionalProperties": False}}}
+
+
 def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:
     return [
         declare_conversation_context_tool_definition(),
         *hermes_graph_interaction_tool_definitions(),
+        propose_build_insertion_definition(),
     ]
 
 

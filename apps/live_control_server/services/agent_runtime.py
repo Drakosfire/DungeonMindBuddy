@@ -31,6 +31,7 @@ class AgentRuntimeDescriptor:
 @dataclass(frozen=True, slots=True)
 class AgentCapabilityPolicy:
     policy_id: str
+    surface_actions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

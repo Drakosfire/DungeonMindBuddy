@@ -440,6 +440,14 @@ def _build_ephemeral_system_prompt(
         retrieval_session=retrieval_session_packet,
     )
     parts = [_GRAPH_SYSTEM_POLICY, scope_part]
+    if "propose_build_insertion" in policy.enabled_tool_names:
+        parts.append("You can propose additions to the current Build page using propose_build_insertion. "
+            "Discuss and ask clarifying questions normally. When the user asks to put agreed content on the page, "
+            "call the tool with a self-contained writing instruction reflecting the discussion. "
+            "The result is a preview awaiting user approval, never an applied edit. "
+            "Do not deny having this tool. Do not request confirmation before preparing a preview. "
+            "Do not treat a request to write a proposed table as a claim of played truth. "
+            "Use a connective segment to tell the user the preview is ready; Graph facts retain their normal evidence requirements.")
     if (request.parent_graph_broker_required and request.request_budget is not None
         and request.request_budget.get("maxProviderAttempts") is not None):
         parts.append(
@@ -1516,6 +1524,8 @@ class _GraphOperationReservation:
     def _call_locked(
         self, tool_name: str, arguments: Mapping[str, Any],
     ) -> tuple[str, Mapping[str, Any] | None]:
+        if tool_name == "propose_build_insertion":
+            return self.broker(tool_name, arguments)
         if self.indeterminate:
             return json.dumps({
                 "schema": "dmb_world_graph_retrieval_error_v1",
@@ -2042,8 +2052,8 @@ def run_hermes_graph_agent_turn(
                         else:
                             visible_defs = [
                                 definition for definition in visible_defs
-                                if "read_related_recap_context" not in
-                                _tool_names_from_definitions([definition])
+                                if not {"read_related_recap_context", "propose_build_insertion"}.intersection(
+                                    _tool_names_from_definitions([definition]))
                             ]
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(

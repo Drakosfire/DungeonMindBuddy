@@ -125,7 +125,8 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     packet = json.dumps({"schema": "dmb_build_compose_input_v1", "instruction": reservation.instruction,
         "source_basis": reservation.basis.model_dump(mode="json"), "source_title": snapshot.record.title,
         "draft_markdown": request.draft_markdown, "recent_dialogue": messages,
-        "source_class": "proposed_authored_worldbuilding_not_played_truth"}, ensure_ascii=False, separators=(",", ":"))
+        "source_class": "proposed_authored_worldbuilding_not_played_truth",
+        **({"tool_origin": reservation.origin.model_dump(mode="json")} if reservation.origin else {})}, ensure_ascii=False, separators=(",", ":"))
     schema = BuildGeneratedProposal.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM,
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},

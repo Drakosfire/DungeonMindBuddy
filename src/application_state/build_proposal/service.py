@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
-from uuid import UUID
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 from psycopg.types.json import Jsonb
 
@@ -25,6 +25,25 @@ def _save(conn, previous, updated):
     return checked
 
 
+def _require_origin_claim(conn, reservation):
+    origin = reservation.origin
+    if origin is None:
+        return
+    from application_state.agent_conversation import repository
+    turn = repository.lock_turn(conn, reservation.basis.world_id, origin.durable_turn_id)
+    if (turn is None or turn.conversation_id != reservation.conversation_id
+            or turn.status != "running" or turn.attempt != origin.turn_attempt
+            or turn.claim_expires_at is None or turn.claim_expires_at <= repository.database_clock(conn)
+            or turn.idempotency_key != uuid5(NAMESPACE_URL,
+                f"dmb-agent-turn:{reservation.basis.world_id}:{origin.client_turn_id}")
+            or turn.provenance.surface_id != "build"
+            or turn.provenance.primary_work.kind != "build"
+            or turn.provenance.primary_work.object_id != reservation.basis.document_id
+            or turn.provenance.primary_work.revision != str(reservation.basis.registry_revision)
+            or turn.provenance.primary_work.content_sha256 != reservation.basis.content_sha256):
+        raise ApplicationStateConflictError("Build proposal origin is fenced by the current Agent turn claim")
+
+
 class BuildProposalService:
     def reserve(self, reservation: BuildProposalReservation) -> tuple[BuildProposalRecord, bool]:
         world = reservation.basis.world_id
@@ -45,6 +64,7 @@ class BuildProposalService:
                 (world, reservation.conversation_id)).fetchone()
             if not conversation:
                 raise ApplicationStateNotFoundError("Active World conversation is unavailable")
+            _require_origin_claim(conn, reservation)
             now = datetime.now(timezone.utc)
             result = BuildProposalRecord(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
                 after_turn_sequence=conversation[0] - 1, revision=1, state="reserved", created_at=now, updated_at=now,
@@ -86,6 +106,8 @@ class BuildProposalService:
                 raise ApplicationStateConflictError("Build provider authorization is immutable")
             if previous.claim_expires_at <= datetime.now(timezone.utc):
                 raise ApplicationStateConflictError("Build proposal worker claim expired")
+            if state in {"authorized", "sdk_entered"}:
+                _require_origin_claim(conn, previous.reservation)
             updated = {**previous.model_dump(mode="python"), **fields, "state": state,
                 "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)}
             return _save(conn, previous, updated)

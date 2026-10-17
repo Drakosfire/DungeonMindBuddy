@@ -254,11 +254,6 @@ interface StoredPendingPlayTurn {
   request: WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1;
 }
 
-function isBuildWritingRequest(message: string): boolean {
-  return /^(?:(?:please|can you|could you|would you|i want you to)\s+)?(?:create|generate|draft|write|add|insert|append|make)\b/i.test(message)
-    || /^i\s+(?:want|need|would like)\s+(?:a|an|another|two|some)\s+(?:d\d+\s+)?(?:table|list|paragraph|description|scene|section)\b/i.test(message);
-}
-
 function pendingPlayTurnStorageKey(worldId: string): string {
   return `${PENDING_PLAY_TURN_STORAGE_PREFIX}${encodeURIComponent(worldId)}`;
 }
@@ -292,7 +287,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
   const value: unknown = JSON.parse(serialized);
   if (!hasExactKeys(value, ["schema", "request"]) || value.schema !== "dmb_world_play_pending_turn_v1"
     || !hasExactKeys(value.request, ["schema", "client_thread_id", "turn_id", "surface", "owner_scope",
-      "primary_work", "client_work_state", "graph_request", "graph_selection", "message"])
+      "primary_work", "client_work_state", "graph_request", "graph_selection", "message",
+      ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -3612,6 +3608,7 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token === token) {
         requestRef.current = null;
         setSending(false);
+        if (request.primary_work.kind === "build") buildCompose.refresh();
       }
     }
   }
@@ -3622,15 +3619,6 @@ export function WorldPlanAgentConversation({
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
     if (isBuild) {
-      if (buildMode?.composeBridge && isBuildWritingRequest(message)) {
-        if (!visible || !source || source.worldId !== verifiedWorldId || source.worldId !== worldId
-          || !message || message.length > 4000 || sending || buildCompose.busy || historyLoading || historyError
-          || pendingPlayLoadError || (sharedConversation?.pendingTurn?.surface === "plan") || requestRef.current) return;
-        const editGeneration = composerEditGenerationRef.current;
-        const accepted = await buildCompose.submit(message);
-        if (accepted && composerEditGenerationRef.current === editGeneration) setComposerMessage("");
-        return;
-      }
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || message.length > 8000 || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
@@ -3643,6 +3631,18 @@ export function WorldPlanAgentConversation({
         graph_request: useWorldGraphForAsk ? { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
           focus: { kind: "none", session_id: null, campaign_id: null } } : { mode: "none" }, graph_selection: null, message,
       };
+      if (useWorldGraphForAsk && buildMode?.composeBridge) {
+        const token = Symbol("build-editor-capability");
+        const fence = latestRef.current.presentationFenceKey;
+        requestRef.current = { token, scopeKey, fenceKey: fence };
+        setSending(true);
+        try { request.build_write_capability = await buildCompose.prepareHarnessCapability(); }
+        catch { /* Discussion still works when the current selection cannot grant an insertion. */ }
+        finally {
+          if (requestRef.current?.token === token) { requestRef.current = null; setSending(false); }
+        }
+        if (!latestRef.current.mounted || latestRef.current.presentationFenceKey !== fence) return;
+      }
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
       const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
       try {
@@ -4963,17 +4963,13 @@ export function WorldPlanAgentConversation({
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
-  // A saved read-only Ask cannot write the document. Its uncertain receipt must
-  // remain recoverable, but does not own the independent Build proposal lane.
-  const buildWritingRequest = isBuild && Boolean(buildMode?.composeBridge) && isBuildWritingRequest(composerMessage.trim());
-  const independentBuildWriting = buildWritingRequest && !pendingPlayLoadError && sharedConversation?.pendingTurn?.surface !== "plan";
   const composerBusy = isReadOnly
-    ? buildCompose.busy || sending || (!independentBuildWriting && (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)))
+    ? buildCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
-  const messageLimit = buildWritingRequest ? 4000 : isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
+  const messageLimit = isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
@@ -5715,6 +5711,7 @@ export function WorldPlanAgentConversation({
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={focusBuildSourceSelector}>Choose a source</button>
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
+          {isBuild && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
           <p id="world-plan-agent-composer-hint">
             {buildSourceMissing
               ? "Sending is disabled until a saved source is available."

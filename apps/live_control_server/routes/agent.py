@@ -1638,7 +1638,7 @@ def post_build_document_proposal(world_id: str, body: BuildDocumentProposalReque
     from src.llm.generation_sync import run_awaitable_sync
     enforce_native_graph_gm(request)
     verified = _verified_world_id(world_id)
-    if request.query_params or body.basis.world_id != verified:
+    if request.query_params or body.basis.world_id != verified or body.origin is not None:
         raise HTTPException(status_code=422, detail={"code": "build_compose_scope_mismatch"})
     try:
         return {"schema": "dmb_build_proposal_response_v1", "record": _public(run_awaitable_sync(lambda: compose(body)))}
