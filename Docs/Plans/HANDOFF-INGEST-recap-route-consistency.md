@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE — PRIME dispatched the scoped #1299 failure-path repair in the existing assigned checkout.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reused; no new worktree).
-**Base:** `origin/main@892cc46b50c3420765c00064db1dec46248c4d7d` verified from GitHub; candidate rebase is pending before final verification.
+**Base:** rebased onto `origin/main@892cc46b50c3420765c00064db1dec46248c4d7d` after verifying the current remote main through GitHub.
 **Branch:** `codex/ingest-1299-repair`, created from tested candidate `83a0eee183744071cf065bba6b715a3ba3eb518b`.
 **PR:** [#1299](https://github.com/Drakosfire/DungeonMindBuddy/pull/1299), `INGEST: preserve drafts across saved recap routes`.
 **Topology:** serial repair on the existing #1299 PR. No additional PR. PRIME retains merge authority.
@@ -55,9 +55,13 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 - `npx vite build`: passed independently; Vite reports the repository’s existing large-chunk advisory. `npm run build` cannot reach Vite because the package typecheck step reports the existing WorldPlanAgentAnswer errors below.
 - `npm run typecheck`: still stops on five existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 line 47, TS18048 line 49, TS2339 line 50). The edited Ingest files are not named by these diagnostics.
 - `git diff --check`: passed.
-- Candidate `83a0eee183744071cf065bba6b715a3ba3eb518b` adds the `returnToDraft` loading reset and two parameterized late-resolve/late-reject remount regressions; prior focused verification reported 45/45 IngestionModule tests and a passing Vite build. Re-run required on the current-main rebased cumulative head.
+- `returnToDraft` now clears the prior-inspection loading state after invalidating the pending request. Two parameterized regressions cover both a late resolve and a late rejection, then verify updated draft text persists and survives remount.
+- On the rebased candidate: `npm run test -- src/modules/IngestionModule.test.tsx` — 45/45 passed. React emitted non-fatal `act(...)` warnings from existing asynchronous UI updates.
+- On the rebased candidate: `npx vite build` — passed; existing large-chunk warning remains.
+- `npm run typecheck` — still fails on five existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 line 47, TS18048 line 49, and TS2339 three times on line 50). No diagnostics point to the leased Ingest files.
+- `git diff --check origin/main...HEAD` — passed before this handoff update.
 - No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart was performed.
 
 ## Review and completion
 
-The remote PR remains at head `0e9cde0a2eb39d4fb1ad0cadf3a2a9660dcbf6ba` while this repair is prepared. After rebasing and verifying, update the same PR with the exact cumulative base/head and checks, then send the head to PRIME for independent review. Do not merge without PRIME’s approval.
+The remote PR remains at head `0e9cde0a2eb39d4fb1ad0cadf3a2a9660dcbf6ba` while this repair is prepared. Update the same PR with the exact cumulative base/head and checks, then send the head to PRIME for independent review. Do not merge without PRIME’s approval.
