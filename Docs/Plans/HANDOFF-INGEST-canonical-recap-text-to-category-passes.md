@@ -1,9 +1,9 @@
 # HANDOFF — INGEST canonical recap text to category passes
 
-**Status:** IMPLEMENTED — awaiting independent PRIME review and merge.
+**Status:** SETTLED — PR #1110 merged at `f1ea2778a03e48ab0cb7be53fe990054b8ff8c87`; implementation lease released.
 **Base:** Buddy `origin/main@2a3e2566e30256528486d391758a7ab0f1a92ad8`.
 **Branch:** `codex/graph-ingest-canonical-source-text` in isolated `/tmp/buddy-c1s16-ge-deepseek-prep-r3`.
-**Topology:** independent PR. Open #1108 has separate SERVER/UI paths; paused older PRs do not own this packaging path. PRIME reviews the cumulative diff before merge.
+**Topology:** independent PR, reviewed and merged as #1110. The original implementation evidence below is retained as historical record.
 
 ## Why and what
 
@@ -24,3 +24,7 @@ The separate `/tmp/HANDBACK-INGEST-c1s16-ge-deepseek-reconciled-r3-preparation.m
 The new regression creates a real canonical line-only SourceSpanIndex through the SourceArtifact registry, then invokes `run_graph_preview_extraction` with a fake category client. It inspects the actual actor request prompt: the unique recap fact and exact canonical span ID are present alongside Baergrom from the checked-in C1 roster. The resulting candidate, packaged index, manifest, and provenance retain the admitted source artifact ID. No provider or database is involved.
 
 The focused new regression passes. The two owning test files have 34 passes and three inherited fixture identity failures in the unrelated supplied-candidate branch (`candidate_graph.campaign_id is required`); the same failures are documented by the already merged #1107 handoff and are outside this lease. Review the cumulative diff, run focused checks, and preserve this limitation in the PR. No paid rerun, publication, or model comparison is authorized here.
+
+## Settlement
+
+PR #1110 merged at `f1ea2778a03e48ab0cb7be53fe990054b8ff8c87`. This handoff records the completed source-text plumbing capability; follow-up provenance integrity work has its own bounded handoff.

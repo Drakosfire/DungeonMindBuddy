@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -57,6 +58,478 @@ def _copy_candidate_to_tmp(tmp_path: Path, *, source_artifact_id: str) -> Path:
     payload["source_artifact_ids"] = [source_artifact_id]
     candidate.write_text(json.dumps(payload))
     return candidate
+
+
+def _shortened_candidate_fixture(
+    tmp_path: Path,
+) -> tuple[Path, Any, dict, dict, str, str]:
+    from graph_memory.evidence.source_artifact import build_recap_source_artifact_id
+    from src.graph_memory.source_span import (
+        build_source_span_index_for_text,
+        source_span_index_to_dict,
+    )
+
+    source = tmp_path / "session_16_normalized_recap.md"
+    source_text = "Session 16\n\nBonogo carried the violet astrolabe into Mireward at dawn.\n"
+    source.write_text(source_text, encoding="utf-8")
+    content_sha256 = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+    artifact = SimpleNamespace(
+        source_artifact_id=build_recap_source_artifact_id(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            content_sha256=content_sha256,
+        )
+    )
+    span_index = source_span_index_to_dict(
+        build_source_span_index_for_text(
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=content_sha256,
+            text=source_text,
+        )
+    )
+    span = next(span for span in span_index["spans"] if span.get("start_line") == 3)
+    canonical_span_id = span["source_span_id"]
+    legacy_artifact_id = artifact.source_artifact_id.rsplit(":", 1)[0]
+    legacy_span_id = f"{legacy_artifact_id}{canonical_span_id[len(artifact.source_artifact_id):]}"
+    evidence_ref = {
+        "id": "evidence:bonogo-recap-16",
+        "span_id": legacy_span_id,
+        "source_span_ref_id": legacy_span_id,
+        "source_artifact_id": artifact.source_artifact_id,
+        "source_ref_id": f"{artifact.source_artifact_id}:text",
+        "source_anchor_id": f"anchor:{legacy_span_id}",
+        "label": legacy_span_id,
+        "anchor_quotes": ["Bonogo carried the violet astrolabe into Mireward at dawn."],
+    }
+    candidate = {
+        "schema": "dmb_candidate_graph_preview_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c1",
+        "session_id": "session-16",
+        "source_artifact_ids": [artifact.source_artifact_id],
+        "nodes": [
+            {
+                "node_id": "person:bonogo",
+                "label": "Bonogo",
+                "node_type": "character",
+                "evidence_refs": [json.loads(json.dumps(evidence_ref))],
+            }
+        ],
+        "edges": [],
+        "beats": [],
+        "evidence_refs": [evidence_ref],
+        "diagnostics": {
+            "preview_only": True,
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+            "agent_interaction_connected": False,
+            "extraction_performed": False,
+            "llm_used": False,
+            "unresolved_evidence_refs": 0,
+            "warning_count": 0,
+        },
+    }
+    return source, artifact, span_index, candidate, legacy_span_id, canonical_span_id
+
+
+def test_runner_repairs_only_proven_legacy_candidate_span_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, legacy_span_id, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    candidate_path = tmp_path / "legacy_candidate_graph.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/repaired_candidate"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    refs = [packaged["evidence_refs"][0], packaged["nodes"][0]["evidence_refs"][0]]
+    assert all(ref["span_id"] == canonical_span_id for ref in refs)
+    assert all(ref["source_span_ref_id"] == canonical_span_id for ref in refs)
+    assert all(ref["label"] == canonical_span_id for ref in refs)
+    assert all(ref["source_anchor_id"] == f"anchor:{canonical_span_id}" for ref in refs)
+    assert all(ref["span_id"] != legacy_span_id for ref in refs)
+    assert len(report["evidence_reference_repairs"]) == 2
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 0
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 0
+    assert packaged["diagnostics"]["evidence_reference_repair_count"] == 2
+    assert manifest["status"] == "candidate_validation_ready"
+    assert manifest["health"]["candidate_graph_valid"] is True
+    assert compute_sha256(candidate_path) == original_sha256
+
+
+def test_runner_candidate_warning_diagnostics_match_validation_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, _, _ = _shortened_candidate_fixture(
+        tmp_path
+    )
+    monkeypatch.chdir(tmp_path)
+    candidate["evidence_refs"][0].pop("id")
+    candidate_path = tmp_path / "candidate_with_warning.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/candidate_with_warning"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["warnings"]
+    assert packaged["diagnostics"]["warning_count"] == len(report["warnings"])
+
+
+def test_runner_rejects_conflicting_canonical_evidence_span_selectors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    other_canonical_span_id = next(
+        span["source_span_id"]
+        for span in span_index["spans"]
+        if span.get("start_line") == 1
+    )
+    assert other_canonical_span_id != canonical_span_id
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        evidence_ref["span_id"] = canonical_span_id
+        evidence_ref["source_span_ref_id"] = other_canonical_span_id
+
+    candidate_path = tmp_path / "conflicting_span_selectors.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/conflicting_span_selectors"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.FAILED
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["evidence_reference_repairs"] == []
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 2
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 2
+    assert manifest["status"] == "failed"
+    assert manifest["health"]["candidate_graph_valid"] is False
+    assert any("conflicting span selectors" in warning for warning in report["warnings"])
+    assert compute_sha256(candidate_path) == original_sha256
+
+
+@pytest.mark.parametrize("secondary_selector", ["absent", None])
+def test_runner_allows_absent_or_null_optional_secondary_span_selector(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    secondary_selector: str | None,
+) -> None:
+    source, artifact, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        if secondary_selector == "absent":
+            evidence_ref.pop("source_span_ref_id")
+        else:
+            evidence_ref["source_span_ref_id"] = None
+
+    candidate_path = tmp_path / "optional_secondary_span_selector.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/optional_secondary_span_selector"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    refs = [packaged["evidence_refs"][0], packaged["nodes"][0]["evidence_refs"][0]]
+    assert all(ref["span_id"] == canonical_span_id for ref in refs)
+    if secondary_selector == "absent":
+        assert all("source_span_ref_id" not in ref for ref in refs)
+    else:
+        assert all(ref["source_span_ref_id"] is None for ref in refs)
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 0
+
+
+@pytest.mark.parametrize(
+    "malformed_selector",
+    [9, ["not", "a span"], {"id": "not-a-span"}, ""],
+)
+def test_runner_rejects_malformed_secondary_span_selectors_without_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malformed_selector: Any,
+) -> None:
+    source, artifact, span_index, candidate, legacy_span_id, _ = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    for evidence_ref in (
+        candidate["evidence_refs"] + candidate["nodes"][0]["evidence_refs"]
+    ):
+        evidence_ref["source_span_ref_id"] = malformed_selector
+
+    candidate_path = tmp_path / "malformed_secondary_span_selector.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/malformed_secondary_span_selector"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.FAILED
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["evidence_reference_repairs"] == []
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 2
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 2
+    assert manifest["status"] == "failed"
+    assert legacy_span_id in packaged["evidence_refs"][0]["span_id"]
+    assert packaged["evidence_refs"][0]["source_span_ref_id"] == malformed_selector
+    assert any("malformed span selectors" in warning for warning in report["warnings"])
+    assert compute_sha256(candidate_path) == original_sha256
+
+
+def test_runner_keeps_candidate_immutable_when_source_is_in_output_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, artifact, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    output_dir = tmp_path / "runs" / "same_directory"
+    output_dir.mkdir(parents=True)
+    candidate_path = output_dir / "candidate_graph.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/same_directory"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    assert result.candidate_graph_path is not None
+    assert result.candidate_graph_path != candidate_path
+    assert result.candidate_graph_path.name == "candidate_graph_packaged.json"
+    assert compute_sha256(candidate_path) == original_sha256
+    packaged = _load_manifest(result.candidate_graph_path)
+    assert packaged["evidence_refs"][0]["span_id"] == canonical_span_id
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "quote_mismatch",
+        "missing_quotes",
+        "wrong_source_ref",
+        "wrong_source_artifact",
+        "missing_span",
+        "inconsistent_secondary_span",
+        "foreign_source_anchor",
+    ],
+)
+def test_runner_keeps_unproven_legacy_candidate_span_aliases_failed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    source, artifact, span_index, candidate, legacy_span_id, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    monkeypatch.chdir(tmp_path)
+    broken_candidate = json.loads(json.dumps(candidate))
+    foreign_anchor_id = "anchor:artifact:other-recap:span:unrelated:9-9"
+    for evidence_ref in (
+        broken_candidate["evidence_refs"]
+        + broken_candidate["nodes"][0]["evidence_refs"]
+    ):
+        if mutation == "quote_mismatch":
+            evidence_ref["anchor_quotes"] = ["This sentence is not in the recap."]
+        elif mutation == "missing_quotes":
+            evidence_ref["anchor_quotes"] = []
+        elif mutation == "wrong_source_ref":
+            evidence_ref["source_ref_id"] = "artifact:other-recap:text"
+        elif mutation == "wrong_source_artifact":
+            evidence_ref["source_artifact_id"] = "artifact:other-recap"
+        elif mutation == "inconsistent_secondary_span":
+            evidence_ref["span_id"] = canonical_span_id
+            evidence_ref["source_span_ref_id"] = "artifact:missing:span:unknown:3-3"
+        elif mutation == "foreign_source_anchor":
+            evidence_ref["source_anchor_id"] = foreign_anchor_id
+        else:
+            evidence_ref["span_id"] = "artifact:missing:span:unknown:3-3"
+    candidate_path = tmp_path / "unproven_candidate_graph.json"
+    candidate_path.write_text(json.dumps(broken_candidate), encoding="utf-8")
+    original_sha256 = compute_sha256(candidate_path)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path(f"runs/unproven_{mutation}"),
+            candidate_graph_path=candidate_path,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    assert result.status == GraphIngestRunStatus.FAILED
+    assert result.candidate_graph_path is not None
+    assert result.validation_report_path is not None
+    manifest = _load_manifest(result.manifest_path)
+    packaged = _load_manifest(result.candidate_graph_path)
+    report = _load_manifest(result.validation_report_path)
+    assert report["evidence_reference_repairs"] == []
+    assert report["diagnostics"]["unresolved_evidence_ref_count"] == 2
+    assert packaged["diagnostics"]["unresolved_evidence_refs"] == 2
+    assert manifest["status"] == "failed"
+    assert manifest["health"]["candidate_graph_valid"] is False
+    if mutation == "inconsistent_secondary_span":
+        assert (
+            packaged["evidence_refs"][0]["source_span_ref_id"]
+            == "artifact:missing:span:unknown:3-3"
+        )
+    elif mutation == "foreign_source_anchor":
+        assert packaged["evidence_refs"][0]["source_anchor_id"] == foreign_anchor_id
+    else:
+        assert legacy_span_id in packaged["evidence_refs"][0]["source_span_ref_id"]
+    assert compute_sha256(candidate_path) == original_sha256
+
+
+def test_ambiguous_legacy_candidate_span_alias_is_not_repaired(tmp_path: Path) -> None:
+    from src.graph_memory.extraction.graph_ingest_packaging import (
+        _repair_candidate_evidence_span_aliases,
+    )
+
+    _, artifact, span_index, candidate, legacy_span_id, _ = _shortened_candidate_fixture(
+        tmp_path
+    )
+    span = next(span for span in span_index["spans"] if span.get("start_line") == 3)
+    span_index["spans"].append(json.loads(json.dumps(span)))
+
+    repairs = _repair_candidate_evidence_span_aliases(
+        candidate,
+        source_span_index=span_index,
+        recap_text=(tmp_path / "session_16_normalized_recap.md").read_text(
+            encoding="utf-8"
+        ),
+    )
+
+    assert repairs == []
+    assert candidate["evidence_refs"][0]["span_id"] == legacy_span_id
+
+
+def test_canonical_candidate_span_references_are_left_unchanged(tmp_path: Path) -> None:
+    from src.graph_memory.extraction.graph_ingest_packaging import (
+        _repair_candidate_evidence_span_aliases,
+    )
+
+    source, _, span_index, candidate, _, canonical_span_id = (
+        _shortened_candidate_fixture(tmp_path)
+    )
+    canonical_candidate = json.loads(json.dumps(candidate))
+    for evidence_ref in (
+        canonical_candidate["evidence_refs"]
+        + canonical_candidate["nodes"][0]["evidence_refs"]
+    ):
+        evidence_ref["span_id"] = canonical_span_id
+        evidence_ref["source_span_ref_id"] = canonical_span_id
+        evidence_ref["source_anchor_id"] = f"anchor:{canonical_span_id}"
+        evidence_ref["label"] = canonical_span_id
+
+    repairs = _repair_candidate_evidence_span_aliases(
+        canonical_candidate,
+        source_span_index=span_index,
+        recap_text=source.read_text(encoding="utf-8"),
+    )
+
+    assert repairs == []
+    assert all(
+        evidence_ref["span_id"] == canonical_span_id
+        and evidence_ref["source_span_ref_id"] == canonical_span_id
+        and evidence_ref["source_anchor_id"] == f"anchor:{canonical_span_id}"
+        and evidence_ref["label"] == canonical_span_id
+        for evidence_ref in (
+            canonical_candidate["evidence_refs"]
+            + canonical_candidate["nodes"][0]["evidence_refs"]
+        )
+    )
 
 
 def test_runner_writes_manifest_for_arbitrary_session_without_llm(
