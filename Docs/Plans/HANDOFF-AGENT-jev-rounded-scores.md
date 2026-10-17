@@ -1,6 +1,6 @@
 # AGENT — accept rounded SDK choice scores
 
-ACTIVE under PRIME's question-only Jev evaluation goal. Base67dbf2a6d03066b61eefcecf6623d71d4254f832; serial branch codex/build-jev-rounded-scores in reused /home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy. PRIME implements solo; ARCHITECTURE reviews. No new worktree/tmp/environment.
+SETTLED: merged as #1310 at 1a9d1304f89132db9b54f4590210be1ffa7541d9; write lease ended. Successor HANDOFF-AGENT-build-jev-retention.md owns the next slice. Previously ACTIVE under PRIME's question-only Jev evaluation goal. Base67dbf2a6d03066b61eefcecf6623d71d4254f832; serial branch codex/build-jev-rounded-scores in reused /home/drakosfire/.codex/worktrees/buddy-tool-denial-delivery/DungeonMindBuddy. PRIME implements solo; ARCHITECTURE reviews. No new worktree/tmp/environment.
 
 Observed real SDK responses returned legal80/79-way choices whose individually valid probabilities total0.99; current machine incorrectly refuses those completed decisions before useful acquisition. Remove the unsupported exact-sum requirement. Preserve exact question/choice keys and finite [0,1] scores. For unread exclusion use reported not_useful divided by max(1,total reported mass): never inflate a score when mass is missing/rounded down, and penalize excess mass. This is an explicit conservative heuristic, not a claim of calibration or a repaired probability distribution. Missing/zero/uncertain scores must cause acquisition rather than an exclusion. Do not alter request bodies or replay external attempts.
 

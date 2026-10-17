@@ -73,7 +73,7 @@ class DecisionIntent(_Frozen):
     kind: Literal["decision"] = "decision"
     request_id: str
     model: str = MODEL
-    phase: Literal["assess", "coverage"]
+    phase: Literal["assess", "coverage", "retention"]
     state: dict
     questions: tuple[DecisionQuestion, ...]
 
@@ -96,6 +96,7 @@ class Disposition(_Frozen):
     relevant_ids: tuple[str, ...]
     acquired_action_ids: tuple[str, ...]
     excluded_unread_ids: tuple[str, ...]
+    retention_judgments: tuple[dict, ...] = ()
 
 
 Step = DecisionIntent | AcquisitionIntent | Disposition
@@ -139,9 +140,16 @@ class BuildJevTransitions:
         *,
         relevant_min: float = 0.5,
         exclusion_min: float = 0.9,
+        retention_policy: Literal["question_relevance_packets_v1"] | None = None,
     ):
         if not question.strip():
             raise ValueError("empty user question")
+        if retention_policy not in {None, "question_relevance_packets_v1"}:
+            raise ValueError("unsupported retention policy")
+        self._retention_policy = retention_policy
+        self._retained: set[str] = set()
+        self._retention_pending: list[tuple[AcquiredEvidence, ...]] = []
+        self._retention_judgments: list[dict] = []
         self._question, self._scope = question, scope.model_copy(deep=True)
         self._relevant_min, self._exclusion_min = (
             _probability(relevant_min),
@@ -193,17 +201,50 @@ class BuildJevTransitions:
             evidence=tuple(self._units.values()),
             relevant_ids=tuple(sorted(self._relevant)),
             acquired_action_ids=tuple(sorted(self._visited)),
+            retention_judgments=tuple(self._retention_judgments),
             excluded_unread_ids=tuple(
                 sorted(self._excluded & {a.id for a in self._available()})
             ),
         )
 
-    def _decision(self, phase: Literal["assess", "coverage"]) -> DecisionIntent:
+    def _view_units(self) -> tuple[AcquiredEvidence, ...]:
+        return tuple(
+            u
+            for uid, u in self._units.items()
+            if self._retention_policy is None or uid in self._retained
+        )
+
+    def _retention_decision(self) -> DecisionIntent:
+        from .build_jev_retention import packet_questions, packet_state
+
+        units = self._retention_pending[0]
+        state = packet_state(self._question, self._scope, units)
+        questions = packet_questions(units)
+        return self._intent("retention", state, questions)
+
+    def _intent(self, phase, state, questions) -> DecisionIntent:
+        identity = {
+            "phase": phase,
+            "state": state,
+            "questions": [q.model_dump(mode="json") for q in questions],
+        }
+        key = _digest(identity)
+        if key in self._requests:
+            raise ValueError("unchanged decision state")
+        self._requests.add(key)
+        return DecisionIntent(
+            request_id=key, phase=phase, state=state, questions=questions
+        )
+
+    def _decision(
+        self, phase: Literal["assess", "coverage"]
+    ) -> DecisionIntent | Disposition:
         from .build_jev_compaction import project_evidence
 
         available = self._available()
+        viewed = self._view_units()
         state = {
-            **project_evidence(self._scope, tuple(self._units.values())),
+            **project_evidence(self._scope, viewed),
             "user_question": self._question,
             "legal_next_actions": {a.id: a.label[:96] for a in available},
             "legal_action_kinds": {
@@ -245,7 +286,7 @@ class BuildJevTransitions:
                     question=f"Does evidence {u.id} materially support, connect, qualify or contradict the exact question? "
                     "Shared names alone are insufficient.",
                 )
-                for i, u in enumerate(self._units.values())
+                for i, u in enumerate(viewed)
             )
             questions += (
                 DecisionQuestion(
@@ -255,13 +296,13 @@ class BuildJevTransitions:
                     options=("sufficient", "more_evidence", "conflict", "uncertain"),
                 ),
             )
-            if self._units:
+            if viewed:
                 questions += (
                     DecisionQuestion(
                         name="support",
                         kind="choice",
                         question="Choose an acquired supporting unit, or none. Other relevant units remain included.",
-                        options=("none", *self._units),
+                        options=("none", *(u.id for u in viewed)),
                     ),
                 )
             if available:
@@ -273,18 +314,17 @@ class BuildJevTransitions:
                         options=("none", *(a.id for a in available)),
                     ),
                 )
-        identity = {
-            "phase": phase,
-            "state": state,
-            "questions": [q.model_dump(mode="json") for q in questions],
-        }
-        key = _digest(identity)
-        if key in self._requests:
-            raise ValueError("unchanged decision state")
-        self._requests.add(key)
-        return DecisionIntent(
-            request_id=key, phase=phase, state=state, questions=questions
-        )
+        if self._retention_policy:
+            from .build_jev_retention import fits
+
+            state["retention_policy"] = self._retention_policy
+            state["omitted_acquired_count"] = len(self._units) - len(viewed)
+            state["rules"] += (
+                " The view omits units heuristically judged irrelevant; exclusions do not prove absence or completeness."
+            )
+            if not fits(state, questions):
+                return self._finish("refused", "retained_view_exceeds_context_policy")
+        return self._intent(phase, state, questions)
 
     def refuse(self, reason: str = "uncertain_attempt_do_not_replay") -> Step:
         if isinstance(self._step, Disposition):
@@ -331,7 +371,35 @@ class BuildJevTransitions:
                         for probability in distribution.values():
                             _probability(probability)
             available = self._available()
-            if request.phase == "coverage":
+            if request.phase == "retention":
+                units = self._retention_pending.pop(0)
+                for i, unit in enumerate(units):
+                    answer = answers[f"retain_{i}"]
+                    scores = answer.get("probabilities") or {}
+                    score = scores.get("irrelevant", 0) / max(1.0, sum(scores.values()))
+                    omitted = answer["selected"] == "irrelevant" and score >= 0.9
+                    if not omitted:
+                        self._retained.add(unit.id)
+                    self._retention_judgments.append(
+                        {
+                            "policy": self._retention_policy,
+                            "request_id": request_id,
+                            "question_sha256": _digest(self._question),
+                            "scope_sha256": _digest(
+                                self._scope.model_dump(mode="json")
+                            ),
+                            "unit_id": unit.id,
+                            "content_sha256": unit.content_sha256,
+                            "answer": json.loads(json.dumps(answer)),
+                            "omitted": omitted,
+                        }
+                    )
+                self._step = (
+                    self._retention_decision()
+                    if self._retention_pending
+                    else self._decision("assess")
+                )
+            elif request.phase == "coverage":
                 chosen, excluded = [], []
                 for i, action in enumerate(available):
                     answer = answers[f"use_{i}"]
@@ -357,7 +425,7 @@ class BuildJevTransitions:
             else:
                 self._relevant = {
                     uid
-                    for i, uid in enumerate(self._units)
+                    for i, uid in enumerate(u.id for u in self._view_units())
                     if answers[f"relevant_{i}"]["probability_true"]
                     >= self._relevant_min
                 }
@@ -366,7 +434,7 @@ class BuildJevTransitions:
                     label == "sufficient"
                     and answers.get("support", {}).get("selected") in self._relevant
                 )
-                self._conflict = label == "conflict" and bool(self._units)
+                self._conflict = label == "conflict" and bool(self._view_units())
                 next_id = answers.get("next", {}).get("selected", "none")
                 if self._sufficient or next_id == "none":
                     self._step = (
@@ -434,10 +502,27 @@ class BuildJevTransitions:
 
             # Validate full structured reconstruction before committing any batch state.
             project_evidence(self._scope, tuple(staged.values()))
+            newly_acquired = tuple(
+                u for uid, u in staged.items() if uid not in self._units
+            )
             self._units = staged
             self._visited.update(a.id for a in intent.actions)
             self._excluded.difference_update(a.id for a in intent.actions)
-            self._step = self._decision("assess")
+            if self._retention_policy and newly_acquired:
+                from .build_jev_retention import packets
+
+                try:
+                    self._retention_pending = packets(
+                        self._question, self._scope, newly_acquired
+                    )
+                except ValueError:
+                    self._step = self._finish(
+                        "refused", "single_unit_exceeds_context_policy"
+                    )
+                    return self.step
+                self._step = self._retention_decision()
+            else:
+                self._step = self._decision("assess")
         except Exception:
             self._step = self._finish("refused", "invalid_acquisition_do_not_replay")
             raise
