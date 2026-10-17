@@ -106,6 +106,10 @@ def _editor_table_lines(markdown: str) -> set[int]:
 _MEDIA_DESTINATION = re.compile(r"^dmb-media:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
 
 
+def _valid_image_presentation(title: str | None) -> bool:
+    return not title or re.fullmatch(r"dmb-image:v1 width=(20|[2-9][0-9]|100) collapsed=(true|false)", title) is not None
+
+
 def has_saved_media_references(markdown: str) -> bool:
     """Inspect decoded Markdown destinations, including character references."""
     return any(
@@ -127,7 +131,7 @@ def validate_saved_media_references(markdown: str, owner: str = "local_operator"
             if not destination.startswith('dmb-media:'):
                 continue
             match = _MEDIA_DESTINATION.fullmatch(destination)
-            if not match or not child.content.strip() or '\n' in child.content or '\r' in child.content:
+            if not match or not _valid_image_presentation(child.attrGet('title')) or not child.content.strip() or '\n' in child.content or '\r' in child.content:
                 raise TiptapMarkdownWriteError('Invalid saved image reference')
             try:
                 record = media.get_asset(match[1], owner)
@@ -142,7 +146,7 @@ def _editor_image_lines(markdown: str) -> set[int]:
     for token in MarkdownIt('commonmark').parse(markdown):
         if token.type == 'inline' and token.map and token.children:
             images = [child for child in token.children if child.type == 'image']
-            if images and not any(child.type == 'html_inline' for child in token.children) and all(_MEDIA_DESTINATION.fullmatch(child.attrGet('src') or '') and child.content.strip() and not child.attrGet('title') for child in images):
+            if images and not any(child.type == 'html_inline' for child in token.children) and all(_MEDIA_DESTINATION.fullmatch(child.attrGet('src') or '') and child.content.strip() and _valid_image_presentation(child.attrGet('title')) for child in images):
                 result.update(range(token.map[0]+1, token.map[1]+1))
     return result
 

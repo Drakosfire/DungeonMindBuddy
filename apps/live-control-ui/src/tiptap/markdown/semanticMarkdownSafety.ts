@@ -1,3 +1,4 @@
+import { mediaMarkdown } from "../../media/mediaReferences";
 import { webSourceHref } from "./webSourceHref";
 import {
   playableSerializationFailures,
@@ -137,6 +138,9 @@ export function semanticMarkdownSerializationDiagnostics(
         }
         return;
       case "mediaImage":
+        try { mediaMarkdown(String(node.attrs?.assetId ?? ''), String(node.attrs?.alt ?? ''), node.attrs?.width, node.attrs?.collapsed); }
+        catch { diagnostics.push(warning("Invalid saved image presentation or reference.", type)); }
+        return;
       case "runbookReference":
       case "graphNodeReference":
       case "horizontalRule":

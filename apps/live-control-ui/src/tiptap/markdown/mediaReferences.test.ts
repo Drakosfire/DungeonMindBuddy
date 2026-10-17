@@ -18,3 +18,20 @@ describe('saved media references',()=>{
   expect(()=>mediaMarkdown('bad','Map')).toThrow();
  });
 });
+
+it('roundtrips explicit size and collapse without altering stable identity', () => {
+ for (const width of [20, 55, 100]) for (const collapsed of [true, false]) {
+  const source = mediaMarkdown(id, 'Edge map', width, collapsed);
+  const parsed = markdownToTiptapDoc(source);
+  expect(parsed.diagnostics).toEqual([]);
+  expect(parsed.doc.content?.[0].content?.[0]).toEqual({type:'mediaImage',attrs:{assetId:id,alt:'Edge map',width,collapsed}});
+  expect(tiptapJsonToSemanticMarkdown(parsed.doc)).toBe(source + '\n');
+ }
+});
+it('blocks malformed image presentation rather than silently losing it', () => {
+ for (const title of ['dmb-image:v1 width=19 collapsed=false','dmb-image:v1 width=101 collapsed=true','dmb-image:v1 width=40 collapsed=1','ordinary title']) {
+  expect(markdownToTiptapDoc(`![Map](dmb-media:${id} "${title}")`).diagnostics.some(item => item.level === 'warning')).toBe(true);
+ }
+ expect(() => mediaMarkdown(id, 'Map', 25.5, false)).toThrow();
+ expect(() => mediaMarkdown(id, 'Map', 50, 'false')).toThrow();
+});
