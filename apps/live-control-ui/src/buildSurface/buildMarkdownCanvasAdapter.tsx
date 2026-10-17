@@ -29,9 +29,9 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
     try { setRecoveryReview(session.prepareDraftRecovery()); setRecoveryError(""); }
     catch (error) { setRecoveryError(error instanceof Error ? error.message : "Draft recovery is unavailable."); }
   }
-  function confirmRecovery() {
+  function confirmRecovery(mode: "source" | "current" = "source") {
     if (!recoveryReview) return;
-    try { session.confirmDraftRecovery(recoveryReview); setRecoveryReview(null); setRecoveryError(""); }
+    try { session.confirmDraftRecovery(recoveryReview, mode); setRecoveryReview(null); setRecoveryError(""); }
     catch (error) { setRecoveryError(error instanceof Error ? error.message : "The draft was not replaced."); }
   }
   function restoreRecovery() {
@@ -74,12 +74,16 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
         {recoveryReview ? <dialog ref={recoveryDialogRef} aria-labelledby={`${dialogId}-recovery-title`}
           onCancel={() => setRecoveryReview(null)} style={{ maxWidth: "min(46rem, calc(100vw - 2rem))", maxHeight: "80vh", overflow: "auto" }}>
           <h2 id={`${dialogId}-recovery-title`}>Review protected draft</h2>
-          <p>These versions may differ. Rebuilding replaces the local editor with the preserved Markdown; it does not merge edits or save the page.</p>
-          <p>Your current editor content and preserved source will first be kept in a verified recovery copy in this browser. Restore protected draft brings your original edits back, as long as there are no newer edits or source changes.</p>
-          <details open><summary>Current local edits</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.editorText}</pre></details>
+          <p>A previous editing problem protected a copy in this browser. Choose the page you want to keep; neither choice saves over the server yet.</p>
+          <p>Both versions will first be kept in a verified recovery copy. You can restore it before making newer edits.</p>
+          <details><summary>Current page preview</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.editorText}</pre></details>
           <details><summary>Preserved Markdown</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.preservedMarkdown}</pre></details>
-          <button type="button" autoFocus onClick={() => setRecoveryReview(null)}>Keep current draft</button>
-          <button type="button" disabled={!canDiscard} onClick={confirmRecovery}>Keep recovery copy and rebuild</button>
+          {recoveryReview.currentPageIssue && <p>{recoveryReview.currentPageIssue}</p>}
+          <div style={{ position: "sticky", bottom: 0, background: "var(--surface, #171d28)", padding: ".75rem 0", display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
+            <button type="button" disabled={!canDiscard || !recoveryReview.canKeepCurrent} onClick={() => confirmRecovery("current")}>Keep current page and resume saving</button>
+            <button type="button" disabled={!canDiscard || recoveryReview.canUsePreserved === false} onClick={() => confirmRecovery("source")}>Use preserved version</button>
+            <button type="button" autoFocus onClick={() => setRecoveryReview(null)}>Cancel review</button>
+          </div>
           {recoveryError ? <p role="alert">{recoveryError}</p> : null}
         </dialog> : null}
         {session.dirty ? <button className="build-discard-draft" type="button" disabled={!canDiscard} onClick={() => {

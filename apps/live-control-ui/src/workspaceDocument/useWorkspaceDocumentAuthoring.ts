@@ -81,7 +81,7 @@ export interface WorkspaceDocumentAuthoringValue {
   saveDisabledReason: string | null;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
-  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview) => void;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current") => void;
   restoreDraftRecovery: () => void;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   editor: Editor | null;
@@ -427,15 +427,41 @@ export function useWorkspaceDocumentAuthoring(
       assertPersistedDraft(storage, current)]);
   }, [args.documentId, editor, machine.phase, storage]);
 
+  const currentPageRecovery = useCallback(() => {
+    const current = localStateRef.current;
+    const snap = snapshotRef.current;
+    if (!current || !snap || !editor?.schema) throw new Error("The current page is still loading.");
+    if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown) || hasBlockingMarkdownImportDiagnostics(snap.markdown)) {
+      throw new Error("The preserved source still contains unsupported Markdown. Keep both copies until it can be preserved safely.");
+    }
+    const doc = editor.getJSON();
+    const issues = semanticMarkdownSerializationDiagnostics(doc);
+    if (issues.length) throw new Error(issues[0].message);
+    const markdown = preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(doc));
+    const imported = markdownToTiptapDoc(markdown);
+    if (imported.diagnostics.some(issue => issue.level === "warning")) throw new Error("The current page cannot yet be reloaded without changes.");
+    const normalized = editor.schema.nodeFromJSON(imported.doc).toJSON();
+    const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable)
+      : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
+    if (JSON.stringify(stable(doc)) !== JSON.stringify(stable(normalized))) {
+      throw new Error("Some current page structure would change on reload. Both copies remain protected.");
+    }
+    return { doc, markdown };
+  }, [editor]);
+
   const prepareDraftRecovery = useCallback((): WorkspaceDraftRecoveryReview => {
     const current = localStateRef.current;
     if (!current?.exported_markdown_authoritative) throw new Error("This draft does not require source recovery.");
-    return { documentId: args.documentId, fence: recoveryFence(),
+    const fence = recoveryFence();
+    let currentPageIssue: string | null = null;
+    try { currentPageRecovery(); } catch (reason) { currentPageIssue = reason instanceof Error ? reason.message : "The current page cannot be safely saved yet."; }
+    return { documentId: args.documentId, fence, canKeepCurrent: currentPageIssue == null, currentPageIssue,
+      canUsePreserved: !hasBlockingMarkdownImportDiagnostics(current.exported_markdown),
       preservedMarkdown: current.exported_markdown,
       editorText: editor?.getText?.() ?? "Preview unavailable. Your full editor data will be preserved." };
-  }, [args.documentId, editor, recoveryFence]);
+  }, [args.documentId, editor, recoveryFence, currentPageRecovery]);
 
-  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview) => {
+  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview, mode: "source" | "current" = "source") => {
     if (review.documentId !== args.documentId || review.fence !== recoveryFence()) {
       throw new Error("The draft changed after review. Review it again before replacing it.");
     }
@@ -445,8 +471,9 @@ export function useWorkspaceDocumentAuthoring(
     }
     const imported = markdownToTiptapDoc(current.exported_markdown);
     if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
-    const normalizedDoc = editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc;
-    const markdown = preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    const kept = mode === "current" ? currentPageRecovery() : null;
+    const normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
+    const markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
     const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
     const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
       exported_markdown: markdown, exported_markdown_authoritative: false,
@@ -460,7 +487,7 @@ export function useWorkspaceDocumentAuthoring(
     setLocalState(next);
     setDocumentKey(`${current.document_id}:${current.base_revision}:recovery:${Date.now()}`);
     dispatch({ type: "OPEN_READY", dirty: next.dirty });
-  }, [args.documentId, dispatch, editor, recoveryFence, storage]);
+  }, [args.documentId, dispatch, editor, recoveryFence, storage, currentPageRecovery]);
 
   const restoreDraftRecovery = useCallback(() => {
     recoveryFence();
@@ -791,7 +818,9 @@ export function useWorkspaceDocumentAuthoring(
     : !isEditorInteractive(phase) || isSaveDisabled(phase)
       ? (phase === "conflict" ? "The source changed elsewhere. Resolve the conflict before saving." : "The document is not ready to save.")
     : localState?.exported_markdown_authoritative
-      ? "Save is paused to protect a recovered draft. Review the preserved source and local edits."
+      ? (hasBlockingMarkdownImportDiagnostics(localState.exported_markdown)
+        ? "The preserved source uses Markdown this editor cannot save yet. Review the protected copies for details."
+        : "This local copy was protected after an earlier editing problem. Review it once to resume saving.")
     : (requireDirtyToSave && !dirty) ? "No unsaved changes."
     : canSave && !canSave() ? "This document is read-only or cannot be saved here."
     : null;

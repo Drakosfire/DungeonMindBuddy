@@ -6,6 +6,9 @@ export interface WorkspaceDraftRecoveryReview {
   fence: string;
   preservedMarkdown: string;
   editorText: string;
+  canKeepCurrent?: boolean;
+  canUsePreserved?: boolean;
+  currentPageIssue?: string | null;
 }
 interface Checkpoint {
   schema: "dmb_workspace_draft_recovery_v1";
