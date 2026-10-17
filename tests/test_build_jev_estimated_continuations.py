@@ -43,6 +43,8 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     execution = turn.graph_context_execution
     assert isinstance(execution.policy, ledger.BuildJointSupportActionControllerWriterPolicyV1)
     assert execution.policy.support_policy == "combined_relevant_evidence_support_v1"
+    assert isinstance(execution.policy, ledger.BuildReadBatchActionControllerWriterPolicyV1)
+    assert execution.policy.acquisition_policy == "jointly_judged_independent_reads_v1"
     assert isinstance(execution.policy, ledger.BuildWriterBudgetActionControllerWriterPolicyV1)
     assert execution.policy.writer_context_budget.context_limit_tokens == 128000
     assert turn.graph_context_receipt.assembled_input.context_window_limit == 64000
