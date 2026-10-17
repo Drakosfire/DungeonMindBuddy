@@ -94,10 +94,10 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
         "worldbuilding_gazetteer_v1",
         profile_version,
     )
-    assert request.model_id == "deepseek/deepseek-v4.1-flash"
+    assert request.model_id == "deepseek/deepseek-v4.1-flash-1017"
     client = _FakeBoundedClient.instances[0]
     assert client.limits.provider == "openrouter"
-    assert client.limits.model == "deepseek/deepseek-v4.1-flash"
+    assert client.limits.model == "deepseek/deepseek-v4.1-flash-1017"
     assert client.limits.max_calls == 8
     assert client.limits.max_output_tokens == 8192
     assert client.limits.edge_max_output_tokens == 8192

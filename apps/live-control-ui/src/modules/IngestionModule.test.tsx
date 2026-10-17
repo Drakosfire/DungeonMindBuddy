@@ -2006,6 +2006,7 @@ describe("IngestionModule", () => {
           session: 22,
           raw_text: "Session 22 - Mireward Road and Lysandro\n\nThe party pressed on.",
           include_graph_extraction: true,
+          graph_model_id: "deepseek/deepseek-v4.1-flash-1017",
         }),
       ),
     );
@@ -2339,7 +2340,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph tools"));
     const extractToggle = await screen.findByLabelText(
-      "Extract graph from recap with category extraction (DeepSeek)",
+      "Extract graph from recap with category extraction (DeepSeek V4.1 Flash 1017 · pinned)",
     );
     expect(extractToggle).toBeInTheDocument();
     await user.click(extractToggle);
@@ -2355,7 +2356,7 @@ describe("IngestionModule", () => {
           operation: "build_graph_preview_bundle",
           session: 22,
           extract_graph: true,
-          graph_model_id: "deepseek/deepseek-v4.1-flash",
+          graph_model_id: "deepseek/deepseek-v4.1-flash-1017",
         }),
       ),
     );
@@ -2399,7 +2400,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph tools"));
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (DeepSeek)"));
+    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (DeepSeek V4.1 Flash 1017 · pinned)"));
     expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
     expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
@@ -2412,7 +2413,7 @@ describe("IngestionModule", () => {
           session: 22,
           candidate_graph_path: undefined,
           extract_graph: true,
-          graph_model_id: "deepseek/deepseek-v4.1-flash",
+          graph_model_id: "deepseek/deepseek-v4.1-flash-1017",
           materialize_after_extract: true,
         }),
       ),

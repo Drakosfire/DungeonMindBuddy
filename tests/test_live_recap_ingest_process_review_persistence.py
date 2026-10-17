@@ -104,7 +104,7 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
         "slug": "Process review fixture",
         "title": "Session 29 - Process review fixture",
         "include_graph_extraction": True,
-        "graph_model_id": "deepseek/deepseek-v4.1-flash",
+        "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
     }
     processed = client.post("/api/live/recap-ingest", json=request)
     assert processed.status_code == 200, processed.text

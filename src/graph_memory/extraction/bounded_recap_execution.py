@@ -29,7 +29,7 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
 
-DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash"
+DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 
 _SAFE_OBSERVATION_FIELDS = (
     "provider",
