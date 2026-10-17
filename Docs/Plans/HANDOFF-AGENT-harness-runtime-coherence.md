@@ -1,0 +1,15 @@
+# AGENT: restore accepted Harness runtime coherence
+
+Status: ACTIVE under PRIME’s responsive source-faithful conversation goal and operator report of unanswered Build messages. Base b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9; branch codex/harness-runtime-coherence, existing buddy-tool-denial-delivery checkout. Serial one bounded repair. PRIME implements; ARCHITECTURE reviews. DOGFOOD retains Ingest/Combat. No new checkout, environment, export or /tmp staging.
+
+## Evidence and invariant
+
+Synthetic network-blocked actual broker startup reproduces hermes_turn_error before authorization: TypeError in installed agent/conversation_loop.py:644 comparing count with max_iterations=None. The checked-in accepted patch supports nullable counts; existing generated source and serving runtime are older builds. Preserve uncapped execution, provider authorization/lifecycle, finite/default iteration semantics and all source/Graph authority. Do not substitute a large numeric limit. Normal UI now surfaces failure; backend success remains unproved.
+
+## Bounded authority
+
+Expected tracked write: this handoff only unless a concrete reproducibility defect requires a separately pinned code amendment. Operational lease: verify existing out/hermes-agent against its existing manifest and preserve its staged patch/manifest before updating that same generated checkout to the current accepted patch; build/install only hermes-agent offline with no dependencies into the existing a044ac4e runtime. Preserve package rollback bytes and verify installed source against generated source. No hand-edit of installed code, new environment, provider call, World/APP write or server restart during repair. Existing runtime consumers are identified before mutation. Runtime acceptance uses synthetic offline startup with denied authorization and owning patched-Harness tests; actual operator request remains held, not silently replayed. Any live adoption/response test is separately recorded under standing goal authority after preflight.
+
+## Verification
+
+Compare pinned upstream, prior manifest tree and worktree before mutation. In-place generation is allowed only for verified script-owned unmodified output; preserve exact old index patch and manifest, use atomic rollback on apply/build failure, and verify current source identity with the owning preparation script check. Prove the null startup reaches authorization or the expected denial without TypeError, no external dispatch, and actual nullable/finite iteration tests. Independently review evidence before claiming restored conversation. Finish bounded documentation through PR; merge authority remains PRIME after independent review.
