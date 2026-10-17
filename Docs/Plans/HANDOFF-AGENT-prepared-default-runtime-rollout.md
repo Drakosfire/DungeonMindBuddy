@@ -1,6 +1,6 @@
 # AGENT: deploy prepared default Jev in the existing Buddy runtime
 
-ACTIVE under PRIME standing restart/merge authority and the responsive source-faithful collaboration goal. PRIME owns this bounded operational successor to reviewed #1346. Source pin a4ce763ccf583eeb97c5a0db643e776d8cb2c143; prior serving pin2f43bbffd5dfe042a5a913bd49efa94d0d3898f1. Independent operational contract review before execution. DOGFOOD retains Ingest/Combat implementation and operator UX evaluation; this lease briefly owns the existing API source/bootstrap, not their dirty checkout.
+EXECUTED; operational lease ended. Contract #1347 merged e64ad9d89658e2853b2d3b3bfd3a7c883d48bed2 after independent exact-head review. Originally ACTIVE under PRIME standing restart/merge authority and the responsive source-faithful collaboration goal. PRIME owns this bounded operational successor to reviewed #1346. Source pin a4ce763ccf583eeb97c5a0db643e776d8cb2c143; prior serving pin2f43bbffd5dfe042a5a913bd49efa94d0d3898f1. Independent operational contract review before execution. DOGFOOD retains Ingest/Combat implementation and operator UX evaluation; this lease briefly owns the existing API source/bootstrap, not their dirty checkout.
 
 ## Scope and collision boundary
 
@@ -23,3 +23,9 @@ Verify health, service PID/source module pin, startup-prepared factory and fixed
 ## Exact document write set
 
 This handoff and factual settlement of HANDOFF-AGENT-build-default-estimated-runtime.md only. No product implementation in this PR. Operational private evidence stays in the established candidate root; no corpus/credential/runtime data in Git. Send exact head to ARCHITECTURE; PRIME reviews execution evidence and settles the operational contract afterward.
+
+## Executed result and operational correction
+
+Existing source refreshed exactly2f43→a4ce763ccf583eeb97c5a0db643e776d8cb2c143; same API port8000/service identity, PID4021930. Stable asset SHA and existing tiktoken0.14 verified; new factory prepares in the existing runtime. Actual process has only the added public tokenizer environment path. Health passes;5202 served asset retains SHA d6f78dd9410c353733c2d58aaaf4ee59a4758fd9151e7347fd731a7d3cf23ece. Schema0030 unchanged, all preexisting rows across owned durable tables retain exact fingerprints. No provider calls, database/schema/World mutation, new checkout or environment.
+
+First attempt exposed a transient-unit lifecycle error: stopping removed the unit definition, so start failed. Source and setting rolled back; the exact original launch argv recovered from local tool evidence restored the original healthy API before retry. ARCHITECTURE independently accepted recreating the same transient unit from preserved original argv plus only the public tokenizer setting. The corrected second attempt passed all gates. Original setting was absent; rollback preserves its prior presence/value. No application request was replayed. Future transient-unit operations must preserve launch argv/service properties before stopping. Private attempt1/before/result row-hash evidence and original argv remain under the existing a044 candidate root, not Git. Runtime ownership returns to DOGFOOD; the old unit name contains2f43 but its source pin is a4ce. Readiness and recorded evidence do not establish a new live semantic answer or operator acceptance.
