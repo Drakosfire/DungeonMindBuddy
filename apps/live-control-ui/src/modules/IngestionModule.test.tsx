@@ -686,7 +686,21 @@ describe("IngestionModule", () => {
   });
 
   it("opens a saved Session 10 as the enriched World Graph view", async () => {
+    const user = setupIngestUser();
     window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-10");
+    const draftText = "Session 11 draft that must survive a direct Session 10 route.";
+    const storageKey = "dmb.ingestion.longmont-c2.session.11";
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      version: 3,
+      rawText: draftText,
+      recapSession: 11,
+      slug: "",
+      title: "Session 11 - Draft in progress",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      ignoreDiskResume: false,
+    }));
     const status = makeStatus({
       session: 10,
       status: "recap_reused",
@@ -712,13 +726,15 @@ describe("IngestionModule", () => {
       snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: request.focus },
     }));
 
-    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+    const initialView = render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
 
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
     const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent("Viewing saved recap · Session 10."));
     expect(within(toolbar).queryByText(/Choose Process to build the enriched recap/i)).not.toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get("view")).toBe("recap");
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}")).toMatchObject({ rawText: draftText, recapSession: 11 });
+    expect(within(toolbar).getByRole("button", { name: "Return to draft" })).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
@@ -726,6 +742,17 @@ describe("IngestionModule", () => {
     expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
       expect.objectContaining({ focus: expect.objectContaining({ sessionId: "session-10" }) }),
     );
+
+    initialView.unmount();
+    render(<IngestionModule campaignId="longmont-c2" session={11} managedWorldId="elderwyld" initialSourceSession={10} />);
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Return to draft" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Return to draft" }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("session")).toBe("session-11"));
+    expect(await screen.findByRole("textbox", { name: "Write or paste a recap" })).toHaveValue(draftText);
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? "{}").rawText).toBe(draftText);
   });
 
   it("keeps a matching draft editable and offers its saved reader without losing text", async () => {

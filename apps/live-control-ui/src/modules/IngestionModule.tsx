@@ -896,14 +896,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     async function hydrateFromStorageAndDisk() {
       const inspectGeneration = hydrateInspectGenerationRef.current;
       const draft = readDraft(storageKey);
-      const savedReaderDraft =
-        readerMode &&
+      const routeDraft =
         requestedRecapSession != null &&
         draft?.recapSession !== requestedRecapSession &&
         Boolean(draft?.rawText.trim())
           ? { storageKey, campaignId: ingestCampaignId, draft: draft! }
           : null;
-      setReturnableDraft(savedReaderDraft);
+      setReturnableDraft(routeDraft);
       const usableDraft =
         requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
           ? null

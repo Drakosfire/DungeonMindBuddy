@@ -31,9 +31,9 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 
 ## Acceptance
 
-- Test a direct exact-session URL without `view=recap` and no matching draft; it must reach the same graph-enriched reader as picker loading and canonicalize the URL without adding a history step.
+- Test a direct exact-session URL without `view=recap`, both with no saved draft and with a different-session draft in the editor slot. It must reach the same graph-enriched reader as picker loading, canonicalize the URL without adding a history step, and preserve the other-session draft across hydration.
 - Test a matching unsaved draft on a direct URL; it remains editable and its text is preserved, with clear status explaining why the reader was not opened automatically.
-- Test loading a saved recap with a different session identity while a draft exists; the draft remains stored under its original key, the saved reader opens, a remount preserves the draft, and a visible Return to draft action restores the original session and text.
+- Test loading a saved recap with a different session identity while a draft exists through both the picker and direct URL. The draft remains stored under its original key, the saved reader opens, a remount preserves the draft, and a visible Return to draft action restores the original session and text.
 - Preserve unrelated query parameters and exact campaign/session binding.
 - Keep source and Graph-admission claims truthful.
 - Keep the direct-route draft-preservation behavior intentional; do not manufacture a forced-reader route fix.
@@ -43,6 +43,7 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 ## Implementation and verification evidence
 
 - A direct exact-session URL without `view=recap` still opens the graph-enriched reader when the saved normalized source is verified and no matching draft is present; the URL is canonicalized to `view=recap`.
+- A different-session draft in the editor storage slot is now protected during that direct-route hydration too. The draft candidate is identified before the automatic reader transition, so the persistence effect cannot replace it with the requested saved session’s empty editor state; `Return to draft` recovers it after a reader remount.
 - When a matching non-empty draft exists, the editor stays open, the status explains that the draft is open, and `View saved recap` opens the saved projection without replacing that draft.
 - Loading another processed recap now suspends draft writes while the reader is active, retains the draft under its original campaign/session local-storage key, and exposes `Return to draft`. The return action restores the draft identity and text; remounting the saved-reader URL also recovers the return action from the original draft key.
 - `npm run test -- src/modules/IngestionModule.test.tsx`: passed, 42 tests.
