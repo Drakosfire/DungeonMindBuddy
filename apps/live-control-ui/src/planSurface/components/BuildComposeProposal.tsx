@@ -9,6 +9,7 @@ import { WorldPlanAgentAnswer } from './WorldPlanAgentAnswer';
 import { ResponseEvidenceTabs } from './BuddyPromptInspector';
 import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
+import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
 export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
@@ -26,6 +27,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
   const captures = useRef(new Map<string, CapturedBuildInsertion>());
+  const inserting = useRef(new Set<string>());
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
@@ -70,7 +72,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
       captures.current.set(action, captured);
       const result = await composeBuildProposal({ idempotency_key: action, conversation_id: pointer.conversation_id,
         expected_pointer_revision: pointer.pointer_revision, basis: captured.basis, instruction, draft_markdown: captured.draftMarkdown });
-      if (result.proposal) admitMarkdownInsertion(result.proposal.replacement_markdown);
+      if (result.proposal) admitMarkdownInsertion(buildProposalMarkdown(result.proposal.replacement_markdown).markdown);
       put(result, ownerScope, epoch, ownerScope === start.scope ? undefined : start.scope);
       return true;
     } catch (reason) {
@@ -82,17 +84,30 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
   async function insert(record: BuildProposalRecord) {
-    const start = current.current; const captured = captures.current.get(record.action_id);
-    if (!captured || !start.bridge || record.inserted_in_draft || !record.proposal
+    const start = current.current;
+    if (inserting.current.has(record.action_id) || !start.bridge || record.inserted_in_draft || !record.proposal
       || start.history?.active_conversation_id !== record.reservation.conversation_id
       || start.history.pointer_revision !== record.reservation.expected_pointer_revision) return;
+    inserting.current.add(record.action_id);
     try {
-      start.bridge.insert(captured, record.proposal.replacement_markdown);
+      let captured = captures.current.get(record.action_id);
+      if (!captured) {
+        captured = await start.bridge.capture();
+        const expected = record.reservation.basis;
+        if (['world_id', 'document_id', 'registry_revision', 'content_sha256', 'visibility', 'draft_sha256']
+          .some(key => captured!.basis[key as keyof typeof expected] !== expected[key as keyof typeof expected])) {
+          throw new Error('This page has changed since the proposal. Nothing was inserted.');
+        }
+      }
+      if (!mounted.current || current.current.scope !== start.scope || current.current.epoch !== start.epoch
+        || current.current.history?.pointer_revision !== record.reservation.expected_pointer_revision) return;
+      start.bridge.insert(captured, buildProposalMarkdown(record.proposal.replacement_markdown).markdown);
       captures.current.delete(record.action_id);
       put({ ...record, inserted_in_draft: true }, start.scope);
       try { put(await reportBuildInsertion(start.worldId, record), start.scope); }
       catch { setError('Inserted into your draft. Its history receipt could not be updated; save the page normally.'); }
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'This proposal cannot be inserted here.'); }
+    } catch (reason) { if (mounted.current && current.current.scope === start.scope && current.current.epoch === start.epoch) setError(reason instanceof Error ? reason.message : 'This proposal cannot be inserted here.'); }
+    finally { inserting.current.delete(record.action_id); }
   }
   async function prepareHarnessCapability() {
     const start = current.current;
@@ -108,7 +123,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
     items: records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: record.after_turn_sequence,
       element: <BuildComposeProposal key={record.action_id} record={record}
-        canInsert={captures.current.has(record.action_id) && Boolean(bridge)
+        recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge)
           && history?.active_conversation_id === record.reservation.conversation_id
           && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : [] };
 }
@@ -134,15 +149,16 @@ function BuildPrompt({ record }: { record: BuildProposalRecord }) {
     : error ? <p role="alert">The captured request is unavailable.</p>
     : payload ? <PreparedRequestInspector payloadJson={payload} /> : <p role="status">Loading captured request…</p>;
 }
-export function BuildComposeProposal({ record, canInsert, onInsert }: { record: BuildProposalRecord; canInsert: boolean; onInsert: () => void }) {
+export function BuildComposeProposal({ record, canInsert, onInsert, recovered = false }: { record: BuildProposalRecord; canInsert: boolean; onInsert: () => void; recovered?: boolean }) {
   return <article className="build-compose-proposal" aria-label="Page proposal">
     <p className="build-compose-proposal__request"><strong>{record.reservation.origin ? "Writing instruction" : "You"}</strong> {record.reservation.instruction}</p>
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
       <p>Proposed addition to your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />
+      {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}
       {record.inserted_in_draft ? <p role="status">Inserted into the draft. Save the page when you’re ready.</p>
-        : canInsert ? <button type="button" onClick={onInsert}>Insert into page</button>
+        : canInsert ? <button type="button" onClick={onInsert}>{recovered ? 'Insert at current caret' : 'Insert into page'}</button>
         : <p>This earlier proposal remains available to read. Ask again to insert at your current caret.</p>}
     </div> : <p role="status">{record.state === 'unknown' ? 'The request outcome is uncertain. It will not be repeated automatically.'
       : record.state === 'failed' ? 'The proposal could not be prepared.' : 'The proposal has not completed. It will not be repeated automatically.'}</p>}

@@ -39,6 +39,48 @@ it('keeps one write request, reviews inline and inserts only once', async () => 
   expect(bridge.insert).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: 'Insert into page' })).not.toBeInTheDocument();
 });
+it('recovers a stored proposal after remount without generation and inserts only on explicit approval', async () => {
+  const record = receipt();
+  record.proposal!.replacement_markdown = '| d20 | Name |\n|---:|---|\n| 1 | Mara |';
+  vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+  const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
+  await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
+  const view = render(<>{hook.result.current.items.map(item => item.element)}</>);
+  expect(bridge.capture).not.toHaveBeenCalled();
+  expect(bridge.insert).not.toHaveBeenCalled();
+  expect(screen.getByRole('table')).toHaveTextContent('Mara');
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert at current caret' })); });
+  expect(bridge.insert).toHaveBeenCalledWith(captured, '| d20 | Name |\n|---|---|\n| 1 | Mara |');
+  expect(api.composeBuildProposal).not.toHaveBeenCalled();
+  view.rerender(<>{hook.result.current.items.map(item => item.element)}</>);
+  expect(screen.queryByRole('button', { name: /Insert/ })).not.toBeInTheDocument();
+});
+it.each(['world_id', 'document_id', 'registry_revision', 'content_sha256', 'visibility', 'draft_sha256'] as const)(
+  'refuses recovered insertion when %s differs', async field => {
+    vi.mocked(api.listBuildProposals).mockResolvedValue([receipt()]);
+    vi.mocked(bridge.capture).mockResolvedValue({ ...captured, basis: { ...basis, [field]: field === 'registry_revision' ? 2 : 'different' } });
+    const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
+    await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
+    render(<>{hook.result.current.items.map(item => item.element)}</>);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert at current caret' })); });
+    expect(bridge.insert).not.toHaveBeenCalled();
+    expect(api.composeBuildProposal).not.toHaveBeenCalled();
+    expect(hook.result.current.error).toContain('page has changed');
+  });
+it('drops a delayed recovered capture when the World changes and prevents double approval', async () => {
+  vi.mocked(api.listBuildProposals).mockResolvedValue([receipt()]);
+  let finish!: (value: CapturedBuildInsertion) => void;
+  vi.mocked(bridge.capture).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const hook = renderHook(({ world }) => useBuildCompose({ worldId: world, history: { ...history, world_id: world }, bridge, enabled: true, onHistory: vi.fn() }), { initialProps: { world: 'world' } });
+  await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
+  render(<>{hook.result.current.items.map(item => item.element)}</>);
+  fireEvent.click(screen.getByRole('button', { name: 'Insert at current caret' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Insert at current caret' }));
+  expect(bridge.capture).toHaveBeenCalledTimes(1);
+  hook.rerender({ world: 'foreign' });
+  await act(async () => { finish(captured); });
+  expect(bridge.insert).not.toHaveBeenCalled();
+});
 it('opens the first durable World conversation before composing', async () => {
   vi.mocked(live.postWorldAgentNewConversation).mockResolvedValue({ schema: 'dmb_agent_new_conversation_response_v1', world_id: 'world',
     conversation_id: 'conversation', active_conversation_id: 'conversation', pointer_revision: 1 });
