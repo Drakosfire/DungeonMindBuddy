@@ -2350,6 +2350,7 @@ export function WorldPlanAgentConversation({
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const connectionOptionsRef = useRef<HTMLDetailsElement | null>(null);
   const [traceVisible, setTraceVisible] = useState(false);
   const [openedTraceTurns, setOpenedTraceTurns] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -3286,6 +3287,12 @@ export function WorldPlanAgentConversation({
         ? `The command was not sent because its recovery envelope could not be saved. ${reason.message}`
         : "The command was not sent because browser storage is unavailable.");
     }
+  }
+
+  function openConnectionSettings() {
+    setSettingsOpen(true);
+    const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
+    if (options instanceof HTMLDetailsElement) options.open = true;
   }
 
   function connectGraphSession() {
@@ -5660,7 +5667,7 @@ export function WorldPlanAgentConversation({
           <p>{pendingGraphAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
         </section>
       ) : null}
       {saveInFlight ? (
@@ -5859,7 +5866,7 @@ export function WorldPlanAgentConversation({
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
+          headerActions={<>{newConversationButton}<details ref={connectionOptionsRef} className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
           </details></>}
           contextDetails={isBuild ? buildContextDetails : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
