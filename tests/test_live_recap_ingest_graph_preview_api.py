@@ -1416,6 +1416,20 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
     assert initial["status"] == "candidate_validation_ready"
     assert initial["extraction_run_status"] == "reviewable"
 
+    initial_manifest = json.loads((ROOT / initial["manifest_path"]).read_text(encoding="utf-8"))
+    from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    run_id = (initial_manifest.get("diagnostics") or {}).get("extraction_run_id")
+    run = get_reviewable_extraction_run(ROOT, run_id)
+    packaged_candidate = (initial_manifest.get("artifacts") or {}).get("candidate_graph") or {}
+    run_candidate = run.components["candidate_graph"]
+    assert run.source_artifact_id == initial_manifest["source"]["source_artifact_id"]
+    assert normalize_content_digest(
+        packaged_candidate.get("sha256")
+    ) == normalize_content_digest(run_candidate.sha256)
+    assert service._manifest_is_candidate_reusable(ROOT, initial["manifest_path"])
+
     def forbidden(*args, **kwargs):
         pytest.fail("Recovery must not dispatch a provider or invoke retired materialization")
 
