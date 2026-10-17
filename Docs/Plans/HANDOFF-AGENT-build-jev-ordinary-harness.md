@@ -18,7 +18,7 @@ Freeze chosen completed dialogue IDs/hashes and exact text in the controller and
 - apps/live_control_server/services/build_jev_harness.py (new), build_jev_driver.py, build_jev_transitions.py, build_jev_dispatch.py, build_jev_writer.py: ordinary parent orchestration, selection and exact writer packets.
 - apps/live_control_server/services/agent_turn_service.py: frozen policy/action integration and ordinary Build dispatch/response, preserving other surfaces and held MEDIA functionality for later rebase.
 - apps/live_control_server/services/build_document_proposal.py: trusted frozen history/request staging through shared writer seam; no arbitrary generated-text import.
-- src/application_state/agent_conversation/types.py, service.py, build_authoring.py: policy/event selection binding and proposal completion proof.
+- src/application_state/agent_conversation/types.py, service.py, repository.py, build_authoring.py: policy/event selection binding and proposal completion proof.
 - src/application_state/migrations/versions/20261017_0031_build_jev_actions.py if real PostgreSQL execution constraints require an additive policy/event admission; descend0030, never a competing head.
 - apps/live_control_server/models/agent_turn.py; apps/live-control-ui/src/api/types.ts; apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx and BuildComposeProposal.tsx; existing conversation history/preview UI consumers only as required to present the authoring completion truthfully.
 - tests/test_agent_build_jev_ordinary_harness.py (new), tests/application_state/test_build_jev_action_selection.py (new), focused existing driver/writer/proposal tests if their owning contracts change, and focused existing history/preview UI tests for adoption.
@@ -39,3 +39,8 @@ The ordinary SDK/APP suite passes15 tests: default runtime selection, cited sour
 Prior focused driver/shared-writer/source-writer/authoring suites passed88 tests before the final recovery/follow-up additions. The ordinary/proposal/Build regression suite then passed63 tests; final owning15 pass includes subsequent follow-up. Mounted history checks11 pass, proposal component13 pass, TypeScript and scoped Ruff pass. One inherited Starlette/AnyIO deprecation warning remains.
 
 This adopts Jev only for governed Build with complete exact-source discovery. Other surfaces and incomplete-discovery routes keep their existing Harness. It does not prove production corpus retrieval, full-World search, final answer quality, latency savings, rendered operator acceptance, Graph-off authoring, or the complete Mirathorn lifecycle. Authoring is explicitly creative and does not claim Graph factual support. No provider, retained World write, new environment/checkout, serving rollout or MEDIA activation occurred.
+
+
+## Review repair authority
+
+PRIME activates in-scope review repairs after ARCHITECTURE HOLD at5c3d22eac: refusal stops before writer; explicit terminal conflict/insufficiency reaches the writer; entered failed attempts are counted with available observations; immutable persisted proposal recovery uses an owner-checked transaction/CAS after lease expiry or interruption, preserving general provider claim fencing and attempt identity. The APP repository.py addition is leased only for that narrow validated recovery update. No provider dispatch or new attempt is permitted in recovery. Final verification supersedes earlier immediate-retry-only claims.
