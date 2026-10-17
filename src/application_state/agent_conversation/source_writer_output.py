@@ -18,8 +18,8 @@ from .types import StrictModel
 POLICY = "cited_facts_host_limitations_v1"
 SCHEMA_NAME = "build_cited_source_answer"
 FINITE_SCHEMA_NAME = "build_cited_source_answer_v2"
-GAP_SCHEMA_NAME = "build_cited_source_answer_v3"
-GAP_POLICY = "question_spans_selected_excerpts_v1"
+GAP_SCHEMA_NAME = "build_cited_source_answer_v4"
+GAP_POLICY = "exact_question_phrase_selected_excerpts_v1"
 LIMITATIONS = {
     "missing_requested_details": "The retrieved evidence does not establish all the requested details.",
     "partial_retrieval": "This answer uses partial retrieval and does not establish corpus completeness.",
@@ -88,8 +88,7 @@ class CitedSourceAnswer(StrictModel):
 
 
 class RequestedDetailGap(StrictModel):
-    question_span_start: int = Field(strict=True, ge=0)
-    question_span_end: int = Field(strict=True, gt=0)
+    question_phrase: str = Field(strict=True, min_length=1, max_length=256)
 
 
 class CitedSourceAnswerWithGaps(CitedSourceAnswer):
@@ -99,11 +98,6 @@ class CitedSourceAnswerWithGaps(CitedSourceAnswer):
 
     @model_validator(mode="after")
     def validate_gaps(self):
-        previous_end = -1
-        for gap in self.requested_detail_gaps:
-            if gap.question_span_start < previous_end or gap.question_span_start >= gap.question_span_end:
-                raise ValueError("Gap spans must be ordered, distinct and nonoverlapping")
-            previous_end = gap.question_span_end
         if self.requested_detail_gaps and (
             self.answer_context_status == "source_grounded"
             or "missing_requested_details" not in self.limitations
@@ -116,15 +110,21 @@ def gap_messages(answer, packet):
     question = packet.get("user_question")
     if not isinstance(question, str) or not question.strip():
         raise ValueError("Requested-detail gaps require the exact user question")
-    messages = []
+    located = []
     for gap in answer.requested_detail_gaps:
-        if gap.question_span_end > len(question):
-            raise ValueError("Requested-detail gap is outside the user question")
-        phrase = question[gap.question_span_start:gap.question_span_end]
-        if (not phrase or len(phrase) > 256 or phrase != phrase.strip()
-            or not all(char.isprintable() for char in phrase)
+        phrase = gap.question_phrase
+        if (phrase != phrase.strip() or not all(char.isprintable() for char in phrase)
             or not any(char.isalnum() for char in phrase)):
             raise ValueError("Requested-detail gap is not a bounded displayable detail")
+        start = question.find(phrase)
+        if start < 0 or question.find(phrase, start + 1) >= 0:
+            raise ValueError("Requested-detail phrase must occur exactly once in the original question")
+        located.append((start, start + len(phrase), phrase))
+    located.sort()
+    if any(left[1] > right[0] for left, right in zip(located, located[1:])):
+        raise ValueError("Requested-detail phrases must be distinct and nonoverlapping")
+    messages = []
+    for _, _, phrase in located:
         # User text stays literal in the Markdown conversation: no links, media,
         # HTML or formatting can be introduced through a question slice.
         literal = re.sub(r"([\\`*_{}\[\]()<>#+.!|~&\-])", r"\\\1", phrase)

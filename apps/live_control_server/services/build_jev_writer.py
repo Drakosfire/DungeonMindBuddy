@@ -88,15 +88,18 @@ useful relevant context. retrieval_disposition describes the acquisition outcome
 prohibition on citing supplied passages or selected saved sections. Do not infer an absent
 fact or decision from silence in a passage, and do not claim the entire corpus was searched.
 Return requested_detail_gaps (an empty list when no specific requested detail is missing).
-Each gap has only question_span_start and question_span_end: zero-based, end-exclusive Unicode
-code-point offsets into the exact user_question, selecting the requested detail itself, at most
-256 characters. Keep spans ordered and nonoverlapping. Never supply gap prose or a scope.
-The host quotes these exact question slices and says the selected source excerpts do not establish
+Each gap has only question_phrase: copy an exact, case-sensitive contiguous phrase from
+user_question that occurs there exactly once. Use 1–256 printable characters without outer
+whitespace. Do not paraphrase, count character offsets or supply arbitrary prose or scope.
+Do not select duplicate or overlapping phrases; the host locates and orders them.
+The host quotes these exact question phrases and says the selected source excerpts do not establish
 them. This is not a claim that a fact does not exist in the World or complete corpus.
 When some useful part is supported, answer that part with cited factual segments and use
 source_grounded_partial; specific unsupported details belong in requested_detail_gaps, not in
 factual claims. Include missing_requested_details when gaps exist. Use wholly insufficient output
-only when the selected excerpts support no useful part. Preserve exceptions and conflicts.
+only when the selected excerpts support no useful part. If an exact requested value is unavailable
+but evidence gives a relevant qualitative constraint, state that supported constraint and mark
+the exact requested value as missing. Preserve exceptions and conflicts.
 The host renders limitation messages. No tools, further reads, corpus-completeness claims, Graph
 authority, receipt fields or hashes. Follow the supplied output schema.
 """

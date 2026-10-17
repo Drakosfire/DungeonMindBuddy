@@ -42,7 +42,7 @@ def packet(question="What is the toll?"):
     }
 
 
-def answer(start=12, end=16):
+def answer(phrase="toll"):
     return {
         "answer_context_status": "source_grounded_partial",
         "answer_segments": [
@@ -53,9 +53,7 @@ def answer(start=12, end=16):
             }
         ],
         "limitations": ["missing_requested_details", "partial_retrieval"],
-        "requested_detail_gaps": [
-            {"question_span_start": start, "question_span_end": end}
-        ],
+        "requested_detail_gaps": [{"question_phrase": phrase}],
     }
 
 
@@ -93,12 +91,10 @@ def test_partial_and_abstention_gap_rendering_preserves_facts():
     )
 
 
-@pytest.mark.parametrize(
-    "start,end", [(True, 16), (1.0, 16), (-1, 16), (16, 12), (12, 99), (12, 12)]
-)
-def test_invalid_offsets_refused(start, end):
+@pytest.mark.parametrize("phrase", [True, 1.0, 12, "Toll", "missing", "", "toll "])
+def test_invalid_or_foreign_phrases_refused(phrase):
     with pytest.raises(ValueError):
-        owner.normalize(json.dumps(answer(start, end)), packet())
+        owner.normalize(json.dumps(answer(phrase)), packet())
 
 
 def test_duplicate_overlap_and_injected_prose_scope_refused():
@@ -111,13 +107,23 @@ def test_duplicate_overlap_and_injected_prose_scope_refused():
         raw["requested_detail_gaps"][0].update(extra)
         with pytest.raises(ValueError):
             owner.normalize(json.dumps(raw), packet())
-    for spans in [[(12, 16), (12, 16)], [(0, 5), (3, 6)], [(12, 16), (0, 4)]]:
+    for phrases in [["toll", "toll"], ["the toll", "toll"]]:
         raw = answer()
         raw["requested_detail_gaps"] = [
-            {"question_span_start": a, "question_span_end": b} for a, b in spans
+            {"question_phrase": phrase} for phrase in phrases
         ]
         with pytest.raises(ValueError):
             owner.normalize(json.dumps(raw), packet())
+    with pytest.raises(ValueError, match="exactly once"):
+        owner.normalize(json.dumps(answer("aa")), packet("aaa?"))
+    raw = answer()
+    raw["requested_detail_gaps"] = [
+        {"question_phrase": phrase} for phrase in ["toll", "What"]
+    ]
+    assert (
+        "“What”"
+        in owner.normalize(json.dumps(raw), packet())["answer_segments"][1]["text"]
+    )
     raw = answer()
     raw["limitations"] = ["partial_retrieval"]
     with pytest.raises(ValueError, match="missing-details"):
@@ -127,19 +133,19 @@ def test_duplicate_overlap_and_injected_prose_scope_refused():
 def test_unicode_codepoints_and_literal_markdown():
     assert (
         "“cost”"
-        in owner.normalize(json.dumps(answer(2, 6)), packet("🌲 cost?"))[
+        in owner.normalize(json.dumps(answer("cost")), packet("🌲 cost?"))[
             "answer_segments"
         ][1]["text"]
     )
     phrase = "![mage](https://x.invalid) <b> &amp; `spell`"
-    rendered = owner.normalize(json.dumps(answer(0, len(phrase))), packet(phrase))[
+    rendered = owner.normalize(json.dumps(answer(phrase)), packet(phrase))[
         "answer_segments"
     ][1]["text"]
     assert r"\!\[mage\]\(https://x\.invalid\)" in rendered
     assert r"\<b\>" in rendered and r"\&amp;" in rendered and r"\`spell\`" in rendered
     for phrase in [" ", "\nsecret", "x" * 257, "!!!", "no\x00one"]:
         with pytest.raises(ValueError):
-            owner.normalize(json.dumps(answer(0, len(phrase))), packet(phrase))
+            owner.normalize(json.dumps(answer(phrase)), packet(phrase))
 
 
 def test_new_format_is_explicit_and_old_schemas_stay_exact():
@@ -173,6 +179,31 @@ def test_new_format_is_explicit_and_old_schemas_stay_exact():
         )
 
 
+def test_never_served_v3_is_retired_without_an_adapter():
+    fmt = {
+        "type": "json_schema",
+        "name": "build_cited_source_answer_v3",
+        "schema": owner.finite_output_schema(packet(), requested_detail_gaps=True),
+        "strict": True,
+    }
+    with pytest.raises(ValueError, match="unknown output schema"):
+        owner.validate_writer_format(fmt, packet())
+    with pytest.raises(ValueError, match="Unknown requested-detail"):
+        owner.normalize(
+            json.dumps(answer()),
+            {
+                **packet(),
+                "requested_detail_gap_policy": "question_spans_selected_excerpts_v1",
+            },
+        )
+    raw = answer()
+    raw["requested_detail_gaps"] = [
+        {"question_span_start": 12, "question_span_end": 16}
+    ]
+    with pytest.raises(ValueError):
+        owner.normalize(json.dumps(raw), packet())
+
+
 class GapWriter(WriterWire):
     async def handle_async_request(self, request):
         response = await super().handle_async_request(request)
@@ -182,10 +213,8 @@ class GapWriter(WriterWire):
         value = response.json()
         content = value["output"][0]["content"][0]
         raw = json.loads(content["text"])
-        start = question.index("the toll")
-        raw["requested_detail_gaps"] = [
-            {"question_span_start": start, "question_span_end": start + 8}
-        ]
+        assert "the toll" in question
+        raw["requested_detail_gaps"] = [{"question_phrase": "the toll"}]
         raw["limitations"] = ["missing_requested_details", "partial_retrieval"]
         content["text"] = json.dumps(raw)
         return httpx.Response(200, request=request, json=value)
@@ -278,11 +307,14 @@ def test_sdk_app_gap_proof_reconstruction_and_reopen(
 def test_new_format_reserves_completion_capacity_for_host_messages():
     raw = answer()
     raw["answer_segments"] *= 109
-    raw["requested_detail_gaps"] = [
-        {"question_span_start": i * 2, "question_span_end": i * 2 + 1} for i in range(16)
-    ]
+    phrases = [f"item{i:02d}" for i in range(16)]
+    raw["requested_detail_gaps"] = [{"question_phrase": phrase} for phrase in phrases]
+    question = " ".join(phrases)
     raw["limitations"].append("unresolved_conflict")
-    assert len(owner.normalize(json.dumps(raw), packet("x " * 16))["answer_segments"]) == 128
+    assert (
+        len(owner.normalize(json.dumps(raw), packet(question))["answer_segments"])
+        == 128
+    )
     raw["answer_segments"].append(raw["answer_segments"][0])
     with pytest.raises(ValueError):
-        owner.normalize(json.dumps(raw), packet("x " * 16))
+        owner.normalize(json.dumps(raw), packet(question))

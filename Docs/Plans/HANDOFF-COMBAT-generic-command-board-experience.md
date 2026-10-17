@@ -201,4 +201,12 @@ Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is prese
 - PRIME's review found that generated-statblock insertion read the latest encounter revision and then used that value for its save, allowing a stale UI selection to overwrite a newer encounter. The request now requires the caller's `expected_revision`; the service rejects a mismatch before reading the statblock and still uses the caller revision for the final atomic compare-and-swap, so a concurrent save during lookup also wins safely. The Statblock UI sends the selected encounter revision.
 - Campaign IDs containing only whitespace (or an empty string) now fail request and stored-record validation before SQL. HTTP regression coverage confirms `422` and no created encounter, both with and without a session.
 - Owning verification on the prepared repair candidate, based on PR head `1b47ff69b046d86f4fd911cf86d41145d98f3ec1`: backend persistence/routes/statblock suites **34 passed**; focused CombatRoster/Statblock UI suites **16 passed**; TypeScript app and node checks passed; production Vite build passed (709 modules, existing large-chunk warning); scoped Ruff and `git diff --check` passed. One unrelated Pydantic warning in `citation_freshness.py` remains.
-- This records the repair candidate only. The repaired commit must be published to the existing PR and receive a fresh exact-head PRIME review; no merge, rendered acceptance, live API, database, or 5202 changes are authorized by this repair.
+- The repair was published to existing PR #1327 at head `66d420fc414d33d1577e38f188168072dbbbfefd`, and PRIME was asked for exact-head review. The current-main re-anchor below supersedes that review head; no merge, rendered acceptance, live API, database, or 5202 changes are authorized by this repair.
+
+
+### Current-main re-anchor — 2026-10-17
+
+- Rechecked GitHub main before the next review: `main@b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9` is six commits ahead of the PR's prior base `42ec6ccb1fcc9f38ca7a58f2d05cad09aba16cbc`. Those commits change exactly eight Agent writer/handoff files, all outside the C0 §8 lease.
+- Re-anchored C0 by composing those eight exact main-tree file contents with the existing C0 tree. The new merge commit has the previous C0 head `66d420fc414d33d1577e38f188168072dbbbfefd` and current main `b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9` as parents. The C0 cumulative path set remains the same 20 leased paths.
+- Fresh review of `66d420fc414d33d1577e38f188168072dbbbfefd` is superseded by this re-anchor. Request a new exact-head judgment after publishing and rerunning the C0 checks.
+- No runtime, live database, server, 5202 output, or files outside §8 were changed by this re-anchor.
