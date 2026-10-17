@@ -81,7 +81,7 @@ export interface WorkspaceDocumentAuthoringValue {
   saveDisabledReason: string | null;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
-  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current") => void;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => void;
   restoreDraftRecovery: () => void;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   editor: Editor | null;
@@ -427,7 +427,7 @@ export function useWorkspaceDocumentAuthoring(
       assertPersistedDraft(storage, current)]);
   }, [args.documentId, editor, machine.phase, storage]);
 
-  const currentPageRecovery = useCallback(() => {
+  const currentPageRecovery = useCallback((allowSpacerNormalization = false) => {
     const current = localStateRef.current;
     const snap = snapshotRef.current;
     if (!current || !snap || !editor?.schema) throw new Error("The current page is still loading.");
@@ -443,10 +443,17 @@ export function useWorkspaceDocumentAuthoring(
     const normalized = editor.schema.nodeFromJSON(imported.doc).toJSON();
     const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable)
       : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
-    if (JSON.stringify(stable(doc)) !== JSON.stringify(stable(normalized))) {
-      throw new Error("Some current page structure would change on reload. Both copies remain protected.");
+    const equal = (a: unknown, b: unknown) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+    if (equal(doc, normalized)) return { doc, markdown, removedSpacers: 0 };
+    const isSpacer = (node: typeof doc) => node.type === "paragraph"
+      && !node.content?.length && !node.marks?.length
+      && Object.values(node.attrs ?? {}).every(value => value == null);
+    const withoutSpacers = (value: typeof doc) => ({ ...value, content: value.content?.filter(node => !isSpacer(node)) });
+    const removedSpacers = (doc.content?.filter(isSpacer).length ?? 0) - (normalized.content?.filter(isSpacer).length ?? 0);
+    if (allowSpacerNormalization && removedSpacers > 0 && equal(withoutSpacers(doc), withoutSpacers(normalized))) {
+      return { doc: normalized, markdown, removedSpacers };
     }
-    return { doc, markdown };
+    throw new Error("Some current page structure would change on reload. Both copies remain protected.");
   }, [editor]);
 
   const prepareDraftRecovery = useCallback((): WorkspaceDraftRecoveryReview => {
@@ -454,14 +461,16 @@ export function useWorkspaceDocumentAuthoring(
     if (!current?.exported_markdown_authoritative) throw new Error("This draft does not require source recovery.");
     const fence = recoveryFence();
     let currentPageIssue: string | null = null;
-    try { currentPageRecovery(); } catch (reason) { currentPageIssue = reason instanceof Error ? reason.message : "The current page cannot be safely saved yet."; }
-    return { documentId: args.documentId, fence, canKeepCurrent: currentPageIssue == null, currentPageIssue,
+    let removedSpacers = 0;
+    try { removedSpacers = currentPageRecovery(true).removedSpacers; } catch (reason) { currentPageIssue = reason instanceof Error ? reason.message : "The current page cannot be safely saved yet."; }
+    return { documentId: args.documentId, fence, canKeepCurrent: currentPageIssue == null && removedSpacers === 0, currentPageIssue,
+      canNormalizeCurrent: currentPageIssue == null && removedSpacers > 0, removedSpacers,
       canUsePreserved: !hasBlockingMarkdownImportDiagnostics(current.exported_markdown),
       preservedMarkdown: current.exported_markdown,
       editorText: editor?.getText?.() ?? "Preview unavailable. Your full editor data will be preserved." };
   }, [args.documentId, editor, recoveryFence, currentPageRecovery]);
 
-  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview, mode: "source" | "current" = "source") => {
+  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview, mode: "source" | "current" | "normalize" = "source") => {
     if (review.documentId !== args.documentId || review.fence !== recoveryFence()) {
       throw new Error("The draft changed after review. Review it again before replacing it.");
     }
@@ -471,7 +480,7 @@ export function useWorkspaceDocumentAuthoring(
     }
     const imported = markdownToTiptapDoc(current.exported_markdown);
     if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
-    const kept = mode === "current" ? currentPageRecovery() : null;
+    const kept = mode === "source" ? null : currentPageRecovery(mode === "normalize");
     const normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
     const markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
     const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
