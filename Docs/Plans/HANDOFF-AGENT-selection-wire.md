@@ -23,3 +23,9 @@ No UI, native Graph, ingestion, schemas/migrations, provider routing, credential
 ## Verification
 
 Use deterministic retained-data accounting before inference. Prove complete text and source distinctions, canonical APP equality and refusal of altered wire/origins, unchanged whole-event closure, real mocked SDK→APP completion/reopen, existing 16 selection regressions, scoped lint and cumulative diff. Finish through one independently reviewed PR. Green plumbing does not prove semantic selection, citation entailment, operator acceptance or production rollout.
+
+## Implementation evidence
+
+Deterministic shared_source_origins_v1 retains all unit keys, exact text/line ranges and distinct source identities/classes/revisions while keeping producing event/read IDs in the full hashed catalog and host closure. APP reconstructs and canonically checks this wire; no schema or authority relaxation. Twenty focused cases pass, including actual SDK/APP native/saved/empty/authoring flow, correlated-envelope text/origin/codec tampering and preserved float/boolean refusal. A synthetic repeated-identity catalog fails the old allowance and fits the factored one without dropping text.
+
+Private retained Float diagnostic selection-wire-accounting-20261017.json reconstructs 45 units from matching recorded passage SHA receipts. Legacy request/per-question estimates 43,574/38,440 and 64,642 bytes; factored 27,434/22,300 and 46,269 bytes. All texts/origins/line ranges compare exact. Terminal/history are diagnostic placeholders, so these are not the actual undispatched wire or a fresh accuracy/latency result. No provider calls or serving changes during implementation.
