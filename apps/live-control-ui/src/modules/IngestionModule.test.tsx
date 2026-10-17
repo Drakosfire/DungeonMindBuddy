@@ -3099,6 +3099,90 @@ describe("IngestionModule", () => {
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
   });
 
+  it("keeps the acknowledged Process evidence when a later status inspection returns an older graph state", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      rawText: "Session 29 - A Path North\\n\\nThe party finds a path north.",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - A Path North",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+
+    const initialInspection = deferred<RecapIngestStatus>();
+    const processResult = makeStatus({
+      session: 29,
+      status: "ready_for_planning_activation",
+      states: ["recap_applied", "normalized_created", "normalized_current", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          extraction_run_id: "session-29-acknowledged-run",
+          candidate_node_count: 62,
+          candidate_edge_count: 64,
+        },
+      },
+      entity_spelling_audit: [],
+    });
+    const olderStatus = makeStatus({
+      session: 29,
+      status: "initialized",
+      states: ["ingest_status_inspected"],
+      ingest_report: {
+        corpus_impact: [],
+        graph_preview: { status: "missing" },
+      },
+      entity_spelling_audit: [],
+    });
+    let inspectionCount = 0;
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        inspectionCount += 1;
+        if (inspectionCount === 1) return initialInspection.promise;
+        return olderStatus;
+      }
+      return processResult;
+    });
+    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation(async (runId) =>
+      historicalRecapProjectionForRun(runId),
+    );
+
+    const user = setupIngestUser();
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" initialSourceSession={29} />);
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
+    expect(await screen.findByDisplayValue("Session 29 - A Path North\\n\\nThe party finds a path north.")).toBeInTheDocument();
+
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await user.click(within(toolbar).getByRole("button", { name: "Process recap" }));
+    expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
+
+    // The mount-time inspection was invalidated by Process; a later ordinary
+    // blur can still inspect disk and must not erase the acknowledged run.
+    await act(async () => {
+      initialInspection.resolve(makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      }));
+    });
+    fireEvent.blur(screen.getByLabelText("Recap/source session"));
+    await waitFor(() => expect(inspectionCount).toBe(2));
+
+    await user.click(screen.getByText("Evidence & details"));
+    const graphPanel = screen.getByRole("region", { name: "Graph preview status" });
+    expect(graphPanel).toHaveTextContent("Graph extraction: candidate ready");
+    expect(graphPanel).toHaveTextContent("status: candidate_validation_ready");
+    expect(screen.getByText("ready_for_planning_activation")).toBeInTheDocument();
+    expect(screen.queryByText("No ingestion result yet.")).not.toBeInTheDocument();
+  });
+
   it("allows replacing an existing preview graph when force re-extract is checked", async () => {
     const user = userEvent.setup();
     const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
