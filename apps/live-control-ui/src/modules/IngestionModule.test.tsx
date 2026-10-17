@@ -371,6 +371,99 @@ describe("IngestionModule", () => {
     expect(await screen.findByText("Graph ready")).toBeInTheDocument();
   });
 
+  it("shows Processing during a retry even when the previous result failed", async () => {
+    const user = setupIngestUser();
+    const pendingRetry = deferred<RecapIngestStatus>();
+    let processAttempts = 0;
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (request) => {
+      if (request.operation === "generate_recap_memory") {
+        processAttempts += 1;
+        if (processAttempts === 1) {
+          return makeStatus({
+            session: 29,
+            status: "error",
+            states: ["recap_generation_failed"],
+            errors: ["Temporary extraction failure"],
+            entity_spelling_audit: [],
+          });
+        }
+        return pendingRetry.promise;
+      }
+      return makeStatus({
+        session: 29,
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    });
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={29}
+        managedWorldId="elderwyld"
+        initialSourceSession={29}
+      />,
+    );
+    await fillRecapInputs(user, "The watch found a tunnel beneath the north road.", "Session 29 — The North Road");
+    await user.click(await screen.findByRole("button", { name: "Process recap" }));
+    expect(await screen.findByText("Failed")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    expect(await screen.findByText("Processing")).toBeInTheDocument();
+
+    await act(async () => {
+      pendingRetry.resolve(makeStatus({
+        session: 29,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "preview_union_store_ready"],
+        ingest_report: { graph_preview: { status: "preview_union_store_ready" } },
+        entity_spelling_audit: [],
+      }));
+    });
+    expect(await screen.findByText("Graph ready")).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      name: "an LLM-blocked candidate preview",
+      graphPreview: {
+        status: "candidate_validation_ready" as const,
+        extraction_mode: "llm_blocked",
+        blocked_reason: "OPENAI_API_KEY is not configured",
+      },
+    },
+    {
+      name: "a materialized preview with a blocking reason",
+      graphPreview: {
+        status: "preview_union_store_ready" as const,
+        blocked_reason: "Graph validation is blocked.",
+      },
+    },
+  ])("shows blocked instead of ready for $name", async ({ graphPreview }) => {
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(
+      makeStatus({
+        session: 29,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", graphPreview.status],
+        ingest_report: { graph_preview: graphPreview },
+        entity_spelling_audit: [],
+      }),
+    );
+
+    render(
+      <IngestionModule
+        campaignId="longmont-c2"
+        session={29}
+        managedWorldId="elderwyld"
+        initialSourceSession={29}
+      />,
+    );
+
+    expect(await screen.findByText("Blocked")).toBeInTheDocument();
+    expect(screen.queryByText("Graph ready")).not.toBeInTheDocument();
+  });
+
   it("defaults the prior recap selector only to the exact campaign and requested session", async () => {
     const session10 = makeRecapArtifactRecord("longmont-c2", 10);
     const session27 = makeRecapArtifactRecord("longmont-c2", 27);

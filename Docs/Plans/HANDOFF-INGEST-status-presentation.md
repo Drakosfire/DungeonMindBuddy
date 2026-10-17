@@ -19,8 +19,8 @@ The current status badge in the Ingest evidence header maps every graph state ot
 
 ## Exact write lease
 
-- `apps/live-control-ui/src/modules/IngestionModule.tsx` — derive a user-facing status label/tone from the actual pane state, latest result, and graph preview status. Distinguish at least: not run/idle, actively processing, graph ready, failed, and source-unverified. Missing graph output after a saved recap must not be called active work. Do not change Process, source loading/saving, graph extraction, publication, or evidence selection behavior.
-- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regress blank Session 29, saved Session 10 with missing graph preview, source-unverified result, active processing, ready result, and failure presentation using the existing component/API fixtures.
+- `apps/live-control-ui/src/modules/IngestionModule.tsx` — derive a user-facing status label/tone from the actual pane state, latest result, and graph preview status. Distinguish at least: not run/idle, actively processing, graph ready, failed, and source-unverified. Missing graph output after a saved recap must not be called active work. Active retry state takes precedence over a prior failed result; an explicit graph block takes precedence over a ready-shaped graph status. Do not change source loading/saving, graph extraction, publication, or evidence selection behavior.
+- `apps/live-control-ui/src/modules/IngestionModule.test.tsx` — regress blank Session 29, saved Session 10 with missing graph preview, source-unverified result, active processing, ready result, failure presentation, retry-after-failure, and blocked graph results using the existing component/API fixtures.
 - `Docs/Plans/HANDOFF-INGEST-status-presentation.md` — record implementation and verification evidence; do not mark this in-flight slice settled before merge.
 
 No server/API/schema, source files, extraction/materializer, candidate interpretation, Graph writes, retained records, databases, environment, shared registries, dependencies, deployment configuration, or 5202 build assets are leased. No recap should be processed during this slice.
@@ -28,10 +28,10 @@ No server/API/schema, source files, extraction/materializer, candidate interpret
 ## Implementation evidence (in flight)
 
 - The header now reads “Ingestion status.” The badge derives from the current pane state, current-target result, and graph preview: `Not run`, `Processing`, `Graph ready`, `Failed`, `Source unverified`, `Blocked`, `Graph incomplete`, or `Graph unavailable`. Only explicit active operation states say “Processing.”
-- Owning component tests cover blank/inspected, saved recap without graph preview, source-unverified, ready, failed, and a deferred real processing state that transitions from Processing to Graph ready.
-- `npm test -- --reporter=dot src/modules/IngestionModule.test.tsx`: **55 passed**. The output includes React `act(...)` warnings from the existing “keeps the empty local navigation focused on recap identity” test; that unrelated warning was not changed in this slice.
+- Owning component tests cover blank/inspected, saved recap without graph preview, source-unverified, ready, failed, deferred active processing, retry while a prior failure remains in the result, and blocked graph results that otherwise have a ready-shaped status.
+- `npm test -- --reporter=dot src/modules/IngestionModule.test.tsx`: **58 passed**. The output includes React `act(...)` warnings from the existing “keeps the empty local navigation focused on recap identity” test; that unrelated warning was not changed in this slice.
 - `npm run typecheck`: passed.
-- `npm run build -- --outDir /tmp/dmb-ingest-status-presentation-build`: passed; Vite emitted the existing large-chunk warning. Build output stayed in `/tmp`.
+- The initial production build passed before the status-priority regressions were added. The isolated follow-up changes were verified with the owning test suite and typecheck; a new production build was not run, and no bundle output or serving asset was modified.
 - Serving `apps/live-control-ui/dist` checksum remains `4fd6557cba12f0bcf58823d649ece073f7ebbfd767c5c192301fd7679dd5e43e` (9 files, 4.3 MB). No ingestion request or retained data mutation was made.
 - Rendered 5202 still serves the previous `cb11` build. Post-merge rendered acceptance remains open; do not move 5202 to this branch before review.
 
