@@ -38,7 +38,18 @@ No other files. No API, extraction, persistence, schema, provider, corpus, Graph
 - Keep source and Graph-admission claims truthful.
 - Keep the direct-route draft-preservation behavior intentional; do not manufacture a forced-reader route fix.
 - Verify with the focused IngestionModule UI suite, package typecheck/build where available, and `git diff --check`.
-- No provider calls, Process, Graph Review mutation, admission, publication, persistence write, or 5202 change/restart.
+- No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart. Browser-local draft storage is in scope and is explicitly verified by the tests.
+
+## Implementation and verification evidence
+
+- A direct exact-session URL without `view=recap` still opens the graph-enriched reader when the saved normalized source is verified and no matching draft is present; the URL is canonicalized to `view=recap`.
+- When a matching non-empty draft exists, the editor stays open, the status explains that the draft is open, and `View saved recap` opens the saved projection without replacing that draft.
+- Loading another processed recap now suspends draft writes while the reader is active, retains the draft under its original campaign/session local-storage key, and exposes `Return to draft`. The return action restores the draft identity and text; remounting the saved-reader URL also recovers the return action from the original draft key.
+- `npm run test -- src/modules/IngestionModule.test.tsx`: passed, 42 tests.
+- `npx vite build`: passed; Vite reports the repository’s existing large-chunk advisory.
+- `npm run typecheck`: still stops on five existing errors in unchanged `src/planSurface/components/WorldPlanAgentAnswer.tsx` (TS2532 line 47, TS18048 line 49, TS2339 line 50). The edited Ingest files are not named by these diagnostics.
+- `git diff --check`: passed.
+- No provider calls, Process, Graph Review mutation, graph admission, source publication, server-side persistence write, or 5202 change/restart was performed.
 
 ## Review and completion
 
