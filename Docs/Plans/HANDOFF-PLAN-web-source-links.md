@@ -31,6 +31,7 @@ Exclusive expected write lease:
 - apps/live-control-ui/src/tiptap/markdown/webSourceHref.ts (new shared URL admission)
 - apps/live-control-ui/src/tiptap/markdown/markdownAdmission.ts
 - apps/live-control-ui/src/tiptap/markdown/markdownToTiptap.test.ts
+- apps/live-control-ui/src/tiptap/markdown/markdownIngressCorpus.test.ts (move newly supported web links into preserved-clean corpus after independent review found old blocked expectations)
 - apps/live-control-ui/src/tiptap/markdown/calloutMarkdown.ts
 - apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.ts
 - apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.test.ts

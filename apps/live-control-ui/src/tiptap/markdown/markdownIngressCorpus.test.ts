@@ -51,11 +51,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   { name: "indented plain blockquote at root", markdown: " > indented quote", blockedOnMain: true },
   { name: "list inside a plain root blockquote", markdown: "> - nested item", blockedOnMain: true },
   {
-    name: "unsupported ordinary link inside a plain root blockquote",
-    markdown: "> Read [the plan](https://example.com).",
-    blockedOnMain: true,
-  },
-  {
     name: "plain root quote before a callout marker",
     markdown: "> ordinary prose\n>\n> [!GM-NOTE]\n> marker body",
     blockedOnMain: true,
@@ -81,8 +76,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   { name: "task-list item", markdown: "- [ ] Prepare encounter", blockedOnMain: true },
 
   // --- Links / images / references ----------------------------------------
-  { name: "ordinary inline link", markdown: "[Rules](https://example.com/rules)", blockedOnMain: true },
-  { name: "ordinary link inside heading", markdown: "# See [Rules](https://example.com)", blockedOnMain: true },
   { name: "inline image", markdown: "![Map](map.png)", blockedOnMain: true },
   {
     name: "reference-style image with definition",
@@ -144,18 +137,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     markdown: "> [!GM-NOTE]\n> [rules]:https://example.com/rules",
     blockedOnMain: true,
     note: "was a hole (cycles 5+6 combined)",
-  },
-  {
-    name: "autolink at line start",
-    markdown: "<https://example.com>",
-    blockedOnMain: true,
-    note: "blocked on main via the raw-HTML guard; AST classifies it as the link it actually is",
-  },
-  {
-    name: "autolink mid-paragraph",
-    markdown: "See <https://example.com> for detail",
-    blockedOnMain: true,
-    note: "was a hole: mid-paragraph autolinks escaped every inline regex; the parser classifies them as links",
   },
   {
     name: "malformed typed reference",
@@ -394,6 +375,11 @@ function rootPlainBlockquoteSignature(document: unknown): unknown[] {
 }
 
 const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
+  { name: "web inline link", markdown: "[Rules](https://example.com/rules)" },
+  { name: "web link inside heading", markdown: "# See [Rules](https://example.com)" },
+  { name: "web link inside root quote", markdown: "> Read [the plan](https://example.com)." },
+  { name: "explicit CommonMark URL link", markdown: "<https://example.com>" },
+  { name: "explicit CommonMark URL link mid-paragraph", markdown: "See <https://example.com> for detail" },
   { name: "ordinary prose", markdown: "A normal paragraph." },
   { name: "snake_case identifier", markdown: "Use snake_case_value here." },
   { name: "double-underscore identifier", markdown: "Use foo__bar__baz here." },
