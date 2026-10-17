@@ -11,7 +11,7 @@ from typing import Literal
 
 import blake3
 from markdown_it import MarkdownIt
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from apps.live_control_server.services.registry_file_lock import (
     workspace_document_mutation_lock,
@@ -283,6 +283,7 @@ def _commit_blocking_lossy(
 
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
+    title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
     expected_revision: int | None = None
@@ -291,8 +292,17 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
 
+    @field_validator("title")
+    @classmethod
+    def canonical_title(cls, value):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("title must be a nonempty string when supplied")
+        return value.strip()
+
     @model_validator(mode="after")
     def validate_scope_contract(self):
+        if "title" in self.model_fields_set and self.schema_version is None:
+            raise ValueError("title intent requires a World-owned Plan V2 write")
         if self.schema_version is None:
             if self.scope_mode is not None or self.world_id is not None:
                 raise ValueError("World-scoped writes require the V2 schema")
@@ -324,6 +334,7 @@ class TiptapMarkdownWritePrepareResponse(BaseModel):
 
 
 class TiptapMarkdownWriteCommitRequest(BaseModel):
+    title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
     writer_confirm_token: str = Field(min_length=1)
@@ -333,8 +344,17 @@ class TiptapMarkdownWriteCommitRequest(BaseModel):
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
 
+    @field_validator("title")
+    @classmethod
+    def canonical_title(cls, value):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("title must be a nonempty string when supplied")
+        return value.strip()
+
     @model_validator(mode="after")
     def validate_scope_contract(self):
+        if "title" in self.model_fields_set and self.schema_version is None:
+            raise ValueError("title intent requires a World-owned Plan V2 write")
         if self.schema_version is None:
             if self.scope_mode is not None or self.world_id is not None:
                 raise ValueError("World-scoped writes require the V2 schema")
@@ -433,10 +453,13 @@ def _confirm_token(
     file_state: str,
     write_mode: WriteMode,
     world_id: str | None = None,
+    title: str | None = None,
 ) -> str:
     payload = (
         f"{document_id}\0{world_id or ''}\0{registry_revision}\0{relpath}\0{content}\0{file_state}\0{write_mode}"
     ).encode()
+    if title is not None:
+        payload += ("\0plan-title:v1\0" + title).encode()
     return blake3.blake3(payload).hexdigest()
 
 
@@ -583,6 +606,15 @@ def _prepare_plan_postgres(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
+    if request.title is not None and (
+        obj is None
+        or obj.kind != "plan"
+        or obj.world_id is None
+        or obj.campaign_id is not None
+    ):
+        raise TiptapMarkdownWriteError(
+            "title intent is only valid for World-owned Plans"
+        )
     if obj is None:
         return None
     if obj.kind not in ("plan", "runbook"):
@@ -624,7 +656,7 @@ def _prepare_plan_postgres(
     relpath = _content_receipt_locator(obj)
     return TiptapMarkdownWritePrepareResponse(
         document_id=str(obj.work_object_id),
-        title=obj.title,
+        title=request.title if request.title is not None else obj.title,
         target_relpath=relpath,
         target_display_path=relpath,
         registry_revision=obj.object_revision,
@@ -639,6 +671,7 @@ def _prepare_plan_postgres(
             "postgres",
             write_mode,
             world_id=request.world_id,
+            title=request.title,
         ),
         writer_diff="",
         existing_size_bytes=None,
@@ -683,6 +716,15 @@ def _commit_plan_postgres(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
+    if request.title is not None and (
+        obj is None
+        or obj.kind != "plan"
+        or obj.world_id is None
+        or obj.campaign_id is not None
+    ):
+        raise TiptapMarkdownWriteError(
+            "title intent is only valid for World-owned Plans"
+        )
     if obj is None:
         return None
     if obj.kind not in ("plan", "runbook"):
@@ -710,6 +752,7 @@ def _commit_plan_postgres(
             "postgres",
             write_mode,
             world_id=request.world_id,
+            title=request.title,
         )
 
     expected_revision = obj.object_revision
@@ -727,6 +770,7 @@ def _commit_plan_postgres(
         commit_kwargs = {"expected_revision": expected_revision}
         if obj.kind == "plan":
             commit_kwargs["expected_world_id"] = request.world_id
+            commit_kwargs["title"] = request.title
         committed, revision = commit(request.document_id, content, **commit_kwargs)
     except ApplicationStateError as exc:
         raise _map_registry_error(

@@ -2648,6 +2648,7 @@ export type PlayRunReferenceManifest =
   | PlayRunReferenceManifestV2;
 
 export interface TiptapMarkdownWritePrepareRequest {
+  title?: string;
   document_id: string;
   markdown: string;
   expected_revision?: number | null;
@@ -2678,6 +2679,7 @@ export interface TiptapMarkdownWritePrepareResponse {
 }
 
 export interface TiptapMarkdownWriteCommitRequest {
+  title?: string;
   document_id: string;
   markdown: string;
   writer_confirm_token: string;

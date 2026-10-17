@@ -2343,7 +2343,7 @@ it("quarantines lost-create text until explicit Plan binding, then saves and reo
     scope_mode: "world",
     world_id: worldId,
     document_id: documentId,
-    title: "Plan",
+    title: request.title!,
     target_relpath: record.target_relpath!,
     target_display_path: record.target_relpath!,
     registry_revision: request.expected_revision + 1,
@@ -2361,12 +2361,12 @@ it("quarantines lost-create text until explicit Plan binding, then saves and reo
     scope_mode: "world",
     world_id: worldId,
     document_id: documentId,
-    title: "Plan",
+    title: "Edited during commit",
     target_relpath: record.target_relpath!,
     target_display_path: record.target_relpath!,
     registry_revision: 5,
     committed_revision: 2,
-    committed_record: { ...record, revision: 5, content_status: "committed" },
+    committed_record: { ...record, title: "Edited during commit", revision: 5, content_status: "committed" },
     normalized_content_sha256: "a".repeat(64),
     writer_ok: true,
     writer_phase: "commit",
@@ -2486,7 +2486,7 @@ it("preserves a quarantined draft when opening an unrelated existing Plan", asyn
     scope_mode: "world",
     world_id: worldId,
     document_id: unrelatedId,
-    title: "Other Plan",
+    title: unrelated.title,
     target_relpath: unrelated.target_relpath!,
     target_display_path: unrelated.target_relpath!,
     registry_revision: 5,
@@ -2501,7 +2501,7 @@ it("preserves a quarantined draft when opening an unrelated existing Plan", asyn
     scope_mode: "world",
     world_id: worldId,
     document_id: unrelatedId,
-    title: "Other Plan",
+    title: unrelated.title,
     target_relpath: unrelated.target_relpath!,
     target_display_path: unrelated.target_relpath!,
     registry_revision: 6,
@@ -3304,14 +3304,14 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
   try {
     const envelope="---\r\ntitle: Preserved Plan metadata\r\n---\r\n";
     const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,envelope+"# Authored session\n\nSource quotation retained.\n");
-    const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockResolvedValue({schema_version:"dmb_tiptap_markdown_write_prepare_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:record.title,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:8,file_exists:true,writer_ok:true,writer_confirm_token:"structure-save",warnings:[],diagnostics:[]});
+    const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockResolvedValue({schema_version:"dmb_tiptap_markdown_write_prepare_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:"Renamed typed Plan",target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:8,file_exists:true,writer_ok:true,writer_confirm_token:"structure-save",warnings:[],diagnostics:[]});
     let saved="";
     const commit=vi.spyOn(liveApi,"commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request=>{
-      saved=request.markdown;const digest=createHash("sha256").update(saved).digest("hex");const nextRecord={...record,revision:9};
+      saved=request.markdown;const digest=createHash("sha256").update(saved).digest("hex");const nextRecord={...record,title:request.title!,revision:9};
       const prior=await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
       vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({...prior,object_revision:9,revision_n:5,work_revision_id:"structure-work-revision",markdown:saved,content_sha256:digest,has_divergent_working_copy:false});
       vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({schema_version:"dmb_workspace_document_snapshot_v2",record:nextRecord,markdown:saved,content_sha256:digest,file_fingerprint:"postgres",file_exists:true,loaded_revision:9});
-      return {schema_version:"dmb_tiptap_markdown_write_commit_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:record.title,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:9,committed_revision:9,committed_record:nextRecord,normalized_content_sha256:digest,writer_ok:true,writer_phase:"commit",diagnostics:[]};
+      return {schema_version:"dmb_tiptap_markdown_write_commit_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:request.title!,target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:9,committed_revision:9,committed_record:nextRecord,normalized_content_sha256:digest,writer_ok:true,writer_phase:"commit",diagnostics:[]};
     });
     const pageTree=<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>;
     window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${savedAgentPlanId}`);
@@ -3342,4 +3342,84 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
     if(oldRects)Object.defineProperty(Range.prototype,"getClientRects",oldRects);else Reflect.deleteProperty(Range.prototype,"getClientRects");
     if(oldRect)Object.defineProperty(Range.prototype,"getBoundingClientRect",oldRect);else Reflect.deleteProperty(Range.prototype,"getBoundingClientRect");
   }
+});
+
+
+it.each(["ordinary", "lost", "newer", "conflict", "legacy"] as const)("persists Plan title intent through %s save recovery", async (mode) => {
+  const record = mockSavedPlanForAgent();
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  let serverRecord = record;
+  const digest = createHash("sha256").update(savedAgentPlanText).digest("hex");
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async () => ({
+    schema_version: "dmb_workspace_document_snapshot_v2", record: serverRecord,
+    markdown: savedAgentPlanText, content_sha256: digest, file_fingerprint: "postgres",
+    file_exists: true, loaded_revision: serverRecord.revision,
+  }));
+  const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+  vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(async () => ({
+    ...prior, title: serverRecord.title, object_revision: serverRecord.revision,
+    markdown: savedAgentPlanText, content_sha256: digest, has_divergent_working_copy: false,
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async request => ({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world", world_id: worldId,
+    document_id: savedAgentPlanId, title: request.title!, target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!, registry_revision: request.expected_revision + 1,
+    file_exists: true, writer_ok: true, writer_confirm_token: "rename-token", warnings: [], diagnostics: [],
+  }));
+  let resolveCommit!: () => void;
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
+    if (mode === "newer") await new Promise<void>(resolve => { resolveCommit = resolve; });
+    serverRecord = { ...record, title: mode === "conflict" ? "Another writer title" : request.title!, revision: 9 };
+    if (mode === "lost" || mode === "conflict") throw new Error("rename response lost");
+    return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+      document_id: savedAgentPlanId, title: serverRecord.title, target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!, registry_revision: 9, committed_revision: 9,
+      committed_record: serverRecord, normalized_content_sha256: digest, writer_ok: true,
+      writer_phase: "commit", diagnostics: [] };
+  });
+  const tree = <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>;
+  if (mode === "legacy") {
+    localStorage.setItem(key, JSON.stringify({ schema_version: "dmb_plan_promotion_recovery_v2", scope_mode: "world",
+      world_id: worldId, document_id: savedAgentPlanId, title: record.title, markdown: savedAgentPlanText,
+      revision: 7, edit_generation: 1, pending_write: { phase: "commit", base_revision: 6,
+        prepared_revision: 7, base_markdown: "# Prior\n", markdown: savedAgentPlanText, edit_generation: 1 } }));
+  }
+  let mounted = render(tree);
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  if (mode !== "legacy") fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "  Renamed Plan  " } });
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  if (mode === "legacy") {
+    await screen.findByText("Saved to this World.");
+    expect(prepare).not.toHaveBeenCalled(); expect(commit).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ title: record.title, pending_write: null });
+    return;
+  }
+  await waitFor(() => expect(commit).toHaveBeenCalledOnce());
+  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ title: "Renamed Plan", markdown: savedAgentPlanText }));
+  expect(commit).toHaveBeenCalledWith(expect.objectContaining({ title: "Renamed Plan", markdown: savedAgentPlanText }));
+  if (mode === "newer") {
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ pending_write: { title: "Renamed Plan", base_title: record.title } });
+    fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Newer local title" } });
+    await act(async () => resolveCommit());
+  }
+  if (mode === "lost" || mode === "conflict") {
+    await screen.findByText("rename response lost");
+    mounted.unmount(); mounted = render(tree);
+    await screen.findByTestId("world-owned-plan");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+    if (mode === "conflict") {
+      await screen.findByText(/previous save outcome cannot be proven/);
+      expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ pending_write: { title: "Renamed Plan" } });
+      expect(commit).toHaveBeenCalledOnce();
+      return;
+    }
+  }
+  await screen.findByText("Saved to this World.");
+  expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ title: mode === "newer" ? "Newer local title" : "Renamed Plan", pending_write: null });
+  mounted.unmount(); render(tree);
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByLabelText("Plan title")).toHaveValue(mode === "newer" ? "Newer local title" : "Renamed Plan"));
+  expect(commit).toHaveBeenCalledOnce();
 });
