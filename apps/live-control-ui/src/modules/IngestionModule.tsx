@@ -283,6 +283,34 @@ function graphPreviewIsBlocked(graphPreview?: RecapGraphPreviewReport): boolean 
   return Boolean(graphPreview?.blocked_reason || graphPreview?.extraction_mode === "llm_blocked");
 }
 
+function graphPreviewHasRunEvidence(graphPreview?: RecapGraphPreviewReport): boolean {
+  if (!graphPreview) return false;
+  return Boolean(
+    graphPreview.status !== "missing" ||
+      graphPreview.extraction_run_id?.trim() ||
+      graphPreview.run_dir?.trim() ||
+      graphPreview.manifest_path?.trim() ||
+      graphPreview.candidate_graph_path?.trim() ||
+      graphPreview.extraction_mode?.trim() ||
+      graphPreview.model_id?.trim() ||
+      graphPreview.current_graph_step ||
+      graphPreview.graph_steps?.length,
+  );
+}
+
+function graphPreviewHasNotRun(
+  graphPreview?: RecapGraphPreviewReport,
+  paneStatus?: IngestionPaneState["status"],
+  result?: RecapIngestStatus | null,
+): boolean {
+  return graphPreview?.status === "missing" &&
+    !graphPreviewHasRunEvidence(graphPreview) &&
+    !graphPreviewIsBlocked(graphPreview) &&
+    paneStatus !== "error" &&
+    result?.status !== "error" &&
+    !result?.errors.length;
+}
+
 function ingestionStatusBadge(
   paneStatus: IngestionPaneState["status"],
   result: RecapIngestStatus | null,
@@ -317,6 +345,9 @@ function ingestionStatusBadge(
   }
   if (graphReady) {
     return { label: "Graph ready", tone: "success" };
+  }
+  if (graphPreviewHasNotRun(graphPreview, paneStatus, result)) {
+    return { label: "Not extracted", tone: "neutral" };
   }
   if (graphPreview) {
     return { label: "Graph incomplete", tone: "warning" };
@@ -2714,7 +2745,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               Graph extraction:{" "}
               {graphPreview?.status === "preview_union_store_ready"
                 ? "preview graph materialized"
-                : graphPreview?.extraction_mode === "llm_blocked"
+                : graphPreviewIsBlocked(graphPreview)
                   ? "blocked"
                   : graphPreview?.status === "candidate_validation_ready"
                     ? "candidate ready"
@@ -2722,18 +2753,37 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       ? "candidate pending"
                       : isRunningFullIngest
                         ? "extracting"
+                        : state.status === "error" || proofResult?.status === "error" || proofResult?.errors.length
+                          ? "failed"
+                          : graphPreviewHasNotRun(graphPreview, state.status, proofResult)
+                          ? "not run"
                         : graphPreview?.status ?? "pending"}
             </p>
+            {graphPreviewHasNotRun(graphPreview, state.status, proofResult) ? (
+              <p className="module-muted" role="status">
+                {canProcessRecap
+                  ? "Source ready. Choose Process in the Ingest navigation to extract graph candidates."
+                  : "Graph extraction has not run yet. Complete the source checks before processing."}
+              </p>
+            ) : null}
             {state.status !== "error" && latestResult?.errors?.length ? (
               <p className="module-muted" role="status">
                 Last ingest error: {latestResult.errors[0]}
               </p>
             ) : null}
-            <div className="ingestion-proof-metrics">
-              <span className="pill pill-neutral">status: {graphPreview?.status ?? "missing"}</span>
-              <span className="pill pill-neutral">nodes: {graphPreview?.node_count ?? 0}</span>
-              <span className="pill pill-neutral">edges: {graphPreview?.edge_count ?? 0}</span>
-            </div>
+            {graphPreviewHasRunEvidence(graphPreview) ? (
+              <div className="ingestion-proof-metrics">
+                {graphPreview?.status ? (
+                  <span className="pill pill-neutral">status: {graphPreview.status}</span>
+                ) : null}
+                {typeof graphPreview?.node_count === "number" ? (
+                  <span className="pill pill-neutral">nodes: {graphPreview.node_count}</span>
+                ) : null}
+                {typeof graphPreview?.edge_count === "number" ? (
+                  <span className="pill pill-neutral">edges: {graphPreview.edge_count}</span>
+                ) : null}
+              </div>
+            ) : null}
             {Array.isArray(graphPreview?.extracted_nodes) && graphPreview.extracted_nodes.length > 0 ? (
               <div className="ingestion-extracted-nodes" aria-label="Extracted preview nodes">
                 <p className="module-muted">
