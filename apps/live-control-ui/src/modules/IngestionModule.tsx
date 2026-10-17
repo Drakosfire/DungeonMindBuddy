@@ -1133,6 +1133,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     invalidateInFlightRecapOperations();
     hydrateInspectGenerationRef.current += 1;
     closeSavedReader();
+    setLoadingPriorIngestion(false);
     const { draft, campaignId } = candidate;
     setIngestCampaignId(campaignId);
     selectedIngestTargetRef.current = JSON.stringify([campaignId, draft.recapSession]);
