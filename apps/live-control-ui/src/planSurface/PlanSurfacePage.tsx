@@ -213,6 +213,8 @@ interface WorldPlanLocalDraftV2 {
     prepared_revision: number | null;
     base_markdown: string;
     markdown: string;
+    title?: string;
+    base_title?: string;
     edit_generation: number;
   } | null;
 }
@@ -272,6 +274,8 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
             : null,
           base_markdown: value.pending_write.base_markdown,
           markdown: value.pending_write.markdown,
+          ...("title" in value.pending_write ? {title: typeof value.pending_write.title === "string" ? value.pending_write.title : ""} : {}),
+          ...("base_title" in value.pending_write ? {base_title: typeof value.pending_write.base_title === "string" ? value.pending_write.base_title : ""} : {}),
           edit_generation: value.pending_write.edit_generation,
         }
         : null,
@@ -993,14 +997,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           }
         }
 
-        const committed = committedMarkdown === previousPending.markdown;
-        const preparedCopy = previousPending.prepared_revision !== null
+        const committed = committedMarkdown === previousPending.markdown
+          && (previousPending.title === undefined || snapshot.record.title === previousPending.title);
+        const priorTitleMatches = previousPending.base_title === undefined || snapshot.record.title === previousPending.base_title;
+        const preparedCopy = priorTitleMatches && previousPending.prepared_revision !== null
           && snapshot.loaded_revision === previousPending.prepared_revision
           && snapshot.markdown === previousPending.markdown;
-        const prepareApplied = previousPending.phase === "prepare"
+        const prepareApplied = priorTitleMatches && previousPending.phase === "prepare"
           && snapshot.loaded_revision === previousPending.base_revision + 1
           && snapshot.markdown === previousPending.markdown;
-        const prepareDidNotApply = previousPending.phase === "prepare"
+        const prepareDidNotApply = priorTitleMatches && previousPending.phase === "prepare"
           && snapshot.loaded_revision === previousPending.base_revision
           && snapshot.markdown === previousPending.base_markdown;
         if (!committed && !preparedCopy && !prepareApplied && !prepareDidNotApply) {
@@ -1081,6 +1087,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         prepared_revision: null,
         base_markdown: baseMarkdown,
         markdown: submittedMarkdown,
+        title: submittedTitle,
+        base_title: serverTitleRef.current,
         edit_generation: submittedGeneration,
       };
       pendingWriteRef.current = preparing;
@@ -1103,9 +1111,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         ...scope,
         document_id: exactId,
         markdown: submittedMarkdown,
+        title: submittedTitle,
         expected_revision: baseRevision,
       });
-      if (!prepared.writer_ok || !prepared.writer_confirm_token || prepared.world_id !== worldId) {
+      if (!prepared.writer_ok || !prepared.writer_confirm_token || prepared.world_id !== worldId || prepared.title !== submittedTitle) {
         throw new Error(prepared.warnings.join(" ") || "Plan write could not be prepared.");
       }
       currentRevision = prepared.registry_revision;
@@ -1133,10 +1142,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         world_id: worldId,
         document_id: exactId,
         markdown: submittedMarkdown,
+        title: submittedTitle,
         expected_revision: prepared.registry_revision,
         writer_confirm_token: prepared.writer_confirm_token,
       });
-      if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2") {
+      if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2" || committed.title !== submittedTitle || committed.committed_record.title !== submittedTitle) {
         throw new Error("Commit receipt did not preserve World-owned Plan scope.");
       }
       currentRevision = committed.registry_revision;

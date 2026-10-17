@@ -498,7 +498,13 @@ def _commit(
     kind: AdmittedKind,
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
+    title: str | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
+    canonical_title = _require_title(title) if title is not None else None
+    if canonical_title is not None and (kind != "plan" or expected_world_id is None):
+        raise ApplicationStateValidationError(
+            "title intent requires a selected World-owned Plan"
+        )
     work_object_id = _require_uuid(document_id)
     content = normalize_markdown(markdown)
     digest = sha256_utf8(content)
@@ -526,6 +532,7 @@ def _commit(
                 if (
                     current is not None
                     and current.content_sha256 == digest
+                    and (canonical_title is None or obj.title == canonical_title)
                     and expected_revision == obj.object_revision - 1
                 ):
                     return obj, current
@@ -537,6 +544,22 @@ def _commit(
             if current is not None:
                 _require_revision_owner(obj, current)
             if current is not None and current.content_sha256 == digest:
+                if canonical_title is not None and obj.title != canonical_title:
+                    updated = obj.model_copy(
+                        update={
+                            "title": canonical_title,
+                            "object_revision": obj.object_revision + 1,
+                            "updated_at": repo.now_utc(),
+                        }
+                    )
+                    persisted = repo.update_work_object(
+                        conn, updated, expected_object_revision=obj.object_revision
+                    )
+                    if persisted is None:
+                        raise ApplicationStateConflictError(
+                            "revision mismatch: concurrent Plan title update"
+                        )
+                    return persisted, current
                 # exact replay at current head
                 return obj, current
         revision_n = repo.next_revision_n(conn, work_object_id)
@@ -554,6 +577,7 @@ def _commit(
         updated = obj.model_copy(
             update={
                 "current_revision_id": revision.work_revision_id,
+                "title": canonical_title if canonical_title is not None else obj.title,
                 "object_revision": expected + 1,
                 "updated_at": repo.now_utc(),
             }
@@ -590,6 +614,7 @@ def commit_plan(
     *,
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
+    title: str | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
         document_id,
@@ -597,6 +622,7 @@ def commit_plan(
         kind="plan",
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
+        title=title,
     )
 
 
