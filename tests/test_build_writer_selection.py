@@ -129,6 +129,7 @@ class SavedWriter(WriterWire):
             "answer_segments": [{"kind": "saved_source_claim", "text": sections[0]["text"],
                                  "section_read_ids": [sections[0]["read_id"]]}],
             "limitations": ["partial_retrieval"],
+            "requested_detail_gaps": [],
         })
         return httpx.Response(200, request=request, json=data)
 
