@@ -15,3 +15,5 @@ This handoff; factual settlement HANDOFF-AGENT-saved-section-navigation.md; src/
 ## Verification
 
 Exact enum/ordering/duplicate/malformed identity checks; all four empty-set combinations; schema/packet drift and unknown name refuse. Preserve canonical old static frozen-request verification. Actual SDK wire/hash/size preflight and SDK→APP completion/reopen use new finite schema. Test forged unknown output still rejected at APP. Against recorded Float/Council requests, schema admits valid Float selectors and rejects Council's truncated selector without changing the failed answer or making another provider call. No live-model compliance claim or operator acceptance; runtime adoption and fresh semantic benchmark follow review separately.
+
+Lease amendment: tests/test_agent_build_jev_ordinary_harness.py synthetic WriterWire must recognize the new finite schema name as the same cited-output family, so its required limitations/empty-evidence behavior remains truthful. The old exact-name fixture otherwise returns a different schema shape and caused six initial synthetic failures. This fixture-only path is authorized before editing; no runtime scope expands.
