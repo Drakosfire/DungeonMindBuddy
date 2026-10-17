@@ -272,7 +272,8 @@ class BuildJevDriver:
             adapter.request.message, self._scope, tuple(actions),
             frontier_policy=FRONTIER_POLICY if with_actions else None,
             phase_input_policy=PHASE_POLICY if with_actions else None,
-            evidence_codec=CONTAINED_CODEC if with_actions else None,
+            evidence_codec=CONTAINED_CODEC if with_actions and getattr(adapter, "_build_jev_accounting", None) is None else None,
+            accounting=getattr(adapter, "_build_jev_accounting", None),
         )
         self._interaction = freeze_interaction(adapter) if with_actions else None
         self._selection_intent = None
@@ -679,6 +680,11 @@ class BuildJevDriver:
                     "no Graph/source/section evidence is included in this request. "
                     "The historical assessment commitment does not expose its evidence."
                 )
+        accounting = getattr(a, "_build_jev_accounting", None)
+        if accounting is not None and a.fence is not None and any(
+            isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+        ):
+            state["context_accounting"] = accounting.descriptor
         projection = DriverDecisionProjection(
             canonical(state),
             canonical(wire_questions(intent)),
@@ -710,7 +716,11 @@ class BuildJevDriver:
             if (self.step.state.get("phase_input_policy") == PHASE_POLICY
                     and plan.state().get("schema") != PHASE_SCHEMA):
                 return False
-            view = prepared_driver_view(prepared, plan)
+            continuation = a.fence is not None and any(
+                isinstance(e, ledger.ProviderAttemptAuthorizedEventV1) for e in a._broker_execution().events
+            )
+            view = prepared_driver_view(prepared, plan,
+                accounting=getattr(a, "_build_jev_accounting", None) if continuation else None)
             from .build_jev_dispatch import CONTINUATION_SCHEMA, factored_decision
             expected_decision = (factored_decision(self.step)
                 if plan.state().get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA} else self.step.model_dump(mode="json"))

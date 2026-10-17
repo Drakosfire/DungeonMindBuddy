@@ -52,7 +52,8 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None):
+        self.accounting = accounting
         self.decision_transport, self.writer_transport = (
             decision_transport,
             writer_transport,
@@ -62,7 +63,7 @@ class BuildJevHarness:
         raise ValueError("Jev requires the trusted Buddy parent adapter")
 
     @staticmethod
-    def budget(request):
+    def budget(request, *, accounting=None):
         budget = decision_policy.request_budget()
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
@@ -80,7 +81,15 @@ class BuildJevHarness:
             allowed_surface_operations=["answer_from_sources"]
             + (["propose_build_insertion"] if cap else []),
         )
+        if accounting is not None:
+            # Trusted injection only. Exercise the loaded counter before any SDK send.
+            accounting.estimate({"offline_preflight": "🐐 café 中文 123"})
+            budget["buildJevActions"].pop("evidence_codec")
+            budget["buildJevActions"]["controller_continuation_accounting"] = accounting.descriptor
         return budget
+
+    def configured_budget(self, request):
+        return self.budget(request, accounting=self.accounting)
 
     def execute_response(self, adapter, *, owner, trace):
         from .agent_turn_service import (
@@ -128,6 +137,7 @@ class BuildJevHarness:
     def execute(self, adapter):
         self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
+        adapter._build_jev_accounting = self.accounting
         driver = adapter.create_build_jev_driver(with_actions=True)
         adapter.build_frozen_history = driver._interaction["history"]
         adapter.build_history_for_inclusion = tuple(

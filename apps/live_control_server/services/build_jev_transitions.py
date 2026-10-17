@@ -180,7 +180,7 @@ class BuildJevTransitions:
             raise ValueError("empty user question")
         if retention_policy not in {None, "question_relevance_packets_v1"}:
             raise ValueError("unsupported retention policy")
-        if accounting is not None and retention_policy is None:
+        if accounting is not None and retention_policy is None and phase_input_policy is None:
             raise ValueError(
                 "experimental accounting requires explicit retention policy"
             )

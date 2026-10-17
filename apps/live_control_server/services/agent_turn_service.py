@@ -866,6 +866,7 @@ def _verify_policy_plan_payload(
     bootstrap: AgentPlanWorldGraphBootstrap | None = None,
     build_jev_expected_state: Mapping[str, Any] | None = None,
     build_writer_projection: Any = None,
+    build_jev_accounting: Any = None,
 ) -> None:
     if view.get("apiMode") == "responses":
         from .build_jev_writer import validate_body
@@ -881,7 +882,7 @@ def _verify_policy_plan_payload(
         try:
             expected = (build_jev_expected_state if build_jev_expected_state is not None else
                 first_state(work, bootstrap, request.message, _expected_initial_claim_packet(bootstrap)))
-            validate_body(view["payloadJson"], expected)
+            validate_body(view["payloadJson"], expected, accounting=build_jev_accounting)
         except (KeyError, TypeError, ValueError) as exc:
             raise AgentTurnServiceError("The prepared Build decision differs from host authority.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
@@ -1115,7 +1116,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildContainedActionControllerWriterPolicyV1
+            policy_class = (graph_types.BuildEstimatedActionControllerWriterPolicyV1
+                if (budget.get("buildJevActions") or {}).get("controller_continuation_accounting") is not None
+                else graph_types.BuildContainedActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("evidence_codec") is not None
                 else graph_types.BuildPhaseActionControllerWriterPolicyV1
                 if (budget.get("buildJevActions") or {}).get("phase_input_policy") is not None
@@ -1606,6 +1609,9 @@ class _PolicyExecutionAdapter:
             view, self.request, self.work, self.playable_target, self.bootstrap,
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
+            build_jev_accounting=(getattr(self, "_build_jev_accounting", None)
+                if (getattr(self, "_active_build_driver_projection", None) is not None
+                    and self.fence is not None and any(_is_provider_authorization(e) for e in self._broker_execution().events)) else None),
         )
         if (getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False)
                 or getattr(getattr(self, "_active_build_writer_projection", None), "authoring", False)):
@@ -1834,6 +1840,16 @@ class _PolicyExecutionAdapter:
                 )
             body = json.loads(view["payloadJson"])
             upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
+            input_kind, input_estimator = "conservative_upper_bound", self.budget["estimator"]
+            prior_attempts = [e for e in execution.events if _is_provider_authorization(e)]
+            if (isinstance(execution.policy, graph_types.BuildEstimatedActionControllerWriterPolicyV1)
+                    and prior_attempts and not writing):
+                accounting = getattr(self, "_build_jev_accounting", None)
+                if (accounting is None or accounting.descriptor != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
+                    raise ValueError("controller accounting differs from frozen policy")
+                accounting.validate(body, view["payloadJson"].encode())
+                upper_bound = accounting.estimate(body)
+                input_kind, input_estimator = "estimated_token_count", accounting.descriptor["policy"]
             if upper_bound + output_reserve > self.budget["contextLimitTokens"]:
                 raise AgentTurnServiceError(
                     "The final provider request exceeds the frozen budget.",
@@ -1948,8 +1964,8 @@ class _PolicyExecutionAdapter:
                 provider=view["provider"], model=view["model"],
                 api_mode=view["apiMode"],
                 tool_schema_sha256=_canonical_sha256(body.get("tools", [])),
-                input_accounting_kind="conservative_upper_bound",
-                input_estimator=self.budget["estimator"],
+                input_accounting_kind=input_kind,
+                input_estimator=input_estimator,
                 input_tokens=upper_bound,
                 output_token_reserve=output_reserve,
                 included_assertion_ids=assertions,
@@ -2041,7 +2057,9 @@ class _PolicyExecutionAdapter:
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": provider_attempt_id,
                     "provider": view["provider"], "model": view["model"],
-                    "outcome": "authorized", "input_upper_bound": upper_bound,
+                    # Legacy trace audits the conservative wire bound. The
+                    # authorization ledger separately records empirical admission.
+                    "outcome": "authorized", "input_upper_bound": view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body)),
                     "input_estimator": self.budget["estimator"],
                 })
             return True
@@ -2066,7 +2084,7 @@ class _PolicyExecutionAdapter:
         expected_budget = request_budget()
         if self.budget.get("buildJevActions") is not None:
             from .build_jev_harness import BuildJevHarness
-            expected_budget = BuildJevHarness.budget(self.request)
+            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None))
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()
@@ -6120,7 +6138,7 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = (selected_runtime.budget(request) if isinstance(selected_runtime, BuildJevHarness)
+        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, BuildJevHarness)
             else _policy_request_budget())
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
