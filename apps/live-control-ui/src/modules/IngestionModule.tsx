@@ -525,6 +525,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const selectedIngestTarget = JSON.stringify([ingestCampaignId, recapSession]);
   const selectedIngestTargetRef = useRef(selectedIngestTarget);
   selectedIngestTargetRef.current = selectedIngestTarget;
+  const ingestCampaignIdRef = useRef(ingestCampaignId);
+  ingestCampaignIdRef.current = ingestCampaignId;
+  const recapSessionRef = useRef(recapSession);
+  recapSessionRef.current = recapSession;
   const recapDraftEpochRef = useRef(0);
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
@@ -575,6 +579,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (nextCampaignId === ingestCampaignId) return;
     invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = JSON.stringify([nextCampaignId, recapSession]);
+    ingestCampaignIdRef.current = nextCampaignId;
     invalidateInFlightHydrateInspect();
     setIngestCampaignId(nextCampaignId);
     syncReviewCampaignUrl(nextCampaignId);
@@ -585,6 +590,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setSourceMode("raw");
     setLoadedArtifact(null);
     setSelectedPriorArtifactId("");
+    setPriorIngestionArtifacts([]);
     setPriorSourceReadFailed(false);
     setPrimaryOp(null);
     setLoadingPriorIngestion(false);
@@ -599,13 +605,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (nextSession === recapSession) return;
     invalidateInFlightRecapOperations();
     selectedIngestTargetRef.current = JSON.stringify([ingestCampaignId, nextSession]);
+    recapSessionRef.current = nextSession;
     invalidateInFlightHydrateInspect();
     setRecapSession(nextSession);
     setLatestResult(null);
     setState({ status: "idle" });
     setSourceMode("raw");
     setLoadedArtifact(null);
-    setSelectedPriorArtifactId("");
+    const targetSessionId = nextSession > 0 ? `session-${nextSession}` : "";
+    const exactTarget = priorIngestionArtifacts.find(
+      (record) => record.campaign_id === ingestCampaignId && record.session_id === targetSessionId,
+    );
+    setSelectedPriorArtifactId(exactTarget?.artifact_id || "");
     setPriorSourceReadFailed(false);
     setIgnoreDiskResume(false);
     setPrimaryOp(null);
@@ -1020,20 +1031,29 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     let cancelled = false;
     void getRecapArtifacts(ingestCampaignId)
       .then((response) => {
-        if (cancelled) return;
-        const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
+        if (cancelled || ingestCampaignIdRef.current !== ingestCampaignId) return;
+        const records = sortRecapArtifactRecords(
+          filterNumericRecapArtifactRecords(response.records).filter(
+            (record) => record.campaign_id === ingestCampaignId,
+          ),
+        );
         setPriorIngestionArtifacts(records);
-        setSelectedPriorArtifactId((current) => current || (freshRecapEntry ? "" : records.at(-1)?.artifact_id || ""));
+        const currentSession = recapSessionRef.current;
+        const targetSessionId = currentSession > 0 ? `session-${currentSession}` : "";
+        const exactTarget = records.find(
+          (record) => record.campaign_id === ingestCampaignId && record.session_id === targetSessionId,
+        );
+        setSelectedPriorArtifactId((current) => current || exactTarget?.artifact_id || "");
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && ingestCampaignIdRef.current === ingestCampaignId) {
           setPriorIngestionArtifacts([]);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [ingestCampaignId, hydrated, freshRecapEntry]);
+  }, [ingestCampaignId, hydrated]);
 
   useEffect(() => {
     if (!hydrated || loadingPriorIngestion || readerMode || returnableDraft) {
