@@ -144,6 +144,37 @@ describe("CombatRosterModule", () => {
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
+  it("locks encounter edits while creating a replacement encounter", async () => {
+    const current = record();
+    const created = record({
+      encounter_id: "aa73015d-4cc6-4d4f-845e-110bd84b7711",
+      draft: { ...record().draft, title: "New encounter", entities: [] },
+    });
+    const pendingCreate = deferred<CombatEncounterRecord>();
+    vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([current]);
+    vi.spyOn(combatApi, "getWorldCombatEncounter").mockResolvedValue(current);
+    vi.spyOn(combatApi, "createWorldCombatEncounter").mockReturnValue(pendingCreate.promise);
+
+    mount();
+    await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), current.encounter_id);
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    await userEvent.clear(screen.getByRole("textbox", { name: "New encounter title" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "New encounter title" }), "New encounter");
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(title).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Notes for Geomantic Drake" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "New encounter title" })).toBeDisabled();
+    await userEvent.type(title, "Edit during create");
+    expect(title).toHaveValue("Mireward Gate");
+
+    pendingCreate.resolve(created);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("New encounter"));
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+  });
+
   it("creates a durable encounter, keeps edits local, then explicitly saves against its revision", async () => {
     const created = record({ draft: { ...record().draft, title: "New encounter", entities: [] } });
     vi.spyOn(combatApi, "listWorldCombatEncounters").mockResolvedValue([]);

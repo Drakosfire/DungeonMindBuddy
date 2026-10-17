@@ -229,7 +229,7 @@ export function CombatRosterModule() {
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const replacingDraft = busy === "open" || busy === "reload";
+  const replacingDraft = busy === "create" || busy === "open" || busy === "reload";
   const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
@@ -455,7 +455,7 @@ export function CombatRosterModule() {
             </button>
             <label>
               <span className="eyebrow">New encounter</span>
-              <input aria-label="New encounter title" value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
+              <input aria-label="New encounter title" value={newTitle} disabled={busy !== null} onChange={(event) => setNewTitle(event.target.value)} />
             </label>
             <button type="button" disabled={busy !== null || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
               Create

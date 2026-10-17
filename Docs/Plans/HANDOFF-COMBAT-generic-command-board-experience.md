@@ -136,8 +136,8 @@ PRIME explicitly transferred `apps/live_control_server/routes/live.py` into this
 ### C0 replace-in-flight edit guard (2026-10-17)
 
 - PRIME/ARCHITECTURE held the prior head because opening or reloading an encounter left its currently visible draft editable while the replacement request was pending. A late success could then overwrite edits typed after the request began.
-- The roster now disables draft and per-combatant editing controls during explicit open/reload replacement requests. Save remains editable while pending because its submitted-snapshot path preserves newer local edits.
-- Deferred-response regression coverage proves both Open and Reload keep the title and combatant notes locked until the replacement arrives, then show the exact returned draft. Focused CombatRosterModule suite passes 10 tests; Statblock View and broader checks are pending for the repaired head.
+- The roster now disables draft and per-combatant editing controls during explicit create/open/reload replacement requests, including the new-encounter title while Create is pending. Save remains editable while pending because its submitted-snapshot path preserves newer local edits.
+- Deferred-response regression coverage proves Create, Open, and Reload keep the title and combatant notes locked until the replacement arrives, then show the exact returned draft. Focused CombatRosterModule suite passes 11 tests; Statblock View and broader checks are pending for the repaired head.
 - Re-anchored C0 on `main@6e7ee2e3d228a5b30277542ecd013779046a03c9`; the intervening commits do not modify the leased Combat files. Rebase/publish of the repaired PR head remains pending.
 
 ## 10. Superseded design-only gate record
