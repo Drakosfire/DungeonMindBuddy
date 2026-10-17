@@ -1263,7 +1263,8 @@ describe("BuildSurfaceShell", () => {
     expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
 
     await waitForEditor();
-    expect(screen.getByTestId("build-reimport-authoritative-button")).toBeInTheDocument();
+    // Recovery now belongs to the navbar review, never an unguarded paper action.
+    expect(screen.queryByTestId("build-reimport-authoritative-button")).not.toBeInTheDocument();
     const saveButton = screen.getByTestId("build-save-button");
     expect(saveButton).toBeDisabled();
 

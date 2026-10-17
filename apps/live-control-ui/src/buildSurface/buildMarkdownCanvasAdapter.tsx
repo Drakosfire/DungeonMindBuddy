@@ -1,3 +1,4 @@
+import type { WorkspaceDraftRecoveryReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
@@ -17,6 +18,26 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
   const hideFooterSave = args?.hideFooterSave === true;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dialogId = useId();
+  const recoveryDialogRef = useRef<HTMLDialogElement>(null);
+  const [recoveryReview, setRecoveryReview] = useState<WorkspaceDraftRecoveryReview | null>(null);
+  const [recoveryError, setRecoveryError] = useState("");
+  useEffect(() => { setRecoveryReview(null); setRecoveryError(""); }, [session.documentId, session.documentKey]);
+  useEffect(() => {
+    if (recoveryReview && recoveryDialogRef.current && !recoveryDialogRef.current.open) recoveryDialogRef.current.showModal();
+  }, [recoveryReview]);
+  function reviewRecovery() {
+    try { setRecoveryReview(session.prepareDraftRecovery()); setRecoveryError(""); }
+    catch (error) { setRecoveryError(error instanceof Error ? error.message : "Draft recovery is unavailable."); }
+  }
+  function confirmRecovery() {
+    if (!recoveryReview) return;
+    try { session.confirmDraftRecovery(recoveryReview); setRecoveryReview(null); setRecoveryError(""); }
+    catch (error) { setRecoveryError(error instanceof Error ? error.message : "The draft was not replaced."); }
+  }
+  function restoreRecovery() {
+    try { session.restoreDraftRecovery(); setRecoveryError(""); }
+    catch (error) { setRecoveryError(error instanceof Error ? error.message : "The draft was not restored."); }
+  }
   const [pendingDiscard, setPendingDiscard] = useState<{ documentId: string; documentKey: string } | null>(null);
   const pendingMatches = pendingDiscard != null && session.dirty
     && pendingDiscard.documentId === session.documentId
@@ -45,13 +66,27 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
     authorityErrorTestId: "build-authority-error",
     conflictTestId: "build-surface-conflict",
     saveErrorTestId: "build-save-error",
-    tools: session.dirty && !args?.hideDraftTools ? (
+    tools: (session.dirty || session.exportedMarkdownAuthoritative || session.draftRecoveryAvailable) && !args?.hideDraftTools ? (
       <>
-        <button className="build-discard-draft" type="button" disabled={!canDiscard} onClick={() => {
+        {session.exportedMarkdownAuthoritative ? <button type="button" disabled={!canDiscard} onClick={reviewRecovery}>Review protected draft</button> : null}
+        {session.draftRecoveryAvailable ? <button type="button" disabled={!canDiscard} onClick={restoreRecovery}>Restore protected draft</button> : null}
+        {recoveryError && !recoveryReview ? <span role="alert">{recoveryError}</span> : null}
+        {recoveryReview ? <dialog ref={recoveryDialogRef} aria-labelledby={`${dialogId}-recovery-title`}
+          onCancel={() => setRecoveryReview(null)} style={{ maxWidth: "min(46rem, calc(100vw - 2rem))", maxHeight: "80vh", overflow: "auto" }}>
+          <h2 id={`${dialogId}-recovery-title`}>Review protected draft</h2>
+          <p>These versions may differ. Rebuilding replaces the local editor with the preserved Markdown; it does not merge edits or save the page.</p>
+          <p>Your current editor content and preserved source will first be kept in a verified recovery copy in this browser. Restore protected draft brings your original edits back, as long as there are no newer edits or source changes.</p>
+          <details open><summary>Current local edits</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.editorText}</pre></details>
+          <details><summary>Preserved Markdown</summary><pre style={{ whiteSpace: "pre-wrap" }}>{recoveryReview.preservedMarkdown}</pre></details>
+          <button type="button" autoFocus onClick={() => setRecoveryReview(null)}>Keep current draft</button>
+          <button type="button" disabled={!canDiscard} onClick={confirmRecovery}>Keep recovery copy and rebuild</button>
+          {recoveryError ? <p role="alert">{recoveryError}</p> : null}
+        </dialog> : null}
+        {session.dirty ? <button className="build-discard-draft" type="button" disabled={!canDiscard} onClick={() => {
           if (canDiscard) setPendingDiscard({ documentId: session.documentId, documentKey: session.documentKey });
         }}>
           Discard draft
-        </button>
+        </button> : null}
         {pendingMatches ? (
           <dialog ref={dialogRef} role="alertdialog" aria-modal="true"
             aria-labelledby={`${dialogId}-title`} aria-describedby={`${dialogId}-description`}
@@ -76,15 +111,6 @@ function useBuildSlotsForSession(session: MarkdownCanvasSessionValue, args?: { h
     hideReadyHeader: true,
     actions: hideFooterSave ? undefined : (
       <>
-        {session.exportedMarkdownAuthoritative ? (
-          <button
-            type="button"
-            data-testid="build-reimport-authoritative-button"
-            onClick={() => session.reimportFromAuthoritativeMarkdown()}
-          >
-            Re-import from source
-          </button>
-        ) : null}
         <button
           type="button"
           data-testid="build-save-button"

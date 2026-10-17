@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   SurfaceContextHost,
@@ -8,6 +8,14 @@ import {
 } from "../surfaceInteraction/contextHost";
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
+
+const recoveryDialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
+const originalRecoveryShowModal = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "showModal");
+beforeAll(() => Object.defineProperty(recoveryDialogPrototype, "showModal", { configurable: true, value(this: HTMLDialogElement) { this.setAttribute("open", ""); } }));
+afterAll(() => {
+  if (originalRecoveryShowModal) Object.defineProperty(recoveryDialogPrototype, "showModal", originalRecoveryShowModal);
+  else Reflect.deleteProperty(recoveryDialogPrototype, "showModal");
+});
 
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
@@ -120,6 +128,22 @@ describe("BuildSurfaceContext", () => {
         },
       })),
     };
+  });
+
+  it("explains blocked Save and exposes protected-draft review in the real navbar", async () => {
+    const prepare = vi.fn(() => ({ documentId: DOC_A, fence: "fence", editorText: "Local draft", preservedMarkdown: "# Preserved source" }));
+    Object.assign(sessionMock.current!, { dirty: true, phase: "ready_dirty", documentId: DOC_A,
+      documentKey: `${DOC_A}:1`, exportedMarkdownAuthoritative: true, draftRecoveryAvailable: false,
+      saveDisabled: true, saveDisabledReason: "Save is paused to protect a recovered draft.",
+      prepareDraftRecovery: prepare, confirmDraftRecovery: vi.fn(), restoreDraftRecovery: vi.fn() });
+    renderBuildContext();
+    const save = screen.getByTestId("build-navbar-save");
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription("Save is paused to protect a recovered draft.");
+    await userEvent.click(screen.getByRole("button", { name: "Review protected draft", exact: true }));
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(screen.getByRole("dialog", { name: "Review protected draft" })).toHaveTextContent("Local draft");
+    expect(sessionMock.current!.saveMarkdown).not.toHaveBeenCalled();
   });
 
   it("places the explicit extraction portal slot inside the source navbar", () => {

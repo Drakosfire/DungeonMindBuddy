@@ -28,10 +28,10 @@ function Controls({ hideFooterSave = true }: { hideFooterSave?: boolean }) {
 const discard = vi.fn().mockResolvedValue(undefined);
 const save = vi.fn().mockResolvedValue(undefined);
 type Session = ReturnType<typeof useMarkdownCanvasSession>;
-function session(dirty: boolean, overrides: Partial<Pick<Session, "phase" | "activeCommand" | "documentId" | "documentKey">> = {}) {
+function session(dirty: boolean, overrides: Partial<Session> = {}) {
   vi.mocked(useMarkdownCanvasSession).mockReturnValue({
     record: { title: "Source" }, documentId: "source-A", documentKey: "source-A:1", dirty,
-    phase: "ready_dirty", activeCommand: null, ...overrides, exportedMarkdownAuthoritative: false,
+    phase: "ready_dirty", activeCommand: null, exportedMarkdownAuthoritative: false, ...overrides,
     discardLocalDraft: discard, saveMarkdown: save, saveDisabled: true,
   } as unknown as Session);
 }
@@ -129,5 +129,31 @@ describe("Build source draft recovery", () => {
     rerender(<Controls />);
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(discard).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("protected Build draft review in navigation", () => {
+  it("keeps recovery reachable with footer hidden and cancellation leaves both versions untouched", () => {
+    const prepare = vi.fn(() => ({ documentId: "source-A", fence: "fence", editorText: "Local wording", preservedMarkdown: "# Preserved source" }));
+    const confirm = vi.fn();
+    session(true, { exportedMarkdownAuthoritative: true, prepareDraftRecovery: prepare, confirmDraftRecovery: confirm });
+    render(<Controls hideFooterSave />);
+    fireEvent.click(screen.getByRole("button", { name: "Review protected draft", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Review protected draft" });
+    expect(dialog).toHaveTextContent("Local wording");
+    expect(dialog).toHaveTextContent("# Preserved source");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep current draft" }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(discard).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+  it("offers Restore for a clean re-imported draft even without footer controls", () => {
+    const restore = vi.fn();
+    session(false, { draftRecoveryAvailable: true, phase: "ready_clean", restoreDraftRecovery: restore });
+    render(<Controls hideFooterSave />);
+    fireEvent.click(screen.getByRole("button", { name: "Restore protected draft" }));
+    expect(restore).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Discard draft" })).not.toBeInTheDocument();
   });
 });

@@ -24,6 +24,7 @@ import {
   type WorkspaceDocumentLocalSurface,
   type WorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
+import { draftRecoveryIdentity, draftRecoveryKey, preserveDraftRecovery, readDraftRecovery, writeVerifiedLocalState, type WorkspaceDraftRecoveryReview } from "./workspaceDocumentRecovery";
 import { openWorkspaceDocumentAuthoringState } from "./openWorkspaceDocumentAuthoringState";
 import type { ReconcileLocalDraftResult } from "./reconcileLocalDraft";
 import { verifyCommitReceiptAgainstSnapshot } from "./verifyCommitReceiptAgainstSnapshot";
@@ -77,6 +78,11 @@ export interface WorkspaceDocumentAuthoringValue {
   localAdmission: WorkspaceDocumentLocalAdmission | null;
   statusLabel: string;
   saveDisabled: boolean;
+  saveDisabledReason: string | null;
+  draftRecoveryAvailable: boolean;
+  prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview) => void;
+  restoreDraftRecovery: () => void;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   editor: Editor | null;
   setEditor: (editor: Editor | null) => void;
@@ -179,6 +185,7 @@ export function useWorkspaceDocumentAuthoring(
   const [reconciliation, setReconciliation] = useState<ReconcileLocalDraftResult | null>(null);
   const [localState, setLocalState] = useState<WorkspaceDocumentLocalState | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [recoveryVersion, setRecoveryVersion] = useState(0);
   const [documentKey, setDocumentKey] = useState(args.documentId);
   const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
@@ -405,6 +412,78 @@ export function useWorkspaceDocumentAuthoring(
     );
     dispatch({ type: "OPEN_READY", dirty: next.dirty });
   }, [dispatch, storage]);
+
+  const recoveryFence = useCallback(() => {
+    const current = localStateRef.current;
+    const snap = snapshotRef.current;
+    if (!current || !snap || !editor || current.document_id !== args.documentId
+        || snap.record.document_id !== args.documentId || !isEditorInteractive(machine.phase)
+        || isSaveDisabled(machine.phase) || current.base_revision !== snap.loaded_revision
+        || current.base_content_sha256 !== snap.content_sha256) {
+      throw new Error("The document changed or is not ready. Reopen recovery when it is ready.");
+    }
+    return JSON.stringify([current, editor.getJSON(), editorMutationGenerationRef.current,
+      snap.loaded_revision, snap.content_sha256,
+      storage.getItem(`dmb.workspaceDocument.${args.documentId}`)]);
+  }, [args.documentId, editor, machine.phase, storage]);
+
+  const prepareDraftRecovery = useCallback((): WorkspaceDraftRecoveryReview => {
+    const current = localStateRef.current;
+    if (!current?.exported_markdown_authoritative) throw new Error("This draft does not require source recovery.");
+    return { documentId: args.documentId, fence: recoveryFence(),
+      preservedMarkdown: current.exported_markdown,
+      editorText: editor?.getText?.() ?? "Preview unavailable. Your full editor data will be preserved." };
+  }, [args.documentId, editor, recoveryFence]);
+
+  const confirmDraftRecovery = useCallback((review: WorkspaceDraftRecoveryReview) => {
+    if (review.documentId !== args.documentId || review.fence !== recoveryFence()) {
+      throw new Error("The draft changed after review. Review it again before replacing it.");
+    }
+    const current = localStateRef.current!;
+    if (!current.exported_markdown_authoritative || hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
+      throw new Error("The preserved Markdown still cannot be safely imported. Both versions remain unchanged.");
+    }
+    const imported = markdownToTiptapDoc(current.exported_markdown);
+    if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
+    const normalizedDoc = editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc;
+    const markdown = preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
+    const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
+      exported_markdown: markdown, exported_markdown_authoritative: false,
+      dirty: markdown !== snapshotRef.current!.markdown,
+      updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
+    preserveDraftRecovery(storage, original, next);
+    setRecoveryVersion(v => v + 1);
+    writeVerifiedLocalState(storage, next);
+    localStateRef.current = next; localDirtyRef.current = next.dirty;
+    setLocalState(next);
+    setDocumentKey(`${current.document_id}:${current.base_revision}:recovery:${Date.now()}`);
+    dispatch({ type: "OPEN_READY", dirty: next.dirty });
+  }, [args.documentId, dispatch, editor, recoveryFence, storage]);
+
+  const restoreDraftRecovery = useCallback(() => {
+    recoveryFence();
+    const backup = readDraftRecovery(storage, args.documentId);
+    const current = localStateRef.current;
+    if (!backup || !current || !editor) throw new Error("No matching recovery copy is available.");
+    const live = { ...current, tiptap_json: editor.getJSON() };
+    if (draftRecoveryIdentity(live) !== draftRecoveryIdentity(backup.replacement)
+        && draftRecoveryIdentity(live) !== draftRecoveryIdentity(backup.original)) {
+      throw new Error("There are newer edits or a different source revision. Your edits and recovery copy have been kept; nothing was restored.");
+    }
+    writeVerifiedLocalState(storage, backup.original);
+    localStateRef.current = backup.original; localDirtyRef.current = backup.original.dirty;
+    setLocalState(backup.original);
+    // Original data is verified restored before removing its redundant checkpoint.
+    try { storage.removeItem(draftRecoveryKey(args.documentId)); } catch { /* keep redundant recovery copy */ }
+    setRecoveryVersion(v => v + 1);
+    setDocumentKey(`${current.document_id}:${current.base_revision}:restore:${Date.now()}`);
+    dispatch({ type: "OPEN_READY", dirty: backup.original.dirty });
+  }, [args.documentId, dispatch, editor, recoveryFence, storage]);
+
+  const draftRecoveryAvailable = useMemo(() => {
+    try { return readDraftRecovery(storage, args.documentId) != null; } catch { return false; }
+  }, [args.documentId, storage, recoveryVersion]);
 
   const saveMarkdown = useCallback(async () => {
     if (!editor || !snapshot || !localState) return;
@@ -706,6 +785,14 @@ export function useWorkspaceDocumentAuthoring(
     return snapshot.record;
   }, [localState, phase, snapshot]);
 
+  const saveDisabledReason = !editor ? "The editor is still loading."
+    : !isEditorInteractive(phase) || isSaveDisabled(phase)
+      ? (phase === "conflict" ? "The source changed elsewhere. Resolve the conflict before saving." : "The document is not ready to save.")
+    : localState?.exported_markdown_authoritative
+      ? "Save is paused to protect a recovered draft. Review the preserved source and local edits."
+    : (requireDirtyToSave && !dirty) ? "No unsaved changes."
+    : canSave && !canSave() ? "This document is read-only or cannot be saved here."
+    : null;
   const legacyStatus: WorkspaceDocumentAuthoringStatus = phase;
 
   return {
@@ -727,6 +814,7 @@ export function useWorkspaceDocumentAuthoring(
       || (requireDirtyToSave && !dirty)
       || Boolean(localState?.exported_markdown_authoritative)
       || (canSave ? !canSave() : false),
+    saveDisabledReason, draftRecoveryAvailable, prepareDraftRecovery, confirmDraftRecovery, restoreDraftRecovery,
     lastCommitReceipt,
     editor,
     setEditor: handleSetEditor,

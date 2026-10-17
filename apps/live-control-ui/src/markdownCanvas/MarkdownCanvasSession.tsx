@@ -291,6 +291,20 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       editorContent: authoring.editorContent,
       documentKey: authoring.documentKey,
       saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
+      saveDisabledReason: saveBlockedByCommand ? "Wait for the current document action to finish." : authoring.saveDisabledReason,
+      draftRecoveryAvailable: authoring.draftRecoveryAvailable,
+      prepareDraftRecovery: () => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.prepareDraftRecovery();
+      },
+      confirmDraftRecovery: (review) => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        authoring.confirmDraftRecovery(review);
+      },
+      restoreDraftRecovery: () => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        authoring.restoreDraftRecovery();
+      },
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
       editor: authoring.editor,

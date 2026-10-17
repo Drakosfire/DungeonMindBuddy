@@ -34,6 +34,7 @@ Exact lease:
 - apps/live-control-ui/src/buildSurface/buildMarkdownCanvasAdapter.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.test.tsx
+- apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx (replace old unguarded-reimport expectation; actual recovery is navbar-owned)
 
 Verify real hook/storage backup+restore after remount, quota/readback failure,
 review stale after edits/switch/base changes, unsupported source remains blocked,
@@ -46,3 +47,21 @@ server or environment. PRIME owns coordinated 5202 UI adoption; retain drafts.
 Predecessor: Agent trace retention #1376 merged ae394d6d after review cycle2
 PASS at941c43ee7 and22 focused independent cases. API8000 adopted; real natural
 turn attribution awaits user traffic, not another synthetic benchmark.
+
+Implementation verification:
+- Five owning suites:80 passed,1 existing skip. Real rich-editor Build controls
+  rebuild and restore exact protected JSON; hook/storage remount restoration,
+  checkpoint quota/readback failure, edited-review rejection, newer-edit restore
+  rejection, unsupported source, cancellation and real navbar reason/review pass.
+- UI typecheck and production build pass (existing chunk-size warning).
+  Build output is .pytest_cache/build-protected-draft-recovery; pre/post dist
+  manifests match. No served assets or real user draft/storage were modified.
+- Existing obsolete Discard-label assertion is aligned with current UI. Shell
+  regression now rejects the old unguarded paper re-import action; guarded
+  navbar recovery is independently exercised.
+- Restore is deliberately paused over newer edits or a changed source/base;
+  checkpoint remains retained. It is not a merge or a general draft history.
+  Successful restore verifies original state before removing the redundant
+  checkpoint; original seal/dirty flags return, so Save cannot bypass protection.
+- Current live Edge flag/recovery is not claimed proven until adoption exposes
+  the actual reason; no automated action will re-import or discard that draft.
