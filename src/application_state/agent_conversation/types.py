@@ -1374,7 +1374,65 @@ class BuildGraphCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1
+class SourcePassageClaimV1(StrictModel):
+    kind: Literal["source_passage_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class BuildSourcePassageCitationV1(StrictModel):
+    segment_index: int = Field(strict=True, ge=0, le=127)
+    text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    read_event_id: UUID
+    receipt: SourceReadAnchorReceiptV2
+
+
+class BuildGraphCompletionV2(StrictModel):
+    """Passage attribution, explicitly separate from admitted Graph claims."""
+    schema_: Literal["dmb_build_graph_completion_v2"] = Field(
+        default="dmb_build_graph_completion_v2", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["opened_source_passages", "saved_source_and_opened_passages"]
+    answer_context_status: Literal["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]
+    answer_segments: list[Annotated[
+        SourcePassageClaimV1 | SavedSourceClaimV1 | PlanWorldGraphConnectiveSegmentV1,
+        Field(discriminator="kind"),
+    ]] = Field(min_length=1, max_length=128)
+    citation_map: None = None
+    source_citations: list[BuildSourcePassageCitationV1] = Field(
+        min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> BuildGraphCompletionV2:
+        claims = {i: s for i, s in enumerate(self.answer_segments)
+                  if isinstance(s, SourcePassageClaimV1)}
+        if {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Every passage claim requires exact source citations")
+        if self.answer_context_status == "source_insufficient_evidence":
+            if claims or any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+                raise ValueError("Source abstention cannot carry factual claims")
+        elif not claims:
+            raise ValueError("Source-grounded answers require passage claims")
+        keys = [(c.segment_index, c.read_event_id, c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Passage citations must be distinct")
+        saved = any(isinstance(s, SavedSourceClaimV1) for s in self.answer_segments)
+        if self.answer_basis != ("saved_source_and_opened_passages" if saved else "opened_source_passages"):
+            raise ValueError("Passage basis must follow its typed segments")
+        for c in self.source_citations:
+            if c.text_sha256 != hashlib.sha256(claims[c.segment_index].text.encode()).hexdigest():
+                raise ValueError("Passage citation text differs")
+            if (c.receipt.outcome != "enough" or c.receipt.truncated
+                    or c.receipt.evidence_sufficiency_status != "sufficient"
+                    or not c.receipt.content_sha256 or not c.receipt.source_revision_id):
+                raise ValueError("Passage citation requires complete, sufficient source")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Build completion exceeds storage size limit")
+        return self
+
+
+GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3612,6 +3670,37 @@ def derive_graph_execution_evidence_status(
     return "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
 
 
+def validate_build_passage_completion(completion, receipt, execution, attempt_id, graph_bindings) -> None:
+    if (not isinstance(receipt, BuildGraphContextReceiptV1)
+            or not isinstance(execution, PlanWorldGraphExecutionV3)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+            or graph_bindings):
+        raise ValueError("Passage completion requires its exact Build receipt and no Graph claims")
+    validate_selected_source_binding(receipt, execution)
+    validate_build_section_completion(completion, execution, attempt_id)
+    producing = next((e for e in execution.events
+        if isinstance(e, ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == attempt_id), None)
+    outcomes = [e.outcome for e in execution.events
+        if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == attempt_id]
+    roles = getattr(execution.policy, "provider_roles", None)
+    if (producing is None or outcomes[-1:] != ["response_received"] or roles is None
+            or (producing.provider, producing.model, producing.api_mode) != roles.writer.identity()
+            or producing.included_graph_event_ids or producing.included_assertion_ids
+            or producing.included_relationship_ids or producing.included_evidence_ref_ids
+            or not producing.included_source_read_event_ids):
+        raise ValueError("Passage completion requires a source-only producing writer response")
+    reads = {e.event_id: e for e in execution.events if isinstance(e, ValidatedSourceReadEventV2)
+        and e.event_id in producing.included_source_read_event_ids}
+    for citation in completion.source_citations:
+        event = reads.get(citation.read_event_id)
+        if (citation.provider_attempt_id != attempt_id or citation.envelope_sha256 != producing.envelope_sha256
+                or event is None or citation.receipt not in event.receipts):
+            raise ValueError("Passage citation was not included in its producing writer envelope")
+    for segment in completion.answer_segments:
+        if isinstance(segment, SavedSourceClaimV1) and segment.content_sha256 != receipt.source_basis.content_sha256:
+            raise ValueError("Saved source segment differs from the frozen source")
+
+
 def validate_execution_completion(
     completion: GraphTurnCompletion,
     receipt: GraphContextReceipt,
@@ -3620,6 +3709,10 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, BuildGraphCompletionV2):
+        validate_build_passage_completion(completion, receipt, execution,
+            producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(receipt, BuildGraphContextReceiptV1) != isinstance(completion, BuildGraphCompletionV1):
         raise ValueError("Completion and frozen receipt must identify the same surface contract")
     validate_selected_source_binding(receipt, execution)
@@ -3973,7 +4066,7 @@ class Turn(StrictModel):
             raise ValueError("Build Graph receipt requires governed Build execution and provenance")
         if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
             _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
-            if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
                 raise ValueError("Build answer text must match its validated completion segments")
         if (self.completion is None and self.graph_context_execution is not None
                 and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
@@ -4015,11 +4108,11 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if self.build_section_bindings and not isinstance(self.completion, BuildGraphCompletionV1):
+        if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
-        if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")

@@ -1531,6 +1531,8 @@ class _PolicyExecutionAdapter:
         self, body: Mapping[str, Any], tool_name: str,
     ) -> list[str]:
         state = body.get("state")
+        if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
+            return []  # Source inclusion is proved by the exact transformed projection below.
         if getattr(self, "_active_build_writer_projection", None) is not None:
             state = json.loads(body["input"])
         if (getattr(self, "budget", {}).get("apiMode") == "typesafe_decision"
@@ -1574,6 +1576,10 @@ class _PolicyExecutionAdapter:
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
         )
+        if getattr(getattr(self, "_active_build_writer_projection", None), "source_only", False):
+            if self.fence is None:
+                raise ValueError("Source writer requires an existing parent claim")
+            return self.fence.turn, [], [], []
         initial = _initial_claim_packet_from_view(
             type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
             self.bootstrap,
@@ -1821,6 +1827,9 @@ class _PolicyExecutionAdapter:
                 if getattr(event, "kind", None) in {"validated_graph_operation", "validated_graph_operation_v3"}
                 and event.event_id in exposed]
             source_ids = {item.event_id for item in source_exposure if item.complete}
+            active_writer = getattr(self, "_active_build_writer_projection", None)
+            if getattr(active_writer, "source_only", False):
+                source_ids = {UUID(sid) for sid in active_writer.source_event_ids}
             included_source_events = [event for event in execution.events
                 if getattr(event, "kind", None) == "validated_source_read_v2" and event.event_id in source_ids]
             context_ids = {item.event_id for item in context_exposure if item.complete}
@@ -1840,7 +1849,7 @@ class _PolicyExecutionAdapter:
             })
             build_closures = []
             if _governed_build_turn(self.request):
-                build_closures = _build_initial_claim_evidence(
+                build_closures = [] if writing else _build_initial_claim_evidence(
                     view, self.bootstrap, self.initial_session_projection,
                 )
                 if writing:
@@ -1990,7 +1999,7 @@ class _PolicyExecutionAdapter:
             )
             return False
 
-    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=()) -> dict[str, Any]:
+    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
         from .build_jev_dispatch import controller_exposure, first_state, request_budget
         if self.failure is not None or self.fence is None or self.budget != request_budget():
@@ -2027,7 +2036,7 @@ class _PolicyExecutionAdapter:
         graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
         if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
             raise ValueError("Controller exposure requires exact parent payload strings")
-        if (not graph_payloads and not source_payloads and not selected_sections or len(set(graph_payloads)) != len(graph_payloads)
+        if (not graph_payloads and not source_payloads and not selected_sections and not source_read_event_ids or len(set(graph_payloads)) != len(graph_payloads)
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
@@ -2035,6 +2044,15 @@ class _PolicyExecutionAdapter:
         sources = presenter.inclusion("read_graph_source", list(source_payloads))
         sources.extend(presenter.bundled_source_inclusion(list(graph_payloads)))
         by_event = {event.event_id: event for event in execution.events}
+        if source_read_event_ids:
+            from .graph_tool_presentation import Exposure
+            if len(set(source_read_event_ids)) != len(source_read_event_ids):
+                raise ValueError("Source read event selection must be distinct")
+            for event_id in source_read_event_ids:
+                event_id = UUID(str(event_id))
+                if event_id not in self.source_payloads or event_id not in by_event:
+                    raise ValueError("Source read event is not a completed parent read")
+                sources.append(Exposure(event_id, complete=True))
         for exposure in graphs:
             event = by_event.get(exposure.event_id)
             if (getattr(event, "kind", None) != "validated_graph_operation_v3"
@@ -2118,6 +2136,19 @@ class _PolicyExecutionAdapter:
         self._build_writer_projection = staged
         return staged
 
+    def stage_build_source_writer(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()):
+        from . import build_jev_writer as writer
+        self.stage_build_controller_exposure(graph_payloads=graph_payloads,
+            source_payloads=source_payloads, section_read_ids=section_read_ids,
+            source_read_event_ids=source_read_event_ids)
+        if self._broker_execution().policy.provider_roles.writer.identity() != (writer.PROVIDER, writer.MODEL, writer.API_MODE):
+            raise ValueError("Frozen source writer route is incompatible")
+        staged = writer.source_projection(self._build_controller_exposure,
+            self._broker_execution(), self.source_payloads)
+        self._build_controller_exposure = None
+        self._build_writer_projection = staged
+        return staged
+
     def authorize_prepared_build_writer(self, prepared: Any) -> bool:
         from . import build_jev_writer as writer
         if self.failure is not None or self.fence is None:
@@ -2139,6 +2170,7 @@ class _PolicyExecutionAdapter:
             self._active_build_writer_projection = None
         if accepted:
             self._prepared_build_writer = prepared
+            self._prepared_build_writer_projection = staged
             self._build_writer_projection = None
         return accepted
 
@@ -2197,10 +2229,19 @@ class _PolicyExecutionAdapter:
             candidate["answer_segments"][index] = {"kind": "saved_source_claim", "text": segment["text"],
                 "content_sha256": self.fence.turn.graph_context_receipt.source_basis.content_sha256}
         turn = self.fence.turn
-        completion, bindings, answer = _parse_policy_completion(json.dumps(candidate), turn,
-            self.producing_provider_attempt_id,
-            build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id),
-            build_section_bindings=source_bindings)
+        staged = getattr(self, "_prepared_build_writer_projection", None)
+        if getattr(staged, "source_only", False):
+            prepared = self._prepared_build_writer
+            completion = writer.source_completion(candidate, staged,
+                receipt_hash=turn.graph_context_receipt.context_receipt_sha256,
+                attempt_id=self.producing_provider_attempt_id, envelope_hash=prepared.body_sha256)
+            bindings = {}
+            answer = "\n".join(segment.text for segment in completion.answer_segments)
+        else:
+            completion, bindings, answer = _parse_policy_completion(json.dumps(candidate), turn,
+                self.producing_provider_attempt_id,
+                build_evidence=self.build_claim_evidence.get(self.producing_provider_attempt_id),
+                build_section_bindings=source_bindings)
         self.context_capture.answer_context(answer)
         turn = self.stop()
         self.turn = self.service.complete_turn(TurnResult(world_id=turn.world_id,
