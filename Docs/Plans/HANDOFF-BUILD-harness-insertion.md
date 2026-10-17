@@ -1,6 +1,6 @@
 # Build Harness insertion tool
 
-Status: ACTIVE — explicit operator request, PRIME implementation; ARCHITECTURE review.
+Status: SHIPPED — PR #1291 merged as 6060a36d48ade4aeb99a3baf48be09c0353c4ba5; operator acceptance remains open.
 Base: 659652ae (remote main, fetched 2026-10-16). Serial, one implementation PR.
 Checkout: /tmp/prime-recap-mention-boundaries; branch codex/build-harness-insertion.
 
@@ -74,3 +74,18 @@ Independent review repair: origin includes the Agent claim attempt. Actual APP
 locks validate the live unexpired running claim and exact World/conversation/source
 and client idempotency identity before reservation and both provider gates. Cached
 worker state alone grants no provider authority. Generator receipts remain separate.
+
+## Settlement
+ARCHITECTURE independently passed exact head 851726c6. Final verification: 133
+focused backend tests, 10 UI tests, TypeScript and production build pass. Real
+process-isolated GPT-6 Luna synthetic conversation asks clarification, then calls
+the actual insertion tool and returns an inert table preview (8.05s discussion;
+11.323s proposal turn). Empty synthetic Graph is not native retrieval acceptance.
+The initial follow-up output rejection is preserved with the corrected witness.
+
+Both shared API readers 8000/8002 and UI5202 now serve immutable main6060a36d;
+UI5876 remains unchanged. Authenticated routes and compiled asset hashes verified;
+all APP table fingerprints unchanged, no migration, no rollout provider call.
+Private evidence: local-agent-task-cases/build-harness-851726c6-live-2 and
+rollout-candidates/buddy-main-6060a36d/rollout-receipt.json. No operator page changed.
+Lease closed. Graph Off write tools remain a separately scoped successor.
