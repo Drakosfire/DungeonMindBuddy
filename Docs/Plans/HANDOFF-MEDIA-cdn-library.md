@@ -1,7 +1,7 @@
 # MEDIA — CDN save and reopen
 
 Status: ACTIVE — operator requested durable public CDN image storage before more images. PRIME implements; independent review before merge.
-Branch: codex/media-cdn-library. Topology: stacked on catalog PR1302 exact8ff75df2c2045cd4d74a49cd77815bdf18860669; merge catalog first, then review consumer cumulative diff. Handoff must be re-anchored on accepted parent if it changes.
+Branch: codex/media-cdn-library. Topology: stacked on catalog PR1302 exacta6dcbac5f6e0e5775e02baaa29875e19f7346990; merge catalog first, then review consumer cumulative diff. Handoff must be re-anchored on accepted parent if it changes.
 
 ## Outcome and authority
 
