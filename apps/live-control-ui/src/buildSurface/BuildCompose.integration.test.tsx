@@ -141,6 +141,12 @@ it.each(['click', 'enter'])('previews a natural table request by %s while preser
     message: 'Do you have write tools? Can you see the page?',
   } });
   localStorage.setItem(key, pending);
+  const generate = vi.mocked(proposals.composeBuildProposal).getMockImplementation()!;
+  let finish!: () => void;
+  vi.mocked(proposals.composeBuildProposal).mockImplementation(async request => {
+    await new Promise<void>(resolve => { finish = resolve; });
+    return generate(request);
+  });
   render(<AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
     <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell /><OpenConversation /></BuildCanvasTestProvider>
     <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld" />
@@ -154,6 +160,12 @@ it.each(['click', 'enter'])('previews a natural table request by %s while preser
   await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled());
   if (method === 'enter') fireEvent.keyDown(composer, { key: 'Enter' });
   else fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await waitFor(() => expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1));
+  const retry = screen.getByRole('button', { name: 'Retry exact saved turn' });
+  expect(retry).toBeDisabled();
+  fireEvent.click(retry);
+  expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  await act(async () => { finish(); });
   await screen.findByRole('button', { name: 'Insert into page' });
   expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1);
   expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();

@@ -3532,7 +3532,7 @@ export function WorldPlanAgentConversation({
 
   async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
     const request = stored.request;
-    if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending) return;
+    if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     const token = Symbol("world-readonly-turn");
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
@@ -5557,7 +5557,7 @@ export function WorldPlanAgentConversation({
           {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
         </details>
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || requestRef.current !== null}>
+        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
           Retry exact saved turn
         </button>
       </section> : null}
