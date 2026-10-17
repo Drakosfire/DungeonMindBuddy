@@ -19,3 +19,5 @@ Only explicit Generate submits a paid request. Existing local operator auth is r
 ## Verification
 
 Provider-free endpoint auth/validation/forwarding and encoding result tests; rendered wizard model-dependent controls, one explicit call and failure behavior; Build host leaves editor unchanged. Compile/build and inspect cumulative diff, finish PR. Existing typecheck failures stay explicit. No 5202 restart or live provider call until reviewed; separate runtime rollout.
+
+Evidence: endpoint auth/validation/forwarding/credential tests 7/7 pass. Shared wizard + Build shell suites 34 pass, 1 existing skip. UI typecheck and Vite build pass; existing bundle-size advisory remains. Synthetic-only rendered wizard checked desktop and narrow: model selection changes controls; component owns its styles; narrow document scrollWidth equals clientWidth after box-sizing fix. No provider call, document mutation, Graph access or 5202 change. Lock check passes; unrelated package artifact metadata is preserved. Preview-only generation result is transient and must be downloaded to keep it.
