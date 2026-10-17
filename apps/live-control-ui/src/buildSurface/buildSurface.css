@@ -721,7 +721,7 @@ body:has([data-document-surface="build"])
 .build-studio-start { width: fit-content; padding: .65rem 1rem; border-radius: .4rem; }
 .build-draft-recovery { display: inline-flex; }
 .build-discard-draft { font-size: .8rem; padding: .35rem .55rem; color: #e6bcb1; background: transparent; border: 1px solid #735b57; }
-.build-authoring-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding: .5rem; border: 1px solid #cdbf9f; border-radius: .4rem; background: #eee3cc; color: #32291d; }
+.build-authoring-toolbar { position: sticky; top: .5rem; z-index: 5; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding: .5rem; border: 1px solid #cdbf9f; border-radius: .65rem; background: #eee3ccf5; color: #32291d; box-shadow: 0 .25rem .8rem #32291d22; backdrop-filter: blur(8px); }
 .build-authoring-toolbar [role="group"] { display: flex; flex-wrap: wrap; gap: .25rem; }
 .build-authoring-toolbar button { color: #382e20; background: #fff8e9; border: 1px solid #c8b48e; padding: .35rem .55rem; border-radius: .3rem; font: 500 .82rem/1.3 var(--ui-font-interface, sans-serif); }
 .build-authoring-toolbar button[aria-pressed="true"] { background: #d5bd83; }

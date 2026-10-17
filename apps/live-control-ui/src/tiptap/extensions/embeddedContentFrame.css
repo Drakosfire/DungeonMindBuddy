@@ -3,7 +3,7 @@
 .embedded-content-frame__header span { opacity: .7; }
 .embedded-content-frame__header button { margin-inline-start: auto; width: auto; min-height: 1.8rem; padding: .2rem .55rem; font: inherit; color: inherit; border: 1px solid #8d785966; border-radius: .3rem; background: transparent; cursor: pointer; }
 .embedded-content-frame__header button:focus-visible { outline: 2px solid #ac812e; outline-offset: 2px; }
-.embedded-content-frame__body { max-height: min(50vh, 28rem); overflow: auto; }
+.embedded-content-frame__body { overflow: visible; }
 .embedded-content-frame__body[hidden] { display: none !important; }
 .embedded-content-frame .md-table { width: 100%; table-layout: auto; border-collapse: collapse; margin: 0; }
 .embedded-content-frame .md-table :is(th,td) { padding: .4rem .55rem; border: 1px solid #8d785933; vertical-align: top; text-align: start; overflow-wrap: anywhere; }

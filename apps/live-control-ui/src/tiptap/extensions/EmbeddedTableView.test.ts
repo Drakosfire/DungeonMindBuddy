@@ -13,7 +13,7 @@ function mount() {
   editor = new Editor({ element, extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: markdownToTiptapDoc(source).doc, onUpdate });
   return { editor, onUpdate };
 }
-it('collapses only the view, keeps editable content and exports no presentation chrome', () => {
+it('collapses only the view, keeps editable content and exports no presentation chrome', async () => {
   const { editor, onUpdate } = mount();
   const original = editor.getJSON();
   const markdown = tiptapJsonToSemanticMarkdown(original);
@@ -23,12 +23,16 @@ it('collapses only the view, keeps editable content and exports no presentation 
   expect(document.querySelector('.embedded-content-frame__header')).toHaveTextContent('2 rows');
   expect(document.querySelectorAll('col.embedded-content-frame__numeric-column')).toHaveLength(1);
   toggle.click();
+  await new Promise(resolve => setTimeout(resolve, 10));
   expect(body.hidden).toBe(true);
   expect(toggle).toHaveAttribute('aria-label', 'Expand table');
   expect(editor.getJSON()).toEqual(original);
   expect(onUpdate).not.toHaveBeenCalled();
-  toggle.click();
-  expect(body.hidden).toBe(false);
+  editor.createNodeViews();
+  expect(document.querySelector('.embedded-content-frame__body')).toHaveAttribute('hidden');
+  const reboundToggle = document.querySelector<HTMLButtonElement>('.embedded-content-frame__header button')!;
+  reboundToggle.click();
+  expect(document.querySelector<HTMLElement>('.embedded-content-frame__body')!.hidden).toBe(false);
   let position = -1;
   editor.state.doc.descendants((node, pos) => { if (node.isText && node.text === 'Mara') position = pos; });
   expect(position).toBeGreaterThan(0);
