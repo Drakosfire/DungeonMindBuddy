@@ -4,7 +4,7 @@
 **Base:** `main@c2b18ebd980fcc154e94f19b7e7338de1505007e` (verified as current GitHub main before branch creation).
 **Branch:** `codex/ingest-status-presentation`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse assigned checkout).
-**Topology:** serial; one Ingest implementation PR. Existing PR #1235 is open but its described Graph Review/API observation-review files do not overlap this lease.
+**Topology:** parallel-independent from draft PR #1235. Rechecked GitHub: #1235 is `codex/ingest-source-observation-review@ffc2276ae9b3e7feac220a1cfff2ea18ced5a414`, based on `main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`; its pinned handoff is `Docs/Plans/HANDOFF-DOGFOOD-ingest-source-observation-review.md`. Its ten-file lease is disjoint from this lane's three paths: API types/client/tests and Graph Review workbench/projection/review UI/tests plus its handoff. #1235's handoff excludes backend/source/candidate/database/serving and 5202 writes; this lane also excludes processing and runtime/deployment changes. Neither lane depends on the other's behavior, and neither writes shared runtime state. The recorded #1235 checkout `/tmp/dmb-ingest-source-observation-refresh-sparse` was absent when checked; its remote draft PR and pinned lease remain open, so the lane is recorded rather than assumed settled.
 **Serving baseline:** 5202 remains on the previously matched `cb11bf86c69b7dbe96063753660fda7b829620b4` built UI. Its ignored `apps/live-control-ui/dist` contains 9 files / 4.3 MB with aggregate SHA-256 `4fd6557cba12f0bcf58823d649ece073f7ebbfd767c5c192301fd7679dd5e43e`; preserve these bytes. Do not rebuild into or replace the serving output.
 
 ## Mission
