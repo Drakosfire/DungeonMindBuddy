@@ -1,6 +1,6 @@
 # CHROME — compact navbar spacing
 
-Status: ACTIVE. Operator authorized accumulated dogfood fixes during travel, 2026-10-18.
+Status: COMPLETE — merged PR1413 at42055e92fa12fa3ed44df15bb5674d1826158812 and delivered exact three CSS declarations to5202; old assets/index retained; no JavaScript/API restart or user-tab reload. Lease ended. Operator authorized accumulated dogfood fixes during travel, 2026-10-18.
 
 Owner: PRIME implementation/delivery; ARCHITECTURE independent review.
 Base: d50b0d9b8509c52930eb443aa568161f04a749b9.
