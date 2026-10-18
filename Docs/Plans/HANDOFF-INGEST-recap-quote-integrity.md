@@ -1,22 +1,32 @@
 # INGEST: enforce literal quote integrity for recap candidates
 
-Status: ACTIVE — PRIME authorized this bounded successor after ARCHITECTURE
-critique; implementation and independent exact-head review remain open.
+Status: DELIVERED — implementation lease closed after exact-head review,
+merge, and guarded runtime adoption. The next checkpoint is read-only
+Session 29 evidence diagnosis; it grants no implementation lease.
 
-Base: freshly fetched `origin/main@43eae219c3b44abd5e2abebd52176fcb0c3cf9de`
-(settlement of delivered PR #1395; includes its merge and the #1394 base).
-Branch: `codex/ingest-recap-quote-integrity`.
+Merged base: `origin/main@ee00a1a4ebbaa5eddba0240b358d4beebbef191c`.
+Implementation branch: `codex/ingest-recap-quote-integrity` (closed).
+Settlement branch: `codex/ingest-recap-quote-integrity-settlement`.
 Checkout: `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy`.
-Topology: serial, one quote-integrity implementation PR; ARCHITECTURE reviews
-the exact cumulative head; PRIME owns merge and runtime delivery. PR #1395
+Topology: serial, one quote-integrity implementation PR, now merged; no new
+implementation PR or runtime change is authorized by this settlement. PR #1396
+(`codex/ingest-recap-quote-integrity`) merged at
+`ee00a1a4ebbaa5eddba0240b358d4beebbef191c` from exact head
+`0e4ad4774c4d9ade4840f19d32cfcf021798546f`. ARCHITECTURE cycle 1 passed the
+exact head after 43 checks: 19 quote-integrity tests, 23 runner tests, and one
+injected-failure check. PRIME owns merge and runtime delivery; both are now
+complete for this slice. PR #1395
 (`codex/ingest-recap-quote-correction-ui`) is delivered and its lease is closed
 in this base; its settled handoff identifies this host quote-integrity
 helper/runner/test lane as parallel-independent. PR #1235 is a disjoint Graph
 Review UI slice. PR #1244 and #1394 are merged predecessors, with their settled
-handoffs already in this base. The active Session 29 gold context-link work
-owns separate evaluation files and is not a code dependency or publication
-authority for this slice. No concurrent path or runtime ownership is
-introduced.
+handoffs already in this base. The Session 29 gold context-link evaluation
+lane uses separate files and is not a code dependency or publication authority
+for this slice. No concurrent path or runtime ownership is introduced.
+
+The handoff-only settlement is being committed on the merged parent for
+PRIME's guarded fast-forward to main; it does not change the implementation
+head reviewed above.
 
 ## Invariant
 
@@ -59,13 +69,14 @@ Non-recap profiles and the separate trusted registry context projection remain
 unchanged; if handling a trusted context item requires a new authority path,
 stop and return for a lease amendment.
 
-Preserve source snapshots, private model/raw responses, previous run files, and
-their hashes. No prompt change, fuzzy or nearest-match rewrite, provider retry,
-new Process call, runtime restart, World publication, or operator acceptance
-is in scope. A technically reviewable candidate with deferred semantic claims
-is not full Session 29 acceptance.
+During implementation, source snapshots, private model/raw responses, and
+previous run files were preserved. This code slice made no prompt change, fuzzy
+or nearest-match rewrite, provider retry, new Process call, or World write. The
+post-merge runtime adoption was performed separately by PRIME and is recorded
+below. A technically reviewable candidate with deferred semantic claims is not
+full Session 29 acceptance.
 
-## Exclusive write lease
+## Implementation write lease (closed)
 
 - `Docs/Plans/HANDOFF-INGEST-recap-quote-integrity.md`: this authority and
   implementation evidence.
@@ -79,13 +90,14 @@ is not full Session 29 acceptance.
   persistence coverage only if the new focused test cannot exercise the
   required boundary.
 
-Any required path outside this set returns to PRIME before editing. The first
-commit pins only this contract; predecessor settlement is already recorded on
-main. Use existing project dependencies and the standard isolated APP database
-fixture on port 54329 when needed; no provider call, new source copy, scratch
-task directory, or `/tmp` artifact is authorized.
+The lease applied to the implementation period and is now closed. The current
+settlement branch changes this handoff only. The first implementation commit
+pinned the contract; predecessor settlement was already recorded on main. Use
+existing project dependencies and the standard isolated APP database fixture
+on port 54329 for any authorized verification; no provider call or World write
+was needed for this delivered slice.
 
-## Required verification
+## Acceptance contract and verification results
 
 - Unit matrix: literal and normalized-equivalent quotes; multiple quotes;
   mixed valid/invalid references; empty/malformed quotes; cross-artifact or
@@ -118,11 +130,19 @@ task directory, or `/tmp` artifact is authorized.
   not claim full gold coverage where the mapping cannot be established; record
   the exact gap. Remaining identity, location, action/modality, and relation
   errors stay separate acceptance gates.
-- Run the focused tests, scoped Ruff, Python compilation as appropriate, and
-  `git diff --check`; inspect the exact cumulative base-to-head diff. Commit,
-  push, and open the assigned PR. Independent ARCHITECTURE exact-head review is
-  required before merge. No runtime adoption or new ingestion Process in this
-  lane.
+- Implementation head `0e4ad4774c4d9ade4840f19d32cfcf021798546f` passed
+  ARCHITECTURE exact-head review cycle 1 with 43 checks: 19 focused
+  quote-integrity tests, 23 owning-runner tests, and one injected-failure
+  check. The owning runner log is
+  `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy/.pytest_cache/prime-quote-integrity-runner.log`.
+- Scoped Ruff, in-memory Python compilation of the changed Python files, and
+  `git diff --check` passed. The persistence test passed while PRIME's
+  disposable PostgreSQL fixture was active; a subsequent non-database rerun
+  passed 18 tests after the fixture was stopped. The code head did not change.
+- PR #1396 was committed, pushed, reviewed, and merged. PRIME completed the
+  guarded two-file runtime adoption; proof is recorded in the delivery section
+  below. No new ingestion Process or World publication was performed by this
+  implementation lane.
 
 ## Predecessor settlement
 
@@ -281,10 +301,10 @@ two-person plan relation or executed `scouts_with` relation. No gold proposition
 is counted as accepted by this replay.
 
 The retained-run replay is offline evidence for the host quote gate only. It is
-not source-semantic acceptance, publication acceptance, or authorization to run
-another Ingest Process. PRIME's current direction is to leave Ingest Process
-idle while this gate and the remaining review gates are completed; Build
-dogfooding may continue independently.
+not source-semantic acceptance or publication acceptance. After the exact-head
+review, merge, and runtime delivery below, PRIME lifted the engineering hold on
+regular operator Ingest dogfooding. This does not require or authorize an
+automatic rerun of Session 10 or 29.
 
 The retained inference ledger records 8 calls to
 `deepseek/deepseek-v4.1-flash-1017`, 72,952 input tokens, 28,903 output tokens,
@@ -306,16 +326,44 @@ candidate; its source quote was on the deferred location item. Therefore no
 candidate is counted as lost gold recall here. These are semantic coverage
 gaps for the next extraction/evaluation work, separate from quote provenance.
 
-PRIME reports PR #1395 merged at `661d96c2e82e09b8c0f6cd8a8eebb2d88a62ea7f`
-and its UI adopted on 5202 at serving index SHA
-`9f331e3f4912b6f480dd04ddc35738990a97719ef32e86ae1a96afe1c0c292e9`, retaining
-the prior assets without restarting the API or submitting a correction. In a
-new browser tab on retained parent run `feb54858-4f22-449f-a59b-82555618f47f`,
-the literal correction form and local preview are available for operator
-inspection; no live correction POST or child run has been created. PRIME's
-current direction is that the operator may inspect that prepared preview and,
-if they choose, explicitly save its literal quote corrections as a separate
-held child. That save would establish neither semantic acceptance nor
-publication. Do not run a generic new Ingest Process for Session 10 or 29 yet;
-it remains held until this host gate is reviewed and delivered and the
-remaining semantic acceptance gaps are resolved.
+## Post-merge review, runtime delivery, and operator boundary
+
+PR #1396 merged at `ee00a1a4ebbaa5eddba0240b358d4beebbef191c` from reviewed
+head `0e4ad4774c4d9ade4840f19d32cfcf021798546f`. The guarded two-file runtime
+adoption was applied without a provider call. The rollout proof is
+`/home/drakosfire/.local/state/dungeonmindbuddy/experiments/jev-evidence-loop-20261016/quote-integrity-rollout.json`.
+It records `applied: true`, unchanged retained source/media/conversation/Plan/
+run/artifact/attempt state, and unchanged Ingest UI serving SHA
+`9f331e3f4912b6f480dd04ddc35738990a97719ef32e86ae1a96afe1c0c292e9`. Runtime
+verification recorded API PID 411906, runner module SHA
+`50ecc77718bf747f8c9c47526aa1ea9c1af38967838950541f726052cd063e3e`, and
+quote-integrity helper SHA
+`e8cc9858c326f32326eb6369492651404f1f4e9932c5c2fb0957a35adfeaac0e`.
+
+The engineering hold on regular operator Ingest dogfooding is lifted. The
+operator may use Process for an actual chosen recap, including Session 10 if
+that is their choice, then inspect and review the candidate. This gate proves
+literal quote provenance only; semantic identity, location, action/modality,
+and relation acceptance remain pending, and no World publication is authorized
+by this handoff. No Session 10 or Session 29 run was automatically repeated.
+
+The saved Session 29 literal quote-correction preview remains available for
+inspection. The operator may explicitly save its corrections as a separate
+held child; that creates neither semantic acceptance nor publication.
+
+## Next checkpoint: read-only Session 29 conflation diagnosis
+
+PRIME authorized a bounded read-only investigation of two retained Session 29
+endpoint conflations: the `Stafl asks Lysandro` edge targets Captain Lysandra
+Ironveil's node, and supply edges labeled `Lysandro gives ...` use Captain
+Lysandra's node as `from_node_id`.
+Compare the frozen eight provider attempts, normalized actor response,
+`identity_context.json`, retained candidate, and current connected gold/context
+source. Identify the first stage where the names or endpoints conflate:
+actor-pass omission, host identity resolution, or an edge-pass endpoint error.
+Distinguish facts grounded directly in Session 29 from prior context. Preserve
+Lysandro/Lysandra as distinct identities and inspect the actual supply claims.
+Return the stage, evidence artifact hashes, and smallest proposed repair
+contract/lease plus tests for ARCHITECTURE critique. This checkpoint authorizes
+no edits, prompt changes, provider calls, new Process, or semantic fix. It does
+not suspend the regular operator dogfooding boundary above.
