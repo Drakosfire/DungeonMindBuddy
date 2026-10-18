@@ -6,6 +6,8 @@ import asyncio
 import copy
 import hashlib
 import json
+import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import NAMESPACE_URL, uuid5
@@ -490,6 +492,55 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
             replacement_description="Mira found the key under the bridge.",
         )],
     )
+
+
+def test_source_binding_rechecks_snapshot_after_child_lock_wait(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
+    request = _request(parent_bytes)
+    source_path = _component_path(tmp_path, parent, "source_artifact")
+    source_before = source_path.read_bytes()
+    original_lock = service._source_binding_child_lock
+    acquired: list[str] = []
+
+    @contextmanager
+    def change_source_after_lock(root: Path, child_id: str):
+        with original_lock(root, child_id):
+            acquired.append(child_id)
+            source_path.write_bytes(source_before + b"changed while waiting")
+            yield
+
+    monkeypatch.setattr(service, "_source_binding_child_lock", change_source_after_lock)
+    with pytest.raises(service.ExtractPromoteError, match="parent source snapshot preflight failed"):
+        service.correct_recap_candidate(request)
+
+    assert len(acquired) == 1
+    assert set(runs) == {parent.run_id}
+    package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
+    assert not (package_root / acquired[0]).exists()
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
+def test_source_binding_child_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fifo = tmp_path / "component.fifo"
+    os.mkfifo(fifo)
+    directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    original_open = os.open
+
+    def require_nonblocking(path, flags, *args, **kwargs):
+        if path == fifo.name:
+            assert flags & os.O_NONBLOCK
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(service.os, "open", require_nonblocking)
+    try:
+        with pytest.raises(service.ExtractPromoteError, match="not a regular file"):
+            service._read_child_file(directory_fd, fifo.name)
+    finally:
+        os.close(directory_fd)
 
 
 @pytest.mark.parametrize(

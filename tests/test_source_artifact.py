@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
@@ -309,3 +310,26 @@ def test_registered_source_byte_loader_rejects_symlinked_path_component(
 
     with pytest.raises(SourceArtifactRegistryError, match="failed safe read"):
         load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
+def test_exact_source_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import source_artifact_registry
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+    )
+
+    fifo = tmp_path / "component.fifo"
+    os.mkfifo(fifo)
+    original_open = os.open
+
+    def require_nonblocking(path, flags, *args, **kwargs):
+        if path == fifo.name:
+            assert flags & os.O_NONBLOCK
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(source_artifact_registry.os, "open", require_nonblocking)
+    with pytest.raises(SourceArtifactRegistryError, match="not a regular file"):
+        source_artifact_registry._read_exact_repo_uri_bytes(tmp_path, "repo://component.fifo")

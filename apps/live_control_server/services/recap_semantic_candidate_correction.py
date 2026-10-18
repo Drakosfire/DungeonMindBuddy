@@ -180,9 +180,13 @@ def _source_binding_child_lock(root: Path, child_id: str):
 
 
 def _read_child_file(directory_fd: int, name: str) -> bytes | None:
+    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
+    nonblocking_flag = getattr(os, "O_NONBLOCK", 0)
+    if not nofollow_flag or not nonblocking_flag:
+        raise _reject("safe source-binding file reads are unavailable", status_code=503)
     try:
         fd = os.open(
-            name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=directory_fd,
+            name, os.O_RDONLY | nofollow_flag | nonblocking_flag, dir_fd=directory_fd,
         )
     except FileNotFoundError:
         return None
@@ -2060,6 +2064,22 @@ def correct_recap_candidate(
     )
 
     with _source_binding_child_lock(root, child_id):
+        # The first preflight can be followed by a wait on another request for
+        # this deterministic child. Re-read under the lock so a source or span
+        # change during that wait cannot claim a DRAFT row/package from stale
+        # pre-lock bytes.
+        locked_snapshot = _preflight_source_snapshot(parent, resolved, root)
+        if (
+            locked_snapshot[0] != artifact
+            or locked_snapshot[1] != parent_bytes
+            or locked_snapshot[2] != source_bytes
+            or locked_snapshot[3] != span_bytes
+            or locked_snapshot[5] != world_scope
+        ):
+            raise _reject(
+                "recap source snapshot changed while waiting for the child lock",
+                status_code=409,
+            )
         legacy_exists, legacy_files = _source_binding_package_state(root, legacy_child_id)
         try:
             legacy_run = get_extraction_run(root, legacy_child_id)

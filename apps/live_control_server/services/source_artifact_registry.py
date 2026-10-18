@@ -747,7 +747,8 @@ def _read_exact_repo_uri_bytes(root: Path, uri: str) -> bytes:
     resolved_root = _artifact_root(root)
     directory_flag = getattr(os, "O_DIRECTORY", 0)
     nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
-    if not directory_flag or not nofollow_flag:
+    nonblocking_flag = getattr(os, "O_NONBLOCK", 0)
+    if not directory_flag or not nofollow_flag or not nonblocking_flag:
         raise SourceArtifactRegistryError(
             "safe no-follow source reads are unavailable", status_code=503,
         )
@@ -763,7 +764,8 @@ def _read_exact_repo_uri_bytes(root: Path, uri: str) -> bytes:
                 os.close(current_fd)
             current_fd = next_fd
         file_fd = os.open(
-            parts[-1], os.O_RDONLY | nofollow_flag, dir_fd=current_fd,
+            parts[-1], os.O_RDONLY | nofollow_flag | nonblocking_flag,
+            dir_fd=current_fd,
         )
         try:
             before = os.fstat(file_fd)

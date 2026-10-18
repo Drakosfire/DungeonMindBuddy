@@ -456,7 +456,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/dra
 
 ## Implementation verification recorded for the current branch head
 
-The scoped command above passed **272 tests** against the disposable PostgreSQL
+The scoped command above passed **275 tests** against the disposable PostgreSQL
 instance at 127.0.0.1:54329 (10 existing Pydantic `schema`-shadow warnings).
 The suite exercises V1–V10 operation mapping under the V11/V12 envelope, mixed
 legacy/V11 inherited-PC ancestry, exact retry, legacy-row collisions, raw-byte
@@ -467,8 +467,15 @@ correction chain. That path verifies fresh-connection reopen, independent-proces
 concurrency, and abrupt lock-owner death after a DRAFT claim. It also checks the
 parent candidate, frozen source snapshot, and span bytes remain unchanged.
 
-`ruff check --select F` passed for all eight modified Python files, AST parsing
-passed for those files, and `git diff --check` passed. These checks establish
+Review of the first PR head identified two additional races at the file boundary.
+The correction now repeats the immutable-source preflight after acquiring the
+per-child lock, and both no-follow component readers open final paths in
+nonblocking mode before rejecting non-regular files. Added regressions mutate
+the source during lock acquisition and verify FIFO paths fail promptly.
+
+`ruff check --select F` passed for all eight modified Python files, Python
+compilation and AST parsing passed for those files, and `git diff --check`
+passed. These checks establish
 the disposable implementation witness only; they do not constitute the required
 independent exact-head ARCHITECTURE review, PRIME merge, or runtime adoption.
 
