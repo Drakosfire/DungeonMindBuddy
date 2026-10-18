@@ -4,6 +4,7 @@
 
 import type {
   ExactRunReviewPackage,
+  RecapEvidenceCorrectionResponse,
   ExactRunEvidenceCorrectionResponse,
   ExactRunEvidenceQuoteCorrection,
   ExtractPromoteConfirmReceipt,
@@ -17,6 +18,8 @@ import type {
   FirstWorldGraphPlan,
   FirstWorldGraphPrepareRequest,
 } from "./types";
+
+import { authenticatedApiFetch } from "./liveApi";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
@@ -101,6 +104,35 @@ export async function correctExactRunEvidence(input: {
       body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }),
     },
   );
+}
+
+/** Only this recap mutation uses the authenticated GM transport. */
+export async function correctRecapRunEvidence(input: {
+  parentRunId: string;
+  parentCandidateSha256: string;
+  corrections: ExactRunEvidenceQuoteCorrection[];
+}): Promise<RecapEvidenceCorrectionResponse> {
+  const { response } = await authenticatedApiFetch(
+    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections`,
+    { method: "POST", body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }) },
+  );
+  if (!response.ok) {
+    let body: ExtractPromoteErrorBody | null = null;
+    try { body = await parseJsonBody<ExtractPromoteErrorBody>(response); } catch { /* HTTP remains authoritative. */ }
+    throw new ExtractPromoteApiError(body?.message || `Quote correction failed (HTTP ${response.status}).`,
+      response.status, body?.code ?? null, body);
+  }
+  const result = await parseJsonBody<RecapEvidenceCorrectionResponse>(response);
+  const digest = (value: unknown) => typeof value === "string" && /^(?:sha256:)?[a-f0-9]{64}$/.test(value);
+  if (result?.schema !== "dmb_recap_evidence_correction_response_v1"
+    || result.status !== "reviewable" || typeof result.runId !== "string" || !result.runId.trim()
+    || result.runId === input.parentRunId || result.parentRunId !== input.parentRunId
+    || result.parentCandidateSha256 !== input.parentCandidateSha256
+    || !digest(result.candidateSha256) || !digest(result.correctionDigest)
+    || !digest(result.semanticBasisSha256) || !["held", "accepted", "rejected"].includes(result.semanticState)) {
+    throw new ExtractPromoteApiError("The correction receipt could not be verified. Recover the saved request deliberately.", 0);
+  }
+  return result;
 }
 
 export async function prepareExtractPromote(

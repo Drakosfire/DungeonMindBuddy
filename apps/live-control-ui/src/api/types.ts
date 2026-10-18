@@ -4672,6 +4672,12 @@ export interface ExactRunEvidenceCorrectionResponse {
   status: "reviewable";
 }
 
+export interface RecapEvidenceCorrectionResponse extends Omit<ExactRunEvidenceCorrectionResponse, "schema"> {
+  schema: "dmb_recap_evidence_correction_response_v1";
+  semanticState: "held" | "accepted" | "rejected";
+  semanticBasisSha256: string;
+}
+
 export type FirstWorldDecision = "create_new" | "reject" | "accept";
 
 export interface FirstWorldDisposition {

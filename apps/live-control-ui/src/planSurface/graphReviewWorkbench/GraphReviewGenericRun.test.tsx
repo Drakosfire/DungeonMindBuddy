@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
@@ -9,7 +9,7 @@ import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractio
 import type { PlanContextDescriptor } from "../types";
 import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
-import type { ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
+import type { ExactRunReviewPackage, RecapEvidenceCorrectionResponse, ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
 import {
   INGEST_RUN_CATALOG_DESCRIPTOR,
   mapIngestRunCatalogObservation,
@@ -699,4 +699,172 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
     expect(window.location.search).toContain("extractionRunId=extraction-run-wb-1");
   });
+});
+
+
+const sha = (letter: string) => letter.repeat(64);
+function recapFixture() {
+  const parent: ExtractionRunRecord = {
+    ...exactRun, run_id: "recap-parent", source_domain: "recap", session_id: "session-29",
+    source_artifact_id: "artifact:recap:session-29", profile_id: "recap_category_v1@1.0",
+    components: Object.fromEntries(["candidate_graph", "source_artifact", "source_span_index"].map((kind, index) => [kind, {
+      kind, uri: `frozen/${kind}`, exists: true, sha256: sha(["a", "b", "c"][index]),
+    }])),
+  };
+  const review: ExactRunReviewPackage = {
+    ...reviewPackage, runId: parent.run_id, sourceDomain: "recap", sourceArtifactId: parent.source_artifact_id,
+    sessionId: parent.session_id, sourceRevisionId: sha("b"), inspectionStatus: "invalid_evidence", invalidEvidenceCount: 1,
+    assertions: [{ assertionId: "tunnel", kind: "object", label: "Tunnel", summary: "Tunnel under field", evidence: [{
+      sourceArtifactId: parent.source_artifact_id, sourceSpanRefId: "span:39", paragraphText: "like the one they discovered in the tunnel under the field",
+      anchorQuotes: ["the like of which they discovered in the tunnel under the field"],
+      invalidAnchorQuotes: ["the like of which they discovered in the tunnel under the field"],
+    }] }],
+  };
+  const receipt: RecapEvidenceCorrectionResponse = {
+    schema: "dmb_recap_evidence_correction_response_v1", runId: "recap-child", parentRunId: parent.run_id,
+    parentCandidateSha256: sha("a"), candidateSha256: sha("d"), correctionDigest: sha("e"), status: "reviewable",
+    semanticState: "held", semanticBasisSha256: sha("f"),
+  };
+  const child: ExtractionRunRecord = {
+    ...parent, run_id: receipt.runId, components: { ...parent.components, candidate_graph: { ...parent.components!.candidate_graph, sha256: sha("d") } },
+    lineage: { derivation: "operator_recap_literal_evidence_correction_v1", parent_run_id: parent.run_id,
+      parent_candidate_sha256: sha("a"), correction_digest: sha("e"), semantic_disposition: { version: 1, state: "held", basis_sha256: sha("f") } },
+  };
+  const childReview: ExactRunReviewPackage = { ...review, runId: child.run_id, derivedFromRunId: parent.run_id, inspectionStatus: "ready", assertions: [] };
+  return { parent, review, receipt, child, childReview };
+}
+function pendingValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+function setupRecap() {
+  const f = recapFixture(); mockCatalogApis();
+  window.history.replaceState({}, "", "/ingest?world=managed-world-a&extractionRunId=recap-parent");
+  const runs = vi.spyOn(liveApi, "getExtractionRun").mockImplementation(async id => id === f.child.run_id ? f.child : f.parent);
+  vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({ ...buildContext, run: f.parent });
+  const reviews = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockImplementation(async id => id === f.child.run_id ? f.childReview : f.review);
+  const save = vi.spyOn(extractPromoteApi, "correctRecapRunEvidence").mockResolvedValue(f.receipt);
+  const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
+  return { ...f, runs, reviews, save, prepare };
+}
+function recapWorkbench(search = "?world=managed-world-a&extractionRunId=recap-parent", changed = vi.fn()) {
+  return <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a"><AgentInteractionProvider>
+    <GraphReviewWorkbenchModule context={context} catalogChannel={readyCatalogChannel()} onCatalogRefresh={() => undefined}
+      sourceReviewOnly sourceReviewRunId="recap-parent" locationSearch={search} onLocationSearchChange={changed} />
+  </AgentInteractionProvider></SelectedWorldProvider>;
+}
+async function previewRecap(user: ReturnType<typeof userEvent.setup>, replacement = "LIKE THE ONE they discovered") {
+  const field = await screen.findByRole("textbox", { name: /Literal replacement for Tunnel/ });
+  await user.type(field, replacement);
+  await user.click(screen.getByRole("button", { name: "Preview quote corrections" }));
+  return field;
+}
+
+describe("recap quote correction owning UI", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks(); window.sessionStorage.clear();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ schema_version: "dmb_world_container_registry_v1", records: managedWorlds }));
+  });
+  afterEach(() => { window.sessionStorage.clear(); window.history.replaceState({}, "", "/"); });
+
+  it.each(["held", "accepted", "rejected"] as const)("previews locally, saves once and keeps %s child source-only", async state => {
+    const user = userEvent.setup(); const f = setupRecap(); f.receipt.semanticState = state;
+    (f.child.lineage!.semantic_disposition as Record<string, unknown>).state = state;
+    const changed = vi.fn(); const view = render(recapWorkbench(undefined, changed));
+    const field = await screen.findByRole("textbox", { name: /Literal replacement for Tunnel/ });
+    expect(screen.getByRole("button", { name: "Preview quote corrections" })).toBeDisabled();
+    await user.type(field, f.review.assertions[0].evidence[0].anchorQuotes[0]);
+    expect(screen.getByRole("button", { name: "Preview quote corrections" })).toBeDisabled();
+    await user.clear(field); await user.type(field, "LIKE THE ONE they discovered");
+    expect(f.save).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Preview quote corrections" }));
+    expect(screen.getByRole("region", { name: "Preview quote corrections" })).toHaveTextContent("LIKE THE ONE");
+    expect(f.save).not.toHaveBeenCalled();
+    const post = pendingValue<RecapEvidenceCorrectionResponse>(); f.save.mockReturnValue(post.promise);
+    const button = screen.getByRole("button", { name: "Save quote corrections" });
+    fireEvent.submit(button.closest("form")!); fireEvent.submit(button.closest("form")!);
+    expect(f.save).toHaveBeenCalledTimes(1);
+    expect(f.save.mock.calls[0][0]).toMatchObject({ parentRunId: "recap-parent", parentCandidateSha256: sha("a"), corrections: [{
+      assertionId: "tunnel", evidenceIndex: 0, quoteIndex: 0, sourceSpanRefId: "span:39", replacementQuote: "LIKE THE ONE they discovered",
+    }] });
+    await act(async () => { post.resolve(f.receipt); });
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(expect.stringContaining("extractionRunId=recap-child")));
+    view.rerender(recapWorkbench("?world=managed-world-a&extractionRunId=recap-child", changed));
+    expect(await screen.findByText(new RegExp(`Semantic review state: ${state}`))).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(f.prepare).not.toHaveBeenCalled(); expect(window.sessionStorage.length).toBe(0);
+    view.unmount(); render(recapWorkbench("?world=managed-world-a&extractionRunId=recap-child"));
+    expect(await screen.findByText(new RegExp(`Semantic review state: ${state}`))).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+  });
+
+  it("recovers frozen bytes after lost response and reload without using a newer draft", async () => {
+    const user = userEvent.setup(); const f = setupRecap(); f.save.mockRejectedValueOnce(new TypeError("lost response"));
+    const view = render(recapWorkbench()); await previewRecap(user);
+    await user.click(screen.getByRole("button", { name: "Save quote corrections" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("lost response");
+    const frozen = structuredClone(f.save.mock.calls[0][0]);
+    expect(screen.getByRole("textbox", { name: /Literal replacement/ })).toBeDisabled();
+    expect(f.save).toHaveBeenCalledTimes(1);
+    view.unmount(); render(recapWorkbench());
+    await user.click(await screen.findByRole("button", { name: "Retry saved quote corrections" }));
+    await waitFor(() => expect(f.save).toHaveBeenCalledTimes(2));
+    expect(f.save.mock.calls[1][0]).toEqual(frozen);
+    await waitFor(() => expect(window.location.search).toContain("extractionRunId=recap-child"));
+  });
+
+  it.each(["parent", "candidate", "source", "span", "package", "missing-candidate", "GET403", "GET404"])("retains recovery and refuses a child with %s mismatch", async fault => {
+    const user = userEvent.setup(); const f = setupRecap();
+    if (fault === "parent") f.child.lineage!.parent_run_id = "another-parent";
+    if (fault === "candidate") f.child.components!.candidate_graph.sha256 = sha("9");
+    if (fault === "source") f.child.components = { ...f.child.components, source_artifact: { ...f.child.components!.source_artifact, uri: "wrong" } };
+    if (fault === "span") f.child.components = { ...f.child.components, source_span_index: { ...f.child.components!.source_span_index, sha256: sha("9") } };
+    if (fault === "package") f.childReview.runId = "wrong";
+    if (fault === "missing-candidate") f.child.components!.candidate_graph.exists = false;
+    if (fault.startsWith("GET")) f.runs.mockImplementation(async id => { if (id === "recap-child") throw new Error(fault); return f.parent; });
+    const changed = vi.fn(); render(recapWorkbench(undefined, changed)); await previewRecap(user);
+    await user.click(screen.getByRole("button", { name: "Save quote corrections" }));
+    await screen.findByRole("alert");
+    expect(changed).not.toHaveBeenCalled(); expect(window.location.search).toContain("recap-parent");
+    expect(screen.getByRole("button", { name: "Retry saved quote corrections" })).toBeEnabled();
+    expect(f.prepare).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Retry saved quote corrections" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry saved quote corrections" })).toBeEnabled());
+    expect(f.save).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["POST", "child GET"])("fences stale %s completion across A → B → A", async stage => {
+    const user = userEvent.setup(); const f = setupRecap(); const changed = vi.fn();
+    const post = pendingValue<RecapEvidenceCorrectionResponse>(); const childRead = pendingValue<ExtractionRunRecord>();
+    if (stage === "POST") f.save.mockReturnValue(post.promise);
+    else f.runs.mockImplementation(async id => id === "recap-child" ? childRead.promise : f.parent);
+    const view = render(recapWorkbench(undefined, changed)); await previewRecap(user);
+    await user.click(screen.getByRole("button", { name: "Save quote corrections" }));
+    if (stage === "child GET") await waitFor(() => expect(f.runs).toHaveBeenCalledWith("recap-child"));
+    view.rerender(recapWorkbench("?extractionRunId=other-run", changed)); await act(async () => {});
+    view.rerender(recapWorkbench(undefined, changed));
+    await act(async () => { if (stage === "POST") post.resolve(f.receipt); else childRead.resolve(f.child); });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry saved quote corrections" })).toBeEnabled());
+    expect(changed).not.toHaveBeenCalled(); expect(f.save).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toContain("recap-parent");
+  });
+});
+
+
+it("preserves the existing worldbuilding correction action", async () => {
+  vi.restoreAllMocks(); mockCatalogApis();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ records: managedWorlds }));
+  const f = recapFixture();
+  const run = { ...f.parent, run_id: "worldbuilding-parent", source_domain: "worldbuilding", profile_id: "worldbuilding_shepherds_flock_v0@0.1" };
+  const review = { ...f.review, runId: run.run_id, sourceDomain: "worldbuilding" };
+  window.history.replaceState({}, "", "/ingest?extractionRunId=worldbuilding-parent");
+  vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+  vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue(review);
+  const correction = vi.spyOn(extractPromoteApi, "correctExactRunEvidence").mockImplementation(() => new Promise(() => {}));
+  const recap = vi.spyOn(extractPromoteApi, "correctRecapRunEvidence");
+  renderModule(); const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: /Literal replacement/ }), "literal words");
+  await user.click(screen.getByRole("button", { name: "Create reviewed child candidate" }));
+  expect(correction).toHaveBeenCalledTimes(1); expect(recap).not.toHaveBeenCalled();
 });

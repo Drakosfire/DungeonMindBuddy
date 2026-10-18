@@ -286,7 +286,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
               <dt>Selected target World</dt><dd>{managedWorldId}</dd>
             </dl>
             <p className="ingest-source-review-notice">
-              Reviewing this source does not import it or associate it with the selected World.
+              Source text is read-only. Quote corrections create a separate candidate; reviewing or correcting it does not import it or associate it with the selected World.
             </p>
           </section>
         ) : null}

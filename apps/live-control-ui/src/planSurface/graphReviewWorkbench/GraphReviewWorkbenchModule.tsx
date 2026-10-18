@@ -23,9 +23,10 @@ import {
   ExtractPromoteApiError,
   getExactRunReviewPackage,
   correctExactRunEvidence,
+  correctRecapRunEvidence,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
-import type { ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
+import type { RecapEvidenceCorrectionResponse, ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
@@ -146,6 +147,56 @@ function resolveSelectionAgainstCatalog(
     sessionId: selection.sessionId,
     runId: null,
   };
+}
+
+type RecapQuoteRequest = { parentRunId: string; parentCandidateSha256: string; corrections: ExactRunEvidenceQuoteCorrection[] };
+type RecapQuoteRecovery = {
+  version: 1; key: string; id: string; request: RecapQuoteRequest;
+  receipt?: RecapEvidenceCorrectionResponse;
+};
+const quoteDigest = (value: unknown): string | null => typeof value === "string"
+  && /^(?:sha256:)?[a-f0-9]{64}$/.test(value) ? value.replace(/^sha256:/, "") : null;
+function recapQuoteScope(run: ExtractionRunRecord | null, review: ExactRunReviewPackage | null, world: string | null): string | null {
+  if (!run || !review || !world || run.status !== "reviewable" || run.source_domain !== "recap"
+    || run.profile_id !== "recap_category_v1@1.0" || review.schema !== "dmb_extract_promote_exact_run_review_v1"
+    || review.runId !== run.run_id || review.sourceDomain !== "recap" || review.sourceArtifactId !== run.source_artifact_id
+    || review.campaignId !== run.campaign_id || review.sessionId !== run.session_id
+    || review.inspectionStatus !== "invalid_evidence") return null;
+  const hashes = ["candidate_graph", "source_artifact", "source_span_index"].map((key) => {
+    const ref = run.components?.[key];
+    return ref?.exists === true ? quoteDigest(ref.sha256) : null;
+  });
+  if (hashes.some((value) => !value) || quoteDigest(review.sourceRevisionId) !== hashes[1]) return null;
+  return JSON.stringify([world, run.run_id, run.source_artifact_id, run.profile_id, run.campaign_id, run.session_id, ...hashes]);
+}
+function verifyRecapQuoteChild(parent: ExtractionRunRecord, parentReview: ExactRunReviewPackage,
+  receipt: RecapEvidenceCorrectionResponse, child: ExtractionRunRecord, review: ExactRunReviewPackage): string {
+  const disposition = child.lineage?.semantic_disposition as Record<string, unknown> | undefined;
+  if (child.run_id !== receipt.runId || child.status !== "reviewable" || child.source_domain !== "recap"
+    || child.profile_id !== parent.profile_id || child.source_artifact_id !== parent.source_artifact_id
+    || child.campaign_id !== parent.campaign_id || child.session_id !== parent.session_id
+    || child.lineage?.derivation !== "operator_recap_literal_evidence_correction_v1"
+    || child.lineage?.parent_run_id !== parent.run_id
+    || quoteDigest(child.lineage?.parent_candidate_sha256) !== quoteDigest(receipt.parentCandidateSha256)
+    || child.components?.candidate_graph?.exists !== true
+    || quoteDigest(child.lineage?.correction_digest) !== quoteDigest(receipt.correctionDigest)
+    || quoteDigest(child.components?.candidate_graph?.sha256) !== quoteDigest(receipt.candidateSha256)
+    || !disposition || !["held", "accepted", "rejected"].includes(String(disposition.state))
+    || quoteDigest(disposition.basis_sha256) !== quoteDigest(receipt.semanticBasisSha256)
+    || review.schema !== "dmb_extract_promote_exact_run_review_v1" || review.runId !== child.run_id
+    || review.derivedFromRunId !== parent.run_id || review.sourceDomain !== "recap"
+    || review.sourceArtifactId !== parent.source_artifact_id || review.sourceRevisionId !== parentReview.sourceRevisionId
+    || review.campaignId !== parent.campaign_id || review.sessionId !== parent.session_id) {
+    throw new Error("The exact corrected candidate could not be verified. The saved request remains available.");
+  }
+  for (const key of ["source_artifact", "source_span_index"]) {
+    if (child.components?.[key]?.exists !== true
+      || child.components[key].uri !== parent.components?.[key]?.uri
+      || quoteDigest(child.components[key].sha256) !== quoteDigest(parent.components?.[key]?.sha256)) {
+      throw new Error("The corrected candidate's frozen source does not match its parent.");
+    }
+  }
+  return String(disposition.state);
 }
 
 export function GraphReviewWorkbenchModule({
@@ -280,10 +331,7 @@ export function GraphReviewWorkbenchModule({
     && exactRun
     && exactRun.run_id === exactHandoff.extractionRunId,
   );
-  const parentSourceReviewOnly = sourceReviewOnly && (
-    sourceReviewRunId === null
-    || sourceReviewRunId === exactHandoff?.extractionRunId
-  );
+  const parentSourceReviewOnly = sourceReviewOnly;
   const awaitingCurrentExactRun = Boolean(
     exactHandoff?.extractionRunId
     && (!exactRunMatchesHandoff || exactRunStatus !== "ready"),
@@ -295,6 +343,11 @@ export function GraphReviewWorkbenchModule({
     context.campaignId,
     effectiveSourceReviewOnly,
     managedWorldId,
+    sourceReviewRunId,
+    exactRun?.components?.candidate_graph?.sha256,
+    exactRun?.components?.source_artifact?.sha256,
+    exactRun?.components?.source_span_index?.sha256,
+    exactReview?.sourceRevisionId,
   ]);
   const operationScopeRef = useRef({ key: operationScopeKey, generation: 0 });
   if (operationScopeRef.current.key !== operationScopeKey) {
@@ -303,6 +356,25 @@ export function GraphReviewWorkbenchModule({
       generation: operationScopeRef.current.generation + 1,
     };
   }
+  const recapQuoteKey = exactRunMatchesHandoff && exactRunStatus === "ready"
+    ? recapQuoteScope(exactRun, exactReview, managedWorldId) : null;
+  const recapStorageKey = recapQuoteKey ? "dmb:recap-quote-correction:v1:" + recapQuoteKey : null;
+  const recapFlight = useRef<{ key: string; token: symbol } | null>(null);
+  const [, refreshRecapRecovery] = useState(0);
+  let recapRecovery: RecapQuoteRecovery | null = null;
+  let recapRecoveryAvailable = false;
+  if (recapStorageKey) {
+    try {
+      const raw = window.sessionStorage.getItem(recapStorageKey);
+      recapRecoveryAvailable = raw !== null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as RecapQuoteRecovery;
+        if (parsed.version === 1 && parsed.key === recapQuoteKey && typeof parsed.id === "string"
+          && Array.isArray(parsed.request?.corrections)) recapRecovery = parsed;
+      }
+    } catch { /* Submit fails closed if durable recovery storage is unavailable. */ }
+  }
+  const recapCorrectionPending = Boolean(recapQuoteKey && recapFlight.current?.key === recapQuoteKey);
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -759,9 +831,99 @@ export function GraphReviewWorkbenchModule({
         }
       : null;
 
+  const runRecapQuoteCorrection = useCallback(async (corrections: ExactRunEvidenceQuoteCorrection[], retry = false) => {
+    const key = recapQuoteScope(exactRun, exactReview, managedWorldId);
+    if (!key || !exactRun || !exactReview || !exactRunMatchesHandoff
+      || exactRunStatus !== "ready" || recapFlight.current?.key === key) return;
+    const storageKey = "dmb:recap-quote-correction:v1:" + key;
+    const generation = operationScopeRef.current.generation;
+    const token = Symbol("recap-quote-correction");
+    const isCurrent = () => operationScopeRef.current.generation === generation
+      && recapFlight.current?.token === token;
+    let capsule: RecapQuoteRecovery;
+    try {
+      const saved = window.sessionStorage.getItem(storageKey);
+      if (retry) {
+        if (!saved) throw new Error("No saved correction request is available.");
+        capsule = JSON.parse(saved) as RecapQuoteRecovery;
+        if (capsule.version !== 1 || capsule.key !== key || typeof capsule.id !== "string") throw new Error("The saved correction request is invalid. Abandon it explicitly before starting again.");
+      } else {
+        if (saved) throw new Error("Verify or abandon the saved request before submitting different changes.");
+        capsule = { version: 1, key, id: crypto.randomUUID(), request: {
+          parentRunId: exactRun.run_id,
+          parentCandidateSha256: quoteDigest(exactRun.components?.candidate_graph?.sha256)!,
+          corrections: JSON.parse(JSON.stringify(corrections)) as ExactRunEvidenceQuoteCorrection[],
+        } };
+      }
+      if (capsule.request.parentRunId !== exactRun.run_id
+        || capsule.request.parentCandidateSha256 !== quoteDigest(exactRun.components?.candidate_graph?.sha256)
+        || !Array.isArray(capsule.request.corrections) || capsule.request.corrections.length === 0) throw new Error("Saved quote changes do not match this exact candidate.");
+      const targets = new Set<string>();
+      for (const change of capsule.request.corrections) {
+        if (!change || typeof change.originalQuote !== "string") throw new Error("The saved quote request is invalid.");
+        const assertion = exactReview.assertions.find((item) => item.assertionId === change.assertionId);
+        const evidence = assertion?.evidence[change.evidenceIndex];
+        const target = JSON.stringify([change.assertionId, change.evidenceIndex, change.quoteIndex]);
+        if (!Number.isInteger(change.evidenceIndex) || !Number.isInteger(change.quoteIndex)
+          || change.evidenceIndex < 0 || change.quoteIndex < 0 || targets.has(target)
+          || evidence?.sourceArtifactId !== exactRun.source_artifact_id
+          || evidence?.sourceSpanRefId !== change.sourceSpanRefId
+          || evidence?.anchorQuotes[change.quoteIndex] !== change.originalQuote
+          || !evidence?.invalidAnchorQuotes?.includes(change.originalQuote)
+          || typeof change.replacementQuote !== "string" || !change.replacementQuote.trim()
+          || change.replacementQuote.trim() === change.originalQuote.trim()) throw new Error("Saved quote changes no longer match the frozen evidence.");
+        targets.add(target);
+      }
+      const invalidCount = exactReview.assertions.reduce((count, assertion) => count
+        + assertion.evidence.reduce((total, evidence) => total + evidence.anchorQuotes.filter((quote) => evidence.invalidAnchorQuotes?.includes(quote)).length, 0), 0);
+      if (targets.size !== invalidCount) throw new Error("Every invalid quote needs an explicit replacement.");
+      // Persist before POST. If this fails, do not create an unrecoverable child.
+      window.sessionStorage.setItem(storageKey, JSON.stringify(capsule));
+    } catch (error) {
+      setExactCorrectionError(error instanceof Error ? error.message : "Could not preserve this correction request.");
+      return;
+    }
+    recapFlight.current = { key, token };
+    refreshRecapRecovery((value) => value + 1);
+    setExactCorrectionError(null);
+    try {
+      const receipt = capsule.receipt ?? await correctRecapRunEvidence(capsule.request);
+      // A retained receipt is untrusted until the same adapter identity checks
+      // and exact child/source checks below have succeeded.
+      if (receipt.schema !== "dmb_recap_evidence_correction_response_v1" || receipt.status !== "reviewable"
+        || receipt.parentRunId !== capsule.request.parentRunId
+        || receipt.parentCandidateSha256 !== capsule.request.parentCandidateSha256
+        || typeof receipt.runId !== "string" || !receipt.runId.trim() || receipt.runId === exactRun.run_id
+        || !["held", "accepted", "rejected"].includes(receipt.semanticState)
+        || !quoteDigest(receipt.candidateSha256) || !quoteDigest(receipt.correctionDigest)
+        || !quoteDigest(receipt.semanticBasisSha256)) throw new Error("The saved correction receipt does not match this request.");
+      const currentSaved = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as RecapQuoteRecovery | null;
+      if (currentSaved?.id === capsule.id) window.sessionStorage.setItem(storageKey, JSON.stringify({ ...capsule, receipt }));
+      if (!isCurrent()) return;
+      const [child, childReview] = await Promise.all([getExtractionRun(receipt.runId), getExactRunReviewPackage(receipt.runId)]);
+      if (!isCurrent()) return;
+      verifyRecapQuoteChild(exactRun, exactReview, receipt, child, childReview);
+      window.sessionStorage.removeItem(storageKey);
+      const url = new URL(window.location.href);
+      url.searchParams.set("extractionRunId", child.run_id);
+      window.history.replaceState(window.history.state, "", url);
+      setExactPrepared(null);
+      setInternalExactHandoff((current) => current ? { ...current, extractionRunId: child.run_id } : current);
+      onLocationSearchChange?.(url.search);
+    } catch (error) {
+      if (isCurrent()) setExactCorrectionError(error instanceof Error ? error.message : "The correction outcome could not be verified. Retry the saved request deliberately.");
+    } finally {
+      if (recapFlight.current?.token === token) {
+        recapFlight.current = null;
+        refreshRecapRecovery((value) => value + 1);
+      }
+    }
+  }, [exactRun, exactReview, exactRunMatchesHandoff, exactRunStatus, managedWorldId, onLocationSearchChange]);
+
   const onCorrectExactEvidence = useCallback(async (
     corrections: ExactRunEvidenceQuoteCorrection[],
   ) => {
+    if (exactRun?.source_domain === "recap") { await runRecapQuoteCorrection(corrections); return; }
     if (effectiveSourceReviewOnly) return;
     const parentRunId = exactRun?.run_id;
     const parentCandidateSha256 = exactRun?.components?.candidate_graph?.sha256;
@@ -798,7 +960,7 @@ export function GraphReviewWorkbenchModule({
         setExactCorrecting(false);
       }
     }
-  }, [exactRun, exactReview, effectiveSourceReviewOnly, onLocationSearchChange]);
+  }, [exactRun, exactReview, effectiveSourceReviewOnly, onLocationSearchChange, runRecapQuoteCorrection]);
 
   const onPrepareExactRun = useCallback(async () => {
     if (effectiveSourceReviewOnly) return;
@@ -857,6 +1019,7 @@ export function GraphReviewWorkbenchModule({
     setExactPrepareError(null);
     setExactPreparing(false);
     setExactCorrecting(false);
+    setExactCorrectionError(null);
   }, [operationScopeKey]);
 
   const hasExactRunLoad = Boolean(
@@ -994,7 +1157,16 @@ export function GraphReviewWorkbenchModule({
               exactPrepareError={exactPrepareError}
               selectedWorldGuidance={targetGuidance}
               exactPrepared={effectiveSourceReviewOnly ? null : exactPrepared}
-              exactCorrecting={exactCorrecting}
+              exactCorrecting={exactCorrecting || recapCorrectionPending}
+              recapCorrection={Boolean(recapQuoteKey)}
+              recapRecoveryAvailable={recapRecoveryAvailable}
+              recapRecoveryChanges={recapRecovery?.request.corrections}
+              onRetryCorrection={() => { void runRecapQuoteCorrection([], true); }}
+              onAbandonCorrection={() => {
+                if (!recapStorageKey || recapCorrectionPending) return;
+                try { window.sessionStorage.removeItem(recapStorageKey); setExactCorrectionError(null); refreshRecapRecovery((value) => value + 1); }
+                catch { setExactCorrectionError("The saved request could not be cleared."); }
+              }}
               exactCorrectionError={exactCorrectionError}
               onCorrectEvidence={(corrections) => { void onCorrectExactEvidence(corrections); }}
               onPrepare={() => {
@@ -1029,6 +1201,11 @@ function GraphReviewExactRunBranch(props: {
   selectedWorldGuidance: string | null;
   exactPrepared: ExtractPromotePrepareResponse | null;
   exactCorrecting: boolean;
+  recapCorrection: boolean;
+  recapRecoveryAvailable: boolean;
+  recapRecoveryChanges?: ExactRunEvidenceQuoteCorrection[];
+  onRetryCorrection: () => void;
+  onAbandonCorrection: () => void;
   exactCorrectionError: string | null;
   onCorrectEvidence: (corrections: ExactRunEvidenceQuoteCorrection[]) => void;
   onPrepare: () => void;
@@ -1077,14 +1254,24 @@ function GraphReviewExactRunBranch(props: {
           {props.historicalRecapProjectionError}
         </p>
       ) : null}
+      {props.exactRun.source_domain === "recap" && props.exactRun.lineage?.derivation === "operator_recap_literal_evidence_correction_v1" ? (
+        <p role="status">Quotes saved in a separate candidate. Semantic review state: {String((props.exactRun.lineage.semantic_disposition as Record<string, unknown> | undefined)?.state ?? "unverified")}. World acceptance remains separate.</p>
+      ) : null}
       {props.exactReview ? (
         <GraphReviewExactRunProjection
+          key={JSON.stringify([props.exactRun.run_id, props.exactRun.components])}
           review={props.exactReview}
-          correctionEnabled={props.exactRun.source_domain === "worldbuilding"
+          recapCorrection={props.recapCorrection}
+          recoveryPending={props.recapRecoveryAvailable}
+          correctionRecoveryAvailable={props.recapRecoveryAvailable}
+          recoveryChanges={props.recapRecoveryChanges}
+          onRetryCorrection={props.onRetryCorrection}
+          onAbandonCorrection={props.onAbandonCorrection}
+          correctionEnabled={props.recapCorrection || (props.exactRun.source_domain === "worldbuilding"
             && !props.sourceReviewOnly
             && props.exactRun.profile_id === "worldbuilding_shepherds_flock_v0@0.1"
             && Boolean(props.exactRun.components?.candidate_graph?.sha256)
-            && props.exactReview.inspectionStatus === "invalid_evidence"}
+            && props.exactReview.inspectionStatus === "invalid_evidence")}
           correctionPending={props.exactCorrecting}
           correctionError={props.exactCorrectionError}
           onCorrectEvidence={props.onCorrectEvidence}
