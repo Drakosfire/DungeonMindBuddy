@@ -1,12 +1,12 @@
 # INGEST: preserve World scope in semantic correction children
 
-Status: BLOCKED — design and critique are pinned, but implementation dispatch
-was rejected by automatic approval review for missing destination authorization.
-No implementation write lease is active until the user authorizes coordination
-and PRIME dispatches this contract. The underlying defect is reproduced.
+Status: ACTIVE — after the operator clarified PRIME merge authority and
+ARCHITECTURE review responsibility, the bounded implementation dispatch to
+DOGFOOD succeeded. PRIME activates this exact three-path lease; the prior
+messaging hold is resolved. The underlying defect is reproduced.
 Base: origin/main@1b6258e304e96cd87b485785422310e0b4801120.
 Branch: codex/ingest-semantic-world-scope.
-Intended owner: DOGFOOD; reuse996b checkout and established dependencies. No new worktree.
+Owner: DOGFOOD; reuse996b checkout and established dependencies. No new worktree.
 Topology: parallel-independent of ROOT UI evidence PR1397; no overlapping paths,
 no unmerged dependency. One implementation PR for this capability only.
 
