@@ -6,7 +6,7 @@ import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes"
 
 const AUTOSAVE_DELAY_MS = 800;
 
-function saveStateFor(session: MarkdownCanvasSessionValue): DurableSaveState {
+export function buildSaveStateFor(session: MarkdownCanvasSessionValue): DurableSaveState {
   if (session.phase === "load_error" || session.phase === "conflict" || session.phase === "save_error" || session.error) {
     return "needs-attention";
   }
@@ -56,7 +56,7 @@ function hasVerifiedBuildBasis(session: MarkdownCanvasSessionValue): boolean {
 export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSaveState {
   const latestSession = useRef(session);
   latestSession.current = session;
-  const [state, setState] = useState<DurableSaveState>(() => saveStateFor(session));
+  const [state, setState] = useState<DurableSaveState>(() => buildSaveStateFor(session));
   const [editGeneration, setEditGeneration] = useState(0);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSa
   }, [session.documentId, session.documentKey, session.editor]);
 
   useEffect(() => {
-    setState(saveStateFor(session));
+    setState(buildSaveStateFor(session));
     if (!hasVerifiedBuildBasis(session)) return;
 
     const scheduledDocumentId = session.documentId;

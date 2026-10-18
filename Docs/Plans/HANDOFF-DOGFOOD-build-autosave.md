@@ -48,11 +48,17 @@ Their old refs and unmerged work remain preserved and are not merged, rebased,
 or otherwise modified by this slice. The ACTIVE protected-page lease remains
 untouched: shared `useWorkspaceDocumentAuthoring` paths are excluded.
 
+PRIME subsequently amended this same lease to transfer the two
+`BuildSurfaceContext` paths from the stale extraction-navbar reservation so
+the durable-save presenter can live in the Build surface navbar.
+
 ## Exclusive write set
 
 - `Docs/Plans/HANDOFF-DOGFOOD-build-autosave.md`
 - `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx`
 - `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx`
+- `apps/live-control-ui/src/buildSurface/BuildSurfaceContext.tsx`
+- `apps/live-control-ui/src/buildSurface/BuildSurfaceContext.test.tsx`
 - `apps/live-control-ui/src/buildSurface/useBuildAutosave.ts`
 - `apps/live-control-ui/src/buildSurface/useBuildAutosave.test.tsx`
 - `apps/live-control-ui/src/buildSurface/buildAutosave.css`
@@ -96,9 +102,10 @@ PR; do not merge it or move 5202 without separate authority.
   calls `MarkdownCanvasSession.saveMarkdown()` after revalidating document ID,
   document key, editor identity, snapshot revision, authoring phase, and save
   guards. It does not write through a separate API path.
-- The editor toolbar reuses `DurableSaveStatus`. Its timestamp comes from the
-  active snapshot record and is withheld when snapshot identity or revision no
-  longer matches the active record.
+- The Build surface navbar reuses `DurableSaveStatus`. Its timestamp comes from
+  the active snapshot record and is withheld when snapshot identity or revision
+  no longer matches the active record. The floating Page authoring toolbar
+  contains formatting and worldbuilding tools only.
 - Focused verification: `useBuildAutosave.test.tsx` (7 passed) and
   `BuildSurfaceShell.test.tsx` (33 passed, 1 existing layout test skipped).
   The latter includes an integration check that waits through the debounce and
@@ -121,3 +128,11 @@ PR; do not merge it or move 5202 without separate authority.
   `4958acdb0a2d7592558985e6c86c40da2a29c763`; the locally available Build
   source paths were identical to that base before editing. The changes will be
   committed to that authorized remote branch and opened as one PR.
+
+PRIME final navbar-placement ownership transferred after DOGFOOD freeze at01168919ab7e7d64302428569e8b18f30081eae5. Existing buddy-context-loop checkout branchcodex/build-autosave-navbar owns this final amendment. Eight-path allowlist includes BuildSurfaceContext.tsx/.test.tsx; only transferred tested deltas copied from frozen996b. Prior syntax-only test escaping corrected; no source export or new checkout.
+
+## Final navbar amendment evidence
+
+PRIME completed the frozen-owner navbar transfer: status is rendered in BuildSurfaceContext's existing surface status slot; no duplicate Page authoring status. Pure state presentation is shared, save orchestration remains mounted exactly once. Corrected literal escaped backticks in the new Context test and restricted the duplicate-label assertion to the visible status container (legacy hidden diagnostic remains).
+
+47 focused hook/Shell/Context tests PASS, one inherited layout skip; React act warnings retained. Typecheck/final Vite build/diff check PASS (existing chunk advisory). Existing disposable Build31e6d747-a70a-4dc6-8b94-6f2f2c7ba05d was typed in without pressing Save, committed automatically at revision3/server17:15:27.579267Z, reopened with witness/original text retained and timestamp in banner. No real Edge edit, provider call or Graph publication. Independent final-head review pending before merge/delivery.

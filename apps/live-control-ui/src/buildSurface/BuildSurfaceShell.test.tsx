@@ -403,7 +403,9 @@ describe("BuildSurfaceShell", () => {
     await waitForEditor();
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute("data-markdown-editor-status", "ready"));
     act(() => buildShellTestEditor?.commands.insertContent("An authored sentence."));
-    expect(screen.getByTestId("build-autosave-status")).toHaveTextContent("Unsaved changes");
+    expect(screen.queryByTestId("build-autosave-status")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("toolbar", { name: "Page authoring" })).queryByTestId("build-autosave-status"))
+      .not.toBeInTheDocument();
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
 
     await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 650)); });
@@ -413,10 +415,8 @@ describe("BuildSurfaceShell", () => {
     await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 100)); });
     await waitFor(() => expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1));
     expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(screen.getByTestId("build-autosave-status").querySelector('[data-save-state="saved"]')).not.toBeNull();
-      expect(screen.getByTestId("build-autosave-status").querySelector("time")).toHaveAttribute("dateTime", committedAt);
-    });
+    await waitFor(() => expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed"));
+    expect(screen.queryByTestId("build-autosave-status")).not.toBeInTheDocument();
   });
 
   it.skipIf(!existsSync(layoutChromiumPath))("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
@@ -519,8 +519,7 @@ describe("BuildSurfaceShell", () => {
     expect(probe).toHaveAttribute("data-session", "null");
     expect(probe).toHaveAttribute("data-context-session", "null");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Draft");
-    expect(screen.getByTestId("build-autosave-status").querySelector('[data-save-state="draft"]')).not.toBeNull();
-    expect(screen.getByTestId("build-autosave-status").querySelector("time")).toBeNull();
+    expect(screen.queryByTestId("build-autosave-status")).not.toBeInTheDocument();
   });
 
   it("rejects plan documents before enabling the editor", async () => {

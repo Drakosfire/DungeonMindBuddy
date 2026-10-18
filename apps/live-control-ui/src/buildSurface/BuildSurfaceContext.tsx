@@ -9,6 +9,7 @@ import {
   DOCUMENT_SAVE_COMMAND_ID,
 } from "../markdownCanvas/markdownCanvasTypes";
 import { useOptionalMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DurableSaveStatus } from "../components/DurableSaveStatus";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextBadge,
@@ -20,6 +21,7 @@ import {
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
+import { buildSavedAt, buildSaveStateFor } from "./useBuildAutosave";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
 
 export type BuildSurfaceContextProps = Pick<
@@ -131,7 +133,7 @@ export function BuildSurfaceContext({
                     className="build-surface-context__save-status"
                     tone={/unsaved|error|fail/i.test(authoringStatusLabel) ? "warning" : "neutral"}
                   >
-                    {authoringStatusLabel}
+                    {session ? <DurableSaveStatus state={buildSaveStateFor(session)} savedAt={buildSavedAt(session)} /> : authoringStatusLabel}
                   </SurfaceContextStatus>
                   <span data-testid="build-authoring-status" hidden>
                     {authoringStatusLabel}
