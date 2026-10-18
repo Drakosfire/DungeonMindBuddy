@@ -178,11 +178,19 @@ def _fixture(
     def resolve(run_id, **_kwargs):
         run = runs[run_id]
         return SimpleNamespace(
-            run_id=run_id, source_domain="recap", extraction_profile=service.PROFILE,
+            run_id=run_id, status=run.status.value,
+            source_domain="recap", extraction_profile=service.PROFILE,
             campaign_id="c", session_id="s", source_artifact_id=artifact_id,
-            candidate_graph_path=_candidate_path(root, run),
-            normalized_recap_path=source, source_span_index_path=spans,
             source_revision_id=_sha(source.read_bytes()),
+            world_id=None, ingest_context=None,
+            normalized_recap_path=source,
+            source_span_index_path=spans,
+            candidate_graph_path=_candidate_path(root, run),
+            preview_union_store_path=root,
+            manifest_path=root / "extraction_run.json",
+            run_dir=root, registry_root=root,
+            sealed_source_uri=str(source), registry_context_graph_path=None,
+            diagnostics=[],
         )
 
     def get_run(_root, run_id):

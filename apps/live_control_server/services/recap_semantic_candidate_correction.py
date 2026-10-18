@@ -2084,26 +2084,28 @@ def correct_recap_candidate(
         expected_parent_revision = getattr(
             request, "expected_parent_revision", parent.revision,
         )
+
         def resolved_authority(value):
             return (
-                getattr(value, "run_id", None),
-                getattr(value, "status", None),
-                getattr(value, "extraction_profile", None),
-                getattr(value, "source_domain", None),
-                getattr(value, "source_artifact_id", None),
-                getattr(value, "source_revision_id", None),
-                getattr(value, "campaign_id", None),
-                getattr(value, "session_id", None),
-                getattr(value, "world_id", None),
-                getattr(value, "normalized_recap_path", None),
-                getattr(value, "source_span_index_path", None),
-                getattr(value, "candidate_graph_path", None),
-                getattr(value, "ingest_context", None),
+                value.run_id,
+                value.status,
+                value.extraction_profile,
+                value.source_domain,
+                value.source_artifact_id,
+                value.source_revision_id,
+                value.campaign_id,
+                value.session_id,
+                value.world_id,
+                value.normalized_recap_path,
+                value.source_span_index_path,
+                value.candidate_graph_path,
+                value.ingest_context,
             )
 
         if (
             locked_parent.status != ExtractionRunStatus.REVIEWABLE
             or not locked_parent.has_required_review_components()
+            or locked_resolved.status != ExtractionRunStatus.REVIEWABLE.value
             or locked_parent.revision != expected_parent_revision
             or locked_parent.revision != parent.revision
             or locked_parent.source_artifact_id != parent.source_artifact_id

@@ -451,7 +451,7 @@ No production runtime action is authorized by the worker handoff.
 From the owning checkout, use existing shared runtime Python and dependencies:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python -m pytest -o addopts='' --basetemp=.pytest_cache/source-binding tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/test_extract_promote_managed_world_target.py tests/test_source_artifact.py tests/integration/test_recap_evidence_append.py tests/application_state/test_ingest_run_postgres.py tests/test_graph_run_registry.py -q --tb=short
+DMB_RAKE_PG_ADMIN_DSN='postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python -m pytest -o addopts='' --basetemp=.pytest_cache/source-binding tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/test_extract_promote_managed_world_target.py tests/test_source_artifact.py tests/integration/test_recap_evidence_append.py tests/application_state/test_ingest_run_postgres.py tests/test_graph_run_registry.py -q --tb=short
 ```
 
 ## Implementation verification recorded for the current branch head
@@ -478,7 +478,9 @@ then repeats the source/span preflight before any child row or package claim.
 Disposable-DB coverage rejects a parent made REJECTED or SUPERSEDED while the
 correction waits. Both no-follow component readers open final paths in
 nonblocking mode before rejecting non-regular files; regressions mutate source
-bytes during lock acquisition and verify FIFO paths fail promptly.
+bytes during lock acquisition and verify FIFO paths fail promptly. The lock
+check compares the complete production resolver identity; unit doubles provide
+that same required shape rather than treating missing identity fields as equal.
 
 `ruff check --select F` passed for all eight modified Python files, Python
 compilation and AST parsing passed for those files, and `git diff --check`
