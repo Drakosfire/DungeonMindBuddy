@@ -319,6 +319,7 @@ function requestBodyRecord(body: BodyInit | null | undefined): Record<string, un
 
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
@@ -2982,4 +2983,10 @@ export function getPlanActionPromptBody(worldId: string, actionId: string, attem
     `/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/prompts/${encodeURIComponent(attemptId)}?${new URLSearchParams({ world_id: worldId })}`,
     { signal, cache: 'no-store' },
   );
+}
+
+
+export function getPlanActionTerminalDiagnostic(worldId: string, actionId: string, signal?: AbortSignal):
+  Promise<import("./types").ActionTerminalDiagnosticRead> {
+  return apiFetch(`/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/terminal-diagnostic?world_id=${encodeURIComponent(worldId)}`, { signal, cache: "no-store" });
 }

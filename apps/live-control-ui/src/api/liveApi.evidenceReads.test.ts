@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'prompt', 'source-passage', 'action-index', 'action-prompt'] as const
+const cases = ['trace', 'prompt', 'source-passage', 'action-index', 'action-prompt', 'action-diagnostic'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -8,6 +8,7 @@ async function setup(base = '') {
 }
 type Api = Awaited<ReturnType<typeof setup>>
 function read(api: Api, kind: typeof cases[number]) {
+  if (kind === 'action-diagnostic') return api.getPlanActionTerminalDiagnostic('world/a', 'action-a')
   if (kind === 'action-index') return api.getPlanActionPromptIndex('world/a', 'action-a')
   if (kind === 'action-prompt') return api.getPlanActionPromptBody('world/a', 'action-a', 'provider-a')
   if (kind === 'source-passage') return api.getAgentSourcePassage('world/a', 'turn-a', 0)
@@ -22,7 +23,7 @@ describe.each(cases)('Agent %s evidence read authorization', kind => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ fixture: true }))
     await read(api, kind)
     const [url, init] = fetch.mock.calls[0]
-    expect(String(url)).toContain(kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
+    expect(String(url)).toContain(kind === 'action-diagnostic' ? '/world-plan-edit/actions/action-a/terminal-diagnostic' : kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
     if (kind.startsWith('action-')) expect(init?.cache).toBe('no-store')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-evidence-token')
     expect(init?.redirect).toBe('error')

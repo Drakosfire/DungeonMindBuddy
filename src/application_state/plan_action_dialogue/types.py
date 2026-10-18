@@ -269,8 +269,94 @@ class PlanActionConsultationV2(StrictModel):
         return self
 
 
+class ActionTerminalFailureV1(StrictModel):
+    """Closed provider report; no raw strings or authority supplied by the child."""
+    phase: Literal["provider_lifecycle"]
+    reason: Literal["lifecycle_ack_denied", "provider_transport_ambiguous", "provider_exception_ambiguous", "provider_response_incomplete"]
+    transition: Literal["sdk_entered", "response_received", "outcome_unknown"]
+    acknowledged: bool = Field(strict=True)
+    transportExceptionClass: Literal["RemoteProtocolError", "ReadTimeout", "ConnectError", "ConnectionError"] | None = None
+    responseStatus: Literal["incomplete", "failed", "other"] | None = None
+    incompleteReason: Literal["max_output_tokens", "length", "content_filter", "unspecified", "other"] | None = None
+
+    @model_validator(mode="after")
+    def consistent(self):
+        if self.transportExceptionClass is not None and self.reason != "provider_transport_ambiguous":
+            raise ValueError("transport class requires transport failure")
+        if (self.responseStatus is not None) != (self.reason == "provider_response_incomplete"):
+            raise ValueError("response status requires incomplete response")
+        if self.incompleteReason is not None and self.responseStatus != "incomplete":
+            raise ValueError("incomplete reason requires incomplete status")
+        if self.reason == "lifecycle_ack_denied" and self.acknowledged:
+            raise ValueError("denied acknowledgement must be false")
+        if self.reason != "lifecycle_ack_denied" and self.transition != "outcome_unknown":
+            raise ValueError("ambiguous report requires unknown transition")
+        return self
+
+
+class ActionTerminalDiagnosticV1(StrictModel):
+    schema_version: Literal["dmb_plan_action_terminal_diagnostic_v1"] = "dmb_plan_action_terminal_diagnostic_v1"
+    world_id: str = Field(min_length=1, max_length=128)
+    action_id: UUID
+    dispatch_fence: int = Field(strict=True, ge=1)
+    attribution: Literal["provider_attempt", "action_only"]
+    availability: Literal["captured", "unavailable"]
+    unavailable_reason: Literal["invalid_reported_by_host", "invalid_observed_at_parent", "missing_or_not_retained", "contradictory_binding"] | None = None
+    failure: ActionTerminalFailureV1 | None = None
+    runtime_status: Literal["ok", "error", "unavailable"]
+    error_origin: Literal["runtime_result", "parent_adapter"]
+    error_category: Literal["provider_lifecycle_unavailable", "request_budget_veto", "hermes_turn_error", "prompt_capture_unavailable", "other", "unavailable"]
+    authorization_event_id: UUID | None = None
+    provider_attempt_id: UUID | None = None
+    callback_sequence: int | None = Field(default=None, strict=True, ge=0)
+    parent_acknowledged: bool | None = Field(default=None, strict=True)
+    matching_transition_event_id: UUID | None = None
+    latest_durable_outcome_event_id: UUID | None = None
+    latest_durable_outcome: Literal["sdk_entered", "response_received", "outcome_unknown", "known_not_sent"] | None = None
+
+    @model_validator(mode="after")
+    def consistent(self):
+        if self.availability == "captured":
+            if self.failure is None or self.unavailable_reason is not None:
+                raise ValueError("captured diagnostic requires a valid report")
+        elif self.failure is not None or self.unavailable_reason is None:
+            raise ValueError("unavailable diagnostic requires provenance only")
+        identities = (self.authorization_event_id, self.provider_attempt_id, self.callback_sequence,
+                      self.parent_acknowledged, self.matching_transition_event_id,
+                      self.latest_durable_outcome_event_id, self.latest_durable_outcome)
+        if self.attribution == "action_only":
+            if any(value is not None for value in identities):
+                raise ValueError("Action-only diagnostic cannot attribute a provider")
+        elif (self.availability != "captured" or any(value is None for value in identities[:4])):
+            raise ValueError("provider attribution requires callback identity")
+        if (self.latest_durable_outcome_event_id is None) != (self.latest_durable_outcome is None):
+            raise ValueError("durable outcome requires its event identity")
+        if len(json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")) > 4096:
+            raise ValueError("terminal diagnostic exceeds storage limit")
+        return self
+
+
+class PlanActionConsultationV3(StrictModel):
+    schema_version: Literal["dmb_plan_action_consultation_v3"] = "dmb_plan_action_consultation_v3"
+    receipt: PlanActionConsultationReceipt
+    execution: PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3 | None
+    result: PlanActionConsultationResult | None = None
+    prompt_references: list[ActionPromptReferenceV1] = Field(max_length=512)
+    terminal_diagnostic: ActionTerminalDiagnosticV1
+
+    @model_validator(mode="after")
+    def validate_consultation(self):
+        from application_state.plan_action_dialogue.graph_consultation import (
+            validate_consultation, validate_prompt_references, validate_terminal_diagnostic,
+        )
+        validate_consultation(self)
+        validate_prompt_references(self)
+        validate_terminal_diagnostic(self)
+        return self
+
+
 PrivatePlanActionConsultation = Annotated[
-    PlanActionConsultation | PlanActionConsultationV2, Field(discriminator="schema_version"),
+    PlanActionConsultation | PlanActionConsultationV2 | PlanActionConsultationV3, Field(discriminator="schema_version"),
 ]
 _CONSULTATION = TypeAdapter(PrivatePlanActionConsultation)
 

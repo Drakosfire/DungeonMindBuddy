@@ -1,4 +1,5 @@
 import { ActionPromptInspector } from "./ActionPromptInspector";
+import { ActionTerminalDiagnostic } from "./ActionTerminalDiagnostic";
 import { PlayAnswerEvidence } from "./PlayAnswerEvidence";
 import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
 import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
@@ -4231,12 +4232,13 @@ export function WorldPlanAgentConversation({
 
   const renderConsultedAction = (action: WorldPlanActionProjection) => {
     const result = action.consultation?.result;
-    if (!result && action.status === "failed"
+    if (!result && ["failed", "indeterminate", "pending"].includes(action.status)
       && action.consultation?.receipt.origin_conversation_id === history?.conversation_id) {
       return <article key={action.action_id} data-plan-action-id={action.action_id}
         className="world-plan-agent-conversation__proposal-event">
         <p><strong>You</strong> {action.instruction}</p>
-        <p>This Plan edit failed. No applicable proposal was saved.</p>
+        <p>{action.status === "failed" ? "This Plan edit failed." : "This Plan edit has no confirmed completion."} No applicable proposal was saved.</p>
+        <ActionTerminalDiagnostic worldId={action.basis.world_id} actionId={action.action_id} />
         <ActionPromptInspector worldId={action.basis.world_id} actionId={action.action_id} />
       </article>;
     }
@@ -4943,6 +4945,10 @@ export function WorldPlanAgentConversation({
       if (isCurrent()) {
         restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
         setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+        void refreshActionHistory();
+        if (proposalAnchor && dispatchHistory) {
+          void refreshConversationActions(proposalAnchor.conversationId, dispatchHistory.pointer_revision);
+        }
       }
     } finally {
       if (isCurrent()) {
@@ -5618,6 +5624,7 @@ export function WorldPlanAgentConversation({
                   <li key={action.action_id}>
                     <strong>{action.status}</strong> · {action.instruction}
                     <ActionPromptInspector worldId={action.basis.world_id} actionId={action.action_id} />
+                    {action.status !== "completed" && <ActionTerminalDiagnostic worldId={action.basis.world_id} actionId={action.action_id} />}
                     {action.playable_target_receipt ? (
                       <p className="world-plan-agent-conversation__context">
                         Target · {action.playable_target_receipt.kind} {action.playable_target_receipt.id}

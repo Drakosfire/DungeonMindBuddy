@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     GraphExecutionAccountingV1,
+    ProviderAttemptAuthorizedEventV1,
     GraphExecutionPolicyV3,
     SettledGraphExecutionPolicyV3,
     PlanWorldGraphExecutionV3,
@@ -177,6 +178,33 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.context_compaction_unavailable = False
         self.context_read_enabled = True
         self.required_context_failed = False
+        self.authorization_generation = 0
+        self.terminal_callback = None
+
+    def authorize(self, view: Mapping[str, Any]) -> bool:
+        # Supersede prior callbacks even when the new authorization is refused.
+        self.authorization_generation += 1
+        self.terminal_callback = None
+        return super().authorize(view)
+
+    def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
+        generation = self.authorization_generation
+        attempt = self.last_provider_attempt_id
+        execution = None if self.fence is None else self._broker_execution()
+        attempts = [] if execution is None else [e for e in execution.events
+            if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+        sequence = 0 if execution is None else len(execution.events)
+        acknowledged = super().record_lifecycle(lifecycle)
+        self.terminal_callback = None
+        if (attempts and attempts[-1].provider_attempt_id == attempt
+                and generation == self.authorization_generation):
+            self.terminal_callback = dict(
+                generation=generation, provider_attempt_id=attempt,
+                authorization_event_id=attempts[-1].event_id,
+                callback_sequence=sequence, transition=lifecycle.get("transition"),
+                parent_acknowledged=acknowledged,
+            )
+        return acknowledged
 
     def _capture_prepared_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
         from apps.live_control_server.services.plan_action_prompt_evidence import capture_prompt
@@ -916,6 +944,9 @@ def execute_plan_action_consultation(
         options["source_read_enabled"] = True
     result = run(invocation, adapter.authorize, **options)
     final_action = adapter.stop()
+    if adapter.failure is not None or result.status != "ok":
+        from apps.live_control_server.services.plan_action_terminal_diagnostic import retain_terminal_diagnostic
+        final_action = retain_terminal_diagnostic(adapter, result)
     execution = None if final_action.consultation is None else final_action.consultation.execution
     outcome_unknown = execution is not None and any(
         getattr(event, "kind", None) == "provider_outcome"

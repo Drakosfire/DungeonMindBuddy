@@ -26,6 +26,7 @@ from application_state.plan_action_dialogue import repository as repo
 from application_state.plan_action_dialogue.types import (
     CompletedPlanActionContext,
     ActionPromptReferenceV1,
+    ActionTerminalDiagnosticV1,
     decode_consultation,
     public_consultation,
     PlanActionBasis,
@@ -168,9 +169,46 @@ class PlanActionDialogueService:
                     or events[-1].event_id != reference.authorization_event_id):
                 raise ApplicationStateConflictError("prompt capture must precede subsequent execution")
             payload = consultation.model_dump(mode="json", by_alias=True)
-            payload["schema_version"] = "dmb_plan_action_consultation_v2"
+            if payload["schema_version"] != "dmb_plan_action_consultation_v3":
+                payload["schema_version"] = "dmb_plan_action_consultation_v2"
             payload["prompt_references"] = [item.model_dump(mode="json") for item in existing]
             payload["prompt_references"].append(reference.model_dump(mode="json"))
+            return repo.write_consultation(conn, current, decode_consultation(payload)), True
+
+    def append_terminal_diagnostic(
+        self, *, action_id: UUID, token: UUID, fence: int,
+        diagnostic: ActionTerminalDiagnosticV1,
+    ) -> tuple[PlanActionRecord, bool]:
+        """Append metadata under existing authority; never authorize or repair IO."""
+        diagnostic = ActionTerminalDiagnosticV1.model_validate(diagnostic.model_dump(mode="json"))
+        with unit_of_work(self._dsn()) as conn:
+            current = repo.lock_dispatch(conn, action_id, token, fence)
+            if (diagnostic.action_id != action_id or diagnostic.dispatch_fence != fence
+                    or diagnostic.world_id != current.basis.world_id or current.consultation is None):
+                raise ApplicationStateValidationError("terminal diagnostic has a different owner")
+            prior = getattr(current.consultation, "terminal_diagnostic", None)
+            if prior is not None:
+                derived = {"matching_transition_event_id", "latest_durable_outcome_event_id", "latest_durable_outcome"}
+                if prior.model_dump(exclude=derived) == diagnostic.model_dump(exclude=derived):
+                    return current, False
+                raise ApplicationStateConflictError("terminal diagnostic conflicts")
+            payload = current.consultation.model_dump(mode="json", by_alias=True)
+            payload["schema_version"] = "dmb_plan_action_consultation_v3"
+            payload.setdefault("prompt_references", [])
+            # Derive both lifecycle selectors while the Action row is locked.
+            data = diagnostic.model_dump(mode="json")
+            if diagnostic.attribution == "provider_attempt":
+                from application_state.agent_conversation.types import ProviderOutcomeEventV1
+                events = current.consultation.execution.events
+                sequence = diagnostic.callback_sequence
+                matching = events[sequence] if sequence < len(events) else None
+                outcomes = [e for e in events if isinstance(e, ProviderOutcomeEventV1)
+                            and e.provider_attempt_id == diagnostic.provider_attempt_id]
+                latest = outcomes[-1] if outcomes else None
+                data["matching_transition_event_id"] = None if matching is None else str(matching.event_id)
+                data["latest_durable_outcome_event_id"] = None if latest is None else str(latest.event_id)
+                data["latest_durable_outcome"] = None if latest is None else latest.outcome
+            payload["terminal_diagnostic"] = data
             return repo.write_consultation(conn, current, decode_consultation(payload)), True
 
     def read_prompt_action(self, *, world_id: str, action_id: UUID) -> PlanActionRecord:
