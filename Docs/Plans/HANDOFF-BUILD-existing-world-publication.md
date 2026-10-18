@@ -1,6 +1,6 @@
 # BUILD: review worldbuilding into an existing World
 
-Status: ACTIVE — PRIME owns this UI-only serial slice under the operator's
+Status: DELIVERED — PR #1400 merged as 5ebb1794fa2e78359c07db9e09cbb8f3d66434d3 after ARCHITECTURE Cycle 2 PASS on f2ef3e1f6c673bf5be185f8acec0c73e122faffe. The implementation lease is closed. Historical scope: PRIME owned this UI-only serial slice under the operator's
 request to ingest authored Edge material into an enriched, traversable graph.
 Base: origin/main@cbd3a901c62199c56c66c66e7f1a5a540bdbdfb6.
 Branch: codex/build-existing-world-publication. Reuse buddy-context-loop checkout
@@ -98,3 +98,33 @@ document ID/revision shape is validated. Contradictory/malformed nested digests
 are rejected before Confirm. 77 focused tests, typecheck and production build
 pass. Existing broad baseline failures remain as recorded. Independent Cycle 2
 and deployment are pending.
+
+## Delivered acceptance and remaining work
+
+ARCHITECTURE independently passed 77 focused tests and typecheck, plus four
+additional mounted binding/unmount checks. Review Cycle 1 HOLD and Cycle 2 PASS
+are retained as history; no CI statuses or workflow runs existed at merge.
+PRIME verified the exact cumulative eight-path diff and guarded the merge by
+the reviewed head.
+
+A pinned baseline build exactly matched serving index
+43b1234f36dffbea1816cb4aac88ae1d89ce09049f0dcb9f2b10646f333c4d27. Only four
+reviewed production files changed in the candidate build. UI-only adoption on
+5202 installed index fa24cd18cee70e305b3074376a73c140dba4f1af610a612b245ccd98507c624d,
+retaining old browser assets and UI PID 17085; no API restart, original operator
+tab reload, provider call or database write. Private rollout authority/build/
+receipt evidence is under the established jev-evidence-loop-20261016 state.
+
+In a fresh verification tab, the exact saved Edge run loaded existing-World
+review with 81 enabled assertion selectors, all initially deferred, Prepare
+disabled, no Confirm and no alerts. A local-only choice successfully selected
+existing Edge identity loc_3; Prepare then enabled and Confirm remained absent.
+Neither action button was pressed. The original Build draft and the user's
+Session29 tab were left untouched. DOM checks prove the controls; the hidden-tab
+screenshot was blank and is not visual-layout acceptance.
+
+This delivers the publication review UI, not semantic approval or publication
+of Edge. Unsupported Velvet Reed identification, synthetic group representation,
+missing civilian/location links, media graph bindings and concrete named refugee
+records remain separate acceptance work. No Session26–29 correction or
+publication is established by this delivery.
