@@ -264,7 +264,7 @@ code {
 .app-wrap {
   max-width: 960px;
   margin: 0 auto;
-  padding: 16px 20px calc(var(--app-chrome-bottom) + 1rem);
+  padding: 6px 20px calc(var(--app-chrome-bottom) + 1rem);
 }
 
 .app-wrap:has(.plan-surface-root) {
@@ -292,9 +292,9 @@ code {
 
 .app-chrome-header {
   position: sticky;
-  top: 10px;
+  top: 6px;
   z-index: 20;
-  margin-bottom: 20px;
+  margin-bottom: 6px;
   overflow: visible;
 }
 
