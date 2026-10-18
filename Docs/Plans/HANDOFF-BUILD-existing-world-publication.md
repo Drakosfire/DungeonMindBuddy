@@ -83,3 +83,18 @@ worldbuilding endpoints. Real-helper tests belong in the already leased client
 test file; no backend/auth-policy weakening or new automatic mutation retry.
 Check nested source digest correspondence and document binding shape before
 showing Confirm. Re-review the complete revised head after both corrections.
+
+### Review corrections verified before Cycle 2
+
+The exact capabilities/prepare/confirm paths now enter the real local GM
+authorization classifier. Real-helper tests mock only fetch: configured bearer,
+session restoration and CSRF, nonloopback rejection, invalid bearer and trusted
+CSRF rejection. The existing helper may refresh the local session after an
+auth rejection; prepare/confirm remain excluded from its mutation retry list
+and each publication endpoint is sent only once. No backend guard changed.
+
+Prepared publication sourceSha256 must equal the reviewed sha256 revision, and
+document ID/revision shape is validated. Contradictory/malformed nested digests
+are rejected before Confirm. 77 focused tests, typecheck and production build
+pass. Existing broad baseline failures remain as recorded. Independent Cycle 2
+and deployment are pending.

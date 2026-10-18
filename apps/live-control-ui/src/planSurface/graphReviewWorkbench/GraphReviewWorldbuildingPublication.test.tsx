@@ -10,7 +10,7 @@ vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: ()
 vi.mock("./GraphReviewFirstWorldPublishSheet", () => ({GraphReviewFirstWorldPublishSheet: () => <p>First World review</p>}));
 const review: ExactRunReviewPackage = {
   schema: "dmb_extract_promote_exact_run_review_v1", runId: "run-a", sourceDomain: "worldbuilding",
-  sourceArtifactId: "source-a", sourceRevisionId: "source-r1", worldId: "world-a", sourceProse: "Draft lore",
+  sourceArtifactId: "source-a", sourceRevisionId: "sha256:" + "c".repeat(64), worldId: "world-a", sourceProse: "Draft lore",
   inspectionStatus: "ready", promotable: false, worldState: "uninitialized", firstWorldPublishEligible: true,
   diagnostics: [], assertions: [
     {assertionId: "location:edge", kind: "object", label: "Edge", summary: "A proposed town", evidence: []},
@@ -28,7 +28,7 @@ const choices = [
 ] as WorldbuildingPlan["effect"]["decisionSnapshot"];
 const plan: WorldbuildingPlan = {schema: "dmb_worldbuilding_write_plan_v2", version: 2, planId: "plan-a", planDigest: "sha256:" + "a".repeat(64),
   decisionDigest: "sha256:" + "b".repeat(64), worldId: "native-a", parentRevisionId: "rev:1", runId: "run-a", sourceArtifactId: "source-a",
-  sourceRevisionId: "source-r1", prepareBinding: "sealed", publicationBinding: {managedWorldId: "world-a", nativeWorldId: "native-a",
+  sourceRevisionId: "sha256:" + "c".repeat(64), prepareBinding: "sealed", publicationBinding: {managedWorldId: "world-a", nativeWorldId: "native-a",
     bindingVersion: 1, sourceArtifactId: "source-a", documentId: "doc-a", documentRevision: 1, sourceSha256: "c".repeat(64)},
   effect: {decisionSnapshot: choices, acceptedProposals: [{kind: "node"}]}, summary: {createNewNodeCount: 1, bindExistingNodeCount: 1,
     acceptedEdgeCount: 0, rejectedCandidateCount: 1, deferredCandidateCount: 0, acceptedAssertionCount: 2}, diagnostics: []};
@@ -120,6 +120,12 @@ describe("existing World worldbuilding publication", () => {
     fireEvent.click(screen.getByRole("button", {name: "Confirm publication"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("receipt could not be verified");
     expect(screen.queryByText(/Publication recorded/)).toBeNull(); expect(api.confirmWorldbuilding).toHaveBeenCalledOnce();
+  });
+  it.each(["d".repeat(64), "malformed", ""])("rejects contradictory or malformed nested source digest %s", async sourceSha256 => {
+    vi.mocked(api.prepareWorldbuilding).mockResolvedValue({...plan, publicationBinding: {...plan.publicationBinding!, sourceSha256}});
+    render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
+    fireEvent.click(screen.getByRole("button", {name: "Prepare proposed changes"})); await screen.findByRole("alert");
+    expect(screen.queryByRole("button", {name: "Confirm publication"})).toBeNull(); expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
   });
   it("rejects stale head without automatically preparing or confirming again", async () => {
     vi.mocked(api.prepareWorldbuilding).mockRejectedValue(new Error("stale_parent_revision"));

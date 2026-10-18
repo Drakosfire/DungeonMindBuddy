@@ -87,6 +87,9 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onCatalog
         || result.parentRevisionId !== projection.projection.snapshot.revisionId || !result.prepareBinding
         || binding?.managedWorldId !== managedWorldId || binding.nativeWorldId !== projection.nativeWorldId
         || binding.bindingVersion !== projection.bindingVersion || binding.sourceArtifactId !== review.sourceArtifactId
+        || !digest(review.sourceRevisionId) || binding.sourceSha256 !== review.sourceRevisionId.slice(7)
+        || typeof binding.documentId !== "string" || !binding.documentId.trim()
+        || !Number.isSafeInteger(binding.documentRevision) || binding.documentRevision <= 0
         || !Array.isArray(snapshot) || snapshot.length !== review.assertions.length
         || snapshot.some(d => { const expected = decisions[d.assertionId]; return !expected
           || d.decision !== expected.decision || (d.targetNodeId ?? undefined) !== expected.targetNodeId; })
