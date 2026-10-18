@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -477,8 +478,9 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             profile_id=profile_id,
             profile_version=profile_version,
             allow_llm=True,
-            output_dir=root
-            / "out"
+            # The runner resolves relative paths against artifact_data_root,
+            # which can differ from this application source checkout.
+            output_dir=Path("out")
             / "graph_memory"
             / "runs"
             / "extraction"

@@ -21,6 +21,7 @@ must remain unchanged. Do not change the configured data root or move artifacts.
 - This handoff
 - apps/live_control_server/routes/graph_preview.py
 - tests/test_graph_preview_routes.py
+- Docs/Plans/HANDOFF-BUILD-play-answer-evidence.md (truthful predecessor settlement only)
 
 Prove the actual HTTP launch crosses the real runner with separate code/data
 roots, deterministic fixture provider, retained run/component readback under data,
@@ -40,3 +41,13 @@ accepted generated text/tables, and associated media must retain source provenan
 and draft/canon distinctions. This slice repairs only launch. It does not claim
 all facts or media are represented in the graph, or authorize fabricated facts
 from artwork. Verify the larger ingestion-to-traversal workflow separately.
+
+
+## Verification
+
+The new real HTTP/runner regression fails on exact base with the original
+artifact-root ValueError; restored fix passes. Complete route and artifact-root
+suites:41 passed on disposable54329 with10 inherited Pydantic warnings.
+No provider calls; fixture client only. Existing compatibility and explicit
+out-of-root rejection tests remain passing. Detailed local logs in existing
+.pytest_cache/build-root-{before,boundary}.log. Review/merge/adoption remain open.
