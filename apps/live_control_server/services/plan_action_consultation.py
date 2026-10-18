@@ -173,8 +173,14 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.context_payloads: dict[UUID, str] = {}
         self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
         self.context_capture = None
+        self.context_compaction_report = None
+        self.context_compaction_unavailable = False
         self.context_read_enabled = True
         self.required_context_failed = False
+
+    def _is_build_turn(self) -> bool:
+        # A Plan action never acquires Build authority or an Ask request identity.
+        return False
 
     def _broker_receipt(self) -> Any:
         assert self.fence is not None

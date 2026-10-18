@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+
+import pytest
 from hashlib import sha256
 from types import SimpleNamespace
 from uuid import uuid4
@@ -84,3 +86,95 @@ def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_sco
     assert graph_execution_policy_digest_v3(
         receipt.consultation_receipt_sha256, policy,
     )
+
+
+def _action_adapter_without_ask_request():
+    from apps.live_control_server.services.plan_action_consultation import (
+        ActionPolicyExecutionAdapter,
+    )
+
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="native-world",
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id="revision",
+            scope_mode="world",
+        ),
+        question="Action instruction",
+        coverage=CoverageState(state="ready"),
+    )
+    bootstrap = AgentPlanWorldGraphBootstrap(
+        graph_envelope={},
+        world_scope=AgentWorldScope(
+            world_id="native-world",
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id="revision",
+            scope_mode="world",
+        ),
+        retrieval_session=session,
+        binding_version=1,
+        source_root_relpath="corpus",
+        candidate_assertion_ids=(),
+        candidate_relationship_ids=(),
+        candidate_evidence_ref_ids=(),
+        evidence_by_anchor_id={},
+    )
+    return ActionPolicyExecutionAdapter(
+        store=object(),
+        action=SimpleNamespace(basis=SimpleNamespace(world_id="managed-world")),
+        bootstrap=bootstrap,
+        budget={},
+        surface_instance_id="plan",
+    )
+
+
+@pytest.mark.parametrize("capture", [False, True])
+@pytest.mark.parametrize("case", ["valid", "invalid", "late"])
+def test_action_compaction_observation_never_requires_ask_or_build_authority(
+    monkeypatch, capture, case
+):
+    monkeypatch.delenv("DMB_CONTEXT_TRACE_CAPTURE", raising=False)
+    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1" if capture else "0")
+    adapter = _action_adapter_without_ask_request()
+    assert not hasattr(adapter, "request") and not adapter._is_build_turn()
+    payload = {
+        "before_visible": [],
+        "after_visible": [],
+        "prior_sources": [],
+        "routes": {},
+        "decisions": [],
+        "before_chars": 0,
+        "after_chars": 0,
+    }
+    if case == "invalid":
+        payload["before_chars"] = -1
+    if case == "late":
+        adapter.fence = object()
+    response = adapter.broker_graph_operation(
+        {"toolName": "observe_context_compaction", "arguments": payload}
+    )
+    assert (
+        json.loads(response["resultJson"])["schema"] == "dmb_context_compaction_ack_v1"
+    )
+    assert (adapter.context_compaction_report is not None) == (
+        capture and case == "valid"
+    )
+    assert adapter.context_compaction_unavailable == (capture and case != "valid")
+    assert adapter.context_capture is None and not hasattr(adapter, "request")
+
+
+def test_action_cannot_acquire_build_driver_or_writer_capabilities():
+    adapter = _action_adapter_without_ask_request()
+    with pytest.raises(ValueError, match="actual Build turn"):
+        adapter.create_build_jev_driver()
+    with pytest.raises(ValueError, match="actual Build turn"):
+        adapter.stage_build_controller_exposure()
+    assert adapter.authorize_prepared_build_writer(object()) is False
+    assert adapter.authorize_prepared_build_decision(object()) is False
+    with pytest.raises(ValueError, match="No acknowledged writer"):
+        adapter.complete_build_writer(object())
+    assert not hasattr(adapter, "request")
