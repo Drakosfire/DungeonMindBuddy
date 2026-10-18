@@ -353,6 +353,72 @@ describe("BuildSurfaceShell", () => {
     );
   });
 
+  it("autosaves an authored Build edit through the shared durable write boundary", async () => {
+    const snapshot = buildWorldbuildingSnapshot(DOC_ID);
+    const committedAt = "2026-10-18T20:00:00.000Z";
+    const committedSnapshot = {
+      ...snapshot,
+      record: { ...snapshot.record, revision: 2, content_status: "committed" as const, updated_at: committedAt },
+      markdown: "# Build Source\nAn authored sentence. More detail.",
+      content_sha256: "sha-autosaved",
+      file_fingerprint: "fp-autosaved",
+      file_exists: true,
+      loaded_revision: 2,
+    };
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(snapshot)
+      .mockResolvedValueOnce(committedSnapshot);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Build Source",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "autosave-token",
+      writer_diff: "+An authored sentence. More detail.\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Build Source",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...snapshot.record, revision: 2, content_status: "committed", updated_at: committedAt },
+      normalized_content_sha256: "sha-autosaved",
+      writer_ok: true,
+      bytes_written: 25,
+      file_fingerprint: "fp-autosaved",
+      diagnostics: [],
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitForEditor();
+    await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute("data-markdown-editor-status", "ready"));
+    act(() => buildShellTestEditor?.commands.insertContent("An authored sentence."));
+    expect(screen.getByTestId("build-autosave-status")).toHaveTextContent("Unsaved changes");
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 650)); });
+    act(() => buildShellTestEditor?.commands.insertContent(" More detail."));
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 750)); });
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 100)); });
+    await waitFor(() => expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1));
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.getByTestId("build-autosave-status").querySelector('[data-save-state="saved"]')).not.toBeNull();
+      expect(screen.getByTestId("build-autosave-status").querySelector("time")).toHaveAttribute("dateTime", committedAt);
+    });
+  });
+
   it.skipIf(!existsSync(layoutChromiumPath))("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
     const executablePath = process.env.BUILD_LAYOUT_CHROMIUM_PATH;
     const browser = await chromium.launch({
@@ -453,6 +519,8 @@ describe("BuildSurfaceShell", () => {
     expect(probe).toHaveAttribute("data-session", "null");
     expect(probe).toHaveAttribute("data-context-session", "null");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Draft");
+    expect(screen.getByTestId("build-autosave-status").querySelector('[data-save-state="draft"]')).not.toBeNull();
+    expect(screen.getByTestId("build-autosave-status").querySelector("time")).toBeNull();
   });
 
   it("rejects plan documents before enabling the editor", async () => {

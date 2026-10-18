@@ -1,0 +1,18 @@
+.build-authoring-toolbar__save-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-inline: .35rem;
+}
+
+.build-authoring-toolbar__save-status .durable-save-status {
+  color: #75664e;
+}
+
+.build-authoring-toolbar__save-status .durable-save-status__label {
+  color: #382e20;
+}
+
+.build-authoring-toolbar__save-status .durable-save-status[data-save-state="saved"] .durable-save-status__label {
+  color: #355d3d;
+}

@@ -19,6 +19,9 @@ import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
+import { DurableSaveStatus } from "../components/DurableSaveStatus";
+import { buildSavedAt, useBuildAutosave } from "./useBuildAutosave";
+import "./buildAutosave.css";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import {
@@ -48,6 +51,8 @@ function BuildPresentableSourceView({
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
+  const autosaveState = useBuildAutosave(session);
+  const savedAt = buildSavedAt(session);
   const [outlineVersion, setOutlineVersion] = useState(0);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [mediaError,setMediaError]=useState('');
@@ -154,6 +159,9 @@ function BuildPresentableSourceView({
       </div>
     </section> : null}
     <div className="build-authoring-toolbar" role="toolbar" aria-label="Page authoring">
+      <div className="build-authoring-toolbar__save-status" data-testid="build-autosave-status">
+        <DurableSaveStatus state={autosaveState} savedAt={savedAt} />
+      </div>
       <div role="group" aria-label="Format page">
         <button type="button" aria-pressed={session.editor?.isActive("bold") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleBold().run()}>Bold</button>
         <button type="button" aria-pressed={session.editor?.isActive("italic") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleItalic().run()}>Italic</button>
