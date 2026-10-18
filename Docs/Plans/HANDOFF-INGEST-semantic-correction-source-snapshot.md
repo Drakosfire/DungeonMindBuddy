@@ -456,22 +456,29 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/dra
 
 ## Implementation verification recorded for the current branch head
 
-The scoped command above passed **275 tests** against the disposable PostgreSQL
+The scoped command above passed **276 tests** against the disposable PostgreSQL
 instance at 127.0.0.1:54329 (10 existing Pydantic `schema`-shadow warnings).
 The suite exercises V1–V10 operation mapping under the V11/V12 envelope, mixed
 legacy/V11 inherited-PC ancestry, exact retry, legacy-row collisions, raw-byte
 and span drift, and source-authority interruption/idempotency/scope conflict.
-Its production-path APP-STATE fixture creates a registered recap `SourceArtifact`,
-persists and seals its parent through APP-STATE, then runs the real V9→V10
-correction chain. That path verifies fresh-connection reopen, independent-process
-concurrency, and abrupt lock-owner death after a DRAFT claim. It also checks the
-parent candidate, frozen source snapshot, and span bytes remain unchanged.
+`test_production_source_snapshot_correction_and_locked_parent_authority` now
+creates a synthetic registered recap `SourceArtifact`, runs the actual production
+extraction pipeline with a deterministic no-provider fixture, applies a held V8
+correction, and proves fresh APP-STATE reopen, replay, semantic assessment, and
+exact retry. It verifies the producer-owned run-local `source.md`, parent
+candidate, and span bytes remain unchanged. The separate append-path integration
+fixture continues to cover the V9→V10 chain, fresh-process reopen,
+independent-process concurrency, source-authority interruption/idempotency, and
+abrupt lock-owner death after a DRAFT claim.
 
-Review of the first PR head identified two additional races at the file boundary.
-The correction now repeats the immutable-source preflight after acquiring the
-per-child lock, and both no-follow component readers open final paths in
-nonblocking mode before rejecting non-regular files. Added regressions mutate
-the source during lock acquisition and verify FIFO paths fail promptly.
+Review identified source-file and parent-authority races at the file boundary.
+The correction now reloads the parent run and resolved/pinned identity under the
+per-child lock, requires the same REVIEWABLE revision and immutable lineage,
+then repeats the source/span preflight before any child row or package claim.
+Disposable-DB coverage rejects a parent made REJECTED or SUPERSEDED while the
+correction waits. Both no-follow component readers open final paths in
+nonblocking mode before rejecting non-regular files; regressions mutate source
+bytes during lock acquisition and verify FIFO paths fail promptly.
 
 `ruff check --select F` passed for all eight modified Python files, Python
 compilation and AST parsing passed for those files, and `git diff --check`

@@ -2065,9 +2065,65 @@ def correct_recap_candidate(
 
     with _source_binding_child_lock(root, child_id):
         # The first preflight can be followed by a wait on another request for
-        # this deterministic child. Re-read under the lock so a source or span
-        # change during that wait cannot claim a DRAFT row/package from stale
-        # pre-lock bytes.
+        # this deterministic child. Reload the run and resolver authority under
+        # the lock: a parent may have been rejected, superseded, or revised
+        # while this request waited. Reuse only the exact REVIEWABLE parent
+        # revision and immutable identity that were used to construct the
+        # deterministic child.
+        try:
+            locked_parent = get_extraction_run(root, request.parent_run_id)
+            locked_resolved = resolve_promotable_ingest_run(
+                request.parent_run_id, root=root,
+            )
+        except (GraphRunRegistryError, PromotableIngestRunError) as exc:
+            raise _reject(
+                f"parent run authority changed while waiting for the child lock: {exc}",
+                status_code=409,
+            ) from exc
+
+        expected_parent_revision = getattr(
+            request, "expected_parent_revision", parent.revision,
+        )
+        def resolved_authority(value):
+            return (
+                getattr(value, "run_id", None),
+                getattr(value, "status", None),
+                getattr(value, "extraction_profile", None),
+                getattr(value, "source_domain", None),
+                getattr(value, "source_artifact_id", None),
+                getattr(value, "source_revision_id", None),
+                getattr(value, "campaign_id", None),
+                getattr(value, "session_id", None),
+                getattr(value, "world_id", None),
+                getattr(value, "normalized_recap_path", None),
+                getattr(value, "source_span_index_path", None),
+                getattr(value, "candidate_graph_path", None),
+                getattr(value, "ingest_context", None),
+            )
+
+        if (
+            locked_parent.status != ExtractionRunStatus.REVIEWABLE
+            or not locked_parent.has_required_review_components()
+            or locked_parent.revision != expected_parent_revision
+            or locked_parent.revision != parent.revision
+            or locked_parent.source_artifact_id != parent.source_artifact_id
+            or locked_parent.source_domain != parent.source_domain
+            or locked_parent.profile_id != parent.profile_id
+            or locked_parent.campaign_id != parent.campaign_id
+            or locked_parent.session_id != parent.session_id
+            or locked_parent.components != parent.components
+            or locked_parent.lineage != parent.lineage
+            or resolved_authority(locked_resolved) != resolved_authority(resolved)
+        ):
+            raise _reject(
+                "parent run authority changed while waiting for the child lock",
+                status_code=409,
+            )
+        parent = locked_parent
+        resolved = locked_resolved
+
+        # Re-read source, span, and candidate bytes only after the parent and
+        # resolver authority have been refreshed under the lock.
         locked_snapshot = _preflight_source_snapshot(parent, resolved, root)
         if (
             locked_snapshot[0] != artifact

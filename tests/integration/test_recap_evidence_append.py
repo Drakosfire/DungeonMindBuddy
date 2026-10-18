@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from urllib.parse import urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -19,8 +20,9 @@ from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateConflictError
 from application_state.ingest import service as ingest
 from apps.live_control_server.models.extract_promote import (
-    RecapCandidateCorrectionRequestV9, RecapCandidateCorrectionRequestV10,
+    RecapCandidateCorrectionRequestV8, RecapCandidateCorrectionRequestV9, RecapCandidateCorrectionRequestV10,
     RecapCandidateCorrectionResponseV10,
+    RecapNodeDescriptionReplacement,
 )
 from apps.live_control_server.services import graph_run_registry as registry
 from apps.live_control_server.services import recap_semantic_candidate_correction as correction
@@ -561,10 +563,203 @@ raise RuntimeError('injected crash point was not reached')
         / f"{stranded_id}.prior-owner.tmp"
     )
     assert abandoned_staging.read_bytes() == b"preserve crashed owner staging bytes"
-
     recovered = correction.correct_recap_candidate(
         RecapCandidateCorrectionRequestV10.model_validate(crash_body),
     )
     assert recovered.run_id == stranded_id
     assert original_get(tmp_path, stranded_id).status == ExtractionRunStatus.REVIEWABLE
     assert abandoned_staging.read_bytes() == b"preserve crashed owner staging bytes"
+
+
+def test_production_source_snapshot_correction_and_locked_parent_authority(
+    disposable_append_app, monkeypatch, tmp_path,
+):
+    """Exercise producer-owned snapshots, a real held correction, and stale parent rejection."""
+    from apps.live_control_server.services import extract_promote
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+    from src.graph_memory import party_context
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+    )
+    from src.graph_memory.extraction.graph_preview_runner import (
+        ProductionExtractionRequest,
+        run_production_extraction,
+    )
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        RECAP_PROFILE_ID,
+        RECAP_PROFILE_VERSION,
+    )
+    from apps.live_control_server.services.graph_preview_runner import (
+        _normalized_from_registered,
+    )
+
+    monkeypatch.setattr(correction, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
+    empty_corpus = tmp_path / "empty-synthetic-corpus"
+    empty_corpus.mkdir()
+    campaign_id = "synthetic-campaign"
+    world_id = "synthetic-world"
+    session_id = "session-1"
+    monkeypatch.setitem(
+        party_context.CAMPAIGN_CORPUS, campaign_id, (empty_corpus, "Synthetic"),
+    )
+
+    source_text = "Mira crossed the painted bridge. The brass key remained hidden.\n"
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        session_id=session_id,
+        recap_text=source_text,
+    )
+    source = _normalized_from_registered(tmp_path, artifact.source_artifact_id)
+    span_id = source.source_span_index["spans"][0]["source_span_id"]
+    fixture_client = FixtureCategoryGraphPassClient({
+        "actor_pass": {"observation_nodes": [{
+            "node_id": "mira",
+            "label": "Mira Vale",
+            "node_type": "character",
+            "description": "Mira crossed the painted bridge.",
+            "importance": "medium",
+            "evidence_refs": [{
+                "source_span_ref_id": span_id,
+                "anchor_quotes": ["Mira crossed the painted bridge."],
+            }],
+        }]},
+        "location_pass": {"observation_nodes": []},
+        "collective_pass": {"observation_nodes": []},
+        "object_pass": {"observation_nodes": []},
+        "thread_pass": {"observation_nodes": [], "ignored_items": [], "deferred_items": []},
+        "beat_pass": {"observation_beats": []},
+        "edge_pass": {"observation_edges": []},
+    })
+
+    def produce_parent():
+        produced = run_production_extraction(ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            model_id="fixture-no-provider",
+            allow_llm=False,
+            category_client=fixture_client,
+            initial_lineage={
+                "native_world_id": world_id,
+                "campaign_id": campaign_id,
+            },
+        ))
+        assert produced.failure_kind is None, produced.diagnostics
+        assert produced.run.status == ExtractionRunStatus.REVIEWABLE
+        return ingest.get_extraction_run(produced.run.run_id)
+
+    def correction_request(parent, replacement):
+        candidate_path = _component_path(tmp_path, parent, "candidate_graph")
+        candidate_bytes = candidate_path.read_bytes()
+        candidate = json.loads(candidate_bytes)
+        node = next(record for record in candidate["nodes"] if record["node_id"] == "mira")
+        return RecapCandidateCorrectionRequestV8.model_validate({
+            "schema": "dmb_recap_candidate_correction_request_v8",
+            "parent_run_id": parent.run_id,
+            "parent_candidate_sha256": correction._sha(candidate_bytes),
+            "expected_parent_revision": parent.revision,
+            "source_revision_sha256": artifact.content_sha256,
+            "span_index_sha256": parent.components["source_span_index"].sha256.removeprefix("sha256:"),
+            "profile_id": parent.profile_id,
+            "node_description_replacements": [RecapNodeDescriptionReplacement(
+                node_id=node["node_id"],
+                original_description=node["description"],
+                replacement_description=replacement,
+            ).model_dump(mode="json")],
+        })
+
+    # The actual producer writes and registers its source.md and span index.
+    parent = produce_parent()
+    source_path = _component_path(tmp_path, parent, "source_artifact")
+    span_path = _component_path(tmp_path, parent, "source_span_index")
+    candidate_path = _component_path(tmp_path, parent, "candidate_graph")
+    parent_source_bytes = source_path.read_bytes()
+    parent_span_bytes = span_path.read_bytes()
+    parent_candidate_bytes = candidate_path.read_bytes()
+    assert parent_source_bytes == source.source_text.encode("utf-8")
+    assert json.loads(parent_span_bytes)["source_artifact_id"] == artifact.source_artifact_id
+
+    request = correction_request(parent, "Mira deliberately crossed the painted bridge.")
+    response = correction.correct_recap_candidate(request)
+    assert response.semantic_state == "held"
+    fresh_child = ingest.get_extraction_run(response.run_id)
+    assert fresh_child.status == ExtractionRunStatus.REVIEWABLE
+    assert correction.verify_child_replay(fresh_child, parent, tmp_path)
+    assessment = assess_recap_semantics(
+        fresh_child,
+        parent=parent,
+        source_revision_id=artifact.content_sha256,
+        root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted
+    assert assessment.basis is not None
+    assert assessment.basis["schema"] == "dmb_recap_semantic_basis_v12"
+    basis = fresh_child.lineage["semantic_source_binding_basis_v12"]
+    assert basis["source_artifact_id"] == artifact.source_artifact_id
+    assert basis["source_revision_sha256"] == artifact.content_sha256
+    assert _component_path(tmp_path, fresh_child, "source_artifact").read_bytes() == parent_source_bytes
+    assert _component_path(tmp_path, parent, "source_artifact").read_bytes() == parent_source_bytes
+    assert _component_path(tmp_path, parent, "source_span_index").read_bytes() == parent_span_bytes
+    assert _component_path(tmp_path, parent, "candidate_graph").read_bytes() == parent_candidate_bytes
+    retry = correction.correct_recap_candidate(request)
+    assert retry.run_id == fresh_child.run_id
+    assert ingest.get_extraction_run(fresh_child.run_id).revision == fresh_child.revision
+
+    original_lock = correction._source_binding_child_lock
+    package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
+
+    def package_names():
+        return {
+            path.name for path in package_root.iterdir()
+            if path.is_dir() and path.name not in {".locks", ".staging"}
+        } if package_root.exists() else set()
+
+    def reject_transition(parent, status):
+        request = correction_request(
+            parent,
+            f"Synthetic stale-lock correction: {status.value}.",
+        )
+        packages_before = package_names()
+        rows_before = {run.run_id for run in ingest.list_extraction_runs()}
+
+        @contextmanager
+        def transition_after_lock(root, child_id):
+            with original_lock(root, child_id):
+                if status == ExtractionRunStatus.SUPERSEDED:
+                    registry.supersede_extraction_run(
+                        root, parent.run_id, expected_revision=parent.revision,
+                    )
+                else:
+                    registry.update_extraction_run_status(
+                        root, parent.run_id, status=status,
+                        expected_revision=parent.revision,
+                    )
+                yield
+
+        monkeypatch.setattr(correction, "_source_binding_child_lock", transition_after_lock)
+        with pytest.raises(correction.ExtractPromoteError, match="parent run authority changed"):
+            correction.correct_recap_candidate(request)
+        monkeypatch.setattr(correction, "_source_binding_child_lock", original_lock)
+
+        rows_after = {run.run_id for run in ingest.list_extraction_runs()}
+        new_rows = rows_after - rows_before
+        assert package_names() == packages_before
+        assert ingest.get_extraction_run(parent.run_id).status == status
+        if status == ExtractionRunStatus.SUPERSEDED:
+            assert len(new_rows) == 1
+            successor = ingest.get_extraction_run(next(iter(new_rows)))
+            assert successor.supersedes_run_id == parent.run_id
+        else:
+            assert not new_rows
+
+    rejected_parent = produce_parent()
+    reject_transition(rejected_parent, ExtractionRunStatus.REJECTED)
+    superseded_parent = produce_parent()
+    reject_transition(superseded_parent, ExtractionRunStatus.SUPERSEDED)

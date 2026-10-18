@@ -512,7 +512,7 @@ def test_source_binding_rechecks_snapshot_after_child_lock_wait(
             yield
 
     monkeypatch.setattr(service, "_source_binding_child_lock", change_source_after_lock)
-    with pytest.raises(service.ExtractPromoteError, match="parent source snapshot preflight failed"):
+    with pytest.raises(service.ExtractPromoteError, match="parent run authority changed"):
         service.correct_recap_candidate(request)
 
     assert len(acquired) == 1
