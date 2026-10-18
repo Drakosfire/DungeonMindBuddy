@@ -1,8 +1,8 @@
 # INGEST: protect indented candidate source from generated navigation
 
-Status: ACTIVE — PRIME authorizes this bounded correction of a live reader defect
-under the standing Build→Plan→Play dogfood goal. Independent ARCHITECTURE exact-head
-review is required before merge/delivery.
+Status: SETTLED — PR #1404 merged ate72a5cdf0630bf3742ee57e6b2e7e54d4e371c2a
+after ARCHITECTURE Cycle1 PASS on74aac5516875ff9fc2c23b1bd135d6f96b9694dd.
+API-only delivery and actual browser verification passed. This write lease is closed.
 Base: origin/main@239011a4ebe4aa478d38b23da8760366bc88f972.
 Branch: codex/ingest-indented-candidate-code; reuse buddy-context-loop checkout.
 Topology: serial successor to merged #1401; parallel-independent of DOGFOOD #1403.
@@ -45,3 +45,18 @@ Cumulative diff→commit/push/onePR→independent review→guarded merge→API-o
 preserving all records and current UI. Reopen real candidate and verify raw
 qualified generated navigation disappears from the two source blocks while
 ordinary chips/inspection work. No new provider/correction/Graph publication.
+
+
+## Verified delivery
+
+41 owning tests independently pass. API PID696264 serves the single reviewed
+service-file correction; UI index5d90f904 remains unchanged. Ten retained records
+and saved Ingestion artifact hashes match before/after restart. Actual Session29
+browser verification:66nodes/65relationships remain available,56real chips,
+no generated dmb-node:candidate markup in the visible recap, and Brin local
+inspection works. The two source blocks are readable plain original text.
+Rawsource/candidate/span digests remain unchanged,48nodes honestly unlinked.
+No provider, correction, Graph publication, source/Plan/Run/note or UI write.
+Broader source formatting and semantic acceptance remain separate unfinished work.
+Private receipts: established jev-evidence-loop-20261016 candidate-indented-code-*;
+user-facing screenshot session29-candidate-reader-delivered.png.
