@@ -15,7 +15,11 @@ result digest. UI initializes purpose explicitly and validates fresh purpose on
 reopen; legacy unspecified stays Illustration. Manual purpose changes remain.
 No generation, placement, save, public media or user-source behavior expansion.
 
-Exact paths: this handoff; src/application_state/build_proposal/types.py;
+Rebrief: owning tests exposed the closed durable writer-policy literal; add only
+src/application_state/agent_conversation/types.py to accept the new explicit policy
+alongside the unchanged old policy. No schema migration or other scope expansion.
+
+Exact paths: this handoff; src/application_state/agent_conversation/types.py; src/application_state/build_proposal/types.py;
 src/application_state/build_proposal/images.py;
 src/application_state/agent_conversation/build_authoring.py;
 apps/live_control_server/services/build_image_writer.py;
@@ -37,3 +41,11 @@ No new worktree/environment/preview or /tmp task directory. Tests, cumulative di
 commit/push/PR, ARCHITECTURE exact-head independent review, PRIME guarded delivery.
 Preserve all active drafts/media/Run pins; live acceptance only through a separate
 tab and deliberate prepared-wizard request, no user page Save/reload.
+
+Pre-review proof: 22 owning Harness/tool tests pass against unique54329 fixture
+DBs, including map/illustration, missing/invalid purpose, forged persisted purpose,
+legacy schema/proof/digest reopen and idempotency conflict. Seventeen mounted
+prepared-host/wizard tests, UI typecheck, production build, scoped Ruff F and
+cumulative diff checks pass. Build retains the existing chunk-size warning.
+Initial tests exposed the closed policy literal, now fixed within the rebrief.
+No runtime delivery, image generation or Edge source save is claimed yet.

@@ -8,7 +8,7 @@ vi.mock('../api/liveApi',()=>({authenticatedApiFetch:vi.fn(async(path:string,ini
  fixture.calls.push((init?.method??'GET')+' '+path);
  if(path.includes('/preparations/')&&path.endsWith('/asset'))return{response:new Response(JSON.stringify({...fixture.selected,asset_id:id,revision:2}))};
  if(path.includes('/preparations/'))return{response:new Response(JSON.stringify(fixture.selected))};
- if(path.endsWith('/capabilities'))return{response:new Response(JSON.stringify({configured:true,library_ready:true,storage_configured:true,models:[{id:'flux-2-pro',label:'FLUX',formats:['png'],controls:[]}]}))};
+ if(path.endsWith('/capabilities'))return{response:new Response(JSON.stringify({configured:true,library_ready:true,storage_configured:true,map_framing:'Overhead map',models:[{id:'flux-2-pro',label:'FLUX',formats:['png'],controls:[]}]}))};
  if(path.endsWith('/generate'))return{response:new Response(JSON.stringify({prompt:'Prepared Edge',model:'flux-2-pro',images:[{asset_id:id,state:'staged',data_url:'data:image/png;base64,AA==',media_type:'image/png'}]}))};
  return{response:new Response(JSON.stringify({asset_id:id,state:'ready',delivery_url:'https://imagedelivery.net/test/buddy-'+id.replaceAll('-','')+'/public'}))};
 })}));
@@ -43,3 +43,17 @@ describe('prepared image conversation action',()=>{
   expect(bridge.insert).not.toHaveBeenCalled();
  });
 });
+
+ it('opens explicit map purpose and rejects a changed purpose before reopening',async()=>{
+  const {record,bridge}=setup();record.purpose='map';fixture.selected=record;
+  const view=render(<PreparedBuildImage record={record} bridge={bridge} active/>);
+  fireEvent.click(screen.getByRole('button',{name:'Open Image Studio'}));
+  expect(await screen.findByLabelText('Image purpose')).toHaveValue('map');
+  expect(fixture.calls.some(item=>item.endsWith('/generate'))).toBe(false);
+  fireEvent.click(screen.getByRole('button',{name:'Close image studio'}));
+  fixture.selected={...record,purpose:'illustration'};
+  fireEvent.click(screen.getByRole('button',{name:'Open Image Studio'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('prepared direction changed');
+  expect(screen.queryByLabelText('Image purpose')).not.toBeInTheDocument();
+  view.unmount();
+ });

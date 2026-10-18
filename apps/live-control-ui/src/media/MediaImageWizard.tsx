@@ -54,13 +54,13 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
 }
 
 /** Surface-independent generator. The host owns placement and any eventual document write. */
-export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
-  initialPrompt?: string; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
+export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
+  initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placementAbort = useRef<AbortController | null>(null);
-  const [purpose, setPurpose] = useState<'illustration' | 'map'>('illustration');
+  const [purpose, setPurpose] = useState<'illustration' | 'map'>(initialPurpose);
   const [mapFraming, setMapFraming] = useState('');
   useEffect(() => () => placementAbort.current?.abort(), []);
   const [models, setModels] = useState<Model[]>([]);

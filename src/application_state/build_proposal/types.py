@@ -150,6 +150,7 @@ class BuildImagePreparation(StrictModel):
     updated_at: datetime
     prompt: str = Field(min_length=1, max_length=16000)
     alt: str = Field(min_length=1, max_length=500)
+    purpose: Literal["illustration", "map"] | None = None
     asset_id: UUID | None = None
     writer_proof: BuildImageWriterProof | None = None
 
@@ -193,3 +194,9 @@ class ImageDirection(StrictModel):
                 "Image direction must be inert prompt and single-line alt text"
             )
         return self
+
+
+class ImageDirectionV2(ImageDirection):
+    """Explicit purpose for new writers; legacy prompt/alt proof remains valid."""
+
+    purpose: Literal["illustration", "map"]

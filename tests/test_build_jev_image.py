@@ -33,16 +33,17 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 
 
 class ImageWire(httpx.AsyncBaseTransport):
-    def __init__(self, *, timeout=False, after=None):
+    def __init__(self, *, timeout=False, after=None, purpose="map"):
         self.calls = []
         self.timeout = timeout
         self.after = after
-        self.text = json.dumps(
-            {
-                "prompt": "An overhead fantasy map of the peaceful fort town beside its swamp, with the marketplace as proposed layout.",
-                "alt": "Proposed map of the fort town",
-            }
-        )
+        output = {
+            "prompt": "An overhead fantasy map of the peaceful fort town beside its swamp, with the marketplace as proposed layout.",
+            "alt": "Proposed map of the fort town",
+        }
+        if purpose is not None:
+            output["purpose"] = purpose
+        self.text = json.dumps(output)
 
     async def handle_async_request(self, request):
         self.calls.append(request)
@@ -104,10 +105,11 @@ def setup(build_case, monkeypatch, **wire_options):
     return (source, request, bootstrap), reads, runtime, decision, wire
 
 
+@pytest.mark.parametrize("purpose", ["map", "illustration"])
 def test_image_operation_prepares_one_writer_and_reopens_without_generation(
-    build_case, monkeypatch, tmp_path
+    build_case, monkeypatch, tmp_path, purpose
 ):
-    case, reads, runtime, decisions, wire = setup(build_case, monkeypatch)
+    case, reads, runtime, decisions, wire = setup(build_case, monkeypatch, purpose=purpose)
     response = execute(case, tmp_path, runtime, operator_subject="local_operator")
     completion = response.knowledge_context.completion
     assert isinstance(completion, ledger.BuildImagePreparationCompletionV1)
@@ -118,6 +120,7 @@ def test_image_operation_prepares_one_writer_and_reopens_without_generation(
     }
     image = BuildImageService().get(completion.action_id, "local_operator")
     assert image.prompt == json.loads(wire.text)["prompt"] and image.asset_id is None
+    assert image.purpose == purpose
     assert image.writer_proof.raw_response == wire.text
     assert (
         image.writer_proof.authorization.payload_sha256
@@ -137,7 +140,7 @@ def test_image_operation_prepares_one_writer_and_reopens_without_generation(
         BuildImageService().get(image.action_id, "foreign")
 
 
-@pytest.mark.parametrize("field", ["prompt", "alt", "raw_response", "request_json"])
+@pytest.mark.parametrize("field", ["prompt", "alt", "purpose", "raw_response", "request_json"])
 def test_reopen_rejects_forged_preparation(
     build_case, monkeypatch, tmp_path, application_state_dsn, field
 ):
@@ -148,7 +151,9 @@ def test_reopen_rejects_forged_preparation(
         payload = conn.execute(
             "SELECT payload FROM agent.build_proposal WHERE action_id=%s", (action,)
         ).fetchone()[0]
-        if field in {"prompt", "alt"}:
+        if field == "purpose":
+            payload[field] = "illustration"
+        elif field in {"prompt", "alt"}:
             payload[field] += " forged"
         else:
             payload["writer_proof"][field] += " forged"
@@ -209,3 +214,41 @@ def test_no_editor_capability_does_not_offer_image(build_case, monkeypatch):
             "allowed_surface_operations"
         ]
     )
+
+
+def test_legacy_direction_and_completion_reopen_with_unchanged_digest(
+    build_case, monkeypatch, tmp_path, application_state_dsn
+):
+    from application_state.build_proposal import types as image_types
+    from application_state.agent_conversation.build_authoring import result_digest, _image_digest
+
+    # Produce the old schema through the same real Harness/DB boundary, then
+    # restore the new implementation before reopening the historical completion.
+    with monkeypatch.context() as legacy:
+        legacy.setattr(image_writer, "POLICY", "captured_build_image_prompt_alt_v1")
+        legacy.setattr(image_writer, "ImageDirectionV2", image_types.ImageDirection)
+        legacy.setattr(image_types, "ImageDirectionV2", image_types.ImageDirection)
+        case, _, runtime, _, wire = setup(build_case, legacy, purpose=None)
+        response = execute(case, tmp_path, runtime, operator_subject="local_operator")
+    completion = response.knowledge_context.completion
+    record = BuildImageService().get(completion.action_id, "local_operator")
+    expected = _image_digest({"prompt": record.prompt, "alt": record.alt,
+                              "writer_proof": record.writer_proof.model_dump(mode="json")})
+    assert result_digest(record) == completion.preparation_result_sha256 == expected
+    with psycopg.connect(application_state_dsn) as conn:
+        payload = conn.execute("SELECT payload FROM agent.build_proposal WHERE action_id=%s", (record.action_id,)).fetchone()[0]
+        payload.pop("purpose", None)
+        conn.execute("UPDATE agent.build_proposal SET payload=%s WHERE action_id=%s", (Jsonb(payload), record.action_id))
+    assert BuildImageService().get(record.action_id, "local_operator").purpose is None
+    reopened = AgentConversationService().list_turns("elderwyld", record.reservation.conversation_id)[0]
+    assert reopened.completion == completion and len(wire.calls) == 1
+
+
+@pytest.mark.parametrize("purpose", [None, "unsupported"])
+def test_new_writer_rejects_missing_or_unknown_purpose(build_case, monkeypatch, tmp_path, purpose):
+    case, _, runtime, _, wire = setup(build_case, monkeypatch, purpose=purpose)
+    with pytest.raises(Exception):
+        execute(case, tmp_path, runtime, operator_subject="local_operator")
+    assert len(wire.calls) == 1
+    with pytest.raises(ApplicationStateNotFoundError):
+        BuildImageService().get(uuid5(case[1].build_write_capability.idempotency_key, "image"), "local_operator")

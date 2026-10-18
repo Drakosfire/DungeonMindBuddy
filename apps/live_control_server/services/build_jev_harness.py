@@ -98,9 +98,10 @@ class BuildJevHarness:
             from application_state.agent_conversation.writer_evidence_selection import POLICY as SELECTION_POLICY
             budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
         if accounting is not None and cap is not None:
-            from application_state.build_proposal.types import ImageDirection
-            budget["buildJevActions"]["image_preparation_schema_sha256"] = digest(ImageDirection.model_json_schema())
-            budget["buildJevActions"]["image_preparation_policy"] = "captured_build_image_prompt_alt_v1"
+            from application_state.build_proposal.types import ImageDirectionV2
+            budget["buildJevActions"]["image_preparation_schema_sha256"] = digest(ImageDirectionV2.model_json_schema())
+            from .build_image_writer import POLICY as IMAGE_POLICY
+            budget["buildJevActions"]["image_preparation_policy"] = IMAGE_POLICY
             budget["buildJevActions"]["allowed_surface_operations"] = ["answer_from_sources", "prepare_build_image", "propose_build_insertion"]
         return budget
 

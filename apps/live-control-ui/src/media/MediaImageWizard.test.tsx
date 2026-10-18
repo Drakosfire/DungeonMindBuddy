@@ -204,3 +204,16 @@ describe('MediaImageWizard', () => {
   });
 
 });
+
+ it.each(['map','illustration'] as const)('uses explicit %s purpose and preserves manual override',async(purpose)=>{
+  const api=createPort();
+  vi.mocked(api.capabilities).mockResolvedValue({configured:true,library_ready:true,storage_configured:true,map_framing:'Overhead map',models:[{id:'model',label:'Model',formats:['png'],controls:[]}]});
+  render(<MediaImageWizard initialPrompt='A town' initialPurpose={purpose} onClose={()=>{}} port={api}/>);
+  await screen.findByRole('option',{name:'Model'});
+  expect(screen.getByLabelText('Image purpose')).toHaveValue(purpose);
+  expect(api.generate).not.toHaveBeenCalled();
+  const override=purpose==='map'?'illustration':'map';
+  fireEvent.change(screen.getByLabelText('Image purpose'),{target:{value:override}});
+  fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+  await waitFor(()=>expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({purpose:override})));
+ });

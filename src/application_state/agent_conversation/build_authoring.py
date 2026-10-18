@@ -188,7 +188,7 @@ def recover_prepared_proposal(service, turn, action_id):
 
 def validate_stored_image(conn, turn, completion):
     from application_state.build_proposal.types import BuildImagePreparation
-    from application_state.build_proposal.types import ImageDirection
+    from application_state.build_proposal.types import ImageDirection, ImageDirectionV2
     from .types import BuildJevActionSelectionV1, BuildImageActionPolicyV1
 
     try:
@@ -217,7 +217,8 @@ def validate_stored_image(conn, turn, completion):
             if e.kind == "provider_attempt_authorized_v3"
             and e.provider_attempt_id == completion.provider_attempt_id
         )
-        decoded = ImageDirection.model_validate_json(proof.raw_response)
+        direction_type = ImageDirectionV2 if "purpose" in json.loads(proof.raw_response) else ImageDirection
+        decoded = direction_type.model_validate_json(proof.raw_response)
         writer_body = json.loads(proof.request_json)
         packet = json.loads(writer_body["input"])
         captured = packet["captured_capability"]
@@ -258,6 +259,8 @@ def validate_stored_image(conn, turn, completion):
             != execution.policy.image_preparation_schema_sha256
             or decoded.prompt != image.prompt
             or decoded.alt != image.alt
+            or getattr(decoded, "purpose", None) != image.purpose
+            or (image.purpose is not None) != (execution.policy.image_preparation_policy == "captured_build_image_prompt_alt_purpose_v2")
             or selected.operation != "prepare_build_image"
             or selected.broker_operation_id != origin.broker_operation_id
             or selected.arguments_sha256 != origin.arguments_sha256
@@ -306,6 +309,7 @@ def result_digest(record):
         {
             "prompt": record.prompt,
             "alt": record.alt,
+            **({"purpose": record.purpose} if record.purpose is not None else {}),
             "writer_proof": record.writer_proof.model_dump(mode="json"),
         }
     )
