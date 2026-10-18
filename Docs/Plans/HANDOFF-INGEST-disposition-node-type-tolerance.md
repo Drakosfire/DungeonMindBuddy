@@ -51,7 +51,7 @@ No other path is leased. The extractor implementation need not change: `_normali
 
 ## Implementation evidence
 
-- The thread disposition schema now permits one optional string `node_type` on ignored/deferred items while retaining `additionalProperties: false`. Positive actor-node and edge schemas still reject undeclared `node_type` metadata.
+- The thread disposition schema now permits one optional string `node_type` on ignored/deferred items while retaining `additionalProperties: false`. Positive actor-node and edge schemas remain strict: unknown actor fields are rejected, and undeclared `node_type` on edges is rejected.
 - The extractor-boundary regression sends `node_type` on both ignored and deferred provider items through candidate construction. Normalization drops that metadata, preserves the declared disposition fields, leaves the provider payload untouched, and does not create positive graph nodes from disposition records.
 - Focused verification: the schema and category-extractor suites pass (`8 passed`); Ruff and `git diff --check` pass.
 - Exact private-response replay is offline: the original captured thread response remains malformed JSON (decode error at character 2514), while the captured conformance retry validates against the corrected thread schema with zero errors. These private response artifacts remain outside the repository. No provider call or live Process rerun was made.
