@@ -198,7 +198,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
         expected_pointer_revision=pointer.revision,
         expected_active_conversation_id=pointer.active_conversation_id,
     ))
-    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
@@ -220,7 +220,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
         patch("apps.live_control_server.services.world_container_registry.get_world_container",
               return_value=SimpleNamespace(world_id="world-a", name="World A")),
         patch.object(play, "get_world_play_run", return_value=_world_play_record()) as get_run,
-        patch.object(play, "get_committed_playable_revision", return_value=_world_committed()) as get_runbook,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed(kind="plan", object_revision=9)) as get_runbook,
         patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
     ):
         first = asyncio.run(request_turn(payload))
@@ -4181,3 +4181,51 @@ def test_route_fallback_trace_finalizes_once_with_unknown_error_calls(monkeypatc
     assert emitted[0]["correlation"] == {}
     if status == "error":
         assert emitted[0]["usage"]["model_call_count"] is None
+
+
+def test_world_plan_real_pin_reaches_http_runtime_and_stale_run_does_not(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+) -> None:
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    from tests.test_agent_play_surface_context import _create_real_world_play_context
+
+    assert application_state_dsn
+    world, _obj, revision, run = _create_real_world_play_context(tmp_path)
+    service = AgentConversationService()
+    pointer = service.get_world_pointer(world.world_id)
+    service.new_conversation(ConversationCommand(
+        world_id=world.world_id, command_id=uuid4(), expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    app = create_app()
+    runtime = FakeRuntime()
+    app.state.agent_turn_runtime = runtime
+    app.state.agent_conversation_service = service
+    payload = {**_play_turn_payload(revision=run.run_revision),
+               "owner_scope": {"kind": "world", "world_id": world.world_id},
+               "primary_work": {"kind": "run", "object_id": run.run_id,
+                                "expected_revision": run.run_revision}}
+
+    async def send(body):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=body)
+
+    accepted = asyncio.run(send(payload))
+    assert accepted.status_code == 200, accepted.text
+    assert len(runtime.invocations) == 1
+    current = runtime.invocations[0].context_packet.surface_context.current_play
+    assert current.current_scene.element_id == "scene:gate-line"
+    assert current.playable_revision == revision.revision_n
+    stale = asyncio.run(send({**payload, "turn_id": "stale-real-pin",
+        "primary_work": {**payload["primary_work"], "expected_revision": run.run_revision + 1}}))
+    assert stale.status_code == 409, stale.text
+    assert len(runtime.invocations) == 1
