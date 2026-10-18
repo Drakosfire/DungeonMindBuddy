@@ -844,7 +844,7 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     assessment = assess_recap_semantics(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
-    assert assessment.marked and not assessment.accepted
+    assert assessment.marked and not assessment.accepted, assessment
     basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response.semantic_basis_sha256
     from application_state.errors import ApplicationStateConflictError
@@ -3665,11 +3665,15 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
 
 
-def _append_fixture(monkeypatch, root):
+def _append_fixture(monkeypatch, root, *, actor_recovery=False, actor_prefix="", line_ending="\n"):
     """Frozen three-span recap plus a PC introduction and an existing edge."""
     from graph_memory.source_span import build_stable_source_span_id
     parent, _, runs, pc_body, context = _pc_reference_fixture(monkeypatch, root)
-    source = b"Mira found the key under the bridge.\nMira rescued a traveler.\nMira felt frightened.\n"
+    first_line = (
+        f"{actor_prefix}Lysandro found the key under the bridge while Mira watched."
+        if actor_recovery else "Mira found the key under the bridge."
+    )
+    source = line_ending.join((first_line, "Mira rescued a traveler.", "Mira felt frightened.")).encode("utf-8") + line_ending.encode("utf-8")
     (root / "source.md").write_bytes(source)
     digest = _sha(source)
     _update_source_artifact_record(
@@ -3686,6 +3690,8 @@ def _append_fixture(monkeypatch, root):
     } for i in (1, 2, 3)]
     ref = old["nodes"][0]["evidence_refs"][0]
     ref["source_span_ref_id"] = index["spans"][0]["source_span_id"]
+    if actor_recovery:
+        ref["anchor_quotes"] = [first_line]
     location = copy.deepcopy(old["nodes"][0])
     location.update(node_id="bridge", node_type="location", label="Bridge")
     old["nodes"].append(location)
@@ -3880,3 +3886,227 @@ def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypa
         bounded["evidence_appends"] *= count
         with pytest.raises(ValidationError):
             RecapCandidateCorrectionRequestV10.model_validate(bounded)
+
+
+def _actor_recovery_request(parent, payload, index, source_text, *, action="retarget"):
+    from apps.live_control_server.services.recap_semantic_candidate_correction import _canonical_bytes
+
+    edge = next(row for row in payload["edges"] if row["edge_id"] == "edge-bridge")
+    span_id = index["spans"][0]["source_span_id"]
+    name = "Lysandro"
+    name_start = source_text.index(name)
+    return {
+        "schema": "dmb_recap_candidate_correction_request_v11",
+        "parent_run_id": parent.run_id,
+        "expected_parent_revision": parent.revision,
+        "parent_candidate_sha256": parent.components["candidate_graph"].sha256.removeprefix("sha256:"),
+        "source_revision_sha256": parent.components["source_artifact"].sha256.removeprefix("sha256:"),
+        "span_index_sha256": parent.components["source_span_index"].sha256.removeprefix("sha256:"),
+        "profile_id": service.PROFILE,
+        "misbound_actor_id": "mira",
+        "actor_introduction": {
+            "literal_name": name,
+            "source_span_ref_id": span_id,
+            "name_start": name_start,
+            "name_end": name_start + len(name),
+            "replacement_description": "Lysandro found the key under the bridge.",
+            "description_anchor_quotes": ["Lysandro found the key under the bridge"],
+        },
+        "affected_edges": [{
+            "action": action,
+            "edge_id": edge["edge_id"],
+            "expected_edge_sha256": _sha(_canonical_bytes(edge)),
+            "expected_evidence_refs_sha256": _sha(_canonical_bytes(edge["evidence_refs"])),
+            "original_from_id": edge["from_node_id"],
+            "original_to_id": edge["to_node_id"],
+            "original_predicate": edge["relationship_type"],
+            "misbound_endpoint": "from_id",
+            "source_span_ref_id": span_id,
+            "actor_anchor_quotes": [source_text.splitlines()[0]],
+        }],
+    }
+
+
+def test_source_supported_actor_recovery_creates_held_child_and_replays(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import (
+        RecapCandidateCorrectionRequestV11, RecapCandidateCorrectionResponseV11,
+    )
+    from application_state.ingest import service as ingest_service
+
+    parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path, actor_recovery=True)
+    source_text = (tmp_path / "source.md").read_text(encoding="utf-8")
+    request_body = _actor_recovery_request(parent, json.loads(raw), index, source_text)
+    request = RecapCandidateCorrectionRequestV11.model_validate(request_body, strict=True)
+    app = _split_http_app(monkeypatch)
+
+    async def submit():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test",
+        ) as client:
+            url = f"/api/live/extract-promote/runs/{parent.run_id}/recap-candidate-corrections"
+            first = await client.post(url, json=request_body)
+            assert first.status_code == 200, first.text
+            second = await client.post(url, json=request_body)
+            assert second.status_code == 200 and second.json() == first.json()
+            return first.json()
+
+    response = RecapCandidateCorrectionResponseV11.model_validate(asyncio.run(submit()))
+
+    assert isinstance(response, RecapCandidateCorrectionResponseV11)
+    assert (response.introduced_actor_count, response.retargeted_edge_count,
+            response.omitted_edge_count) == (1, 1, 0)
+    child = runs[response.run_id]
+    payload = json.loads(_candidate_path(tmp_path, child).read_bytes())
+    actor = payload["nodes"][-1]
+    assert actor["node_id"].startswith("node:recovered-actor:")
+    assert actor["label"] == "Lysandro" and actor["corpus_ref"] is None
+    assert actor["semantic_state"]["visibility_state"] == "gm_private"
+    assert payload["edges"][0]["from_node_id"] == actor["node_id"]
+    assert payload["edges"][0]["to_node_id"] == "bridge"
+    assert payload["edges"][0]["evidence_refs"] == json.loads(raw)["edges"][0]["evidence_refs"]
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(
+        child, parent=parent, source_revision_id=request.source_revision_sha256, root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted, assessment
+    assert assessment.basis is not None, assessment
+    basis = ingest_service.RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
+    assert basis.request_version == 11
+    assert isinstance(basis.operation_basis, ingest_service.RecapSemanticBasisV13)
+    assert basis.digest() == response.semantic_basis_sha256
+
+    monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    original_resolve = service.resolve_promotable_ingest_run
+
+    def review_resolve(run_id, **kwargs):
+        resolved = original_resolve(run_id, **kwargs)
+        resolved.status = "reviewable"
+        resolved.diagnostics = []
+        return resolved
+
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", review_resolve)
+    package = extract_promote.get_exact_run_review_package(child.run_id)
+    assert any(assertion.label == "Lysandro" for assertion in package.assertions)
+    assert package.semantic_disposition and package.semantic_disposition["state"] == "held"
+
+
+@pytest.mark.parametrize("fault", [
+    "unknown_quote", "stale_edge", "duplicate_actor_name", "partial_name",
+    "omitted_dependent",
+])
+def test_source_supported_actor_recovery_rejects_invalid_edits_atomically(
+    monkeypatch, tmp_path, fault,
+):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+
+    parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path, actor_recovery=True)
+    source_text = (tmp_path / "source.md").read_text(encoding="utf-8")
+    body = _actor_recovery_request(parent, json.loads(raw), index, source_text)
+    if fault == "unknown_quote":
+        body["actor_introduction"]["description_anchor_quotes"] = ["Lysandro rescued everyone"]
+    elif fault == "stale_edge":
+        body["affected_edges"][0]["expected_edge_sha256"] = "0" * 64
+    elif fault == "duplicate_actor_name":
+        payload = json.loads(raw)
+        duplicate = copy.deepcopy(payload["nodes"][0])
+        duplicate.update(node_id="lysandro-old", label="Lysandro")
+        payload["nodes"].append(duplicate)
+        (tmp_path / "parent.json").write_bytes(service._canonical_bytes(payload))
+        revised = _sha(service._canonical_bytes(payload))
+        components = dict(parent.components)
+        components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": revised})
+        parent = parent.model_copy(update={"components": components})
+        runs["parent"] = parent
+        body["parent_candidate_sha256"] = revised
+    elif fault == "partial_name":
+        body["actor_introduction"]["name_start"] += 1
+        body["actor_introduction"]["name_end"] += 1
+    elif fault == "omitted_dependent":
+        payload = json.loads(raw)
+        payload["beats"] = [{"related_edge_id": "edge-bridge"}]
+        revised_bytes = service._canonical_bytes(payload)
+        (tmp_path / "parent.json").write_bytes(revised_bytes)
+        revised = _sha(revised_bytes)
+        components = dict(parent.components)
+        components["candidate_graph"] = components["candidate_graph"].model_copy(
+            update={"sha256": revised},
+        )
+        parent = parent.model_copy(update={"components": components})
+        runs["parent"] = parent
+        body["parent_candidate_sha256"] = revised
+        body["affected_edges"][0]["action"] = "omit"
+    request = RecapCandidateCorrectionRequestV11.model_validate(body, strict=True)
+    with pytest.raises(service.ExtractPromoteError):
+        service.correct_recap_candidate(request)
+    assert len(runs) == 1
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
+
+
+def test_source_supported_actor_offsets_use_codepoints_with_crlf(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+
+    parent, raw, runs, _, _, index = _append_fixture(
+        monkeypatch, tmp_path, actor_recovery=True, actor_prefix="🐉 ", line_ending="\r\n",
+    )
+    source_bytes = (tmp_path / "source.md").read_bytes()
+    source_text = source_bytes.decode("utf-8")
+    body = _actor_recovery_request(parent, json.loads(raw), index, source_text)
+    start = body["actor_introduction"]["name_start"]
+    assert source_text[start:start + len("Lysandro")] == "Lysandro"
+    assert len(source_text[:start].encode("utf-8")) > start
+    request = RecapCandidateCorrectionRequestV11.model_validate(body, strict=True)
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assert json.loads(_candidate_path(tmp_path, child).read_bytes())["nodes"][-1]["label"] == "Lysandro"
+
+
+def test_actor_source_span_bounds_multiline_crlf_index():
+    from graph_memory.source_span import (
+        SourceSpanIndex, SourceSpanIndexEntry, build_stable_source_span_id,
+        document_source_ref_id,
+    )
+
+    source_text = "Opening\r\nLysandro appears here.\r\nClosing"
+    source_bytes = source_text.encode("utf-8")
+    artifact_id = "artifact:recap:multi-line-span"
+    content_sha = _sha(source_bytes)
+    source_ref_id = document_source_ref_id(artifact_id)
+    span_id = build_stable_source_span_id(
+        source_artifact_id=artifact_id, content_sha256=content_sha,
+        start_line=1, end_line=2,
+    )
+    index = SourceSpanIndex(
+        source_artifact_id=artifact_id, content_sha256=content_sha,
+        source_ref_id=source_ref_id,
+        spans=(SourceSpanIndexEntry(
+            source_span_id=span_id, source_ref_id=source_ref_id,
+            source_artifact_id=artifact_id, content_sha256=content_sha,
+            start_line=1, end_line=2,
+        ),),
+    )
+    start, end, text = service._actor_source_span(source_text, index, span_id)
+    assert start == 0
+    assert text == "Opening\r\nLysandro appears here."
+    assert end == len(text)
+
+
+def test_source_supported_actor_rejects_host_id_collision_and_caller_identity(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+    from pydantic import ValidationError
+
+    parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path, actor_recovery=True)
+    source_text = (tmp_path / "source.md").read_text(encoding="utf-8")
+    body = _actor_recovery_request(parent, json.loads(raw), index, source_text)
+    request = RecapCandidateCorrectionRequestV11.model_validate(body, strict=True)
+    monkeypatch.setattr(service, "_recovered_actor_node_id", lambda _request: "mira")
+    with pytest.raises(service.ExtractPromoteError, match="collides"):
+        service.correct_recap_candidate(request)
+    assert len(runs) == 1
+
+    injected = copy.deepcopy(body)
+    injected["actor_introduction"]["corpus_ref"] = {"type": "npc", "ref_id": "native:actor"}
+    with pytest.raises(ValidationError):
+        RecapCandidateCorrectionRequestV11.model_validate(injected, strict=True)

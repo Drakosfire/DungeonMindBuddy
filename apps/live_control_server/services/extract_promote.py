@@ -1181,6 +1181,7 @@ def decide_recap_semantic_disposition(
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
         RecapSemanticBasisV11,
+        RecapSemanticBasisV13,
         RecapSemanticBasisV12,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
@@ -1202,6 +1203,7 @@ def decide_recap_semantic_disposition(
         CANDIDATE_DERIVATION_V8,
         CANDIDATE_DERIVATION_V9,
         CANDIDATE_DERIVATION_V10,
+        CANDIDATE_DERIVATION_V11,
         is_recap_correction,
     )
     from apps.live_control_server.services.source_artifact_registry import (
@@ -1248,6 +1250,11 @@ def decide_recap_semantic_disposition(
         if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
         else run.lineage.get("derivation")
     )
+    if request.decision == "accepted" and operation_derivation == CANDIDATE_DERIVATION_V11:
+        raise ExtractPromoteError(
+            "source-supported actor recovery remains held; separate identity and semantic review is required",
+            code="recap_semantic_hold", status_code=409,
+        )
     if request.decision == "accepted" and operation_derivation == CANDIDATE_DERIVATION_V9:
         manifest = run.lineage.get("semantic_candidate_manifest")
         if (not isinstance(manifest, dict)
@@ -1270,6 +1277,7 @@ def decide_recap_semantic_disposition(
     try:
         basis_type = (
             RecapSemanticBasisV12 if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+            else RecapSemanticBasisV13 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V11
             else RecapSemanticBasisV11 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V10
             else RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
             else RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
@@ -1422,6 +1430,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                     "operator_recap_semantic_candidate_correction_v7",
                     "operator_recap_semantic_candidate_correction_v8",
                     "operator_recap_semantic_candidate_correction_v10",
+                    "operator_recap_semantic_candidate_correction_v11",
                 } and isinstance(run_record.lineage.get("inherited_pc_proof"), dict):
                     from apps.live_control_server.services.recap_semantic_candidate_correction import (
                         inherited_pc_proof_digest, inherited_pc_reference_proof,

@@ -47,6 +47,7 @@ _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 _RECAP_CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 _RECAP_CANDIDATE_DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
+_RECAP_CANDIDATE_DERIVATION_V11 = "operator_recap_semantic_candidate_correction_v11"
 _RECAP_SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 _RECAP_CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 _RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
@@ -250,11 +251,22 @@ class RecapSemanticBasisV11(RecapSemanticBasisV2):
     inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
+class RecapSemanticBasisV13(RecapSemanticBasisV2):
+    """Bind one source-supported local actor recovery and exact edge preimages."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v13"] = Field(
+        default="dmb_recap_semantic_basis_v13", alias="schema")
+    derivation: Literal["operator_recap_semantic_candidate_correction_v11"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v11"]
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
 RecapSemanticOperationBasis = (
     RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4
     | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7
     | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10
-    | RecapSemanticBasisV11
+    | RecapSemanticBasisV11 | RecapSemanticBasisV13
 )
 
 _RECAP_OPERATION_BASIS_BY_REQUEST = {
@@ -268,6 +280,7 @@ _RECAP_OPERATION_BASIS_BY_REQUEST = {
     8: (_RECAP_CANDIDATE_DERIVATION_V8, "dmb_recap_semantic_candidate_manifest_v8", RecapSemanticBasisV9),
     9: (_RECAP_CANDIDATE_DERIVATION_V9, "dmb_recap_semantic_candidate_manifest_v9", RecapSemanticBasisV10),
     10: (_RECAP_CANDIDATE_DERIVATION_V10, "dmb_recap_semantic_candidate_manifest_v10", RecapSemanticBasisV11),
+    11: (_RECAP_CANDIDATE_DERIVATION_V11, "dmb_recap_semantic_candidate_manifest_v11", RecapSemanticBasisV13),
 }
 
 
@@ -278,7 +291,7 @@ class RecapSemanticBasisV12(BaseModel):
     schema_: Literal["dmb_recap_semantic_basis_v12"] = Field(
         default="dmb_recap_semantic_basis_v12", alias="schema"
     )
-    request_version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    request_version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     derivation: Literal["operator_recap_semantic_source_binding_v11"]
     operation_derivation: Literal[
         "operator_recap_semantic_candidate_correction_v1",
@@ -291,6 +304,7 @@ class RecapSemanticBasisV12(BaseModel):
         "operator_recap_semantic_candidate_correction_v8",
         "operator_recap_semantic_candidate_correction_v9",
         "operator_recap_semantic_candidate_correction_v10",
+        "operator_recap_semantic_candidate_correction_v11",
     ]
     operation_manifest_schema: Literal[
         "dmb_recap_semantic_candidate_manifest_v1",
@@ -303,6 +317,7 @@ class RecapSemanticBasisV12(BaseModel):
         "dmb_recap_semantic_candidate_manifest_v8",
         "dmb_recap_semantic_candidate_manifest_v9",
         "dmb_recap_semantic_candidate_manifest_v10",
+        "dmb_recap_semantic_candidate_manifest_v11",
     ]
     operation_basis: RecapSemanticOperationBasis
     parent_source_uri: str
@@ -653,6 +668,181 @@ def _assert_recap_append_manifest(manifest: object, basis: RecapSemanticBasisV11
             or row["original_description"] == row["replacement_description"]):
             invalid()
 
+def _assert_recap_actor_recovery_manifest(
+    manifest: object, basis: RecapSemanticBasisV13,
+) -> None:
+    """Close the request and host-derived actor/edge ledger for request V11."""
+    def invalid():
+        raise ApplicationStateConflictError("recap actor recovery manifest is malformed")
+
+    if (not isinstance(manifest, dict)
+        or set(manifest) != {"schema", "request", "actor_node", "edge_changes"}
+        or manifest.get("schema") != basis.manifest_schema):
+        invalid()
+    request = manifest.get("request")
+    request_keys = {
+        "schema", "parentRunId", "expectedParentRevision", "parentCandidateSha256",
+        "sourceRevisionSha256", "spanIndexSha256", "profileId", "misboundActorId",
+        "actorIntroduction", "affectedEdges",
+    }
+    if not isinstance(request, dict) or set(request) != request_keys:
+        invalid()
+    if (request.get("schema") != "dmb_recap_candidate_correction_request_v11"
+        or request.get("parentRunId") != basis.parent_run_id
+        or request.get("parentCandidateSha256") != basis.parent_candidate_sha256
+        or request.get("expectedParentRevision") != basis.expected_parent_revision
+        or request.get("sourceRevisionSha256") != basis.source_revision_sha256
+        or request.get("spanIndexSha256") != basis.span_index_sha256
+        or request.get("profileId") != basis.profile_id
+        or not isinstance(request.get("misboundActorId"), str)
+        or not request["misboundActorId"] or request["misboundActorId"] != request["misboundActorId"].strip()
+        or len(request["misboundActorId"]) > 256
+        or any(ch in request["misboundActorId"] for ch in "\r\n\t")
+        or type(request.get("expectedParentRevision")) is not int
+        or any(not isinstance(request.get(key), str) or not _SHA256.fullmatch(request[key])
+               for key in ("parentCandidateSha256", "sourceRevisionSha256", "spanIndexSha256"))):
+        invalid()
+    intro = request.get("actorIntroduction")
+    if not isinstance(intro, dict) or set(intro) != {
+        "literalName", "sourceSpanRefId", "nameStart", "nameEnd",
+        "replacementDescription", "descriptionAnchorQuotes",
+    }:
+        invalid()
+    name, span_id = intro.get("literalName"), intro.get("sourceSpanRefId")
+    start, end = intro.get("nameStart"), intro.get("nameEnd")
+    description, quotes = intro.get("replacementDescription"), intro.get("descriptionAnchorQuotes")
+    if (not isinstance(name, str) or not name or name != name.strip() or len(name) > 160
+        or any(ch in name for ch in "\r\n\t")
+        or not isinstance(span_id, str) or not span_id or span_id != span_id.strip()
+        or len(span_id) > 256 or any(ch in span_id for ch in "\r\n\t")
+        or type(start) is not int or type(end) is not int or start < 0 or end <= start or end - start != len(name)
+        or not isinstance(description, str) or not description or description != description.strip() or len(description) > 4096
+        or not isinstance(quotes, list) or not 1 <= len(quotes) <= 4
+        or any(not isinstance(q, str) or not q or q != q.strip() or len(q) > 4096 for q in quotes)
+        or len(set(quotes)) != len(quotes)):
+        invalid()
+    actor = manifest.get("actor_node")
+    if (not isinstance(actor, dict)
+        or set(actor) != {"node_id", "node_type", "label", "description", "importance",
+                          "semantic_state", "proposed_action", "confidence", "evidence_refs", "corpus_ref"}
+        or actor.get("node_type") != "character" or actor.get("label") != name
+        or actor.get("description") != description or actor.get("importance") != "medium"
+        or actor.get("proposed_action") != "create" or actor.get("confidence") != "medium"):
+        invalid()
+    local_payload = {
+        "parent_run_id": basis.parent_run_id,
+        "parent_candidate_sha256": basis.parent_candidate_sha256,
+        "source_revision_sha256": basis.source_revision_sha256,
+        "source_span_ref_id": span_id,
+        "name_start": start, "name_end": end, "literal_name": name,
+    }
+    local_id = "node:recovered-actor:" + hashlib.sha256(
+        json.dumps(local_payload, sort_keys=True, ensure_ascii=False,
+                   separators=(",", ":")).encode("utf-8") + b"\n"
+    ).hexdigest()
+    evidence = actor.get("evidence_refs")
+    expected_quotes = list(dict.fromkeys([name, *quotes]))
+    expected_evidence_fields = {
+        "source_ref_id", "source_artifact_id", "source_anchor_id", "label",
+        "evidence_role", "can_open_source", "can_highlight_span",
+        "source_span_ref_id", "anchor_quotes",
+    }
+    if (actor.get("node_id") != local_id or actor.get("corpus_ref") is not None
+        or actor.get("semantic_state") != {
+            "canon_state": "played_canon", "lifecycle_state": "candidate",
+            "evidence_role": "source_evidence", "authority_state": "system_derived",
+            "visibility_state": "gm_private",
+        }
+        or not isinstance(evidence, list) or len(evidence) != 1
+        or not isinstance(evidence[0], dict)
+        or set(evidence[0]) != expected_evidence_fields
+        or evidence[0].get("source_ref_id") != f"{basis.source_artifact_id}:text"
+        or evidence[0].get("source_artifact_id") != basis.source_artifact_id
+        or evidence[0].get("source_span_ref_id") != span_id
+        or evidence[0].get("source_anchor_id") != f"anchor:{span_id}"
+        or evidence[0].get("label") != span_id
+        or evidence[0].get("evidence_role") != "source_evidence"
+        or evidence[0].get("can_open_source") is not True
+        or evidence[0].get("can_highlight_span") is not True
+        or evidence[0].get("anchor_quotes") != expected_quotes):
+        invalid()
+    affected, changes = request.get("affectedEdges"), manifest.get("edge_changes")
+    if not isinstance(affected, list) or len(affected) > 4 or not isinstance(changes, list) or len(changes) != len(affected):
+        invalid()
+    affected_by_id = {}
+    edge_fields = {
+        "action", "edgeId", "expectedEdgeSha256", "expectedEvidenceRefsSha256",
+        "originalFromId", "originalToId", "originalPredicate", "misboundEndpoint",
+        "sourceSpanRefId", "actorAnchorQuotes",
+    }
+    for row in affected:
+        if not isinstance(row, dict) or set(row) != edge_fields:
+            invalid()
+        edge_id = row.get("edgeId")
+        edge_quotes = row.get("actorAnchorQuotes")
+        original_text_fields = (
+            "originalFromId", "originalToId", "originalPredicate",
+        )
+        if (row.get("action") not in {"retarget", "omit"}
+            or not isinstance(edge_id, str) or not edge_id or edge_id != edge_id.strip()
+            or len(edge_id) > 256 or any(ch in edge_id for ch in "\r\n\t")
+            or any(not isinstance(row.get(key), str) or not row[key]
+                   or row[key] != row[key].strip() or len(row[key]) > 256
+                   or any(ch in row[key] for ch in "\r\n\t")
+                   for key in original_text_fields[:2])
+            or not isinstance(row.get("originalPredicate"), str)
+            or not row["originalPredicate"] or row["originalPredicate"] != row["originalPredicate"].strip()
+            or len(row["originalPredicate"]) > 128
+            or any(not isinstance(row.get(key), str) or not _SHA256.fullmatch(row[key])
+                   for key in ("expectedEdgeSha256", "expectedEvidenceRefsSha256"))
+            or row.get("sourceSpanRefId") != span_id
+            or row.get("misboundEndpoint") not in {"from_id", "to_id"}
+            or not isinstance(edge_quotes, list) or not 1 <= len(edge_quotes) <= 4
+            or any(not isinstance(q, str) or not q or q != q.strip() or len(q) > 4096 or name not in q
+                   for q in edge_quotes)
+            or len(set(edge_quotes)) != len(edge_quotes)
+            or edge_id in affected_by_id):
+            invalid()
+        affected_by_id[edge_id] = row
+    seen = []
+    for change in changes:
+        if not isinstance(change, dict) or set(change) != {"edge_id", "action", "before", "after"}:
+            invalid()
+        edge_id = change.get("edge_id")
+        row = affected_by_id.get(edge_id)
+        before, after = change.get("before"), change.get("after")
+        if (row is None or change.get("action") != row["action"]
+            or not isinstance(before, dict) or before.get("edge_id") != edge_id
+            or hashlib.sha256(json.dumps(before, sort_keys=True, ensure_ascii=False,
+                    separators=(",", ":")).encode("utf-8") + b"\n").hexdigest()
+                != row["expectedEdgeSha256"]
+            or hashlib.sha256(json.dumps(before.get("evidence_refs"), sort_keys=True, ensure_ascii=False,
+                    separators=(",", ":")).encode("utf-8") + b"\n").hexdigest()
+                != row["expectedEvidenceRefsSha256"]
+            or before.get("from_node_id") != row["originalFromId"]
+            or before.get("to_node_id") != row["originalToId"]
+            or before.get("relationship_type") != row["originalPredicate"]
+            or (before.get("from_node_id") if row["misboundEndpoint"] == "from_id"
+                else before.get("to_node_id")) != request.get("misboundActorId")
+            or not isinstance(before.get("evidence_refs"), list)
+            or not any(isinstance(ref, dict) and ref.get("source_span_ref_id") == span_id
+                       for ref in before["evidence_refs"])
+            or (row["action"] == "omit" and after is not None)
+            or (row["action"] == "retarget" and (
+                not isinstance(after, dict) or after.get("edge_id") != edge_id
+                or (after.get("from_node_id") if row["misboundEndpoint"] == "from_id"
+                    else after.get("to_node_id")) != local_id
+                or {**before, ("from_node_id" if row["misboundEndpoint"] == "from_id" else "to_node_id"): local_id} != after
+            ))):
+            invalid()
+        seen.append(edge_id)
+    if seen != sorted(affected_by_id):
+        invalid()
+    canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+    if hashlib.sha256(canonical).hexdigest() != basis.manifest_sha256:
+        raise ApplicationStateConflictError("recap actor recovery manifest digest changed")
+
+
 def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8 | RecapSemanticBasisV9) -> None:
     def invalid():
         raise ApplicationStateConflictError("recap atomic manifest is malformed")
@@ -800,7 +990,7 @@ def _inherited_pc_proof_sha(value: object) -> str:
 
 def _assert_inherited_pc_basis(
     child: ExtractionRun, parent: ExtractionRun,
-    basis: RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV11,
+    basis: RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV11 | RecapSemanticBasisV13,
     get_ancestor: Callable[[str], ExtractionRun | None] | None,
 ) -> None:
     """Independently bind persisted proof to immutable APP-STATE ancestry."""
@@ -810,6 +1000,7 @@ def _assert_inherited_pc_basis(
         _RECAP_CANDIDATE_DERIVATION_V5, _RECAP_CANDIDATE_DERIVATION_V6,
         _RECAP_CANDIDATE_DERIVATION_V7, _RECAP_CANDIDATE_DERIVATION_V8,
         _RECAP_CANDIDATE_DERIVATION_V9, _RECAP_CANDIDATE_DERIVATION_V10,
+        _RECAP_CANDIDATE_DERIVATION_V11,
         _RECAP_SOURCE_BINDING_DERIVATION_V11,
     }
     seen: set[str] = set()
@@ -965,7 +1156,7 @@ def _assert_inherited_pc_basis(
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12 | RecapSemanticBasisV13,
     get_ancestor: Callable[[str], ExtractionRun | None] | None = None,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
@@ -981,7 +1172,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V10 if isinstance(basis, RecapSemanticBasisV11)
+            _RECAP_CANDIDATE_DERIVATION_V11 if isinstance(basis, RecapSemanticBasisV13)
+            else _RECAP_CANDIDATE_DERIVATION_V10 if isinstance(basis, RecapSemanticBasisV11)
             else _RECAP_CANDIDATE_DERIVATION_V9 if isinstance(basis, RecapSemanticBasisV10)
             else _RECAP_CANDIDATE_DERIVATION_V8 if isinstance(basis, RecapSemanticBasisV9)
             else _RECAP_CANDIDATE_DERIVATION_V7 if isinstance(basis, RecapSemanticBasisV8)
@@ -1036,6 +1228,12 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV13):
+        if parent.revision != basis.expected_parent_revision:
+            raise ApplicationStateConflictError("actor recovery parent revision changed")
+        _assert_recap_actor_recovery_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        _assert_inherited_pc_basis(child, parent, basis, get_ancestor)
+        return
     if isinstance(basis, RecapSemanticBasisV11):
         if parent.revision != basis.expected_parent_revision:
             raise ApplicationStateConflictError("evidence append parent revision changed")
@@ -1360,7 +1558,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12 | RecapSemanticBasisV13,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.
@@ -1369,6 +1567,11 @@ def record_recap_semantic_disposition(
     time. A conflicting or stale decision never rewrites a frozen component.
     """
     canonical = _require_run_id(run_id)
+    operation_basis = basis.operation_basis if isinstance(basis, RecapSemanticBasisV12) else basis
+    if decision.state == "accepted" and isinstance(operation_basis, RecapSemanticBasisV13):
+        raise ApplicationStateConflictError(
+            "source-supported actor recovery cannot be semantically accepted",
+        )
     basis_child_run_id = (
         basis.operation_basis.child_run_id
         if isinstance(basis, RecapSemanticBasisV12)

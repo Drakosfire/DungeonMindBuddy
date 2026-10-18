@@ -1527,3 +1527,107 @@ class RecapCandidateCorrectionRequestV10(_ExtractPromoteModel):
 class RecapCandidateCorrectionResponseV10(RecapCandidateCorrectionResponse):
     schema_: Literal["dmb_recap_candidate_correction_response_v10"] = Field(
         default="dmb_recap_candidate_correction_response_v10", alias="schema")
+
+
+class RecapActorIntroductionV1(_ExtractPromoteModel):
+    literal_name: str = Field(min_length=1, max_length=160)
+    source_span_ref_id: str
+    name_start: int = Field(strict=True, ge=0)
+    name_end: int = Field(strict=True, ge=1)
+    replacement_description: str = Field(min_length=1, max_length=4096)
+    description_anchor_quotes: list[str] = Field(min_length=1, max_length=4)
+
+    _span_id = field_validator("source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+
+    @field_validator("literal_name", "replacement_description")
+    @classmethod
+    def _trimmed_text(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("actor text must be nonblank and trimmed")
+        return value
+
+    @field_validator("description_anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if (len(set(values)) != len(values)
+            or any(not quote or quote != quote.strip() or len(quote) > 4096 for quote in values)):
+            raise ValueError("description anchors must be distinct, exact, trimmed quotes")
+        return values
+
+    @model_validator(mode="after")
+    def _range(self) -> "RecapActorIntroductionV1":
+        if self.name_end <= self.name_start or self.name_end - self.name_start != len(self.literal_name):
+            raise ValueError("actor name range must match its literal codepoint length")
+        return self
+
+
+class RecapAffectedEdgeV1(_ExtractPromoteModel):
+    action: Literal["retarget", "omit"]
+    edge_id: str
+    expected_edge_sha256: str
+    expected_evidence_refs_sha256: str
+    original_from_id: str
+    original_to_id: str
+    original_predicate: str
+    misbound_endpoint: Literal["from_id", "to_id"]
+    source_span_ref_id: str
+    actor_anchor_quotes: list[str] = Field(min_length=1, max_length=4)
+
+    _ids = field_validator("edge_id", "original_from_id", "original_to_id", "source_span_ref_id")(
+        RecapCandidateNodeOmission._node_id.__func__
+    )
+    _digests = field_validator("expected_edge_sha256", "expected_evidence_refs_sha256")(
+        RecapCandidateNodeOmission._digest.__func__
+    )
+
+    @field_validator("original_predicate")
+    @classmethod
+    def _predicate(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 128:
+            raise ValueError("predicate must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("actor_anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if (len(set(values)) != len(values)
+            or any(not quote or quote != quote.strip() or len(quote) > 4096 for quote in values)):
+            raise ValueError("actor anchors must be distinct, exact, trimmed quotes")
+        return values
+
+
+class RecapCandidateCorrectionRequestV11(_ExtractPromoteModel):
+    """Introduce one source-supported local actor and repair only declared edges."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v11"] = Field(alias="schema")
+    parent_run_id: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0"]
+    misbound_actor_id: str
+    actor_introduction: RecapActorIntroductionV1
+    affected_edges: list[RecapAffectedEdgeV1] = Field(default_factory=list, max_length=4)
+
+    _id = field_validator("parent_run_id", "misbound_actor_id")(
+        RecapCandidateNodeOmission._node_id.__func__
+    )
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(
+        RecapCandidateNodeOmission._digest.__func__
+    )
+
+    @model_validator(mode="after")
+    def _unique_edges(self) -> "RecapCandidateCorrectionRequestV11":
+        ids = [edge.edge_id for edge in self.affected_edges]
+        if len(ids) != len(set(ids)):
+            raise ValueError("affected edge targets must be unique")
+        return self
+
+
+class RecapCandidateCorrectionResponseV11(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v11"] = Field(
+        default="dmb_recap_candidate_correction_response_v11", alias="schema")
+    introduced_actor_count: Literal[1] = 1
+    retargeted_edge_count: int = Field(ge=0, le=4)
+    omitted_edge_count: int = Field(ge=0, le=4)

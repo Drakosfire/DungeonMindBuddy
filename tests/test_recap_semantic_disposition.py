@@ -793,3 +793,55 @@ def test_decision_service_uses_canonical_basis_and_appstate_cas(
     )
     assert calls == [("child", 6, held.basis_sha256, "server_operator")]
     assert response.state == "rejected" and response.revision == 7
+
+
+def test_source_supported_actor_recovery_stays_held_and_can_be_rejected(monkeypatch, tmp_path):
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+    from apps.live_control_server.services import recap_semantic_candidate_correction as correction
+    from tests.test_recap_semantic_candidate_correction import (
+        _actor_recovery_request, _append_fixture,
+    )
+
+    parent, raw, runs, _, _, index = _append_fixture(
+        monkeypatch, tmp_path, actor_recovery=True,
+    )
+    source_text = (tmp_path / "source.md").read_text(encoding="utf-8")
+    body = _actor_recovery_request(parent, json.loads(raw), index, source_text)
+    response = correction.correct_recap_candidate(
+        RecapCandidateCorrectionRequestV11.model_validate(body, strict=True),
+    )
+    child = runs[response.run_id]
+
+    held = assess_recap_semantics(
+        child, parent=parent, source_revision_id=body["source_revision_sha256"], root=tmp_path,
+    )
+    assert held.marked and not held.accepted and held.basis_sha256
+    basis = ingest_service.RecapSemanticBasisV12.model_validate(held.basis, strict=True)
+    assert basis.request_version == 11
+    assert isinstance(basis.operation_basis, ingest_service.RecapSemanticBasisV13)
+    assert basis.digest() == response.semantic_basis_sha256
+    with pytest.raises(ApplicationStateConflictError, match="cannot be semantically accepted"):
+        ingest_service.record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis,
+            decision=ingest_service.RecapSemanticDispositionCommandV1(
+                state="accepted", reviewer_id="synthetic-reviewer",
+                review_decision_ref="review:actor-recovery-accept",
+            ),
+        )
+
+    child.lineage["semantic_disposition"] = {
+        "version": 1,
+        "state": "rejected",
+        "basis_sha256": held.basis_sha256,
+        "review_decision_ref": "review:actor-recovery-reject",
+        "reviewer_id": "synthetic-reviewer",
+        "decided_at": "2026-10-17T00:00:00Z",
+    }
+    rejected = assess_recap_semantics(
+        child, parent=parent, source_revision_id=body["source_revision_sha256"], root=tmp_path,
+    )
+    assert rejected.marked and not rejected.accepted
+    assert rejected.reason and "rejected" in rejected.reason.lower()
+    assert rejected.basis_sha256 == held.basis_sha256
