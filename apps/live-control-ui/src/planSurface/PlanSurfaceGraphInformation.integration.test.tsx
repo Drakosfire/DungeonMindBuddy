@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -149,13 +150,12 @@ describe("PlanSurfaceGraphInformation integration", () => {
     const publications = vi.fn();
 
     render(<Harness onEditorToolsChange={publications} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Edit" }));
 
     await waitFor(() => {
       expect(screen.getByText("Loading World Graph projection…")).toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Unlock editing/i })).toBeInTheDocument();
-    });
+    expect(screen.queryByRole("button", { name: /Unlock editing/i })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId("plan-world-graph-objects-panel")).toHaveAttribute(
         "data-status",
@@ -187,6 +187,7 @@ describe("PlanSurfaceGraphInformation integration", () => {
   it("renders verified zero-node projections as EMPTY, not unavailable or integrity error", async () => {
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(projection());
     render(<Harness onEditorToolsChange={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Edit" }));
     await waitFor(() => {
       expect(screen.getByText("No nodes in the current projection.")).toBeInTheDocument();
     });
@@ -203,6 +204,7 @@ describe("PlanSurfaceGraphInformation integration", () => {
       new LiveApiError("World Graph unavailable", 404, { code: "world_graph_unavailable" }),
     );
     render(<Harness onEditorToolsChange={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Edit" }));
     await waitFor(() => {
       expect(screen.getByText("World Graph unavailable for this session.")).toBeInTheDocument();
     });
@@ -218,6 +220,7 @@ describe("PlanSurfaceGraphInformation integration", () => {
       projection({ campaignId: "longmont-c1" }, [glowkindleNode]),
     );
     render(<Harness onEditorToolsChange={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Edit" }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });

@@ -29,7 +29,7 @@ import {
   useWorldPlanGraphReferenceActivation,
   WorldPlanGraphReferenceActivationProvider,
 } from "./components/WorldPlanGraphReferenceActivation";
-import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
+import { PlanBlankPageWelcome, PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { PlanConversationDockAdapter } from "./components/PlanConversationDockAdapter";
 import { WorldPlanConversationRegistration } from "../agentInteraction/WorldAgentConversation";
 import {
@@ -1483,6 +1483,26 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ) setStartingPlay(false);
     }
   };
+  const replaceWithBlankWelcomeContent = (content: JSONContent) => {
+    const active = editorRef.current;
+    if (!active || statusRef.current !== "ready" || savingRef.current) return;
+    active.commands.setContent(content, true);
+    active.commands.focus("end");
+  };
+  const startWithBlankWelcomePrompt = (heading: string) => {
+    const trimmed = heading.trim();
+    if (!trimmed) return;
+    replaceWithBlankWelcomeContent({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: trimmed }] },
+        { type: "paragraph" },
+      ],
+    });
+  };
+  const startWithBlankWelcomeOutline = () => {
+    replaceWithBlankWelcomeContent(markdownToTiptapDoc(`## Session intent\n\nWhat should this session accomplish at the table?\n\n## Memory (world graph)\n\nWhat does the party know, and what remains uncertain?\n\n## Scenes / beats\n\n- Opening frame\n- Decisions\n- Exit ramps\n\n## Reference chips\n\nAdd references to people, places, and material in this World as you discover them.`).doc);
+  };
   const currentCardProjection = useMemo(
     () => buildWorldPlanCardProjectionModel({
       document: cardProjectionDocument,
@@ -1669,7 +1689,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <span className="world-plan-context-toolbar__save" role="status"
             title="Plan changes stay local until you choose Save Plan.">
             {saving ? "Saving…" : status === "error" ? "Plan unavailable" : status !== "ready" || (documentId && savedBasis.status !== "verified") ? "Checking Plan…"
-              : savedPlanDirty || !documentId ? "Unsaved changes" : "Saved"}
+              : !documentId && !markdown.trim() ? "Ready to begin" : savedPlanDirty || !documentId ? "Unsaved changes" : "Saved"}
           </span>
           <button type="button" className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
             aria-label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
@@ -1732,7 +1752,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
             testId="world-owned-plan-editor"
-            identityLabel={documentId ? "Plan editor" : "Unsaved Plan draft"}
+            identityLabel={documentId ? "Plan editor" : markdown.trim() ? "Unsaved Plan draft" : "New Plan"}
             themeId="mireward-runbook"
           >
             <MarkdownEditorCore
@@ -1769,7 +1789,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                 }
               }}
             >
-              {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
+              {(activeEditor) => (
+                <>
+                  {status === "ready" && !markdown.trim() && !fidelityBlocked ? (
+                    <PlanBlankPageWelcome
+                      onStartWriting={() => activeEditor.chain().focus().run()}
+                      onUseOutline={startWithBlankWelcomeOutline}
+                      onStartWithPrompt={startWithBlankWelcomePrompt}
+                      disabled={saving || fidelityBlocked}
+                    />
+                  ) : null}
+                  <EditorContent editor={activeEditor} aria-label="Markdown plan" />
+                </>
+              )}
             </MarkdownEditorCore>
           </PlanSurfaceCanvasFrame>
         </div>

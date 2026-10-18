@@ -397,6 +397,134 @@
   padding: 1rem;
 }
 
+.plan-blank-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.8fr);
+  gap: clamp(1.25rem, 4vw, 3rem);
+  align-items: center;
+  max-width: 1000px;
+  margin: 1rem auto 0.4rem;
+  padding: clamp(1.35rem, 4vw, 2.6rem);
+  overflow: hidden;
+  border: 1px solid rgba(121, 91, 48, 0.22);
+  border-radius: 1.1rem;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(255, 255, 255, 0.72), transparent 48%),
+    linear-gradient(135deg, #fbf0d9 0%, #f4e6c9 58%, #ead7b3 100%);
+  box-shadow: 0 18px 42px rgba(74, 50, 21, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #3c3224;
+}
+
+.plan-blank-welcome__copy { min-width: 0; }
+.plan-blank-welcome__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.8rem;
+  color: #88652f;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.plan-blank-welcome__eyebrow span { color: #c28a32; font-size: 1.05rem; }
+.plan-blank-welcome__copy h2 {
+  max-width: 17ch;
+  margin: 0;
+  color: #382b1d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.65rem, 3.5vw, 2.5rem);
+  line-height: 1.08;
+}
+.plan-blank-welcome__intro {
+  max-width: 48ch;
+  margin: 0.85rem 0 1.1rem;
+  color: #675640;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.plan-blank-welcome__actions,
+.plan-blank-welcome__sparks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+.plan-blank-welcome__actions button,
+.plan-blank-welcome__sparks button {
+  min-height: 2.45rem;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.plan-blank-welcome__actions button:hover:not(:disabled),
+.plan-blank-welcome__sparks button:hover:not(:disabled) { transform: translateY(-1px); }
+.plan-blank-welcome__actions button:focus-visible,
+.plan-blank-welcome__sparks button:focus-visible { outline: 3px solid #477b78; outline-offset: 3px; }
+.plan-blank-welcome__actions button:disabled,
+.plan-blank-welcome__sparks button:disabled { cursor: not-allowed; opacity: 0.6; }
+.plan-blank-welcome__primary {
+  padding: 0.55rem 1.05rem;
+  border: 1px solid #a97119;
+  background: #d79a34;
+  color: #251b10;
+  box-shadow: 0 4px 10px rgba(116, 75, 20, 0.18);
+}
+.plan-blank-welcome__primary:hover:not(:disabled) { background: #e5aa46; }
+.plan-blank-welcome__outline {
+  padding: 0.52rem 0.9rem;
+  border: 1px solid rgba(104, 78, 42, 0.32);
+  background: rgba(255, 251, 241, 0.58);
+  color: #57452f;
+}
+.plan-blank-welcome__outline:hover:not(:disabled) { background: rgba(255, 253, 247, 0.9); }
+.plan-blank-welcome__sparks {
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  color: #826f54;
+  font-size: 0.78rem;
+}
+.plan-blank-welcome__sparks span { margin-right: 0.2rem; }
+.plan-blank-welcome__sparks button {
+  min-height: 1.95rem;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid rgba(104, 78, 42, 0.22);
+  background: rgba(255, 250, 238, 0.65);
+  color: #655239;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.plan-blank-welcome__art {
+  position: relative;
+  min-width: 0;
+  padding: 0.75rem 0.8rem 0.6rem;
+  border: 1px solid rgba(118, 89, 48, 0.17);
+  border-radius: 1rem;
+  background: rgba(255, 249, 235, 0.43);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+  transform: rotate(1deg);
+}
+.plan-blank-welcome__art svg { display: block; width: 100%; height: auto; }
+.plan-blank-welcome__map-edge { fill: rgba(214, 191, 146, 0.24); stroke: #a9844e; stroke-width: 1.4; }
+.plan-blank-welcome__map-line { fill: none; stroke: #65857c; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 1 8; }
+.plan-blank-welcome__map-line--soft { stroke: #ad8a58; stroke-width: 1.4; stroke-dasharray: 3 6; }
+.plan-blank-welcome__map-pin { fill: #c17b2c; stroke: #fff4d8; stroke-width: 3; }
+.plan-blank-welcome__map-pin-halo { fill: none; stroke: rgba(193, 123, 44, 0.34); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.plan-blank-welcome__compass { fill: #bc8738; stroke: #805e31; stroke-width: 1; }
+.plan-blank-welcome__spark { fill: #fff8e9; stroke: #bb8b4b; stroke-width: 1; }
+.plan-blank-welcome__map-dash { fill: none; stroke: #99794d; stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 2 5; }
+.plan-blank-welcome__art p { margin: -0.15rem 0 0.2rem; color: #786548; font-size: 0.77rem; line-height: 1.5; }
+.plan-blank-welcome__art strong { color: #58432a; font-family: Georgia, "Times New Roman", serif; font-size: 1rem; }
+.plan-blank-welcome + .ProseMirror { min-height: 3.5rem; padding-top: 0.2rem; }
+
+@media (max-width: 700px) {
+  .plan-blank-welcome { grid-template-columns: minmax(0, 1fr); margin: 0.65rem; }
+  .plan-blank-welcome__art { display: grid; grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1fr); align-items: center; gap: 0.5rem; }
+  .plan-blank-welcome__art p { margin: 0; }
+}
+
 .plan-canvas-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);

@@ -18,7 +18,7 @@ function LockProbe() {
 }
 
 describe("editCapability", () => {
-  it("defaults to locked read-only and toggles edit", async () => {
+  it("defaults to editable and can be locked when needed", async () => {
     const user = userEvent.setup();
     render(
       <EditCapabilityProvider>
@@ -26,12 +26,12 @@ describe("editCapability", () => {
       </EditCapabilityProvider>,
     );
 
-    expect(screen.getByTestId("locked")).toHaveTextContent("true");
-    expect(screen.getByTestId("can-edit")).toHaveTextContent("false");
+    expect(screen.getByTestId("locked")).toHaveTextContent("false");
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("true");
 
     await user.click(screen.getByRole("button", { name: "Toggle" }));
 
-    expect(screen.getByTestId("locked")).toHaveTextContent("false");
-    expect(screen.getByTestId("can-edit")).toHaveTextContent("true");
+    expect(screen.getByTestId("locked")).toHaveTextContent("true");
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("false");
   });
 });
