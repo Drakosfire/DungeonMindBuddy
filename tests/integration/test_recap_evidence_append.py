@@ -772,9 +772,7 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
             "label": "Lysandro waits at the guard headquarters.",
             "evidence_refs": [{
                 "source_span_ref_id": span_id,
-                "anchor_quotes": [
-                    "Lysandro found the key under the bridge, and Mira confirmed he waits at the guard headquarters."
-                ],
+                "anchor_quotes": ["Mira confirmed he waits at the guard headquarters."],
             }],
         }]},
     })
@@ -935,6 +933,71 @@ print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['
          parent.run_id, artifact.content_sha256], text=True,
     )
     assert json.loads(fresh_actor) == {"actor": "Lysandro", "held": "held"}
+
+    # Omission is a separate held child from the same real producer result.
+    # Its contextual actor quote is in the pinned source span but absent from
+    # the old edge's evidence quotes; it validates the operator's explanation
+    # without silently appending or rewriting evidence on the withdrawn edge.
+    production_edge = next(
+        edge for edge in production_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    original_quotes = [
+        quote
+        for evidence_ref in production_edge["evidence_refs"]
+        for quote in evidence_ref["anchor_quotes"]
+    ]
+    omission_body = _actor_recovery_request(
+        parent, production_candidate, source.source_span_index, source_text,
+        action="omit", edge_id="edge-lysandro-headquarters",
+    )
+    validation_quotes = omission_body["affected_edges"][0]["actor_anchor_quotes"]
+    assert validation_quotes[0] in source_text
+    assert validation_quotes[0] not in original_quotes
+    assert all("Lysandro" not in quote for quote in original_quotes)
+    omission_request = RecapCandidateCorrectionRequestV11.model_validate(
+        omission_body, strict=True,
+    )
+    omission_response = correction.correct_recap_candidate(omission_request)
+    assert omission_response.semantic_state == "held"
+    assert (omission_response.introduced_actor_count,
+            omission_response.retargeted_edge_count,
+            omission_response.omitted_edge_count) == (1, 0, 1)
+    omission_child = ingest.get_extraction_run(omission_response.run_id)
+    omission_candidate = json.loads(_component_path(
+        tmp_path, omission_child, "candidate_graph",
+    ).read_bytes())
+    omission_actor = omission_candidate["nodes"][-1]
+    assert omission_actor["label"] == "Lysandro"
+    assert omission_candidate["nodes"] == production_candidate["nodes"] + [omission_actor]
+    assert omission_candidate["edges"] == [
+        edge for edge in production_candidate["edges"]
+        if edge["edge_id"] != "edge-lysandro-headquarters"
+    ]
+    for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        assert omission_candidate.get(key, []) == production_candidate.get(key, [])
+    omission_assessment = assess_recap_semantics(
+        omission_child, parent=parent,
+        source_revision_id=artifact.content_sha256, root=tmp_path,
+    )
+    assert omission_assessment.marked and not omission_assessment.accepted
+    omission_basis = ingest.RecapSemanticBasisV12.model_validate(
+        omission_assessment.basis, strict=True,
+    )
+    assert omission_basis.request_version == 11
+    assert omission_basis.operation_basis.schema_ == "dmb_recap_semantic_basis_v13"
+    assert correction.verify_child_replay(omission_child, parent, tmp_path)
+    omission_retry = correction.correct_recap_candidate(omission_request)
+    assert omission_retry.run_id == omission_child.run_id
+    assert ingest.get_extraction_run(omission_child.run_id).revision == omission_child.revision
+    fresh_omission = subprocess.check_output(
+        [sys.executable, "-c", fresh_actor_code, str(tmp_path), omission_child.run_id,
+         parent.run_id, artifact.content_sha256], text=True,
+    )
+    assert json.loads(fresh_omission) == {"actor": "Lysandro", "held": "held"}
+    assert source_path.read_bytes() == parent_source_bytes
+    assert span_path.read_bytes() == parent_span_bytes
+    assert candidate_path.read_bytes() == parent_candidate_bytes
 
     original_lock = correction._source_binding_child_lock
     package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
