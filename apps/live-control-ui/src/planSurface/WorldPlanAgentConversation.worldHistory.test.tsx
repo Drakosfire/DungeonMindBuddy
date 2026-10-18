@@ -1435,6 +1435,38 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
+  it("mounts lazy prompt inspection for a failed saved Action without an Ask identity", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const action = {
+      action_id: "00000000-0000-4000-8000-000000000091", action_type: "revise" as const,
+      status: "failed" as const,
+      basis: { world_id: worldId, document_id: documentId, object_revision: 6,
+        work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256 },
+      instruction: "Add a sourced arrival detail", assistant_summary: null,
+      action_sequence: 1, accepted_at: "2026-10-18T00:00:00Z", completed_at: null,
+      playable_target_receipt: null,
+      consultation: { receipt: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+        draft_sha256: "d".repeat(64), selected_text_sha256: "e".repeat(64), continuation: null }, result: null },
+    };
+    vi.mocked(liveApi.getWorldPlanConversationActions).mockResolvedValue({
+      schema_version: "dmb_world_plan_action_conversation_projection_v1", world_id: worldId,
+      conversation_id: "conversation-a", actions: [action], next_before_action_sequence: null,
+    });
+    const load = vi.spyOn(liveApi, "getPlanActionPromptIndex").mockResolvedValue({
+      schema: "dmb_plan_action_prompt_index_v1", world_id: worldId, action_id: action.action_id, references: [],
+    });
+    mountComponent(); await waitForConversationReady();
+    const article = await waitFor(() => {
+      const element = document.querySelector(`article[data-plan-action-id="${action.action_id}"]`);
+      if (!element) throw new Error("failed Action missing"); return element as HTMLElement;
+    });
+    expect(article).toHaveTextContent("This Plan edit failed"); expect(load).not.toHaveBeenCalled();
+    const details = within(article).getByText("The Prompt").closest("details")!;
+    details.open = true; fireEvent(details, new Event("toggle"));
+    await within(article).findByText(/No complete request was captured/);
+    expect(load).toHaveBeenCalledWith(worldId, action.action_id, expect.any(AbortSignal));
+  });
+
   it("shows a durable sourced edit clarification without Apply and sends a short linked reply to proposal review", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const selected = "Draft excerpt";

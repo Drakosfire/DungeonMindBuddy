@@ -1217,3 +1217,32 @@ def post_rebuild_packet() -> dict[str, Any]:
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"job_id": job["id"], "status": job["status"], "job": job}
+
+
+def _read_plan_action_prompt(request: Request, world_id: str, action_id: UUID, provider_attempt_id: UUID | None = None):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError
+    from apps.live_control_server.services.plan_action_prompt_evidence import prompt_index, prompt_body
+
+    enforce_native_graph_gm(request)
+    if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
+        raise HTTPException(status_code=422, detail="Only one managed world_id is accepted")
+    try:
+        get_world_container(managed_world_data_root(repo_root()), world_id)
+        payload = (prompt_index(world_id, action_id) if provider_attempt_id is None
+                   else prompt_body(world_id, action_id, provider_attempt_id))
+        return JSONResponse(payload, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except (ApplicationStateError, PromptEvidenceError, WorldContainerRegistryError, ManagedWorldDataRootError) as exc:
+        raise HTTPException(status_code=404, detail={"code": "action_prompt_unavailable"},
+                            headers={"Cache-Control": "no-store", "Pragma": "no-cache"}) from exc
+
+
+@router.get("/world-plan-edit/actions/{action_id}/prompts")
+def get_plan_action_prompt_index(request: Request, action_id: UUID, world_id: str = Query(min_length=1, max_length=128)):
+    return _read_plan_action_prompt(request, world_id, action_id)
+
+
+@router.get("/world-plan-edit/actions/{action_id}/prompts/{provider_attempt_id}")
+def get_plan_action_prompt_body(request: Request, action_id: UUID, provider_attempt_id: UUID,
+                               world_id: str = Query(min_length=1, max_length=128)):
+    return _read_plan_action_prompt(request, world_id, action_id, provider_attempt_id)

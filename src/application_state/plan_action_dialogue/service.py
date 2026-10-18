@@ -25,6 +25,9 @@ from application_state.config import load_runtime_dsn
 from application_state.plan_action_dialogue import repository as repo
 from application_state.plan_action_dialogue.types import (
     CompletedPlanActionContext,
+    ActionPromptReferenceV1,
+    decode_consultation,
+    public_consultation,
     PlanActionBasis,
     PlanActionConsultation,
     PlanActionConversationProjectionPage,
@@ -138,8 +141,46 @@ class PlanActionDialogueService:
                 raise ApplicationStateConflictError("action consultation event sequence is stale")
             payload = consultation.model_dump(mode="json", by_alias=True)
             payload["execution"]["events"].append(event.model_dump(mode="json", by_alias=True))
-            updated = PlanActionConsultation.model_validate(payload)
+            updated = decode_consultation(payload)
             return repo.write_consultation(conn, current, updated), True
+
+    def append_prompt_reference(
+        self, *, action_id: UUID, token: UUID, fence: int,
+        reference: ActionPromptReferenceV1,
+    ) -> tuple[PlanActionRecord, bool]:
+        """Fenced metadata persistence never grants another dispatch permission."""
+        with unit_of_work(self._dsn()) as conn:
+            current = repo.lock_dispatch(conn, action_id, token, fence)
+            consultation = current.consultation
+            if consultation is None or consultation.execution is None:
+                raise ApplicationStateValidationError("action consultation is unavailable")
+            if (reference.action_id != action_id or reference.dispatch_fence != fence
+                    or reference.world_id != current.basis.world_id):
+                raise ApplicationStateValidationError("prompt reference has a different owner")
+            existing = getattr(consultation, "prompt_references", [])
+            for prior in existing:
+                if prior.provider_attempt_id == reference.provider_attempt_id:
+                    if prior == reference:
+                        return current, False
+                    raise ApplicationStateConflictError("prompt attempt reference conflicts")
+            events = consultation.execution.events
+            if (not events or not isinstance(events[-1], ProviderAttemptAuthorizedEventV1)
+                    or events[-1].event_id != reference.authorization_event_id):
+                raise ApplicationStateConflictError("prompt capture must precede subsequent execution")
+            payload = consultation.model_dump(mode="json", by_alias=True)
+            payload["schema_version"] = "dmb_plan_action_consultation_v2"
+            payload["prompt_references"] = [item.model_dump(mode="json") for item in existing]
+            payload["prompt_references"].append(reference.model_dump(mode="json"))
+            return repo.write_consultation(conn, current, decode_consultation(payload)), True
+
+    def read_prompt_action(self, *, world_id: str, action_id: UUID) -> PlanActionRecord:
+        """Historical reads require durable ownership, not a pending dispatch lease."""
+        with unit_of_work(self._dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            current = repo._get_by_id(conn, action_id, lock=False)
+            if current is None or current.basis.world_id != world_id:
+                raise ApplicationStateValidationError("Plan action is unavailable")
+            return current
 
     def finish_consultation(
         self, *, action_id: UUID, token: UUID, fence: int,
@@ -166,7 +207,7 @@ class PlanActionDialogueService:
                 )
                 payload["execution"]["events"].append(binding.model_dump(mode="json", by_alias=True))
                 status, summary, failure_code = "completed", result.message, None
-            updated = PlanActionConsultation.model_validate(payload)
+            updated = decode_consultation(payload)
             return repo.write_consultation(
                 conn, current, updated, status=status, summary=summary, failure_code=failure_code,
             )
@@ -196,7 +237,7 @@ class PlanActionDialogueService:
             completed_at=item.completed_at,
             playable_target_receipt=item.playable_target_receipt,
             selection_anchor=item.selection_anchor,
-            consultation=item.consultation,
+            consultation=public_consultation(item.consultation),
         )
 
     def list_conversation_status(
@@ -232,7 +273,7 @@ class PlanActionDialogueService:
                 assistant_summary=item.assistant_summary,
                 action_sequence=item.action_sequence,
                 accepted_at=item.accepted_at,
-                consultation=item.consultation,
+                consultation=public_consultation(item.consultation),
             )
             for item in records
         ]

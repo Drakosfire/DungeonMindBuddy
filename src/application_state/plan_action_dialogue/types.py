@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator, TypeAdapter
 
 from application_state.agent_conversation.types import (
     WorldPointer,
@@ -236,6 +236,55 @@ class PlanActionConsultation(StrictModel):
         return self
 
 
+class ActionPromptReferenceV1(StrictModel):
+    owner_kind: Literal["plan_action"] = "plan_action"
+    world_id: str = Field(min_length=1, max_length=128)
+    action_id: UUID
+    dispatch_fence: int = Field(strict=True, ge=1)
+    authorization_event_id: UUID
+    provider_attempt_id: UUID
+    evidence_id: UUID
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=256)
+    api_mode: str = Field(min_length=1, max_length=64)
+    serializer_version: Literal["canonical-json-utf8-v1", "typesafe-sdk-json-v1", "openai-sdk-json-v1"]
+    payload_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload_utf8_bytes: int = Field(strict=True, ge=1, le=16 * 1024 * 1024)
+
+
+class PlanActionConsultationV2(StrictModel):
+    schema_version: Literal["dmb_plan_action_consultation_v2"] = "dmb_plan_action_consultation_v2"
+    receipt: PlanActionConsultationReceipt
+    execution: PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3 | None
+    result: PlanActionConsultationResult | None = None
+    prompt_references: list[ActionPromptReferenceV1] = Field(max_length=512)
+
+    @model_validator(mode="after")
+    def validate_consultation(self):
+        from application_state.plan_action_dialogue.graph_consultation import (
+            validate_consultation, validate_prompt_references,
+        )
+        validate_consultation(self)
+        validate_prompt_references(self)
+        return self
+
+
+PrivatePlanActionConsultation = Annotated[
+    PlanActionConsultation | PlanActionConsultationV2, Field(discriminator="schema_version"),
+]
+_CONSULTATION = TypeAdapter(PrivatePlanActionConsultation)
+
+
+def decode_consultation(payload: object) -> PrivatePlanActionConsultation:
+    return _CONSULTATION.validate_python(payload)
+
+
+def public_consultation(value: PrivatePlanActionConsultation | None) -> PlanActionConsultation | None:
+    if value is None:
+        return None
+    return PlanActionConsultation(receipt=value.receipt, execution=value.execution, result=value.result)
+
+
 class ConsultationOptionalModel(StrictModel):
     consultation: PlanActionConsultation | None = None
 
@@ -290,6 +339,7 @@ class PlanActionReservation(StrictModel):
 
 
 class PlanActionRecord(ConsultationOptionalModel):
+    consultation: PrivatePlanActionConsultation | None = None
     action_id: UUID
     idempotency_key: UUID
     request_fingerprint: str

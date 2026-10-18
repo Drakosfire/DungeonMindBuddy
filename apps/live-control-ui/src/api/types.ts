@@ -5809,3 +5809,18 @@ export interface WorldCommandResolutionResponseV1 {
   status: "terminal" | "absent";
   record: WorldCommandResolutionRecordV1 | null;
 }
+
+export interface ActionPromptReference {
+  owner_kind: 'plan_action'; world_id: string; action_id: string;
+  authorization_event_id: string; provider_attempt_id: string;
+  provider: string; model: string; api_mode: string; serializer_version: string;
+  payload_sha256: string; payload_utf8_bytes: number;
+}
+export interface ActionPromptIndex {
+  schema: 'dmb_plan_action_prompt_index_v1'; world_id: string; action_id: string;
+  references: ActionPromptReference[];
+}
+export interface ActionPromptEvidence {
+  schema: 'dmb_plan_action_prompt_evidence_v1'; world_id: string; action_id: string;
+  reference: ActionPromptReference; payload_json: string;
+}
