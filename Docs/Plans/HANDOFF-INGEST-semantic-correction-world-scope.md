@@ -4,11 +4,13 @@ Status: ACTIVE — after the operator clarified PRIME merge authority and
 ARCHITECTURE review responsibility, the bounded implementation dispatch to
 DOGFOOD succeeded. PRIME activates this exact three-path lease; the prior
 messaging hold is resolved. The underlying defect is reproduced.
-Base: origin/main@1b6258e304e96cd87b485785422310e0b4801120.
+Base: origin/main@0b5b473babe1f512196d009de61830d6aca964c0 (parent of initial
+ACTIVE handoff commit a55f7b4d8d879ef729bd8ca5e1c856a4b98fa7f6).
 Branch: codex/ingest-semantic-world-scope.
 Owner: DOGFOOD; reuse996b checkout and established dependencies. No new worktree.
-Topology: parallel-independent of ROOT UI evidence PR1397; no overlapping paths,
-no unmerged dependency. One implementation PR for this capability only.
+Topology: serial, one implementation PR on this branch; no stacked dependency.
+ROOT's separate UI evidence PR #1397 was already merged into this base, with no
+overlapping paths or remaining dependency.
 
 ## Invariant and bounded scope
 
