@@ -1,3 +1,5 @@
+import { SceneCard } from "./SceneCard";
+import "../playSurface/playSurface.css";
 import { WorldPlanCardProjection, buildWorldPlanCardProjectionModel, worldPlanCardTargetKeys } from "../planSurface/components/WorldPlanCardProjection";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import "../ui/tokens.css";
@@ -35,5 +37,35 @@ export const NarrowPlanFocus = () => (
       basis={{ status: "verified", revision: 9, contentSha256: "a".repeat(64) }}
       isDirty={false} onReturnToDocument={() => {}} selectableTargetKeys={selectableTargetKeys}
       onSelectTarget={() => {}} />
+  </main>
+);
+
+const encounterMarkdown = [
+  "## Encounter reference",
+  "### Visible terrain",
+  "#### Creature abilities",
+  "| STR | DEX | CON | INT | WIS | CHA |",
+  "| --- | --- | --- | --- | --- | --- |",
+  "| 14 (+2) | 16 (+3) | 20 (+5) | 14 (+2) | 16 (+3) | 20 (+5) |",
+  "##### Counterplay",
+  "| d20 | Effect |",
+  "| --- | --- |",
+  "| 1 | A visibly marked section of the street rises next round. Move clear or disable its supporting conduit. |",
+  `| 20 | ${"UnbrokenReference".repeat(12)} |`,
+  "###### Timing",
+  "Announce the effect before resolving it. Original authored text remains visible.",
+].join("\n");
+const encounterBody = markdownToTiptapDoc(encounterMarkdown).doc.content;
+
+export const PlaySceneReadability = () => (
+  <main className="play-surface" style={{ maxWidth: 960, marginInline: "auto" }}>
+    <h3>Play shell heading</h3>
+    <section className="play-cockpit-center">
+      <SceneCard variant="play-current" kicker="Current scene"
+        identity={{ worldId: "fixture-world", documentId: "fixture-plan", sceneId: "scene:encounter",
+          revision: 4, contentSha256: "b".repeat(64), sourceState: "run-pin" }}
+        scene={{ id: "scene:encounter", title: "Encounter at the causeway",
+          bodyText: encounterMarkdown, bodyContent: encounterBody }} choices={[]} />
+    </section>
   </main>
 );
