@@ -1,3 +1,4 @@
+import { PlayAnswerEvidence } from "./PlayAnswerEvidence";
 import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
 import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
 import { useBuildCompose } from "./BuildComposeProposal";
@@ -4290,6 +4291,8 @@ export function WorldPlanAgentConversation({
             : <p>The saved request is unavailable.</p>} />
       </details>;
     }
+    const playEvidence = turn.provenance.surface_id === "play" && verifiedWorldId
+      ? <PlayAnswerEvidence provenance={turn.provenance} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
     const targets = planContext?.source_open_targets ?? [];
     const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = planContext?.completion?.citation_map?.entries ?? [];
@@ -4350,7 +4353,8 @@ export function WorldPlanAgentConversation({
       </summary>
       <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
         {savedEvidence}
-        {!hasEvidence && !savedEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
+        {playEvidence}
+        {!hasEvidence && !savedEvidence && !playEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
         {hasEvidence ? <div className="world-plan-agent-conversation__evidence-intro">
           Claims cited in this answer and the source passages you can inspect. The loaded World graph is a separate view.
         </div> : null}
