@@ -319,6 +319,7 @@ function requestBodyRecord(body: BodyInit | null | undefined): Record<string, un
 
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
@@ -2968,4 +2969,17 @@ export async function getAgentSourcePassage(worldId: string, turnId: string, cit
 export async function getAgentSavedSection(target: import("./types").SavedBuildSectionTargetV1):
   Promise<import("./types").SavedBuildSectionReadV1> {
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(target.world_id)}/conversation/turns/${encodeURIComponent(target.turn_id)}/saved-sections/${target.segment_index}/${encodeURIComponent(target.section_event_id)}`);
+}
+
+export function getPlanActionPromptIndex(worldId: string, actionId: string, signal?: AbortSignal) {
+  return apiFetch<import('./types').ActionPromptIndex>(
+    `/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/prompts?${new URLSearchParams({ world_id: worldId })}`,
+    { signal, cache: 'no-store' },
+  );
+}
+export function getPlanActionPromptBody(worldId: string, actionId: string, attemptId: string, signal?: AbortSignal) {
+  return apiFetch<import('./types').ActionPromptEvidence>(
+    `/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/prompts/${encodeURIComponent(attemptId)}?${new URLSearchParams({ world_id: worldId })}`,
+    { signal, cache: 'no-store' },
+  );
 }

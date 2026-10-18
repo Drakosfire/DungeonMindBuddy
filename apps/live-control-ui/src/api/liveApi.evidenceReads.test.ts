@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'prompt', 'source-passage'] as const
+const cases = ['trace', 'prompt', 'source-passage', 'action-index', 'action-prompt'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -8,6 +8,8 @@ async function setup(base = '') {
 }
 type Api = Awaited<ReturnType<typeof setup>>
 function read(api: Api, kind: typeof cases[number]) {
+  if (kind === 'action-index') return api.getPlanActionPromptIndex('world/a', 'action-a')
+  if (kind === 'action-prompt') return api.getPlanActionPromptBody('world/a', 'action-a', 'provider-a')
   if (kind === 'source-passage') return api.getAgentSourcePassage('world/a', 'turn-a', 0)
   return kind === 'trace' ? api.getWorldAgentTurnContextTrace('world/a', 'turn-a')
     : api.getWorldAgentTurnPrompt('world/a', 'turn-a', 'trace-a', 'provider-a')
@@ -20,7 +22,8 @@ describe.each(cases)('Agent %s evidence read authorization', kind => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ fixture: true }))
     await read(api, kind)
     const [url, init] = fetch.mock.calls[0]
-    expect(String(url)).toContain('/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
+    expect(String(url)).toContain(kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
+    if (kind.startsWith('action-')) expect(init?.cache).toBe('no-store')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-evidence-token')
     expect(init?.redirect).toBe('error')
     expect(init?.credentials).toBe('same-origin')
@@ -159,5 +162,12 @@ it.each(['/export', '-other'])('does not authorize a near-miss recap correction 
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-correction-token')
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
   await api.authenticatedApiFetch(correctionPath + suffix, { method: 'POST', body: '{}' })
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+})
+
+it.each(['/api/live/world-plan-edit/actions/action-a/prompts/attempt/export', '/api/live/world-plan-edit/actions/action-a/prompt'])('does not authorize near-miss Action prompt endpoint %s', async path => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-evidence-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await api.authenticatedApiFetch(path)
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
 })

@@ -301,6 +301,8 @@ def validate_consultation_record(record: PlanActionRecord) -> None:
     consultation = record.consultation
     if consultation is None:
         return
+    if any(ref.dispatch_fence > record.fence for ref in getattr(consultation, "prompt_references", [])):
+        raise ValueError("prompt reference cannot belong to a future dispatch fence")
     receipt = consultation.receipt
     if (record.action_id != receipt.action_id
             or record.request_fingerprint != receipt.request_fingerprint
@@ -323,3 +325,29 @@ def validate_consultation_record(record: PlanActionRecord) -> None:
         or record.failure_code != result.failure_code
     ):
         raise ValueError("noncompleted consulted action cannot expose an applicable result")
+
+
+def validate_prompt_references(consultation) -> None:
+    """Bind private references to immutable authorization and actual owner."""
+    execution = consultation.execution
+    if consultation.prompt_references and execution is None:
+        raise ValueError("prompt references require execution authority")
+    seen = set()
+    for ref in consultation.prompt_references:
+        if (ref.action_id != consultation.receipt.action_id
+                or ref.world_id != consultation.receipt.basis.world_id
+                or ref.provider_attempt_id in seen):
+            raise ValueError("prompt reference owner or attempt is invalid")
+        seen.add(ref.provider_attempt_id)
+        matches = [event for event in execution.events
+                   if isinstance(event, ProviderAttemptAuthorizedEventV1)
+                   and event.event_id == ref.authorization_event_id
+                   and event.provider_attempt_id == ref.provider_attempt_id]
+        if len(matches) != 1:
+            raise ValueError("prompt reference requires its unique authorization")
+        event = matches[0]
+        if (event.envelope_sha256 != ref.payload_sha256
+                or event.provider != ref.provider or event.model != ref.model
+                or event.api_mode != ref.api_mode
+                or event.serializer_version != ref.serializer_version):
+            raise ValueError("prompt reference differs from authorized envelope")

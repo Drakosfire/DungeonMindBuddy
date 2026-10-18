@@ -1152,14 +1152,16 @@ def test_sourced_action_result_binds_producing_read_and_never_trusts_model_open_
         )
 
 
-@pytest.mark.parametrize("prompt_capture", [False, True])
+@pytest.mark.parametrize("prompt_capture", [False, True, "failure", "append_failure"])
 def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_result(
     application_state_dsn,
     monkeypatch,
     prompt_capture,
+    tmp_path,
 ) -> None:
     """APP PostgreSQL proves the action adapter does not fabricate an Ask Turn."""
     import json
+    import psycopg
     from hashlib import sha256
 
     from application_state.plan_action_dialogue.service import PlanActionDialogueService
@@ -1183,6 +1185,15 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
     )
     monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1" if prompt_capture else "0")
+    monkeypatch.setattr("apps.live_control_server.services.agent_prompt_evidence.artifact_data_root", lambda: tmp_path)
+    if prompt_capture == "failure":
+        def refuse(*args, **kwargs):
+            raise ValueError("synthetic capture failure")
+        monkeypatch.setattr("apps.live_control_server.services.plan_action_prompt_evidence.store_prompt", refuse)
+    if prompt_capture == "append_failure":
+        def refuse_append(*args, **kwargs):
+            raise ValueError("synthetic APP append failure")
+        monkeypatch.setattr(PlanActionDialogueService, "append_prompt_reference", refuse_append)
     store = PlanActionDialogueService()
     _activate_world_conversation("synthetic-world")
     expected_pointer = AgentConversationService().get_world_pointer("synthetic-world")
@@ -1277,7 +1288,7 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         expected_world_pointer=expected_pointer,
     )
     assert not hasattr(adapter, "request") and not adapter._is_build_turn()
-    if prompt_capture:
+    if prompt_capture in {"failure", "append_failure"}:
         assert adapter.authorize(view) is False
         assert adapter.failure.code == "prompt_capture_unavailable"
         frozen = adapter.stop()
@@ -1329,6 +1340,21 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
     )
     assert completed.status == "completed"
     assert completed.consultation.result.kind == "proposal"
+    if prompt_capture:
+        from apps.live_control_server.services.plan_action_prompt_evidence import prompt_body
+        refs = completed.consultation.prompt_references
+        assert len(refs) == 1
+        assert prompt_body(action.basis.world_id, action.action_id, refs[0].provider_attempt_id)["payload_json"] == payload
+        assert adapter.context_capture is None and not hasattr(adapter, "request")
+    if not prompt_capture:
+        from alembic import command
+        from application_state.cli import alembic_config
+        # Restore the actual installed V1 CHECK, which already accepts execution V3.
+        expected = completed.consultation.model_dump(mode="json", by_alias=True)
+        command.downgrade(alembic_config(), "20261017_0032")
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT consultation FROM plan_action.action WHERE action_id=%s", (action.action_id,)).fetchone()[0] == expected
+        command.upgrade(alembic_config(), "head")
     reread = store.list_status(action.basis)
     assert reread.actions[0].consultation.result.proposal_sha256 == result.proposal_sha256
 

@@ -178,6 +178,16 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.context_read_enabled = True
         self.required_context_failed = False
 
+    def _capture_prepared_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
+        from apps.live_control_server.services.plan_action_prompt_evidence import capture_prompt
+        if self.fence is None:
+            raise ValueError("prompt capture requires the actual action fence")
+        updated = capture_prompt(
+            store=self.store, action=self.fence.action, view=view, authorization=authorization,
+        )
+        self.fence.action = updated
+        self.turn = updated
+
     def _is_build_turn(self) -> bool:
         # A Plan action never acquires Build authority or an Ask request identity.
         return False

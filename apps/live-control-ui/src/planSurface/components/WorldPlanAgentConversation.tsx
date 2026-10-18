@@ -1,3 +1,4 @@
+import { ActionPromptInspector } from "./ActionPromptInspector";
 import { PlayAnswerEvidence } from "./PlayAnswerEvidence";
 import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
 import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
@@ -4154,6 +4155,7 @@ export function WorldPlanAgentConversation({
   const renderProposalGrounding = (grounding: SavedProposalGrounding | null) => (
     <section className="world-plan-agent-conversation__source-actions" aria-label="Supporting World facts">
       <h5>Supporting World facts</h5>
+      {grounding ? <ActionPromptInspector worldId={grounding.action.basis.world_id} actionId={grounding.action.action_id} /> : null}
       {!grounding ? (
         <p className="world-plan-agent-conversation__context">Supporting World facts are not yet available for this proposal.</p>
       ) : grounding.claims.length === 0 ? (
@@ -4229,6 +4231,15 @@ export function WorldPlanAgentConversation({
 
   const renderConsultedAction = (action: WorldPlanActionProjection) => {
     const result = action.consultation?.result;
+    if (!result && action.status === "failed"
+      && action.consultation?.receipt.origin_conversation_id === history?.conversation_id) {
+      return <article key={action.action_id} data-plan-action-id={action.action_id}
+        className="world-plan-agent-conversation__proposal-event">
+        <p><strong>You</strong> {action.instruction}</p>
+        <p>This Plan edit failed. No applicable proposal was saved.</p>
+        <ActionPromptInspector worldId={action.basis.world_id} actionId={action.action_id} />
+      </article>;
+    }
     if (!result || !["clarification", "context_unavailable", "proposal"].includes(result.kind)
       || action.consultation?.receipt.origin_conversation_id !== history?.conversation_id
       || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision) return null;
@@ -4247,7 +4258,7 @@ export function WorldPlanAgentConversation({
       <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
         <span className="world-plan-agent-conversation__speaker">Buddy</span>
         <WorldPlanAgentAnswer answer={result.message} />
-        {result.kind === "proposal" ? renderProposalGrounding(grounding) : null}
+        {result.kind === "proposal" ? renderProposalGrounding(grounding) : <ActionPromptInspector worldId={action.basis.world_id} actionId={action.action_id} />}
         {result.kind === "context_unavailable" ? <p role="note">World context is unavailable. No edit can be applied from this answer.</p> : null}
         {result.kind !== "proposal" ? targets.map((target) => <div key={`${target.claim_id}:${target.anchor_id}`}>
           <button type="button" onClick={() => { void openActionEvidence(action, target); }}>Open evidence</button>
@@ -5606,6 +5617,7 @@ export function WorldPlanAgentConversation({
                 {actionHistory.map((action) => (
                   <li key={action.action_id}>
                     <strong>{action.status}</strong> · {action.instruction}
+                    <ActionPromptInspector worldId={action.basis.world_id} actionId={action.action_id} />
                     {action.playable_target_receipt ? (
                       <p className="world-plan-agent-conversation__context">
                         Target · {action.playable_target_receipt.kind} {action.playable_target_receipt.id}

@@ -15,7 +15,8 @@ from application_state.agent_conversation.types import WorldPointer
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
-    PlanActionConsultation,
+    PrivatePlanActionConsultation,
+    decode_consultation,
     PlanActionPlayableTargetReceipt,
     PlanActionSelectionAnchorV1,
     PlanActionRecord,
@@ -71,7 +72,7 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         accepted_at=row["accepted_at"],
         completed_at=row["completed_at"],
         lease_expires_at=row["lease_expires_at"],
-        consultation=(PlanActionConsultation.model_validate(row["consultation"])
+        consultation=(decode_consultation(row["consultation"])
                       if row.get("consultation") is not None else None),
     )
 
@@ -271,7 +272,7 @@ def lock_dispatch(
 
 
 def validate_predecessor(
-    conn: psycopg.Connection, current: PlanActionRecord, consultation: PlanActionConsultation,
+    conn: psycopg.Connection, current: PlanActionRecord, consultation: PrivatePlanActionConsultation,
 ) -> None:
     from application_state.plan_action_dialogue.graph_consultation import consultation_result_digest
 
@@ -310,7 +311,7 @@ def validate_predecessor(
 
 
 def write_consultation(
-    conn: psycopg.Connection, record: PlanActionRecord, consultation: PlanActionConsultation,
+    conn: psycopg.Connection, record: PlanActionRecord, consultation: PrivatePlanActionConsultation,
     *, status: str = "pending", summary: str | None = None, failure_code: str | None = None,
 ) -> PlanActionRecord:
     # Validate the full row before writing; readback validates it again.
