@@ -3706,22 +3706,89 @@ it("keeps Plan selection fenced while an autosave is in flight", async () => {
 
 it("pauses autosave after an uncertain commit and preserves the draft for explicit recovery", async () => {
   const record = mockSavedPlanForAgent();
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
-    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+  const submitted = "Keep this draft until the receipt is understood.";
+  const latest = "Keep this newer edit after recovery.";
+  const initialSnapshot = {
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown: savedAgentPlanText,
+    content_sha256: "b".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: record.revision,
+  };
+  const recoveredRecord = { ...record, revision: 8, updated_at: "2026-10-18T16:45:00Z" };
+  let snapshotCalls = 0;
+  let uncertainMarkdown = submitted;
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async () => {
+    snapshotCalls += 1;
+    if (snapshotCalls === 1) return initialSnapshot;
+    return {
+      schema_version: "dmb_workspace_document_snapshot_v2",
+      record: recoveredRecord,
+      markdown: uncertainMarkdown,
+      content_sha256: "c".repeat(64),
+      file_fingerprint: "postgres",
+      file_exists: true,
+      loaded_revision: 8,
+    };
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision").mockImplementation(async () => ({
+    schema_version: "dmb_workspace_committed_revision_v2",
     scope_mode: "world",
     world_id: worldId,
+    campaign_id: null,
     document_id: record.document_id,
+    kind: "plan",
     title: record.title,
+    status: "active",
+    object_revision: 8,
+    work_revision_id: "work-revision-uncertain-commit",
+    revision_n: 5,
+    markdown: uncertainMarkdown,
+    content_sha256: "c".repeat(64),
+    has_divergent_working_copy: false,
     target_relpath: record.target_relpath!,
-    target_display_path: record.target_relpath!,
-    registry_revision: 8,
-    file_exists: true,
-    writer_ok: true,
-    writer_confirm_token: "uncertain-autosave-token",
-    warnings: [],
-    diagnostics: [],
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async (request) => {
+    if (request.expected_revision === 7) uncertainMarkdown = request.markdown;
+    return {
+      schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: record.document_id,
+      title: request.title!,
+      target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!,
+      registry_revision: request.expected_revision + 1,
+      file_exists: true,
+      writer_ok: true,
+      writer_confirm_token: `uncertain-autosave-${request.expected_revision}`,
+      warnings: [],
+      diagnostics: [],
+    };
   });
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockRejectedValue(new Error("Commit response uncertain"));
+  let commitCalls = 0;
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    commitCalls += 1;
+    if (commitCalls === 1) throw new Error("Commit response uncertain");
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: record.document_id,
+      title: request.title,
+      target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!,
+      registry_revision: request.expected_revision,
+      committed_revision: request.expected_revision,
+      committed_record: { ...record, title: request.title, revision: request.expected_revision, updated_at: "2026-10-18T16:50:00Z" },
+      normalized_content_sha256: "d".repeat(64),
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+    };
+  });
   render(
     <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}>
       <VerifiedPlanPage />
@@ -3732,26 +3799,42 @@ it("pauses autosave after an uncertain commit and preserves the draft for explic
 
   vi.useFakeTimers();
   fireEvent.input(editorSurface.querySelector("[contenteditable]")!, {
-    target: { textContent: "Keep this draft until the receipt is understood." },
+    target: { textContent: submitted },
   });
   await act(async () => { await vi.advanceTimersByTimeAsync(700); });
   expect(screen.getByRole("alert")).toHaveTextContent("Commit response uncertain");
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(commit).toHaveBeenCalledTimes(1);
   expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown)
-    .toContain("Keep this draft until the receipt is understood.");
+    .toContain(submitted);
   expect(document.querySelector('[data-save-state="needs-attention"]')).toBeInTheDocument();
 
   await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(commit).toHaveBeenCalledTimes(1);
 
-  fireEvent.click(screen.getByRole("button", { name: "Retry save" }));
-  await act(async () => { await vi.runOnlyPendingTimersAsync(); await Promise.resolve(); });
-  expect(screen.getByText(/previous save outcome cannot be proven/)).toBeInTheDocument();
+  fireEvent.input(screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]")!, {
+    target: { textContent: latest },
+  });
+  expect(screen.getByRole("button", { name: "Retry save" })).toBeInTheDocument();
+  expect(document.querySelector('[data-save-state="needs-attention"]')).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent("Commit response uncertain");
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(commit).toHaveBeenCalledTimes(1);
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(
-    "Keep this draft until the receipt is understood.",
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry save" }));
+  await act(async () => {
+    await vi.runOnlyPendingTimersAsync();
+    for (let index = 0; index < 12; index += 1) await Promise.resolve();
+  });
+  expect(prepare).toHaveBeenCalledTimes(2);
+  expect(prepare.mock.calls[1]![0].markdown).toContain(latest);
+  expect(commit).toHaveBeenCalledTimes(2);
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(latest);
+  expect(screen.getByText("Saved", { exact: true })).toBeInTheDocument();
+  expect(document.querySelector(".durable-save-status time")).toHaveAttribute(
+    "dateTime",
+    "2026-10-18T16:50:00.000Z",
   );
 });

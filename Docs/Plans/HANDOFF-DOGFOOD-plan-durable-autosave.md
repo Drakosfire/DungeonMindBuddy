@@ -86,7 +86,10 @@ Implementation evidence (2026-10-18):
 - `DurableSaveStatus.test.tsx`: 3 passed.
 - Focused `PlanSurfacePage.test.tsx` coverage for blank Plan non-creation,
   debounced save/timestamp, newer edits during a delayed save, selection fencing
-  during a pending autosave, and uncertain commit recovery: 5 passed.
+  during a pending autosave, and uncertain commit recovery after an additional
+  edit: 5 passed. The recovery case verifies the retry action stays visible,
+  the pending receipt reconciles before a new write, and the latest draft is
+  committed with the returned server timestamp.
 - `git diff --check` passed.
 - A previous full `PlanSurfacePage.test.tsx` run was not green (46 of 75 failed),
   predominantly on legacy accessible-name expectations for the Plan region and

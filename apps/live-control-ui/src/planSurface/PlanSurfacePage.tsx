@@ -655,6 +655,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverDigestRef.current = snapshot.content_sha256;
           setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot, recoverLocal && Boolean(localDraft.pending_write)));
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
+          setAutoSavePaused(pendingWriteRef.current !== null);
           setTitle(nextTitle);
           setMarkdown(nextMarkdown);
           setEditorGeneration((value) => value + 1);
@@ -752,6 +753,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         : null);
       setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));
       pendingWriteRef.current = null;
+      setAutoSavePaused(false);
       uncertainCreateDraftRef.current = preservedUncertainDraft;
       setUncertainCreateDraft(preservedUncertainDraft);
       setDocumentId(nextDocumentId);
@@ -1263,6 +1265,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         ? { status: "server-draft" }
         : { status: "unavailable" });
     pendingWriteRef.current = null;
+    setAutoSavePaused(false);
     const generation = ++editGenerationRef.current;
     setTitle(serverDraft.title);
     setMarkdown(serverDraft.markdown);
@@ -1403,7 +1406,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (!isCurrentEditTarget(true) || getLiveFidelityWarnings(editorRef.current?.getJSON()).length > 0) return;
       titleRef.current = next;
       const generation = ++editGenerationRef.current;
-      setAutoSavePaused(false);
+      setAutoSavePaused(pendingWriteRef.current !== null && !savingRef.current);
       setTitle(next);
       persistEditorDraftRef.current(next, markdownRef.current, generation);
     },
@@ -1827,10 +1830,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                   if (next === markdownRef.current) return;
                   markdownRef.current = next;
                   const generation = ++editGenerationRef.current;
-                  setAutoSavePaused(false);
+                  const pendingRecovery = pendingWriteRef.current !== null && !savingRef.current;
+                  setAutoSavePaused(pendingRecovery);
                   setMarkdown(next);
                   persistEditorDraft(titleRef.current, next, generation);
-                  setError(null);
+                  if (!pendingRecovery) setError(null);
                 }
               }}
             >
