@@ -156,6 +156,22 @@ type RecapQuoteRecovery = {
 };
 const quoteDigest = (value: unknown): string | null => typeof value === "string"
   && /^(?:sha256:)?[a-f0-9]{64}$/.test(value) ? value.replace(/^sha256:/, "") : null;
+// Match exact_run_evidence_correction._canonical_bytes and its sorted target list.
+async function recapRequestDigest(request: RecapQuoteRequest): Promise<string> {
+  const compareIds = (a: string, b: string) => {
+    const left = Array.from(a, c => c.codePointAt(0)!), right = Array.from(b, c => c.codePointAt(0)!);
+    for (let i = 0; i < Math.min(left.length, right.length); i++) if (left[i] !== right[i]) return left[i] - right[i];
+    return left.length - right.length;
+  };
+  const corrections = [...request.corrections].sort((a, b) => compareIds(a.assertionId, b.assertionId)
+    || a.evidenceIndex - b.evidenceIndex || a.quoteIndex - b.quoteIndex).map(item => ({
+      assertionId: item.assertionId, evidenceIndex: item.evidenceIndex, originalQuote: item.originalQuote,
+      quoteIndex: item.quoteIndex, replacementQuote: item.replacementQuote, sourceSpanRefId: item.sourceSpanRefId,
+    }));
+  const canonical = JSON.stringify({ corrections, parentCandidateSha256: request.parentCandidateSha256, parentRunId: request.parentRunId }) + "\n";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
 function recapQuoteScope(run: ExtractionRunRecord | null, review: ExactRunReviewPackage | null, world: string | null): string | null {
   if (!run || !review || !world || run.status !== "reviewable" || run.source_domain !== "recap"
     || run.profile_id !== "recap_category_v1@1.0" || review.schema !== "dmb_extract_promote_exact_run_review_v1"
@@ -897,6 +913,8 @@ export function GraphReviewWorkbenchModule({
     refreshRecapRecovery((value) => value + 1);
     setExactCorrectionError(null);
     try {
+      const expectedDigest = await recapRequestDigest(capsule.request);
+      if (!isCurrent()) return;
       const receipt = capsule.receipt ?? await correctRecapRunEvidence(capsule.request);
       // A retained receipt is untrusted until the same adapter identity checks
       // and exact child/source checks below have succeeded.
@@ -905,7 +923,7 @@ export function GraphReviewWorkbenchModule({
         || receipt.parentCandidateSha256 !== capsule.request.parentCandidateSha256
         || typeof receipt.runId !== "string" || !receipt.runId.trim() || receipt.runId === exactRun.run_id
         || !["held", "accepted", "rejected"].includes(receipt.semanticState)
-        || !quoteDigest(receipt.candidateSha256) || !quoteDigest(receipt.correctionDigest)
+        || !quoteDigest(receipt.candidateSha256) || quoteDigest(receipt.correctionDigest) !== expectedDigest
         || !quoteDigest(receipt.semanticBasisSha256)) throw new Error("The saved correction receipt does not match this request.");
       const currentSaved = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as RecapQuoteRecovery | null;
       if (currentSaved?.id === capsule.id) window.sessionStorage.setItem(storageKey, JSON.stringify({ ...capsule, receipt }));

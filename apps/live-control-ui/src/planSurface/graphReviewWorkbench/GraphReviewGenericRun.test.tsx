@@ -722,13 +722,13 @@ function recapFixture() {
   };
   const receipt: RecapEvidenceCorrectionResponse = {
     schema: "dmb_recap_evidence_correction_response_v1", runId: "recap-child", parentRunId: parent.run_id,
-    parentCandidateSha256: sha("a"), candidateSha256: sha("d"), correctionDigest: sha("e"), status: "reviewable",
+    parentCandidateSha256: sha("a"), candidateSha256: sha("d"), correctionDigest: "37b96d1cf5b5d160b1bb4e87034d3d22817e09c7ac648de10a9458bee663be64", status: "reviewable",
     semanticState: "held", semanticBasisSha256: sha("f"),
   };
   const child: ExtractionRunRecord = {
     ...parent, run_id: receipt.runId, components: { ...parent.components, candidate_graph: { ...parent.components!.candidate_graph, sha256: sha("d") } },
     lineage: { derivation: "operator_recap_literal_evidence_correction_v1", parent_run_id: parent.run_id,
-      parent_candidate_sha256: sha("a"), correction_digest: sha("e"), semantic_disposition: { version: 1, state: "held", basis_sha256: sha("f") } },
+      parent_candidate_sha256: sha("a"), correction_digest: "37b96d1cf5b5d160b1bb4e87034d3d22817e09c7ac648de10a9458bee663be64", semantic_disposition: { version: 1, state: "held", basis_sha256: sha("f") } },
   };
   const childReview: ExactRunReviewPackage = { ...review, runId: child.run_id, derivedFromRunId: parent.run_id, inspectionStatus: "ready", assertions: [] };
   return { parent, review, receipt, child, childReview };
@@ -784,7 +784,7 @@ describe("recap quote correction owning UI", () => {
     const post = pendingValue<RecapEvidenceCorrectionResponse>(); f.save.mockReturnValue(post.promise);
     const button = screen.getByRole("button", { name: "Save quote corrections" });
     fireEvent.submit(button.closest("form")!); fireEvent.submit(button.closest("form")!);
-    expect(f.save).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(f.save).toHaveBeenCalledTimes(1));
     expect(f.save.mock.calls[0][0]).toMatchObject({ parentRunId: "recap-parent", parentCandidateSha256: sha("a"), corrections: [{
       assertionId: "tunnel", evidenceIndex: 0, quoteIndex: 0, sourceSpanRefId: "span:39", replacementQuote: "LIKE THE ONE they discovered",
     }] });
@@ -889,4 +889,44 @@ it.each(["POST", "child GET"])("never changes another surface after unmount duri
   expect(await screen.findByRole("button", { name: "Retry saved quote corrections" })).toBeEnabled();
   expect(f.save).toHaveBeenCalledTimes(1);
   window.sessionStorage.clear();
+});
+
+
+it("rejects a retained receipt for different changes to the same parent", async () => {
+  vi.restoreAllMocks(); window.sessionStorage.clear();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ records: managedWorlds }));
+  const f = setupRecap(), user = userEvent.setup(), changed = vi.fn();
+  f.save.mockRejectedValueOnce(new Error("lost response"));
+  const view = render(recapWorkbench(undefined, changed)); await previewRecap(user);
+  await user.click(screen.getByRole("button", { name: "Save quote corrections" })); await screen.findByRole("alert");
+  view.unmount();
+  const key = window.sessionStorage.key(0)!;
+  const capsule = JSON.parse(window.sessionStorage.getItem(key)!);
+  capsule.receipt = { ...f.receipt, correctionDigest: sha("9") };
+  f.child.lineage!.correction_digest = sha("9");
+  window.sessionStorage.setItem(key, JSON.stringify(capsule));
+  render(recapWorkbench(undefined, changed));
+  await user.click(await screen.findByRole("button", { name: "Retry saved quote corrections" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("does not match this request");
+  expect(changed).not.toHaveBeenCalled(); expect(window.sessionStorage.length).toBe(1);
+  expect(f.save).toHaveBeenCalledTimes(1); expect(f.runs).not.toHaveBeenCalledWith("recap-child");
+  window.sessionStorage.clear();
+});
+
+
+it("matches server canonical ordering and UTF-8 quote bytes", async () => {
+  vi.restoreAllMocks(); window.sessionStorage.clear();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ records: managedWorlds }));
+  const f = setupRecap(), user = userEvent.setup(), changed = vi.fn();
+  const original = f.review.assertions[0];
+  f.review.assertions = [{ ...original, assertionId: "🚀", label: "Astral" }, { ...original, assertionId: "\ue000", label: "Private" }];
+  // Independently computed with Python json.dumps(sort_keys=True, ensure_ascii=False) plus newline.
+  f.receipt.correctionDigest = "dbfdf09b0083eae668070e6c9c3e70530aa6b7cbce9b43e48414996fb8ba0b7e"; f.child.lineage!.correction_digest = f.receipt.correctionDigest;
+  render(recapWorkbench(undefined, changed));
+  fireEvent.change(await screen.findByRole("textbox", { name: /Literal replacement for Astral/ }), { target: { value: "‘café’ — OLD bridge" } });
+  fireEvent.change(screen.getByRole("textbox", { name: /Literal replacement for Private/ }), { target: { value: "LIKE THE ONE they discovered" } });
+  await user.click(screen.getByRole("button", { name: "Preview quote corrections" }));
+  await user.click(screen.getByRole("button", { name: "Save quote corrections" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledWith(expect.stringContaining("extractionRunId=recap-child")));
+  expect(f.save).toHaveBeenCalledTimes(1); expect(window.sessionStorage.length).toBe(0);
 });
