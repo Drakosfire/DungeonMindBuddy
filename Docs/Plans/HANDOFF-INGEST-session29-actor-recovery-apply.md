@@ -1,6 +1,7 @@
 # Session29 exact held actor-recovery application
 
-Status ACTIVE: PRIME operational execution only, after independently reviewed
+Status CLOSED: exact held-candidate operation applied and verified; no further
+write authority remains in this lease. Historical PRIME operation after reviewed
 implementation1407 merged c9066f00457c23411d88e4e7bc53aed396478851 and six-file
 API adoption preserved retained state at PID785237. Existing checkout only.
 This does not open a new implementation lease or authorize Graph publication.
@@ -47,3 +48,16 @@ This operational handoff and its factual settlement are the only Git writes here
 no new worktree/environment/preview or /tmp task directory. ROOT/PRIME executes,
 ARCHITECTURE can review exact receipt read-only. Operator acceptance of wholeS29
 remains open; transfer/quantity/use/Brin gaps are not solved by withdrawing edges.
+
+Settlement: childc1bbc2da-d971-5d33-8e08-7bfe0b0568c8 is REVIEWABLE/HELD,
+candidateSHAac70feb0550bb4ed167b99c193f9764711adb269bd42eccc08c1c6b15deeb9fd.
+The first API call returned200; the private checker initially expected snake_case
+rather than camelCase receipt fields. Verification resumed from that KNOWN success,
+without a second creation request. Exact same-request retry then returned identical
+receipt/child. Fresh read-only process verified replay, outerV12/innerV13 and
+accepted=false. Full candidate delta matched pure preflight exactly; parent row,
+raw source/candidate/span, nine unrelated retained surfaces and full native
+projection atrev1334b3ea stayed unchanged. No provider or native write occurred.
+Rendered5202 child reader shows67nodes/62relationships, separate local actor and
+its pinnedline27 evidence. Private applied/fresh-read receipts and screenshot are
+retained outsideGit. This is not full Session29 semantic acceptance/publication.
