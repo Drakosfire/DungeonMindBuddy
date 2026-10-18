@@ -1,7 +1,8 @@
 # INGEST: recover a missing source-supported actor
 
-Status: BLOCKED — concrete PRIME design for independent critique. No implementation
-write lease, provider call, retained correction or publication is activated yet.
+Status: ACTIVE — bounded DOGFOOD implementation lease, activated by PRIME after
+independent contract critique and the concrete retained read-only proposal.
+No provider call, retained correction or publication is authorized.
 Base: Buddy main b73b3f6225aaed4954a86a54005c6837eeaa49e9.
 Proposed branch: codex/ingest-source-actor-recovery, existing suitable checkout only.
 Topology: serial successor to settled #1403; independent of the separately pinned
@@ -54,7 +55,7 @@ these representation choices.
   Graph object creation, prepare/confirm or publication. Current reader should
   expose the new candidate through its existing list/chip/evidence contract.
 
-## Proposed expected write set — not an active lease
+## Exact implementation write lease
 
 - This handoff (activation and actual predecessor settlement only).
 - apps/live_control_server/models/extract_promote.py
@@ -90,7 +91,7 @@ Implement→test→cumulative diff→commit/push/one PR→ARCHITECTURE exact-hea
 PRIME guarded merge/adoption. Retained apply needs a separately pinned concrete
 proposal and operational authority; this design supplies neither.
 
-## Gates before activation
+## Activation gates — satisfied as recorded below
 
 1. DOGFOOD exact retained read-only proposal confirms actor/affected edge scope
    and separates supported retargets from missing transfer representation.
@@ -101,9 +102,9 @@ proposal and operational authority; this design supplies neither.
 
 ## PRIME request and replay contract for final critique
 
-This section resolves the discriminator/source-preimage design gate; status remains
-BLOCKED pending the concrete retained proposal and independent final critique.
-No implementation or retained apply is activated by this amendment.
+This section pins the accepted discriminator/source-preimage design. Implementation
+is activated only within the owner/path/test boundaries below. Retained apply
+remains separately held.
 
 ### Exact version mapping
 
@@ -163,9 +164,13 @@ Each `affected_edges` entry has `action` (`retarget` or `omit`), `edge_id`,
 or predicate field: retarget always replaces ONLY the declared endpoint with the
 host-derived actor ID. Both preimage hashes and old tuple must match; the declared
 old endpoint must equal top-level misbound_actor_id. Reject missing actor, self-
-replacement, duplicates, unrelated edge cleanup, or a quote/span not already in
+replacement, duplicates, unrelated edge cleanup, or a source_span_ref_id not already present in
 that edge's frozen evidence. Each affected edge must cite the actor-introduction
-span and its actor anchor must contain the exact recovered literal name. This is
+span. The actor_anchor_quotes are additional VALIDATION-ONLY exact literal context
+from that same raw span and must contain the exact recovered name; they need not
+be members of the old anchor_quotes array. They never append or rewrite the edge's
+evidence. Bind these validation anchors in the operation manifest and its basis,
+while preserving the complete old edge/evidence hash preimages. This is
 bounded operator review of an affected assertion, not automated entailment.
 
 Retarget keeps other endpoint, predicate, label, description and evidence bytes.
@@ -200,3 +205,39 @@ retarget/omission, unchanged captain and every unaffected node/edge/Beat/source
 byte, fresh DB reopen/replay/assessment/retry, crash-resume and mixed old/new PC
 ancestry. Exercise every rejection before child/package claim, including lock-wait
 authority drift. The public handoff/tests must contain synthetic material only.
+
+## Activation and concrete scope — PRIME
+
+Independent Architecture critique of exact 15becfb3a56762c82c53584883e12c2b4aecb9d6
+accepted the contract and eleven paths subject to the validation-only anchor
+clarification now incorporated above. DOGFOOD's private read-only proposal is
+`session29-correction-review-20261017.md` in the established private experiment
+location. It confirms the distinct omitted actor and three misbound assertions;
+all three action-label/predicate combinations require withdrawal in this slice.
+Zero retargets is expected for that retained example. Recipient inventory rewrite,
+Brin interaction, separate item counts and faithful giver/action semantics remain
+open, outside this slice, and cannot be claimed completed by actor recovery.
+No retained correction is approved by the implementation lease.
+
+Owner: DOGFOOD, existing checkout
+`/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy`.
+This handoff is on `codex/ingest-source-actor-recovery` in PRIME's checkout. Create
+a distinct branch `codex/ingest-source-actor-recovery-implementation` from
+fetched main b73b3f6 in DOGFOOD's existing checkout and carry only this handoff.
+No concurrent edits by PRIME to the eleven leased paths after dispatch.
+The proposed eleven-path set above is now the exact active write lease; all other
+prohibitions remain. Old source-binding implementation lease is closed by merge
+b73b3f6; its historical docs are not an additional implementation write path here.
+
+Disposable fixture: PRIME verified the owned container
+`dungeonbuddy-review-fixture-pg` at ID
+`3c1a9eadadb2ed8a370d7008037c5bba95d83fd84c9b44b7070714710ccfc5a3`
+running with no TCP clients on54329 at activation. DOGFOOD's prior fixture work and
+Architecture's prior consumer are finished. It is reserved for this slice's unique
+throwaway test databases; PRIME retains lifecycle/cleanup responsibility. Existing
+runtime Python is
+`/home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python`.
+Return at a concrete unexpected boundary/required path expansion, or deliver one
+implementation PR with exact cumulative diff and owning evidence. Architecture
+reviews exact head; PRIME merges/adopts when gates pass. No additional operator
+confirmation is required for the bounded implementation or independent review.
