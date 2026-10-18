@@ -598,4 +598,74 @@ def test_invalid_aggregate_counts_are_unknown_and_never_crash():
         assert usage["input_tokens"] == 10
         assert usage["status"] == "partial"
     assert aggregate_usage([])["status"] == "unavailable"
-    assert aggregate_usage([{"usage": {"status": "unavailable"}}])["input_tokens"] is None
+    assert (
+        aggregate_usage([{"usage": {"status": "unavailable"}}])["input_tokens"] is None
+    )
+
+
+def test_captured_error_accounting_is_immutable_private_and_explicitly_overridable():
+    from apps.live_control_server.services.agent_turn_trace import (
+        retained_trace_payload,
+    )
+
+    known = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="prior"), status="ok", sequence=1
+    )
+    unknown = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="tail", usage={}), status="error", sequence=2
+    )
+    unknown["usage"] = {"status": "unavailable"}
+    unknown["cost"] = {"status": "unavailable", "usd": None}
+    known["headers"] = {"authorization": PRIVACY_SENTINEL}
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id="client",
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    builder.capture_accounting(
+        model_calls=[known, unknown],
+        extra_warnings=["observed_warning", PRIVACY_SENTINEL + " private prompt"],
+        observed_model_call_count=2,
+    )
+    known["usage"]["input_tokens"] = 999999
+    assert PRIVACY_SENTINEL not in repr(builder._captured_accounting)
+    trace = retained_trace_payload(builder.finalize(status="error"))
+    assert len(trace["model_calls"]) == 2
+    assert trace["usage"]["input_tokens"] == 100
+    assert trace["usage"]["status"] == "partial"
+    assert trace["cost"]["status"] == "partial"
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id="client",
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    builder.capture_accounting(
+        model_calls=[unknown],
+        extra_warnings=["observed_warning"],
+        observed_model_call_count=1,
+    )
+    empty = builder.finalize(status="ok", model_calls=[], observed_model_call_count=0)
+    assert empty["model_calls"] == []
+    assert empty["usage"]["model_call_count"] == 0
+    assert "observed_warning" not in empty["warnings"]
+
+
+def test_captured_accounting_retains_count_when_details_are_capped():
+    known = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="synthetic"), status="ok", sequence=1
+    )
+    builder = AgentTurnTraceBuilder(
+        agent_thread_id=None, turn_id="client", runtime="test", backend="test", mode="test"
+    )
+    builder.capture_accounting(model_calls=[known] * 500, observed_model_call_count=500)
+    saved = builder.finalize(status="error")
+    assert len(saved["model_calls"]) < 500
+    assert saved["usage"]["model_call_count"] == len(saved["model_calls"])
+    assert saved["usage"]["observed_model_call_count"] == 500
+    assert saved["usage"]["status"] == "partial"
+    assert saved["cost"]["status"] == "partial"
+    assert "model_calls_truncated" in saved["warnings"]

@@ -6389,6 +6389,11 @@ def execute_agent_turn(
             policy_result = guarded_run(
                 invocation, adapter.authorize, **run_options,
             )
+            trace.capture_accounting(
+                model_calls=policy_result.model_calls,
+                extra_warnings=policy_result.telemetry_warnings,
+                observed_model_call_count=policy_result.observed_model_call_count,
+            )
             if adapter.context_capture is not None:
                 adapter.context_capture.provider_usage(policy_result.model_calls)
                 failure_code = adapter.failure.code if adapter.failure is not None else policy_result.error_code

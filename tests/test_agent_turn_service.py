@@ -5402,10 +5402,13 @@ def test_selected_multi_hop_graph_read_and_source_scope_remain_separate(tmp_path
     assert {anchor.anchor_id for anchor in old_neighbors.source_anchors if anchor.readable}.issubset({item.anchor_id for item in old_pool.source_pins})
 
 
+@pytest.mark.parametrize("accounting_case", ["success", "incomplete", "context_error", "stop_error"])
 def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
     application_state_dsn,
     tmp_path,
     monkeypatch,
+    caplog,
+    accounting_case,
 ):
     """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
     import asyncio
@@ -5450,6 +5453,19 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
         lambda **kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
     )
+    incomplete = accounting_case != "success"
+    after_result_error = accounting_case in {"context_error", "stop_error"}
+    if accounting_case == "context_error":
+        monkeypatch.setenv("DMB_CONTEXT_TRACE_CAPTURE", "1")
+        def fail_capture(*_args):
+            raise RuntimeError("PRIVATE_CONTEXT_CAPTURE_ERROR")
+        monkeypatch.setattr(parent.ContextTraceCollector, "provider_usage", fail_capture)
+    if accounting_case == "stop_error":
+        original_stop = parent._PolicyExecutionAdapter.stop
+        def fail_stop(self):
+            original_stop(self)
+            raise RuntimeError("PRIVATE_ADAPTER_STOP_ERROR")
+        monkeypatch.setattr(parent._PolicyExecutionAdapter, "stop", fail_stop)
     world, native, revision = (
         "current-context-world",
         "synthetic-native",
@@ -5708,6 +5724,43 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
                 provider_calls.append(encoded)
 
             send()
+            if incomplete:
+                from tests.test_agent_turn_trace import _observer_payload
+                from apps.live_control_server.services.agent_turn_trace import (
+                    map_hermes_observer_to_model_call,
+                )
+
+                encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+                assert authorize(
+                    {
+                        "provider": "openai-api",
+                        "model": request_budget["model"],
+                        "apiMode": "codex_responses",
+                        "payloadJson": encoded,
+                        "payloadSha256": sha256(encoded.encode()).hexdigest(),
+                        "payloadUtf8Bytes": len(encoded.encode()),
+                    }
+                )
+                assert on_provider_lifecycle({"transition": "sdk_entered"})
+                assert on_provider_lifecycle({"transition": "outcome_unknown"})
+                known = map_hermes_observer_to_model_call(
+                    _observer_payload(api_request_id="prior"), status="ok", sequence=1
+                )
+                known["request"] = "PRIVATE_FAILED_ACCOUNTING_PROMPT"
+                return AgentRuntimeResult(
+                    status="error",
+                    error_code="provider_lifecycle_unavailable",
+                    observed_model_call_count=2,
+                    model_calls=[
+                        known,
+                        {
+                            "call_id": "uncertain-tail",
+                            "status": "error",
+                            "usage": {"status": "unavailable"},
+                            "cost": {"status": "unavailable", "usd": None},
+                        },
+                    ],
+                )
             parts = []
             continuation = None
             for i in range(8):
@@ -5787,7 +5840,8 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
 
     async def exercise():
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
         ) as client:
             denied = await client.post(
                 "/api/live/agent/turn", json=body.model_dump(mode="json", by_alias=True)
@@ -5798,10 +5852,52 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
                 headers={"Authorization": "Bearer " + token},
                 json=body.model_dump(mode="json", by_alias=True),
             )
-            assert result.status_code == 200, result.text
-            return result.json()
+            assert result.status_code == (
+                500 if after_result_error else 503 if incomplete else 200
+            ), result.text
+            return None if after_result_error else result.json()
 
-    delivered = asyncio.run(exercise())
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        delivered = asyncio.run(exercise())
+    if incomplete:
+        saved = AgentConversationService().list_turns(
+            world,
+            AgentConversationService().get_active_conversation(world).conversation_id,
+        )[0]
+        assert saved.status == ("running" if after_result_error else "interrupted")
+        assert saved.failure_code == (
+            None if after_result_error else "provider_outcome_unknown"
+        )
+        assert saved.completion is None and saved.assistant_text is None
+        traces = [
+            json.loads(r.getMessage().removeprefix("dmb_agent_turn_trace "))
+            for r in caplog.records
+            if r.name == "dmb.agent.turn_trace"
+            and r.getMessage().startswith("dmb_agent_turn_trace ")
+        ]
+        # The first unauthenticated request also has its own empty failed trace.
+        trace = next(
+            t
+            for t in traces
+            if t["correlation"].get("durable_turn_id") == str(saved.turn_id)
+        )
+        assert (
+            sum(
+                t["correlation"].get("durable_turn_id") == str(saved.turn_id)
+                for t in traces
+            )
+            == 1
+        )
+        assert trace["status"] == "error" and len(trace["model_calls"]) == 2
+        assert trace["usage"]["input_tokens"] == 100
+        assert (
+            trace["usage"]["status"] == "partial"
+            and trace["cost"]["status"] == "partial"
+        )
+        assert trace["usage"]["usage_reported_call_count"] == 1
+        assert "PRIVATE_FAILED_ACCOUNTING_PROMPT" not in json.dumps(trace)
+        assert (tmp_path / "recap.md").read_bytes() == raw
+        return
     assert len(provider_calls) == 2
     service = AgentConversationService()
     conversation = service.get_active_conversation(world)

@@ -100,7 +100,7 @@ def _finalize_unlogged_agent_trace(
     trace: AgentTurnTraceBuilder, *, status: str,
 ) -> None:
     if not trace.logged:
-        trace.finalize_and_log(status=status, model_calls=0)
+        trace.finalize_and_log(status=status)
 
 
 def _managed_world_root():

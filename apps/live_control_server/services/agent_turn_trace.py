@@ -620,6 +620,7 @@ class AgentTurnTraceBuilder:
         self.correlation: dict[str, Any] = {}
         self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
+        self._captured_accounting: dict[str, Any] | None = None
 
     def elapsed_ms(self) -> int:
         return max(0, int((time.monotonic() - self._started_mono) * 1000))
@@ -723,6 +724,37 @@ class AgentTurnTraceBuilder:
             }
         )
 
+    def capture_accounting(
+        self,
+        *,
+        model_calls: Sequence[Mapping[str, Any]],
+        extra_warnings: Iterable[str] = (),
+        observed_model_call_count: int | None = None,
+    ) -> None:
+        """Freeze bounded log-safe observations before delivery can fail."""
+        try:
+            snapshot = retained_trace_payload(
+                {
+                    "status": "error",
+                    "model_calls": model_calls,
+                    "spans": [],
+                    "warnings": list(extra_warnings),
+                }
+            )
+            warnings = snapshot["warnings"]
+            if not snapshot["retention"]["complete"]:
+                warnings.append(MODEL_CALLS_TRUNCATED_WARNING)
+                if observed_model_call_count is None:
+                    observed_model_call_count = len(model_calls)
+            self._captured_accounting = {
+                "model_calls": snapshot["model_calls"],
+                "warnings": tuple(warnings),
+                "observed_model_call_count": observed_model_call_count,
+            }
+        except Exception:
+            # Accounting must not alter delivery, authority or provider replay.
+            self.add_warning("accounting_capture_failed")
+
     def finalize(
         self,
         *,
@@ -737,6 +769,11 @@ class AgentTurnTraceBuilder:
         leftover_status: SpanStatus = "error" if status == "error" else "ok"
         for span_id in list(self._open_phases):
             self.complete_phase(span_id, status=leftover_status)
+        if model_calls is None and self._captured_accounting is not None:
+            model_calls = self._captured_accounting["model_calls"]
+            extra_warnings = (*self._captured_accounting["warnings"], *extra_warnings)
+            if observed_model_call_count is None:
+                observed_model_call_count = self._captured_accounting["observed_model_call_count"]
         calls = [dict(call) for call in (model_calls or [])]
         for warning in extra_warnings:
             self.add_warning(warning)
