@@ -21,14 +21,17 @@ from application_state.errors import ApplicationStateConflictError
 from application_state.ingest import service as ingest
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV8, RecapCandidateCorrectionRequestV9, RecapCandidateCorrectionRequestV10,
-    RecapCandidateCorrectionResponseV10,
+    RecapCandidateCorrectionRequestV11, RecapCandidateCorrectionResponseV10,
+    RecapCandidateCorrectionResponseV11,
     RecapNodeDescriptionReplacement,
 )
 from apps.live_control_server.services import graph_run_registry as registry
 from apps.live_control_server.services import recap_semantic_candidate_correction as correction
 from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
-from tests.test_recap_semantic_candidate_correction import _append_fixture, _append_request
+from tests.test_recap_semantic_candidate_correction import (
+    _actor_recovery_request, _append_fixture, _append_request,
+)
 
 
 def _component_path(root, run, component):
@@ -90,7 +93,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     from graph_memory.source_span import document_source_ref_id
 
     source_bytes = (
-        b"Mira found the key under the bridge.\n\n"
+        b"Lysandro found the key under the bridge while Mira watched.\n\n"
         b"Mira rescued a traveler.\n\n"
         b"Mira felt frightened.\n"
     )
@@ -118,6 +121,8 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
             evidence["source_artifact_id"] = artifact.source_artifact_id
             evidence["source_ref_id"] = source_ref_id
             evidence["source_span_ref_id"] = span_by_line[line]
+            if line == 1:
+                evidence["anchor_quotes"] = [source_bytes.decode("utf-8").splitlines()[0]]
     payload["source_artifact_ids"] = [artifact.source_artifact_id]
     payload["campaign_id"] = artifact.campaign_id
     payload["session_id"] = artifact.session_id
@@ -176,7 +181,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         registry_path="corpus/invented/_party_registry.json",
     )
     pc_body["attachments"][0]["source_span_ref_id"] = span_by_line[1]
-    pc_body["attachments"][0]["anchor_quote"] = "Mira found the key under the bridge."
+    pc_body["attachments"][0]["anchor_quote"] = source_bytes.decode("utf-8").splitlines()[0]
     pc_body["world_id"] = "invented-world"
     pc_body["expected_head_revision_id"] = "rev:head"
     pc_body["registry_sha256"] = correction._sha(
@@ -570,6 +575,117 @@ raise RuntimeError('injected crash point was not reached')
     assert original_get(tmp_path, stranded_id).status == ExtractionRunStatus.REVIEWABLE
     assert abandoned_staging.read_bytes() == b"preserve crashed owner staging bytes"
 
+    # V11 keeps the same durable child/retry boundary while adding one source-
+    # supported local actor and a bounded endpoint correction.
+    actor_parent = original_get(tmp_path, pc_parent.run_id)
+    actor_parent_payload = json.loads(_component_path(
+        tmp_path, actor_parent, "candidate_graph",
+    ).read_bytes())
+    actor_source_text = source_bytes.decode("utf-8")
+    actor_body = _actor_recovery_request(
+        actor_parent, actor_parent_payload, index, actor_source_text,
+    )
+    actor_request = RecapCandidateCorrectionRequestV11.model_validate(
+        actor_body, strict=True,
+    )
+    actor_response = correction.correct_recap_candidate(actor_request)
+    assert isinstance(actor_response, RecapCandidateCorrectionResponseV11)
+    assert (actor_response.introduced_actor_count, actor_response.retargeted_edge_count,
+            actor_response.omitted_edge_count) == (1, 1, 0)
+    actor_child = original_get(tmp_path, actor_response.run_id)
+    actor_payload = json.loads(_component_path(
+        tmp_path, actor_child, "candidate_graph",
+    ).read_bytes())
+    actor_node = actor_payload["nodes"][-1]
+    assert actor_node["label"] == "Lysandro" and actor_node["corpus_ref"] is None
+    assert actor_payload["edges"][0]["from_node_id"] == actor_node["node_id"]
+    assert actor_payload["edges"][0]["evidence_refs"] == actor_parent_payload["edges"][0]["evidence_refs"]
+    assert correction.verify_child_replay(actor_child, actor_parent, tmp_path)
+    assert correction.correct_recap_candidate(actor_request).model_dump(
+        mode="json", by_alias=True,
+    ) == actor_response.model_dump(mode="json", by_alias=True)
+    actor_assessment = assess_recap_semantics(
+        actor_child, parent=actor_parent,
+        source_revision_id=actor_body["source_revision_sha256"], root=tmp_path,
+    )
+    actor_basis = ingest.RecapSemanticBasisV12.model_validate(
+        actor_assessment.basis, strict=True,
+    )
+    assert actor_basis.request_version == 11
+    assert actor_basis.operation_basis.schema_ == "dmb_recap_semantic_basis_v13"
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", original_resolve)
+    actor_package = extract_promote.get_exact_run_review_package(actor_child.run_id)
+    assert any(assertion.label == "Lysandro" for assertion in actor_package.assertions)
+    assert actor_package.inherited_pc_references is not None
+    assert actor_package.inherited_pc_references.rows[0].origin_run_id == actor_parent.run_id
+
+    fresh_actor_code = """
+import json,sys
+from pathlib import Path
+from application_state.ingest.service import get_extraction_run
+from apps.live_control_server.services.recap_semantic_candidate_correction import verify_child_replay
+import apps.live_control_server.services.recap_semantic_candidate_correction as correction
+from graph_memory import party_context
+root=Path(sys.argv[1]); correction.repo_root=lambda:root
+party_context.CAMPAIGN_CORPUS['c']=(Path('corpus'),'invented')
+child=get_extraction_run(sys.argv[2]); parent=get_extraction_run(sys.argv[3])
+assert verify_child_replay(child,parent,root)
+candidate=json.loads((root/child.components['candidate_graph'].uri.removeprefix('repo://')).read_bytes())
+assert candidate['nodes'][-1]['label']=='Lysandro'
+print(json.dumps({'run_id':child.run_id,'status':child.status.value,'actor':candidate['nodes'][-1]['label']}))
+"""
+    fresh_actor = subprocess.check_output(
+        [sys.executable, "-c", fresh_actor_code, str(tmp_path), actor_child.run_id,
+         actor_parent.run_id], text=True,
+    )
+    assert json.loads(fresh_actor)["actor"] == "Lysandro"
+
+    # A distinct omission-only request gives the crash-resume test its own
+    # deterministic child identity while preserving the successful retarget.
+    crash_actor_body = _actor_recovery_request(
+        actor_parent, actor_parent_payload, index, actor_source_text, action="omit",
+    )
+    crash_actor_path = tmp_path / "actor-recovery-crash-request.json"
+    crash_actor_path.write_text(json.dumps(crash_actor_body))
+    before_actor_crash = {run.run_id for run in ingest.list_extraction_runs()}
+    crash_actor_worker = """
+import json,os,sys
+from pathlib import Path
+from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+from apps.live_control_server.services import extract_promote
+import apps.live_control_server.services.recap_semantic_candidate_correction as correction
+from graph_memory import party_context
+root=Path(sys.argv[1]); body=json.loads(Path(sys.argv[2]).read_text())
+correction.repo_root=lambda:root; extract_promote._artifact_root=lambda:root
+party_context.CAMPAIGN_CORPUS['c']=(Path('corpus'),'invented')
+def die_after_draft(root, child_id, *, source_bytes, candidate_bytes, allow_existing):
+    staging=root/'out/graph_memory/derived_candidates/.staging'
+    staging.mkdir(parents=True,exist_ok=True)
+    (staging/f'{child_id}.actor-recovery.tmp').write_bytes(b'preserve actor recovery staging')
+    os._exit(78)
+correction._publish_child_package_files=die_after_draft
+correction.correct_recap_candidate(RecapCandidateCorrectionRequestV11.model_validate(body))
+raise RuntimeError('injected actor recovery crash point was not reached')
+"""
+    crashed_actor = subprocess.run(
+        [sys.executable, "-c", crash_actor_worker, str(tmp_path), str(crash_actor_path)],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert crashed_actor.returncode == 78, crashed_actor.stderr
+    new_actor_rows = {run.run_id for run in ingest.list_extraction_runs()} - before_actor_crash
+    assert len(new_actor_rows) == 1
+    stranded_actor_id = next(iter(new_actor_rows))
+    stranded_actor = original_get(tmp_path, stranded_actor_id)
+    assert stranded_actor.status == ExtractionRunStatus.DRAFT
+    recovered_actor = correction.correct_recap_candidate(
+        RecapCandidateCorrectionRequestV11.model_validate(crash_actor_body, strict=True),
+    )
+    assert recovered_actor.run_id == stranded_actor_id
+    assert original_get(tmp_path, stranded_actor_id).status == ExtractionRunStatus.REVIEWABLE
+    assert correction.verify_child_replay(
+        original_get(tmp_path, stranded_actor_id), actor_parent, tmp_path,
+    )
+
 
 def test_production_source_snapshot_correction_and_locked_parent_authority(
     disposable_append_app, monkeypatch, tmp_path,
@@ -607,7 +723,10 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
         party_context.CAMPAIGN_CORPUS, campaign_id, (empty_corpus, "Synthetic"),
     )
 
-    source_text = "Mira crossed the painted bridge. The brass key remained hidden.\n"
+    source_text = (
+        "Mira crossed the painted bridge. The brass key remained hidden. "
+        "Lysandro found the key under the bridge, and Mira confirmed he waits at the guard headquarters.\n"
+    )
     artifact = create_recap_source_artifact(
         tmp_path,
         world_id=world_id,
@@ -629,12 +748,33 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
                 "anchor_quotes": ["Mira crossed the painted bridge."],
             }],
         }]},
-        "location_pass": {"observation_nodes": []},
+        "location_pass": {"observation_nodes": [{
+            "node_id": "guard-hq",
+            "label": "Guard Headquarters",
+            "node_type": "location",
+            "description": "The guard headquarters mentioned in the recap.",
+            "importance": "medium",
+            "evidence_refs": [{
+                "source_span_ref_id": span_id,
+                "anchor_quotes": ["guard headquarters"],
+            }],
+        }]},
         "collective_pass": {"observation_nodes": []},
         "object_pass": {"observation_nodes": []},
         "thread_pass": {"observation_nodes": [], "ignored_items": [], "deferred_items": []},
         "beat_pass": {"observation_beats": []},
-        "edge_pass": {"observation_edges": []},
+        "edge_pass": {"observation_edges": [{
+            "edge_id": "edge-lysandro-headquarters",
+            "from_node_id": "mira",
+            "to_node_id": "guard-hq",
+            "relationship_type": "located_in",
+            "predicate_family": "spatial",
+            "label": "Lysandro waits at the guard headquarters.",
+            "evidence_refs": [{
+                "source_span_ref_id": span_id,
+                "anchor_quotes": ["Mira confirmed he waits at the guard headquarters."],
+            }],
+        }]},
     })
 
     def produce_parent():
@@ -711,6 +851,153 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     retry = correction.correct_recap_candidate(request)
     assert retry.run_id == fresh_child.run_id
     assert ingest.get_extraction_run(fresh_child.run_id).revision == fresh_child.revision
+
+    # Join the actual producer output to V11 recovery: extraction intentionally
+    # omits Lysandro and misbinds the located_in assertion to Mira. The source-
+    # supported child adds only Lysandro and retargets only that declared edge.
+    production_candidate = json.loads(parent_candidate_bytes)
+    actor_request_body = _actor_recovery_request(
+        parent, production_candidate, source.source_span_index, source_text,
+        edge_id="edge-lysandro-headquarters",
+    )
+    actor_request = RecapCandidateCorrectionRequestV11.model_validate(
+        actor_request_body, strict=True,
+    )
+    actor_result = correction.correct_recap_candidate(actor_request)
+    assert actor_result.semantic_state == "held"
+    actor_child = ingest.get_extraction_run(actor_result.run_id)
+    actor_candidate_bytes = _component_path(
+        tmp_path, actor_child, "candidate_graph",
+    ).read_bytes()
+    actor_candidate = json.loads(actor_candidate_bytes)
+    actor_node = actor_candidate["nodes"][-1]
+    assert actor_node["label"] == "Lysandro"
+    assert actor_node["corpus_ref"] is None
+    assert actor_candidate["nodes"] == production_candidate["nodes"] + [actor_node]
+    expected_edges = copy.deepcopy(production_candidate["edges"])
+    expected_edge = next(
+        edge for edge in expected_edges
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    expected_edge["from_node_id"] = actor_node["node_id"]
+    actual_edge = next(
+        edge for edge in actor_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    assert actor_candidate["edges"] == expected_edges
+    assert actual_edge["evidence_refs"] == next(
+        edge["evidence_refs"] for edge in production_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        assert actor_candidate.get(key, []) == production_candidate.get(key, [])
+    assert _component_path(tmp_path, actor_child, "source_artifact").read_bytes() == parent_source_bytes
+    assert source_path.read_bytes() == parent_source_bytes
+    assert span_path.read_bytes() == parent_span_bytes
+    assert candidate_path.read_bytes() == parent_candidate_bytes
+    actor_assessment = assess_recap_semantics(
+        actor_child, parent=parent,
+        source_revision_id=artifact.content_sha256, root=tmp_path,
+    )
+    assert actor_assessment.marked and not actor_assessment.accepted
+    actor_basis = ingest.RecapSemanticBasisV12.model_validate(
+        actor_assessment.basis, strict=True,
+    )
+    assert actor_basis.request_version == 11
+    assert actor_basis.operation_basis.schema_ == "dmb_recap_semantic_basis_v13"
+    assert correction.verify_child_replay(actor_child, parent, tmp_path)
+    actor_retry = correction.correct_recap_candidate(actor_request)
+    assert actor_retry.run_id == actor_child.run_id
+    assert ingest.get_extraction_run(actor_child.run_id).revision == actor_child.revision
+    fresh_actor_code = """
+import json,sys
+from pathlib import Path
+from application_state.ingest.service import RecapSemanticBasisV12, get_extraction_run
+from apps.live_control_server.services.recap_semantic_candidate_correction import verify_child_replay
+from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
+import apps.live_control_server.services.recap_semantic_candidate_correction as correction
+from graph_memory import party_context
+root=Path(sys.argv[1]); correction.repo_root=lambda:root
+party_context.CAMPAIGN_CORPUS['synthetic-campaign']=(root/'empty-synthetic-corpus','Synthetic')
+child=get_extraction_run(sys.argv[2]); parent=get_extraction_run(sys.argv[3])
+assert verify_child_replay(child,parent,root)
+assessment=assess_recap_semantics(child,parent=parent,source_revision_id=sys.argv[4],root=root)
+assert assessment.marked and not assessment.accepted
+basis=RecapSemanticBasisV12.model_validate(assessment.basis,strict=True)
+assert basis.operation_basis.schema_=='dmb_recap_semantic_basis_v13'
+candidate=json.loads((root/child.components['candidate_graph'].uri.removeprefix('repo://')).read_bytes())
+print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['semantic_disposition']['state']}))
+"""
+    fresh_actor = subprocess.check_output(
+        [sys.executable, "-c", fresh_actor_code, str(tmp_path), actor_child.run_id,
+         parent.run_id, artifact.content_sha256], text=True,
+    )
+    assert json.loads(fresh_actor) == {"actor": "Lysandro", "held": "held"}
+
+    # Omission is a separate held child from the same real producer result.
+    # Its contextual actor quote is in the pinned source span but absent from
+    # the old edge's evidence quotes; it validates the operator's explanation
+    # without silently appending or rewriting evidence on the withdrawn edge.
+    production_edge = next(
+        edge for edge in production_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    original_quotes = [
+        quote
+        for evidence_ref in production_edge["evidence_refs"]
+        for quote in evidence_ref["anchor_quotes"]
+    ]
+    omission_body = _actor_recovery_request(
+        parent, production_candidate, source.source_span_index, source_text,
+        action="omit", edge_id="edge-lysandro-headquarters",
+    )
+    validation_quotes = omission_body["affected_edges"][0]["actor_anchor_quotes"]
+    assert validation_quotes[0] in source_text
+    assert validation_quotes[0] not in original_quotes
+    assert all("Lysandro" not in quote for quote in original_quotes)
+    omission_request = RecapCandidateCorrectionRequestV11.model_validate(
+        omission_body, strict=True,
+    )
+    omission_response = correction.correct_recap_candidate(omission_request)
+    assert omission_response.semantic_state == "held"
+    assert (omission_response.introduced_actor_count,
+            omission_response.retargeted_edge_count,
+            omission_response.omitted_edge_count) == (1, 0, 1)
+    omission_child = ingest.get_extraction_run(omission_response.run_id)
+    omission_candidate = json.loads(_component_path(
+        tmp_path, omission_child, "candidate_graph",
+    ).read_bytes())
+    omission_actor = omission_candidate["nodes"][-1]
+    assert omission_actor["label"] == "Lysandro"
+    assert omission_candidate["nodes"] == production_candidate["nodes"] + [omission_actor]
+    assert omission_candidate["edges"] == [
+        edge for edge in production_candidate["edges"]
+        if edge["edge_id"] != "edge-lysandro-headquarters"
+    ]
+    for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        assert omission_candidate.get(key, []) == production_candidate.get(key, [])
+    omission_assessment = assess_recap_semantics(
+        omission_child, parent=parent,
+        source_revision_id=artifact.content_sha256, root=tmp_path,
+    )
+    assert omission_assessment.marked and not omission_assessment.accepted
+    omission_basis = ingest.RecapSemanticBasisV12.model_validate(
+        omission_assessment.basis, strict=True,
+    )
+    assert omission_basis.request_version == 11
+    assert omission_basis.operation_basis.schema_ == "dmb_recap_semantic_basis_v13"
+    assert correction.verify_child_replay(omission_child, parent, tmp_path)
+    omission_retry = correction.correct_recap_candidate(omission_request)
+    assert omission_retry.run_id == omission_child.run_id
+    assert ingest.get_extraction_run(omission_child.run_id).revision == omission_child.revision
+    fresh_omission = subprocess.check_output(
+        [sys.executable, "-c", fresh_actor_code, str(tmp_path), omission_child.run_id,
+         parent.run_id, artifact.content_sha256], text=True,
+    )
+    assert json.loads(fresh_omission) == {"actor": "Lysandro", "held": "held"}
+    assert source_path.read_bytes() == parent_source_bytes
+    assert span_path.read_bytes() == parent_span_bytes
+    assert candidate_path.read_bytes() == parent_candidate_bytes
 
     original_lock = correction._source_binding_child_lock
     package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"

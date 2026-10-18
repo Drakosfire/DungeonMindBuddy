@@ -26,6 +26,8 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV9,
     RecapCandidateCorrectionRequestV10,
     RecapCandidateCorrectionResponseV10,
+    RecapCandidateCorrectionRequestV11,
+    RecapCandidateCorrectionResponseV11,
     RecapCandidateCorrectionResponseV9,
     RecapCandidateCorrectionResponseV7,
     RecapEvidenceRefSplit,
@@ -104,6 +106,8 @@ DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
 DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
 MANIFEST_SCHEMA_V10 = "dmb_recap_semantic_candidate_manifest_v10"
+DERIVATION_V11 = "operator_recap_semantic_candidate_correction_v11"
+MANIFEST_SCHEMA_V11 = "dmb_recap_semantic_candidate_manifest_v11"
 SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 
 PROFILE = "recap_category_v1@1.0"
@@ -1108,10 +1112,269 @@ def _replay_evidence_append(parent: dict, manifest: dict, source_bytes: bytes | 
         target["evidence_refs"].append(derived)
     return child
 
+
+def _actor_source_span(source_text: str, index, span_id: str):
+    """Return exact codepoint bounds/text for one indexed line span."""
+    from graph_memory.source_span import SourceSpanIndex
+
+    if not isinstance(index, SourceSpanIndex):
+        raise _reject("actor recovery source index is malformed", status_code=409)
+    spans = [span for span in index.spans if span.source_span_id == span_id]
+    if len(spans) != 1:
+        raise _reject("actor recovery source span is missing or ambiguous", status_code=409)
+    span = spans[0]
+    lines = source_text.splitlines()
+    line_parts = source_text.splitlines(keepends=True)
+    start_line, end_line = span.start_line, span.end_line
+    if (type(start_line) is not int or type(end_line) is not int
+        or not 1 <= start_line <= end_line <= len(lines)
+        or len(lines) != len(line_parts)
+        or span.content_sha256 != index.content_sha256
+        or span.source_artifact_id != index.source_artifact_id
+        or span.source_ref_id != index.source_ref_id):
+        raise _reject("actor recovery span authority changed", status_code=409)
+    starts = [0]
+    for part in line_parts:
+        starts.append(starts[-1] + len(part))
+    start = starts[start_line - 1]
+    end = starts[end_line - 1] + len(lines[end_line - 1])
+    return start, end, source_text[start:end]
+
+
+def _actor_name_key(value: str) -> str:
+    import unicodedata
+
+    return unicodedata.normalize("NFC", value).casefold().strip()
+
+
+def _has_literal_name(text: str, name: str) -> bool:
+    """Match the exact spelling as a complete Unicode letter/number token."""
+    def word(char: str) -> bool:
+        return char == "_" or char.isalnum()
+
+    cursor = 0
+    while True:
+        start = text.find(name, cursor)
+        if start < 0:
+            return False
+        end = start + len(name)
+        if ((start == 0 or not word(text[start - 1]))
+            and (end == len(text) or not word(text[end]))):
+            return True
+        cursor = start + 1
+
+
+def _recovered_actor_node_id(request) -> str:
+    identity = {
+        "parent_run_id": request.parent_run_id,
+        "parent_candidate_sha256": request.parent_candidate_sha256,
+        "source_revision_sha256": request.source_revision_sha256,
+        "source_span_ref_id": request.actor_introduction.source_span_ref_id,
+        "name_start": request.actor_introduction.name_start,
+        "name_end": request.actor_introduction.name_end,
+        "literal_name": request.actor_introduction.literal_name,
+    }
+    return "node:recovered-actor:" + _sha(_canonical_bytes(identity))
+
+
+def _plan_source_supported_actor_recovery(
+    parent: dict, request, source_bytes: bytes, span_bytes: bytes,
+) -> tuple[dict, dict, list[dict]]:
+    """Validate and deterministically construct an actor plus exact edge delta."""
+    from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+    from graph_memory.extraction.category_candidate_graph_extractor import materialize_promote_evidence_ref
+
+    if (_sha(source_bytes) != request.source_revision_sha256
+        or _sha(span_bytes) != request.span_index_sha256):
+        raise _reject("actor recovery frozen source/index changed", status_code=409)
+    try:
+        source_text = source_bytes.decode("utf-8", errors="strict")
+        index = source_span_index_from_dict(json.loads(span_bytes))
+        validate_source_span_index(
+            index, source_artifact_id=index.source_artifact_id,
+            content_sha256=request.source_revision_sha256,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+        raise _reject("actor recovery frozen source/index is invalid", status_code=409) from exc
+    if parent.get("source_artifact_ids") != [index.source_artifact_id]:
+        raise _reject("actor recovery source identity changed", status_code=409)
+    intro = request.actor_introduction
+    span_start, span_end, span_text = _actor_source_span(
+        source_text, index, intro.source_span_ref_id,
+    )
+    name_start, name_end = intro.name_start, intro.name_end
+    if (name_start < span_start or name_end > span_end
+        or source_text[name_start:name_end] != intro.literal_name
+        or not _has_literal_name(source_text, intro.literal_name)
+        or (name_start > 0 and (source_text[name_start - 1] == "_" or source_text[name_start - 1].isalnum()))
+        or (name_end < len(source_text) and (source_text[name_end] == "_" or source_text[name_end].isalnum()))):
+        raise _reject("actor name range is not an exact complete source mention", status_code=409)
+    if any(quote not in span_text for quote in intro.description_anchor_quotes):
+        raise _reject("actor description anchor is not literal in its frozen span", status_code=409)
+    nodes = parent.get("nodes")
+    edges = parent.get("edges")
+    if (not isinstance(nodes, list) or any(not isinstance(node, dict) for node in nodes)
+        or not isinstance(edges, list) or any(not isinstance(edge, dict) for edge in edges)):
+        raise _reject("actor recovery candidate records are malformed", status_code=409)
+    misbound_nodes = [node for node in nodes if node.get("node_id") == request.misbound_actor_id]
+    if len(misbound_nodes) != 1 or misbound_nodes[0].get("node_type") != "character":
+        raise _reject("misbound actor must identify one existing candidate character", status_code=409)
+    actor_key = _actor_name_key(intro.literal_name)
+    for node in nodes:
+        if node.get("node_type") != "character":
+            continue
+        names = [node.get("label"), *(node.get("aliases") or [])]
+        if any(isinstance(name, str) and _actor_name_key(name) == actor_key for name in names):
+            raise _reject("actor name matches an existing actor; explicit identity review is required", status_code=409)
+
+    local_actor_id = _recovered_actor_node_id(request)
+    beats = parent.get("beats", [])
+    all_ids = [node.get("node_id") for node in nodes]
+    all_ids.extend(edge.get("edge_id") for edge in edges)
+    all_ids.extend(beat.get("beat_id") for beat in beats if isinstance(beat, dict))
+    if local_actor_id in all_ids:
+        raise _reject("host-derived actor ID collides with a candidate record", status_code=409)
+    anchor_quotes = list(dict.fromkeys([intro.literal_name, *intro.description_anchor_quotes]))
+    actor_evidence = materialize_promote_evidence_ref(
+        {"source_span_ref_id": intro.source_span_ref_id, "anchor_quotes": anchor_quotes},
+        source_artifact_id=index.source_artifact_id, source_ref_id=index.source_ref_id,
+    )
+    if not isinstance(actor_evidence, dict):
+        raise _reject("actor recovery evidence could not be derived", status_code=409)
+    actor_node = {
+        "node_id": local_actor_id,
+        "node_type": "character",
+        "label": intro.literal_name,
+        "description": intro.replacement_description,
+        "importance": "medium",
+        "semantic_state": {
+            "canon_state": "played_canon", "lifecycle_state": "candidate",
+            "evidence_role": "source_evidence", "authority_state": "system_derived",
+            "visibility_state": "gm_private",
+        },
+        "proposed_action": "create",
+        "confidence": "medium",
+        "evidence_refs": [actor_evidence],
+        "corpus_ref": None,
+    }
+    edge_matches = {}
+    for edge in edges:
+        edge_id = edge.get("edge_id")
+        if isinstance(edge_id, str):
+            edge_matches.setdefault(edge_id, []).append(edge)
+    changes = []
+    ids_seen = set()
+    for operation in sorted(request.affected_edges, key=lambda item: item.edge_id):
+        if operation.edge_id in ids_seen:
+            raise _reject("affected edge target is duplicated")
+        ids_seen.add(operation.edge_id)
+        matches = edge_matches.get(operation.edge_id, [])
+        if len(matches) != 1:
+            raise _reject("affected edge is missing or ambiguous", status_code=409)
+        original = matches[0]
+        if (_sha(_canonical_bytes(original)) != operation.expected_edge_sha256
+            or _sha(_canonical_bytes(original.get("evidence_refs"))) != operation.expected_evidence_refs_sha256
+            or original.get("from_node_id") != operation.original_from_id
+            or original.get("to_node_id") != operation.original_to_id
+            or original.get("relationship_type") != operation.original_predicate):
+            raise _reject("affected edge record or evidence preimage changed", status_code=409)
+        misbound = original.get("from_node_id" if operation.misbound_endpoint == "from_id" else "to_node_id")
+        if misbound != request.misbound_actor_id:
+            raise _reject("affected edge endpoint is unrelated to the declared misbound actor", status_code=409)
+        if operation.source_span_ref_id != intro.source_span_ref_id:
+            raise _reject("affected edge must cite the actor-introduction span", status_code=409)
+        evidence_refs = original.get("evidence_refs")
+        if (not isinstance(evidence_refs, list)
+            or not any(isinstance(ref, dict) and ref.get("source_span_ref_id") == operation.source_span_ref_id
+                       for ref in evidence_refs)):
+            raise _reject("affected edge does not already cite its declared source span", status_code=409)
+        if any(quote not in span_text or not _has_literal_name(quote, intro.literal_name)
+               for quote in operation.actor_anchor_quotes):
+            raise _reject("affected edge actor anchor is not literal in the introduction span", status_code=409)
+        after = None
+        if operation.action == "retarget":
+            old_actor = next((node for node in nodes if node.get("node_id") == request.misbound_actor_id), None)
+            old_name = old_actor.get("label") if isinstance(old_actor, dict) else None
+            label = original.get("label")
+            if isinstance(old_name, str) and isinstance(label, str) and _has_literal_name(label, old_name):
+                raise _reject("edge label names the old actor and cannot be repaired by endpoint substitution")
+            after = copy.deepcopy(original)
+            after["from_node_id" if operation.misbound_endpoint == "from_id" else "to_node_id"] = local_actor_id
+        changes.append({"edge_id": operation.edge_id, "action": operation.action,
+                        "before": copy.deepcopy(original), "after": after})
+
+    child = copy.deepcopy(parent)
+    child["nodes"].append(copy.deepcopy(actor_node))
+    changes_by_id = {change["edge_id"]: change for change in changes}
+    child_edges = []
+    for edge in child["edges"]:
+        change = changes_by_id.get(edge.get("edge_id"))
+        if change is None:
+            child_edges.append(edge)
+        elif change["action"] == "retarget":
+            child_edges.append(copy.deepcopy(change["after"]))
+        elif any(_contains(child.get(key, []), change["edge_id"])
+                 for key in ("beats", "proposed_writes", "ignored_items", "deferred_items")):
+            raise _reject("omitted edge has a dependent candidate record", status_code=409)
+    child["edges"] = child_edges
+    node_by_id = {node.get("node_id"): node for node in child["nodes"]}
+    if len(node_by_id) != len(child["nodes"]):
+        raise _reject("actor recovery creates a duplicate candidate node ID", status_code=409)
+    edge_tuples = []
+    edge_ids = []
+    for edge in child["edges"]:
+        edge_ids.append(edge.get("edge_id"))
+        edge_tuples.append(tuple(edge.get(key) for key in EDGE_TUPLE_FIELDS))
+        if edge.get("from_node_id") not in node_by_id or edge.get("to_node_id") not in node_by_id:
+            raise _reject("actor recovery leaves a dangling candidate edge", status_code=409)
+    if len(set(edge_ids)) != len(edge_ids) or len(set(edge_tuples)) != len(edge_tuples):
+        raise _reject("actor recovery creates a duplicate edge identity or tuple", status_code=409)
+    if any(change["action"] == "retarget" for change in changes):
+        try:
+            vocabulary = CURRENT_V5_TARGET.world_object_loader()
+        except Exception as exc:
+            raise _reject("native predicate vocabulary is unavailable for retarget validation", status_code=503) from exc
+        for change in changes:
+            if change["action"] != "retarget":
+                continue
+            edge = change["after"]
+            reason = edge_endpoint_kind_admission_reason(
+                buddy_predicate=edge["relationship_type"],
+                from_buddy_kind=kernel_kind_for_node_type(node_by_id[edge["from_node_id"]]["node_type"]),
+                to_buddy_kind=kernel_kind_for_node_type(node_by_id[edge["to_node_id"]]["node_type"]),
+                vocabulary=vocabulary,
+            )
+            if validate_edge_predicate(edge["relationship_type"], None) or reason is not None:
+                raise _reject("retargeted edge is not admitted by the native predicate domain/range")
+    return child, actor_node, changes
+
+
+def _replay_source_supported_actor_recovery(
+    parent: dict, manifest: dict, source_bytes: bytes | None, span_bytes: bytes | None,
+) -> dict:
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV11
+
+    if (set(manifest) != {"schema", "request", "actor_node", "edge_changes"}
+        or manifest.get("schema") != MANIFEST_SCHEMA_V11
+        or source_bytes is None or span_bytes is None):
+        raise _reject("actor recovery manifest or frozen source is malformed")
+    try:
+        request = RecapCandidateCorrectionRequestV11.model_validate(manifest.get("request"), strict=True)
+    except (ValueError, TypeError) as exc:
+        raise _reject("actor recovery request manifest is malformed") from exc
+    child, actor_node, changes = _plan_source_supported_actor_recovery(
+        parent, request, source_bytes, span_bytes,
+    )
+    if manifest.get("actor_node") != actor_node or manifest.get("edge_changes") != changes:
+        raise _reject("actor recovery host-derived node or edge delta changed", status_code=409)
+    return child
+
 def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None = None, span_bytes: bytes | None = None) -> dict:
     """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    if manifest.get("schema") == MANIFEST_SCHEMA_V11:
+        return _replay_source_supported_actor_recovery(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") == MANIFEST_SCHEMA_V10:
         return _replay_evidence_append(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") == MANIFEST_SCHEMA_V9:
@@ -1378,6 +1641,13 @@ def verify_child_replay(run, parent, root: Path) -> bool:
                 or parent.components["source_span_index"].sha256.removeprefix("sha256:") != basis.span_index_sha256
                 or basis.operation_basis.child_run_id != run.run_id
                 or basis.operation_basis.parent_run_id != parent.run_id
+                or (basis.request_version == 11 and (
+                    basis.operation_basis.parent_candidate_sha256 != _sha(material["parent:candidate_graph"])
+                    or basis.operation_basis.expected_parent_revision != parent.revision
+                    or manifest.get("request", {}).get("parentRunId") != parent.run_id
+                    or manifest.get("request", {}).get("parentCandidateSha256") != _sha(material["parent:candidate_graph"])
+                    or manifest.get("request", {}).get("expectedParentRevision") != parent.revision
+                ))
                 or basis.operation_basis.candidate_uri != run.components["candidate_graph"].uri
                 or basis.operation_basis.candidate_sha256 != run.components["candidate_graph"].sha256.removeprefix("sha256:")
                 or not isinstance(disposition, dict)
@@ -1549,7 +1819,7 @@ def inherited_pc_reference_proof(
         if run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
         else run.lineage.get("derivation")
     )
-    if run_operation not in {DERIVATION_V7, DERIVATION_V8, DERIVATION_V10}:
+    if run_operation not in {DERIVATION_V7, DERIVATION_V8, DERIVATION_V10, DERIVATION_V11}:
         return None
     final_bytes = (_canonical_bytes(candidate_override) if candidate_override is not None
                    else _frozen_component(run, "candidate_graph", root))
@@ -1570,7 +1840,7 @@ def inherited_pc_reference_proof(
     current_bytes = final_bytes
     while current.lineage.get("derivation") in {
         DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4, DERIVATION_V5,
-        DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9, DERIVATION_V10,
+        DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9, DERIVATION_V10, DERIVATION_V11,
         SOURCE_BINDING_DERIVATION_V11,
     }:
         if current.run_id in seen or len(seen) >= 64:
@@ -1661,7 +1931,7 @@ def inherited_pc_reference_proof(
         if operation_derivation not in {
             DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4,
             DERIVATION_V5, DERIVATION_V6, DERIVATION_V7, DERIVATION_V8,
-            DERIVATION_V9, DERIVATION_V10,
+            DERIVATION_V9, DERIVATION_V10, DERIVATION_V11,
         }:
             raise _reject("inherited PC operation derivation is unknown", status_code=409)
         parent_payload = json.loads(parent_bytes)
@@ -1767,8 +2037,8 @@ def verify_inherited_pc_native_basis(candidate: dict, proof: dict, context: obje
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9 | RecapCandidateCorrectionResponseV10:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9 | RecapCandidateCorrectionResponseV10 | RecapCandidateCorrectionResponseV11:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
@@ -1781,6 +2051,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
         RecapSemanticBasisV11,
+        RecapSemanticBasisV13,
         RecapSemanticBasisV12,
     )
 
@@ -1824,6 +2095,7 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v11 = isinstance(request, RecapCandidateCorrectionRequestV11)
     v10 = isinstance(request, RecapCandidateCorrectionRequestV10)
     v9 = isinstance(request, RecapCandidateCorrectionRequestV9)
     v8 = isinstance(request, RecapCandidateCorrectionRequestV8)
@@ -1833,10 +2105,28 @@ def correct_recap_candidate(
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V10 if v10 else DERIVATION_V9 if v9 else DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if (v8 or v9 or v10) and request.expected_parent_revision != parent.revision:
+    derivation = DERIVATION_V11 if v11 else DERIVATION_V10 if v10 else DERIVATION_V9 if v9 else DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if (v8 or v9 or v10 or v11) and request.expected_parent_revision != parent.revision:
         raise _reject("final batch parent revision changed", status_code=409)
-    if v10:
+    actor_recovery_counts = {}
+    if v11:
+        if request.source_revision_sha256 != source_sha or request.span_index_sha256 != span_sha or request.profile_id != parent.profile_id:
+            raise _reject("actor recovery source/index/profile pins changed", status_code=409)
+        _, actor_node, edge_changes = _plan_source_supported_actor_recovery(
+            parent_payload, request, source_bytes, span_bytes,
+        )
+        actor_recovery_counts = {
+            "introduced_actor_count": 1,
+            "retargeted_edge_count": sum(change["action"] == "retarget" for change in edge_changes),
+            "omitted_edge_count": sum(change["action"] == "omit" for change in edge_changes),
+        }
+        manifest = {
+            "schema": MANIFEST_SCHEMA_V11,
+            "request": request.model_dump(mode="json", by_alias=True),
+            "actor_node": actor_node,
+            "edge_changes": edge_changes,
+        }
+    elif v10:
         if request.source_revision_sha256 != source_sha or request.span_index_sha256 != span_sha or request.profile_id != parent.profile_id:
             raise _reject("append request source/index/profile pins changed", status_code=409)
         manifest = request.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
@@ -1980,7 +2270,7 @@ def correct_recap_candidate(
         **world_scope,
     }
     inherited_proof = None
-    if v7 or v8 or v10:
+    if v7 or v8 or v10 or v11:
         prospective = ExtractionRun(
             run_id=child_id, source_artifact_id=parent.source_artifact_id,
             source_domain="recap", campaign_id=parent.campaign_id,
@@ -2006,6 +2296,9 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     operation_basis = (
+        RecapSemanticBasisV13(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V11,
+            expected_parent_revision=request.expected_parent_revision, inherited_pc_proof_sha256=inherited_digest)
+        if v11 else
         RecapSemanticBasisV11(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V10,
             expected_parent_revision=request.expected_parent_revision, inherited_pc_proof_sha256=inherited_digest)
         if v10 else
@@ -2028,7 +2321,7 @@ def correct_recap_candidate(
         if v2 else RecapSemanticBasisV2(**basis_fields)
     )
     request_version = (
-        10 if v10 else 9 if v9 else 8 if v8 else 7 if v7 else 6 if v6
+        11 if v11 else 10 if v10 else 9 if v9 else 8 if v8 else 7 if v7 else 6 if v6
         else 5 if v5 else 4 if v4 else 3 if v3 else 2 if v2 else 1
     )
     basis = RecapSemanticBasisV12(
@@ -2051,7 +2344,8 @@ def correct_recap_candidate(
         "version": 1, "state": "held", "basis_sha256": basis.digest(),
     }
     response_type = (
-        RecapCandidateCorrectionResponseV10 if v10
+        RecapCandidateCorrectionResponseV11 if v11
+        else RecapCandidateCorrectionResponseV10 if v10
         else RecapCandidateCorrectionResponseV9 if v9
         else RecapCandidateCorrectionResponseV8 if v8
         else RecapCandidateCorrectionResponseV7 if v7
@@ -2196,6 +2490,7 @@ def correct_recap_candidate(
                 manifest_sha256=manifest_sha,
                 semantic_basis_sha256=legacy_assessment.basis_sha256,
                 semantic_state=legacy_disposition["state"],
+                **actor_recovery_counts,
             )
 
         package_exists, package_files = _source_binding_package_state(root, child_id)
@@ -2343,4 +2638,5 @@ def correct_recap_candidate(
             parent_candidate_sha256=parent_sha, candidate_sha256=child_sha,
             manifest_sha256=manifest_sha, semantic_basis_sha256=basis.digest(),
             semantic_state=semantic_state,
+            **actor_recovery_counts,
         )
