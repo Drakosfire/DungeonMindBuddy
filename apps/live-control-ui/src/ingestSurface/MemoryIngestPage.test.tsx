@@ -276,3 +276,24 @@ describe("managed-World Ingest boundary", () => {
     );
   });
 });
+
+
+it.each(["held", "accepted", "rejected"])("keeps a recap correction child source-only after route change and remount: %s", async state => {
+  vi.clearAllMocks();
+  selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+  vi.mocked(getPlanView).mockResolvedValue({ ...planView, world_id: "elderwyld", campaign_id: "longmont-c2" });
+  vi.mocked(getExtractionRun).mockImplementation(async id => ({ run_id: id, source_domain: "recap", source_artifact_id: "same-source",
+    campaign_id: "longmont-c2", session_id: "session-29", lineage: id === "child" ? {
+      derivation: "operator_recap_literal_evidence_correction_v1", parent_run_id: "parent", semantic_disposition: { state },
+    } : {},
+  } as Awaited<ReturnType<typeof getExtractionRun>>));
+  window.history.replaceState({}, "", "/ingest?world=elderwyld&extractionRunId=parent");
+  const view = render(<MemoryIngestPage />);
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true"));
+  await act(async () => { window.history.replaceState({}, "", "/ingest?world=elderwyld&extractionRunId=child"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-location-search", "?world=elderwyld&extractionRunId=child"));
+  expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true");
+  view.unmount(); render(<MemoryIngestPage />);
+  await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true"));
+  expect(screen.getByTestId("source-review-scope")).toHaveTextContent("does not import it");
+});

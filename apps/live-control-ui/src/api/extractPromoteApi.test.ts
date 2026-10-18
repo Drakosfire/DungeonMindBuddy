@@ -1,6 +1,9 @@
+import * as liveApi from "./liveApi";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  correctRecapRunEvidence,
   confirmExtractPromote,
   confirmFirstWorldGraph,
   prepareExtractPromote,
@@ -196,5 +199,39 @@ describe("extractPromoteApi prepare", () => {
       managedWorldId: "managed-world-a",
       nodeIds: ["node-a", "node-b"],
     });
+  });
+});
+
+
+describe("recap correction adapter", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const request = { parentRunId: "parent/run", parentCandidateSha256: "a".repeat(64), corrections: [{
+    assertionId: "node", evidenceIndex: 0, sourceSpanRefId: "span:39", quoteIndex: 0,
+    originalQuote: "invented", replacementQuote: "literal",
+  }] };
+  const receipt = { schema: "dmb_recap_evidence_correction_response_v1", runId: "child", parentRunId: request.parentRunId,
+    parentCandidateSha256: request.parentCandidateSha256, candidateSha256: "b".repeat(64), correctionDigest: "c".repeat(64),
+    status: "reviewable", semanticState: "held", semanticBasisSha256: "d".repeat(64) };
+  it("uses authenticated transport and the exact pinned payload", async () => {
+    const fetch = vi.spyOn(liveApi, "authenticatedApiFetch").mockResolvedValue({ url: "unused", response: Response.json(receipt) });
+    await expect(correctRecapRunEvidence(request)).resolves.toEqual(receipt);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [path, init] = fetch.mock.calls[0];
+    expect(path).toBe("/api/live/extract-promote/runs/parent%2Frun/recap-evidence-corrections");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ schema: "dmb_exact_run_evidence_correction_request_v1", ...request });
+  });
+  it.each([
+    { parentRunId: "another" }, { parentCandidateSha256: "e".repeat(64) }, { runId: "parent/run" },
+    { candidateSha256: "bad" }, { semanticState: "published" }, { semanticBasisSha256: null },
+    { schema: "other" }, { status: "failed" },
+  ])("rejects a mismatched receipt %j", async patch => {
+    vi.spyOn(liveApi, "authenticatedApiFetch").mockResolvedValue({ url: "unused", response: Response.json({ ...receipt, ...patch }) });
+    await expect(correctRecapRunEvidence(request)).rejects.toMatchObject({ status: 0 });
+  });
+  it("preserves a rejected HTTP outcome without replay", async () => {
+    const fetch = vi.spyOn(liveApi, "authenticatedApiFetch").mockResolvedValue({ url: "unused", response: Response.json({ code: "quote_not_literal", message: "Choose literal source words" }, { status: 409 }) });
+    await expect(correctRecapRunEvidence(request)).rejects.toMatchObject({ status: 409, code: "quote_not_literal" });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

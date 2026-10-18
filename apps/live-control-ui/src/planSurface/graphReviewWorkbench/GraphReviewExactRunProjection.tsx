@@ -13,6 +13,12 @@ interface GraphReviewExactRunProjectionProps {
   correctionEnabled?: boolean;
   correctionPending?: boolean;
   correctionError?: string | null;
+  recapCorrection?: boolean;
+  recoveryPending?: boolean;
+  recoveryChanges?: ExactRunEvidenceQuoteCorrection[];
+  correctionRecoveryAvailable?: boolean;
+  onRetryCorrection?: () => void;
+  onAbandonCorrection?: () => void;
   onCorrectEvidence?: (corrections: ExactRunEvidenceQuoteCorrection[]) => void;
 }
 
@@ -21,6 +27,12 @@ export function GraphReviewExactRunProjection({
   correctionEnabled = false,
   correctionPending = false,
   correctionError = null,
+  recapCorrection = false,
+  recoveryPending = false,
+  recoveryChanges = [],
+  correctionRecoveryAvailable = false,
+  onRetryCorrection,
+  onAbandonCorrection,
   onCorrectEvidence,
 }: GraphReviewExactRunProjectionProps) {
   const [selectedAssertionId, setSelectedAssertionId] = useState<string | null>(
@@ -37,8 +49,9 @@ export function GraphReviewExactRunProjection({
     () => new Set((selected?.evidence ?? []).map((item) => item.sourceSpanRefId)),
     [selected],
   );
+  const [previewed, setPreviewed] = useState(false);
   const [replacements, setReplacements] = useState<Record<string, string>>({});
-  useEffect(() => setReplacements({}), [review.runId]);
+  useEffect(() => { setReplacements({}); setPreviewed(false); }, [review.runId, review.sourceArtifactId, review.sourceRevisionId]);
   const invalidTargets = useMemo(() => review.assertions.flatMap((assertion) =>
     assertion.evidence.flatMap((evidence, evidenceIndex) =>
       evidence.anchorQuotes.flatMap((quote, quoteIndex) =>
@@ -60,7 +73,8 @@ export function GraphReviewExactRunProjection({
     ),
   ), [review.assertions]);
   const readyToCorrect = invalidTargets.length > 0 && invalidTargets.every(
-    (target) => (replacements[target.key] ?? "").trim().length > 0,
+    (target) => (replacements[target.key] ?? "").trim().length > 0
+      && (!recapCorrection || replacements[target.key].trim() !== target.correction.originalQuote.trim()),
   );
 
   return (
@@ -76,8 +90,8 @@ export function GraphReviewExactRunProjection({
       ) : null}
       {review.derivedFromRunId ? (
         <p data-testid="graph-review-derived-candidate-lineage">
-          Reviewed evidence child of exact run <code>{review.derivedFromRunId}</code>.
-          The original candidate remains unchanged.
+          Candidate with corrected quotes from exact run <code>{review.derivedFromRunId}</code>.
+          The original candidate remains unchanged; quote correction does not accept its claims.
         </p>
       ) : null}
       {correctionEnabled && invalidTargets.length > 0 ? (
@@ -85,7 +99,8 @@ export function GraphReviewExactRunProjection({
           data-testid="graph-review-evidence-correction-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!readyToCorrect || correctionPending || !onCorrectEvidence) return;
+            if (!readyToCorrect || correctionPending || recoveryPending || !onCorrectEvidence) return;
+            if (recapCorrection && !previewed) { setPreviewed(true); return; }
             onCorrectEvidence(invalidTargets.map((target) => ({
               ...target.correction,
               replacementQuote: replacements[target.key].trim(),
@@ -101,15 +116,30 @@ export function GraphReviewExactRunProjection({
               <input
                 aria-label={`Literal replacement for ${target.label} quote ${target.correction.quoteIndex + 1}`}
                 value={replacements[target.key] ?? ""}
-                onChange={(event) => setReplacements((current) => ({
+                disabled={correctionPending || recoveryPending}
+                onChange={(event) => { setPreviewed(false); setReplacements((current) => ({
                   ...current, [target.key]: event.target.value,
-                }))}
+                })); }}
               />
             </label>
           ))}
+          {recapCorrection && previewed ? (
+            <section aria-label="Preview quote corrections">
+              <h4>Review quote changes</h4>
+              {invalidTargets.map((target) => <p key={target.key}>“{target.correction.originalQuote}” → “{replacements[target.key]?.trim()}”</p>)}
+              <p>Saving creates a separate candidate. Semantic review is still required; the source is unchanged.</p>
+            </section>
+          ) : null}
+          {correctionRecoveryAvailable ? <section aria-label="Saved quote correction recovery">
+            <p>A submitted request needs verification. Retrying uses the saved changes, not edits in this form.</p>
+            <ul>{recoveryChanges.filter((item) => item && typeof item.originalQuote === "string" && typeof item.replacementQuote === "string").map((item, index) => <li key={index}>“{item.originalQuote}” → “{item.replacementQuote}”</li>)}</ul>
+            <button type="button" disabled={correctionPending} onClick={onRetryCorrection}>Retry saved quote corrections</button>
+            <button type="button" disabled={correctionPending} onClick={onAbandonCorrection}>Abandon saved request</button>
+            <p>Abandoning clears this recovery handle; it does not undo a candidate the server may have created.</p>
+          </section> : null}
           {correctionError ? <p className="graph-review-error" role="alert">{correctionError}</p> : null}
-          <button type="submit" disabled={!readyToCorrect || correctionPending}>
-            {correctionPending ? "Checking corrections…" : "Create reviewed child candidate"}
+          <button type="submit" disabled={!readyToCorrect || correctionPending || recoveryPending}>
+            {correctionPending ? "Checking corrections…" : recapCorrection ? (previewed ? "Save quote corrections" : "Preview quote corrections") : "Create reviewed child candidate"}
           </button>
         </form>
       ) : null}

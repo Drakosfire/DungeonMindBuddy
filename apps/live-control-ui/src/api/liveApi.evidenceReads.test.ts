@@ -125,3 +125,39 @@ it.each([-1, 16384, 0.5, NaN])('rejects an invalid source index before fetching:
   await expect(api.getAgentSourcePassage('world', 'turn', index)).rejects.toThrow('Invalid source passage index')
   expect(fetch).not.toHaveBeenCalled()
 })
+
+
+const correctionPath = '/api/live/extract-promote/runs/parent%2Frun/recap-evidence-corrections'
+it('authorizes recap correction with local cookie CSRF and blocks automatic mutation replay', async () => {
+  const api = await setup(); let posts = 0
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    if (String(url) === '/api/live/agent/local-session') return Response.json({ status: 'active', csrf_token: 'csrf-correction' })
+    posts++
+    expect(init?.method).toBe('POST'); expect(init?.body).toBe('{"frozen":true}')
+    expect(new Headers(init?.headers).get('X-DMB-Graph-CSRF')).toBe('csrf-correction')
+    expect(init?.redirect).toBe('error'); expect(init?.credentials).toBe('same-origin')
+    return Response.json({ detail: { code: 'graph_auth_csrf_rejected' } }, { status: 403 })
+  })
+  const result = await api.authenticatedApiFetch(correctionPath, { method: 'POST', body: '{"frozen":true}' })
+  expect(result.response.status).toBe(403); expect(posts).toBe(1)
+})
+it('forwards explicit correction bearer and never retries uncertain redirects', async () => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-correction-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('redirect rejected'))
+  await expect(api.authenticatedApiFetch(correctionPath, { method: 'POST', body: '{}' })).rejects.toThrow()
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-correction-token')
+  expect(fetch.mock.calls[0][1]?.redirect).toBe('error')
+})
+it('refuses remote correction destinations before mutation', async () => {
+  const api = await setup('https://example.invalid'); api.setNativeGraphAccessToken('synthetic-correction-token')
+  const fetch = vi.spyOn(globalThis, 'fetch')
+  await expect(api.authenticatedApiFetch(correctionPath, { method: 'POST', body: '{}' })).rejects.toMatchObject({ status: 0 })
+  expect(fetch).not.toHaveBeenCalled()
+})
+it.each(['/export', '-other'])('does not authorize a near-miss recap correction path %s', async suffix => {
+  const api = await setup(); api.setNativeGraphAccessToken('synthetic-correction-token')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+  await api.authenticatedApiFetch(correctionPath + suffix, { method: 'POST', body: '{}' })
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+})
