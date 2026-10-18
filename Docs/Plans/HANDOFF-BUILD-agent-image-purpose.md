@@ -4,7 +4,8 @@ Status: CLOSED implementation lease; merged #1405 at897cf77f58baf3351f8ae969c798
 reviewed aa9a2d9c9173cc54dd0f7634f1f85207e1cb3077. API/UI adopted with preserved
 retained state. Live acceptance exposed a separate serving IPC producer still
 omitting purpose; follow-up contract HANDOFF-BUILD-agent-image-purpose-ipc.md owns
-that producer. Full map-purpose experience is not accepted yet. Historical base
+that producer. The successor merged1406 at308accba and ordinary Agent→prepared action→wizard
+Map acceptance passed; see successor settlement. Historical base
 b73b3f6225aaed4954a86a54005c6837eeaa49e9. One bounded capability, one PR.
 
 Observed current5202 turn0d79e139-5d06-487d-bbab-a50c650bce19 prepared and opened
