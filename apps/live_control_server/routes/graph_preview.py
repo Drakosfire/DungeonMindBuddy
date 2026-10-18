@@ -5,13 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.models.exact_run_candidate_projection import (
+    ExactRunCandidateProjection,
+)
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
+from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -231,6 +235,46 @@ def get_extraction_run_recap_inspection(
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json", by_alias=True)
+
+
+@router.get(
+    "/extraction-runs/{run_id}/candidate-projection",
+    response_model=ExactRunCandidateProjection,
+)
+def get_extraction_run_candidate_projection(
+    run_id: str,
+    request: Request,
+    _principal=Depends(native_graph_gm_dependency),
+):
+    """Read exact frozen candidate prose; never admit or publish domain data."""
+    if set(request.query_params) != {"managed_world_id"} or len(
+        request.query_params.getlist("managed_world_id")
+    ) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail="One managed_world_id selector is required; no other selectors are accepted.",
+        )
+    managed = request.query_params["managed_world_id"]
+    if not managed or managed != managed.strip():
+        raise HTTPException(
+            status_code=422, detail="managed_world_id must be nonblank and trimmed."
+        )
+    from apps.live_control_server.services.exact_run_candidate_projection import (
+        CandidateProjectionError,
+        build_exact_run_candidate_projection,
+    )
+
+    try:
+        result = build_exact_run_candidate_projection(repo_root(), run_id, managed)
+    except CandidateProjectionError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    return JSONResponse(
+        result.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get(

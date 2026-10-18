@@ -18,7 +18,7 @@ selectors. Response schema dmb_exact_run_candidate_projection_v1 is a bounded
 read presentation contract: exact run revision/status/profile, source artifact/
 revision/raw SHA, candidate/span SHA, registered managed/native source binding,
 explicit trustBoundary=unpublished_candidate, raw sourceMarkdown, ephemeral
-projectedMarkdown, coordinate segments, typed candidate nodes/edges/evidence,
+narrativeMarkdown, projectedMarkdown, coordinate segments into narrativeMarkdown before navigation-link insertion, typed candidate nodes/edges/evidence,
 local reader node views/spans, diagnostics and honest coverage. It is NOT a
 WorldGraphProjection and carries no fabricated admitted snapshot/head/authority.
 
@@ -143,3 +143,19 @@ tabs, source/candidates, graph head, media and ingestion state. Candidate render
 acceptance may use exact retained S29 read only; no Process/provider/correction/
 semantic decision/prepare/confirm or source write. No predecessor sync remains;
 #1400's settlement is already in this base.
+
+## Implementation review checkpoint
+
+ROOT implementation is ready for independent exact-head review. Thirty backend
+checks pass against synthetic production-produced runs in unique disposable
+PostgreSQL databases, including authenticated bearer/session HTTP, no-store reads,
+non-GM/remote rejection, no-write canonical-source trap, digest/scope/identity drift,
+local IDs, duplicate/overlapping names, CommonMark and Unicode/CRLF coordinates.
+The three UI suites pass 101 tests, including mounted Process→candidate, exact
+source/World/session fencing, local inspectors, explicit admitted-memory switching,
+real qualified-threat hover with zero native hydration, and unknown graph links.
+Typecheck, production build, scoped Python lint and diff checks pass. Existing
+React act/Pydantic schema-shadow warnings and Vite chunk-size warning remain.
+No paid generation, real correction, semantic decision, admission or publication
+was performed. Runtime adoption remains gated on independent review and merge;
+retained S29 GET/render acceptance is still pending.

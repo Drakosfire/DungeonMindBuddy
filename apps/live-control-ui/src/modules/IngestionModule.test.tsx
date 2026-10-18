@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as candidateApi from "../api/exactRunCandidateProjectionApi";
+import type {ExactRunCandidateProjection} from "../api/exactRunCandidateProjectionApi";
 import * as recapIngestApi from "../api/recapIngestApi";
 import type { HistoricalRecapWorldProjectionResponse, RecapIngestStatus } from "../api/types";
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
@@ -166,6 +168,19 @@ function historicalRecapProjectionForRun(runId: string): HistoricalRecapWorldPro
   };
 }
 
+function candidateRecapProjectionForRun(runId: string): ExactRunCandidateProjection {
+  const prior=historicalRecapProjectionForRun(runId);
+  const key=`candidate:${runId}:${"c".repeat(64)}:${"d".repeat(64)}`;
+  const source=prior.markdown.replace("[Mireward](dmb-node:loc_mireward)","Mireward");
+  return {schema:"dmb_exact_run_candidate_projection_v1",trustBoundary:"unpublished_candidate",runId,runRevision:5,runStatus:"reviewable",profileId:"recap_category_v1@1.0",sourceDomain:"recap",
+    sourceArtifactId:prior.sourceArtifactId,sourceRevisionId:prior.sourceSha256,sourceSha256:prior.sourceSha256,candidateSha256:"sha256:"+"c".repeat(64),spanIndexSha256:"sha256:"+"e".repeat(64),
+    campaignId:prior.campaignId,sessionId:prior.sessionId,managedWorldId:"elderwyld",nativeWorldId:"world:elderwyld",bindingVersion:3,runWorldBindingStatus:"source_only",
+    sourceMarkdown:source,narrativeMarkdown:source,projectedMarkdown:source.replace("Mireward.",`[Mireward](dmb-node:${key}).`),sourceDisplaySegments:[],
+    nodes:[{viewKey:key,candidateNodeId:"loc_mireward",label:"Mireward",nodeType:"location",description:"Candidate-only place",confidence:"medium",semanticState:{},warnings:[],evidence:[]}],edges:[],
+    nodeViews:{[key]:{node_id:key,label:"Mireward",kind:"candidate",role:"unpublished_candidate",aliases:[],source_domains:["recap"],evidence_badges:[],adjacency:[],anchored_to_focus_session:false}},
+    sourceSpans:[],mentionsCount:1,unlinkedNodeCount:0,beatCount:0,diagnostics:[]};
+}
+
 function makeRecapArtifactRecord(campaignId: string, sessionNumber: number) {
   const sessionId = `session-${sessionNumber}`;
   return {
@@ -227,6 +242,7 @@ describe("IngestionModule", () => {
     window.localStorage.clear();
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({ ...session23WorldGraphRecapFixture, campaignId: "longmont-c2", sessionId: "session-22", snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: { kind: "session", sessionId: "session-22", campaignId: "longmont-c2" } } });
     vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockImplementation(async (runId) => historicalRecapProjectionForRun(runId));
+    vi.spyOn(candidateApi, "getExactRunCandidateProjection").mockImplementation(async (runId) => candidateRecapProjectionForRun(runId));
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       schema_version: "dmb_recap_artifacts_registry_v1",
       version: "1",
@@ -909,7 +925,7 @@ describe("IngestionModule", () => {
   });
 
   it("drops a deferred saved-reader projection when the mounted route changes sessions", async () => {
-    const oldSessionProjection = deferred<HistoricalRecapWorldProjectionResponse>();
+    const oldSessionProjection = deferred<ExactRunCandidateProjection>();
     vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue(
       makeRecapArtifactRegistry([
         makeRecapArtifactRecord("longmont-c2", 10),
@@ -927,10 +943,10 @@ describe("IngestionModule", () => {
         normalized_recap: `Session ${request.session}.md`,
       },
     }));
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation((runId) =>
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockImplementation((runId) =>
       runId === "run-session-10"
         ? oldSessionProjection.promise
-        : Promise.resolve(historicalRecapProjectionForRun(runId)),
+        : Promise.resolve(candidateRecapProjectionForRun(runId)),
     );
 
     const route = (sessionNumber: number) =>
@@ -938,16 +954,16 @@ describe("IngestionModule", () => {
     window.history.replaceState({}, "", route(10));
     const props = { campaignId: "longmont-c2", session: 29, managedWorldId: "elderwyld" } as const;
     const { rerender } = render(<IngestionModule {...props} />);
-    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-10", "elderwyld"));
+    await waitFor(() => expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-10", "elderwyld"));
 
     window.history.replaceState({}, "", route(11));
     rerender(<IngestionModule {...props} />);
-    await waitFor(() => expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-11", "elderwyld"));
+    await waitFor(() => expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-11", "elderwyld"));
     expect(screen.getByLabelText("Recap/source session")).toHaveValue(11);
     expect(await screen.findByText("Session 11 — Mireward Road")).toBeInTheDocument();
 
     await act(async () => {
-      oldSessionProjection.resolve(historicalRecapProjectionForRun("run-session-10"));
+      oldSessionProjection.resolve(candidateRecapProjectionForRun("run-session-10"));
       await oldSessionProjection.promise;
     });
     expect(screen.getByText("Session 11 — Mireward Road")).toBeInTheDocument();
@@ -2015,7 +2031,7 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("heading", { name: "Session 22 — Mireward Road" })).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector("button.recap-node-token")).toBeTruthy());
     expect(document.querySelector("button.recap-node-token")).toHaveTextContent("Mireward");
-    expect(screen.getByText(/Exact extraction run · run-session-22 · source bound by digest/)).toBeInTheDocument();
+    expect(screen.getByText(/Extraction candidate · 1 nodes · 0 relationships/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Write or paste a recap" })).not.toBeInTheDocument();
     expect(screen.queryByText("The party pressed on.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stage + Preview" })).not.toBeInTheDocument();
@@ -2023,10 +2039,18 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("button", { name: "Build Frontmatter Seed" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Run Breadcrumb Ingest" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Materialize Session Memory" })).not.toBeInTheDocument();
-    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
+    expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
-    expect(screen.getByText(/Exact extraction run · run-session-22/)).toBeInTheDocument();
-    expect(screen.getByText(/current admitted World Graph/)).toBeInTheDocument();
+    expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
+    await user.click(document.querySelector("button.recap-node-token")!);
+    expect(await screen.findByRole("complementary",{name:"Candidate: Mireward"})).toBeInTheDocument();
+    expect(screen.getByText("Candidate-only place")).toBeInTheDocument();
+    expect(screen.getByLabelText("Candidate reader advanced details").querySelector("pre")?.textContent).toContain("The party presses on near Mireward.");
+    await user.click(screen.getByRole("button",{name:"View admitted memory"}));
+    expect(await screen.findByText(/current admitted World Graph/)).toBeInTheDocument();
+    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22","elderwyld");
+    await user.click(screen.getByRole("button",{name:"View extracted candidates"}));
+    expect(await screen.findByText(/Extraction candidate · 1 nodes/)).toBeInTheDocument();
   });
 
   it("opens Graph Review for the exact Process run and current source context", async () => {
@@ -2045,8 +2069,8 @@ describe("IngestionModule", () => {
       },
     });
     mockRecapIngestWithInspect(() => result);
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation(async (runId, managedWorldId) => ({
-      ...historicalRecapProjectionForRun(runId),
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockImplementation(async (runId, managedWorldId) => ({
+      ...candidateRecapProjectionForRun(runId),
       managedWorldId: managedWorldId ?? "elderwyld",
     }));
     const onPopState = vi.fn();
@@ -2124,7 +2148,7 @@ describe("IngestionModule", () => {
       },
     });
     mockRecapIngestWithInspect(() => result);
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockRejectedValueOnce(
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockRejectedValueOnce(
       new Error("Exact extraction run source is unavailable."),
     );
     window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
@@ -2134,7 +2158,7 @@ describe("IngestionModule", () => {
     await user.click(screen.getByRole("button", { name: "Process recap" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Exact extraction run source is unavailable.");
-    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
+    expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /recap node/i })).not.toBeInTheDocument();
   });
@@ -2155,8 +2179,8 @@ describe("IngestionModule", () => {
       },
     });
     mockRecapIngestWithInspect(() => result);
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockResolvedValueOnce({
-      ...historicalRecapProjectionForRun("run-session-22"),
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockResolvedValueOnce({
+      ...candidateRecapProjectionForRun("run-session-22"),
       managedWorldId: "conks-and-cons",
     });
 
@@ -2165,7 +2189,7 @@ describe("IngestionModule", () => {
     await user.click(screen.getByRole("button", { name: "Process recap" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("does not match the selected managed World binding");
-    expect(liveApi.getHistoricalRecapWorldProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
+    expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-22", "elderwyld");
     expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
   });
 
@@ -2185,11 +2209,11 @@ describe("IngestionModule", () => {
       },
     });
     mockRecapIngestWithInspect(() => result);
-    const oldWorldA = deferred<HistoricalRecapWorldProjectionResponse>();
-    const worldB = deferred<HistoricalRecapWorldProjectionResponse>();
-    const newWorldA = deferred<HistoricalRecapWorldProjectionResponse>();
+    const oldWorldA = deferred<ExactRunCandidateProjection>();
+    const worldB = deferred<ExactRunCandidateProjection>();
+    const newWorldA = deferred<ExactRunCandidateProjection>();
     const managedWorldIds: string[] = [];
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation((_runId, managedId) => {
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockImplementation((_runId, managedId) => {
       managedWorldIds.push(managedId ?? "");
       if (managedWorldIds.length === 1) return oldWorldA.promise;
       if (managedWorldIds.length === 2) return worldB.promise;
@@ -2210,7 +2234,7 @@ describe("IngestionModule", () => {
 
     await act(async () => {
       oldWorldA.resolve({
-        ...historicalRecapProjectionForRun("run-session-22"),
+        ...candidateRecapProjectionForRun("run-session-22"),
         managedWorldId: "wrong-old-world",
       });
       await oldWorldA.promise;
@@ -2218,7 +2242,7 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     await act(async () => {
-      newWorldA.resolve(historicalRecapProjectionForRun("run-session-22"));
+      newWorldA.resolve(candidateRecapProjectionForRun("run-session-22"));
       await newWorldA.promise;
     });
     expect(await screen.findByRole("region", { name: "Graph-enriched recap" })).toBeInTheDocument();
@@ -3149,8 +3173,8 @@ describe("IngestionModule", () => {
       }
       return processResult;
     });
-    vi.mocked(liveApi.getHistoricalRecapWorldProjection).mockImplementation(async (runId) =>
-      historicalRecapProjectionForRun(runId),
+    vi.mocked(candidateApi.getExactRunCandidateProjection).mockImplementation(async (runId) =>
+      candidateRecapProjectionForRun(runId),
     );
 
     const user = setupIngestUser();
