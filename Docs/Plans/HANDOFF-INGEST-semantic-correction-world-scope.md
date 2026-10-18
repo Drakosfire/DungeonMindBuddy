@@ -1,16 +1,17 @@
 # INGEST: preserve World scope in semantic correction children
 
-Status: ACTIVE — after the operator clarified PRIME merge authority and
-ARCHITECTURE review responsibility, the bounded implementation dispatch to
-DOGFOOD succeeded. PRIME activates this exact three-path lease; the prior
-messaging hold is resolved. The underlying defect is reproduced.
-Base: origin/main@0b5b473babe1f512196d009de61830d6aca964c0 (parent of initial
-ACTIVE handoff commit a55f7b4d8d879ef729bd8ca5e1c856a4b98fa7f6).
-Branch: codex/ingest-semantic-world-scope.
-Owner: DOGFOOD; reuse996b checkout and established dependencies. No new worktree.
-Topology: serial, one implementation PR on this branch; no stacked dependency.
-ROOT's separate UI evidence PR #1397 was already merged into this base, with no
-overlapping paths or remaining dependency.
+Status: COMPLETE — PR #1399 merged as
+803c1ece8869f9a3253dff0f0c646bbcf645fc75 after one independent ARCHITECTURE
+PASS on exact head 4b308b393a49daad2844f478ba2094dbe917c910. PRIME reports the
+service deployed at SHA 1bc22348877cb3a92187c439042614b28c2222c99e2f6a6ff113ad55ec5424b3
+(API process 493137). This is a truthful handoff settlement; this lane did not
+independently probe the deployment. No implementation lease remains.
+Historical base: origin/main@0b5b473babe1f512196d009de61830d6aca964c0 (parent
+of initial ACTIVE handoff commit a55f7b4d8d879ef729bd8ca5e1c856a4b98fa7f6).
+Historical branch: codex/ingest-semantic-world-scope.
+Owner: DOGFOOD; reused checkout 996b and established dependencies.
+Topology: serial, one implementation PR; no stacked dependency. ROOT's
+separate UI evidence PR #1397 was already merged into the historical base.
 
 ## Invariant and bounded scope
 
@@ -55,26 +56,36 @@ Prove exact context/campaign/source mismatch and malformed context rejection;
 prove scope-tampered child is rejected by replay/decision boundary as applicable.
 Do not reclassify legacy semantic data or broaden publication authority.
 
-## Exclusive write set
+## Completed write set (historical)
 
 - This handoff
 - apps/live_control_server/services/recap_semantic_candidate_correction.py
 - tests/test_recap_semantic_candidate_correction.py
 
 No route, schema, registry, literal-correction helper, UI, dependency, telemetry
-or retained data writes. Ask PRIME for a justified expansion if boundary proof
-requires another owning test; do not silently widen scope.
+or retained data writes were included. The three-path write lease ended when
+PR #1399 merged. Any source-component binding repair belongs to a separately
+designed successor; this handoff grants no paths for that work.
 
-## Verification and delivery
+## Settlement record
 
-Focused service tests use actual correction and replay with source-binding checks:
-valid frozen/legacy scope retained; exact retry; parent unchanged; held child;
-forged/stripped existing child conflict; malformed/missing/source-mismatched scope
-rejected before writes; correctly unbound legacy behavior explicit. Prove real
-APP-STATE registration/historical read boundary on a disposable fixture where
-required; no tests against retained54330/54331. Reuse the established environment.
-No provider calls or new Process run. No S26 correction POST, decision, prepare,
-publication or data migration. Review exact cumulative diff, commit/push/open PR,
-then independent review before PRIME merge and separately verified API rollout.
-No root export, source clone or temporary-path evidence. Keep private semantic
-review packet work separate from implementation; neither counts as acceptance.
+The implementation copied and validated frozen World scope, retained it in the
+held child, and bound replay to the parent's exact scope. Its focused service
+suite passed 155 tests; one unrelated app-construction test was excluded because
+the available shared environment's `generationengine` package lacked
+`ImageOptions`. Service Ruff, Python compilation and `git diff --check` passed.
+ARCH independently passed the exact merged head and a canonical-source control;
+its independent service suite passed 156 tests.
+
+PRIME reports that retained ingestion state, the new Edge candidate, the ledger,
+and six attempts were unchanged, with no live correction run. No historical run
+was backfilled, rewritten or grandfathered, and no publication occurred.
+
+This completion is limited to World-scope propagation. ARCH separately found a
+production source-component URI binding failure when a semantic child relocates
+its candidate while retaining the parent's run-local source snapshot. That
+behavior is not fixed by PR #1399, and this handoff makes no claim that every
+production semantic child can now be created. The exact production reproduction
+remains in private ARCH evidence. Addressing it requires a separate BLOCKED
+design and later ROOT activation; this completed handoff grants no authority or
+write paths for that successor.

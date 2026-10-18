@@ -66,7 +66,7 @@ the Arrival at Mirathorn / The lakeside approach source text (846characters).
 The dedicated Runbook endpoint returns404 for this Plan; the explicitly bounded
 Plan reader handles that kind distinction. No current source substitution.
 The turn context-trace endpoint returns attempts=[]; no trace reconstruction is
-claimed. Review, merge and live rendered delivery remain outstanding.
+claimed. At this historical implementation checkpoint, review, merge and rendered delivery were outstanding; the Delivered acceptance section below supersedes that checkpoint.
 
 
 ## Delivered acceptance
