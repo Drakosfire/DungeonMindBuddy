@@ -1979,7 +1979,7 @@ class BuildEncodedAssessmentPolicyV1(BuildInitialEstimatedSelectedSourcePolicyV1
 
 
 class BuildImageActionPolicyV1(BuildEncodedAssessmentPolicyV1):
-    image_preparation_policy: Literal["captured_build_image_prompt_alt_v1"]
+    image_preparation_policy: Literal["captured_build_image_prompt_alt_v1", "captured_build_image_prompt_alt_purpose_v2"]
     image_preparation_schema_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     allowed_surface_operations: list[Literal["answer_from_sources", "prepare_build_image", "propose_build_insertion"]] = Field(min_length=1, max_length=3)
 

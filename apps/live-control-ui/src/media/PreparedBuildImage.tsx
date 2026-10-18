@@ -5,7 +5,7 @@ import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { MediaImageWizard, type GeneratedMediaImage } from './MediaImageWizard';
 import { mediaMarkdown } from './mediaReferences';
 
-export type PreparedImage = {schema_version:'dmb_build_image_preparation_v2';action_id:string;prompt:string;alt:string;revision:number;
+export type PreparedImage = {schema_version:'dmb_build_image_preparation_v2';action_id:string;prompt:string;alt:string;purpose?:'illustration'|'map'|null;revision:number;
   asset_id:string|null;created_at:string;after_turn_sequence:number;reservation:{origin?:{durable_turn_id:string}|null;conversation_id:string;expected_pointer_revision:number;basis:BuildProposalBasis}};
 async function mediaRequest(path: string, body?: unknown, signal?: AbortSignal) {
   const {response} = await authenticatedApiFetch('/api/live/media/images/'+path,
@@ -39,7 +39,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
         || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Open the page used for this image direction, or ask for a new image here.');
       const fresh=await mediaRequest('preparations/'+start.record.action_id) as PreparedImage;
       if (!mounted.current || current.current.record.action_id!==start.record.action_id || !current.current.active || current.current.bridge!==start.bridge) return;
-      if (fresh.reservation.conversation_id!==start.record.reservation.conversation_id || fresh.prompt!==start.record.prompt || fresh.alt!==start.record.alt) throw new Error('The prepared direction changed. Reopen it.');
+      if (fresh.reservation.conversation_id!==start.record.reservation.conversation_id || fresh.prompt!==start.record.prompt || fresh.alt!==start.record.alt || (fresh.purpose??null)!==(start.record.purpose??null)) throw new Error('The prepared direction changed. Reopen it.');
       captured.current=capture;setPrepared(fresh);setOpen(true);
     } catch(reason) {if(mounted.current) setError(reason instanceof Error?reason.message:'Image Studio unavailable.');}
   }
@@ -75,7 +75,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
     {inserted ? <p role="status">Image inserted into your draft. Save the page when ready.</p>
       : <button type="button" disabled={!active || !bridge} onClick={()=>void showStudio()}>Open Image Studio</button>}
     {error&&<p role="alert">{error}</p>}
-    {open&&active&&<aside className="build-media-studio"><MediaImageWizard initialPrompt={prepared.prompt} preparationId={prepared.action_id}
+    {open&&active&&<aside className="build-media-studio"><MediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
       onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={(image,_result,placement)=>insert(image,placement)} /></aside>}
   </article>;
 }

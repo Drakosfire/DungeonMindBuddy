@@ -296,3 +296,19 @@ def test_real_parent_ipc_dispatch_persists_image_action(request_case, monkeypatc
         assert wire.calls == []
     finally:
         host.shutdown()
+
+
+def test_image_preparation_purpose_is_idempotency_bound(request_case, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    tool, message, _, _ = image_tool(request_case[0], monkeypatch)
+    reply = json.loads(tool.dispatch(message)["resultJson"])
+    original = BuildImageService().get(UUID(reply["action_id"]), "local_operator")
+    assert BuildImageService().prepare(
+        original.reservation, "local_operator", original.prompt, original.alt,
+        writer_proof=original.writer_proof, purpose=original.purpose,
+    ) == original
+    with pytest.raises(ApplicationStateConflictError):
+        BuildImageService().prepare(
+            original.reservation, "local_operator", original.prompt, original.alt,
+            writer_proof=original.writer_proof, purpose="map",
+        )
