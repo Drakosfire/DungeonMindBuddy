@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
+import fcntl
 import json
+import os
 from pathlib import Path
+import stat
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.models.extract_promote import (
@@ -41,7 +45,6 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     _frozen_recap_world_lineage,
     _reject,
     _sha,
-    _write_child_candidate,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
@@ -101,10 +104,184 @@ DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
 DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
 MANIFEST_SCHEMA_V10 = "dmb_recap_semantic_candidate_manifest_v10"
+SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
+
+
+def _open_secure_directory(root: Path, parts: tuple[str, ...], *, create: bool) -> int | None:
+    """Open a root-contained directory chain without following symlinks."""
+    directory_flag = getattr(os, "O_DIRECTORY", 0)
+    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
+    if not directory_flag or not nofollow_flag:
+        raise _reject("safe source-binding directory operations are unavailable", status_code=503)
+    root_path = root.resolve(strict=True)
+    fd = os.open(root_path, os.O_RDONLY | directory_flag | nofollow_flag)
+    try:
+        for part in parts:
+            if not part or part in {".", ".."} or "/" in part or "\\" in part:
+                raise _reject("unsafe source-binding directory path", status_code=409)
+            if create:
+                try:
+                    os.mkdir(part, 0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+            try:
+                child_fd = os.open(
+                    part, os.O_RDONLY | directory_flag | nofollow_flag, dir_fd=fd,
+                )
+            except FileNotFoundError:
+                os.close(fd)
+                return None
+            except OSError as exc:
+                raise _reject(
+                    f"source-binding directory is unsafe: {exc}", status_code=409,
+                ) from exc
+            os.close(fd)
+            fd = child_fd
+        return fd
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+
+
+@contextmanager
+def _source_binding_child_lock(root: Path, child_id: str):
+    lock_dir_fd = _open_secure_directory(
+        root, ("out", "graph_memory", "derived_candidates", ".locks"), create=True,
+    )
+    if lock_dir_fd is None:
+        raise _reject("source-binding lock directory is unavailable", status_code=409)
+    lock_fd = None
+    try:
+        lock_fd = os.open(
+            f"{child_id}.lock",
+            os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=lock_dir_fd,
+        )
+        details = os.fstat(lock_fd)
+        if not stat.S_ISREG(details.st_mode) or details.st_nlink != 1:
+            raise _reject("source-binding lock file is not private and regular", status_code=409)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        if lock_fd is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(lock_fd)
+        os.close(lock_dir_fd)
+
+
+def _read_child_file(directory_fd: int, name: str) -> bytes | None:
+    try:
+        fd = os.open(
+            name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=directory_fd,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise _reject(f"source-binding package file is unsafe: {exc}", status_code=409) from exc
+    try:
+        details = os.fstat(fd)
+        if not stat.S_ISREG(details.st_mode):
+            raise _reject("source-binding package component is not a regular file", status_code=409)
+        chunks = []
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(fd)
+
+
+def _publish_child_package_files(
+    root: Path, child_id: str, *, source_bytes: bytes, candidate_bytes: bytes,
+    allow_existing: bool,
+) -> None:
+    """Atomically link verified staged files into the locked child package."""
+    relative = ("out", "graph_memory", "derived_candidates")
+    staging_fd = _open_secure_directory(root, (*relative, ".staging"), create=True)
+    package_fd = _open_secure_directory(root, (*relative, child_id), create=True)
+    if staging_fd is None or package_fd is None:
+        if staging_fd is not None:
+            os.close(staging_fd)
+        if package_fd is not None:
+            os.close(package_fd)
+        raise _reject(f"child {child_id} package could not be opened", status_code=409)
+    staged: list[str] = []
+    try:
+        expected = {"source.md": source_bytes, "candidate_graph.json": candidate_bytes}
+        names = set(os.listdir(package_fd))
+        if names - expected.keys():
+            raise _reject(f"child {child_id} package contains unexpected files", status_code=409)
+        for name, content in expected.items():
+            current = _read_child_file(package_fd, name)
+            if current is not None:
+                if not allow_existing or current != content:
+                    raise _reject(f"child {child_id} package conflicts at {name}", status_code=409)
+                continue
+            stage_name = f"{child_id}.{uuid4().hex}.tmp"
+            stage_fd = os.open(
+                stage_name,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=staging_fd,
+            )
+            staged.append(stage_name)
+            try:
+                view = memoryview(content)
+                while view:
+                    written = os.write(stage_fd, view)
+                    view = view[written:]
+                os.fsync(stage_fd)
+            finally:
+                os.close(stage_fd)
+            try:
+                os.link(
+                    stage_name, name, src_dir_fd=staging_fd,
+                    dst_dir_fd=package_fd, follow_symlinks=False,
+                )
+            except FileExistsError:
+                if _read_child_file(package_fd, name) != content:
+                    raise _reject(f"child {child_id} package conflicts at {name}", status_code=409)
+            os.fsync(package_fd)
+    finally:
+        for stage_name in staged:
+            try:
+                os.unlink(stage_name, dir_fd=staging_fd)
+            except FileNotFoundError:
+                pass
+        os.close(package_fd)
+        os.close(staging_fd)
+
+
+def _source_binding_package_state(root: Path, child_id: str) -> tuple[bool, dict[str, bytes]]:
+    """Return whether a package exists and its present regular file contents."""
+    package_fd = _open_secure_directory(
+        root, ("out", "graph_memory", "derived_candidates", child_id), create=False,
+    )
+    if package_fd is None:
+        return False, {}
+    try:
+        names = set(os.listdir(package_fd))
+        if names - {"source.md", "candidate_graph.json"}:
+            raise _reject(f"child {child_id} package contains unexpected files", status_code=409)
+        return True, {
+            name: value
+            for name in ("source.md", "candidate_graph.json")
+            if (value := _read_child_file(package_fd, name)) is not None
+        }
+    finally:
+        os.close(package_fd)
 
 
 def _contains(value: object, target: str) -> bool:
@@ -1126,6 +1303,13 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
 def verify_child_replay(run, parent, root: Path) -> bool:
     """Re-prove sealed manifest and child bytes before decision/prepare/confirm."""
     try:
+        from application_state.ingest.service import RecapSemanticBasisV12
+        from apps.live_control_server.services.source_artifact_registry import (
+            _read_exact_repo_uri_bytes,
+            load_registered_source_artifact_bytes,
+        )
+        from graph_memory.evidence.source_artifact import validate_source_artifact_scope
+
         expected_world_scope = _frozen_recap_world_lineage(parent)
         actual_world_scope = {
             key: run.lineage[key]
@@ -1141,22 +1325,80 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         for key in ("candidate_graph", "source_artifact", "source_span_index"):
             parent_ref = parent.components[key]
             child_ref = run.components[key]
-            if key != "candidate_graph" and parent_ref != child_ref:
+            source_binding = run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
+            if key == "source_span_index" and parent_ref != child_ref:
+                return False
+            if key == "source_artifact" and not source_binding and parent_ref != child_ref:
                 return False
             for owner, ref in (("parent", parent_ref), ("child", child_ref)):
-                raw_path = root / ref.uri.removeprefix("repo://")
-                path = raw_path.resolve()
-                if not path.is_relative_to(root.resolve()) or raw_path.is_symlink():
-                    return False
-                value = path.read_bytes()
+                value = _read_exact_repo_uri_bytes(root, ref.uri)
                 if _sha(value) != ref.sha256.removeprefix("sha256:"):
                     return False
                 material[f"{owner}:{key}"] = value
+        if run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11:
+            raw_basis = run.lineage.get("semantic_source_binding_basis_v12")
+            if not isinstance(raw_basis, dict):
+                return False
+            basis = RecapSemanticBasisV12.model_validate(raw_basis, strict=True)
+            child_source = run.components["source_artifact"]
+            parent_source = parent.components["source_artifact"]
+            child_span_ref = run.components["source_span_index"]
+            source_artifact, canonical_bytes = load_registered_source_artifact_bytes(
+                root, run.source_artifact_id,
+            )
+            validate_source_artifact_scope(source_artifact)
+            disposition = run.lineage.get("semantic_disposition")
+            if (
+                basis.model_dump(mode="json", by_alias=True) != raw_basis
+                or basis.derivation != SOURCE_BINDING_DERIVATION_V11
+                or run.lineage.get("operation_derivation") != basis.operation_derivation
+                or run.lineage.get("operation_manifest_schema") != basis.operation_manifest_schema
+                or basis.parent_source_uri != parent_source.uri
+                or basis.child_snapshot_uri != child_source.uri
+                or not child_source.uri.startswith("repo://")
+                or basis.span_index_uri != child_span_ref.uri
+                or basis.source_artifact_id != run.source_artifact_id
+                or source_artifact.source_artifact_id != run.source_artifact_id
+                or str(source_artifact.source_domain) != "recap"
+                or source_artifact.campaign_id != parent.campaign_id
+                or source_artifact.session_id != parent.session_id
+                or child_source.sha256.removeprefix("sha256:") != basis.source_revision_sha256
+                or parent_source.sha256.removeprefix("sha256:") != basis.source_revision_sha256
+                or material["parent:source_artifact"] != material["child:source_artifact"]
+                or material["parent:source_artifact"] != canonical_bytes
+                or _sha(canonical_bytes) != basis.source_revision_sha256
+                or child_source.uri != basis.child_snapshot_uri
+                or parent_source.uri != basis.parent_source_uri
+                or child_span_ref.uri != basis.span_index_uri
+                or child_span_ref.sha256.removeprefix("sha256:") != basis.span_index_sha256
+                or parent.components["source_span_index"].sha256.removeprefix("sha256:") != basis.span_index_sha256
+                or basis.operation_basis.child_run_id != run.run_id
+                or basis.operation_basis.parent_run_id != parent.run_id
+                or basis.operation_basis.candidate_uri != run.components["candidate_graph"].uri
+                or basis.operation_basis.candidate_sha256 != run.components["candidate_graph"].sha256.removeprefix("sha256:")
+                or not isinstance(disposition, dict)
+                or disposition.get("basis_sha256") != basis.digest()
+            ):
+                return False
+            validate_recap_source_run_world_binding(
+                source_world_id=source_artifact.world_id,
+                campaign_id=parent.campaign_id,
+                lineage=_frozen_recap_world_lineage(parent),
+            )
         parent_bytes = material["parent:candidate_graph"]
         child_bytes = material["child:candidate_graph"]
         expected = replay_candidate(json.loads(parent_bytes), manifest, source_bytes=material["parent:source_artifact"], span_bytes=material["parent:source_span_index"])
+        # Source-bound replays validate the frozen correction basis. Mutable
+        # native target identity is checked at prepare/confirm against the
+        # inherited proof, so an unrelated later World-head change cannot
+        # rewrite the accepted semantic disposition into a generic hold.
+        source_binding = (
+            run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
+            or run.lineage.get("_source_binding_outer_derivation")
+            == SOURCE_BINDING_DERIVATION_V11
+        )
         return (child_bytes == _canonical_bytes(expected)
-                and verify_pc_reference_native_basis(expected, manifest))
+                and (source_binding or verify_pc_reference_native_basis(expected, manifest)))
     except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
@@ -1177,6 +1419,86 @@ def _validated_recap_world_scope(parent: ExtractionRun, *, source_world_id: str 
     return scope
 
 
+def _preflight_source_snapshot(parent: ExtractionRun, resolved, root: Path):
+    """Verify exact canonical, parent, and span bytes before any child write."""
+    from application_state.errors import ApplicationStateError
+    from application_state.source import service as source_service
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        _read_exact_repo_uri_bytes,
+        load_registered_source_artifact_bytes,
+    )
+    from graph_memory.evidence.source_artifact import validate_source_artifact_scope
+
+    parent_source = parent.components.get("source_artifact")
+    parent_spans = parent.components.get("source_span_index")
+    parent_candidate = parent.components.get("candidate_graph")
+    if not all((parent_source, parent_spans, parent_candidate)):
+        raise _reject("parent recap components are incomplete", status_code=409)
+    try:
+        artifact, canonical_source_bytes = load_registered_source_artifact_bytes(
+            root, parent.source_artifact_id,
+        )
+        parent_source_bytes = _read_exact_repo_uri_bytes(root, parent_source.uri)
+        span_bytes = _read_exact_repo_uri_bytes(root, parent_spans.uri)
+        parent_candidate_bytes = _read_exact_repo_uri_bytes(root, parent_candidate.uri)
+    except SourceArtifactRegistryError as exc:
+        raise _reject(f"parent source snapshot preflight failed: {exc}", status_code=exc.status_code) from exc
+    try:
+        validate_source_artifact_scope(artifact)
+    except ValueError as exc:
+        raise _reject(f"registered recap SourceArtifact is invalid: {exc}", status_code=409) from exc
+    source_digest = _sha(canonical_source_bytes)
+    if (
+        artifact.source_artifact_id != parent.source_artifact_id
+        or str(artifact.source_domain) != "recap"
+        or artifact.campaign_id != parent.campaign_id
+        or artifact.session_id != parent.session_id
+        or getattr(resolved, "source_domain", None) != "recap"
+        or getattr(resolved, "campaign_id", None) != parent.campaign_id
+        or getattr(resolved, "session_id", None) != parent.session_id
+        or getattr(resolved, "source_artifact_id", None) != parent.source_artifact_id
+        or getattr(resolved, "world_id", None) != artifact.world_id
+        or parent_source_bytes != canonical_source_bytes
+        or _sha(parent_source_bytes) != source_digest
+        or _sha(parent_source_bytes) != parent_source.sha256.removeprefix("sha256:")
+        or source_digest != (artifact.content_sha256 or "").removeprefix("sha256:")
+        or source_digest != resolved.source_revision_id.removeprefix("sha256:")
+        or _sha(span_bytes) != parent_spans.sha256.removeprefix("sha256:")
+    ):
+        raise _reject(
+            "registered source, frozen parent, or resolved recap identity changed",
+            status_code=409,
+        )
+    scope = _validated_recap_world_scope(parent, source_world_id=artifact.world_id)
+    try:
+        # The resolver paths must name the same immutable bytes as the frozen refs.
+        if (
+            resolved.normalized_recap_path.read_bytes() != canonical_source_bytes
+            or resolved.source_span_index_path.read_bytes() != span_bytes
+            or resolved.candidate_graph_path.read_bytes() != parent_candidate_bytes
+        ):
+            raise _reject("resolved recap files differ from the frozen component refs", status_code=409)
+        span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise _reject(f"frozen source span index is invalid: {exc}", status_code=409) from exc
+    try:
+        source_service.persist_source_markdown(
+            source_artifact_id=artifact.source_artifact_id,
+            source_domain=str(artifact.source_domain),
+            campaign_id=artifact.campaign_id,
+            session_id=artifact.session_id,
+            world_id=artifact.world_id,
+            markdown=canonical_source_bytes.decode("utf-8", errors="strict"),
+            content_sha256=source_digest,
+            lineage={"adopted_from_uri": artifact.uri},
+            dry_run=True,
+        )
+    except (ApplicationStateError, UnicodeDecodeError) as exc:
+        raise _reject(f"canonical recap source cannot be durably bound: {exc}", status_code=409) from exc
+    return artifact, parent_candidate_bytes, canonical_source_bytes, span_bytes, span_index, scope
+
+
 INHERITED_PC_PROOF_SCHEMA = "dmb_inherited_pc_reference_proof_v1"
 
 
@@ -1186,12 +1508,16 @@ def inherited_pc_proof_digest(proof: dict) -> str:
 
 def _frozen_component(run: ExtractionRun, key: str, root: Path) -> bytes:
     """Read one exact immutable component without escaping its artifact root."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        _read_exact_repo_uri_bytes,
+    )
+
     ref = run.components[key]
-    raw = root / ref.uri.removeprefix("repo://")
-    path = raw.resolve(strict=True)
-    if not path.is_relative_to(root.resolve()) or raw.is_symlink():
-        raise _reject("inherited PC component escaped its artifact root", status_code=409)
-    value = path.read_bytes()
+    try:
+        value = _read_exact_repo_uri_bytes(root, ref.uri)
+    except SourceArtifactRegistryError as exc:
+        raise _reject("inherited PC component escaped its artifact root", status_code=409) from exc
     if _sha(value) != ref.sha256.removeprefix("sha256:"):
         raise _reject("inherited PC component digest changed", status_code=409)
     return value
@@ -1207,13 +1533,19 @@ def _unique_pc_node(payload: dict, node_id: str) -> dict:
 
 def inherited_pc_reference_proof(
     run: ExtractionRun, root: Path, *, candidate_override: dict | None = None,
+    source_snapshot_override: bytes | None = None,
 ) -> dict | None:
     """Derive surviving V9 attachments through sealed, immutable correction links.
 
     This deliberately does not re-read the historical registry or original
     World head. The current native target is checked at publication time.
     """
-    if run.lineage.get("derivation") not in {DERIVATION_V7, DERIVATION_V8, DERIVATION_V10}:
+    run_operation = (
+        run.lineage.get("operation_derivation")
+        if run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
+        else run.lineage.get("derivation")
+    )
+    if run_operation not in {DERIVATION_V7, DERIVATION_V8, DERIVATION_V10}:
         return None
     final_bytes = (_canonical_bytes(candidate_override) if candidate_override is not None
                    else _frozen_component(run, "candidate_graph", root))
@@ -1235,11 +1567,26 @@ def inherited_pc_reference_proof(
     while current.lineage.get("derivation") in {
         DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4, DERIVATION_V5,
         DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9, DERIVATION_V10,
+        SOURCE_BINDING_DERIVATION_V11,
     }:
         if current.run_id in seen or len(seen) >= 64:
             raise _reject("inherited PC lineage is cyclic or unbounded", status_code=409)
         seen.add(current.run_id)
         lineage = current.lineage
+        projected_outer = lineage.get("_source_binding_outer_derivation")
+        outer_binding = (
+            lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
+            or projected_outer == SOURCE_BINDING_DERIVATION_V11
+        )
+        actual_outer_binding = lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11
+        operation_derivation = (
+            lineage.get("operation_derivation") if actual_outer_binding
+            else lineage.get("derivation")
+        )
+        identity_derivation = (
+            SOURCE_BINDING_DERIVATION_V11 if outer_binding
+            else lineage.get("derivation")
+        )
         parent_id = lineage.get("parent_run_id")
         manifest = lineage.get("semantic_candidate_manifest")
         if not isinstance(parent_id, str) or not parent_id or not isinstance(manifest, dict):
@@ -1256,17 +1603,65 @@ def inherited_pc_reference_proof(
         parent_bytes = _frozen_component(parent, "candidate_graph", root)
         source_bytes = _frozen_component(parent, "source_artifact", root)
         span_bytes = _frozen_component(parent, "source_span_index", root)
-        if (current.components["source_artifact"] != parent.components["source_artifact"]
+        current_source = (
+            source_snapshot_override
+            if outer_binding and current.run_id == run.run_id and source_snapshot_override is not None
+            else _frozen_component(current, "source_artifact", root)
+        )
+        current_source_ref = current.components["source_artifact"]
+        parent_source_ref = parent.components["source_artifact"]
+        source_refs_invalid = (
+            current_source_ref != parent_source_ref
+            if projected_outer == SOURCE_BINDING_DERIVATION_V11
+            else current_source_ref.sha256 != parent_source_ref.sha256
+            or current_source_ref.uri == parent_source_ref.uri
+            if actual_outer_binding
+            else current_source_ref != parent_source_ref
+        )
+        if (source_refs_invalid
             or current.components["source_span_index"] != parent.components["source_span_index"]
+            or current_source != source_bytes
             or lineage.get("parent_candidate_sha256") != _sha(parent_bytes)
             or current.campaign_id != parent.campaign_id or current.session_id != parent.session_id
             or current.source_artifact_id != parent.source_artifact_id
             or current.profile_id != parent.profile_id
             or current.run_id != str(uuid5(NAMESPACE_URL,
-                f"dmb:{lineage['derivation']}:{parent_id}:{_sha(parent_bytes)}:{manifest_sha}"))):
+                f"dmb:{identity_derivation}:{parent_id}:{_sha(parent_bytes)}:{manifest_sha}"))):
             raise _reject("inherited PC lineage identity changed", status_code=409)
+        if actual_outer_binding:
+            from apps.live_control_server.services.source_artifact_registry import (
+                load_registered_source_artifact_bytes,
+            )
+            from graph_memory.evidence.source_artifact import validate_source_artifact_scope
+
+            try:
+                artifact, canonical_source = load_registered_source_artifact_bytes(
+                    root, current.source_artifact_id,
+                )
+                validate_source_artifact_scope(artifact)
+            except (ValueError, OSError) as exc:
+                raise _reject("inherited PC source-binding artifact changed", status_code=409) from exc
+            if (
+                canonical_source != current_source
+                or artifact.source_artifact_id != current.source_artifact_id
+                or str(artifact.source_domain) != "recap"
+                or artifact.campaign_id != parent.campaign_id
+                or artifact.session_id != parent.session_id
+                or current.components["source_artifact"].uri
+                != f"repo://out/graph_memory/derived_candidates/{current.run_id}/source.md"
+            ):
+                raise _reject("inherited PC source-binding pins changed", status_code=409)
+            if lineage.get("semantic_source_binding_basis_v12") is not None:
+                if not verify_child_replay(current, parent, root):
+                    raise _reject("inherited PC source-binding replay changed", status_code=409)
+        if operation_derivation not in {
+            DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4,
+            DERIVATION_V5, DERIVATION_V6, DERIVATION_V7, DERIVATION_V8,
+            DERIVATION_V9, DERIVATION_V10,
+        }:
+            raise _reject("inherited PC operation derivation is unknown", status_code=409)
         parent_payload = json.loads(parent_bytes)
-        if lineage.get("derivation") == DERIVATION_V9:
+        if operation_derivation == DERIVATION_V9:
             expected = _replay_pc_references(parent_payload, manifest, source_bytes, span_bytes,
                                              historical=True)
         else:
@@ -1276,10 +1671,12 @@ def inherited_pc_reference_proof(
             raise _reject("inherited PC lineage replay changed", status_code=409)
         link = {
             "run_id": current.run_id, "parent_run_id": parent_id,
-            "derivation": lineage["derivation"], "manifest_sha256": manifest_sha,
+            "derivation": identity_derivation, "manifest_sha256": manifest_sha,
             "candidate_sha256": _sha(current_bytes),
             "parent_candidate_sha256": _sha(parent_bytes),
         }
+        if outer_binding:
+            link["operation_derivation"] = operation_derivation
         states.append((json.loads(current_bytes), manifest, link))
         current, current_bytes = parent, parent_bytes
 
@@ -1380,6 +1777,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
         RecapSemanticBasisV11,
+        RecapSemanticBasisV12,
     )
 
     root = artifact_data_root(repo_root())
@@ -1400,15 +1798,12 @@ def correct_recap_candidate(
         or getattr(resolved, "source_span_index_path", None) is None
     ):
         raise _reject("correction requires an exact frozen recap review bundle")
-    world_scope = _validated_recap_world_scope(
-        parent, source_world_id=getattr(resolved, "world_id", None),
-    )
-    parent_bytes = resolved.candidate_graph_path.read_bytes()
-    parent_sha = _sha(parent_bytes)
     source_ref = parent.components["source_artifact"]
     span_ref = parent.components["source_span_index"]
-    source_bytes = resolved.normalized_recap_path.read_bytes()
-    span_bytes = resolved.source_span_index_path.read_bytes()
+    artifact, parent_bytes, source_bytes, span_bytes, span_index, world_scope = (
+        _preflight_source_snapshot(parent, resolved, root)
+    )
+    parent_sha = _sha(parent_bytes)
     source_sha = _sha(source_bytes)
     span_sha = _sha(span_bytes)
     if (
@@ -1520,9 +1915,9 @@ def correct_recap_candidate(
         raise _reject("PC reference native World/head/identity basis changed", status_code=409)
     _assert_candidate_scope_matches_run(payload, campaign_id=parent.campaign_id, session_id=parent.session_id)
     evidence_arguments = dict(
-        source_prose=resolved.normalized_recap_path.read_text(encoding="utf-8"),
+        source_prose=source_bytes.decode("utf-8", errors="strict"),
         source_artifact_id=parent.source_artifact_id,
-        span_index=_load_frozen_span_index_for_resolved_run(resolved),
+        span_index=span_index,
     )
     parent_failures = _candidate_quote_occurrences(candidate_payload=parent_payload, **evidence_arguments)
     child_failures = _candidate_quote_occurrences(candidate_payload=payload, **evidence_arguments)
@@ -1548,18 +1943,32 @@ def correct_recap_candidate(
     except CandidateGraphMappingError as exc:
         raise _reject("corrected candidate failed typed validation") from exc
     manifest_sha = _sha(_canonical_bytes(manifest))
-    child_id = str(uuid5(NAMESPACE_URL, f"dmb:{derivation}:{parent.run_id}:{parent_sha}:{manifest_sha}"))
+    legacy_child_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{derivation}:{parent.run_id}:{parent_sha}:{manifest_sha}",
+    ))
+    child_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{SOURCE_BINDING_DERIVATION_V11}:{parent.run_id}:{parent_sha}:{manifest_sha}",
+    ))
     child_bytes = _canonical_bytes(payload)
     child_sha = _sha(child_bytes)
-    child_path = root / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
-    child_uri = child_path.relative_to(root).as_posix()
+    child_relative = f"out/graph_memory/derived_candidates/{child_id}"
+    child_candidate_uri = f"repo://{child_relative}/candidate_graph.json"
+    child_source_uri = f"repo://{child_relative}/source.md"
     components = dict(parent.components)
     components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value] = ExtractionRunComponentRef(
-        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH, uri=child_uri,
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH, uri=child_candidate_uri,
         sha256=child_sha, exists=True,
     )
+    components[ExtractionRunComponentKind.SOURCE_ARTIFACT.value] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.SOURCE_ARTIFACT, uri=child_source_uri,
+        sha256=source_sha, exists=True,
+    )
     lineage = {
-        "derivation": derivation,
+        "derivation": SOURCE_BINDING_DERIVATION_V11,
+        "operation_derivation": derivation,
+        "operation_manifest_schema": manifest["schema"],
         "parent_run_id": parent.run_id,
         "parent_candidate_sha256": parent_sha,
         "manifest_sha256": manifest_sha,
@@ -1575,7 +1984,9 @@ def correct_recap_candidate(
             status=ExtractionRunStatus.REVIEWABLE, components=components, lineage=lineage,
         )
         inherited_proof = inherited_pc_reference_proof(
-            prospective, root, candidate_override=payload)
+            prospective, root, candidate_override=payload,
+            source_snapshot_override=source_bytes,
+        )
         if inherited_proof is not None:
             lineage["inherited_pc_proof"] = inherited_proof
     inherited_digest = (inherited_pc_proof_digest(inherited_proof)
@@ -1583,14 +1994,14 @@ def correct_recap_candidate(
     basis_fields = dict(
         parent_run_id=parent.run_id, parent_candidate_sha256=parent_sha,
         manifest_sha256=manifest_sha, child_run_id=child_id,
-        candidate_uri=child_uri, candidate_sha256=child_sha,
+        candidate_uri=child_candidate_uri, candidate_sha256=child_sha,
         source_artifact_id=parent.source_artifact_id,
         source_uri=source_ref.uri, source_revision_sha256=source_sha,
         span_index_uri=span_ref.uri, span_index_sha256=span_sha,
         profile_id=parent.profile_id, profile_version="1.0",
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
-    basis = (
+    operation_basis = (
         RecapSemanticBasisV11(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V10,
             expected_parent_revision=request.expected_parent_revision, inherited_pc_proof_sha256=inherited_digest)
         if v10 else
@@ -1612,69 +2023,29 @@ def correct_recap_candidate(
         if v3 else RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
         if v2 else RecapSemanticBasisV2(**basis_fields)
     )
+    request_version = (
+        10 if v10 else 9 if v9 else 8 if v8 else 7 if v7 else 6 if v6
+        else 5 if v5 else 4 if v4 else 3 if v3 else 2 if v2 else 1
+    )
+    basis = RecapSemanticBasisV12(
+        request_version=request_version,
+        derivation=SOURCE_BINDING_DERIVATION_V11,
+        operation_derivation=derivation,
+        operation_manifest_schema=manifest["schema"],
+        operation_basis=operation_basis,
+        parent_source_uri=source_ref.uri,
+        child_snapshot_uri=child_source_uri,
+        source_artifact_id=parent.source_artifact_id,
+        source_revision_sha256=source_sha,
+        span_index_uri=span_ref.uri,
+        span_index_sha256=span_sha,
+    )
+    lineage["semantic_source_binding_basis_v12"] = basis.model_dump(
+        mode="json", by_alias=True,
+    )
     lineage["semantic_disposition"] = {
         "version": 1, "state": "held", "basis_sha256": basis.digest(),
     }
-    try:
-        child = get_extraction_run(root, child_id)
-    except GraphRunRegistryError as exc:
-        if exc.status_code != 404:
-            raise _reject(f"derived run lookup failed: {exc}") from exc
-        # Validate and write complete bytes before the lifecycle can reach REVIEWABLE.
-        _write_child_candidate(child_path, child_bytes, repo=root)
-        try:
-            child = create_extraction_run(
-                root, run_id=child_id, source_artifact_id=parent.source_artifact_id,
-                source_domain="recap", campaign_id=parent.campaign_id,
-                session_id=parent.session_id, profile_id=parent.profile_id,
-                components=components, status=ExtractionRunStatus.DRAFT, lineage=lineage,
-            )
-        except GraphRunRegistryError:
-            # An identical concurrent request may have won the canonical create.
-            child = get_extraction_run(root, child_id)
-    if (
-        child.components != components or child.source_artifact_id != parent.source_artifact_id
-        or child.source_domain != "recap" or child.profile_id != parent.profile_id
-        or child.campaign_id != parent.campaign_id or child.session_id != parent.session_id
-        or set(child.lineage) != set(lineage)
-        or {key: child.lineage.get(key) for key in lineage if key != "semantic_disposition"}
-        != {key: value for key, value in lineage.items() if key != "semantic_disposition"}
-        or child_path.is_symlink() or not child_path.is_file() or child_path.read_bytes() != child_bytes
-    ):
-        raise _reject("derived run identity or candidate conflicts", status_code=409)
-    for _ in range(8):
-        if child.status == ExtractionRunStatus.REVIEWABLE:
-            break
-        if child.status not in _LIFECYCLE:
-            raise _reject("derived run lifecycle is invalid", status_code=409)
-        next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
-        try:
-            child = update_extraction_run_status(
-                root, child_id, status=next_status, expected_revision=child.revision
-            )
-        except GraphRunRegistryError as exc:
-            if exc.status_code != 409:
-                raise _reject(f"derived run seal failed: {exc}") from exc
-            child = get_extraction_run(root, child_id)
-    if child.status != ExtractionRunStatus.REVIEWABLE or not verify_child_replay(child, parent, root):
-        raise _reject("derived recap child could not be replayed and sealed", status_code=409)
-    resolved_child = resolve_promotable_ingest_run(child_id, root=root)
-    if resolved_child.run_id != child_id:
-        raise _reject("derived recap child could not be resolved", status_code=409)
-    raw = child.lineage.get("semantic_disposition") or {}
-    semantic_state = raw.get("state")
-    if semantic_state not in {"held", "accepted", "rejected"} or raw.get("basis_sha256") != basis.digest():
-        raise _reject("derived run semantic basis conflicts", status_code=409)
-    if semantic_state == "held" and raw != lineage["semantic_disposition"]:
-        raise _reject("derived run semantic hold conflicts", status_code=409)
-    if semantic_state in {"accepted", "rejected"}:
-        from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
-
-        assessment = assess_recap_semantics(
-            child, parent=parent, source_revision_id=source_sha, root=root
-        )
-        if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
-            raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
         RecapCandidateCorrectionResponseV10 if v10
         else RecapCandidateCorrectionResponseV9 if v9
@@ -1687,9 +2058,211 @@ def correct_recap_candidate(
         else RecapCandidateCorrectionResponseV2 if v2
         else RecapCandidateCorrectionResponse
     )
-    return response_type(
-        run_id=child_id, parent_run_id=parent.run_id,
-        parent_candidate_sha256=parent_sha, candidate_sha256=child_sha,
-        manifest_sha256=manifest_sha, semantic_basis_sha256=basis.digest(),
-        semantic_state=semantic_state,
-    )
+
+    with _source_binding_child_lock(root, child_id):
+        legacy_exists, legacy_files = _source_binding_package_state(root, legacy_child_id)
+        try:
+            legacy_run = get_extraction_run(root, legacy_child_id)
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 404:
+                raise _reject(f"legacy child lookup failed: {exc}", status_code=409) from exc
+            legacy_run = None
+        if legacy_run is None:
+            if legacy_exists:
+                raise _reject(
+                    f"legacy child {legacy_child_id} has an orphan candidate package; "
+                    "it cannot be adopted by source binding",
+                    status_code=409,
+                )
+        else:
+            if (
+                legacy_run.status != ExtractionRunStatus.REVIEWABLE
+                or legacy_run.lineage.get("derivation") != derivation
+                or legacy_run.lineage.get("parent_run_id") != parent.run_id
+                or legacy_run.lineage.get("manifest_sha256") != manifest_sha
+                or legacy_run.lineage.get("semantic_candidate_manifest") != manifest
+                or legacy_run.components.get("candidate_graph") is None
+                or legacy_run.components["candidate_graph"].uri
+                != f"out/graph_memory/derived_candidates/{legacy_child_id}/candidate_graph.json"
+                or set(legacy_files) != {"candidate_graph.json"}
+                or legacy_files.get("candidate_graph.json") is None
+                or legacy_run.components.get("source_artifact") != source_ref
+                or legacy_run.components.get("source_span_index") != span_ref
+                or not verify_child_replay(legacy_run, parent, root)
+            ):
+                raise _reject(
+                    f"legacy child {legacy_child_id} is not an exact reusable REVIEWABLE child",
+                    status_code=409,
+                )
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                assess_recap_semantics,
+            )
+            legacy_assessment = assess_recap_semantics(
+                legacy_run, parent=parent, source_revision_id=source_sha, root=root,
+            )
+            legacy_disposition = legacy_run.lineage.get("semantic_disposition") or {}
+            if (
+                legacy_assessment.basis is None
+                or legacy_assessment.basis_sha256 is None
+                or legacy_disposition.get("basis_sha256") != legacy_assessment.basis_sha256
+                or legacy_disposition.get("state") not in {"held", "accepted", "rejected"}
+            ):
+                raise _reject(
+                    f"legacy child {legacy_child_id} has no exact reusable semantic basis",
+                    status_code=409,
+                )
+            return response_type(
+                run_id=legacy_child_id, parent_run_id=parent.run_id,
+                parent_candidate_sha256=parent_sha,
+                candidate_sha256=legacy_run.components["candidate_graph"].sha256.removeprefix("sha256:"),
+                manifest_sha256=manifest_sha,
+                semantic_basis_sha256=legacy_assessment.basis_sha256,
+                semantic_state=legacy_disposition["state"],
+            )
+
+        package_exists, package_files = _source_binding_package_state(root, child_id)
+        try:
+            child = get_extraction_run(root, child_id)
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 404:
+                raise _reject(
+                    f"source-binding child {child_id} lookup failed: {exc}", status_code=409,
+                ) from exc
+            child = None
+        if child is None and package_exists:
+            raise _reject(
+                f"source-binding child {child_id} has an orphan package; it cannot be adopted",
+                status_code=409,
+            )
+        existing_child_row = child is not None
+        if child is not None:
+            if (
+                child.components != components
+                or child.source_artifact_id != parent.source_artifact_id
+                or child.source_domain != "recap"
+                or child.profile_id != parent.profile_id
+                or child.campaign_id != parent.campaign_id
+                or child.session_id != parent.session_id
+                or set(child.lineage) != set(lineage)
+                or {key: child.lineage.get(key) for key in lineage if key != "semantic_disposition"}
+                != {key: value for key, value in lineage.items() if key != "semantic_disposition"}
+            ):
+                raise _reject(
+                    f"source-binding child {child_id} row identity conflicts; held status preserved",
+                    status_code=409,
+                )
+            if child.status != ExtractionRunStatus.DRAFT and (
+                set(package_files) != {"source.md", "candidate_graph.json"}
+                or package_files.get("source.md") != source_bytes
+                or package_files.get("candidate_graph.json") != child_bytes
+            ):
+                raise _reject(
+                    f"source-binding child {child_id} is {child.status.value} with an incomplete package; held status preserved",
+                    status_code=409,
+                )
+        else:
+            try:
+                child = create_extraction_run(
+                    root, run_id=child_id, source_artifact_id=parent.source_artifact_id,
+                    source_domain="recap", campaign_id=parent.campaign_id,
+                    session_id=parent.session_id, profile_id=parent.profile_id,
+                    components=components, status=ExtractionRunStatus.DRAFT,
+                    lineage=lineage,
+                )
+            except GraphRunRegistryError as exc:
+                try:
+                    child = get_extraction_run(root, child_id)
+                except GraphRunRegistryError:
+                    raise _reject(
+                        f"source-binding child {child_id} DRAFT creation failed: {exc}; "
+                        "no held child row was confirmed",
+                        status_code=409,
+                    ) from exc
+                if child.lineage != lineage or child.components != components:
+                    raise _reject(
+                        f"source-binding child {child_id} DRAFT creation conflicted; held status preserved",
+                        status_code=409,
+                    ) from exc
+
+        if child.status not in _LIFECYCLE:
+            raise _reject(
+                f"source-binding child {child_id} has non-resumable status {child.status.value}; held status preserved",
+                status_code=409,
+            )
+        _publish_child_package_files(
+            root, child_id, source_bytes=source_bytes, candidate_bytes=child_bytes,
+            allow_existing=existing_child_row,
+        )
+        package_exists, package_files = _source_binding_package_state(root, child_id)
+        if (
+            not package_exists
+            or package_files != {"source.md": source_bytes, "candidate_graph.json": child_bytes}
+        ):
+            raise _reject(
+                f"source-binding child {child_id} package did not seal; held status preserved",
+                status_code=409,
+            )
+        for _ in range(8):
+            if child.status == ExtractionRunStatus.REVIEWABLE:
+                break
+            next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
+            try:
+                child = update_extraction_run_status(
+                    root, child_id, status=next_status, expected_revision=child.revision,
+                )
+            except GraphRunRegistryError as exc:
+                if exc.status_code != 409:
+                    raise _reject(
+                        f"source-binding child {child_id} seal failed: {exc}; "
+                        "held status preserved",
+                        status_code=409,
+                    ) from exc
+                child = get_extraction_run(root, child_id)
+        if child.status != ExtractionRunStatus.REVIEWABLE or not verify_child_replay(child, parent, root):
+            raise _reject(
+                f"source-binding child {child_id} could not be replayed and sealed; "
+                "held status preserved",
+                status_code=409,
+            )
+        try:
+            resolved_child = resolve_promotable_ingest_run(child_id, root=root)
+        except PromotableIngestRunError as exc:
+            raise _reject(
+                f"source-binding child {child_id} could not be resolved; held status preserved",
+                status_code=409,
+            ) from exc
+        if resolved_child.run_id != child_id:
+            raise _reject(
+                f"source-binding child {child_id} resolved to another run; held status preserved",
+                status_code=409,
+            )
+        raw = child.lineage.get("semantic_disposition") or {}
+        semantic_state = raw.get("state")
+        if semantic_state not in {"held", "accepted", "rejected"} or raw.get("basis_sha256") != basis.digest():
+            raise _reject(
+                f"source-binding child {child_id} semantic basis conflicts; held status preserved",
+                status_code=409,
+            )
+        if semantic_state == "held" and raw != lineage["semantic_disposition"]:
+            raise _reject(
+                f"source-binding child {child_id} semantic hold conflicts; held status preserved",
+                status_code=409,
+            )
+        if semantic_state in {"accepted", "rejected"}:
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                assess_recap_semantics,
+            )
+            assessment = assess_recap_semantics(
+                child, parent=parent, source_revision_id=source_sha, root=root,
+            )
+            if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
+                raise _reject(
+                    f"source-binding child {child_id} semantic decision conflicts; held status preserved",
+                    status_code=409,
+                )
+        return response_type(
+            run_id=child_id, parent_run_id=parent.run_id,
+            parent_candidate_sha256=parent_sha, candidate_sha256=child_sha,
+            manifest_sha256=manifest_sha, semantic_basis_sha256=basis.digest(),
+            semantic_state=semantic_state,
+        )

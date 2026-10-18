@@ -748,7 +748,12 @@ def _assert_and_project_candidate_evidence(
 
 
     try:
-        typed = validate_candidate_document_integrity(candidate_payload, allow_source_observations=allow_source_observations)
+        if allow_source_observations:
+            typed = validate_candidate_document_integrity(
+                candidate_payload, allow_source_observations=True,
+            )
+        else:
+            typed = validate_candidate_document_integrity(candidate_payload)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -916,7 +921,7 @@ def _assert_and_project_candidate_evidence(
                 evidence_refs=edge.evidence_refs,
             )
         )
-    for observation in typed.source_observations:
+    for observation in getattr(typed, "source_observations", ()):
         assertions.append(_project_holder(
             assertion_id=observation.observation_id, kind="source_observation",
             label=observation.title, summary=observation.description,
@@ -972,6 +977,23 @@ def _recap_semantic_assessment(resolved, run_record=None):
     return run, assess_recap_semantics(
         run, parent=parent, source_revision_id=resolved.source_revision_id,
         root=_artifact_root(),
+    )
+
+
+def _recap_semantic_operation_basis(assessment):
+    """Return the immutable operation basis inside a source-binding envelope."""
+    basis = getattr(assessment, "basis", None)
+    if not isinstance(basis, Mapping):
+        return None
+    operation = basis.get("operation_basis")
+    return operation if isinstance(operation, Mapping) else basis
+
+
+def _is_pc_reference_operation(run) -> bool:
+    return (
+        run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
+        or run.lineage.get("operation_derivation")
+        == "operator_recap_semantic_candidate_correction_v9"
     )
 
 
@@ -1098,29 +1120,45 @@ def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
         raise ExtractPromoteError(
             str(exc), code="candidate_binding_invalid", status_code=409,
         ) from exc
-    if current.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9":
+    operation_basis = _recap_semantic_operation_basis(assessment)
+    if _is_pc_reference_operation(current):
         if (not isinstance(binding, dict)
-            or effect.get("world_id") != binding.get("world_id")
-            or effect.get("parent_revision_id") != binding.get("expected_head_revision_id")):
+            or operation_basis is None
+            or effect.get("world_id") != operation_basis.get("world_id")
+            or effect.get("parent_revision_id") != operation_basis.get("expected_head_revision_id")):
             raise ExtractPromoteError(
                 "PC reference World or parent head differs from reviewed basis",
                 code="candidate_binding_invalid", status_code=409,
             )
-    if isinstance(current.lineage.get("inherited_pc_proof"), dict):
+    proof = current.lineage.get("inherited_pc_proof")
+    if _is_pc_reference_operation(current) or isinstance(proof, dict):
         from apps.live_control_server.integrations.dungeonmind import world_graph_writes
-        from apps.live_control_server.services.recap_semantic_candidate_correction import (
-            verify_inherited_pc_native_basis,
-        )
-        proof = current.lineage["inherited_pc_proof"]
         try:
             context = world_graph_writes.load_production_mutation_context(effect["world_id"])
-            candidate = json.loads(_parse_source_uri_to_path(locator).read_text(encoding="utf-8"))
         except (KeyError, OSError, ValueError, world_graph_writes.WorldGraphWriteError) as exc:
-            raise ExtractPromoteError("inherited PC native target unavailable",
+            raise ExtractPromoteError("PC reference native World unavailable",
                                       code="recap_semantic_hold", status_code=409) from exc
-        if not verify_inherited_pc_native_basis(candidate, proof, context):
-            raise ExtractPromoteError("inherited PC native target changed",
-                                      code="recap_semantic_hold", status_code=409)
+        if (_is_pc_reference_operation(current)
+            and (operation_basis is None
+                 or context.world_id != operation_basis.get("world_id")
+                 or context.revision_id != operation_basis.get("expected_head_revision_id")
+                 or context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
+            raise ExtractPromoteError(
+                "PC reference native head changed after review; correction is held",
+                code="recap_semantic_hold", status_code=409,
+            )
+        if isinstance(proof, dict):
+            from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                verify_inherited_pc_native_basis,
+            )
+            try:
+                candidate = json.loads(_parse_source_uri_to_path(locator).read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise ExtractPromoteError("inherited PC native target unavailable",
+                                          code="recap_semantic_hold", status_code=409) from exc
+            if not verify_inherited_pc_native_basis(candidate, proof, context):
+                raise ExtractPromoteError("inherited PC native target changed",
+                                          code="recap_semantic_hold", status_code=409)
 
 
 def decide_recap_semantic_disposition(
@@ -1143,6 +1181,7 @@ def decide_recap_semantic_disposition(
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
         RecapSemanticBasisV11,
+        RecapSemanticBasisV12,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
     )
@@ -1194,12 +1233,22 @@ def decide_recap_semantic_disposition(
             "corrected recap semantic basis is invalid",
             code="recap_semantic_decision_invalid", status_code=409,
         )
-    if request.candidate_sha256 != assessment.basis["candidate_sha256"]:
+    assessed_candidate_sha = (
+        assessment.basis["operation_basis"]["candidate_sha256"]
+        if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+        else assessment.basis["candidate_sha256"]
+    )
+    if request.candidate_sha256 != assessed_candidate_sha:
         raise ExtractPromoteError(
             "candidate digest does not match corrected recap child",
             code="recap_semantic_decision_conflict", status_code=409,
         )
-    if request.decision == "accepted" and run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9:
+    operation_derivation = (
+        run.lineage.get("operation_derivation")
+        if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+        else run.lineage.get("derivation")
+    )
+    if request.decision == "accepted" and operation_derivation == CANDIDATE_DERIVATION_V9:
         manifest = run.lineage.get("semantic_candidate_manifest")
         if (not isinstance(manifest, dict)
             or reviewer_id != manifest.get("reviewer_id")
@@ -1220,7 +1269,8 @@ def decide_recap_semantic_disposition(
         )
     try:
         basis_type = (
-            RecapSemanticBasisV11 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V10
+            RecapSemanticBasisV12 if run.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+            else RecapSemanticBasisV11 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V10
             else RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
             else RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
             else RecapSemanticBasisV8 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V7
@@ -1250,7 +1300,7 @@ def decide_recap_semantic_disposition(
     receipt = decided.lineage["semantic_disposition"]
     return RecapSemanticDecisionResponse(
         run_id=decided.run_id, revision=decided.revision,
-        candidate_sha256=assessment.basis["candidate_sha256"],
+        candidate_sha256=assessed_candidate_sha,
         state=receipt["state"], basis_sha256=receipt["basis_sha256"],
         review_decision_ref=receipt["review_decision_ref"],
         reviewer_id=receipt["reviewer_id"], decided_at=receipt["decided_at"],
@@ -1363,7 +1413,12 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             if is_recap_correction(run_record):
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
                 _, semantic_assessment = _recap_semantic_assessment(resolved, run_record)
-                if run_record.lineage.get("derivation") in {
+                operation_derivation = (
+                    run_record.lineage.get("operation_derivation")
+                    if run_record.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
+                    else run_record.lineage.get("derivation")
+                )
+                if operation_derivation in {
                     "operator_recap_semantic_candidate_correction_v7",
                     "operator_recap_semantic_candidate_correction_v8",
                     "operator_recap_semantic_candidate_correction_v10",
@@ -1372,10 +1427,20 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                         inherited_pc_proof_digest, inherited_pc_reference_proof,
                     )
                     proof = inherited_pc_reference_proof(run_record, _artifact_root())
+                    if semantic_assessment is None or semantic_assessment.basis is None or semantic_assessment.basis_sha256 is None:
+                        raise ExtractPromoteError(
+                            "inherited PC review proof changed",
+                            code="recap_semantic_hold", status_code=409,
+                        )
+                    assessment_basis = semantic_assessment.basis or {}
+                    operation_basis = assessment_basis.get("operation_basis")
+                    inherited_digest = (
+                        operation_basis.get("inherited_pc_proof_sha256")
+                        if isinstance(operation_basis, dict)
+                        else assessment_basis.get("inherited_pc_proof_sha256")
+                    )
                     if (proof != run_record.lineage["inherited_pc_proof"]
-                        or semantic_assessment is None or semantic_assessment.basis is None
-                        or semantic_assessment.basis_sha256 is None
-                        or semantic_assessment.basis.get("inherited_pc_proof_sha256") != inherited_pc_proof_digest(proof)):
+                        or inherited_digest != inherited_pc_proof_digest(proof)):
                         raise ExtractPromoteError(
                             "inherited PC review proof changed",
                             code="recap_semantic_hold", status_code=409,
@@ -1499,10 +1564,11 @@ def prepare(
             code="recap_semantic_hold",
             status_code=409,
         )
+    operation_basis = _recap_semantic_operation_basis(semantic_assessment)
     if (canonical_run is not None
-        and canonical_run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
-        and (semantic_assessment is None or semantic_assessment.basis is None
-             or semantic_assessment.basis.get("world_id") != target.native_world_id)):
+        and _is_pc_reference_operation(canonical_run)
+        and (operation_basis is None
+             or operation_basis.get("world_id") != target.native_world_id)):
         raise ExtractPromoteError(
             "PC reference correction names a different native World",
             code="recap_semantic_hold", status_code=409,
@@ -1739,14 +1805,15 @@ def prepare(
                     status_code=exc.status_code,
                     diagnostics=[_diagnostic(exc.code, str(exc))],
                 ) from exc
+            operation_basis = _recap_semantic_operation_basis(semantic_assessment)
             if (canonical_run is not None
-                and canonical_run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
-                and (semantic_assessment is None or semantic_assessment.basis is None
-                     or mutation_context.world_id != semantic_assessment.basis.get("world_id")
-                     or mutation_context.revision_id != semantic_assessment.basis.get("expected_head_revision_id")
-                     or mutation_context.head_revision_id != semantic_assessment.basis.get("expected_head_revision_id"))):
+                and _is_pc_reference_operation(canonical_run)
+                and (operation_basis is None
+                     or mutation_context.world_id != operation_basis.get("world_id")
+                     or mutation_context.revision_id != operation_basis.get("expected_head_revision_id")
+                     or mutation_context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
                 raise ExtractPromoteError(
-                    "PC reference native head changed during prepare",
+                    "PC reference native head changed during prepare; semantic review is stale",
                     code="recap_semantic_hold", status_code=409,
                 )
             if canonical_run is not None and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict):

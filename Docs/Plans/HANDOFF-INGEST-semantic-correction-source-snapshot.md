@@ -1,7 +1,7 @@
 # INGEST: bind semantic correction children to immutable recap sources
 
 Status: **ACTIVE — PRIME authorizes DOGFOOD implementation of this bounded capability.**
-Base: `origin/main@15aa918eb91071b469ea7f733cce6d2c6a3262e6`.
+Base: `origin/main@6743466d5f167f26d49c14d87b6353a35843f39e`.
 Branch: `codex/ingest-source-snapshot-binding`.
 Checkout: `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse).
 Topology: serial, one implementation PR; no unmerged behavioral parent.
@@ -330,8 +330,9 @@ retry does not adopt or delete another process's stale staging file.
 The legacy-id guard leaves existing stored rows on their unchanged verifier.
 New V11 source-binding behavior is separate from operation versions V1-V10;
 these are not alternatives. The envelope, history guard and retry contract were independently critiqued
-before this ACTIVE lease. Implementation still requires the full owning tests
-and independent exact-head review before PRIME merge.
+before this ACTIVE lease. The full owning test suite has now passed for the
+current implementation head; independent exact-head review is still required
+before PRIME merge.
 
 Any strategy must validate canonical source bytes and all source/span/World
 bindings before creating artifacts. It may not weaken identity, World scope,
@@ -452,6 +453,24 @@ From the owning checkout, use existing shared runtime Python and dependencies:
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python -m pytest -o addopts='' --basetemp=.pytest_cache/source-binding tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/test_extract_promote_managed_world_target.py tests/test_source_artifact.py tests/integration/test_recap_evidence_append.py tests/application_state/test_ingest_run_postgres.py tests/test_graph_run_registry.py -q --tb=short
 ```
+
+## Implementation verification recorded for the current branch head
+
+The scoped command above passed **272 tests** against the disposable PostgreSQL
+instance at 127.0.0.1:54329 (10 existing Pydantic `schema`-shadow warnings).
+The suite exercises V1–V10 operation mapping under the V11/V12 envelope, mixed
+legacy/V11 inherited-PC ancestry, exact retry, legacy-row collisions, raw-byte
+and span drift, and source-authority interruption/idempotency/scope conflict.
+Its production-path APP-STATE fixture creates a registered recap `SourceArtifact`,
+persists and seals its parent through APP-STATE, then runs the real V9→V10
+correction chain. That path verifies fresh-connection reopen, independent-process
+concurrency, and abrupt lock-owner death after a DRAFT claim. It also checks the
+parent candidate, frozen source snapshot, and span bytes remain unchanged.
+
+`ruff check --select F` passed for all eight modified Python files, AST parsing
+passed for those files, and `git diff --check` passed. These checks establish
+the disposable implementation witness only; they do not constitute the required
+independent exact-head ARCHITECTURE review, PRIME merge, or runtime adoption.
 
 The mandatory witness above must originate the parent through the actual
 production producer/registry path with run-local source.md; manually registering

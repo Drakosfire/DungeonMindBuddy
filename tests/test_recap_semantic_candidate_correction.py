@@ -15,8 +15,7 @@ import httpx
 from fastapi import FastAPI
 
 from application_state.ingest.service import (
-    RecapSemanticBasisV2, RecapSemanticBasisV3, RecapSemanticBasisV4,
-    RecapSemanticBasisV5, RecapSemanticBasisV6, RecapSemanticBasisV7, _assert_recap_semantic_basis,
+    RecapSemanticBasisV12, _assert_recap_semantic_basis,
 )
 from application_state.errors import ApplicationStateConflictError
 from apps.live_control_server.models.extract_promote import (
@@ -59,6 +58,38 @@ def _sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _candidate_path(root: Path, run) -> Path:
+    return root / run.components["candidate_graph"].uri.removeprefix("repo://")
+
+
+def _component_path(root: Path, run, component: str) -> Path:
+    return root / run.components[component].uri.removeprefix("repo://")
+
+
+def _assert_child_source_snapshot(root: Path, parent, child) -> None:
+    parent_source = parent.components["source_artifact"]
+    child_source = child.components["source_artifact"]
+    child_candidate = _candidate_path(root, child)
+    expected_uri = f"repo://{child_candidate.parent.relative_to(root).as_posix()}/source.md"
+    assert child_source.uri == expected_uri
+    assert child_source.sha256 == parent_source.sha256
+    assert _component_path(root, child, "source_artifact").read_bytes() == (
+        _component_path(root, parent, "source_artifact").read_bytes()
+    )
+    assert child.components["source_span_index"] == parent.components["source_span_index"]
+
+
+def _update_source_artifact_record(root: Path, artifact_id: str, **changes) -> None:
+    registry = root / "out" / "registries" / "source_artifacts.json"
+    document = json.loads(registry.read_text(encoding="utf-8"))
+    record = next(
+        row for row in document["records"]
+        if row["source_artifact_id"] == artifact_id
+    )
+    record.update(changes)
+    registry.write_text(json.dumps(document), encoding="utf-8")
+
+
 def _fixture(
     monkeypatch: pytest.MonkeyPatch,
     root: Path,
@@ -73,6 +104,19 @@ def _fixture(
     spans = root / "spans.json"
     spans.write_text('{"spans":[]}', encoding="utf-8")
     artifact_id = "artifact:recap:c:s:source"
+    artifact_digest = _sha(source.read_bytes())
+    artifact_registry = root / "out" / "registries" / "source_artifacts.json"
+    artifact_registry.parent.mkdir(parents=True, exist_ok=True)
+    artifact_registry.write_text(json.dumps({
+        "schema_version": "dmb_source_artifact_registry_v1",
+        "records": [{
+            "source_artifact_id": artifact_id,
+            "source_domain": "recap", "campaign_id": "c", "session_id": "s",
+            "world_id": None, "uri": "repo://source.md",
+            "content_sha256": artifact_digest, "artifact_kind": "recap_markdown",
+            "document_class": "recap", "status": "active",
+        }],
+    }), encoding="utf-8")
     span_id = f"{artifact_id}:span:abc:1-1"
     node = {
         "node_id": node_id, "node_type": "character", "label": node_label,
@@ -134,7 +178,7 @@ def _fixture(
         return SimpleNamespace(
             run_id=run_id, source_domain="recap", extraction_profile=service.PROFILE,
             campaign_id="c", session_id="s", source_artifact_id=artifact_id,
-            candidate_graph_path=root / run.components["candidate_graph"].uri,
+            candidate_graph_path=_candidate_path(root, run),
             normalized_recap_path=source, source_span_index_path=spans,
             source_revision_id=_sha(source.read_bytes()),
         )
@@ -164,6 +208,11 @@ def _fixture(
     monkeypatch.setattr(service, "get_extraction_run", get_run)
     monkeypatch.setattr(service, "create_extraction_run", create_run)
     monkeypatch.setattr(service, "update_extraction_run_status", update_run)
+    from application_state.source import service as source_service
+    monkeypatch.setattr(
+        source_service, "persist_source_markdown",
+        lambda **_kwargs: SimpleNamespace(source_artifact_id=artifact_id),
+    )
     monkeypatch.setattr(
         service, "_load_frozen_span_index_for_resolved_run",
         lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(
@@ -193,6 +242,9 @@ def _scoped_fixture(
     context = _world_ingest_context() if context is None else context
     frozen_lineage = {"world_campaign_ingest_context": context} if lineage is None else lineage
     parent = parent.model_copy(update={"lineage": frozen_lineage})
+    _update_source_artifact_record(
+        root, parent.source_artifact_id, world_id=source_world_id,
+    )
     runs["parent"] = parent
     original_resolve = service.resolve_promotable_ingest_run
 
@@ -214,7 +266,7 @@ def _tuple_fixture(
 ):
     source_text = "Mira found the key under the bridge. The tunnel opens into a chamber.\n"
     parent, _parent_bytes, runs = _fixture(monkeypatch, root, source_text=source_text)
-    parent_path = root / parent.components["candidate_graph"].uri
+    parent_path = _candidate_path(root, parent)
     payload = json.loads(parent_path.read_bytes())
     evidence = payload["nodes"][0]["evidence_refs"]
     quote = source_text.strip()
@@ -278,7 +330,7 @@ def _sprite_fixture(
 ):
     source_text = "Ephanna’s Sprite takes the lead and looks for traps, scouting with Ephanna to warn the party.\n"
     parent, _parent_bytes, runs = _fixture(monkeypatch, root, source_text=source_text)
-    parent_path = root / parent.components["candidate_graph"].uri
+    parent_path = _candidate_path(root, parent)
     payload = json.loads(parent_path.read_bytes())
     mira = payload["nodes"][0]
     state = mira["semantic_state"]
@@ -359,7 +411,7 @@ def _span_relocation_fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
     evidence["source_span_ref_id"] = span_id
     evidence["anchor_quotes"] = ["Mira found a key."]
     parent_bytes = json.dumps(payload).encode()
-    parent_path = root / parent.components["candidate_graph"].uri
+    parent_path = _candidate_path(root, parent)
     parent_path.write_bytes(parent_bytes)
     components = dict(parent.components)
     components["candidate_graph"] = ExtractionRunComponentRef(
@@ -440,6 +492,192 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
     )
 
 
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "after_draft",
+        "source_only",
+        "candidate_only",
+        "owner_staging",
+        "after_prepared",
+        "after_extracted",
+        "after_validated",
+        "after_reviewable",
+    ],
+)
+def test_source_binding_exact_retry_recovers_owned_partial_and_sealed_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fault: str,
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
+    source_before = _component_path(tmp_path, parent, "source_artifact").read_bytes()
+    spans_before = _component_path(tmp_path, parent, "source_span_index").read_bytes()
+    request = _request(parent_bytes)
+    original_create = service.create_extraction_run
+    original_update = service.update_extraction_run_status
+    original_publish = service._publish_child_package_files
+    interrupted = False
+    owner_staging_path: Path | None = None
+
+    def create_then_interrupt(root, **kwargs):
+        nonlocal interrupted
+        child = original_create(root, **kwargs)
+        if fault == "after_draft" and not interrupted:
+            interrupted = True
+            raise RuntimeError("injected interruption after DRAFT row creation")
+        return child
+
+    def update_then_interrupt(root, run_id, *, status, expected_revision):
+        nonlocal interrupted
+        child = original_update(
+            root, run_id, status=status, expected_revision=expected_revision,
+        )
+        if fault == f"after_{status.value}" and not interrupted:
+            interrupted = True
+            raise RuntimeError(f"injected interruption after {status.value}")
+        return child
+
+    def publish_then_interrupt(root, child_id, *, source_bytes, candidate_bytes, allow_existing):
+        nonlocal interrupted, owner_staging_path
+        if fault in {"source_only", "candidate_only"} and not interrupted:
+            package = root / "out" / "graph_memory" / "derived_candidates" / child_id
+            package.mkdir(parents=True, exist_ok=True)
+            if fault == "source_only":
+                (package / "source.md").write_bytes(source_bytes)
+            else:
+                (package / "candidate_graph.json").write_bytes(candidate_bytes)
+            interrupted = True
+            raise RuntimeError(f"injected interruption with {fault} package")
+        if fault == "owner_staging" and not interrupted:
+            staging = root / "out" / "graph_memory" / "derived_candidates" / ".staging"
+            staging.mkdir(parents=True, exist_ok=True)
+            owner_staging_path = staging / f"{child_id}.prior-owner.tmp"
+            owner_staging_path.write_bytes(b"preserve prior owner's staging artifact")
+            interrupted = True
+            raise RuntimeError("injected interruption with prior-owner staging file")
+        return original_publish(
+            root, child_id, source_bytes=source_bytes,
+            candidate_bytes=candidate_bytes, allow_existing=allow_existing,
+        )
+
+    monkeypatch.setattr(service, "create_extraction_run", create_then_interrupt)
+    monkeypatch.setattr(service, "update_extraction_run_status", update_then_interrupt)
+    monkeypatch.setattr(service, "_publish_child_package_files", publish_then_interrupt)
+
+    with pytest.raises(RuntimeError, match="injected interruption"):
+        service.correct_recap_candidate(request)
+
+    assert interrupted
+    child_ids = set(runs) - {parent.run_id}
+    assert len(child_ids) == 1
+    child_id = child_ids.pop()
+    child = runs[child_id]
+    if fault in {"after_draft", "source_only", "candidate_only", "owner_staging"}:
+        assert child.status == ExtractionRunStatus.DRAFT
+    else:
+        expected_status = {
+            "after_prepared": ExtractionRunStatus.PREPARED,
+            "after_extracted": ExtractionRunStatus.EXTRACTED,
+            "after_validated": ExtractionRunStatus.VALIDATED,
+            "after_reviewable": ExtractionRunStatus.REVIEWABLE,
+        }[fault]
+        assert child.status == expected_status
+
+    monkeypatch.setattr(service, "create_extraction_run", original_create)
+    monkeypatch.setattr(service, "update_extraction_run_status", original_update)
+    monkeypatch.setattr(service, "_publish_child_package_files", original_publish)
+    response = service.correct_recap_candidate(request)
+
+    assert response.run_id == child_id
+    assert set(runs) - {parent.run_id} == {child_id}
+    child = runs[child_id]
+    assert child.status == ExtractionRunStatus.REVIEWABLE
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assert _component_path(tmp_path, parent, "source_artifact").read_bytes() == source_before
+    assert _component_path(tmp_path, parent, "source_span_index").read_bytes() == spans_before
+    _, package_files = service._source_binding_package_state(tmp_path, child_id)
+    assert set(package_files) == {"source.md", "candidate_graph.json"}
+    assert package_files["source.md"] == source_before
+    assert package_files["candidate_graph.json"] == _candidate_path(tmp_path, child).read_bytes()
+    if owner_staging_path is not None:
+        assert owner_staging_path.read_bytes() == b"preserve prior owner's staging artifact"
+
+
+@pytest.mark.parametrize("historical_state", ["exact", "stranded_draft", "mismatched", "orphan"])
+def test_source_binding_never_duplicates_or_adopts_legacy_child(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, historical_state: str,
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
+    request = _request(parent_bytes)
+    bound_response = service.correct_recap_candidate(request)
+    bound = runs.pop(bound_response.run_id)
+    candidate_bytes = _candidate_path(tmp_path, bound).read_bytes()
+    bound_package = _candidate_path(tmp_path, bound).parent
+    for name in ("source.md", "candidate_graph.json"):
+        (bound_package / name).unlink()
+    bound_package.rmdir()
+
+    legacy_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION}:{parent.run_id}:{_sha(parent_bytes)}:{bound_response.manifest_sha256}",
+    ))
+    legacy_relative = f"out/graph_memory/derived_candidates/{legacy_id}/candidate_graph.json"
+    legacy_dir = tmp_path / "out" / "graph_memory" / "derived_candidates" / legacy_id
+    legacy_lineage = copy.deepcopy(bound.lineage)
+    for key in ("operation_derivation", "operation_manifest_schema", "semantic_source_binding_basis_v12"):
+        legacy_lineage.pop(key, None)
+    legacy_lineage["derivation"] = service.DERIVATION
+    legacy_components = dict(bound.components)
+    legacy_components["candidate_graph"] = legacy_components["candidate_graph"].model_copy(
+        update={"uri": legacy_relative},
+    )
+    legacy_components["source_artifact"] = parent.components["source_artifact"]
+    legacy_components["source_span_index"] = parent.components["source_span_index"]
+    legacy = bound.model_copy(update={
+        "run_id": legacy_id,
+        "status": ExtractionRunStatus.REVIEWABLE,
+        "revision": 1,
+        "components": legacy_components,
+        "lineage": legacy_lineage,
+    })
+
+    legacy_dir.mkdir(parents=True, exist_ok=True)
+    if historical_state != "orphan":
+        (legacy_dir / "candidate_graph.json").write_bytes(candidate_bytes)
+        assessment = assess_recap_semantics(
+            legacy,
+            parent=parent,
+            source_revision_id=_sha(_component_path(tmp_path, parent, "source_artifact").read_bytes()),
+            root=tmp_path,
+        )
+        assert assessment.basis is not None and assessment.basis_sha256 is not None
+        legacy.lineage["semantic_disposition"] = {
+            "version": 1,
+            "state": "held",
+            "basis_sha256": assessment.basis_sha256,
+        }
+        if historical_state == "stranded_draft":
+            legacy.status = ExtractionRunStatus.DRAFT
+        elif historical_state == "mismatched":
+            legacy.lineage["manifest_sha256"] = "0" * 64
+        runs[legacy_id] = legacy
+    else:
+        (legacy_dir / "candidate_graph.json").write_bytes(candidate_bytes)
+    bytes_before = (legacy_dir / "candidate_graph.json").read_bytes()
+    rows_before = set(runs)
+
+    if historical_state == "exact":
+        response = service.correct_recap_candidate(request)
+        assert response.run_id == legacy_id
+        assert response.run_id != bound_response.run_id
+    else:
+        with pytest.raises(extract_promote.ExtractPromoteError, match=legacy_id):
+            service.correct_recap_candidate(request)
+
+    assert set(runs) == rows_before
+    assert (legacy_dir / "candidate_graph.json").read_bytes() == bytes_before
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates" / bound_response.run_id).exists()
+
+
 def _label_request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
     return RecapCandidateCorrectionRequest(
         parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
@@ -518,14 +756,15 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     child = runs[response.run_id]
 
     assert response.schema_ == "dmb_recap_candidate_correction_response_v3"
-    assert child.lineage["derivation"] == service.DERIVATION_V3
+    assert child.lineage["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert child.lineage["operation_derivation"] == service.DERIVATION_V3
     assert child.lineage["semantic_candidate_manifest"]["schema"] == service.MANIFEST_SCHEMA_V3
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.correct_recap_candidate(request) == response
     assert service.verify_child_replay(child, parent, tmp_path)
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
 
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     expected = copy.deepcopy(original)
     expected_by_id = {edge["edge_id"]: edge for edge in expected["edges"]}
     expected_by_id["edge-possession"].update({
@@ -547,7 +786,7 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV4.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response.semantic_basis_sha256
     from application_state.errors import ApplicationStateConflictError
     from application_state.ingest.service import _assert_recap_semantic_basis
@@ -567,9 +806,13 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
         source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert bad_assessment.marked and not bad_assessment.accepted
-    with pytest.raises(ApplicationStateConflictError, match="edge tuple manifest is malformed"):
+    with pytest.raises(ApplicationStateConflictError, match="source-binding basis changed"):
         _assert_recap_semantic_basis(
-            bad_child, parent, basis.model_copy(update={"manifest_sha256": bad_manifest_sha}),
+            bad_child, parent, basis.model_copy(update={
+                "operation_basis": basis.operation_basis.model_copy(
+                    update={"manifest_sha256": bad_manifest_sha}
+                ),
+            }),
         )
     overlong_manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
     overlong_manifest["edge_tuple_replacements"] *= 4
@@ -580,9 +823,13 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
             "semantic_candidate_manifest": overlong_manifest,
         },
     })
-    with pytest.raises(ApplicationStateConflictError, match="candidate manifest is missing"):
+    with pytest.raises(ApplicationStateConflictError, match="source-binding basis changed"):
         _assert_recap_semantic_basis(
-            overlong_child, parent, basis.model_copy(update={"manifest_sha256": overlong_sha}),
+            overlong_child, parent, basis.model_copy(update={
+                "operation_basis": basis.operation_basis.model_copy(
+                    update={"manifest_sha256": overlong_sha}
+                ),
+            }),
         )
 
     accepted_lineage = copy.deepcopy(child.lineage)
@@ -599,12 +846,13 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     assert accepted_assessment.accepted
     binding = accepted_effect_binding(accepted_child, accepted_assessment)
     assert binding["manifest_sha256"] == child.lineage["manifest_sha256"]
-    assert binding["derivation"] == service.DERIVATION_V3
-    assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V3
+    assert binding["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert binding["operation_derivation"] == service.DERIVATION_V3
+    assert binding["operation_manifest_schema"] == service.MANIFEST_SCHEMA_V3
     assert child.lineage["manifest_sha256"] == "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c"
     assert child.run_id == str(uuid5(
         NAMESPACE_URL,
-        f"dmb:{service.DERIVATION_V3}:parent:{_sha(parent_bytes)}:{child.lineage['manifest_sha256']}",
+        f"dmb:{service.SOURCE_BINDING_DERIVATION_V11}:parent:{_sha(parent_bytes)}:{child.lineage['manifest_sha256']}",
     ))
 
 
@@ -620,7 +868,7 @@ def test_sprite_type_and_edge_tuple_change_replay_atomically_and_stay_held(
     assert service.verify_child_replay(child, parent, tmp_path)
     manifest = child.lineage["semantic_candidate_manifest"]
     assert set(manifest) == {"schema", "edge_tuple_replacements", "node_type_replacements"}
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     expected = copy.deepcopy(original)
     expected["nodes"][0]["node_type"] = "character"
     expected["edges"][0].update({
@@ -636,12 +884,12 @@ def test_sprite_type_and_edge_tuple_change_replay_atomically_and_stay_held(
     assert after_sprite["evidence_refs"] == before_sprite["evidence_refs"]
     assert candidate["edges"][0]["edge_id"] == original["edges"][0]["edge_id"]
     assert candidate["edges"][0]["evidence_refs"] == original["edges"][0]["evidence_refs"]
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
 
     assessment = assess_recap_semantics(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
-    basis = RecapSemanticBasisV4.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert assessment.marked and not assessment.accepted
     _assert_recap_semantic_basis(child, parent, basis)
 
@@ -666,7 +914,7 @@ def test_sprite_type_correction_rejects_stale_or_unsupported_type_before_child(
     with pytest.raises(extract_promote.ExtractPromoteError):
         service.correct_recap_candidate(bad_request)
     assert set(runs) == {"parent"}
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
     assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
@@ -737,7 +985,7 @@ def test_sprite_type_change_rejects_untouched_item_only_edge_before_child(
     assert caught.value.status_code == 422
     assert "unchanged incident edge" in str(caught.value)
     assert set(runs) == {"parent"}
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
     assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
@@ -758,7 +1006,7 @@ def test_edge_tuple_batch_rejects_unmapped_entry_without_partial_child(
         for diagnostic in caught.value.diagnostics
     )
     assert set(runs) == {"parent"}
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
     assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
@@ -847,16 +1095,16 @@ def test_evidence_span_child_replays_same_source_and_stays_held(
     child = runs[response.run_id]
 
     assert response.schema_ == "dmb_recap_candidate_correction_response_v4"
-    assert child.lineage["derivation"] == service.DERIVATION_V4
+    assert child.lineage["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert child.lineage["operation_derivation"] == service.DERIVATION_V4
     assert child.lineage["semantic_candidate_manifest"]["schema"] == service.MANIFEST_SCHEMA_V4
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.correct_recap_candidate(request) == response
     assert service.verify_child_replay(child, parent, tmp_path)
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
-    assert child.components["source_artifact"] == parent.components["source_artifact"]
-    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
+    _assert_child_source_snapshot(tmp_path, parent, child)
 
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     expected = copy.deepcopy(parent_payload)
     expected_ref = expected["nodes"][0]["evidence_refs"][0]
     expected_ref["source_span_ref_id"] = target_span_id
@@ -869,7 +1117,7 @@ def test_evidence_span_child_replays_same_source_and_stays_held(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV5.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response.semantic_basis_sha256
     _assert_recap_semantic_basis(child, parent, basis)
     accepted_lineage = copy.deepcopy(child.lineage)
@@ -884,8 +1132,9 @@ def test_evidence_span_child_replays_same_source_and_stays_held(
         source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     binding = accepted_effect_binding(accepted_child, accepted_assessment)
-    assert binding["derivation"] == service.DERIVATION_V4
-    assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V4
+    assert binding["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert binding["operation_derivation"] == service.DERIVATION_V4
+    assert binding["operation_manifest_schema"] == service.MANIFEST_SCHEMA_V4
 
 
 @pytest.mark.parametrize(
@@ -933,7 +1182,8 @@ def test_v5_evidence_replacement_batch_replays_as_one_held_full_valid_child(
     child = runs[response.run_id]
 
     assert response.schema_ == "dmb_recap_candidate_correction_response_v5"
-    assert child.lineage["derivation"] == service.DERIVATION_V5
+    assert child.lineage["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert child.lineage["operation_derivation"] == service.DERIVATION_V5
     manifest = child.lineage["semantic_candidate_manifest"]
     assert manifest["schema"] == service.MANIFEST_SCHEMA_V5
     assert len(manifest["evidence_span_replacements"]) == 4
@@ -941,7 +1191,7 @@ def test_v5_evidence_replacement_batch_replays_as_one_held_full_valid_child(
     assert service.verify_child_replay(child, parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == parent_bytes
 
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     assert candidate["nodes"][0]["evidence_refs"][0]["anchor_quotes"] == [
         "Mira found the key under the bridge."
     ]
@@ -953,9 +1203,9 @@ def test_v5_evidence_replacement_batch_replays_as_one_held_full_valid_child(
         root=tmp_path,
     )
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV6.model_validate(assessment.basis)
-    assert basis.derivation == service.DERIVATION_V5
-    assert basis.manifest_schema == service.MANIFEST_SCHEMA_V5
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
+    assert basis.operation_basis.derivation == service.DERIVATION_V5
+    assert basis.operation_basis.manifest_schema == service.MANIFEST_SCHEMA_V5
     assert basis.digest() == response.semantic_basis_sha256
     _assert_recap_semantic_basis(child, parent, basis)
     duplicated_lineage = copy.deepcopy(child.lineage)
@@ -978,7 +1228,7 @@ def test_v5_evidence_replacement_batch_replays_as_one_held_full_valid_child(
         source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert accepted_assessment.accepted
-    assert accepted_effect_binding(accepted_child, accepted_assessment)["manifest_schema"] == (
+    assert accepted_effect_binding(accepted_child, accepted_assessment)["operation_manifest_schema"] == (
         service.MANIFEST_SCHEMA_V5
     )
 
@@ -1031,7 +1281,7 @@ def test_v5_valid_batch_preserves_inherited_invalid_anchor_as_held(
     response = service.correct_recap_candidate(request)
     child = runs[response.run_id]
     assert response.semantic_state == "held"
-    projected = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    projected = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     assert next(n for n in projected["nodes"] if n["node_id"] == "chamber")["evidence_refs"] == chamber["evidence_refs"]
     assert (tmp_path / "parent.json").read_bytes() == changed_parent_bytes
 
@@ -1044,7 +1294,8 @@ def test_v3_session_action_child_replays_and_stays_held(
     response = service.correct_recap_candidate(_action_request(parent_bytes))
     child = runs[response.run_id]
     assert response.schema_ == "dmb_recap_candidate_correction_response_v2"
-    assert child.lineage["derivation"] == service.DERIVATION_V2
+    assert child.lineage["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert child.lineage["operation_derivation"] == service.DERIVATION_V2
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.verify_child_replay(child, parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == parent_bytes
@@ -1052,8 +1303,8 @@ def test_v3_session_action_child_replays_and_stays_held(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert assessment.marked and not assessment.accepted
-    assert RecapSemanticBasisV3.model_validate(assessment.basis).digest() == response.semantic_basis_sha256
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_text())
+    assert RecapSemanticBasisV12.model_validate(assessment.basis, strict=True).digest() == response.semantic_basis_sha256
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_text())
     assert candidate["nodes"][0]["session_actions"] == [
         "Mira crossed the bridge.", "Mira found the key under the bridge.", "Mira went home.",
     ]
@@ -1131,7 +1382,7 @@ def test_immutable_child_replays_and_stays_held(
     assert response.manifest_sha256 == expected_manifest_sha
     assert response.run_id == str(uuid5(
         NAMESPACE_URL,
-        f"dmb:{service.DERIVATION}:parent:{_sha(parent_bytes)}:{expected_manifest_sha}",
+        f"dmb:{service.SOURCE_BINDING_DERIVATION_V11}:parent:{_sha(parent_bytes)}:{expected_manifest_sha}",
     ))
     assert child.status == ExtractionRunStatus.REVIEWABLE
     assert child.lineage["semantic_disposition"]["state"] == "held"
@@ -1142,18 +1393,18 @@ def test_immutable_child_replays_and_stays_held(
     )
     assert assessment.marked and not assessment.accepted
     assert assessment.basis_sha256 == response.semantic_basis_sha256
-    assert RecapSemanticBasisV2.model_validate(assessment.basis).digest() == response.semantic_basis_sha256
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_text())
+    assert RecapSemanticBasisV12.model_validate(assessment.basis, strict=True).digest() == response.semantic_basis_sha256
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_text())
     assert candidate["nodes"][0]["description"] == "Mira found the key under the bridge."
     assert candidate["nodes"][0]["evidence_refs"] == json.loads(parent_bytes)["nodes"][0]["evidence_refs"]
     candidate["nodes"][0]["label"] = "forged"
-    (tmp_path / child.components["candidate_graph"].uri).write_text(json.dumps(candidate))
+    (_candidate_path(tmp_path, child)).write_text(json.dumps(candidate))
     assert not service.verify_child_replay(child, parent, tmp_path)
     assert not assess_recap_semantics(
         child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()),
         root=tmp_path,
     ).accepted
-    candidate_path = tmp_path / child.components["candidate_graph"].uri
+    candidate_path = _candidate_path(tmp_path, child)
     candidate_path.write_bytes(service._canonical_bytes(service.replay_candidate(json.loads(parent_bytes), child.lineage["semantic_candidate_manifest"])))
     (tmp_path / "spans.json").write_text('{"spans":[],"tampered":true}')
     assert not service.verify_child_replay(child, parent, tmp_path)
@@ -1203,7 +1454,7 @@ def test_semantic_child_world_scope_fails_before_persistence(monkeypatch, tmp_pa
         monkeypatch, tmp_path, context=context, source_world_id=source_world_id,
     )
     writes = []
-    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("candidate"))
+    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("candidate"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
 
     with pytest.raises(service.ExtractPromoteError):
@@ -1263,9 +1514,9 @@ def test_v1_label_correction_changes_only_label_and_stays_held(
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.verify_child_replay(child, parent, tmp_path)
     assert response == service.correct_recap_candidate(request)
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
 
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     expected = copy.deepcopy(original)
     expected["nodes"][0]["label"] = "door used by guards"
     assert candidate == expected
@@ -1278,7 +1529,7 @@ def test_v1_label_correction_changes_only_label_and_stays_held(
         source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
     )
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     _assert_recap_semantic_basis(child, parent, basis)
     malformed_manifest = copy.deepcopy(manifest)
     malformed_manifest["node_label_replacements"][0]["extra"] = "unbounded patch"
@@ -1290,10 +1541,8 @@ def test_v1_label_correction_changes_only_label_and_stays_held(
             "semantic_candidate_manifest": malformed_manifest,
         },
     })
-    with pytest.raises(ApplicationStateConflictError, match="node label manifest is malformed"):
-        _assert_recap_semantic_basis(
-            malformed_child, parent, basis.model_copy(update={"manifest_sha256": malformed_sha}),
-        )
+    with pytest.raises(ApplicationStateConflictError, match="semantic basis components changed"):
+        _assert_recap_semantic_basis(malformed_child, parent, basis)
 
 
 def test_label_replay_rejects_stale_or_malformed_preimage_without_mutation() -> None:
@@ -1341,7 +1590,7 @@ def test_stale_label_request_is_rejected_before_child_write(
     with pytest.raises(extract_promote.ExtractPromoteError, match="stale"):
         service.correct_recap_candidate(request)
     assert set(runs) == {"parent"}
-    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert (_candidate_path(tmp_path, parent)).read_bytes() == parent_bytes
     assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
@@ -1400,7 +1649,7 @@ def test_http_route_creates_held_child_and_rejects_wrong_path(
             assert created.json()["runId"] in runs
 
     asyncio.run(exercise())
-    assert parent_bytes == (tmp_path / parent.components["candidate_graph"].uri).read_bytes()
+    assert parent_bytes == (_candidate_path(tmp_path, parent)).read_bytes()
 
 
 def test_http_v2_route_preserves_auth_and_rejects_cross_node_and_extra_patch(
@@ -1441,7 +1690,7 @@ def test_http_v2_route_preserves_auth_and_rejects_cross_node_and_extra_patch(
             assert created.json()["runId"] in runs
 
     asyncio.run(exercise())
-    assert parent_bytes == (tmp_path / parent.components["candidate_graph"].uri).read_bytes()
+    assert parent_bytes == (_candidate_path(tmp_path, parent)).read_bytes()
 
 
 def test_http_v3_route_creates_held_edge_tuple_child(
@@ -1480,7 +1729,7 @@ def test_http_v3_route_creates_held_edge_tuple_child(
             assert created.json()["runId"] in runs
 
     asyncio.run(exercise())
-    assert parent_bytes == (tmp_path / parent.components["candidate_graph"].uri).read_bytes()
+    assert parent_bytes == (_candidate_path(tmp_path, parent)).read_bytes()
 
 
 def test_http_v4_route_creates_held_evidence_span_child(
@@ -1632,7 +1881,6 @@ def test_v3_decision_dispatches_exact_basis_to_appstate_cas(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=True)
     response = service.correct_recap_candidate(_action_request(parent_bytes))
@@ -1640,11 +1888,10 @@ def test_v3_decision_dispatches_exact_basis_to_appstate_cas(
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())))
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, RecapSemanticBasisV3)
+        assert isinstance(basis, RecapSemanticBasisV12)
         assert basis.digest() == response.semantic_basis_sha256
         seen.append((run_id, expected_revision, decision.reviewer_id))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
@@ -1673,7 +1920,6 @@ def test_v4_decision_dispatches_exact_basis_to_appstate_cas(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, parent_bytes, runs = _tuple_fixture(monkeypatch, tmp_path)
     response = service.correct_recap_candidate(_tuple_request(parent_bytes))
@@ -1681,17 +1927,13 @@ def test_v4_decision_dispatches_exact_basis_to_appstate_cas(
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(
-        source_artifact_registry, "get_source_artifact",
-        lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())),
-    )
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, RecapSemanticBasisV4)
+        assert isinstance(basis, RecapSemanticBasisV12)
         assert basis.digest() == response.semantic_basis_sha256
-        assert basis.derivation == service.DERIVATION_V3
-        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V3
+        assert basis.operation_basis.derivation == service.DERIVATION_V3
+        assert basis.operation_basis.manifest_schema == service.MANIFEST_SCHEMA_V3
         seen.append((run_id, expected_revision, decision.reviewer_id))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
         decided.lineage["semantic_disposition"] = {
@@ -1719,7 +1961,6 @@ def test_v5_decision_dispatches_span_basis_to_appstate_cas(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, _parent_bytes, runs, request, _target_span_id = _span_relocation_fixture(monkeypatch, tmp_path)
     response = service.correct_recap_candidate(request)
@@ -1727,17 +1968,13 @@ def test_v5_decision_dispatches_span_basis_to_appstate_cas(
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(
-        source_artifact_registry, "get_source_artifact",
-        lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())),
-    )
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, RecapSemanticBasisV5)
+        assert isinstance(basis, RecapSemanticBasisV12)
         assert basis.digest() == response.semantic_basis_sha256
-        assert basis.derivation == service.DERIVATION_V4
-        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V4
+        assert basis.operation_basis.derivation == service.DERIVATION_V4
+        assert basis.operation_basis.manifest_schema == service.MANIFEST_SCHEMA_V4
         seen.append((run_id, expected_revision, decision.reviewer_id))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
         decided.lineage["semantic_disposition"] = {
@@ -1765,7 +2002,6 @@ def test_v6_decision_dispatches_evidence_batch_basis_to_appstate_cas(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, _parent_bytes, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
     response = service.correct_recap_candidate(request)
@@ -1773,17 +2009,13 @@ def test_v6_decision_dispatches_evidence_batch_basis_to_appstate_cas(
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(
-        source_artifact_registry, "get_source_artifact",
-        lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())),
-    )
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, RecapSemanticBasisV6)
+        assert isinstance(basis, RecapSemanticBasisV12)
         assert basis.digest() == response.semantic_basis_sha256
-        assert basis.derivation == service.DERIVATION_V5
-        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V5
+        assert basis.operation_basis.derivation == service.DERIVATION_V5
+        assert basis.operation_basis.manifest_schema == service.MANIFEST_SCHEMA_V5
         seen.append((run_id, expected_revision, decision.reviewer_id))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
         decided.lineage["semantic_disposition"] = {
@@ -1872,13 +2104,14 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     assert assessment.accepted
     binding = accepted_effect_binding(child, assessment)
     if action_v2:
-        assert binding["derivation"] == service.DERIVATION_V2
-        assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V2
-    locator = str(tmp_path / child.components["candidate_graph"].uri)
+        assert binding["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+        assert binding["operation_derivation"] == service.DERIVATION_V2
+        assert binding["operation_manifest_schema"] == service.MANIFEST_SCHEMA_V2
+    locator = str(_candidate_path(tmp_path, child))
     extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
     with pytest.raises(extract_promote.ExtractPromoteError):
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: {**binding, "manifest_sha256": "f" * 64}}})
-    candidate = tmp_path / child.components["candidate_graph"].uri
+    candidate = _candidate_path(tmp_path, child)
     candidate.write_bytes(candidate.read_bytes() + b" ")
     with pytest.raises(extract_promote.ExtractPromoteError) as drifted:
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
@@ -1993,20 +2226,19 @@ def test_http_evidence_ref_split_exact_child_is_marked_held(monkeypatch, tmp_pat
         ref.update({"source_span_ref_id": part["source_span_ref_id"], "source_anchor_id": f"anchor:{part['source_span_ref_id']}", "label": part["source_span_ref_id"], "anchor_quotes": [target["anchor_quotes"][i] for i in part["quote_indices"]]})
         outputs.append(ref)
     expected[holder_collection][0]["evidence_refs"] = [before, *outputs, after]
-    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (_candidate_path(tmp_path, child)).read_bytes() == service._canonical_bytes(expected)
     assert (tmp_path / "parent.json").read_bytes() == raw
     assert (tmp_path / "source.md").read_bytes() == source_before
     assert (tmp_path / "spans.json").read_bytes() == spans_before
-    assert child.components["source_artifact"] == parent.components["source_artifact"]
-    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    _assert_child_source_snapshot(tmp_path, parent, child)
     assert [quote for ref in outputs for quote in ref["anchor_quotes"]] == target["anchor_quotes"]
     assert service.verify_child_replay(child, parent, tmp_path)
     assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
     assert assessment.marked and not assessment.accepted
     assert child.lineage["semantic_disposition"]["state"] == "held"
-    basis = RecapSemanticBasisV7.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response["semanticBasisSha256"]
-    assert basis.manifest_sha256 == child.lineage["manifest_sha256"] == response["manifestSha256"]
+    assert basis.operation_basis.manifest_sha256 == child.lineage["manifest_sha256"] == response["manifestSha256"]
     _assert_recap_semantic_basis(child, parent, basis)
     with pytest.raises(ValueError, match="not accepted"):
         accepted_effect_binding(child, assessment)
@@ -2015,17 +2247,18 @@ def test_http_evidence_ref_split_exact_child_is_marked_held(monkeypatch, tmp_pat
     accepted_child = child.model_copy(update={"lineage": accepted_lineage})
     accepted = assess_recap_semantics(accepted_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
     binding = accepted_effect_binding(accepted_child, accepted)
-    assert binding["derivation"] == service.DERIVATION_V6
-    assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V6
-    assert binding["manifest_sha256"] == basis.manifest_sha256
+    assert binding["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
+    assert binding["operation_derivation"] == service.DERIVATION_V6
+    assert binding["operation_manifest_schema"] == service.MANIFEST_SCHEMA_V6
+    assert binding["manifest_sha256"] == basis.operation_basis.manifest_sha256
     # A rehashed malformed stored manifest must fail replay and APP-STATE shape checks.
     bad_manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
     bad_manifest["evidence_ref_splits"][0]["parts"][0]["quote_indices"] = [1, 0]
     bad_sha = _sha(service._canonical_bytes(bad_manifest))
     bad_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": bad_manifest, "manifest_sha256": bad_sha}})
     assert not service.verify_child_replay(bad_child, parent, tmp_path)
-    with pytest.raises(ApplicationStateConflictError, match="split manifest"):
-        _assert_recap_semantic_basis(bad_child, parent, basis.model_copy(update={"manifest_sha256": bad_sha}))
+    with pytest.raises(ApplicationStateConflictError, match="semantic basis components changed"):
+        _assert_recap_semantic_basis(bad_child, parent, basis)
     assert not assess_recap_semantics(bad_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path).accepted
 
 
@@ -2067,7 +2300,7 @@ def test_http_evidence_ref_split_rejects_before_any_write(monkeypatch, tmp_path,
     def forbidden_write(*args, **kwargs):
         pytest.fail("invalid split reached a child write")
 
-    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "_publish_child_package_files", forbidden_write)
     monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
     app = _split_http_app(monkeypatch)
 
@@ -2079,12 +2312,11 @@ def test_http_evidence_ref_split_rejects_before_any_write(monkeypatch, tmp_path,
     asyncio.run(exercise())
     assert set(runs) == {"parent"}
     assert (tmp_path / "parent.json").read_bytes() == raw
-    assert not (tmp_path / "out").exists()
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
 def test_split_decision_dispatches_exact_basis_to_appstate_cas(monkeypatch, tmp_path):
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, _, runs, body = _split_fixture(monkeypatch, tmp_path)
     response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV6.model_validate(body))
@@ -2092,14 +2324,13 @@ def test_split_decision_dispatches_exact_basis_to_appstate_cas(monkeypatch, tmp_
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())))
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, RecapSemanticBasisV7)
+        assert isinstance(basis, RecapSemanticBasisV12)
         assert basis.digest() == response.semantic_basis_sha256
-        assert basis.derivation == service.DERIVATION_V6
-        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V6
+        assert basis.operation_basis.derivation == service.DERIVATION_V6
+        assert basis.operation_basis.manifest_schema == service.MANIFEST_SCHEMA_V6
         _assert_recap_semantic_basis(child, parent, basis)
         seen.append((run_id, expected_revision))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
@@ -2136,8 +2367,22 @@ def test_split_keeps_main_v1_through_v5_manifest_and_child_identity(monkeypatch,
         parent, raw, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
     response = service.correct_recap_candidate(request)
     assert response.manifest_sha256 == manifest_sha
-    assert response.run_id == child_id
-    assert service.verify_child_replay(runs[child_id], parent, tmp_path)
+    operation_derivation = {
+        1: service.DERIVATION, 2: service.DERIVATION_V2,
+        3: service.DERIVATION_V3, 4: service.DERIVATION_V4,
+        5: service.DERIVATION_V5,
+    }[version]
+    expected_legacy_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{operation_derivation}:{parent.run_id}:{_sha(raw)}:{manifest_sha}",
+    ))
+    assert child_id == expected_legacy_id
+    expected_bound_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.SOURCE_BINDING_DERIVATION_V11}:{parent.run_id}:{_sha(raw)}:{manifest_sha}",
+    ))
+    assert response.run_id == expected_bound_id
+    assert service.verify_child_replay(runs[response.run_id], parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == raw
 
 
@@ -2211,22 +2456,21 @@ def test_http_node_omission_creates_exact_held_child(monkeypatch, tmp_path):
     original = json.loads(raw)
     expected = copy.deepcopy(original)
     expected["nodes"] = [original["nodes"][1]]
-    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (_candidate_path(tmp_path, child)).read_bytes() == service._canonical_bytes(expected)
     assert (tmp_path / "parent.json").read_bytes() == raw
-    assert child.components["source_artifact"] == parent.components["source_artifact"]
-    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    _assert_child_source_snapshot(tmp_path, parent, child)
     assert service.verify_child_replay(child, parent, tmp_path)
     assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     _assert_recap_semantic_basis(child, parent, basis)
     # Stored manifests must enforce the same operation shape as the route/replay.
     manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
     manifest["node_omissions"][0]["cascade"] = True
     digest = _sha(service._canonical_bytes(manifest))
     malformed = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
-    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
-        _assert_recap_semantic_basis(malformed, parent, basis.model_copy(update={"manifest_sha256": digest}))
+    with pytest.raises(ApplicationStateConflictError, match="semantic basis components changed"):
+        _assert_recap_semantic_basis(malformed, parent, basis)
     assert not service.verify_child_replay(malformed, parent, tmp_path)
 
 
@@ -2238,13 +2482,13 @@ def test_node_omission_rejects_before_any_write(monkeypatch, tmp_path, fault):
     def forbidden_write(*args, **kwargs):
         pytest.fail("invalid omission reached a child write")
 
-    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "_publish_child_package_files", forbidden_write)
     monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
     with pytest.raises(ExtractPromoteError) as error:
         service.correct_recap_candidate(request)
     assert error.value.status_code == 409
     assert set(runs) == {"parent"}
-    assert not (tmp_path / "out").exists()
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
     assert (tmp_path / "parent.json").read_bytes() == raw
 
 
@@ -2280,8 +2524,16 @@ def test_legacy_manifest_identity_ignores_unused_node_omission(monkeypatch, tmp_
     assert runs[response.run_id].lineage["semantic_candidate_manifest"] == manifest
     assert digest == "53c547b5bee2ba5de80c04c17134c9f4d5a8d47fb7651b6c17f7878596b400a4"
     assert response.manifest_sha256 == digest
-    assert response.run_id == "61a59049-3686-5680-b569-5b8816497b19"
-    assert response.run_id == str(uuid5(NAMESPACE_URL, f"dmb:{service.DERIVATION}:parent:{_sha(raw)}:{digest}"))
+    legacy_run_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION}:parent:{_sha(raw)}:{digest}",
+    ))
+    assert legacy_run_id == "61a59049-3686-5680-b569-5b8816497b19"
+    assert response.run_id != legacy_run_id
+    assert response.run_id == str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.SOURCE_BINDING_DERIVATION_V11}:parent:{_sha(raw)}:{digest}",
+    ))
     assert service.verify_child_replay(runs[response.run_id], parent, tmp_path)
 
 
@@ -2302,14 +2554,12 @@ def _multiple_bad_quote_fixture(monkeypatch, root):
 
 def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, tmp_path):
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
     parent, raw, runs, split = _multiple_bad_quote_fixture(monkeypatch, tmp_path)
     frozen = parent.model_dump(mode="json")
     app = _split_http_app(monkeypatch)
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, key: runs[key])
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, key: runs[key])
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=parent.components["source_artifact"].sha256))
     monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: SimpleNamespace(world_id="w", world_state="initialized", eligible=True, reason=None))
     # Add only review metadata to the frozen-component resolver; quote validation stays real.
     original_resolver = service.resolve_promotable_ingest_run
@@ -2347,8 +2597,7 @@ def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, t
             key = separated.json()["runId"]
             child = runs[key]
             assert service.verify_child_replay(child, parent, tmp_path)
-            assert child.components["source_artifact"] == parent.components["source_artifact"]
-            assert child.components["source_span_index"] == parent.components["source_span_index"]
+            _assert_child_source_snapshot(tmp_path, parent, child)
             view = await client.get(f"/api/live/extract-promote/runs/{key}/review-package")
             assert view.status_code == 200, view.text
             assert view.json()["invalidEvidenceCount"] == 2
@@ -2362,7 +2611,7 @@ def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, t
             refused = await client.post(f"/api/live/extract-promote/runs/{key}/semantic-disposition", json=decision)
             assert refused.status_code == 422, refused.text
             assert calls == []
-            payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+            payload = json.loads((_candidate_path(tmp_path, child)).read_bytes())
             replacements = []
             for kind, identifier in [("node", "mira"), ("node", "room")]:
                 ref = next(n for n in payload["nodes"] if n["node_id"] == identifier)["evidence_refs"][0]
@@ -2425,32 +2674,31 @@ def test_node_omission_cannot_mix_with_label_correction(monkeypatch, tmp_path, l
         pytest.fail("mixed omission/label reached a child write")
 
     with monkeypatch.context() as guarded:
-        guarded.setattr(service, "_write_child_candidate", forbidden_write)
+        guarded.setattr(service, "_publish_child_package_files", forbidden_write)
         guarded.setattr(service, "create_extraction_run", forbidden_write)
         asyncio.run(exercise())
         # Replay must enforce the same restriction even when model validation is bypassed.
         with pytest.raises(ValueError, match="node omission must be the only"):
             service.correct_recap_candidate(omission.model_copy(update={"node_label_replacements": [label]}))
     assert set(runs) == {"parent"}
-    assert not (tmp_path / "out").exists()
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
     assert (tmp_path / "parent.json").read_bytes() == raw
 
     response = service.correct_recap_candidate(omission)
     child = runs[response.run_id]
     assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
-    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     _assert_recap_semantic_basis(child, parent, basis)
     manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
     manifest["node_label_replacements"] = [label.model_dump(mode="json")]
     digest = _sha(service._canonical_bytes(manifest))
     mixed_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
     assert not service.verify_child_replay(mixed_child, parent, tmp_path)
-    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
-        _assert_recap_semantic_basis(mixed_child, parent, basis.model_copy(update={"manifest_sha256": digest}))
+    with pytest.raises(ApplicationStateConflictError, match="semantic basis components changed"):
+        _assert_recap_semantic_basis(mixed_child, parent, basis)
 
 
 def _atomic_fixture(monkeypatch, root):
-    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV7
     parent, _, runs, _ = _split_fixture(monkeypatch, root)
     index = json.loads((root / "spans.json").read_bytes())
     index["source_ref_id"] = parent.source_artifact_id + ":text"
@@ -2497,7 +2745,6 @@ def _atomic_fixture(monkeypatch, root):
 
 
 def test_http_atomic_batch_one_held_child_idempotent_replay_and_basis(monkeypatch, tmp_path):
-    from application_state.ingest.service import RecapSemanticBasisV8
     parent, raw, runs, body = _atomic_fixture(monkeypatch, tmp_path)
     source_before = (tmp_path / "source.md").read_bytes()
     spans_before = (tmp_path / "spans.json").read_bytes()
@@ -2517,10 +2764,10 @@ def test_http_atomic_batch_one_held_child_idempotent_replay_and_basis(monkeypatc
     assert service.verify_child_replay(child, parent, tmp_path)
     assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV8.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     _assert_recap_semantic_basis(child, parent, basis)
     assert basis.digest() == response["semanticBasisSha256"]
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     assert candidate["nodes"][0]["label"] == "Mira (session)"
     assert candidate["edges"][0]["from_node_id"] == "mira" and len(candidate["edges"]) == 1
     for ref in candidate["nodes"][0]["evidence_refs"][:2]:
@@ -2606,7 +2853,7 @@ def test_http_atomic_full_19_recipe_order_independent(monkeypatch, tmp_path):
             return response.json()
     result = asyncio.run(exercise()); child = runs[result["runId"]]
     assert len(runs) == 2 and result["semanticState"] == "held"
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     assert len(candidate["nodes"]) == 8 and len(candidate["edges"]) == 2
     assert service.verify_child_replay(child, parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == raw
@@ -2623,7 +2870,7 @@ def test_http_atomic_omission_rejects_retained_dependencies_before_writes(monkey
     parent = parent.model_copy(update={"components": components}); runs["parent"] = parent
     body["parent_candidate_sha256"] = _sha(raw)
     writes = []
-    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
     app = _split_http_app(monkeypatch)
     async def exercise():
@@ -2642,7 +2889,7 @@ def test_http_atomic_bad_last_operation_does_not_persist_earlier_edits(monkeypat
     # Earlier descriptions, labels, tuple, omission and first evidence edit are valid.
     body["evidence_replacements"][-1]["anchor_quotes"] = ["not in the frozen source"]
     writes = []
-    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
     app = _split_http_app(monkeypatch)
     async def exercise():
@@ -2698,7 +2945,6 @@ def _final35_fixture(monkeypatch, root):
 
 
 def test_http_final35_one_held53_child_reordered_replay_and_parent_revision(monkeypatch, tmp_path):
-    from application_state.ingest.service import RecapSemanticBasisV9
     parent, raw, runs, body = _final35_fixture(monkeypatch, tmp_path)
     before_source = (tmp_path / "source.md").read_bytes(); before_index = (tmp_path / "spans.json").read_bytes()
     app = _split_http_app(monkeypatch)
@@ -2714,13 +2960,13 @@ def test_http_final35_one_held53_child_reordered_replay_and_parent_revision(monk
     response = asyncio.run(exercise()); child = runs[response["runId"]]
     assert response["schema"] == "dmb_recap_candidate_correction_response_v8" and response["semanticState"] == "held"
     assert len(runs) == 2 and child.revision == 5
-    payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    payload = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     assert len(payload["nodes"]) == 38 and len(payload["edges"]) == 15
     assert {n["node_id"]: n["node_type"] for n in payload["nodes"]}["guard"] == "character"
     assert all(n["node_type"] == "event" for n in payload["nodes"] if n["node_id"].startswith("effect"))
     assert service.verify_child_replay(child, parent, tmp_path)
     assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(before_source), root=tmp_path)
-    basis = RecapSemanticBasisV9.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response["semanticBasisSha256"] and not assessment.accepted
     _assert_recap_semantic_basis(child, parent, basis)
     with pytest.raises(ApplicationStateConflictError, match="parent revision"):
@@ -2750,7 +2996,7 @@ def test_http_final35_failure_has_zero_file_or_row_effects(monkeypatch, tmp_path
     elif failure == "last_description": body["node_description_replacements"][-1]["original_description"] = "stale"
     else: body["node_label_replacements"][-1]["original_label"] = "stale"
     writes = []
-    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("row"))
     app = _split_http_app(monkeypatch)
     async def exercise():
@@ -2812,6 +3058,9 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
     components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
     components["source_span_index"] = components["source_span_index"].model_copy(update={"sha256": _sha(index_bytes)})
     parent = parent.model_copy(update={"components": components, "session_id": "session-28", "revision": 5})
+    _update_source_artifact_record(
+        root, parent.source_artifact_id, session_id="session-28",
+    )
     runs["parent"] = parent
     original_resolve = service.resolve_promotable_ingest_run
     def resolve(run_id, **kwargs):
@@ -2852,8 +3101,92 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
     return parent, raw, runs, body, context
 
 
+def test_inherited_pc_proof_survives_legacy_v9_into_source_bound_v7(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import (
+        RecapCandidateCorrectionRequestV7, RecapCandidateCorrectionRequestV9,
+    )
+    from apps.live_control_server.services.recap_semantic_candidate_correction import (
+        inherited_pc_proof_digest, inherited_pc_reference_proof,
+    )
+
+    parent, _parent_bytes, runs, body, _context = _pc_reference_fixture(monkeypatch, tmp_path)
+    created = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(body))
+    source_bound = runs.pop(created.run_id)
+    source_bound_directory = _candidate_path(tmp_path, source_bound).parent
+    candidate_bytes = _candidate_path(tmp_path, source_bound).read_bytes()
+    for name in ("source.md", "candidate_graph.json"):
+        (source_bound_directory / name).unlink()
+    source_bound_directory.rmdir()
+
+    manifest_sha = source_bound.lineage["manifest_sha256"]
+    legacy_id = str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION_V9}:{parent.run_id}:"
+        f"{source_bound.lineage['parent_candidate_sha256']}:{manifest_sha}",
+    ))
+    legacy_relative = f"out/graph_memory/derived_candidates/{legacy_id}/candidate_graph.json"
+    legacy_directory = tmp_path / "out/graph_memory/derived_candidates" / legacy_id
+    legacy_directory.mkdir(parents=True)
+    legacy_candidate = legacy_directory / "candidate_graph.json"
+    legacy_candidate.write_bytes(candidate_bytes)
+
+    legacy_lineage = copy.deepcopy(source_bound.lineage)
+    for key in (
+        "operation_derivation", "operation_manifest_schema",
+        "semantic_source_binding_basis_v12",
+    ):
+        legacy_lineage.pop(key)
+    legacy_lineage["derivation"] = service.DERIVATION_V9
+    legacy_components = dict(source_bound.components)
+    legacy_components["candidate_graph"] = legacy_components["candidate_graph"].model_copy(
+        update={"uri": legacy_relative},
+    )
+    legacy_components["source_artifact"] = parent.components["source_artifact"]
+    legacy_components["source_span_index"] = parent.components["source_span_index"]
+    legacy = source_bound.model_copy(update={
+        "run_id": legacy_id,
+        "status": ExtractionRunStatus.REVIEWABLE,
+        "components": legacy_components,
+        "lineage": legacy_lineage,
+    })
+    assert service.verify_child_replay(legacy, parent, tmp_path)
+    legacy_assessment = assess_recap_semantics(
+        legacy, parent=parent, source_revision_id=body["source_revision_sha256"], root=tmp_path,
+    )
+    assert legacy_assessment.basis_sha256 is not None
+    legacy.lineage["semantic_disposition"] = {
+        "version": 1, "state": "held", "basis_sha256": legacy_assessment.basis_sha256,
+    }
+    runs[legacy_id] = legacy
+
+    request = RecapCandidateCorrectionRequestV7.model_validate({
+        "schema": "dmb_recap_candidate_correction_request_v7",
+        "parent_run_id": legacy_id,
+        "parent_candidate_sha256": legacy.components["candidate_graph"].sha256.removeprefix("sha256:"),
+        "source_revision_sha256": body["source_revision_sha256"],
+        "span_index_sha256": body["span_index_sha256"],
+        "profile_id": service.PROFILE,
+        "node_description_replacements": [{
+            "node_id": "mira",
+            "original_description": "Mira carried an uncertain object.",
+            "replacement_description": "Mira carried a key through the older legacy route.",
+        }],
+    })
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+    proof = inherited_pc_reference_proof(child, tmp_path)
+    assert proof is not None and proof["rows"][0]["origin_run_id"] == legacy_id
+    assessment = assess_recap_semantics(
+        child, parent=legacy, source_revision_id=body["source_revision_sha256"], root=tmp_path,
+    )
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
+    assert basis.operation_basis.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof)
+    assert service.verify_child_replay(child, legacy, tmp_path)
+    _assert_recap_semantic_basis(child, legacy, basis, get_ancestor=runs.get)
+
+
 def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
-    from application_state.ingest.service import RecapSemanticBasisV8, RecapSemanticBasisV9
+    from application_state.ingest.service import RecapSemanticBasisV8
     from apps.live_control_server.models.extract_promote import (
         RecapCandidateCorrectionRequestV7, RecapCandidateCorrectionRequestV8,
         RecapCandidateCorrectionRequestV9,
@@ -2882,9 +3215,9 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     assert proof7 == v7.lineage["inherited_pc_proof"]
     assert proof7["rows"][0]["origin_run_id"] == v9.run_id
     assessment7 = assess_recap_semantics(v7, parent=v9, source_revision_id=body["source_revision_sha256"], root=tmp_path)
-    basis7 = RecapSemanticBasisV8.model_validate(assessment7.basis)
-    assert basis7.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof7)
-    legacy_fields = basis7.model_dump(mode="json", by_alias=True)
+    basis7 = RecapSemanticBasisV12.model_validate(assessment7.basis, strict=True)
+    assert basis7.operation_basis.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof7)
+    legacy_fields = basis7.operation_basis.model_dump(mode="json", by_alias=True)
     legacy_fields["inherited_pc_proof_sha256"] = None
     legacy_basis = RecapSemanticBasisV8.model_validate(legacy_fields)
     legacy_bytes = json.dumps({key: value for key, value in legacy_fields.items() if value is not None},
@@ -2903,8 +3236,8 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     proof8 = inherited_pc_reference_proof(v8, tmp_path)
     assert proof8 == v8.lineage["inherited_pc_proof"]
     assessment8 = assess_recap_semantics(v8, parent=v7, source_revision_id=body["source_revision_sha256"], root=tmp_path)
-    basis8 = RecapSemanticBasisV9.model_validate(assessment8.basis)
-    assert basis8.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof8)
+    basis8 = RecapSemanticBasisV12.model_validate(assessment8.basis, strict=True)
+    assert basis8.operation_basis.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof8)
     _assert_recap_semantic_basis(v8, v7, basis8, get_ancestor=runs.get)
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
@@ -2920,10 +3253,10 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     assert package.inherited_pc_references is not None
     assert package.inherited_pc_references.rows[0].origin_run_id == v9.run_id
     assert package.inherited_pc_references.proof_sha256 == inherited_pc_proof_digest(proof8)
-    assert package.inherited_pc_references.final_candidate_sha256 == basis8.candidate_sha256
+    assert package.inherited_pc_references.final_candidate_sha256 == basis8.operation_basis.candidate_sha256
     assert package.inherited_pc_references.run_revision == v8.revision
     assert package.inherited_pc_references.semantic_basis_sha256 == assessment8.basis_sha256
-    final = json.loads((tmp_path / v8.components["candidate_graph"].uri).read_bytes())
+    final = json.loads((_candidate_path(tmp_path, v8)).read_bytes())
     assert verify_inherited_pc_native_basis(final, proof8, context)
     from dataclasses import replace
     from apps.live_control_server.models.world_graph_mutation_context import MutationObject
@@ -2950,7 +3283,6 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     # Exercise the real decision function and APP-STATE CAS over synthetic rows.
     from contextlib import contextmanager
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
     from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
     from apps.live_control_server.services import candidate_graph_admission
@@ -2958,8 +3290,6 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
 
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run",
                         lambda _root, run_id: runs[run_id])
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda *_: SimpleNamespace(
-        content_sha256=body["source_revision_sha256"], world_id="invented-world"))
     monkeypatch.setattr(ingest_service, "load_runtime_dsn", lambda: "synthetic")
     monkeypatch.setattr(ingest_service, "assert_at_head", lambda **_: None)
     @contextmanager
@@ -2979,16 +3309,23 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     receipt = extract_promote.decide_recap_semantic_disposition(
         v8.run_id,
         RecapSemanticDecisionRequest(expected_revision=v8.revision,
-            candidate_sha256=basis8.candidate_sha256, decision="accepted",
+            candidate_sha256=basis8.operation_basis.candidate_sha256, decision="accepted",
             review_decision_ref="decision:final-v8"),
         reviewer_id="gm",
     )
     assert receipt.state == "accepted" and receipt.basis_sha256 == assessment8.basis_sha256
+    post_decision_assessment = assess_recap_semantics(
+        runs[v8.run_id], parent=v7, source_revision_id=body["source_revision_sha256"],
+        root=tmp_path,
+    )
+    assert post_decision_assessment.accepted, (
+        post_decision_assessment.reason, post_decision_assessment.basis,
+    )
     with pytest.raises(extract_promote.ExtractPromoteError, match="conflicts"):
         extract_promote.decide_recap_semantic_disposition(
             v8.run_id,
             RecapSemanticDecisionRequest(expected_revision=v8.revision,
-                candidate_sha256=basis8.candidate_sha256, decision="accepted",
+                candidate_sha256=basis8.operation_basis.candidate_sha256, decision="accepted",
                 review_decision_ref="decision:stale-conflict"),
             reviewer_id="gm",
         )
@@ -3032,7 +3369,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     prepared = extract_promote.prepare(ExtractPromotePrepareRequest(
         run_id=v8.run_id, managed_world_id="managed"))
     assert prepared.review_package["effect"][EFFECT_KEY] == binding
-    locator = str(tmp_path / accepted.components["candidate_graph"].uri)
+    locator = str(_candidate_path(tmp_path, accepted))
     extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
     from dataclasses import replace
     from apps.live_control_server.models.world_graph_mutation_context import MutationObject
@@ -3073,18 +3410,17 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
             extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
         runs[origin.run_id] = origin
 
-    original_bytes = (tmp_path / accepted.components["candidate_graph"].uri).read_bytes()
+    original_bytes = (_candidate_path(tmp_path, accepted)).read_bytes()
     altered_candidate = json.loads(original_bytes)
     altered_candidate["nodes"][0]["corpus_ref"]["ref_id"] = "other"
-    (tmp_path / accepted.components["candidate_graph"].uri).write_bytes(
+    (_candidate_path(tmp_path, accepted)).write_bytes(
         service._canonical_bytes(altered_candidate))
     with pytest.raises(extract_promote.ExtractPromoteError):
         extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
-    (tmp_path / accepted.components["candidate_graph"].uri).write_bytes(original_bytes)
+    (_candidate_path(tmp_path, accepted)).write_bytes(original_bytes)
 
 
 def test_pc_reference_child_is_held_replayable_and_only_changes_refs(monkeypatch, tmp_path):
-    from application_state.ingest.service import RecapSemanticBasisV10
     from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
 
     parent, raw, runs, body, _ = _pc_reference_fixture(monkeypatch, tmp_path)
@@ -3092,7 +3428,7 @@ def test_pc_reference_child_is_held_replayable_and_only_changes_refs(monkeypatch
     child = runs[result.run_id]
     assert result.schema_ == "dmb_recap_candidate_correction_response_v9"
     assert result.semantic_state == "held" and len(runs) == 2
-    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    candidate = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     original = json.loads(raw)
     assert candidate["nodes"][0].pop("corpus_ref") == body["attachments"][0]["corpus_ref"]
     assert original["nodes"][0].pop("corpus_ref") is None
@@ -3100,14 +3436,14 @@ def test_pc_reference_child_is_held_replayable_and_only_changes_refs(monkeypatch
     assert service.verify_child_replay(child, parent, tmp_path)
     assessment = assess_recap_semantics(child, parent=parent,
                                         source_revision_id=body["source_revision_sha256"], root=tmp_path)
-    basis = RecapSemanticBasisV10.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == result.semantic_basis_sha256 and not assessment.accepted
     _assert_recap_semantic_basis(child, parent, basis)
     with pytest.raises(ApplicationStateConflictError, match="parent revision"):
         _assert_recap_semantic_basis(child, parent.model_copy(update={"revision": 6}), basis)
     tampered = child.model_copy(update={"lineage": copy.deepcopy(child.lineage)})
     tampered.lineage["semantic_candidate_manifest"]["attachments"][0]["anchor_quote"] = "invented"
-    with pytest.raises(ApplicationStateConflictError, match="manifest changed"):
+    with pytest.raises(ApplicationStateConflictError, match="PC reference manifest changed"):
         _assert_recap_semantic_basis(tampered, parent, basis)
 
 
@@ -3216,7 +3552,17 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     runs[child.run_id] = child
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", service.resolve_promotable_ingest_run)
+    original_resolve = service.resolve_promotable_ingest_run
+    def prepare_resolve(run_id, **kwargs):
+        value = original_resolve(run_id, **kwargs)
+        value.sealed_source_uri = str(tmp_path / "source.md")
+        value.world_id = "invented-world"
+        value.ingest_context = None
+        value.registry_context_graph_path = None
+        value.diagnostics = ["resolved via canonical ExtractionRun registry"]
+        return value
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", prepare_resolve)
+    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _: None)
     monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _: child)
     monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: VerifiedManagedWorldBinding(
         managed_world_id="managed", native_world_id="invented-world", binding_version=1,
@@ -3237,7 +3583,7 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     binding = accepted_effect_binding(child, assessment)
     assert binding["world_id"] == "invented-world"
     assert binding["expected_head_revision_id"] == "rev:head"
-    locator = str(tmp_path / child.components["candidate_graph"].uri)
+    locator = str(_candidate_path(tmp_path, child))
     effect = {EFFECT_KEY: binding, "world_id": "invented-world", "parent_revision_id": "rev:head"}
     extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
     with pytest.raises(extract_promote.ExtractPromoteError, match="World or parent head"):
@@ -3267,6 +3613,9 @@ def _append_fixture(monkeypatch, root):
     source = b"Mira found the key under the bridge.\nMira rescued a traveler.\nMira felt frightened.\n"
     (root / "source.md").write_bytes(source)
     digest = _sha(source)
+    _update_source_artifact_record(
+        root, parent.source_artifact_id, content_sha256=digest,
+    )
     old = json.loads((root / "parent.json").read_bytes())
     index = json.loads((root / "spans.json").read_bytes())
     index["content_sha256"] = digest
@@ -3344,12 +3693,11 @@ def test_append_replay_preserves_existing_citations_and_rejects_forged_authority
 
 
 def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tmp_path):
-    from application_state.ingest.service import RecapSemanticBasisV11
     from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
     parent, raw, runs, pc_body, _, index = _append_fixture(monkeypatch, tmp_path)
     introduced = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(pc_body))
     pc_parent = runs[introduced.run_id]
-    pc_bytes = (tmp_path / pc_parent.components["candidate_graph"].uri).read_bytes()
+    pc_bytes = (_candidate_path(tmp_path, pc_parent)).read_bytes()
     pc_payload = json.loads(pc_bytes)
     body = _append_request(pc_parent, pc_payload, index)
     edge_body = _append_request(pc_parent, pc_payload, index, kind="edge", identifier="edge-bridge", line=3)
@@ -3371,7 +3719,7 @@ def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tm
     assert response["schema"] == "dmb_recap_candidate_correction_response_v10"
     assert response["semanticState"] == "held" and len(runs) == 3
     child = runs[response["runId"]]
-    value = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    value = json.loads((_candidate_path(tmp_path, child)).read_bytes())
     for collection in ("nodes", "edges"):
         assert value[collection][0]["evidence_refs"][:-1] == pc_payload[collection][0]["evidence_refs"]
     assert value["nodes"][0]["corpus_ref"] == pc_payload["nodes"][0]["corpus_ref"]
@@ -3382,7 +3730,7 @@ def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tm
     assessment = assess_recap_semantics(child, parent=pc_parent,
         source_revision_id=body["source_revision_sha256"], root=tmp_path)
     assert assessment.marked and not assessment.accepted
-    basis = RecapSemanticBasisV11.model_validate(assessment.basis)
+    basis = RecapSemanticBasisV12.model_validate(assessment.basis, strict=True)
     assert basis.digest() == response["semanticBasisSha256"]
     _assert_recap_semantic_basis(child, pc_parent, basis, get_ancestor=runs.get)
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
@@ -3397,8 +3745,8 @@ def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tm
     package = extract_promote.get_exact_run_review_package(child.run_id)
     assert package.inherited_pc_references is not None
     assert package.inherited_pc_references.rows[0].origin_run_id == pc_parent.run_id
-    assert package.inherited_pc_references.proof_sha256 == basis.inherited_pc_proof_sha256
-    assert (tmp_path / pc_parent.components["candidate_graph"].uri).read_bytes() == pc_bytes
+    assert package.inherited_pc_references.proof_sha256 == basis.operation_basis.inherited_pc_proof_sha256
+    assert (_candidate_path(tmp_path, pc_parent)).read_bytes() == pc_bytes
     assert (tmp_path / "parent.json").read_bytes() == raw
     drifted = child.model_copy(deep=True)
     drifted.lineage["inherited_pc_proof"]["rows"][0]["corpus_ref"]["ref_id"] = "foreign"
@@ -3440,7 +3788,6 @@ def test_append_service_rejects_atomically_before_child(monkeypatch, tmp_path, f
 def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypatch, tmp_path):
     from application_state.ingest import service as ingest_service
     from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV10
-    from apps.live_control_server.services import source_artifact_registry
     parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path)
     body = _append_request(parent, json.loads(raw), index)
     response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(body))
@@ -3448,11 +3795,10 @@ def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypa
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, run_id: runs[run_id])
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact",
-        lambda *_args: SimpleNamespace(content_sha256=body["source_revision_sha256"]))
     seen = []
     def record(run_id, *, expected_revision, basis, decision):
-        assert isinstance(basis, ingest_service.RecapSemanticBasisV11)
+        assert isinstance(basis, ingest_service.RecapSemanticBasisV12)
+        assert isinstance(basis.operation_basis, ingest_service.RecapSemanticBasisV11)
         _assert_recap_semantic_basis(child, parent, basis, get_ancestor=runs.get)
         seen.append((run_id, expected_revision, basis.digest()))
         decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})

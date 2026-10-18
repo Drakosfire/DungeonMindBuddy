@@ -33,6 +33,7 @@ MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
 CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
 CANDIDATE_DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
+CANDIDATE_SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 MANIFEST_SCHEMA_V10 = "dmb_recap_semantic_candidate_manifest_v10"
 CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
@@ -77,6 +78,7 @@ def is_recap_correction(run: ExtractionRun) -> bool:
         CANDIDATE_DERIVATION_V8,
         CANDIDATE_DERIVATION_V9,
         CANDIDATE_DERIVATION_V10,
+        CANDIDATE_SOURCE_BINDING_DERIVATION_V11,
     }
 
 
@@ -113,6 +115,10 @@ def assess_recap_semantics(
         return RecapSemanticAssessment(True, False, basis_sha256, reason, None, basis)
 
     lineage = run.lineage
+    if lineage.get("derivation") == CANDIDATE_SOURCE_BINDING_DERIVATION_V11:
+        return _assess_source_binding_v11(
+            run, parent=parent, source_revision_id=source_revision_id, root=root,
+        )
     if (
         parent is None
         or run.status != ExtractionRunStatus.REVIEWABLE
@@ -323,6 +329,125 @@ def assess_recap_semantics(
     return RecapSemanticAssessment(True, True, basis, None, disposition, basis_fields)
 
 
+def _assess_source_binding_v11(
+    run: ExtractionRun,
+    *,
+    parent: ExtractionRun | None,
+    source_revision_id: str,
+    root: Path | None,
+) -> RecapSemanticAssessment:
+    """Assess an outer source-snapshot basis without changing operation semantics."""
+    from application_state.ingest.service import RecapSemanticBasisV12
+
+    def held(basis_sha: str | None = None, basis_value: dict[str, Any] | None = None):
+        return RecapSemanticAssessment(
+            True, False, basis_sha, HOLD_REASON, None, basis_value,
+        )
+
+    lineage = run.lineage
+    raw_basis = lineage.get("semantic_source_binding_basis_v12")
+    if (
+        not isinstance(raw_basis, dict)
+        or parent is None
+        or root is None
+        or run.status != ExtractionRunStatus.REVIEWABLE
+        or parent.status not in FROZEN_COMPONENT_STATUSES
+        or not parent.has_required_review_components()
+        or run.source_domain != "recap"
+        or parent.source_domain != "recap"
+        or lineage.get("parent_run_id") != parent.run_id
+        or run.run_id == parent.run_id
+        or run.source_artifact_id != parent.source_artifact_id
+        or run.profile_id != parent.profile_id
+        or run.campaign_id != parent.campaign_id
+        or run.session_id != parent.session_id
+    ):
+        return held()
+    try:
+        basis = RecapSemanticBasisV12.model_validate(raw_basis, strict=True)
+        from apps.live_control_server.services.recap_semantic_candidate_correction import (
+            verify_child_replay,
+        )
+
+        if (
+            basis.model_dump(mode="json", by_alias=True) != raw_basis
+            or basis.derivation != CANDIDATE_SOURCE_BINDING_DERIVATION_V11
+            or basis.operation_derivation != lineage.get("operation_derivation")
+            or basis.operation_manifest_schema != lineage.get("operation_manifest_schema")
+            or basis.child_snapshot_uri != run.components["source_artifact"].uri
+            or basis.parent_source_uri != parent.components["source_artifact"].uri
+            or basis.source_artifact_id != run.source_artifact_id
+            or basis.source_revision_sha256 != _sha(run.components["source_artifact"].sha256)
+            or basis.source_revision_sha256 != _sha(parent.components["source_artifact"].sha256)
+            or basis.span_index_uri != run.components["source_span_index"].uri
+            or basis.span_index_uri != parent.components["source_span_index"].uri
+            or basis.span_index_sha256 != _sha(run.components["source_span_index"].sha256)
+            or basis.span_index_sha256 != _sha(parent.components["source_span_index"].sha256)
+            or _sha(source_revision_id) != basis.source_revision_sha256
+            or not verify_child_replay(run, parent, root)
+        ):
+            return held()
+
+        projected_components = dict(run.components)
+        projected_components["source_artifact"] = run.components[
+            "source_artifact"
+        ].model_copy(update={"uri": parent.components["source_artifact"].uri})
+        projected_lineage = dict(lineage)
+        projected_lineage["derivation"] = basis.operation_derivation
+        projected_lineage["_source_binding_outer_derivation"] = basis.derivation
+        projected = run.model_copy(update={
+            "components": projected_components,
+            "lineage": projected_lineage,
+        })
+        operation = assess_recap_semantics(
+            projected, parent=parent, source_revision_id=source_revision_id, root=root,
+        )
+        if (
+            operation.basis is None
+            or operation.basis != basis.operation_basis.model_dump(
+                mode="json", by_alias=True, exclude_none=True,
+            )
+        ):
+            return held()
+    except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        return held()
+
+    outer_basis = basis.model_dump(mode="json", by_alias=True)
+    basis_sha = basis.digest()
+    raw_disposition = lineage.get("semantic_disposition")
+    if (
+        not isinstance(raw_disposition, Mapping)
+        or type(raw_disposition.get("version")) is not int
+        or raw_disposition.get("version") != DISPOSITION_VERSION
+        or _sha(raw_disposition.get("basis_sha256")) != basis_sha
+        or raw_disposition.get("state") not in {"accepted", "rejected"}
+        or not all(
+            isinstance(raw_disposition.get(key), str)
+            and raw_disposition[key].strip()
+            for key in ("review_decision_ref", "reviewer_id", "decided_at")
+        )
+    ):
+        return held(basis_sha, outer_basis)
+    if (
+        basis.operation_derivation == CANDIDATE_DERIVATION_V9
+        and raw_disposition["state"] == "accepted"
+        and (
+            raw_disposition["reviewer_id"] != lineage["semantic_candidate_manifest"].get("reviewer_id")
+            or raw_disposition["review_decision_ref"]
+            != lineage["semantic_candidate_manifest"].get("review_decision_ref")
+        )
+    ):
+        return held(basis_sha, outer_basis)
+    disposition = dict(raw_disposition)
+    if disposition["state"] == "rejected":
+        return RecapSemanticAssessment(
+            True, False, basis_sha, REJECTED_REASON, disposition, outer_basis,
+        )
+    return RecapSemanticAssessment(
+        True, True, basis_sha, None, disposition, outer_basis,
+    )
+
+
 def accepted_effect_binding(
     run: ExtractionRun, assessment: RecapSemanticAssessment
 ) -> dict[str, Any]:
@@ -401,6 +526,23 @@ def accepted_effect_binding(
             world_id=assessment.basis["world_id"],
             expected_head_revision_id=assessment.basis["expected_head_revision_id"],
         )
+    if run.lineage.get("derivation") == CANDIDATE_SOURCE_BINDING_DERIVATION_V11:
+        binding.update(
+            manifest_sha256=_sha(run.lineage.get("manifest_sha256")),
+            derivation=CANDIDATE_SOURCE_BINDING_DERIVATION_V11,
+            operation_derivation=run.lineage.get("operation_derivation"),
+            operation_manifest_schema=run.lineage.get("operation_manifest_schema"),
+            source_binding_basis_sha256=assessment.basis_sha256,
+        )
+        operation = assessment.basis.get("operation_basis")
+        if isinstance(operation, dict):
+            for key in (
+                "expected_parent_revision", "registry_sha256", "roster_key",
+                "world_id", "expected_head_revision_id",
+                "inherited_pc_proof_sha256",
+            ):
+                if key in operation and operation[key] is not None:
+                    binding[key] = operation[key]
     return binding
 
 
@@ -424,6 +566,7 @@ __all__ = [
     "CANDIDATE_DERIVATION_V4",
     "CANDIDATE_DERIVATION_V5",
     "CANDIDATE_DERIVATION_V6",
+    "CANDIDATE_SOURCE_BINDING_DERIVATION_V11",
     "MANIFEST_SCHEMA_V3",
     "MANIFEST_SCHEMA_V4",
     "MANIFEST_SCHEMA_V5",

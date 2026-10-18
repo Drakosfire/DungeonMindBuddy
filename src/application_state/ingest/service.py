@@ -9,7 +9,7 @@ import re
 from typing import Any, Callable, Literal, NoReturn
 
 import psycopg
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 
 from application_state.cli import assert_at_head
@@ -47,6 +47,7 @@ _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 _RECAP_CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 _RECAP_CANDIDATE_DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
+_RECAP_SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 _RECAP_CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 _RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
@@ -247,6 +248,128 @@ class RecapSemanticBasisV11(RecapSemanticBasisV2):
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v10"]
     expected_parent_revision: int = Field(strict=True, ge=1)
     inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+RecapSemanticOperationBasis = (
+    RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4
+    | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7
+    | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10
+    | RecapSemanticBasisV11
+)
+
+_RECAP_OPERATION_BASIS_BY_REQUEST = {
+    1: (_RECAP_CANDIDATE_DERIVATION, "dmb_recap_semantic_candidate_manifest_v1", RecapSemanticBasisV2),
+    2: (_RECAP_CANDIDATE_DERIVATION_V2, "dmb_recap_semantic_candidate_manifest_v2", RecapSemanticBasisV3),
+    3: (_RECAP_CANDIDATE_DERIVATION_V3, "dmb_recap_semantic_candidate_manifest_v3", RecapSemanticBasisV4),
+    4: (_RECAP_CANDIDATE_DERIVATION_V4, "dmb_recap_semantic_candidate_manifest_v4", RecapSemanticBasisV5),
+    5: (_RECAP_CANDIDATE_DERIVATION_V5, "dmb_recap_semantic_candidate_manifest_v5", RecapSemanticBasisV6),
+    6: (_RECAP_CANDIDATE_DERIVATION_V6, "dmb_recap_semantic_candidate_manifest_v6", RecapSemanticBasisV7),
+    7: (_RECAP_CANDIDATE_DERIVATION_V7, "dmb_recap_semantic_candidate_manifest_v7", RecapSemanticBasisV8),
+    8: (_RECAP_CANDIDATE_DERIVATION_V8, "dmb_recap_semantic_candidate_manifest_v8", RecapSemanticBasisV9),
+    9: (_RECAP_CANDIDATE_DERIVATION_V9, "dmb_recap_semantic_candidate_manifest_v9", RecapSemanticBasisV10),
+    10: (_RECAP_CANDIDATE_DERIVATION_V10, "dmb_recap_semantic_candidate_manifest_v10", RecapSemanticBasisV11),
+}
+
+
+class RecapSemanticBasisV12(BaseModel):
+    """Source-snapshot envelope around an unchanged semantic-operation basis."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
+    schema_: Literal["dmb_recap_semantic_basis_v12"] = Field(
+        default="dmb_recap_semantic_basis_v12", alias="schema"
+    )
+    request_version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    derivation: Literal["operator_recap_semantic_source_binding_v11"]
+    operation_derivation: Literal[
+        "operator_recap_semantic_candidate_correction_v1",
+        "operator_recap_semantic_candidate_correction_v2",
+        "operator_recap_semantic_candidate_correction_v3",
+        "operator_recap_semantic_candidate_correction_v4",
+        "operator_recap_semantic_candidate_correction_v5",
+        "operator_recap_semantic_candidate_correction_v6",
+        "operator_recap_semantic_candidate_correction_v7",
+        "operator_recap_semantic_candidate_correction_v8",
+        "operator_recap_semantic_candidate_correction_v9",
+        "operator_recap_semantic_candidate_correction_v10",
+    ]
+    operation_manifest_schema: Literal[
+        "dmb_recap_semantic_candidate_manifest_v1",
+        "dmb_recap_semantic_candidate_manifest_v2",
+        "dmb_recap_semantic_candidate_manifest_v3",
+        "dmb_recap_semantic_candidate_manifest_v4",
+        "dmb_recap_semantic_candidate_manifest_v5",
+        "dmb_recap_semantic_candidate_manifest_v6",
+        "dmb_recap_semantic_candidate_manifest_v7",
+        "dmb_recap_semantic_candidate_manifest_v8",
+        "dmb_recap_semantic_candidate_manifest_v9",
+        "dmb_recap_semantic_candidate_manifest_v10",
+    ]
+    operation_basis: RecapSemanticOperationBasis
+    parent_source_uri: str
+    child_snapshot_uri: str
+    source_artifact_id: str
+    source_revision_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    span_index_uri: str
+    span_index_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("operation_basis", mode="before")
+    @classmethod
+    def _parse_exact_operation_basis(cls, value: object, info):
+        request_version = info.data.get("request_version")
+        expected = _RECAP_OPERATION_BASIS_BY_REQUEST.get(request_version)
+        if expected is None:
+            raise ValueError("source-binding basis request version is unknown")
+        model = expected[2]
+        if isinstance(value, model):
+            return value
+        if not isinstance(value, dict) or value.get("schema") != model.model_fields["schema_"].default:
+            raise ValueError("source-binding basis operation schema does not match its request")
+        return model.model_validate(value, strict=True)
+
+    @field_validator(
+        "parent_source_uri", "child_snapshot_uri", "source_artifact_id",
+        "span_index_uri",
+    )
+    @classmethod
+    def _nonblank_binding_identity(cls, value: str) -> str:
+        return RecapSemanticBasisV1._nonblank(value)
+
+    @model_validator(mode="after")
+    def _closed_version_mapping(self):
+        expected_derivation, expected_manifest, expected_model = (
+            _RECAP_OPERATION_BASIS_BY_REQUEST[self.request_version]
+        )
+        if (
+            self.operation_derivation != expected_derivation
+            or self.operation_manifest_schema != expected_manifest
+            or type(self.operation_basis) is not expected_model
+        ):
+            raise ValueError("source-binding basis version mapping is inconsistent")
+        operation = self.operation_basis
+        if (
+            hasattr(operation, "derivation")
+            and operation.derivation != expected_derivation
+        ):
+            raise ValueError("source-binding operation derivation is inconsistent")
+        operation_manifest_schema = getattr(operation, "manifest_schema", expected_manifest)
+        if operation_manifest_schema != expected_manifest:
+            raise ValueError("source-binding operation manifest schema is inconsistent")
+        if (
+            operation.source_uri != self.parent_source_uri
+            or operation.source_artifact_id != self.source_artifact_id
+            or operation.source_revision_sha256 != self.source_revision_sha256
+            or operation.span_index_uri != self.span_index_uri
+            or operation.span_index_sha256 != self.span_index_sha256
+        ):
+            raise ValueError("source-binding envelope does not match its operation basis")
+        return self
+
+    def digest(self) -> str:
+        encoded = json.dumps(
+            self.model_dump(mode="json", by_alias=True), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=True,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
 
 class RecapSemanticDispositionCommandV1(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -687,6 +810,7 @@ def _assert_inherited_pc_basis(
         _RECAP_CANDIDATE_DERIVATION_V5, _RECAP_CANDIDATE_DERIVATION_V6,
         _RECAP_CANDIDATE_DERIVATION_V7, _RECAP_CANDIDATE_DERIVATION_V8,
         _RECAP_CANDIDATE_DERIVATION_V9, _RECAP_CANDIDATE_DERIVATION_V10,
+        _RECAP_SOURCE_BINDING_DERIVATION_V11,
     }
     seen: set[str] = set()
     links: list[dict[str, object]] = []
@@ -698,6 +822,20 @@ def _assert_inherited_pc_basis(
             raise ApplicationStateConflictError("inherited PC lineage is cyclic or unbounded")
         seen.add(current.run_id)
         lineage = current.lineage
+        projected_outer = lineage.get("_source_binding_outer_derivation")
+        outer_binding = (
+            lineage.get("derivation") == _RECAP_SOURCE_BINDING_DERIVATION_V11
+            or projected_outer == _RECAP_SOURCE_BINDING_DERIVATION_V11
+        )
+        operation_derivation = (
+            lineage.get("operation_derivation")
+            if lineage.get("derivation") == _RECAP_SOURCE_BINDING_DERIVATION_V11
+            else lineage.get("derivation")
+        )
+        identity_derivation = (
+            projected_outer if projected_outer == _RECAP_SOURCE_BINDING_DERIVATION_V11
+            else lineage.get("derivation")
+        )
         parent_id = lineage.get("parent_run_id")
         manifest = lineage.get("semantic_candidate_manifest")
         if not isinstance(parent_id, str) or not parent_id or not isinstance(manifest, dict):
@@ -709,8 +847,10 @@ def _assert_inherited_pc_basis(
         current_candidate = current.components.get("candidate_graph")
         previous_candidate = previous.components.get("candidate_graph")
         source = current.components.get("source_artifact")
+        previous_source = previous.components.get("source_artifact")
         spans = current.components.get("source_span_index")
-        if not all((current_candidate, previous_candidate, source, spans)):
+        previous_spans = previous.components.get("source_span_index")
+        if not all((current_candidate, previous_candidate, source, previous_source, spans, previous_spans)):
             raise ApplicationStateConflictError("inherited PC components are missing")
         manifest_sha = _inherited_pc_proof_sha(manifest)
         parent_sha = _sha(previous_candidate.sha256)
@@ -718,25 +858,58 @@ def _assert_inherited_pc_basis(
         if (lineage.get("manifest_sha256") != manifest_sha
             or lineage.get("parent_candidate_sha256") != parent_sha
             or not candidate_sha or not parent_sha
-            or source != previous.components.get("source_artifact")
-            or spans != previous.components.get("source_span_index")
+            or (not outer_binding and source != previous_source)
+            or (outer_binding and (
+                source.sha256 != previous_source.sha256
+                or (projected_outer is None and source.uri == previous_source.uri)
+            ))
+            or spans != previous_spans
             or current.campaign_id != previous.campaign_id
             or current.session_id != previous.session_id
             or current.source_artifact_id != previous.source_artifact_id):
             raise ApplicationStateConflictError("inherited PC lineage pins changed")
+        if outer_binding and projected_outer is None:
+            try:
+                source_basis = RecapSemanticBasisV12.model_validate(
+                    lineage.get("semantic_source_binding_basis_v12"), strict=True,
+                )
+            except (TypeError, ValueError) as exc:
+                raise ApplicationStateConflictError(
+                    "inherited PC source-binding basis is malformed"
+                ) from exc
+            if (
+                source_basis.model_dump(mode="json", by_alias=True)
+                != lineage.get("semantic_source_binding_basis_v12")
+                or source_basis.operation_derivation != operation_derivation
+                or source_basis.operation_manifest_schema != manifest.get("schema")
+                or lineage.get("operation_manifest_schema") != manifest.get("schema")
+                or source_basis.operation_basis.child_run_id != current.run_id
+                or source_basis.operation_basis.parent_run_id != previous.run_id
+                or source_basis.child_snapshot_uri != source.uri
+                or source_basis.parent_source_uri != previous_source.uri
+                or source_basis.source_revision_sha256 != _sha(source.sha256)
+                or source_basis.source_revision_sha256 != _sha(previous_source.sha256)
+                or source_basis.span_index_uri != spans.uri
+                or source_basis.span_index_sha256 != _sha(spans.sha256)
+            ):
+                raise ApplicationStateConflictError(
+                    "inherited PC source-binding pins changed"
+                )
         link = {
             "run_id": current.run_id, "parent_run_id": parent_id,
-            "derivation": lineage["derivation"], "manifest_sha256": manifest_sha,
+            "derivation": identity_derivation, "manifest_sha256": manifest_sha,
             "candidate_sha256": candidate_sha, "parent_candidate_sha256": parent_sha,
         }
+        if outer_binding:
+            link["operation_derivation"] = operation_derivation
         links.append(link)
-        if lineage["derivation"] == _RECAP_CANDIDATE_DERIVATION_V8:
+        if operation_derivation == _RECAP_CANDIDATE_DERIVATION_V8:
             operations = manifest.get("node_omissions")
             if not isinstance(operations, list):
                 raise ApplicationStateConflictError("inherited PC node omission basis changed")
             omitted.update(row["node_id"] for row in operations
                            if isinstance(row, dict) and isinstance(row.get("node_id"), str))
-        if lineage["derivation"] == _RECAP_CANDIDATE_DERIVATION_V9:
+        if operation_derivation == _RECAP_CANDIDATE_DERIVATION_V9:
             rows = manifest.get("attachments")
             if (manifest.get("schema") != "dmb_recap_semantic_candidate_manifest_v9"
                 or not isinstance(rows, list) or not 1 <= len(rows) <= 6
@@ -792,10 +965,13 @@ def _assert_inherited_pc_basis(
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12,
     get_ancestor: Callable[[str], ExtractionRun | None] | None = None,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
+    if isinstance(basis, RecapSemanticBasisV12):
+        _assert_recap_source_binding_basis(child, parent, basis, get_ancestor)
+        return
     lineage = child.lineage
     if (
         child.run_id != basis.child_run_id
@@ -1118,11 +1294,73 @@ def _assert_recap_semantic_basis(
             raise ApplicationStateConflictError("recap semantic candidate manifest changed")
 
 
+def _assert_recap_source_binding_basis(
+    child: ExtractionRun,
+    parent: ExtractionRun,
+    basis: RecapSemanticBasisV12,
+    get_ancestor: Callable[[str], ExtractionRun | None] | None,
+) -> None:
+    """Validate the outer source snapshot, then run the legacy operation proof.
+
+    The projected child exists only in memory so the unchanged operation basis
+    can still be checked against the parent's source URI. Actual source binding
+    is checked against the persisted child and V12 envelope first.
+    """
+    lineage = child.lineage
+    source = child.components.get("source_artifact")
+    parent_source = parent.components.get("source_artifact")
+    spans = child.components.get("source_span_index")
+    parent_spans = parent.components.get("source_span_index")
+    canonical_basis = basis.model_dump(mode="json", by_alias=True)
+    disposition = lineage.get("semantic_disposition")
+    if (
+        lineage.get("derivation") != _RECAP_SOURCE_BINDING_DERIVATION_V11
+        or lineage.get("operation_derivation") != basis.operation_derivation
+        or lineage.get("operation_manifest_schema") != basis.operation_manifest_schema
+        or lineage.get("semantic_source_binding_basis_v12") != canonical_basis
+        or not isinstance(disposition, dict)
+        or _sha(disposition.get("basis_sha256")) != basis.digest()
+        or child.run_id != basis.operation_basis.child_run_id
+        or parent.run_id != basis.operation_basis.parent_run_id
+        or child.source_domain != "recap"
+        or parent.source_domain != "recap"
+        or child.status != ExtractionRunStatus.REVIEWABLE
+        or parent.status not in FROZEN_COMPONENT_STATUSES
+        or not parent.has_required_review_components()
+        or child.source_artifact_id != parent.source_artifact_id
+        or child.source_artifact_id != basis.source_artifact_id
+        or not source or not parent_source or not spans or not parent_spans
+        or source.uri != basis.child_snapshot_uri
+        or parent_source.uri != basis.parent_source_uri
+        or _sha(source.sha256) != basis.source_revision_sha256
+        or _sha(parent_source.sha256) != basis.source_revision_sha256
+        or spans.uri != basis.span_index_uri
+        or spans != parent_spans
+        or _sha(spans.sha256) != basis.span_index_sha256
+    ):
+        raise ApplicationStateConflictError("recap source-binding basis changed")
+
+    projected_components = dict(child.components)
+    projected_components["source_artifact"] = source.model_copy(
+        update={"uri": parent_source.uri}
+    )
+    projected_lineage = dict(lineage)
+    projected_lineage["derivation"] = basis.operation_derivation
+    projected_lineage["_source_binding_outer_derivation"] = basis.derivation
+    projected_child = child.model_copy(update={
+        "components": projected_components,
+        "lineage": projected_lineage,
+    })
+    _assert_recap_semantic_basis(
+        projected_child, parent, basis.operation_basis, get_ancestor
+    )
+
+
 def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11 | RecapSemanticBasisV12,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.
@@ -1131,7 +1369,12 @@ def record_recap_semantic_disposition(
     time. A conflicting or stale decision never rewrites a frozen component.
     """
     canonical = _require_run_id(run_id)
-    if expected_revision < 1 or canonical != basis.child_run_id:
+    basis_child_run_id = (
+        basis.operation_basis.child_run_id
+        if isinstance(basis, RecapSemanticBasisV12)
+        else basis.child_run_id
+    )
+    if expected_revision < 1 or canonical != basis_child_run_id:
         raise ApplicationStateValidationError("decision run/revision is invalid")
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
