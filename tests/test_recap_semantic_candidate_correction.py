@@ -3888,10 +3888,12 @@ def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypa
             RecapCandidateCorrectionRequestV10.model_validate(bounded)
 
 
-def _actor_recovery_request(parent, payload, index, source_text, *, action="retarget"):
+def _actor_recovery_request(
+    parent, payload, index, source_text, *, action="retarget", edge_id="edge-bridge",
+):
     from apps.live_control_server.services.recap_semantic_candidate_correction import _canonical_bytes
 
-    edge = next(row for row in payload["edges"] if row["edge_id"] == "edge-bridge")
+    edge = next(row for row in payload["edges"] if row["edge_id"] == edge_id)
     span_id = index["spans"][0]["source_span_id"]
     name = "Lysandro"
     name_start = source_text.index(name)

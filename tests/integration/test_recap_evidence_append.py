@@ -723,7 +723,10 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
         party_context.CAMPAIGN_CORPUS, campaign_id, (empty_corpus, "Synthetic"),
     )
 
-    source_text = "Mira crossed the painted bridge. The brass key remained hidden.\n"
+    source_text = (
+        "Mira crossed the painted bridge. The brass key remained hidden. "
+        "Lysandro found the key under the bridge, and Mira confirmed he waits at the guard headquarters.\n"
+    )
     artifact = create_recap_source_artifact(
         tmp_path,
         world_id=world_id,
@@ -745,12 +748,35 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
                 "anchor_quotes": ["Mira crossed the painted bridge."],
             }],
         }]},
-        "location_pass": {"observation_nodes": []},
+        "location_pass": {"observation_nodes": [{
+            "node_id": "guard-hq",
+            "label": "Guard Headquarters",
+            "node_type": "location",
+            "description": "The guard headquarters mentioned in the recap.",
+            "importance": "medium",
+            "evidence_refs": [{
+                "source_span_ref_id": span_id,
+                "anchor_quotes": ["guard headquarters"],
+            }],
+        }]},
         "collective_pass": {"observation_nodes": []},
         "object_pass": {"observation_nodes": []},
         "thread_pass": {"observation_nodes": [], "ignored_items": [], "deferred_items": []},
         "beat_pass": {"observation_beats": []},
-        "edge_pass": {"observation_edges": []},
+        "edge_pass": {"observation_edges": [{
+            "edge_id": "edge-lysandro-headquarters",
+            "from_node_id": "mira",
+            "to_node_id": "guard-hq",
+            "relationship_type": "located_in",
+            "predicate_family": "spatial",
+            "label": "Lysandro waits at the guard headquarters.",
+            "evidence_refs": [{
+                "source_span_ref_id": span_id,
+                "anchor_quotes": [
+                    "Lysandro found the key under the bridge, and Mira confirmed he waits at the guard headquarters."
+                ],
+            }],
+        }]},
     })
 
     def produce_parent():
@@ -827,6 +853,88 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     retry = correction.correct_recap_candidate(request)
     assert retry.run_id == fresh_child.run_id
     assert ingest.get_extraction_run(fresh_child.run_id).revision == fresh_child.revision
+
+    # Join the actual producer output to V11 recovery: extraction intentionally
+    # omits Lysandro and misbinds the located_in assertion to Mira. The source-
+    # supported child adds only Lysandro and retargets only that declared edge.
+    production_candidate = json.loads(parent_candidate_bytes)
+    actor_request_body = _actor_recovery_request(
+        parent, production_candidate, source.source_span_index, source_text,
+        edge_id="edge-lysandro-headquarters",
+    )
+    actor_request = RecapCandidateCorrectionRequestV11.model_validate(
+        actor_request_body, strict=True,
+    )
+    actor_result = correction.correct_recap_candidate(actor_request)
+    assert actor_result.semantic_state == "held"
+    actor_child = ingest.get_extraction_run(actor_result.run_id)
+    actor_candidate_bytes = _component_path(
+        tmp_path, actor_child, "candidate_graph",
+    ).read_bytes()
+    actor_candidate = json.loads(actor_candidate_bytes)
+    actor_node = actor_candidate["nodes"][-1]
+    assert actor_node["label"] == "Lysandro"
+    assert actor_node["corpus_ref"] is None
+    assert actor_candidate["nodes"] == production_candidate["nodes"] + [actor_node]
+    expected_edges = copy.deepcopy(production_candidate["edges"])
+    expected_edge = next(
+        edge for edge in expected_edges
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    expected_edge["from_node_id"] = actor_node["node_id"]
+    actual_edge = next(
+        edge for edge in actor_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    assert actor_candidate["edges"] == expected_edges
+    assert actual_edge["evidence_refs"] == next(
+        edge["evidence_refs"] for edge in production_candidate["edges"]
+        if edge["edge_id"] == "edge-lysandro-headquarters"
+    )
+    for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        assert actor_candidate.get(key, []) == production_candidate.get(key, [])
+    assert _component_path(tmp_path, actor_child, "source_artifact").read_bytes() == parent_source_bytes
+    assert source_path.read_bytes() == parent_source_bytes
+    assert span_path.read_bytes() == parent_span_bytes
+    assert candidate_path.read_bytes() == parent_candidate_bytes
+    actor_assessment = assess_recap_semantics(
+        actor_child, parent=parent,
+        source_revision_id=artifact.content_sha256, root=tmp_path,
+    )
+    assert actor_assessment.marked and not actor_assessment.accepted
+    actor_basis = ingest.RecapSemanticBasisV12.model_validate(
+        actor_assessment.basis, strict=True,
+    )
+    assert actor_basis.request_version == 11
+    assert actor_basis.operation_basis.schema_ == "dmb_recap_semantic_basis_v13"
+    assert correction.verify_child_replay(actor_child, parent, tmp_path)
+    actor_retry = correction.correct_recap_candidate(actor_request)
+    assert actor_retry.run_id == actor_child.run_id
+    assert ingest.get_extraction_run(actor_child.run_id).revision == actor_child.revision
+    fresh_actor_code = """
+import json,sys
+from pathlib import Path
+from application_state.ingest.service import RecapSemanticBasisV12, get_extraction_run
+from apps.live_control_server.services.recap_semantic_candidate_correction import verify_child_replay
+from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
+import apps.live_control_server.services.recap_semantic_candidate_correction as correction
+from graph_memory import party_context
+root=Path(sys.argv[1]); correction.repo_root=lambda:root
+party_context.CAMPAIGN_CORPUS['synthetic-campaign']=(root/'empty-synthetic-corpus','Synthetic')
+child=get_extraction_run(sys.argv[2]); parent=get_extraction_run(sys.argv[3])
+assert verify_child_replay(child,parent,root)
+assessment=assess_recap_semantics(child,parent=parent,source_revision_id=sys.argv[4],root=root)
+assert assessment.marked and not assessment.accepted
+basis=RecapSemanticBasisV12.model_validate(assessment.basis,strict=True)
+assert basis.operation_basis.schema_=='dmb_recap_semantic_basis_v13'
+candidate=json.loads((root/child.components['candidate_graph'].uri.removeprefix('repo://')).read_bytes())
+print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['semantic_disposition']['state']}))
+"""
+    fresh_actor = subprocess.check_output(
+        [sys.executable, "-c", fresh_actor_code, str(tmp_path), actor_child.run_id,
+         parent.run_id, artifact.content_sha256], text=True,
+    )
+    assert json.loads(fresh_actor) == {"actor": "Lysandro", "held": "held"}
 
     original_lock = correction._source_binding_child_lock
     package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
