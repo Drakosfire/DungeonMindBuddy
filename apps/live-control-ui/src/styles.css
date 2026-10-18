@@ -3196,3 +3196,10 @@ button:disabled {
   background: var(--ui-background-panel, #171d27);
   box-shadow: 0 10px 32px #0002;
 }
+
+/* Actual playable Scenes are cards; ordinary headings and Markdown rules are not. */
+.world-owned-plan .ProseMirror [data-dmb-playable-kind="scene"] {
+  border-block-start: 2px solid var(--md-accent, #9f7b38);
+  margin-block-start: 1.75rem;
+  padding-block-start: 1rem;
+}
