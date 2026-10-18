@@ -1,8 +1,8 @@
 # INGEST: read the exact unpublished candidate in recap prose
 
-Status: ACTIVE — PRIME explicitly authorizes ROOT implementation of this bounded
-read presentation contract. ARCHITECTURE accepted the design and source-only
-read scope after ROOT identified and prohibited promotion-resolver side effects.
+Status: SETTLED — merged as PR #1401 at239011a4ebe4aa478d38b23da8760366bc88f972
+after ARCHITECTURE Cycle2 PASS on9717a5232e06eaffe1bb8f285ce3c38053d20df7.
+Scoped API/UI delivery is verified; this original write lease is closed.
 Base: origin/main@15aa918eb91071b469ea7f733cce6d2c6a3262e6.
 Branch: codex/ingest-exact-candidate-reader. Reuse buddy-context-loop checkout
 and established dependencies. Topology: parallel-independent of DOGFOOD's
@@ -189,3 +189,19 @@ The mounted regression retains unknown header text, candidate inspection, exact
 raw source and evidence attachment together. Existing shared-reader diagnostic
 assertions are updated to the already-current saved-image/safe-URL messages;
 no corresponding Markdown admission behavior is changed.
+
+
+## Delivery settlement
+
+API PID682397 and UI index5d90f904 deliver this reviewed capability. Ten retained
+API records and captured Ingestion artifact hashes remain unchanged; older UI
+assets are retained. Actual saved Session29 candidate opens66nodes/65edges and
+Brin's local inspector/relationships/pinned evidence. No provider, correction or
+publication occurred. Raw3component hashes are unchanged; the isolated read was
+36.54ms (one sample, not a benchmark).66mentions are not66distinct nodes:
+47nodes still have no literal linked mention.
+
+Live rendering exposed two four-space-indented source blocks containing generated
+navigation markup. CommonMark treats these as code; they must remain source text.
+That remaining issue is separately bounded by HANDOFF-INGEST-indented-candidate-code.md.
+This delivery does not establish full recall or semantic acceptance of Session29.
