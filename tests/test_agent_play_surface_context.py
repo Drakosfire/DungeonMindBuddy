@@ -573,11 +573,12 @@ def test_renderer_bounds_long_play_material() -> None:
     assert "s" * (PLAY_SCENE_BODY_MAX_CHARS + 5) not in rendered
 
 
+@pytest.mark.parametrize("kind", ["plan", "runbook"])
 def test_world_play_context_v2_resolves_exact_world_run_revision_and_pin(
-    tmp_path: Path,
+    tmp_path: Path, kind: str,
 ) -> None:
     record = _world_play_record()
-    committed = _world_committed()
+    committed = _world_committed(kind=kind)
     with (
         patch(
             "apps.live_control_server.services.world_container_registry.get_world_container",
@@ -618,7 +619,7 @@ def test_world_play_context_v2_resolves_exact_world_run_revision_and_pin(
         DOC_ID,
         revision_n=1,
         expected_sha256=SHA256,
-        kind="runbook",
+        kind=None,
         expected_world_id="world-a",
     )
 
@@ -669,8 +670,10 @@ def test_world_play_context_v2_rejects_stale_run_revision_and_pin_mismatch(
         {"document_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd"},
         {"revision_n": 2},
         {"content_sha256": "f" * 64},
+        {"work_revision_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd"},
+        {"world_id": "world-b"},
     ],
-    ids=("artifact", "revision", "sha"),
+    ids=("artifact", "revision", "sha", "work_revision", "world"),
 )
 def test_world_play_context_v2_rejects_each_committed_pin_mismatch(
     tmp_path: Path,
@@ -714,3 +717,121 @@ def test_world_play_context_v2_rejects_campaign_run_even_when_ids_match(
                 _world_play_request(), root=tmp_path, outer_world_id="world-a"
             )
     get_run.assert_called_once_with(tmp_path, world_id="world-a", run_id=RUN_ID)
+
+
+def _create_real_world_play_context(root: Path, *, kind: str = "plan"):
+    """Use real Content/Run producers; no mocked pin or manifest."""
+    from application_state.content.service import (
+        commit_plan, commit_runbook, create_world_plan, create_world_runbook,
+    )
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    from apps.live_control_server.services.play_run_registry import (
+        create_or_replay_world_play_run, replace_world_play_run_progress,
+    )
+
+    world = create_world_container(root, name="Agent pin test")
+    create = create_world_plan if kind == "plan" else create_world_runbook
+    commit = commit_plan if kind == "plan" else commit_runbook
+    obj = create(title="Pinned opening", world_id=world.world_id)
+    obj, revision = commit(str(obj.work_object_id), C2S27_SHAPED_V2_MARKDOWN,
+                           expected_revision=obj.object_revision)
+    run = create_or_replay_world_play_run(
+        root, world_id=world.world_id, run_id=str(uuid.uuid4()),
+        playable_artifact_id=str(obj.work_object_id),
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+    run = replace_world_play_run_progress(
+        root, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision,
+        progress=PlayRunProgress(current_beat_id="beat:hold-the-gate",
+                                 current_scene_id="scene:gate-line",
+                                 resolved_beat_ids=[], selections={}, notes_by_element_id={}),
+    )
+    return world, obj, revision, run
+
+
+@pytest.mark.parametrize("kind", ["plan", "runbook"])
+def test_real_world_play_pin_survives_plan_edits_and_run_progress(
+    tmp_path: Path, application_state_dsn: str, kind: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan, commit_runbook, update_plan_metadata, update_runbook_metadata,
+    )
+    from apps.live_control_server.services.agent_play_surface_context import (
+        resolve_world_play_turn_snapshot, resolve_historical_world_play_turn_snapshot,
+    )
+    from apps.live_control_server.services.play_run_registry import replace_world_play_run_progress
+
+    assert application_state_dsn
+    world, obj, revision, run = _create_real_world_play_context(tmp_path, kind=kind)
+    args = dict(root=tmp_path, world_id=world.world_id, run_id=run.run_id,
+                run_revision=run.run_revision)
+    original, receipt = resolve_world_play_turn_snapshot(**args)
+    request = _world_play_request(world_id=world.world_id, run_id=run.run_id,
+                                  run_revision=run.run_revision)
+    assert resolve_agent_play_world_surface_context_v2(
+        request, root=tmp_path, outer_world_id=world.world_id,
+    ).context == original
+    assert receipt.runbook_work_revision_id == revision.work_revision_id
+    frozen = receipt.model_dump(mode="json")
+    metadata = update_plan_metadata if kind == "plan" else update_runbook_metadata
+    commit = commit_plan if kind == "plan" else commit_runbook
+    obj = metadata(str(obj.work_object_id), title="Later title", expected_revision=obj.object_revision)
+    assert resolve_historical_world_play_turn_snapshot(
+        root=tmp_path, world_id=world.world_id, receipt=receipt,
+    ) == original
+    obj, _ = commit(str(obj.work_object_id), C2S27_SHAPED_V2_MARKDOWN + "\nLATER BODY MARKER\n",
+                    expected_revision=obj.object_revision)
+    current, new_receipt = resolve_world_play_turn_snapshot(**args)
+    assert current.current_play == original.current_play
+    assert new_receipt.runbook_work_revision_id == receipt.runbook_work_revision_id
+    assert new_receipt.runbook_content_sha256 == receipt.runbook_content_sha256
+    assert new_receipt.runbook_object_revision > receipt.runbook_object_revision
+    replace_world_play_run_progress(
+        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision,
+        progress=run.progress.model_copy(update={"current_scene_id": None}),
+    )
+    with pytest.raises(WorldPlaySurfaceContextError, match="run_revision is stale"):
+        resolve_world_play_turn_snapshot(**args)
+    historical = resolve_historical_world_play_turn_snapshot(
+        root=tmp_path, world_id=world.world_id, receipt=receipt,
+    )
+    assert historical == original
+    assert "LATER BODY MARKER" not in render_agent_surface_context(historical)
+    assert receipt.model_dump(mode="json") == frozen
+    from apps.live_control_server.services.world_container_registry import WorldContainerRegistryError
+    with pytest.raises((WorldPlaySurfaceContextError, WorldContainerRegistryError)):
+        resolve_historical_world_play_turn_snapshot(
+            root=tmp_path, world_id="foreign-world", receipt=receipt,
+        )
+    for key, value in (("runbook_work_revision_id", uuid.uuid4()),
+                       ("runbook_content_sha256", "f" * 64),
+                       ("runbook_revision_n", 999)):
+        with pytest.raises((WorldPlaySurfaceContextError, WorkspaceDocumentRegistryError)):
+            resolve_historical_world_play_turn_snapshot(
+                root=tmp_path, world_id=world.world_id,
+                receipt=receipt.model_copy(update={key: value}),
+            )
+
+
+@pytest.mark.parametrize("failure", ["kind", "manifest", "scene_parent"])
+def test_world_play_context_rejects_unsupported_kind_or_broken_membership(tmp_path, failure):
+    committed = _world_committed().model_copy(update={"kind": "worldbuilding_source"}) if failure == "kind" else _world_committed()
+    record = _world_play_record()
+    if failure == "scene_parent":
+        record = record.model_copy(update={"progress": record.progress.model_copy(
+            update={"current_scene_id": "scene:not-in-this-beat"})})
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run", return_value=record),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision", return_value=committed),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+              return_value=None if failure == "manifest" else _manifest()),
+    ):
+        with pytest.raises(WorldPlaySurfaceContextError):
+            validate_agent_play_world_surface_context_v2(
+                _world_play_request(), root=tmp_path, outer_world_id="world-a",
+            )

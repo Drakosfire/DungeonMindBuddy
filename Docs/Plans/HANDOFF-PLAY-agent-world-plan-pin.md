@@ -31,3 +31,13 @@ Use the current existing Python runtime and standard application_state_dsn dispo
 Prove current and historical resolution for World Plans and existing Runbooks, exact old content after title/body edits, frozen old moment after Run progression, stale current revision rejection, and wrong World/kind/artifact/revision/WorkRevision/SHA/manifest/membership rejection before provider. Run focused resolver/route suites and inspect the cumulative diff. Test data remains synthetic; no provider required for automated tests.
 
 After independent review and merge, deliver the exact service module on the owned API with active-work preflight and retained-state checks. Resume the ordinary disposable Mirathorn Play question once, verify useful source/proposal separation and durable historical context. Preserve operator drafts, source/Run content, prior Ingestion runs and Graph state. Runtime restart is a delivery step under standing authority; no publication is included.
+
+## Implementation verification
+
+- World V2 current/historical lookup accepts only the existing `plan`/`runbook` types; legacy campaign code is unchanged. Historical comparison uses immutable content identity and leaves the frozen receipt object revision intact.
+- 37 focused resolver/HTTP tests pass against disposable PostgreSQL, including real producers, sealed manifests, title/body edits, Run progress, historical context, unsupported kind, World/WorkRevision/revision/SHA mismatches, missing manifest and Scene-parent rejection. Valid Plan-backed HTTP reaches the fake runtime; stale revision dispatches zero additional calls. No real provider was called.
+- Loading exact base production module in memory makes both new lifecycle cases and the new Plan HTTP acceptance fail: Plan kind rejection and historical mutable-object revision rejection. Working source files were not swapped.
+- Broad route comparison with the same current test fixtures: candidate 42 passed / 18 failed; pinned base production loaded only in memory 40 passed / 20 failed. All 18 candidate failures also fail on base: stale auth-principal fixtures, old policy fixtures and digest/coverage expectations. The two additional base failures are the repaired Plan HTTP/replay cases. Logs remain in the owning checkout `.pytest_cache/prime-play-route-{base,candidate}.log`; this is not a green broad route suite.
+- Ruff (`--no-cache`) and cumulative diff checks pass. Initial new-test dataclass assertion and two owning auth fixtures were corrected before the final run. Initial Ruff cache creation was denied by the filesystem sandbox; the read-only no-cache invocation passes.
+
+Independent exact-head review, merge and deployed normal Play acceptance are still required.

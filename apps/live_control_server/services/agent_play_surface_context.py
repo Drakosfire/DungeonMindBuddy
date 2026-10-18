@@ -578,7 +578,7 @@ def _resolve_world_play_surface_context_v2(
             record.playable_artifact_id,
             revision_n=record.playable_revision,
             expected_sha256=record.playable_content_sha256,
-            kind="runbook",
+            kind=None,
             expected_world_id=request.world_id,
         )
     except Exception as exc:
@@ -586,7 +586,7 @@ def _resolve_world_play_surface_context_v2(
             "World Play Run's exact pinned Runbook revision is unavailable"
         ) from exc
     if (
-        committed.kind != "runbook"
+        committed.kind not in {"plan", "runbook"}
         or committed.world_id != request.world_id
         or committed.document_id != record.playable_artifact_id
         or committed.revision_n != record.playable_revision
@@ -689,14 +689,15 @@ def resolve_historical_world_play_turn_snapshot(
         raise WorldPlaySurfaceContextError("Historical Play World identity changed")
     committed = get_committed_playable_revision(
         receipt.runbook_object_id, revision_n=receipt.runbook_revision_n,
-        expected_sha256=receipt.runbook_content_sha256, kind="runbook",
+        expected_sha256=receipt.runbook_content_sha256, kind=None,
         expected_world_id=world_id,
     )
+    # object_revision is mutable aggregate metadata; the receipt retains the
+    # admission-time value while immutable WorkRevision identity stays pinned.
     if (
-        committed.kind != "runbook"
+        committed.kind not in {"plan", "runbook"}
         or committed.world_id != world_id
         or committed.document_id != receipt.runbook_object_id
-        or committed.object_revision != receipt.runbook_object_revision
         or committed.work_revision_id != str(receipt.runbook_work_revision_id)
         or committed.revision_n != receipt.runbook_revision_n
         or committed.content_sha256 != receipt.runbook_content_sha256
