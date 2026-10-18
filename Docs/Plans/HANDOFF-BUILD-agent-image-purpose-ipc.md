@@ -31,3 +31,8 @@ DBs/shared dependencies; no retained54330/54331, provider or runtime tests until
 Cumulative inspect/test/commit/push/onePR→ARCH exact-head review→PRIME guarded API
 adoption and fresh ordinary Agent→wizard rendered Map acceptance. No new checkout,
 preview, environment or /tmp task directories. Preserve Edge draft/user tab18.
+
+Pre-review evidence: 28 mocked Harness/tool tests pass with unique disposable APP
+DBs, including actual parent IPC dispatch, strict tool schema, enum validation,
+both purposes, purpose-only idempotency conflict and unchanged legacy proof replay.
+Scoped Ruff F and cumulative diff checks pass. No provider/runtime writes occurred.

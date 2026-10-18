@@ -275,8 +275,8 @@ def propose_build_insertion_definition() -> dict[str, Any]:
 
 def prepare_build_image_definition() -> dict[str, Any]:
     return {"type":"function", "function":{"name":"prepare_build_image",
-        "description":"Prepare an image prompt for the current Build document when the user asks for an image or illustration. Use the document and discussion to write a vivid, self-contained visual prompt and concise alt text. This opens a user-reviewed Image Studio action; it does not generate, save or insert. No IDs, paths, URLs, model or credentials arguments. Do not use propose_build_insertion for an image.",
-        "parameters":{"type":"object","properties":{"prompt":{"type":"string","minLength":1,"maxLength":16000},"alt":{"type":"string","minLength":1,"maxLength":500}},"required":["prompt","alt"],"additionalProperties":False}}}
+        "description":"Prepare an image prompt for the current Build document when the user asks for an image, illustration or map. Set purpose to map for a cartographic map, otherwise illustration. Use the document and discussion to write a vivid, self-contained visual prompt and concise alt text. This opens a user-reviewed Image Studio action; it does not generate, save or insert. No IDs, paths, URLs, model or credentials arguments. Do not use propose_build_insertion for an image.",
+        "parameters":{"type":"object","properties":{"prompt":{"type":"string","minLength":1,"maxLength":16000},"alt":{"type":"string","minLength":1,"maxLength":500},"purpose":{"type":"string","enum":["illustration","map"]}},"required":["prompt","alt","purpose"],"additionalProperties":False}}}
 
 
 def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:

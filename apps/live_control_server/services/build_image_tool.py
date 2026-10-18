@@ -47,9 +47,10 @@ class BuildImageTool:
             if (
                 message.get("toolName") != TOOL_NAME
                 or not isinstance(args, dict)
-                or set(args) != {"prompt", "alt"}
+                or set(args) != {"prompt", "alt", "purpose"}
                 or not isinstance(args["prompt"], str)
                 or not isinstance(args["alt"], str)
+                or args["purpose"] not in ("map", "illustration")
                 or not isinstance(operation, str)
                 or not 0 < len(operation) <= 256
                 or not self.owner
@@ -79,7 +80,7 @@ class BuildImageTool:
                 ),
             )
             record = BuildImageService().prepare(
-                reservation, self.owner, args["prompt"], args["alt"]
+                reservation, self.owner, args["prompt"], args["alt"], purpose=args["purpose"]
             )
             reply = {
                 "schema": "dmb_build_image_tool_result_v1",

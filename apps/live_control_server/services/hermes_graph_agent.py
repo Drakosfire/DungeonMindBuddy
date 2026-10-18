@@ -441,7 +441,8 @@ def _build_ephemeral_system_prompt(
     )
     parts = [_GRAPH_SYSTEM_POLICY, scope_part]
     if "prepare_build_image" in policy.enabled_tool_names:
-        parts.append("Use prepare_build_image when asked for artwork or an image of this document. "
+        parts.append("Use prepare_build_image when asked for artwork, an image or a map of this document. "
+            "Set its purpose to map for cartographic requests, otherwise illustration. "
             "Ground its visual direction in the document and discussion; distinguish creative additions. "
             "The user reviews the prompt, generates and saves in Image Studio, then approves insertion. "
             "The tool prepares only; never claim the image already exists or was inserted. "
