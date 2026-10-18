@@ -1,0 +1,27 @@
+.durable-save-status {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.45rem;
+  min-width: 0;
+  color: var(--text-muted, #aab3c1);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.durable-save-status__label {
+  color: var(--text-secondary, #d0d7e2);
+}
+
+.durable-save-status[data-save-state="saved"] .durable-save-status__label {
+  color: var(--status-success, #a8d5b5);
+}
+
+.durable-save-status[data-save-state="needs-attention"] .durable-save-status__label {
+  color: var(--status-warning, #efb27e);
+}
+
+.durable-save-status__time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
