@@ -1,17 +1,29 @@
 # INGEST: bind semantic correction children to immutable recap sources
 
-Status: **BLOCKED — design only; no implementation lease.**
-Current remote main: `5ebb1794fa2e78359c07db9e09cbb8f3d66434d3` (PR #1400).
-This design branch has been rebased onto that head; its two design commits are
-the only branch-specific commits. PR #1399 is the merged behavioral parent; its
-settlement is already in main. This remains its serial successor, with no
-unmerged behavioral parent.
-PRIME retains activation and merge authority.
+Status: **ACTIVE — PRIME authorizes DOGFOOD implementation of this bounded capability.**
+Base: `origin/main@15aa918eb91071b469ea7f733cce6d2c6a3262e6`.
+Branch: `codex/ingest-source-snapshot-binding`.
+Checkout: `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy` (reuse).
+Topology: serial, one implementation PR; no unmerged behavioral parent.
+PR #1399 is merged and settled. PR #1400 is independently reviewed, merged,
+delivered and settled at this base. No predecessor sync document remains open.
+ARCHITECTURE independently accepted design 46f251a76859bd8772fa650f995dbc902b3fec7a
+before activation; this commit records its four bounded clarifications.
+PRIME owns activation, fixture lifecycle, merge and eventual runtime delivery.
+DOGFOOD owns implementation and the actual-production-parent disposable-DB witness.
+ARCHITECTURE independently reviews the completed cumulative implementation.
 
-The latest remote commit and open-PR search were checked before this revision;
-no source-snapshot correction implementation PR is open. PR #1400 has merged,
-but its existing-World publication UI is independent from this semantic source
-binding work. Do not create another #1399 settlement PR.
+No overlapping implementation lane is active on these paths: ROOT's UI lease
+is closed; MIND is read-only. Before any required path expansion, return to PRIME.
+No new checkout, environment, source export or task directory under /tmp.
+Established shared runtime/dependencies are reused. Only disposable PostgreSQL
+127.0.0.1:54329 may be used for tests; retained54330/54331 are forbidden. PRIME
+starts/removes the named fixture only after port/process/consumer checks.
+
+Bounded runtime outputs: synthetic fixture artifacts beneath this checkout's
+existing .pytest_cache; derived_candidates/.locks and owned same-filesystem
+staging beneath each synthetic artifact root. No serving directory, retained
+APP-STATE/corpus, production source, World or provider changes are authorized.
 
 ## Defect and boundary
 
@@ -84,7 +96,7 @@ basis and replay verify. Never rewrite or delete old rows or artifacts.
 
 ## Consumer audit and recommended storage strategy
 
-Audit re-anchored to remote main `cbd3a901...` found a bounded storage option
+Audit re-anchored to remote main `15aa918eb91071b469ea7f733cce6d2c6a3262e6` found a bounded storage option
 that preserves the registry's existing source acceptance rule and candidate
 ownership boundary. The specific evidence is:
 
@@ -266,9 +278,10 @@ Serialize each deterministic child ID with a safe per-child process lock, for
 example `out/graph_memory/derived_candidates/.locks/<child-id>.lock`, acquired
 with `flock(LOCK_EX)` and held from before legacy/current row and path inspection
 through child creation, package publication, sealing, final reload and replay
-verification. Create/open it with no-follow semantics, verify the lock and each
-parent directory are regular non-symlink paths contained under the managed
-root, and reject unsafe roots or path escapes. Once the lock is held, repeat
+verification. Create/open it with no-follow semantics, verify the lock is a regular non-symlink file and every ancestor is an
+actual non-symlink directory contained under the managed root, and reject unsafe roots or path escapes. Never unlink or replace a persistent lock inode during operation, retry or
+cleanup; each invocation opens a separate descriptor so process exclusion is
+real. Stage on the same backing filesystem as final files. Once the lock is held, repeat
 the full read-only parent/source/span/World/manifest/path preflight and
 legacy-identity check; no untrusted or stale pre-lock observation may authorize
 a write. A concurrent caller waits, then reloads and verifies the completed
@@ -316,9 +329,9 @@ retry does not adopt or delete another process's stale staging file.
 
 The legacy-id guard leaves existing stored rows on their unchanged verifier.
 New V11 source-binding behavior is separate from operation versions V1-V10;
-these are not alternatives. The entire lane remains design-only until PRIME
-and ARCHITECTURE accept the envelope, history guard, and retry contract and pin
-the exact ACTIVE write lease.
+these are not alternatives. The envelope, history guard and retry contract were independently critiqued
+before this ACTIVE lease. Implementation still requires the full owning tests
+and independent exact-head review before PRIME merge.
 
 Any strategy must validate canonical source bytes and all source/span/World
 bindings before creating artifacts. It may not weaken identity, World scope,
@@ -396,35 +409,30 @@ artifacts, production correction POSTs, or World publication for this witness.
 Preserve the exact production reproduction privately; do not put operator data
 or production identifiers in this repository.
 
-## Candidate implementation paths — not a write lease
+## Exclusive implementation write lease
 
-If the gates resolve without broadening the capability, ROOT may consider this
-small candidate path set when activating the serial implementation:
+Only these 13 paths are leased:
 
+- `Docs/Plans/HANDOFF-INGEST-semantic-correction-source-snapshot.md`
 - `apps/live_control_server/services/recap_semantic_candidate_correction.py`
 - `apps/live_control_server/services/recap_semantic_disposition.py`
-- `apps/live_control_server/services/source_artifact_registry.py` (only a
-  bounded internal raw-byte read/verification helper if needed; no endpoint or
-  schema change)
-- `apps/live_control_server/services/extract_promote.py` (semantic basis
-  dispatch only)
-- `src/application_state/ingest/service.py` (only if the chosen versioned basis
-  contract requires a validator update)
+- `apps/live_control_server/services/source_artifact_registry.py` (raw-byte helper only, if needed)
+- `apps/live_control_server/services/extract_promote.py` (basis dispatch and nested inherited-PC review projection only)
+- `src/application_state/ingest/service.py` (V12 types, closed validators and ancestry only)
 - `tests/test_recap_semantic_candidate_correction.py`
 - `tests/test_recap_semantic_disposition.py`
-- `tests/test_extract_promote_managed_world_target.py` (new basis dispatch and
-  disposition effect binding and nested inherited-PC projection)
-- `tests/test_source_artifact.py` (raw-byte and immutable authority behavior,
-  if the internal helper is added)
-- `tests/integration/test_recap_evidence_append.py` or a focused sibling test
+- `tests/test_extract_promote_managed_world_target.py`
+- `tests/test_source_artifact.py`
+- `tests/integration/test_recap_evidence_append.py`
 - `tests/application_state/test_ingest_run_postgres.py`
-- an owning `graph_run_registry` boundary test, likely
-  `tests/test_graph_run_registry.py`
+- `tests/test_graph_run_registry.py`
 
-This list is advisory design material, not an exclusive lease. Do not edit
-these paths under this BLOCKED handoff. No schema or migration path is included.
-If the invariant cannot be proved at this boundary with that scope, return the
-design for a steward decision rather than expanding it.
+No repository, schema, migration, registry-guard, route, UI, dependency or global
+source-service behavior changes. If these paths cannot prove the invariant,
+return to PRIME before expanding. Use the existing source authority dry_run=True
+for read-only preflight conflicts; frozen-byte identity is independently required.
+Global source authority may accept a distinct digest-keyed revision; this operation
+must reject frozen-source drift rather than changing global admission policy.
 
 ## Explicit exclusions and activation gates
 
@@ -433,11 +441,27 @@ provider call, extraction Process, correction decision, prepare, publication,
 serving/API change, or 5202 runtime action. No Edge/Gazetteer experiment is part
 of this source-binding capability.
 
-Before activation, PRIME must request an independent ARCHITECTURE critique of
-the V12 envelope, V1-V10 operation mapping, legacy-row guard, and row/filesystem
-retry protocol. DOGFOOD owns the eventual disposable-DB production-path witness;
-PRIME owns fixture lifecycle coordination. Then PRIME must pin an ACTIVE
-handoff with exact base, branch, checkout, write allowlist, runtime/DB
-ownership, verification commands, PR topology, and explicit implementation
-authorization. Until then this successor remains BLOCKED and grants no write
-authority.
+The design critique is complete; the exact implementation is not yet reviewed.
+No retained correction/decision/prepare/publication or provider request is leased.
+No production runtime action is authorized by the worker handoff.
+
+## Verification commands and completion
+
+From the owning checkout, use existing shared runtime Python and dependencies:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python -m pytest -o addopts='' --basetemp=.pytest_cache/source-binding tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/test_extract_promote_managed_world_target.py tests/test_source_artifact.py tests/integration/test_recap_evidence_append.py tests/application_state/test_ingest_run_postgres.py tests/test_graph_run_registry.py -q --tb=short
+```
+
+The mandatory witness above must originate the parent through the actual
+production producer/registry path with run-local source.md; manually registering
+a canonical-source parent is only a control, never acceptance for this defect.
+Include every V1–V10 operation mapping and mixed legacy/new ancestry, actual
+seal/reopen/assessment, deterministic replay/retry, interruptions and two-process
+concurrency. Assert parent/source/span bytes and rows remain unchanged.
+Scoped Ruff, compile and cumulative diff check are also required. Inspect exact
+base-to-head changes, commit intended files, push the branch and open one PR.
+Send PRIME exact head, commands/results, negative boundary evidence and known
+limits. Do not merge or deploy. Independent ARCHITECTURE review precedes PRIME
+merge and separately verified runtime adoption. Keep this handoff ACTIVE until
+those facts are known; do not pre-mark acceptance or invent review/merge IDs.
