@@ -851,13 +851,19 @@
 }
 
 .play-cockpit-center .play-body :is(th, td) {
-  padding: 0.45rem 0.6rem;
+  min-width: 4ch;
+  padding: 0.45rem 0.4rem;
   border: 1px solid var(--ui-border-paper, #c0ad6a);
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 
+.play-cockpit-center .play-body :is(th, td) > p {
+  margin-block: 0;
+}
+
 .play-cockpit-center .play-body th {
+  overflow-wrap: normal;
   background: rgba(192, 173, 106, 0.14);
 }
 
