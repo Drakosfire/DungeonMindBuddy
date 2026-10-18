@@ -7,6 +7,7 @@ import {
   SurfaceContextProvider,
 } from "../surfaceInteraction/contextHost";
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
+import type { MarkdownCanvasSessionValue } from "../markdownCanvas/MarkdownCanvasSession";
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
 
 const recoveryDialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
@@ -20,15 +21,7 @@ afterAll(() => {
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
 const sessionMock = vi.hoisted(() => ({
-  current: null as null | {
-    record: ReturnType<typeof fixtureWorkspaceDocumentRecord>;
-    statusLabel: string;
-    activeCommand: { id: string; documentId: string; startedAt: number } | null;
-    updateDocumentMetadata: ReturnType<typeof vi.fn>;
-    lookupAdmission: ReturnType<typeof vi.fn>;
-    saveDisabled: boolean;
-    saveMarkdown: ReturnType<typeof vi.fn>;
-  },
+  current: null as MarkdownCanvasSessionValue | null,
 }));
 
 vi.mock("../markdownCanvas/MarkdownCanvasSession", async (importOriginal) => {
@@ -38,6 +31,54 @@ vi.mock("../markdownCanvas/MarkdownCanvasSession", async (importOriginal) => {
     useOptionalMarkdownCanvasSession: () => sessionMock.current,
   };
 });
+
+const COMMITTED_AT = "2026-10-18T19:30:00.000Z";
+
+function makeSession(overrides: Partial<MarkdownCanvasSessionValue> = {}): MarkdownCanvasSessionValue {
+  const record = fixtureWorkspaceDocumentRecord({
+    document_id: DOC_A,
+    title: "Faction Notes",
+    campaign_id: "longmont-c1",
+    kind: "worldbuilding_source",
+    document_class: "faction",
+    content_status: "committed",
+    revision: 1,
+    updated_at: COMMITTED_AT,
+  }) as MarkdownCanvasSessionValue["record"];
+  const snapshot = {
+    record,
+    loaded_revision: 1,
+    markdown: "# Faction Notes",
+    content_sha256: "sha",
+  } as MarkdownCanvasSessionValue["snapshot"];
+  return {
+    documentId: DOC_A,
+    documentKey: `${DOC_A}:1`,
+    phase: "ready_clean",
+    record,
+    snapshot,
+    statusLabel: "Committed",
+    dirty: false,
+    error: null,
+    saveDisabled: false,
+    saveDisabledReason: null,
+    saveMarkdown: vi.fn(),
+    activeCommand: null,
+    updateDocumentMetadata: vi.fn(),
+    lookupAdmission: vi.fn(() => ({
+      ok: true,
+      envelope: {
+        documentId: DOC_A,
+        revision: 1,
+        contentSha256: "sha",
+        contentStatus: "committed" as const,
+        documentKind: "worldbuilding_source" as const,
+        surfaceId: "build" as const,
+      },
+    })),
+    ...overrides,
+  } as unknown as MarkdownCanvasSessionValue;
+}
 
 function renderBuildContext(
   overrides: Partial<Parameters<typeof BuildSurfaceContext>[0]> = {},
@@ -103,31 +144,7 @@ function renderBuildContext(
 
 describe("BuildSurfaceContext", () => {
   beforeEach(() => {
-    sessionMock.current = {
-      record: fixtureWorkspaceDocumentRecord({
-        document_id: DOC_A,
-        title: "Faction Notes",
-        campaign_id: "longmont-c1",
-        kind: "worldbuilding_source",
-        document_class: "faction",
-      }),
-      statusLabel: "Committed",
-      saveDisabled: false,
-      saveMarkdown: vi.fn(),
-      activeCommand: null,
-      updateDocumentMetadata: vi.fn(),
-      lookupAdmission: vi.fn(() => ({
-        ok: true,
-        envelope: {
-          documentId: DOC_A,
-          revision: 1,
-          contentSha256: "sha",
-          contentStatus: "committed" as const,
-          documentKind: "worldbuilding_source" as const,
-          surfaceId: "build" as const,
-        },
-      })),
-    };
+    sessionMock.current = makeSession();
   });
 
   it("explains blocked Save and exposes protected-draft review in the real navbar", async () => {
@@ -164,7 +181,9 @@ describe("BuildSurfaceContext", () => {
     expect(within(host).getByTestId("build-document-select")).toHaveValue(DOC_A);
     expect(within(host).getByText("C1")).toBeInTheDocument();
     expect(within(host).getByText("faction")).toBeInTheDocument();
-    expect(within(host).getByTestId("build-document-status")).toHaveTextContent("Committed");
+    const saveStatus = within(host).getByTestId("build-document-status");
+    expect(saveStatus.querySelector('[data-save-state="saved"]')).not.toBeNull();
+    expect(saveStatus.querySelector("time")).toHaveAttribute("dateTime", COMMITTED_AT);
     expect(within(host).getByTestId("build-document-rename-open")).toHaveTextContent("Rename");
     expect(within(host).getByTestId("build-document-create-open")).toHaveTextContent("+ New page");
   });
@@ -175,6 +194,17 @@ describe("BuildSurfaceContext", () => {
     await user.click(screen.getByTestId("build-navbar-save"));
     expect(sessionMock.current!.saveMarkdown).toHaveBeenCalledTimes(1);
     expect(sessionMock.current!.updateDocumentMetadata).not.toHaveBeenCalled();
+  });
+
+  it("owns the durable save timestamp in the surface navbar", () => {
+    renderBuildContext();
+
+    const host = screen.getByTestId("surface-context-host");
+    const status = within(host).getByTestId("build-document-status");
+    expect(status.closest(".build-surface-context__row")).not.toBeNull();
+    expect(status.querySelector('[data-save-state="saved"]')).not.toBeNull();
+    expect(status.querySelector("time")).toHaveAttribute("dateTime", COMMITTED_AT);
+    expect(status).not.toHaveTextContent("Committed");
   });
 
   it("shows empty state when no active record", () => {
@@ -201,29 +231,19 @@ describe("BuildSurfaceContext", () => {
   });
 
   it("prefers live Canvas title over controller preflight title", () => {
-    sessionMock.current = {
+    sessionMock.current = makeSession({
       record: fixtureWorkspaceDocumentRecord({
         document_id: DOC_A,
         title: "Renamed On Canvas",
         campaign_id: "longmont-c1",
         kind: "worldbuilding_source",
         document_class: "faction",
-      }),
+      }) as MarkdownCanvasSessionValue["record"],
       statusLabel: "Unsaved changes",
-      activeCommand: null,
-      updateDocumentMetadata: vi.fn(),
-      lookupAdmission: vi.fn(() => ({
-        ok: true,
-        envelope: {
-          documentId: DOC_A,
-          revision: 2,
-          contentSha256: "sha",
-          contentStatus: "draft" as const,
-          documentKind: "worldbuilding_source" as const,
-          surfaceId: "build" as const,
-        },
-      })),
-    };
+      documentKey: `${DOC_A}:2`,
+      phase: "ready_dirty",
+      dirty: true,
+    });
     renderBuildContext({
       documents: [
         fixtureWorkspaceDocumentRecord({

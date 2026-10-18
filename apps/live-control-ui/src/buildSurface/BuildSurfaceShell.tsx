@@ -19,6 +19,8 @@ import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
+import { useBuildAutosave } from "./useBuildAutosave";
+import "./buildAutosave.css";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import {
@@ -48,6 +50,7 @@ function BuildPresentableSourceView({
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
+  useBuildAutosave(session);
   const [outlineVersion, setOutlineVersion] = useState(0);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [mediaError,setMediaError]=useState('');

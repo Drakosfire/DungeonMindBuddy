@@ -1,0 +1,11 @@
+.build-surface-context__save-status .durable-save-status {
+  color: var(--text-muted, #aab3c1);
+}
+
+.build-surface-context__save-status .durable-save-status__label {
+  color: var(--text-secondary, #d0d7e2);
+}
+
+.build-surface-context__save-status .durable-save-status[data-save-state="saved"] .durable-save-status__label {
+  color: var(--status-success, #a8d5b5);
+}
