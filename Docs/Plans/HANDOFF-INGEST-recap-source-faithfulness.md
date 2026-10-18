@@ -1,6 +1,6 @@
 # INGEST: source-faithful recap extraction prompts
 
-Status: ACTIVE — explicitly directed by PRIME on 2026-10-17 after DOGFOOD's exact-run Session 29 source/gold audit.
+Status: SETTLED — PR #1359 merged at `ca0d0a7b7a1ea0e9510b075000f28f31bf933cdd`; this handoff records its prompt-only predecessor contract and evidence.
 
 Base: `origin/main@541a8201405eb231f136a19963dc89b22d92f1b0`.
 Branch: `codex/ingest-recap-source-faithfulness`.
@@ -52,3 +52,7 @@ Verification passed:
 - GitHub's cumulative comparison confirms the branch is based on `main@541a8201405eb231f136a19963dc89b22d92f1b0`, 0 commits behind, with only the three leased paths. Remote file contents match the local tested files byte-for-byte. All `src` and relevant extraction test files in the local checkout are unchanged from that base.
 
 The local linked Git metadata is mounted read-only, so GitHub's branch/content APIs were used to create and update this isolated PR branch. No unrelated dirty files were moved or overwritten. The tests verify prompt construction only; no model/provider run, real-candidate comparison, publication, or rendered Ingest acceptance was performed.
+
+## Settlement — 2026-10-17
+
+PR #1359 merged the recap-specific prompt guidance at `ca0d0a7b7a1ea0e9510b075000f28f31bf933cdd`. It did not prove model compliance or resolve the exact-run Session 29 modality failures. Its ACTIVE implementation lease is closed. The prompt tests remain useful evidence for what the extractor was asked to do; they are not evidence that its output preserved those distinctions. The bounded successor is `HANDOFF-INGEST-extractive-beat-summaries.md`.
