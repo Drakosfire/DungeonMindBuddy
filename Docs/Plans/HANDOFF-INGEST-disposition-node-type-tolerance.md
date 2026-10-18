@@ -1,6 +1,6 @@
 # INGEST: tolerate node type metadata on dispositions
 
-Status: ACTIVE — PRIME approved this bounded correction and exact path lease after the retained Session 29 failure was diagnosed on 2026-10-17.
+Status: COMPLETE / HISTORICAL — PR #1393 merged at `184e1379ce5b659918fbe514771f9cd20a90e4e1` after ARCHITECTURE exact-head PASS on `4db3e5a4d8234f8d94a53c06b5f3f25a54a0a949` (one executable review cycle, followed by documentation-only confirmation). The schema is deployed; this implementation/review lease ended. A fresh Session29 verification is running under PRIME/DOGFOOD authority; successful extraction and semantic readiness are not yet claimed.
 
 Base: `origin/main@34f8859cdfb087e97184fce2b8c797ba9ad28015`, verified against GitHub after #1392; this adds only unrelated Play handoff settlement.
 Branch: `codex/ingest-disposition-node-type-tolerance`.
