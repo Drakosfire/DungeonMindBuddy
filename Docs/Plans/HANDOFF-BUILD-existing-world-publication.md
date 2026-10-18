@@ -31,6 +31,7 @@ auto-confirm, substitute current source or retry a publication.
 
 ## Exclusive write set
 
+- apps/live-control-ui/src/api/liveApi.ts (only exact existing-world publication authorization classification)
 - This handoff
 - apps/live-control-ui/src/api/worldbuildingPublicationApi.ts and its tests
 - apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication.tsx and its tests
@@ -71,3 +72,14 @@ restoring only the module from the pinned base, then restoring implementation
 bytes in a finally block. Private logs remain in existing .pytest_cache under
 worldbuilding-ui-*. No provider, preparation, publication or retained-data
 mutation was used for verification. Independent review and delivery are pending.
+
+## Review Cycle 1 and bounded lease extension
+
+ARCHITECTURE held exact b834e26c875221152a4ad7ff2632d6e64635ec60: real
+transport authorization classification omitted these paths, and nested prepared
+source digest could contradict the reviewed sha256 source revision. PRIME
+explicitly extends this slice to liveApi.ts solely for the exact three existing
+worldbuilding endpoints. Real-helper tests belong in the already leased client
+test file; no backend/auth-policy weakening or new automatic mutation retry.
+Check nested source digest correspondence and document binding shape before
+showing Confirm. Re-review the complete revised head after both corrections.
