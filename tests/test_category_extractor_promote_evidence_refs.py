@@ -283,6 +283,7 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     tmp_path, monkeypatch
 ) -> None:
     """Owning path: real party registry → category runner → persisted run → resolve."""
+    import hashlib
     import json
     from pathlib import Path
 
@@ -303,9 +304,10 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )
-    from tests.test_live_extract_promote_api import _write_promotable_run
+    from tests.test_promotable_ingest_run import _write_promotable_run
 
     spref = "session-22:recap:paragraph:001"
+    source_text = "Bonogo scouts the Mireward road with the company."
     passes = minimal_category_pass_outputs(spref)
     # Beat retains standing party collective id (dropped at promote) plus session node.
     passes["beat_pass"]["observation_beats"][0]["involved_node_ids"] = [
@@ -316,6 +318,7 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     span_index = {
         "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
         "source_ref_id": "artifact:recap:longmont-c2:session-22:testdigest:text",
+        "content_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
         "spans": [
             {
                 "kind": "paragraph",
@@ -323,7 +326,10 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
                 "source_span_ref_id": spref,
                 "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
                 "line_start": 1,
-                "line_end": 3,
+                "line_end": 1,
+                "char_start": 0,
+                "char_end": len(source_text),
+                "ordinal": 1,
                 "text": "Bonogo scouts the Mireward road with the company.",
             }
         ]
@@ -335,6 +341,7 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
             session_id="session-22",
             session_number=22,
             source_span_index=span_index,
+            source_text=source_text,
             source_artifact_id="artifact:recap:longmont-c2:session-22:testdigest",
             source_ref_id="artifact:recap:longmont-c2:session-22:testdigest:text",
             model_id="gpt-5.4-mini",

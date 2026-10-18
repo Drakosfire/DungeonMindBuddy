@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import re
@@ -788,6 +789,258 @@ def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _span_aliases(span: Mapping[str, Any]) -> set[str]:
+    return {
+        str(span[key]).strip()
+        for key in ("source_span_ref_id", "span_id", "source_span_id")
+        if isinstance(span.get(key), str) and str(span[key]).strip()
+    }
+
+
+def _source_span_bounds_text(
+    span: Mapping[str, Any], source_text: str,
+) -> tuple[str | None, str | None]:
+    """Copy an indexed span from the pinned source using validated bounds."""
+    start_line = span.get("line_start", span.get("start_line"))
+    end_line = span.get("line_end", span.get("end_line"))
+    if (
+        not isinstance(start_line, int)
+        or isinstance(start_line, bool)
+        or not isinstance(end_line, int)
+        or isinstance(end_line, bool)
+        or start_line < 1
+        or end_line < start_line
+    ):
+        return None, "invalid_span_bounds"
+
+    char_start = span.get("char_start")
+    char_end = span.get("char_end")
+    if char_start is not None or char_end is not None:
+        if (
+            not isinstance(char_start, int)
+            or isinstance(char_start, bool)
+            or not isinstance(char_end, int)
+            or isinstance(char_end, bool)
+            or char_start < 0
+            or char_end <= char_start
+            or char_end > len(source_text)
+        ):
+            return None, "invalid_span_bounds"
+        resolved_start_line = source_text.count("\n", 0, char_start) + 1
+        resolved_end_line = source_text.count("\n", 0, max(char_start, char_end - 1)) + 1
+        if resolved_start_line != start_line or resolved_end_line != end_line:
+            return None, "invalid_span_bounds"
+        return source_text[char_start:char_end], None
+
+    lines = source_text.splitlines(keepends=True)
+    if end_line > len(lines):
+        return None, "invalid_span_bounds"
+    text = "".join(lines[start_line - 1:end_line])
+    if text.endswith("\r\n"):
+        text = text[:-2]
+    elif text.endswith(("\n", "\r")):
+        text = text[:-1]
+    return text, None
+
+
+def _recap_source_digest_error(
+    source_span_index: Mapping[str, Any], source_text: str | None,
+) -> str | None:
+    if source_text is None:
+        return "missing_source_text"
+    expected = source_span_index.get("content_sha256") or source_span_index.get("source_sha256")
+    if not isinstance(expected, str) or not expected.strip():
+        return "missing_source_digest"
+    expected_hex = expected.strip()
+    if expected_hex.startswith("sha256:"):
+        expected_hex = expected_hex[len("sha256:"):]
+    actual_hex = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+    if expected_hex.lower() != actual_hex:
+        return "source_digest_mismatch"
+    return None
+
+
+def _recap_beat_excerpt_candidates(
+    raw_beats: Sequence[Any],
+    *,
+    source_span_index: Mapping[str, Any] | None,
+    source_text: str | None,
+    source_rows: Sequence[Mapping[str, Any]] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve model span/quote nominations to exact host-owned recap excerpts."""
+    raw_beats = [raw for raw in raw_beats if isinstance(raw, Mapping)]
+    if not raw_beats:
+        return [], []
+
+    index = source_span_index if isinstance(source_span_index, Mapping) else {}
+    digest_error = _recap_source_digest_error(index, source_text)
+    eligible_refs = {
+        str(row.get("source_span_ref_id") or "").strip()
+        for row in (source_rows or ())
+        if isinstance(row, Mapping) and str(row.get("source_span_ref_id") or "").strip()
+    }
+    indexed_by_alias: dict[str, Mapping[str, Any]] = {}
+    for span in index.get("spans") or ():
+        if isinstance(span, Mapping):
+            for alias in _span_aliases(span):
+                indexed_by_alias[alias] = span
+
+    paragraphs: list[dict[str, Any]] = []
+    invalid_bounds_refs: set[str] = set()
+    if digest_error is None and source_text is not None:
+        for index_position, span in enumerate(index.get("spans") or (), start=1):
+            if not isinstance(span, Mapping):
+                continue
+            aliases = _span_aliases(span)
+            ref = str(
+                span.get("source_span_ref_id")
+                or span.get("span_id")
+                or span.get("source_span_id")
+                or ""
+            ).strip()
+            if not ref or ref not in eligible_refs:
+                continue
+            kind = span.get("kind")
+            if kind not in (None, "paragraph") or ref.endswith(":full_text"):
+                continue
+            exact_text, bounds_error = _source_span_bounds_text(span, source_text)
+            if bounds_error or exact_text is None or not exact_text.strip():
+                invalid_bounds_refs.update(aliases)
+                continue
+            ordinal = span.get("ordinal")
+            if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal < 1:
+                ordinal = len(paragraphs) + 1
+            paragraphs.append(
+                {
+                    "source_span_ref_id": ref,
+                    "text": exact_text,
+                    "ordinal": ordinal,
+                    "index_position": index_position,
+                }
+            )
+
+    known_indexed_refs = set(indexed_by_alias)
+    allowed_refs = set(eligible_refs) | known_indexed_refs
+
+    def defer(beat_ordinal: int, code: str) -> dict[str, Any]:
+        return {
+            "item_id": f"deferred:recap-beat-excerpt:{beat_ordinal:03d}:{code}",
+            "label": f"Beat {beat_ordinal}",
+            "reason": f"recap_beat_excerpt_deferred:{code}",
+            "evidence_refs": [],
+            "warnings": [f"recap_beat_excerpt_deferred:{code}"],
+        }
+
+    excerpt_beats: list[dict[str, Any]] = []
+    deferred_beats: list[dict[str, Any]] = []
+    for beat_ordinal, raw in enumerate(raw_beats, start=1):
+        if digest_error:
+            deferred_beats.append(defer(beat_ordinal, digest_error))
+            continue
+
+        evidence_refs = raw.get("evidence_refs")
+        if not isinstance(evidence_refs, list) or not evidence_refs:
+            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
+            continue
+        if len(evidence_refs) != 1:
+            deferred_beats.append(defer(beat_ordinal, "multi_span_nomination"))
+            continue
+        nominated_ref = evidence_refs[0]
+        if not isinstance(nominated_ref, Mapping):
+            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
+            continue
+        raw_span_id = str(nominated_ref.get("source_span_ref_id") or "").strip()
+        if not raw_span_id:
+            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
+            continue
+        lookup_ref = raw_span_id.removeprefix("spref:")
+        canonical_ref = _canonical_spref(lookup_ref, allowed_refs)
+        if canonical_ref is None:
+            deferred_beats.append(defer(beat_ordinal, "forged_span_ref"))
+            continue
+        span = indexed_by_alias.get(canonical_ref)
+        if span is None:
+            deferred_beats.append(defer(beat_ordinal, "forged_span_ref"))
+            continue
+        canonical_ref = str(
+            span.get("source_span_ref_id")
+            or span.get("span_id")
+            or span.get("source_span_id")
+            or canonical_ref
+        ).strip()
+        span_kind = span.get("kind")
+        if span_kind not in (None, "paragraph") or canonical_ref.endswith(":full_text"):
+            deferred_beats.append(defer(beat_ordinal, "non_paragraph_span"))
+            continue
+        if canonical_ref not in eligible_refs:
+            deferred_beats.append(defer(beat_ordinal, "ineligible_span"))
+            continue
+        if canonical_ref in invalid_bounds_refs:
+            deferred_beats.append(defer(beat_ordinal, "invalid_span_bounds"))
+            continue
+
+        anchor_quotes = nominated_ref.get("anchor_quotes")
+        if not isinstance(anchor_quotes, list) or not anchor_quotes:
+            deferred_beats.append(defer(beat_ordinal, "missing_anchor"))
+            continue
+        if any(not isinstance(quote, str) or not quote.strip() for quote in anchor_quotes):
+            deferred_beats.append(defer(beat_ordinal, "missing_anchor"))
+            continue
+
+        quote_spans: set[str] = set()
+        anchor_error: str | None = None
+        for quote in anchor_quotes:
+            matches: list[str] = []
+            for paragraph in paragraphs:
+                text = str(paragraph["text"])
+                start_at = 0
+                found = 0
+                while True:
+                    found_at = text.find(quote, start_at)
+                    if found_at < 0:
+                        break
+                    found += 1
+                    if found > 1:
+                        break
+                    start_at = found_at + 1
+                if found:
+                    matches.extend([str(paragraph["source_span_ref_id"])] * found)
+            if not matches:
+                anchor_error = "anchor_not_found"
+                break
+            if len(matches) != 1:
+                anchor_error = "ambiguous_anchor"
+                break
+            quote_spans.add(matches[0])
+        if anchor_error:
+            deferred_beats.append(defer(beat_ordinal, anchor_error))
+            continue
+        if len(quote_spans) != 1 or canonical_ref not in quote_spans:
+            deferred_beats.append(defer(beat_ordinal, "span_mismatch"))
+            continue
+
+        matched = next(
+            paragraph for paragraph in paragraphs
+            if paragraph["source_span_ref_id"] == canonical_ref
+        )
+        normalized = _normalize_beat(raw)
+        normalized["title"] = f"Source excerpt {matched['ordinal']}"
+        normalized["summary"] = str(matched["text"])
+        normalized["evidence_refs"] = [
+            {
+                "source_span_ref_id": canonical_ref,
+                "anchor_quotes": [str(matched["text"])],
+            }
+        ]
+        # Sanitization adds an exact span-wide AnchorQuoteMatch. The shared
+        # anchor quote normalizer trims display quotes, so carry the raw host
+        # paragraph through until the last sanitizer pass.
+        normalized["_host_excerpt_text"] = str(matched["text"])
+        excerpt_beats.append(normalized)
+
+    return excerpt_beats, deferred_beats
+
+
 def _normalize_edge(
     raw: Mapping[str, Any],
     *,
@@ -838,6 +1091,9 @@ def consolidate_category_outputs(
     *,
     campaign_id: str,
     session: int | None,
+    source_span_index: Mapping[str, Any] | None = None,
+    source_text: str | None = None,
+    source_rows: Sequence[Mapping[str, Any]] | None = None,
     enable_party_participation_attachment: bool = False,
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
@@ -909,9 +1165,19 @@ def consolidate_category_outputs(
     beat_payload = pass_outputs.get(beat_pass_id, {})
     raw_beats = beat_payload.get("observation_beats") or []
     per_pass_counts[beat_pass_id] = len(raw_beats)
-    for raw in raw_beats:
-        if isinstance(raw, Mapping):
-            beats.append(_normalize_beat(raw))
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        source_anchored_beats, deferred_beats = _recap_beat_excerpt_candidates(
+            raw_beats,
+            source_span_index=source_span_index,
+            source_text=source_text,
+            source_rows=source_rows,
+        )
+        beats.extend(source_anchored_beats)
+        deferred.extend(deferred_beats)
+    else:
+        for raw in raw_beats:
+            if isinstance(raw, Mapping):
+                beats.append(_normalize_beat(raw))
 
     nodes_before_dedup = len(nodes)
     if active_profile.enable_automatic_identity_consolidation:
@@ -1219,6 +1485,19 @@ def sanitize_parts(
                 dropped_ids.append(str(obj.get(id_key, "")))
                 continue
             clone = dict(obj)
+            host_excerpt = clone.get("_host_excerpt_text")
+            if key == "beats" and isinstance(host_excerpt, str):
+                # Keep the evidence match exact even when the excerpt begins
+                # with indentation that the ordinary quote normalizer trims.
+                for ref in refs:
+                    ref["anchor_quote_matches"] = [
+                        {
+                            "quote": host_excerpt,
+                            "char_start": 0,
+                            "char_end": len(host_excerpt),
+                            "match_text": host_excerpt,
+                        }
+                    ]
             clone["evidence_refs"] = refs
             kept.append(clone)
         out[key] = kept
@@ -1838,6 +2117,9 @@ def _run_category_pipeline_impl(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
+        source_span_index=options.source_span_index,
+        source_text=options.source_text,
+        source_rows=source_rows,
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
@@ -1903,6 +2185,9 @@ def _run_category_pipeline_impl(
             pass_outputs,
             campaign_id=options.campaign_id,
             session=options.session_number,
+            source_span_index=options.source_span_index,
+            source_text=options.source_text,
+            source_rows=source_rows,
             enable_party_participation_attachment=options.enable_party_participation_attachment,
             known_entity_sidecar=known_entity_sidecar,
             known_entity_registry=known_entity_registry,
@@ -1937,6 +2222,9 @@ def _run_category_pipeline_impl(
         pass_outputs,
         campaign_id=options.campaign_id,
         session=options.session_number,
+        source_span_index=options.source_span_index,
+        source_text=options.source_text,
+        source_rows=source_rows,
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
@@ -2033,6 +2321,9 @@ def _run_category_pipeline_impl(
                 "claim_count": 0,
             }
     deferred_planning = list({item["item_id"]: item for item in deferred_planning}.values())
+    for beat in sanitized.get("beats") or []:
+        if isinstance(beat, dict):
+            beat.pop("_host_excerpt_text", None)
     sanitized["deferred_items"].extend(deferred_planning)
     authority_diag["deferred_items"] = len(deferred_planning)
     recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
