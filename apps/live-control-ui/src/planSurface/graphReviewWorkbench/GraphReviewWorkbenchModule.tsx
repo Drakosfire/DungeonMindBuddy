@@ -51,7 +51,7 @@ import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnostic
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRecapProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
-import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
+import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 import {
   resolveGraphReviewWriteAuthority,
   resolvePublishedMemoryBrowseContext,
@@ -818,10 +818,14 @@ export function GraphReviewWorkbenchModule({
     && !invalidExactEvidence
     && exactReview?.promotable !== false
     && !loadedWorldbuilding;
+  const worldbuildingReviewAvailable = loadedWorldbuilding
+    && exactReview?.inspectionStatus === "ready"
+    && Boolean(managedWorldId) && exactReview.worldId === managedWorldId;
   const loadedReadOnly =
     Boolean(loadedRun)
     && !loadedPromotable
-    && !exactRunFirstWorldEligible;
+    && !exactRunFirstWorldEligible
+    && !worldbuildingReviewAvailable;
   const loadedInspectOnlyReason =
     loadedRun
     && loadedReadOnly
@@ -1334,9 +1338,9 @@ function GraphReviewExactRunBranch(props: {
               </>
             )}
         </p>
-      ) : !props.sourceReviewOnly && props.exactRunFirstWorldEligible && props.exactReview ? (
+      ) : !props.sourceReviewOnly && props.exactRun.source_domain === "worldbuilding" && props.exactReview ? (
         props.exactReviewStatus === "error" ? null : (
-          <GraphReviewFirstWorldPublishSheet
+          <GraphReviewWorldbuildingPublication
             review={props.exactReview}
             onConfirmInFlightChange={props.onConfirmInFlightChange}
             onCatalogRefresh={props.onCatalogRefresh}

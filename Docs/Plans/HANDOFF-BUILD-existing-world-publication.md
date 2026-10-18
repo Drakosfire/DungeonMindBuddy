@@ -53,3 +53,21 @@ obtain exact-head independent review, then PRIME merge and UI-only adoption with
 old assets retained and original user draft untouched. Verify exact Edge review
 renders the new choices without pressing Prepare or Confirm. Actual semantic
 approval and graph publication remain distinct from UI delivery.
+
+## Implementation evidence before independent review
+
+Authenticated client and mounted publication component consume the existing
+contracts without reconstructing the sealed plan. Exact source/World/binding,
+head, decision snapshot and receipt identity are checked. Every initial choice
+is deferred. First-world UI is reached only after explicit missing native
+binding plus the exact review's uninitialized/eligible state. Other errors fail
+without bootstrap. Unknown confirm outcomes disable another POST.
+
+64 focused client/mounted/Workbench integration/first-world tests pass; UI
+typecheck and production build pass (existing large-bundle warning). Broader
+Workbench module suite has 17 failures: exact base and current have the same
+17 full test names, with no new failures. Baseline was exercised by temporarily
+restoring only the module from the pinned base, then restoring implementation
+bytes in a finally block. Private logs remain in existing .pytest_cache under
+worldbuilding-ui-*. No provider, preparation, publication or retained-data
+mutation was used for verification. Independent review and delivery are pending.

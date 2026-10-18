@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
+import * as worldbuildingApi from "../../api/worldbuildingPublicationApi";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
 import { createSurfaceInformationChannel } from "../../surfaceInformation";
@@ -411,7 +412,8 @@ describe("GraphReviewGenericRun", () => {
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
     mockExactRunReviewPackage({
       ...reviewPackage,
-      worldId: "the-glass-orchard",
+      worldId: "managed-world-a",
+      inspectionStatus: "ready",
       worldState: "uninitialized",
       firstWorldPublishEligible: true,
       firstWorldPublishReason: null,
@@ -419,17 +421,38 @@ describe("GraphReviewGenericRun", () => {
     const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
     const firstWorldPrepare = vi.spyOn(extractPromoteApi, "prepareFirstWorldGraph");
 
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockRejectedValue(new liveApi.LiveApiError("No binding", 409, {code: "native_graph_binding_missing"}));
     renderModule();
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-first-world-publish-sheet")).toBeInTheDocument();
     });
-    expect(screen.getByText(/The Glass Orchard/i)).toBeInTheDocument();
+    expect(screen.getByText(/Managed World A/i)).toBeInTheDocument();
     expect(screen.getByTestId("graph-review-first-world-create-cta")).toBeInTheDocument();
     expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-not-promotable")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled();
     expect(firstWorldPrepare).not.toHaveBeenCalled();
+  });
+
+  it("offers existing-World review independently of generic and first-World flags without preparing on load", async () => {
+    mockCatalogApis();
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
+    mockExactRunReviewPackage({...reviewPackage, worldId: "managed-world-a", inspectionStatus: "ready", firstWorldPublishEligible: false});
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: "managed-world-a", nativeWorldId: "native-a", bindingVersion: 1,
+      projection: {snapshot: {worldId: "native-a", revisionId: "rev:1", headRevisionId: "rev:1", isHead: true}, nodes: []}} as Awaited<ReturnType<typeof liveApi.postManagedWorldGraphProjection>>);
+    vi.spyOn(worldbuildingApi, "getWorldbuildingCapabilities").mockResolvedValue({schema: "dmb_worldbuilding_publication_capabilities_v1",
+      configured: true, confirmationSupported: true, unavailabilityReasons: []});
+    const prepare = vi.spyOn(worldbuildingApi, "prepareWorldbuilding");
+    const confirm = vi.spyOn(worldbuildingApi, "confirmWorldbuilding");
+    renderModule();
+    await screen.findByRole("heading", {name: "Review for your World"});
+    await waitFor(() => expect(screen.getByRole("group", {name: "Publication choices"})).not.toBeDisabled());
+    expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
+    expect(prepare).not.toHaveBeenCalled(); expect(confirm).not.toHaveBeenCalled();
   });
 
   it("requires a verified managed World before preparing a promotable recap run", async () => {
