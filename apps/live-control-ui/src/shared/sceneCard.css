@@ -171,3 +171,43 @@
     padding: 0.8rem;
   }
 }
+
+/* Static Scene cards render semantic callouts without the editor theme ancestor. */
+.shared-scene-card .md-callout {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--scene-card-border);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 35%);
+  color: var(--scene-card-ink);
+  min-width: 0;
+}
+
+.shared-scene-card .md-callout-read-aloud {
+  border-color: #557968;
+  background: #e8eddf;
+}
+
+.shared-scene-card .md-callout-rules {
+  border-color: #706f8b;
+}
+
+.shared-scene-card .md-callout-warning {
+  border-color: #a35c32;
+}
+
+.shared-scene-card .md-callout-label {
+  margin-bottom: 0.55rem;
+  font: 700 0.75rem/1.4 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shared-scene-card .md-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.shared-scene-card .md-callout-body > :last-child {
+  margin-bottom: 0;
+}
