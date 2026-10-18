@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../markdown/calloutMarkdown';
@@ -41,5 +41,53 @@ describe('mounted web source link fidelity', () => {
     for (const source of ['[Source](https://example.com "Caption")', '[![image](https://example.com/image)](https://example.com)']) {
       expect(markdownToTiptapDoc(source).diagnostics.some(d => d.level === 'warning')).toBe(true);
     }
+  });
+});
+
+
+describe('explicit source link activation', () => {
+  function mount(editable = true) {
+    const element = document.createElement('div'); document.body.append(element);
+    const onUpdate = vi.fn();
+    const editor = new Editor({element, editorProps:{handleScrollToSelection:()=>true}, extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, editable,
+      content: markdownToTiptapDoc('Read [**Edge**](http://127.0.0.1:5202/build?world=elderwyld&documentId=edge#place).').doc, onUpdate});
+    return {editor, onUpdate, anchor:editor.view.dom.querySelector('a')!, destroy:()=>{editor.destroy();element.remove();}};
+  }
+  it.each([true,false])('opens nested source link once without changing editable=%s draft', editable=>{
+    const open=vi.spyOn(window,'open').mockReturnValue(null);const m=mount(editable);
+    try {
+      const before=m.editor.getJSON(), markdown=tiptapJsonToSemanticMarkdown(before), selection=m.editor.state.selection.toJSON();
+      m.anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+      expect(open).toHaveBeenCalledExactlyOnceWith('http://127.0.0.1:5202/build?world=elderwyld&documentId=edge#place','_blank','noopener,noreferrer');
+      expect(m.editor.getJSON()).toEqual(before);expect(tiptapJsonToSemanticMarkdown(m.editor.getJSON())).toBe(markdown);
+      expect(m.editor.state.selection.toJSON()).toEqual(selection);expect(m.onUpdate).not.toHaveBeenCalled();
+    } finally {m.destroy();open.mockRestore();}
+  });
+  it('opens keyboard-focused anchor with Enter, without capturing prose Enter',()=>{
+    const open=vi.spyOn(window,'open').mockReturnValue(null);const m=mount();
+    try {
+      expect(m.anchor.getAttribute('tabindex')).toBe('0');m.anchor.focus();
+      m.anchor.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+      expect(open).toHaveBeenCalledTimes(1);
+      m.editor.view.dom.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+      expect(open).toHaveBeenCalledTimes(1);
+    } finally {m.destroy();open.mockRestore();}
+  });
+  it.each(['javascript:alert(1)','data:text/html,test','//example.com','https://user:secret@example.com','mailto:a@example.com'])('denies mutable unsafe href %s',href=>{
+    const open=vi.spyOn(window,'open').mockReturnValue(null);const m=mount();
+    try {m.anchor.setAttribute('href',href);const e=new MouseEvent('click',{bubbles:true,cancelable:true});m.anchor.dispatchEvent(e);expect(e.defaultPrevented).toBe(true);expect(open).not.toHaveBeenCalled();}
+    finally {m.destroy();open.mockRestore();}
+  });
+  it('leaves modifiers, non-primary clicks and unrelated anchors untouched',()=>{
+    const open=vi.spyOn(window,'open').mockReturnValue(null);const m=mount();
+    try {
+      for(const init of [{ctrlKey:true},{metaKey:true},{shiftKey:true},{altKey:true},{button:1},{button:2}]) m.anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,...init}));
+      m.anchor.removeAttribute('data-web-source-link');m.anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));expect(open).not.toHaveBeenCalled();
+    } finally {m.destroy();open.mockRestore();}
+  });
+  it('does not accumulate handlers across mounts',()=>{
+    const open=vi.spyOn(window,'open').mockReturnValue(null);
+    try {for(let i=0;i<3;i++){const m=mount();try{m.anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));}finally{m.destroy();}}expect(open).toHaveBeenCalledTimes(3);}
+    finally {open.mockRestore();}
   });
 });
