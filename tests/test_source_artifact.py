@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
@@ -239,3 +240,96 @@ def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: 
     )
     assert artifact.world_id == "eldyrwild"
     assert record.world_id is None
+
+
+def test_registered_source_byte_loader_preserves_exact_bytes_and_rejects_changed_digest(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        load_registered_source_artifact_bytes,
+        source_artifacts_path,
+    )
+
+    content = b"First line\r\nSecond line\r\n"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:campaign:session:exact-bytes",
+        source_domain="recap", campaign_id="campaign", session_id="session",
+        uri="repo://source.md", content_sha256=digest,
+    )
+    (tmp_path / "source.md").write_bytes(content)
+    registry = source_artifacts_path(tmp_path)
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(json.dumps({
+        "schema_version": "dmb_source_artifact_registry_v1",
+        "records": [artifact.model_dump(mode="json")],
+    }))
+
+    loaded, exact = load_registered_source_artifact_bytes(
+        tmp_path, artifact.source_artifact_id,
+    )
+    assert loaded == artifact
+    assert exact == content
+
+    (tmp_path / "source.md").write_bytes(b"First line\nSecond line\n")
+    with pytest.raises(SourceArtifactRegistryError, match="raw-byte digest mismatch"):
+        load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+
+
+def test_registered_source_byte_loader_rejects_symlinked_path_component(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        load_registered_source_artifact_bytes,
+        source_artifacts_path,
+    )
+
+    content = b"Immutable source\n"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:campaign:session:symlink",
+        source_domain="recap", campaign_id="campaign", session_id="session",
+        uri="repo://alias/source.md", content_sha256=digest,
+    )
+    target = tmp_path / "actual"
+    target.mkdir()
+    (target / "source.md").write_bytes(content)
+    (tmp_path / "alias").symlink_to(target, target_is_directory=True)
+    registry = source_artifacts_path(tmp_path)
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(json.dumps({
+        "schema_version": "dmb_source_artifact_registry_v1",
+        "records": [artifact.model_dump(mode="json")],
+    }))
+
+    with pytest.raises(SourceArtifactRegistryError, match="failed safe read"):
+        load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
+def test_exact_source_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import source_artifact_registry
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+    )
+
+    fifo = tmp_path / "component.fifo"
+    os.mkfifo(fifo)
+    original_open = os.open
+
+    def require_nonblocking(path, flags, *args, **kwargs):
+        if path == fifo.name:
+            assert flags & os.O_NONBLOCK
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(source_artifact_registry.os, "open", require_nonblocking)
+    with pytest.raises(SourceArtifactRegistryError, match="not a regular file"):
+        source_artifact_registry._read_exact_repo_uri_bytes(tmp_path, "repo://component.fifo")
