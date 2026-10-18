@@ -260,6 +260,7 @@ def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_en
     assert (ROOT / graph["manifest_path"]).is_file()
     assert "graph_source_bundle_ready" in body["states"]
     assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
+    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "skipped"
 
 
 def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_graph(client_env: tuple[TestClient, Path, Path]) -> None:
@@ -492,6 +493,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "deepseek/deepseek-v4.1-flash-1017"
     assert graph["candidate_node_count"] >= 1
+    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "complete"
     assert (ROOT / graph["candidate_graph_path"]).is_file()
 
     run_id = graph["extraction_run_id"]
@@ -595,6 +597,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
         "blocked_reason"
     ].lower() or "semantic" in graph["blocked_reason"].lower()
     assert graph.get("preview_union_store_path") in (None, "")
+    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "failed"
 
     materialize = client.post(
         "/api/live/recap-ingest",
@@ -1176,7 +1179,8 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
     assert graph["extraction_mode"] == "llm_blocked"
-    assert graph["blocked_reason"] == "test llm blocked"
+    assert "(model)" in graph["blocked_reason"]
+    assert "test llm blocked" not in graph["blocked_reason"]
     assert any("preview graph extraction blocked" in warning for warning in body["warnings"])
 
 
@@ -1459,3 +1463,97 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         assert not graph["blocked_reason"]
         assert body["status"] != "ready_for_planning_activation"
         assert "session_memory_materialized" not in body["states"]
+
+
+@pytest.mark.parametrize("failure_kind", ["structured", "pre_provider"])
+def test_failed_production_step_is_durable_safe_and_not_reexecuted(
+    client_env, monkeypatch, failure_kind,
+):
+    import src.graph_memory.extraction.graph_preview_runner as producer
+    from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
+
+    client, _corpus, candidate = client_env
+    _prepare_normalized(client)
+    invocations = []
+    provider_attempts = []
+    secret = "PRIVATE_MODEL_OUTPUT_sk-secret_/private/host/path"
+
+    actual_extract = producer.extract_category_candidate_graph
+
+    class FailingClient:
+        def run_pass(self, pass_name, **kwargs):
+            provider_attempts.append(pass_name)
+            raise CategoryGraphExtractionError("invalid JSON " + secret, pass_name=pass_name)
+
+    def fail_once(options, **kwargs):
+        invocations.append(True)
+        if failure_kind == "structured":
+            # Exercise the actual category controller with an injected backend;
+            # this is an observed fake-client call, never a real provider call.
+            return actual_extract(options, client=FailingClient())
+        raise RuntimeError("configuration refused before provider " + secret)
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail_once)
+    response = client.post("/api/live/recap-ingest", json={
+        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld", "session": 22,
+        "extract_graph": True, "force_graph_run": True,
+    })
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert len(invocations) == 1
+    assert len(provider_attempts) == (1 if failure_kind == "structured" else 0)
+    assert secret not in response.text
+    step = next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")
+    assert step["state"] == "failed"
+    assert graph["current_graph_step"] == step
+    assert graph["blocked_reason"] == step["summary"]
+    assert "provider failed" not in step["summary"]
+    assert graph["candidate_graph_path"] is None
+    assert graph["candidate_node_count"] == graph["candidate_edge_count"] == 0
+    assert graph["model_id"] is None
+    assert graph["can_open_union_graph"] is False
+    manifest = ROOT / graph["manifest_path"]
+    before = manifest.read_bytes()
+    payload = json.loads(before)
+    assert payload["steps"] == graph["graph_steps"]
+    assert payload["errors"] == [graph["blocked_reason"]]
+    inspected = client.post("/api/live/recap-ingest", json={
+        "operation": "inspect_status", "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld", "session": 22,
+    })
+    assert inspected.status_code == 200, inspected.text
+    readback = inspected.json()["ingest_report"]["graph_preview"]
+    for key in ("graph_steps", "current_graph_step", "blocked_reason", "extraction_run_status", "model_id"):
+        assert readback[key] == graph[key]
+    assert len(invocations) == 1
+    assert manifest.read_bytes() == before
+    # A synthetic legacy manifest remains readable, without retroactive repair.
+    legacy = json.loads(before)
+    for old_step in legacy["steps"]:
+        if old_step["id"] == "extract_candidate_graph":
+            old_step.update(state="skipped", summary="Legacy packaging skipped extraction.")
+    manifest.write_text(json.dumps(legacy))
+    before = manifest.read_bytes()
+    legacy_read = client.post("/api/live/recap-ingest", json={
+        "operation": "inspect_status", "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld", "session": 22,
+    })
+    assert legacy_read.status_code == 200
+    legacy_graph = legacy_read.json()["ingest_report"]["graph_preview"]
+    assert legacy_graph["graph_steps"] == legacy["steps"]
+    assert manifest.read_bytes() == before
+    # A caller-supplied candidate cannot mask failed requested production,
+    # even through the owning service rather than the rejecting HTTP route.
+    from apps.live_control_server.services.recap_graph_preview_ingest import build_recap_graph_preview_bundle
+    from apps.live_control_server.services.recap_ingest_context import read_recap_ingest_context
+    newer = build_recap_graph_preview_bundle(
+        repo_root=ROOT, campaign_id="longmont-c2", session=22,
+        normalized_recap_path=graph["normalized_recap_path"],
+        force_graph_run=True, candidate_graph_path=str(candidate.relative_to(ROOT)),
+        extract_graph=True, ingest_context=read_recap_ingest_context(),
+    )
+    assert newer["candidate_graph_path"] is None
+    assert newer["candidate_node_count"] == 0
+    assert manifest.read_bytes() == before
+    assert len(invocations) == 2

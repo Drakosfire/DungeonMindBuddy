@@ -366,7 +366,7 @@ def build_recap_graph_preview_bundle(
     # Legacy GraphIngest packaging only — never perform a second model call here.
     # When the production ExtractionRun is reviewable, its candidate is authoritative
     # over any manually supplied candidate_graph_path.
-    legacy_candidate = production_candidate or candidate
+    legacy_candidate = production_candidate if extract_graph else candidate
     # Whenever production admitted a SourceArtifact / canonical SourceSpanIndex,
     # package from those immutable bytes — including source-only, manual-candidate,
     # and failed-extraction paths that still supply the canonical index.
@@ -430,15 +430,23 @@ def build_recap_graph_preview_bundle(
         diagnostics["extraction_mode"] = "llm_blocked"
         diagnostics["extraction_run_id"] = production.run.run_id
         diagnostics["extraction_run_status"] = production.run.status.value
-        diagnostics["failure_kind"] = production.failure_kind or "validation"
+        failure_kind = production.failure_kind or "validation"
+        if failure_kind not in {"extraction", "refusal", "incomplete", "schema", "model", "validation"}:
+            failure_kind = "extraction"
+        diagnostics["failure_kind"] = failure_kind
         diagnostics["source_artifact_id"] = production.run.source_artifact_id
         manifest_payload["diagnostics"] = diagnostics
+        # Production diagnostics may contain provider output or private paths.
+        # Public workflow state uses fixed host text, not arbitrary error prose.
         blocked_message = (
-            production.diagnostics[0]
-            if production.diagnostics
-            else f"extraction failed: {production.failure_kind or production.run.status.value}"
+            "Graph extraction did not produce a reviewable candidate "
+            f"({failure_kind}). Review the extraction evidence before retrying."
         )
-        manifest_payload["errors"] = list(production.diagnostics or [blocked_message])
+        manifest_payload["errors"] = [blocked_message]
+        for step in manifest_payload.get("steps") or []:
+            if step.get("id") == "extract_candidate_graph":
+                step["state"] = "failed"
+                step["summary"] = blocked_message
         result.manifest_path.write_text(
             json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
@@ -480,11 +488,7 @@ def build_recap_graph_preview_bundle(
             status["model_id"] = production.model_id
     elif extract_graph:
         status["extraction_mode"] = "llm_blocked"
-        status["blocked_reason"] = (
-            production.diagnostics[0]
-            if production.diagnostics
-            else f"extraction failed: {production.failure_kind or production.run.status.value}"
-        )
+        # The saved manifest is also the authority for later inspect_status reads.
     return status
 
 
