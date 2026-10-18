@@ -192,6 +192,53 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     class DispositionClient:
         def __init__(self) -> None:
             self.user_contents: dict[str, str] = {}
+            self.raw_disposition_payload = {
+                "observation_nodes": [
+                    {
+                        "node_id": "node:mystery",
+                        "label": "River mystery",
+                        "node_type": "mystery",
+                        "description": "Something odd in the river.",
+                        "importance": "medium",
+                        "evidence_refs": [
+                            {
+                                "source_span_ref_id": "span-1",
+                                "anchor_quotes": ["Mirathorn"],
+                            }
+                        ],
+                    }
+                ],
+                "ignored_items": [
+                    {
+                        "item_id": "ignored:noise",
+                        "label": "Background chatter",
+                        "reason": "not durable",
+                        "node_type": "mystery",
+                        "evidence_refs": [
+                            {
+                                "source_span_ref_id": "span-1",
+                                "anchor_quotes": ["Mirathorn"],
+                            }
+                        ],
+                        "suggested_next_step": None,
+                    }
+                ],
+                "deferred_items": [
+                    {
+                        "item_id": "deferred:followup",
+                        "label": "Follow the current",
+                        "reason": "needs later pass",
+                        "node_type": "thread",
+                        "suggested_next_step": "revisit after session 25",
+                        "evidence_refs": [
+                            {
+                                "source_span_ref_id": "span-1",
+                                "anchor_quotes": ["Mirathorn"],
+                            }
+                        ],
+                    }
+                ],
+            }
 
         def run_pass(
             self,
@@ -212,50 +259,7 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
                     "response_id": "edge",
                 }
             return {
-                "parsed": {
-                    "observation_nodes": [
-                        {
-                            "node_id": "node:mystery",
-                            "label": "River mystery",
-                            "node_type": "mystery",
-                            "description": "Something odd in the river.",
-                            "importance": "medium",
-                            "evidence_refs": [
-                                {
-                                    "source_span_ref_id": "span-1",
-                                    "anchor_quotes": ["Mirathorn"],
-                                }
-                            ],
-                        }
-                    ],
-                    "ignored_items": [
-                        {
-                            "item_id": "ignored:noise",
-                            "label": "Background chatter",
-                            "reason": "not durable",
-                            "evidence_refs": [
-                                {
-                                    "source_span_ref_id": "span-1",
-                                    "anchor_quotes": ["Mirathorn"],
-                                }
-                            ],
-                        }
-                    ],
-                    "deferred_items": [
-                        {
-                            "item_id": "deferred:followup",
-                            "label": "Follow the current",
-                            "reason": "needs later pass",
-                            "suggested_next_step": "revisit after session 25",
-                            "evidence_refs": [
-                                {
-                                    "source_span_ref_id": "span-1",
-                                    "anchor_quotes": ["Mirathorn"],
-                                }
-                            ],
-                        }
-                    ],
-                },
+                "parsed": self.raw_disposition_payload,
                 "cost_usd": 0.0,
                 "usage": {},
                 "elapsed_ms": 1,
@@ -282,6 +286,22 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     deferred_ids = {item["item_id"] for item in result.candidate_graph.get("deferred_items") or []}
     assert "ignored:noise" in ignored_ids
     assert "deferred:followup" in deferred_ids
+    ignored = next(item for item in result.candidate_graph["ignored_items"] if item["item_id"] == "ignored:noise")
+    deferred = next(item for item in result.candidate_graph["deferred_items"] if item["item_id"] == "deferred:followup")
+    assert "node_type" not in ignored
+    assert "node_type" not in deferred
+    assert ignored["label"] == "Background chatter"
+    assert ignored["reason"] == "not durable"
+    assert ignored["evidence_refs"]
+    assert deferred["label"] == "Follow the current"
+    assert deferred["reason"] == "needs later pass"
+    assert deferred["evidence_refs"]
+    assert deferred["suggested_next_step"] == "revisit after session 25"
+    candidate_node_ids = {node["node_id"] for node in result.candidate_graph["nodes"]}
+    assert "ignored:noise" not in candidate_node_ids
+    assert "deferred:followup" not in candidate_node_ids
+    assert client.raw_disposition_payload["ignored_items"][0]["node_type"] == "mystery"
+    assert client.raw_disposition_payload["deferred_items"][0]["node_type"] == "thread"
 
 
 class LedgerRecordingClient(RecordingClient):

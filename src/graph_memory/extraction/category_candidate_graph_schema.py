@@ -77,6 +77,7 @@ def _disposition_item_schema() -> dict[str, Any]:
             "item_id": {"type": "string"},
             "label": {"type": "string"},
             "reason": {"type": "string"},
+            "node_type": {"type": "string"},
             "evidence_refs": {
                 "type": "array",
                 "items": _evidence_ref_schema(),

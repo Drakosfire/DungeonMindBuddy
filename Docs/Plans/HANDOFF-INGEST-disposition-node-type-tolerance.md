@@ -49,6 +49,13 @@ No other path is leased. The extractor implementation need not change: `_normali
 - Exercise the complete category extractor candidate-construction path with string `node_type` on both an ignored and deferred item. The resulting candidate keeps every declared field, evidence reference, and deferred `suggested_next_step`; it contains no `node_type`, creates no positive node from either disposition, and does not mutate the provider payload.
 - Prove positive node and edge schemas remain unchanged and strict. No broad schema relaxation, prompt-only mitigation, provider rerun, candidate promotion, database write, World publication, or runtime restart is part of this slice.
 
+## Implementation evidence
+
+- The thread disposition schema now permits one optional string `node_type` on ignored/deferred items while retaining `additionalProperties: false`. Positive actor-node and edge schemas still reject undeclared `node_type` metadata.
+- The extractor-boundary regression sends `node_type` on both ignored and deferred provider items through candidate construction. Normalization drops that metadata, preserves the declared disposition fields, leaves the provider payload untouched, and does not create positive graph nodes from disposition records.
+- Focused verification: the schema and category-extractor suites pass (`8 passed`); Ruff and `git diff --check` pass.
+- Exact private-response replay is offline: the original captured thread response remains malformed JSON (decode error at character 2514), while the captured conformance retry validates against the corrected thread schema with zero errors. These private response artifacts remain outside the repository. No provider call or live Process rerun was made.
+
 ## Verification and limits
 
 - Run the owning schema and category-extractor test suites, including the exact extra-field and unknown-field cases.
