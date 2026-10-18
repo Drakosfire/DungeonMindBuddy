@@ -94,7 +94,7 @@ function LocalCandidateReader({ projection: p }: {
     return <section aria-label="Exact extraction candidate" className="graph-review-historical-recap-projection">
     <p role="status">Extraction candidate · {p.nodes.length} nodes · {p.edges.length} relationships. These are reviewable proposals, not an admitted World view.</p>
     {p.runWorldBindingStatus === "source_only" ? <p>Source ownership is verified. This older extraction has no frozen World context; inspection does not approve it for publication.</p> : null}
-    <GraphProjectionReader markdown={safeMarkdown.markdown} nodeViews={p.nodeViews} sourceSpans={p.sourceSpans} graphId={`candidate:${p.runId}:${p.candidateSha256}`} documentLabel="Candidate-enriched recap" documentScroll="page" onInspectNode={inspect} authoringEnabled={false} resetKey={p.candidateSha256}/>
+    <GraphProjectionReader frontmatterPolicy="preserve" markdown={safeMarkdown.markdown} nodeViews={p.nodeViews} sourceSpans={p.sourceSpans} graphId={`candidate:${p.runId}:${p.candidateSha256}`} documentLabel="Candidate-enriched recap" documentScroll="page" onInspectNode={inspect} authoringEnabled={false} resetKey={p.candidateSha256}/>
     <details><summary>All extracted nodes ({p.nodes.length})</summary>
       <p>{p.unlinkedNodeCount} nodes have no unambiguous literal mention linked in this view.</p>
       <ul>{p.nodes.map(n => <li key={n.viewKey}><button type="button" onClick={() => inspect(n.viewKey)}>{n.label} · candidate</button></li>)}</ul>

@@ -179,3 +179,13 @@ changed flattened prefixes/suffixes, while recognized envelopes already removed
 by the server stay absent. Preserve candidate chips, evidence and raw source.
 Test the default shared-reader behavior and switching the policy on rerender.
 Do not disguise source using invented prefix prose or alter captured bytes.
+
+
+Mounted verification also exposed a chip timing seam: source-span attachment ran
+before React node-view labels existed, so full-paragraph matching missed evidence.
+The leased reader now observes child-content arrival, reapplies the existing
+source-span matcher, disconnects on cleanup and scrolls at most once per effect.
+The mounted regression retains unknown header text, candidate inspection, exact
+raw source and evidence attachment together. Existing shared-reader diagnostic
+assertions are updated to the already-current saved-image/safe-URL messages;
+no corresponding Markdown admission behavior is changed.

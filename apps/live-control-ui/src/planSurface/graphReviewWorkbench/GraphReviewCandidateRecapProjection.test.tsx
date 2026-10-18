@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ExactRunCandidateProjection } from '../../api/exactRunCandidateProjectionApi';
 import { GraphReviewCandidateRecapProjection, inertUnknownCandidateLinks } from './GraphReviewCandidateRecapProjection';
@@ -71,4 +71,38 @@ it('neutralizes unknown reference links and encoded raw identities without chang
     const source = '[forged][old] and [encoded](DMB-NODE:threat%3Aloc_3)\n\n[old]: dmb-node:threat:loc_3';
     const safe = inertUnknownCandidateLinks(source, new Set());
     expect(safe.markdown).toBe('forged and encoded\n\n');
+});
+
+
+it.each([
+  "---\nnormalization_schema: unknown_story\nstory_fact: The gate is red\n---\n\n",
+  "---\nnormalization_schema: [malformed\nstory_fact: The gate is red\n---\n\n",
+  "--- document_class: play normalization_schema: dmb_recap_normalized_v1 --- # Recap changed-heading\n\n",
+  "--- document_class: play normalization_schema: dmb_recap_normalized_v1 --- # Recap # extra story\n\n",
+])("preserves retained source prefix in the final real candidate renderer: %s", async (prefix) => {
+  const p = fixture();
+  p.sourceMarkdown = prefix + "Mara is here.";
+  p.narrativeMarkdown = p.sourceMarkdown;
+  p.sourceSpans = [{ span_id: "retained-body", kind: "paragraph", text_excerpt: "Mara is here." }];
+  p.projectedMarkdown = prefix + `[Mara](dmb-node:${key}) is here.`;
+  const fetch = vi.spyOn(globalThis, "fetch");
+  render(<GraphReviewCandidateRecapProjection projection={p} />);
+  const reader = document.querySelector(".union-supergraph-tiptap-reader");
+  expect(reader?.textContent).toContain(prefix.includes("story_fact") ? "The gate is red" : prefix.trim());
+  fireEvent.click(await screen.findByRole("button", { name: "Mara", exact: true }));
+  expect(screen.getByRole("complementary", { name: "Candidate: Mara" })).toBeInTheDocument();
+  expect(document.querySelector('details[aria-label="Candidate reader advanced details"] pre')?.textContent).toBe(p.sourceMarkdown);
+  await waitFor(() => expect(document.querySelector('[data-source-span-id="retained-body"]')?.textContent).toContain(" is here."));
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("does not restore recognized normalization metadata already removed by the producer", () => {
+  const p = fixture();
+  p.sourceMarkdown = "---\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Recap\n\nMara is here.";
+  p.narrativeMarkdown = "# Recap\n\nMara is here.";
+  p.projectedMarkdown = `# Recap\n\n[Mara](dmb-node:${key}) is here.`;
+  render(<GraphReviewCandidateRecapProjection projection={p} />);
+  expect(document.querySelector(".union-supergraph-tiptap-reader")?.textContent).not.toContain("normalization_schema");
+  expect(screen.getByRole("heading", { name: "Recap" })).toBeInTheDocument();
+  expect(document.querySelector('details[aria-label="Candidate reader advanced details"] pre')?.textContent).toBe(p.sourceMarkdown);
 });
