@@ -557,3 +557,69 @@ def test_real_session_get_is_read_only_without_csrf_and_remote_peer_is_rejected(
                 assert (await remote.get(url)).status_code == 403
 
     asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "produced",
+    [
+        {"text": indent + "Élodie meets Mara." + newline,
+         "labels": [("npc:a", "Élodie"), ("npc:b", "Mara")],
+         "quote": "Élodie meets Mara."}
+        for indent in ("    ", "\t", "  \t")
+        for newline in ("\n", "\r\n")
+    ],
+    indirect=True,
+)
+def test_indented_source_is_not_rewritten_with_candidate_navigation(produced):
+    root, source, run = produced
+    before = snapshot(root)
+    result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    assert result.projected_markdown == result.narrative_markdown == source.source_text
+    assert result.mentions_count == 0 and result.unlinked_node_count == 2
+    assert len(result.nodes) == 2
+    assert "indented_source_candidate_mention_not_linked" in result.diagnostics
+    assert snapshot(root) == before
+
+
+@pytest.mark.parametrize(
+    "produced",
+    [{"text": " " * spaces + "Élodie meets Mara.\n",
+      "labels": [("npc:a", "Élodie"), ("npc:b", "Mara")],
+      "quote": "Élodie meets Mara."} for spaces in (1, 2, 3)],
+    indirect=True,
+)
+def test_short_prose_indentation_remains_eligible_for_exact_candidate_links(produced):
+    root, _, run = produced
+    result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    assert result.mentions_count == 2 and result.unlinked_node_count == 0
+    assert "indented_source_candidate_mention_not_linked" not in result.diagnostics
+    assert "[Élodie](dmb-node:candidate:" in result.projected_markdown
+
+
+@pytest.mark.parametrize(
+    "produced",
+    [{"text": "Mara waits.\n    Mara listens.\n",
+      "labels": [("npc:a", "Mara")], "quote": "Mara"}],
+    indirect=True,
+)
+def test_indented_continuation_is_conservatively_unlinked_without_rewriting_source(produced):
+    root, source, run = produced
+    result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    assert result.mentions_count == 1
+    assert result.projected_markdown.endswith("\n    Mara listens.\n")
+    assert result.narrative_markdown == source.source_text
+    assert "indented_source_candidate_mention_not_linked" in result.diagnostics
+
+
+@pytest.mark.parametrize(
+    "produced",
+    [{"text": "    [Mara](dmb-node:literal-source)\n",
+      "labels": [("npc:a", "Mara")], "quote": "Mara"}],
+    indirect=True,
+)
+def test_indented_literal_source_graph_markup_is_preserved_not_generated(produced):
+    root, source, run = produced
+    result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    assert result.projected_markdown == source.source_text
+    assert result.mentions_count == 0
+    assert len(result.nodes) == 1

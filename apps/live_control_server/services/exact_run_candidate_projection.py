@@ -352,8 +352,20 @@ def _build(
                     owners.setdefault(mapped, set()).add(node.view_key)
                     surfaces[mapped] = node.label
     located = []
+    # The shared mention engine protects fences/inline code, but not indented
+    # source. Preserve these lines conservatively (including list continuations)
+    # rather than injecting navigation that a Markdown reader displays literally.
+    indented_ranges = []
+    line_offset = 0
+    for line in display.splitlines(keepends=True):
+        if re.match(r"(?: {4}| {0,3}\t)", line):
+            indented_ranges.append((line_offset, line_offset + len(line)))
+        line_offset += len(line)
     intervals = list(owners)
     for interval, view_keys in owners.items():
+        if any(interval[0] < end and interval[1] > start for start, end in indented_ranges):
+            diagnostics.append("indented_source_candidate_mention_not_linked")
+            continue
         if len(view_keys) != 1 or any(
             interval != other and interval[0] < other[1] and interval[1] > other[0]
             for other in intervals
