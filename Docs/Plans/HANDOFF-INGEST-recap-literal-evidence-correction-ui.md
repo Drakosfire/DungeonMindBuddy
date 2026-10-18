@@ -1,6 +1,6 @@
 # INGEST: recap literal quote correction UI
 
-Status: ACTIVE — ROOT/PRIME implementation under the live dogfood goal; ARCHITECTURE critiqued the contract and failure cases before activation. No DEMO implementation delegation is active.
+Status: DELIVERED / lease closed — PR #1395 merged as `661d96c2e82e09b8c0f6cd8a8eebb2d88a62ea7f`, reviewed head `2e72df70302549993193d0d73ba4536e16f96223` (ARCHITECTURE Cycle2 PASS). The exact rebuilt UI was adopted on5202 with older browser assets retained and no operator-tab reload or API restart. No DEMO implementation delegation is active.
 Base: fetched `origin/main@a2778b5a18d9f20985d8ded96f8b9cf4a6ed2a50`.
 Branch: `codex/ingest-recap-quote-correction-ui`.
 Checkout: reused `/home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy` with existing dependencies. ROOT owns this serial source lane; DOGFOOD's quote-integrity helper/runner/tests are parallel-independent. PRIME owns review/merge/delivery after independent exact-head review. No new checkout or environment.
@@ -38,3 +38,11 @@ No backend, CSS, dependency or operator-correction contract paths. First commit 
 Mounted API/UI checks prove zero POST on load/edit/preview, one explicit submit despite rapid duplicate actions, immutable manual retry after uncertain response, newer draft isolation, stale POST/child GET A→B→A, mismatched parent/source/span/candidate/package rejection, child GET failure, current held/accepted/rejected rendering, source-only ownership/publication fences across child/reload, and unchanged worldbuilding controls. Adapter/transport tests cover exact payload/route, auth+CSRF, narrow path matching and redirect refusal with no automatic correction replay. Existing real-backend correction tests must pass on the standard disposable54329 fixture; mocks alone do not establish child lifecycle readiness.
 
 Inspect cumulative diff, typecheck/build with existing dependencies, commit/push/open one PR, independent exact-head review, then deliver on5202 with retained drafts/runs/Graph and no extra preview servers. A live correction POST is a separate operator action after an explicit preview; no live correction, new extraction/provider call, semantic acceptance or publication is authorized by implementation tests. Existing Session29 candidate remains immutable and inspectable.
+
+## Settlement
+
+Four owning UI/API suites pass (104 tests), TypeScript and pinned production build pass; 13 unchanged real-backend correction lifecycle tests pass on disposable PostgreSQL. Independent review found and verified repairs for departed-surface completion and same-parent/different-request recovery receipts. The browser digest matches the existing server canonical request bytes, including Unicode target ordering and quote bytes.
+
+The saved Session29 parent `feb54858-4f22-449f-a59b-82555618f47f` rendered the new correction form on5202. A local-only preview displayed the exact old/new quote and enabled explicit Save while exposing no World prepare action. No live correction POST, child creation, semantic acceptance or publication was performed. Actual operator Save and verified child readback remain a separate dogfood acceptance step; delivery does not establish full Ingestion or semantic readiness. Existing identity/location/relation holds remain.
+
+The eleven-path implementation lease is closed. PR #1235 remains held at its prior head until separately re-anchored and freshly reviewed; closing this lease does not activate its older work. DOGFOOD retains the independent host quote-integrity slice. Private rollout/build evidence is at the established `jev-evidence-loop-20261016` state location, not a runtime configuration dependency.
