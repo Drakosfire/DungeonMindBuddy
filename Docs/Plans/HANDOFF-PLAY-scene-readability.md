@@ -1,8 +1,9 @@
 # PLAY: readable authored Scene headings and tables
 
-Status: ACTIVE — PRIME designs and authorizes this bounded correction under the
-operator's live Build→Plan→Play dogfood objective. Independent ARCHITECTURE review
-is required before PRIME merges and adopts on5202.
+Status: SETTLED — implementation merged as PR #1402 at
+6743466d5f167f26d49c14d87b6353a35843f39e after ARCHITECTURE exact-head
+Cycle 2 PASS on c80064f160df4f2ee4364d67b1451582eff3583a. The exclusive
+write lease is closed. UI-only delivery on5202 is verified;5268 is stopped.
 Base: origin/main@15aa918eb91071b469ea7f733cce6d2c6a3262e6.
 Branch: codex/play-scene-readability; reuse buddy-context-loop checkout/dependencies.
 Topology: parallel-independent of held INGEST candidate-reader #1401 and DOGFOOD's
@@ -53,3 +54,26 @@ UI-only adoption on the existing5202 unit preserves API8000, older hashed assets
 all source/Plan/Run pin hashes, notes and original user tabs. Recheck the actual
 Edge walkthrough read-only after delivery; no new Run, source, provider or Graph
 write is required. Mutable completion authority is this handoff only.
+
+
+## Delivered evidence and limits
+
+Independent actual-browser checks at measured1280px and390px preserve all18
+fixture cells and body text, paper heading ink, shell colors, complete short
+headers/numerals/modifier tokens, natural column sizing and no page overflow.
+80 focused tests and typecheck pass independently; production build passes.
+Cycle1 exposed short-token splitting, corrected before Cycle2 PASS.
+
+PRIME reproduced the prior serving index byte-for-byte before delivery and
+atomically adopted only the reviewed CSS change. Runtime JavaScript bytes are
+unchanged, previous hashed assets remain available, UI PID17085 is unchanged,
+and API8000 was not restarted. Four retained Edge source/Plan/reference/Run
+records hash identically before/after. Actual retained Edge Play headings and
+ability cells verify the correction. No source, Plan, Run, note, provider or
+Graph write occurred. This is presentation delivery, not acceptance of the
+unplaytested encounter or completion of the broader session workflow.
+
+Private build/rollout/preservation receipts: established experiment directory
+jev-evidence-loop-20261016, play-readability-* evidence. The temporary5268
+preview was stopped after both reviewers finished and its port verified free.
+Held candidate-reader #1401 remains unadopted.
