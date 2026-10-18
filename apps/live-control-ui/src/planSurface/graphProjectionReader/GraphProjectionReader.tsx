@@ -8,6 +8,7 @@ import {
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { analyzeMarkdownBody } from "../../tiptap/markdown/markdownAdmission";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
@@ -25,6 +26,8 @@ export type { GraphAuthoringAction, GraphAuthoringSelection };
 
 export interface GraphProjectionReaderProps {
   markdown: string;
+  /** Preserve source whose normalization is already owned by its producer. */
+  frontmatterPolicy?: "strip-leading" | "preserve";
   nodeViews: Record<string, GraphProjectionNodeView>;
   sourceSpans: RecapProjectionSourceSpan[];
   mentionsCount?: number;
@@ -53,6 +56,7 @@ export interface GraphProjectionReaderProps {
 
 function ReadOnlyTiptapRecap({
   markdown,
+  frontmatterPolicy,
   nodeViews,
   activeNodeId,
   onSelectNode,
@@ -65,6 +69,7 @@ function ReadOnlyTiptapRecap({
   onGraphAuthoringSelection,
 }: {
   markdown: string;
+  frontmatterPolicy: "strip-leading" | "preserve";
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
@@ -78,12 +83,20 @@ function ReadOnlyTiptapRecap({
 }) {
   const readerRef = useRef<HTMLDivElement | null>(null);
   const projectionMarkdown = useMemo(
-    () => stripLeadingYamlFrontmatter(markdown).markdown,
-    [markdown],
+    () => frontmatterPolicy === "preserve" ? markdown : stripLeadingYamlFrontmatter(markdown).markdown,
+    [markdown, frontmatterPolicy],
   );
   const imported = useMemo(
-    () => markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true }),
-    [projectionMarkdown],
+    () => {
+      if (frontmatterPolicy === "preserve") {
+        // The orchestration helper strips YAML too. Use the same admission/parser
+        // boundary directly when the producer already owns normalization.
+        const result = analyzeMarkdownBody(projectionMarkdown.replace(/\r\n?/g, "\n"), { parseGraphNodeLinks: true });
+        return { doc: { type: "doc", content: result.content }, diagnostics: result.diagnostics };
+      }
+      return markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true });
+    },
+    [projectionMarkdown, frontmatterPolicy],
   );
   const content = imported.doc as Content;
   const editor = useEditor({
@@ -117,10 +130,20 @@ function ReadOnlyTiptapRecap({
   useEffect(() => {
     const root = readerRef.current;
     if (!root) return;
-    const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
-    if (highlighted && typeof highlighted.scrollIntoView === "function") {
-      highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
+    let didScroll = false;
+    const attach = () => {
+      const highlighted = attachSourceSpanDataAttributes(root, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays ?? {});
+      if (!didScroll && highlighted && typeof highlighted.scrollIntoView === "function") {
+        highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
+        didScroll = true;
+      }
+    };
+    // React node views mount their chip labels after the editor content effect.
+    // Reattach when those children arrive so evidence can match the full prose.
+    const observer = new MutationObserver(attach);
+    observer.observe(root, { childList: true, subtree: true });
+    attach();
+    return () => observer.disconnect();
   }, [content, editor, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
   return (
@@ -142,6 +165,7 @@ function ReadOnlyTiptapRecap({
 
 export function GraphProjectionReader({
   markdown,
+  frontmatterPolicy = "strip-leading",
   nodeViews,
   sourceSpans,
   mentionsCount,
@@ -280,6 +304,7 @@ export function GraphProjectionReader({
           aria-label={documentLabel}
         >
           <ReadOnlyTiptapRecap
+            frontmatterPolicy={frontmatterPolicy}
             markdown={markdown}
             nodeViews={nodeViews}
             activeNodeId={activeNodeId}

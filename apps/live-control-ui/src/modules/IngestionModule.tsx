@@ -26,6 +26,8 @@ import {
 } from "../planSurface/sessionCampaignContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { GraphReviewHistoricalRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewHistoricalRecapProjection";
+import { GraphReviewCandidateRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection";
+import { getExactRunCandidateProjection, type ExactRunCandidateProjection } from "../api/exactRunCandidateProjectionApi";
 
 import { WorldGraphRecapProjectionView } from "../planSurface/graphPreview/WorldGraphRecapProjection";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
@@ -684,7 +686,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [reviewSource, setReviewSource] = useState<{ identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection | HistoricalRecapWorldProjectionResponse | null; runId?: string } | null>(null);
+  const [reviewSource, setReviewSource] = useState<{ identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection | HistoricalRecapWorldProjectionResponse | ExactRunCandidateProjection | null; runId?: string } | null>(null);
   const [readerMode, setReaderMode] = useState(() => new URLSearchParams(window.location.search).get("view") === "recap");
   const readerAttempt = useRef<string | null>(null);
   const restoreReaderRoute = useRef(true);
@@ -1903,6 +1905,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         return;
       }
 
+      const freshReaderParams = new URLSearchParams(window.location.search);
+      freshReaderParams.set("recapProjection", "candidate");
+      window.history.replaceState({}, "", `${window.location.pathname}?${freshReaderParams}`);
       setSourceMode("processed");
       setRawText("");
       readerAttempt.current = null;
@@ -2060,7 +2065,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
-  async function reviewSavedSource(restore = false, preserveSelection = false) {
+  async function reviewSavedSource(restore = false, preserveSelection = false, admittedMemory?: boolean) {
     restoreReaderRoute.current = false;
     const params = new URLSearchParams(window.location.search);
     const sameSelection = params.get("campaign") === ingestCampaignId && params.get("session") === `session-${recapSession}`;
@@ -2074,6 +2079,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     params.set("campaign", ingestCampaignId);
     params.set("session", `session-${recapSession}`);
     params.set("view", "recap");
+    const readAdmitted = admittedMemory ?? params.get("recapProjection") === "admitted";
+    params.set("recapProjection", readAdmitted ? "admitted" : "candidate");
     if (runId) params.set("recapReviewRunId", runId); else params.delete("recapReviewRunId");
     window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
     readerAttempt.current = reviewIdentity;
@@ -2093,7 +2100,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       const path = resultOwnsSelection ? latestResult?.paths?.normalized_recap : null;
       if (!record && !path && !runId) throw new Error("No saved recap is available for this session.");
       setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: null });
-      if (runId) {
+      if (runId && !readAdmitted) {
+        if (!capturedManagedWorldId) throw new Error("Select a managed World before opening this exact candidate.");
+        const candidate = await getExactRunCandidateProjection(runId,capturedManagedWorldId);
+        if (!isCurrent()) return;
+        if (candidate.runId !== runId || candidate.sourceDomain !== "recap" || candidate.campaignId !== ingestCampaignId
+          || candidate.sessionId !== `session-${capturedSession}` || candidate.managedWorldId !== capturedManagedWorldId) {
+          throw new Error("Exact candidate does not match the selected managed World binding, source campaign or session.");
+        }
+        setReviewSource({identity,session:capturedSession,nodes:candidate.nodes.length,edges:candidate.edges.length,runId,projection:candidate});
+      } else if (runId) {
         // A selected extraction run is an exact source identity. Never replace
         // it with the current normalized recap for the same session.
         if (!capturedManagedWorldId) {
@@ -2213,7 +2229,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     params.delete("documentId");
     params.delete("revision");
     const sourceArtifactId = reviewSource?.runId === exactGraphReviewRunId
-      && reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
+      && (reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
+        || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1")
       ? reviewSource.projection.sourceArtifactId
       : null;
     if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
@@ -2629,9 +2646,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   {reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Evidence to connect the local Graph session." : ""}
                 </p>
               ) : null}
+              {reviewSource?.runId ? <div aria-label="Recap projection choice">
+                    <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1"}
+                      onClick={() => void reviewSavedSource(false,true,false)}>View extracted candidates</button>
+                    <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"}
+                      onClick={() => void reviewSavedSource(false,true,true)}>View admitted memory</button>
+              </div> : null}
               {reviewSource?.projection ? (
                 <>
-                  {reviewSource.projection.schema === "dmb_historical_recap_world_projection_v1" ? (
+                  {reviewSource.projection.schema === "dmb_exact_run_candidate_projection_v1" ? (
+                    <GraphReviewCandidateRecapProjection projection={reviewSource.projection}/>
+                  ) : reviewSource.projection.schema === "dmb_historical_recap_world_projection_v1" ? (
                     <>
                       <p className="ingest-enriched-recap__status">
                         Exact extraction run · {reviewSource.projection.runId} · source bound by digest. Linked facts use the current admitted World Graph; new candidates remain in Graph Review.

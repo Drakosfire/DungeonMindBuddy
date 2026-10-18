@@ -76,8 +76,8 @@ describe("GraphProjectionReader", () => {
     const details = screen.getByLabelText("Source formatting details");
     expect(details).not.toHaveAttribute("open");
     fireEvent.click(screen.getByText("Source formatting", { exact: true }));
-    expect(screen.getByText("Markdown images are not supported yet.")).toBeVisible();
-    expect(screen.getByText("Ordinary Markdown links are not supported by the mounted editor schema.")).toBeVisible();
+    expect(screen.getByText("Only saved Buddy image references are supported.")).toBeVisible();
+    expect(screen.getByText("Ordinary Markdown links require an absolute HTTP/HTTPS URL, text label, and no title.")).toBeVisible();
   });
 
   it("does not render graph authoring UI when authoring is disabled", async () => {
@@ -322,4 +322,17 @@ describe("GraphProjectionReader", () => {
       "recap-reader-document--page-scroll",
     );
   });
+});
+
+
+it("preserves producer-owned frontmatter only when explicitly requested, including policy changes", async () => {
+  const markdown = "---\nnormalization_schema: unknown_story\nstory_fact: The gate is red\n---\n\nMara is here.";
+  const props = { markdown, nodeViews: {}, sourceSpans: [] };
+  const ui = render(<GraphProjectionReader {...props} />);
+  expect(document.querySelector(".union-supergraph-tiptap-reader")?.textContent).not.toContain("The gate is red");
+  ui.rerender(<GraphProjectionReader {...props} frontmatterPolicy="preserve" />);
+  expect(await screen.findByText(/The gate is red/)).toBeInTheDocument();
+  ui.rerender(<GraphProjectionReader {...props} />);
+  expect(document.querySelector(".union-supergraph-tiptap-reader")?.textContent).not.toContain("The gate is red");
+  expect(screen.getByText("Mara is here.")).toBeInTheDocument();
 });
