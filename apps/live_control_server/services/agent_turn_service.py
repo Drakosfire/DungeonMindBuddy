@@ -6335,7 +6335,8 @@ def execute_agent_turn(
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(
-                assembly.invocation, plan_continuity_turn=plan_continuity
+                assembly.invocation, plan_continuity_turn=plan_continuity,
+                graph_read_profile=("governed_build" if _governed_build_turn(request) else "world_graph"),
             )
             if request.build_write_capability is not None:
                 from .build_insertion_tool import BuildInsertionTool, TOOL_NAME

@@ -1676,6 +1676,13 @@ def run_hermes_graph_agent_turn(
                     # Timing is observational and never changes the turn result.
                     pass
 
+    if not isinstance(request.graph_read_profile, str) or request.graph_read_profile not in ("world_graph", "governed_build") or (
+        request.graph_read_profile == "governed_build" and not (
+            request.parent_graph_broker_required and request.provider_authorization_required
+        )
+    ):
+        return _error_result(hermes_session_id=session_id, error_code="invalid_graph_read_profile",
+                             error_message="Graph read profile requires its authorized parent broker.")
     if not str(request.question or "").strip():
         return _error_result(
             hermes_session_id=session_id,
@@ -2062,6 +2069,8 @@ def run_hermes_graph_agent_turn(
                                 if not {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}.intersection(
                                     _tool_names_from_definitions([definition]))
                             ]
+                        from .hermes_graph_interaction_tools import project_graph_read_tools
+                        visible_defs = project_graph_read_tools(visible_defs, request.graph_read_profile)
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(
                             visible_names,
@@ -2207,6 +2216,7 @@ def run_hermes_graph_agent_turn(
                                     if not {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}.intersection(
                                     _tool_names_from_definitions([definition]))
                                 ]
+                            agent_tools = project_graph_read_tools(agent_tools, request.graph_read_profile)
                             agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)
                             agent_surface_error = _validate_model_visible_surface(

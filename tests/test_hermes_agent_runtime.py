@@ -580,3 +580,27 @@ def test_build_insertion_tool_requires_separate_explicit_surface_capability():
     assert deserialize_hermes_graph_agent_turn_request(wire).capability_policy == request.capability_policy
     ordinary = map_invocation_to_hermes_request(_invocation())
     assert "propose_build_insertion" not in ordinary.capability_policy.enabled_tool_names
+
+
+def test_trusted_read_profile_maps_without_build_write_actions():
+    from dataclasses import replace
+    import pytest
+    base=_invocation()
+    class Host(_FakeHost):
+        def execute(self,request,**kwargs):
+            self.calls.append(request);return self.result
+    for profile in ('world_graph','governed_build'):
+        host=Host(_hermes_ok_result())
+        runtime=HermesAgentRuntimeAdapter(host_factory=lambda:host)
+        invocation=replace(base,graph_read_profile=profile)
+        runtime.run_with_provider_authorization(invocation,lambda view:True,
+            request_budget={'schema':'dmb_hermes_request_budget_policy_v1','provider':'openai-api','model':'gpt-6-luna','apiMode':'codex_responses',
+                'estimator':'utf8_json_bytes_plus_64_per_node_v1','contextLimitTokens':100000,
+                'outputReserveTokens':100,'maxProviderAttempts':4,'maxToolCapableAttempts':3,'maxGraphOperations':8},
+            on_graph_operation=lambda message:{},on_provider_lifecycle=lambda event:True)
+        request=host.calls[-1]
+        assert request.graph_read_profile==profile
+        assert not {'propose_build_insertion','prepare_build_image'}.intersection(request.capability_policy.enabled_tool_names)
+        restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(request))
+        assert restored.graph_read_profile==profile
+    with pytest.raises(ValueError):replace(base,graph_read_profile='Build from prompt text')

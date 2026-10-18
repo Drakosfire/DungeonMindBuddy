@@ -3430,3 +3430,113 @@ def test_lifecycle_failure_retains_uncertain_pending_attempt(
         assert "denied before dispatch" not in result.error_message
     else:
         assert result.error_code == failure_code
+
+
+def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(tmp_path, monkeypatch):
+    """Plugin discovery and agent construction must not overwrite the projected profile."""
+    from copy import deepcopy
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+    )
+    monkeypatch.delenv(hermes_graph_agent_mod._SESSION_PROFILES_ENV, raising=False)
+    original = deepcopy(hermes_model_visible_tool_definitions())
+    scope = HermesGraphScope(world_id="world", campaign_id="", scope_mode="world",
+        focus={"kind": "none"}, admissibility="gm", revision_pin="revision")
+    policy = parent_brokered_graph_expansion_policy(scope)
+    budget = {"schema":"dmb_hermes_request_budget_policy_v1", "provider":"openai-api", "model":"gpt-6-luna", "apiMode":"codex_responses",
+        "estimator":"utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens":100000,
+        "outputReserveTokens":100, "maxProviderAttempts":4, "maxToolCapableAttempts":3,
+        "maxGraphOperations":8}
+    observed = []
+    authorizations = []
+    class ProbeAgent(_FakeAgent):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # AIAgent rediscovers definitions: intentionally give it the broad catalog.
+            self.tools = deepcopy(original)
+        def run_conversation(self, user_message, **kwargs):
+            with hermes_import_namespace():
+                module = importlib.import_module("run_agent")
+                with patch("run_agent.OpenAI"):
+                    sdk = module.AIAgent(api_key="synthetic-test-key", base_url="https://api.openai.com/v1",
+                        provider="openai-api", model="gpt-6-luna", max_tokens=100, max_iterations=1,
+                        enabled_toolsets=[], quiet_mode=True, skip_context_files=True, skip_memory=True)
+                sdk.api_request_budget_guard = lambda _view: True
+                sdk.tools = self.tools
+                messages = [{"role":"user", "content":user_message}]
+                initial = sdk._build_api_kwargs(messages)
+                continuation = sdk._build_api_kwargs(messages + [{"role":"assistant", "content":"Continue from admitted evidence."}, {"role":"user", "content":"Continue."}])
+                budget_module = importlib.import_module("agent.api_request_budget")
+                for payload in (initial, continuation):
+                    view = budget_module.build_api_request_budget_view(provider=sdk.provider, model=sdk.model,
+                        api_mode=sdk.api_mode, base_url=sdk.base_url, request=payload)
+                    assert self.api_request_budget_guard(view) is True
+                    assert self.api_request_budget_guard.provider_lifecycle({'transition':'sdk_entered'}) is True
+                    assert self.api_request_budget_guard.provider_lifecycle({'transition':'response_received'}) is True
+            observed.append((deepcopy(self.tools), initial, continuation))
+            return {"final_response":"No new facts asserted.", "messages":[{"role":"user","content":user_message},{"role":"assistant","content":"No new facts asserted."}], "session_id":self.session_id}
+    for sequence, profile in enumerate(("world_graph", "governed_build", "world_graph")):
+        request = HermesGraphAgentTurnRequest(question="Build is mentioned in quoted Plan text.",
+            world_id="world", campaign_id="", scope_mode="world", revision_pin="revision", root=tmp_path,
+            session_id=f"profile-{sequence}", capability_policy=policy, retrieval_session_id="session",
+            retrieval_session={"retrieval_session_id":"session", "candidates":[]},
+            provider_authorization_required=True, parent_graph_broker_required=True,
+            request_budget=budget, graph_read_profile=profile, plan_continuity_turn=True)
+        request = deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(request))
+        result = run_hermes_graph_agent_turn(request, agent_factory=ProbeAgent,
+            on_provider_authorization=lambda view: authorizations.append({"payloadJson":view.payload_json,"payloadSha256":view.payload_sha256}) or True,
+            on_provider_lifecycle=lambda event: True, on_parent_graph_operation=lambda message: {})
+        assert result.status == "ok", result.error_code
+        tools, initial, continuation = observed[-1]
+        expected = next(t['function'] for t in original if t['function']['name']=='expand_graph_retrieval')
+        actual = next(t['function'] for t in tools if t['function']['name']=='expand_graph_retrieval')
+        if profile == 'governed_build':
+            assert actual == expected
+        else:
+            assert actual['parameters']['properties']['operation']['enum'] == ['object','neighborhood','search','support']
+            assert 'observationIds' not in json.dumps(actual)
+            assert 'observations' not in json.dumps(actual)
+            assert 'includeSources' in actual['parameters']['properties']
+        for payload in (initial, continuation):
+            expand = next(t.get('function', t) for t in payload['tools'] if t.get('function',t).get('name')=='expand_graph_retrieval')
+            assert expand['parameters'] == actual['parameters']
+            assert expand['description'] == actual['description']
+        assert hermes_model_visible_tool_definitions() == original
+        assert len(authorizations) == (sequence + 1) * 2
+        from hashlib import sha256
+        for authorized in authorizations[-2:]:
+            assert sha256(authorized['payloadJson'].encode()).hexdigest() == authorized['payloadSha256']
+            frozen = json.loads(authorized['payloadJson'])
+            expand = next(t.get('function',t) for t in frozen['tools'] if t.get('function',t).get('name') == 'expand_graph_retrieval')
+            assert expand['parameters'] == actual['parameters']
+
+
+@pytest.mark.parametrize('value', [None, False, 1, {}, [], 'build', ' governed_build'])
+def test_graph_read_profile_rejects_invalid_internal_and_ipc_values(value):
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+    )
+    with pytest.raises(ValueError):
+        HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c',graph_read_profile=value)
+    request=HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c')
+    wire=serialize_hermes_graph_agent_turn_request(request)
+    with pytest.raises(ValueError):
+        deserialize_hermes_graph_agent_turn_request({**wire,'graphReadProfile':value})
+
+
+def test_graph_read_profile_default_wire_and_direct_host_admission(tmp_path):
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+    )
+    request=HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c',root=tmp_path)
+    wire=serialize_hermes_graph_agent_turn_request(request)
+    assert 'graphReadProfile' not in wire
+    explicit=deserialize_hermes_graph_agent_turn_request({**wire,'graphReadProfile':'world_graph'})
+    assert json.dumps(serialize_hermes_graph_agent_turn_request(explicit),sort_keys=True,separators=(',',':')) == json.dumps(wire,sort_keys=True,separators=(',',':'))
+    build=replace(request,graph_read_profile='governed_build')
+    with pytest.raises(ValueError): serialize_hermes_graph_agent_turn_request(build)
+    class NeverConstruct:
+        def __init__(self,**kwargs): pytest.fail('unguarded Build profile reached agent construction')
+    result=run_hermes_graph_agent_turn(build,agent_factory=NeverConstruct)
+    assert result.error_code=='invalid_graph_read_profile'

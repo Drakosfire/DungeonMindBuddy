@@ -585,3 +585,16 @@ def test_known_bundle_refusals_have_safe_reasons_before_io(case, code):
     assert error.value.code == code
     assert secret not in error.value.message
     assert calls == []
+
+
+@pytest.mark.parametrize('build', [False, True])
+@pytest.mark.parametrize('arguments,code', [({}, 'evidence_bundle_invalid_request'),
+    ({'retrievalSessionId':'session','operation':'search','queryText':'gate'},'evidence_bundle_unsupported_operation')])
+def test_bundle_repair_advice_matches_actual_parent_read_profile(build, arguments, code):
+    from apps.live_control_server.services.graph_evidence_bundle import acquire_evidence_bundle, EvidenceBundleRefusal
+    adapter=SimpleNamespace(_is_build_turn=lambda:build)
+    with pytest.raises(EvidenceBundleRefusal) as exc:
+        acquire_evidence_bundle(adapter,{'arguments':arguments})
+    assert exc.value.code==code
+    assert ('observations' in exc.value.message) is build
+    assert 'object' in exc.value.message

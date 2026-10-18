@@ -5690,6 +5690,7 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
             context_read_enabled=False,
         ):
             assert context_read_enabled
+            assert invocation.graph_read_profile == "world_graph"
             payload = {
                 "input": [
                     {
@@ -6536,3 +6537,67 @@ def test_cited_source_navigation_shares_budget_without_counting_empty_or_duplica
         assert statuses[-1].status == "overflow"
     if claims == 9:
         assert all(s.status == "partial" for s in statuses)
+
+
+@pytest.mark.parametrize('discovery,explicit_runtime', [('partial', False), (None, True)])
+def test_parent_selects_read_only_build_graph_profile_without_write_capability(
+    application_state_dsn, tmp_path, monkeypatch, discovery, explicit_runtime,
+):
+    """Real Build resolution reaches fallback/explicit Hermes without write permissions."""
+    from tests.test_agent_build_governed_graph import build_case as fixture, execute
+    from apps.live_control_server.services.hermes_agent_runtime import HermesAgentRuntimeAdapter
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+        HermesGraphAgentTurnResult,
+    )
+    from apps.live_control_server.services import agent_turn_service as service
+    case=fixture.__wrapped__(tmp_path,monkeypatch,application_state_dsn)
+    source,request,bootstrap=case
+    assert request.build_write_capability is None
+    if discovery:
+        bootstrap=replace(bootstrap,build_source_discovery={'status':discovery,'world_id':'native-build-world',
+            'graph_revision':'native-rev-3','source_artifact_id':'artifact:fixture',
+            'source_revision_id':'source-r1'})
+        case=(source,request,bootstrap)
+    observed=[]
+    class Host:
+        worker_pid=12345
+        def execute(self,host_request,**kwargs):
+            wire=serialize_hermes_graph_agent_turn_request(host_request)
+            restored=deserialize_hermes_graph_agent_turn_request(wire)
+            observed.append(restored)
+            return HermesGraphAgentTurnResult(status='error',final_response=None,messages=[],
+                hermes_session_id=None,tool_events=[],error_code='probe_stopped_before_provider')
+    runtime=HermesAgentRuntimeAdapter(host_factory=Host)
+    monkeypatch.setattr(service,'default_hermes_agent_runtime',lambda:runtime)
+    monkeypatch.setenv('DMB_AGENT_PROMPT_CAPTURE','0')
+    with pytest.raises(AgentTurnServiceError):
+        execute(case,tmp_path,runtime if explicit_runtime else None)
+    assert len(observed)==1
+    assert observed[0].graph_read_profile=='governed_build'
+    assert not {'propose_build_insertion','prepare_build_image'}.intersection(observed[0].capability_policy.enabled_tool_names)
+
+
+@pytest.mark.parametrize('operation,targets', [('observations',[]),('object',[{'kind':'node','id':'node'}])])
+def test_actual_plan_action_broker_refuses_forged_observation_read_profile_before_native_io(monkeypatch, operation, targets):
+    from types import SimpleNamespace
+    from tests.application_state.test_plan_action_consultation import model_action, frozen_inputs
+    from apps.live_control_server.services.plan_action_consultation import ActionPolicyExecutionAdapter, _ActionFence
+    from application_state.plan_action_dialogue.types import PlanActionConsultation
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV2, graph_execution_policy_digest_v2
+    from graph_memory.interaction.session import CoverageState,GraphRetrievalSession,SessionSnapshot
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    action=model_action();receipt,policy=frozen_inputs(action)
+    execution=PlanWorldGraphExecutionV2(context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(receipt.consultation_receipt_sha256,policy),policy=policy,events=[])
+    action=action.model_copy(update={'consultation':PlanActionConsultation(receipt=receipt,execution=execution)})
+    session=GraphRetrievalSession(snapshot=SessionSnapshot(world_id='native-synthetic',campaign_id='',focus={'kind':'none'},
+        admissibility='gm',revision_id='graph-r1',is_head=True,scope_mode='world'),question='Build is just quoted text',coverage=CoverageState(state='empty'),claims=[],source_anchors=[])
+    bootstrap=SimpleNamespace(retrieval_session=session,world_scope=SimpleNamespace(revision_id='graph-r1'))
+    adapter=ActionPolicyExecutionAdapter(store=None,action=action,bootstrap=bootstrap,budget={},surface_instance_id='plan')
+    adapter.fence=_ActionFence(None,action);adapter.last_provider_attempt_id=uuid4()
+    monkeypatch.setattr(world_graph_reads,'direct_services_from_config',lambda *_:pytest.fail('forged Plan profile reached native IO'))
+    reply=adapter.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
+        'retrievalSessionId':session.id,'operation':operation,'targets':targets,'observationIds':['assertion:forged']}})
+    payload=json.loads(reply['resultJson'])
+    assert payload['statusCode']==422 and payload['code']=='selected_observations_unavailable'
