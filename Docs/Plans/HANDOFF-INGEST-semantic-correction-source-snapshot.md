@@ -1,23 +1,17 @@
 # INGEST: bind semantic correction children to immutable recap sources
 
 Status: **BLOCKED — design only; no implementation lease.**
-Current remote main confirmed through GitHub: `cbd3a901c62199c56c66c66e7f1a5a540bdbdfb6`.
-The design checkout still descends from `803c1ece8869f9a3253dff0f0c646bbcf645fc75`;
-the common `.git` path is read-only, so this audit is re-anchored by remote
-evidence but the local branch has not been rebased. Before any PR or activation,
-rebase the design commit onto current main while preserving its content.
-Parent capability: PR #1399, merged at 803c. This is its serial successor;
-there is no unmerged behavioral parent. The current checkout also contains the
-settlement-only commit `e01ff297c61cefa197c69cd2cb3c870c2781ba7e`; the settlement
-is now recorded on main by `cbd3a901...` and is not a behavioral dependency.
+Current remote main: `5ebb1794fa2e78359c07db9e09cbb8f3d66434d3` (PR #1400).
+This design branch has been rebased onto that head; its two design commits are
+the only branch-specific commits. PR #1399 is the merged behavioral parent; its
+settlement is already in main. This remains its serial successor, with no
+unmerged behavioral parent.
 PRIME retains activation and merge authority.
 
-The local `git fetch origin main` could not update shared Git metadata because
-the worktree's common `.git` path is read-only. GitHub's current commit listing
-confirmed `cbd3a901...`; an open-PR search found no source-snapshot correction
-implementation. PR #1235 is held on separate Graph Review UI paths. PRIME also
-confirmed ROOT owns an existing-World UI-only publication slice, disjoint from
-this server/design work. Do not create another #1399 settlement PR.
+The latest remote commit and open-PR search were checked before this revision;
+no source-snapshot correction implementation PR is open. PR #1400 has merged,
+but its existing-World publication UI is independent from this semantic source
+binding work. Do not create another #1399 settlement PR.
 
 ## Defect and boundary
 
@@ -46,6 +40,14 @@ digest, and native World binding agree with the unchanged parent snapshot.
 Validate the run's source domain, campaign, session, frozen World context, and
 source-artifact ID against the registered artifact and parent. A current World
 selection, campaign name, default, or mutable head is not authority.
+
+The source-byte invariant is strict: read the raw canonical artifact bytes and
+the raw parent snapshot bytes through safe, root-contained paths and require
+byte-for-byte equality, plus equality with the recorded full SHA-256 digests,
+before decoding or text normalization. CRLF conversion, trailing-newline drift,
+or any other byte change is a conflict even if normalized text would compare
+equal. `load_registered_source_artifact_text()` may be used only after this raw
+comparison; its normalization cannot establish byte identity.
 
 The child must remain held and derive only its candidate graph from the exact
 parent candidate plus the declared correction manifest. Preserve the parent
@@ -89,7 +91,10 @@ ownership boundary. The specific evidence is:
 - `source_artifact_registry.load_registered_source_artifact_text`
   (`apps/live_control_server/services/source_artifact_registry.py:700-728`)
   resolves the registered canonical URI, reads its bytes, normalizes them, and
-  checks the full SHA-256. Use it as the source of the child-owned copy.
+  checks the full SHA-256. Its returned text is not sufficient for the strict
+  raw-byte comparison. Resolve both the registered artifact and parent source
+  URIs safely, compare the exact file bytes and their recorded full digests
+  first, then use the validated bytes for the child-owned copy.
 - `graph_run_registry.assert_run_reviewable_evidence`
   (`apps/live_control_server/services/graph_run_registry.py:190-250`) binds run
   domain/campaign/session, source ID and digest, span index, and candidate.
@@ -125,6 +130,33 @@ ownership boundary. The specific evidence is:
   the V12 child snapshot binding against the actual child row/files and
   registered canonical bytes. This keeps old operation semantics intact while
   making the changed source URI explicit in a new basis.
+- The V12 envelope must be a closed, strictly discriminated mapping, not an
+  arbitrary coercible union. The only valid request/derivation/manifest/basis
+  combinations are:
+
+  | Request | Operation derivation | Manifest schema | Inner basis |
+  | --- | --- | --- | --- |
+  | V1 | `operator_recap_semantic_candidate_correction_v1` | V1 | `RecapSemanticBasisV2` |
+  | V2 | `operator_recap_semantic_candidate_correction_v2` | V2 | `RecapSemanticBasisV3` |
+  | V3 | `operator_recap_semantic_candidate_correction_v3` | V3 | `RecapSemanticBasisV4` |
+  | V4 | `operator_recap_semantic_candidate_correction_v4` | V4 | `RecapSemanticBasisV5` |
+  | V5 | `operator_recap_semantic_candidate_correction_v5` | V5 | `RecapSemanticBasisV6` |
+  | V6 | `operator_recap_semantic_candidate_correction_v6` | V6 | `RecapSemanticBasisV7` |
+  | V7 | `operator_recap_semantic_candidate_correction_v7` | V7 | `RecapSemanticBasisV8` |
+  | V8 | `operator_recap_semantic_candidate_correction_v8` | V8 | `RecapSemanticBasisV9` |
+  | V9 | `operator_recap_semantic_candidate_correction_v9` | V9 | `RecapSemanticBasisV10` |
+  | V10 | `operator_recap_semantic_candidate_correction_v10` | V10 | `RecapSemanticBasisV11` |
+
+  Reject unknown, mismatched, duplicate, or coerced discriminator/schema
+  combinations before persistence or replay.
+- The nested legacy-basis validator needs a pure in-memory validation view of
+  the V11 child. It may project only the legacy operation derivation and the
+  parent's source URI for that inner check. Keep the actual new child run ID,
+  candidate URI/digest, parent run/candidate pins, World/campaign/session pins,
+  and version-specific operation data unchanged. Validate the V12 binding
+  against the actual child row/files separately. Never persist or serialize the
+  projected derivation/source ref, and never use the projection to prove raw
+  source-byte identity.
 - Add V11/V12 dispatch to `is_recap_correction`, `assess_recap_semantics`,
   manifest/version selection and basis emission
   (`apps/live_control_server/services/recap_semantic_disposition.py:68-80,
@@ -136,18 +168,26 @@ ownership boundary. The specific evidence is:
   (`apps/live_control_server/services/recap_semantic_candidate_correction.py:1365-1450,
   1580-1605`); child replay; and inherited-PC proof construction/ancestry
   (`src/application_state/ingest/service.py:680-689`,
-  `apps/live_control_server/services/recap_semantic_candidate_correction.py:1216-1265`).
-  Keep the external disposition effect pinned to the full V12 basis digest, and
-  test the V12/V11 envelope with every operation request version.
+  `apps/live_control_server/services/recap_semantic_candidate_correction.py:1216-1265`),
+  and the inherited-PC projection in `apps/live_control_server/services/extract_promote.py`
+  (`inherited_pc_references`, currently a v7/v8/v10 allowlist with a flat
+  `inherited_pc_proof_sha256` lookup). That consumer must inspect the V12 inner
+  operation basis while retaining the outer V11 identity. Keep the external
+  disposition effect pinned to the full V12 basis digest, and test the V12/V11
+  envelope with every operation request version.
 - Inherited-PC proof has a second source-equality assumption: its ancestry walk
   requires each correction's source and span component refs to equal the parent
   (`apps/live_control_server/services/recap_semantic_candidate_correction.py:1237-1260`)
   and currently recognizes selected derivation versions for proof construction
   (`:1216-1236`). V11 must validate the copied source bytes against its parent
   and registered artifact while keeping the span ref exact; simply adding V11
-  to the derivation set would still reject a child with the new source URI. Test
-  V11 ancestry both with and without inherited-PC references, across operation
-  versions that can introduce or preserve those references.
+  to the derivation set would still reject a child with the new source URI. Both
+  the server proof builder and APP-STATE inherited-PC validator must understand
+  mixed legacy/V11 ancestry, including a V11 child of a V11 child. Read the
+  proof digest from the matching V12 inner operation basis, not a flattened
+  field. Test legacy→V11, V11→V11 and relevant legacy-only chains, with and
+  without inherited-PC references, across operation versions that can
+  introduce or preserve those references.
 - The child ID hashes derivation, parent run ID, parent candidate digest and
   correction-manifest digest; the current path is derived from that ID
   (`apps/live_control_server/services/recap_semantic_candidate_correction.py:1550-1559`).
@@ -222,34 +262,57 @@ ID; it is never rewritten, resumed under V11 rules, adopted or deleted. No new
 V11 child is created for that historical request. This also prevents a new
 child from silently duplicating the known stranded V10 attempt.
 
-Only after read-only parent/source/span/World/manifest/path preflight and this
-legacy-identity check may the request create its deterministic V11 DRAFT row.
-APP-STATE's unique run ID is the idempotency claim and linearization point. If
-the insert loses a race, reload the row and proceed only if every V11 identity,
-lineage, operation manifest, V12 basis and parent pin is exactly equal. The row
-creation and filesystem writes are not a cross-store transaction; interruption
-after this claim can leave a registered held DRAFT.
+Serialize each deterministic child ID with a safe per-child process lock, for
+example `out/graph_memory/derived_candidates/.locks/<child-id>.lock`, acquired
+with `flock(LOCK_EX)` and held from before legacy/current row and path inspection
+through child creation, package publication, sealing, final reload and replay
+verification. Create/open it with no-follow semantics, verify the lock and each
+parent directory are regular non-symlink paths contained under the managed
+root, and reject unsafe roots or path escapes. Once the lock is held, repeat
+the full read-only parent/source/span/World/manifest/path preflight and
+legacy-identity check; no untrusted or stale pre-lock observation may authorize
+a write. A concurrent caller waits, then reloads and verifies the completed
+child or retries only a matching eligible DRAFT. The unique APP-STATE run ID
+remains a second idempotency claim: if insertion still reports a conflict,
+reload and continue only if every V11 identity, lineage, operation manifest,
+V12 basis and parent pin is exactly equal.
+
+The lock is held across `create_extraction_run`, including its source-authority
+persist and unique child-row insert, then all child package writes and expected-
+revision CAS transitions. The row and filesystem are not one transaction; a
+process interruption can leave an exact source revision and/or a registered
+held DRAFT. An OS-released lock lets a later exact retry re-run the full
+preflight, reload all authority, and resume only the matching DRAFT state.
 
 On a deliberate exact retry, a matching V11 DRAFT can resume a partial package:
 verify all existing canonical files byte-for-byte, create only missing expected
-files, and never overwrite, delete, or adopt a conflicting path. Publish each
-final file with atomic create-if-absent semantics, then compare its bytes; the
-current `os.replace` helper is not sufficient as-is because a race can replace
-an unexpected file. After both files pass registry/replay checks, advance
-statuses with expected-revision CAS. A complete PREPARED/EXTRACTED/VALIDATED
-row can continue sealing on exact retry. If package files are partial beyond
-DRAFT, or the row is terminal/mismatched, fail clearly and leave all evidence
-held in place. Expose the child ID and held/incomplete status in the correction
-result/error so the operator can understand and retry it; never imply it is
-reviewable.
+files, and never overwrite, delete, or adopt a conflicting path. Stage each
+file under a unique temporary name outside the canonical child package. Publish
+with atomic no-replace/create-if-absent semantics, then compare final bytes; the
+current `os.replace` helper is not sufficient because it can overwrite an
+unexpected file. Only the process holding the lock may clean up its own staged
+temporary files after successful publication or normal completion. Never
+delete another owner's temp, an orphaned temp from a prior process, or any
+canonical evidence. A crash may leave a staged temp; it is not a package file,
+is never adopted, and does not block a retry that creates its own staging file.
+After both canonical files pass registry/replay checks, advance statuses with
+expected-revision CAS. A complete PREPARED/EXTRACTED/VALIDATED row can continue
+sealing on exact retry. If package files are partial beyond DRAFT, or the row is
+terminal/mismatched, fail clearly and leave all evidence held in place.
+
+Held/incomplete failures must identify the child run ID and its actual held
+status using the existing `ExtractPromoteError.response()` fields (`code`,
+`message`, `status_code`, `diagnostics`, `failure_result`, `run_status`, and
+`inspection_status`). Put the child ID and useful reason in the existing message
+or `ExtractPromoteDiagnostic`; do not add a response field, change the public
+schema, or describe the child as reviewable before sealing succeeds.
 
 Prove the multi-process behavior with two independent APP-STATE connections and
 a barrier-synchronized identical request test. It must demonstrate one unique
 row, no duplicate child, no clobber, exact file bytes, and one successful seal
-with the competing caller reloading and verifying the same child. If DB
-uniqueness plus atomic create-if-absent and status CAS do not prove this, add a
-per-child lock only in an explicitly approved path; do not assume atomic writes
-alone serialize the overall operation.
+with the waiting caller reloading and verifying the same child. Include a
+crashed/abandoned-owner case proving the OS releases the lock and the next exact
+retry does not adopt or delete another process's stale staging file.
 
 The legacy-id guard leaves existing stored rows on their unchanged verifier.
 New V11 source-binding behavior is separate from operation versions V1-V10;
@@ -260,8 +323,32 @@ the exact ACTIVE write lease.
 Any strategy must validate canonical source bytes and all source/span/World
 bindings before creating artifacts. It may not weaken identity, World scope,
 path containment, or replay checks. If a database migration, registry guard
-change, new durable public contract, or additional owning path is required,
-return to PRIME before implementation activation.
+change, new durable public contract, or an additional owning path beyond the
+bounded source-binding implementation paths below is required, return to PRIME
+before implementation activation. The only newly approved durable version is
+the internal V12 basis envelope; no unrelated public API or database schema is
+approved.
+
+## Source-authority mutation and crash-ordering contract
+
+`graph_run_registry.create_extraction_run()` calls `_persist_source_authority`
+before inserting the unique run row. That source-authority write is an explicit
+part of this design, not a forbidden registry call or an atomic transaction.
+"Preflight before mutation" means finish all parent, raw source-byte, span,
+World, request, manifest, legacy identity, child destination and lock checks
+before calling it. The subsequent `persist_source_markdown` call is allowed
+because the child needs registered authority before its row can be created.
+
+The source service hashes the exact supplied text and enforces immutable
+artifact/digest/revision bytes and scope. Repeating the same artifact, digest,
+bytes and scope is idempotent. Different bytes, scope or a conflicting revision
+must fail. The only existing monotonic exception is filling a previously null
+World binding with the already-validated frozen parent World; do not broaden
+that exception. If interruption occurs after source persistence but before the
+child row, an exact retry may reuse only that same verified authority. A
+conflict or different source revision stops before creating a child row or
+package. The disposable-DB witness must prove the exact insert ordering,
+idempotency, and conflict behavior; do not bypass or weaken the source registry.
 
 ## Mandatory production-path witness
 
@@ -278,19 +365,28 @@ correction path end to end:
    child, and re-prove source, span, World, semantic basis, and candidate replay.
 4. Run each accepted operation request version V1-V10 through the new V11/V12
    envelope, proving its operation-manifest bytes/schema and replay semantics
-   remain unchanged.
+   remain unchanged. Assert each closed discriminator pair, reject mismatches
+   and unknown/coercible variants, and prove the pure validation projection is
+   never persisted. Verify `extract_promote.inherited_pc_references` reads the
+   nested proof digest and mixed legacy/V11 ancestry supports a V11 child of a
+   V11 child.
 5. Submit the identical request again and prove exact V11 idempotent reuse. Seed
    exact legacy REVIEWABLE, stranded legacy DRAFT, mismatched legacy row, and
    legacy orphan-file cases; prove old valid work is reused and every other
    historical collision fails without creating a second child.
-6. Interrupt after the DRAFT claim, after each of the two package files, and at
-   each seal transition. Prove exact retries resume only eligible registered
-   state and preserve all existing bytes; tampered, extra, symlinked, escaped,
-   missing-parent, foreign-World, invalid-span, and changed-source cases fail
-   before a new child write.
+6. Interrupt after source-authority persistence, after the DRAFT claim, after
+   each package file and at each seal transition. Prove exact retries resume
+   only eligible registered state and preserve all existing bytes; different
+   source bytes including CRLF/trailing-newline drift, tampered/extra/symlinked/
+   escaped paths, missing parent, foreign World, and invalid span fail before a
+   new child write. Prove exact source-authority retries are idempotent while
+   conflicting bytes/scope/revision fail and only the existing null→World fill
+   is accepted.
 7. Run two concurrent identical requests through independent APP-STATE
    connections and the real file store. Prove one row and child package, no
-   overwrite, and one successfully sealed result reused by the other caller.
+   overwrite, and one successfully sealed result reused by the waiting caller.
+   Include owner interruption and verify the next exact retry never adopts or
+   deletes a prior owner's staging file.
 8. Confirm the original parent, source artifact, and span index remain byte-for-
    byte unchanged.
 
@@ -307,6 +403,9 @@ small candidate path set when activating the serial implementation:
 
 - `apps/live_control_server/services/recap_semantic_candidate_correction.py`
 - `apps/live_control_server/services/recap_semantic_disposition.py`
+- `apps/live_control_server/services/source_artifact_registry.py` (only a
+  bounded internal raw-byte read/verification helper if needed; no endpoint or
+  schema change)
 - `apps/live_control_server/services/extract_promote.py` (semantic basis
   dispatch only)
 - `src/application_state/ingest/service.py` (only if the chosen versioned basis
@@ -314,7 +413,9 @@ small candidate path set when activating the serial implementation:
 - `tests/test_recap_semantic_candidate_correction.py`
 - `tests/test_recap_semantic_disposition.py`
 - `tests/test_extract_promote_managed_world_target.py` (new basis dispatch and
-  disposition effect binding)
+  disposition effect binding and nested inherited-PC projection)
+- `tests/test_source_artifact.py` (raw-byte and immutable authority behavior,
+  if the internal helper is added)
 - `tests/integration/test_recap_evidence_append.py` or a focused sibling test
 - `tests/application_state/test_ingest_run_postgres.py`
 - an owning `graph_run_registry` boundary test, likely
