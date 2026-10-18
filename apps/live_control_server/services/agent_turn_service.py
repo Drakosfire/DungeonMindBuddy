@@ -1555,6 +1555,9 @@ class _PolicyExecutionAdapter:
         self.context_payloads: dict[UUID, str] = {}
         self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
 
+    def _is_build_turn(self) -> bool:
+        return _governed_build_turn(self.request)
+
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
         from .graph_tool_transport import GraphToolPageCache, TransportScope
@@ -1697,7 +1700,7 @@ class _PolicyExecutionAdapter:
                 **({"graph_scope": self.bootstrap.world_scope,
                     "graph_envelope": dict(self.bootstrap.graph_envelope,
                         managed_world_id=self.world_id, binding_version=self.bootstrap.binding_version)}
-                   if _governed_build_turn(self.request) else {}),
+                   if self._is_build_turn() else {}),
             )
             if self.trace is None:
                 accepted = _accept_world_turn(
@@ -1787,7 +1790,7 @@ class _PolicyExecutionAdapter:
             self.trace.bind_durable_turn(claim.turn)
         self.fence = _ClaimFence(self.service, claim.turn)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
-        if (_governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+        if (self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
             self.context_capture = ContextTraceCollector(self.fence)
             if self.context_compaction_report is not None:
@@ -1957,7 +1960,7 @@ class _PolicyExecutionAdapter:
                 if item in exposed[event.event_id].evidence_ref_ids
             })
             build_closures = []
-            if _governed_build_turn(self.request):
+            if self._is_build_turn():
                 from .build_jev_dispatch import CONTINUATION_SCHEMA, PHASE_SCHEMA
                 continuation = active_driver is not None and body.get("state", {}).get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}
                 build_closures = [] if writing or continuation else _build_initial_claim_evidence(
@@ -2090,7 +2093,7 @@ class _PolicyExecutionAdapter:
                         "The prepared request could not be captured. No model request was sent.",
                         code="prompt_capture_unavailable", status_code=503, provider_dispatched=False,
                     ) from exc
-            if _governed_build_turn(self.request):
+            if self._is_build_turn():
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
                     updated.graph_context_receipt.context_receipt_sha256,
@@ -2120,11 +2123,15 @@ class _PolicyExecutionAdapter:
 
     def create_build_jev_driver(self, *, with_actions=False):
         """Explicit parent capability; ordinary runtime selection is unchanged."""
+        if not self._is_build_turn():
+            raise ValueError("Build driver requires an actual Build turn")
         from .build_jev_driver import BuildJevDriver
         return BuildJevDriver(self, with_actions=with_actions)
 
     def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=(), section_read_ids=(), source_read_event_ids=()) -> dict[str, Any]:
         """Select exact delivered bytes; only the parent owns the proof manifest."""
+        if not self._is_build_turn():
+            raise ValueError("Controller exposure requires an actual Build turn")
         from .build_jev_dispatch import controller_exposure, first_state, request_budget
         expected_budget = request_budget()
         if self.budget.get("buildJevActions") is not None:
@@ -2221,7 +2228,7 @@ class _PolicyExecutionAdapter:
         """Authorize materializing a slice of the already resolved saved body."""
         from application_state.agent_conversation.build_section import exact_saved_section
         graph_types = _app_state_graph_execution_types()
-        if (self.failure is not None or self.fence is None or not _governed_build_turn(self.request)
+        if (self.failure is not None or self.fence is None or not self._is_build_turn()
                 or self.work.build_source is None):
             raise ValueError("Saved section requires an admitted Build controller turn")
         receipt = self.fence.turn.graph_context_receipt
@@ -2295,7 +2302,7 @@ class _PolicyExecutionAdapter:
 
     def authorize_prepared_build_writer(self, prepared: Any) -> bool:
         from . import build_jev_writer as writer
-        if self.failure is not None or self.fence is None:
+        if not self._is_build_turn() or self.failure is not None or self.fence is None:
             return False
         staged = getattr(self, "_build_writer_projection", None)
         if (staged is None or staged.event_sequence != len(self._broker_execution().events)
@@ -2328,7 +2335,7 @@ class _PolicyExecutionAdapter:
 
     def complete_build_writer(self, result: Any):
         from . import build_jev_writer as writer
-        if (self.failure is not None or self.fence is None or self.producing_provider_attempt_id is None
+        if (not self._is_build_turn() or self.failure is not None or self.fence is None or self.producing_provider_attempt_id is None
                 or self.producing_provider_attempt_id != self.last_provider_attempt_id):
             raise ValueError("No acknowledged writer response")
         if (result.observation.provider != writer.PROVIDER
@@ -2414,7 +2421,7 @@ class _PolicyExecutionAdapter:
 
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:
         from .build_jev_dispatch import API_MODE, first_state, prepared_view, request_budget
-        if self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not _governed_build_turn(self.request):
+        if self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not self._is_build_turn():
             return False
         try:
             if self.fence is None:
@@ -2524,7 +2531,7 @@ class _PolicyExecutionAdapter:
                           and e.provider_attempt_id == self.last_provider_attempt_id]
         outcomes = [e.outcome for e in execution.events if isinstance(e, types.ProviderOutcomeEventV1)
                     and e.provider_attempt_id == self.last_provider_attempt_id]
-        if (self.failure is not None or not _governed_build_turn(self.request)
+        if (self.failure is not None or not self._is_build_turn()
                 or outcomes[-1:] != ["response_received"] or len(authorizations) != 1
                 or (authorizations[0].provider, authorizations[0].model, authorizations[0].api_mode)
                 != execution.policy.provider_roles.controller.identity()):
@@ -2561,7 +2568,7 @@ class _PolicyExecutionAdapter:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
         if message.get("toolName") == "observe_context_compaction":
-            if (_governed_build_turn(self.request) or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+            if (self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
                 arguments = message.get("arguments")
                 try:
@@ -2675,7 +2682,7 @@ class _PolicyExecutionAdapter:
                 and request.historical_revision_id != self.bootstrap.world_scope.revision_id
             ):
                 return denied("graph_revision_conflict", 409)
-            if request.observation_ids and not _governed_build_turn(self.request):
+            if request.observation_ids and not self._is_build_turn():
                 return denied("selected_observations_unavailable", 422)
             target_ids = resolve_expansion_target_ids(request, session)
             common = {
@@ -2694,7 +2701,7 @@ class _PolicyExecutionAdapter:
             reviewed = None
             if request.operation == "observations":
                 source = self.bootstrap.build_source_discovery
-                if (not _governed_build_turn(self.request) or not source
+                if (not self._is_build_turn() or not source
                         or source.get("status") not in {"complete", "partial"}
                         or source.get("graph_revision") != self.bootstrap.world_scope.revision_id
                         or source.get("world_id") != self.bootstrap.world_scope.world_id
@@ -2717,7 +2724,7 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
-                if _governed_build_turn(self.request):
+                if self._is_build_turn():
                     reviewed = get_object_with_reviewed_sources_direct_v3(
                         services, effective_request,
                         **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),

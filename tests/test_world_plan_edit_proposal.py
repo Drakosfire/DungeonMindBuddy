@@ -1146,13 +1146,17 @@ def test_sourced_action_result_binds_producing_read_and_never_trusts_model_open_
     answer["citation_map"]["entries"][0]["source_opened"] = True
     with pytest.raises(ValueError, match="cannot claim source opening"):
         _parse_action_result(
-            final_text=json.dumps(answer), action=action,
+            final_text=json.dumps(answer),
+            action=action,
             producing_attempt_id=events[6].provider_attempt_id,
         )
 
 
+@pytest.mark.parametrize("prompt_capture", [False, True])
 def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_result(
-    application_state_dsn, monkeypatch,
+    application_state_dsn,
+    monkeypatch,
+    prompt_capture,
 ) -> None:
     """APP PostgreSQL proves the action adapter does not fabricate an Ask Turn."""
     import json
@@ -1160,12 +1164,17 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
 
     from application_state.plan_action_dialogue.service import PlanActionDialogueService
     from apps.live_control_server.services.agent_runtime import AgentWorldScope
-    from apps.live_control_server.services.agent_turn_service import AgentPlanWorldGraphBootstrap
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentPlanWorldGraphBootstrap,
+    )
     from apps.live_control_server.services.plan_action_consultation import (
-        ActionPolicyExecutionAdapter, _parse_action_result,
+        ActionPolicyExecutionAdapter,
+        _parse_action_result,
     )
     from graph_memory.interaction.session import (
-        CoverageState, GraphRetrievalSession, SessionSnapshot,
+        CoverageState,
+        GraphRetrievalSession,
+        SessionSnapshot,
     )
     from tests.application_state.test_plan_action_consultation import reservation
 
@@ -1173,17 +1182,27 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
         lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
     )
+    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1" if prompt_capture else "0")
     store = PlanActionDialogueService()
     _activate_world_conversation("synthetic-world")
     expected_pointer = AgentConversationService().get_world_pointer("synthetic-world")
-    action, created = store.reserve(reservation().model_copy(update={
-        "expected_world_pointer": expected_pointer,
-    }))
+    action, created = store.reserve(
+        reservation().model_copy(
+            update={
+                "expected_world_pointer": expected_pointer,
+            }
+        )
+    )
     assert created
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
-            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
-            admissibility="gm", revision_id="graph-r1", is_head=True, scope_mode="world",
+            world_id="native-synthetic",
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id="graph-r1",
+            is_head=True,
+            scope_mode="world",
         ),
         question=action.instruction,
         coverage=CoverageState(state="ready"),
@@ -1191,14 +1210,25 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         source_anchors=[],
     )
     bootstrap = AgentPlanWorldGraphBootstrap(
-        graph_envelope={"revision_id": "graph-r1", "world_id": "native-synthetic", "scope_mode": "world"},
+        graph_envelope={
+            "revision_id": "graph-r1",
+            "world_id": "native-synthetic",
+            "scope_mode": "world",
+        },
         world_scope=AgentWorldScope(
-            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
-            admissibility="gm", revision_id="graph-r1", scope_mode="world",
+            world_id="native-synthetic",
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id="graph-r1",
+            scope_mode="world",
         ),
-        retrieval_session=session, binding_version=1,
-        source_root_relpath="corpus/synthetic", candidate_assertion_ids=(),
-        candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+        retrieval_session=session,
+        binding_version=1,
+        source_root_relpath="corpus/synthetic",
+        candidate_assertion_ids=(),
+        candidate_relationship_ids=(),
+        candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={},
     )
     projected = session.project_for_hermes()
@@ -1209,55 +1239,93 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         "availableExpansions": projected["available_expansions"],
     }
     body = {
-        "input": [{
-            "role": "system",
-            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
-            + json.dumps({"initialClaimPacket": initial}),
-        }, {"role": "user", "content": "Create an invented door."}],
+        "input": [
+            {
+                "role": "system",
+                "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                + json.dumps({"initialClaimPacket": initial}),
+            },
+            {"role": "user", "content": "Create an invented door."},
+        ],
         "tools": [],
     }
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
     view = {
-        "provider": "openai-api", "model": "gpt-6-luna",
-        "apiMode": "codex_responses", "payloadJson": payload,
+        "provider": "openai-api",
+        "model": "gpt-6-luna",
+        "apiMode": "codex_responses",
+        "payloadJson": payload,
         "payloadSha256": sha256(payload.encode()).hexdigest(),
         "payloadUtf8Bytes": len(payload.encode()),
     }
     budget = {
-        "provider": "openai-api", "model": "gpt-6-luna", "apiMode": "codex_responses",
+        "provider": "openai-api",
+        "model": "gpt-6-luna",
+        "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
-        "maxProviderAttempts": 4, "maxGraphOperations": 8,
+        "contextLimitTokens": 1_050_000,
+        "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxGraphOperations": 8,
     }
     adapter = ActionPolicyExecutionAdapter(
-        store=store, action=action, bootstrap=bootstrap,
-        budget=budget, surface_instance_id="synthetic-plan",
+        store=store,
+        action=action,
+        bootstrap=bootstrap,
+        budget=budget,
+        surface_instance_id="synthetic-plan",
         expected_world_pointer=expected_pointer,
     )
+    assert not hasattr(adapter, "request") and not adapter._is_build_turn()
+    if prompt_capture:
+        assert adapter.authorize(view) is False
+        assert adapter.failure.code == "prompt_capture_unavailable"
+        frozen = adapter.stop()
+        events = frozen.consultation.execution.events
+        assert [event.kind for event in events] == [
+            "provider_attempt_authorized_v3",
+            "provider_outcome",
+        ]
+        assert events[-1].outcome == "known_not_sent"
+        assert adapter.context_capture is None and not hasattr(adapter, "request")
+        import psycopg
+
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.turn").fetchone()[0] == 0
+        return
     assert adapter.authorize(view) is True
     assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
     assert adapter.record_lifecycle({"transition": "response_received"}) is True
     frozen = adapter.stop()
     assert frozen.consultation is not None
-    assert frozen.consultation.receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
+    assert (
+        frozen.consultation.receipt.assembled_input.assembled_input_sha256
+        == view["payloadSha256"]
+    )
     assert frozen.consultation.receipt.graph_packet.coverage_status == "complete"
     result, proposed = _parse_action_result(
-        final_text=json.dumps({
-            "kind": "proposal",
-            "answer_segments": [{"kind": "connective", "text": "I can propose the new door."}],
-            "citation_map": None,
-            "replacement_markdown": "The new door leads below.",
-            "summary": "Add a hidden door.",
-            "assumptions": ["Invented door, not an established World fact."],
-            "disposition": "no_relevant_established_fact_found",
-        }),
+        final_text=json.dumps(
+            {
+                "kind": "proposal",
+                "answer_segments": [
+                    {"kind": "connective", "text": "I can propose the new door."}
+                ],
+                "citation_map": None,
+                "replacement_markdown": "The new door leads below.",
+                "summary": "Add a hidden door.",
+                "assumptions": ["Invented door, not an established World fact."],
+                "disposition": "no_relevant_established_fact_found",
+            }
+        ),
         action=frozen,
         producing_attempt_id=adapter.producing_provider_attempt_id,
     )
     assert proposed["replacement_markdown"] == "The new door leads below."
     completed = store.finish_consultation(
-        action_id=frozen.action_id, token=frozen.dispatch_token,
-        fence=frozen.fence, result=result,
+        action_id=frozen.action_id,
+        token=frozen.dispatch_token,
+        fence=frozen.fence,
+        result=result,
     )
     assert completed.status == "completed"
     assert completed.consultation.result.kind == "proposal"
