@@ -5824,3 +5824,39 @@ export interface ActionPromptEvidence {
   schema: 'dmb_plan_action_prompt_evidence_v1'; world_id: string; action_id: string;
   reference: ActionPromptReference; payload_json: string;
 }
+
+
+export interface ActionTerminalDiagnosticRead {
+  schema: "dmb_plan_action_terminal_diagnostic_read_v1";
+  world_id: string;
+  action_id: string;
+  status: "pending" | "failed" | "completed" | "indeterminate";
+  availability: "captured" | "unavailable";
+  diagnostic: null | {
+    schema_version: "dmb_plan_action_terminal_diagnostic_v1";
+    world_id: string;
+    action_id: string;
+    attribution: "provider_attempt" | "action_only";
+    availability: "captured" | "unavailable";
+    unavailable_reason: "invalid_reported_by_host" | "invalid_observed_at_parent" | "missing_or_not_retained" | "contradictory_binding" | null;
+    runtime_status: "ok" | "error" | "unavailable";
+    error_origin: "runtime_result" | "parent_adapter";
+    error_category: "provider_lifecycle_unavailable" | "request_budget_veto" | "hermes_turn_error" | "prompt_capture_unavailable" | "other" | "unavailable";
+    provider_attempt_id: string | null;
+    authorization_event_id: string | null;
+    callback_sequence: number | null;
+    parent_acknowledged: boolean | null;
+    matching_transition_event_id: string | null;
+    latest_durable_outcome_event_id: string | null;
+    latest_durable_outcome: "sdk_entered" | "response_received" | "outcome_unknown" | "known_not_sent" | null;
+    failure: null | {
+      phase: "provider_lifecycle";
+      reason: "lifecycle_ack_denied" | "provider_transport_ambiguous" | "provider_exception_ambiguous" | "provider_response_incomplete";
+      transition: "sdk_entered" | "response_received" | "outcome_unknown";
+      acknowledged: boolean;
+      transportExceptionClass: "RemoteProtocolError" | "ReadTimeout" | "ConnectError" | "ConnectionError" | null;
+      responseStatus: "incomplete" | "failed" | "other" | null;
+      incompleteReason: "max_output_tokens" | "length" | "content_filter" | "unspecified" | "other" | null;
+    };
+  };
+}

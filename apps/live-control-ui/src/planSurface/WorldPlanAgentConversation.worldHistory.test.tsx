@@ -1435,11 +1435,11 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
-  it("mounts lazy prompt inspection for a failed saved Action without an Ask identity", async () => {
+  it.each(["failed", "indeterminate", "pending"] as const)("mounts lazy evidence inspection for a %s saved Action without an Ask identity", async (status) => {
     setupApi(history("conversation-a", 4, []));
     const action = {
       action_id: "00000000-0000-4000-8000-000000000091", action_type: "revise" as const,
-      status: "failed" as const,
+      status,
       basis: { world_id: worldId, document_id: documentId, object_revision: 6,
         work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256 },
       instruction: "Add a sourced arrival detail", assistant_summary: null,
@@ -1455,12 +1455,21 @@ describe("World Plan conversation consumer", () => {
     const load = vi.spyOn(liveApi, "getPlanActionPromptIndex").mockResolvedValue({
       schema: "dmb_plan_action_prompt_index_v1", world_id: worldId, action_id: action.action_id, references: [],
     });
+    const diagnostics = vi.spyOn(liveApi, "getPlanActionTerminalDiagnostic").mockResolvedValue({
+      schema: "dmb_plan_action_terminal_diagnostic_read_v1", world_id: worldId,
+      action_id: action.action_id, status, availability: "unavailable", diagnostic: null,
+    });
     mountComponent(); await waitForConversationReady();
     const article = await waitFor(() => {
       const element = document.querySelector(`article[data-plan-action-id="${action.action_id}"]`);
       if (!element) throw new Error("failed Action missing"); return element as HTMLElement;
     });
-    expect(article).toHaveTextContent("This Plan edit failed"); expect(load).not.toHaveBeenCalled();
+    expect(article).toHaveTextContent(status === "failed" ? "This Plan edit failed" : "no confirmed completion");
+    expect(diagnostics).not.toHaveBeenCalled(); expect(load).not.toHaveBeenCalled();
+    const diagnosticDetails = within(article).getByText("Failure details").closest("details")!;
+    diagnosticDetails.open = true; fireEvent(diagnosticDetails, new Event("toggle"));
+    await within(article).findByText(/No valid terminal report/);
+    expect(diagnostics).toHaveBeenCalledWith(worldId, action.action_id, expect.any(AbortSignal));
     const details = within(article).getByText("The Prompt").closest("details")!;
     details.open = true; fireEvent(details, new Event("toggle"));
     await within(article).findByText(/No complete request was captured/);

@@ -1246,3 +1246,19 @@ def get_plan_action_prompt_index(request: Request, action_id: UUID, world_id: st
 def get_plan_action_prompt_body(request: Request, action_id: UUID, provider_attempt_id: UUID,
                                world_id: str = Query(min_length=1, max_length=128)):
     return _read_plan_action_prompt(request, world_id, action_id, provider_attempt_id)
+
+
+@router.get("/world-plan-edit/actions/{action_id}/terminal-diagnostic")
+def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
+                                       world_id: str = Query(min_length=1, max_length=128)):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.plan_action_terminal_diagnostic import terminal_diagnostic
+    enforce_native_graph_gm(request)
+    headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+    if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
+        raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
+    try:
+        get_world_container(managed_world_data_root(repo_root()), world_id)
+        return JSONResponse(terminal_diagnostic(world_id, action_id), headers=headers)
+    except (ApplicationStateError, WorldContainerRegistryError, ManagedWorldDataRootError) as exc:
+        raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc

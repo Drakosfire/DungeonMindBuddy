@@ -303,6 +303,9 @@ def validate_consultation_record(record: PlanActionRecord) -> None:
         return
     if any(ref.dispatch_fence > record.fence for ref in getattr(consultation, "prompt_references", [])):
         raise ValueError("prompt reference cannot belong to a future dispatch fence")
+    diagnostic = getattr(consultation, "terminal_diagnostic", None)
+    if diagnostic is not None and diagnostic.dispatch_fence > record.fence:
+        raise ValueError("terminal diagnostic has a future dispatch fence")
     receipt = consultation.receipt
     if (record.action_id != receipt.action_id
             or record.request_fingerprint != receipt.request_fingerprint
@@ -351,3 +354,40 @@ def validate_prompt_references(consultation) -> None:
                 or event.api_mode != ref.api_mode
                 or event.serializer_version != ref.serializer_version):
             raise ValueError("prompt reference differs from authorized envelope")
+
+
+def validate_terminal_diagnostic(consultation) -> None:
+    """Revalidate immutable diagnostic attribution on fresh process reads too."""
+    diagnostic = consultation.terminal_diagnostic
+    if (diagnostic.action_id != consultation.receipt.action_id
+            or diagnostic.world_id != consultation.receipt.basis.world_id):
+        raise ValueError("terminal diagnostic has a different owner")
+    if diagnostic.attribution == "action_only":
+        return
+    events = [] if consultation.execution is None else consultation.execution.events
+    attempts = [e for e in events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+    if (not attempts or attempts[-1].event_id != diagnostic.authorization_event_id
+            or attempts[-1].provider_attempt_id != diagnostic.provider_attempt_id):
+        raise ValueError("terminal diagnostic must bind final authorization")
+    sequence = diagnostic.callback_sequence
+    if sequence <= attempts[-1].sequence or sequence > len(events):
+        raise ValueError("invalid lifecycle callback sequence")
+    matching = events[sequence] if sequence < len(events) else None
+    if matching is not None and not (isinstance(matching, ProviderOutcomeEventV1)
+            and matching.provider_attempt_id == diagnostic.provider_attempt_id
+            and matching.outcome == diagnostic.failure.transition):
+        raise ValueError("terminal callback differs from durable transition")
+    if diagnostic.matching_transition_event_id != (None if matching is None else matching.event_id):
+        raise ValueError("terminal matching event identity differs")
+    outcomes = [e for e in events if isinstance(e, ProviderOutcomeEventV1)
+                and e.provider_attempt_id == diagnostic.provider_attempt_id]
+    latest = outcomes[-1] if outcomes else None
+    if (diagnostic.latest_durable_outcome_event_id != (None if latest is None else latest.event_id)
+            or diagnostic.latest_durable_outcome != (None if latest is None else latest.outcome)):
+        raise ValueError("terminal latest durable outcome differs")
+    if diagnostic.failure.acknowledged and (matching is None or diagnostic.parent_acknowledged is not True):
+        raise ValueError("reported acknowledgement lacks parent evidence")
+    if diagnostic.parent_acknowledged and matching is None:
+        raise ValueError("parent acknowledgement requires durable transition")
+    if diagnostic.failure.transition != "outcome_unknown" and diagnostic.parent_acknowledged:
+        raise ValueError("provider attribution requires a failure callback")

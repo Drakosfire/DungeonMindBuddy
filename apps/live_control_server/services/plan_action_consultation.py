@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     GraphExecutionAccountingV1,
+    ProviderAttemptAuthorizedEventV1,
     GraphExecutionPolicyV3,
     SettledGraphExecutionPolicyV3,
     PlanWorldGraphExecutionV3,
@@ -177,6 +178,59 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.context_compaction_unavailable = False
         self.context_read_enabled = True
         self.required_context_failed = False
+        self.authorization_generation = 0
+        self.authorized_binding = None
+        self.authorizing = None
+        self.terminal_callback = None
+
+    def authorize(self, view: Mapping[str, Any]) -> bool:
+        # Supersede prior callbacks even when the new authorization is refused.
+        self.authorization_generation += 1
+        self.terminal_callback = None
+        self.authorized_binding = None
+        self.authorizing = (self.authorization_generation, self.last_provider_attempt_id)
+        try:
+            allowed = super().authorize(view)
+            if allowed and self.fence is not None:
+                attempts = [e for e in self._broker_execution().events
+                            if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+                if attempts and attempts[-1].provider_attempt_id == self.last_provider_attempt_id:
+                    self.authorized_binding = (self.authorization_generation,
+                        self.last_provider_attempt_id, attempts[-1].event_id)
+            return allowed
+        finally:
+            self.authorizing = None
+
+    def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
+        generation = self.authorization_generation
+        self.terminal_callback = None
+        attempt = self.last_provider_attempt_id
+        execution = None if self.fence is None else self._broker_execution()
+        attempts = [] if execution is None else [e for e in execution.events
+            if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+        binding = None if not attempts else (generation, attempt, attempts[-1].event_id)
+        if self.authorized_binding is None or self.authorized_binding != binding:
+            # Preserve the parent's internal pre-send capture-refusal outcome on
+            # a newly appended authorization, while denying delayed callbacks
+            # after a later refused authorization. This is not an SDK witness.
+            authorizing = self.authorizing
+            if (lifecycle.get("transition") == "known_not_sent" and authorizing is not None
+                    and authorizing[0] == generation and attempt != authorizing[1]
+                    and attempts and attempts[-1].provider_attempt_id == attempt):
+                return super().record_lifecycle(lifecycle)
+            return False
+        sequence = 0 if execution is None else len(execution.events)
+        acknowledged = super().record_lifecycle(lifecycle)
+        self.terminal_callback = None
+        if (attempts and attempts[-1].provider_attempt_id == attempt
+                and generation == self.authorization_generation):
+            self.terminal_callback = dict(
+                generation=generation, provider_attempt_id=attempt,
+                authorization_event_id=attempts[-1].event_id,
+                callback_sequence=sequence, transition=lifecycle.get("transition"),
+                parent_acknowledged=acknowledged,
+            )
+        return acknowledged
 
     def _capture_prepared_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
         from apps.live_control_server.services.plan_action_prompt_evidence import capture_prompt
@@ -916,6 +970,9 @@ def execute_plan_action_consultation(
         options["source_read_enabled"] = True
     result = run(invocation, adapter.authorize, **options)
     final_action = adapter.stop()
+    if adapter.failure is not None or result.status != "ok":
+        from apps.live_control_server.services.plan_action_terminal_diagnostic import retain_terminal_diagnostic
+        final_action = retain_terminal_diagnostic(adapter, result)
     execution = None if final_action.consultation is None else final_action.consultation.execution
     outcome_unknown = execution is not None and any(
         getattr(event, "kind", None) == "provider_outcome"

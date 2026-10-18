@@ -1426,10 +1426,12 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
     assert item["source_open_targets"] == []
 
 
+@pytest.mark.parametrize("terminal", ["proposal", "unknown", "later_veto"])
 def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns_inert_proposal(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
+    terminal: str,
 ) -> None:
     """Saved route -> parent authorization -> APP result -> inert proposal."""
     import json
@@ -1531,7 +1533,20 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
             }
             assert authorize(view) is True
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            if terminal == "unknown":
+                assert on_provider_lifecycle({"transition": "outcome_unknown"}) is True
+                return AgentRuntimeResult(status="error", final_text=None,
+                    error_code="provider_lifecycle_unavailable", runtime_metadata={"terminal_failure": {
+                        "phase": "provider_lifecycle", "reason": "provider_response_incomplete",
+                        "transition": "outcome_unknown", "acknowledged": True,
+                        "responseStatus": "incomplete", "incompleteReason": "max_output_tokens"}})
             assert on_provider_lifecycle({"transition": "response_received"}) is True
+            if terminal == "later_veto":
+                return AgentRuntimeResult(status="error", final_text=None,
+                    error_code="request_budget_veto", runtime_metadata={"terminal_failure": {
+                        "phase": "provider_lifecycle", "reason": "lifecycle_ack_denied",
+                        "transition": "response_received", "acknowledged": False}})
+
             return AgentRuntimeResult(
                 status="ok",
                 final_text=json.dumps({
@@ -1562,6 +1577,18 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
         "instruction": "Make the door easy to open.",
         "conversation_history": [],
     })
+    if terminal != "proposal":
+        assert response.status_code >= 400
+        actions = client.get(f"/api/live/world-plan-edit/actions?world_id={world.world_id}&document_id={document_id}").json()["actions"]
+        assert len(actions) == 1 and actions[0]["consultation"]["result"] is None
+        assert "terminal_diagnostic" not in json.dumps(actions)
+        from application_state.plan_action_dialogue.service import PlanActionDialogueService
+        action = PlanActionDialogueService().read_prompt_action(world_id=world.world_id, action_id=UUID(actions[0]["action_id"]))
+        report = action.consultation.terminal_diagnostic
+        assert report.attribution == ("provider_attempt" if terminal == "unknown" else "action_only")
+        assert report.failure.reason == ("provider_response_incomplete" if terminal == "unknown" else "lifecycle_ack_denied")
+        assert client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()["content_sha256"] == saved["content_sha256"]
+        return
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["replacement_markdown"] == "The observatory door opens easily."
