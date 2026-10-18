@@ -303,6 +303,12 @@ def test_image_preparation_purpose_is_idempotency_bound(request_case, monkeypatc
     tool, message, _, _ = image_tool(request_case[0], monkeypatch)
     reply = json.loads(tool.dispatch(message)["resultJson"])
     original = BuildImageService().get(UUID(reply["action_id"]), "local_operator")
+    assert BuildImageService().prepare(
+        original.reservation, "local_operator", original.prompt, original.alt,
+        writer_proof=original.writer_proof, purpose=original.purpose,
+    ) == original
     with pytest.raises(ApplicationStateConflictError):
-        BuildImageService().prepare(original.reservation, "local_operator", original.prompt,
-                                    original.alt, purpose="map")
+        BuildImageService().prepare(
+            original.reservation, "local_operator", original.prompt, original.alt,
+            writer_proof=original.writer_proof, purpose="map",
+        )
