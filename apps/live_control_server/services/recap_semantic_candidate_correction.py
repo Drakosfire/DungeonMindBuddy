@@ -38,6 +38,7 @@ from apps.live_control_server.models.extract_promote import (
 from apps.live_control_server.services.exact_run_evidence_correction import (
     _LIFECYCLE,
     _canonical_bytes,
+    _frozen_recap_world_lineage,
     _reject,
     _sha,
     _write_child_candidate,
@@ -53,6 +54,7 @@ from apps.live_control_server.services.graph_run_registry import (
     create_extraction_run,
     get_extraction_run,
     update_extraction_run_status,
+    validate_recap_source_run_world_binding,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
@@ -1124,6 +1126,14 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
 def verify_child_replay(run, parent, root: Path) -> bool:
     """Re-prove sealed manifest and child bytes before decision/prepare/confirm."""
     try:
+        expected_world_scope = _frozen_recap_world_lineage(parent)
+        actual_world_scope = {
+            key: run.lineage[key]
+            for key in ("world_campaign_ingest_context", "native_world_id", "campaign_id")
+            if key in run.lineage
+        }
+        if actual_world_scope != expected_world_scope:
+            return False
         manifest = run.lineage["semantic_candidate_manifest"]
         if _sha(_canonical_bytes(manifest)) != run.lineage.get("manifest_sha256"):
             return False
@@ -1149,6 +1159,22 @@ def verify_child_replay(run, parent, root: Path) -> bool:
                 and verify_pc_reference_native_basis(expected, manifest))
     except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
+
+
+def _validated_recap_world_scope(parent: ExtractionRun, *, source_world_id: str | None) -> dict[str, object]:
+    """Carry only the parent's frozen World scope after matching the source."""
+    scope = _frozen_recap_world_lineage(parent)
+    if scope and not source_world_id:
+        raise _reject("World-scoped recap source is missing its canonical World binding")
+    try:
+        validate_recap_source_run_world_binding(
+            source_world_id=source_world_id,
+            campaign_id=parent.campaign_id,
+            lineage=scope,
+        )
+    except GraphRunRegistryError as exc:
+        raise _reject(str(exc), status_code=exc.status_code) from exc
+    return scope
 
 
 INHERITED_PC_PROOF_SCHEMA = "dmb_inherited_pc_reference_proof_v1"
@@ -1374,6 +1400,9 @@ def correct_recap_candidate(
         or getattr(resolved, "source_span_index_path", None) is None
     ):
         raise _reject("correction requires an exact frozen recap review bundle")
+    world_scope = _validated_recap_world_scope(
+        parent, source_world_id=getattr(resolved, "world_id", None),
+    )
     parent_bytes = resolved.candidate_graph_path.read_bytes()
     parent_sha = _sha(parent_bytes)
     source_ref = parent.components["source_artifact"]
@@ -1535,6 +1564,7 @@ def correct_recap_candidate(
         "parent_candidate_sha256": parent_sha,
         "manifest_sha256": manifest_sha,
         "semantic_candidate_manifest": manifest,
+        **world_scope,
     }
     inherited_proof = None
     if v7 or v8 or v10:

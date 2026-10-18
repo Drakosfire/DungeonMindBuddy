@@ -173,6 +173,39 @@ def _fixture(
     return parent, parent_bytes, runs
 
 
+def _world_ingest_context(*, world_id: str = "elderwyld") -> dict[str, object]:
+    return {
+        "schema": "dm_world_campaign_ingest_context_v1",
+        "managed_world_id": "managed-elderwyld",
+        "native_world_id": world_id,
+        "binding_version": 1,
+        "campaign_id": "c",
+        "head_revision_id": "revision-7",
+        "graph_schema": "world_graph_v1",
+        "graph_payload_sha256": "a" * 64,
+    }
+
+
+def _scoped_fixture(
+    monkeypatch, root, *, context=None, lineage=None, source_world_id="elderwyld",
+):
+    parent, parent_bytes, runs = _fixture(monkeypatch, root)
+    context = _world_ingest_context() if context is None else context
+    frozen_lineage = {"world_campaign_ingest_context": context} if lineage is None else lineage
+    parent = parent.model_copy(update={"lineage": frozen_lineage})
+    runs["parent"] = parent
+    original_resolve = service.resolve_promotable_ingest_run
+
+    def resolve(run_id, **kwargs):
+        result = original_resolve(run_id, **kwargs)
+        values = dict(vars(result))
+        values["world_id"] = source_world_id
+        return SimpleNamespace(**values)
+
+    monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
+    return parent, parent_bytes, runs
+
+
 def _tuple_fixture(
     monkeypatch: pytest.MonkeyPatch,
     root: Path,
@@ -1124,6 +1157,61 @@ def test_immutable_child_replays_and_stays_held(
     candidate_path.write_bytes(service._canonical_bytes(service.replay_candidate(json.loads(parent_bytes), child.lineage["semantic_candidate_manifest"])))
     (tmp_path / "spans.json").write_text('{"spans":[],"tampered":true}')
     assert not service.verify_child_replay(child, parent, tmp_path)
+
+
+def test_semantic_child_preserves_frozen_world_scope_and_replay_binds_it(monkeypatch, tmp_path):
+    parent, parent_bytes, runs = _scoped_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(_request(parent_bytes))
+    child = runs[response.run_id]
+
+    assert child.lineage["world_campaign_ingest_context"] == parent.lineage["world_campaign_ingest_context"]
+    assert service.correct_recap_candidate(_request(parent_bytes)) == response
+    assert service.verify_child_replay(child, parent, tmp_path)
+
+    stripped = child.model_copy(deep=True)
+    stripped.lineage.pop("world_campaign_ingest_context")
+    assert not service.verify_child_replay(stripped, parent, tmp_path)
+
+    forged = child.model_copy(deep=True)
+    forged.lineage["world_campaign_ingest_context"]["native_world_id"] = "another-world"
+    assert not service.verify_child_replay(forged, parent, tmp_path)
+
+
+def test_semantic_child_preserves_explicit_legacy_world_scope(monkeypatch, tmp_path):
+    legacy_scope = {"native_world_id": "elderwyld", "campaign_id": "c"}
+    parent, parent_bytes, runs = _scoped_fixture(
+        monkeypatch, tmp_path, lineage=legacy_scope,
+    )
+    response = service.correct_recap_candidate(_request(parent_bytes))
+    child = runs[response.run_id]
+
+    assert {key: child.lineage[key] for key in legacy_scope} == legacy_scope
+    assert service.verify_child_replay(child, parent, tmp_path)
+
+
+@pytest.mark.parametrize("failure", ["malformed_context", "missing_source_world", "source_world_mismatch"])
+def test_semantic_child_world_scope_fails_before_persistence(monkeypatch, tmp_path, failure):
+    context = _world_ingest_context()
+    source_world_id = "elderwyld"
+    if failure == "malformed_context":
+        context.pop("graph_payload_sha256")
+    elif failure == "missing_source_world":
+        source_world_id = None
+    else:
+        source_world_id = "other-world"
+    parent, parent_bytes, runs = _scoped_fixture(
+        monkeypatch, tmp_path, context=context, source_world_id=source_world_id,
+    )
+    writes = []
+    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("candidate"))
+    monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
+
+    with pytest.raises(service.ExtractPromoteError):
+        service.correct_recap_candidate(_request(parent_bytes))
+
+    assert writes == []
+    assert runs == {"parent": parent}
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
 
 
 def test_replay_refuses_stale_description_and_edge_dependency() -> None:
