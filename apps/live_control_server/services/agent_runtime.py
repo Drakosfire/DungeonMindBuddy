@@ -119,6 +119,12 @@ class AgentRuntimeInvocation:
     plan_continuity_turn: bool = False
     # Set only by trusted saved-work assembly; independent of continuity/capabilities.
     input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = "ordinary_question"
+    # Parent-selected read advertisement only; never grants broker authority.
+    graph_read_profile: Literal["world_graph", "governed_build"] = "world_graph"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.graph_read_profile, str) or self.graph_read_profile not in ("world_graph", "governed_build"):
+            raise ValueError("invalid internal Graph read profile")
 
 
 @dataclass(frozen=True, slots=True)

@@ -77,6 +77,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "requestBudget",
         "providerAuthorizationRequired",
         "parentGraphBrokerRequired",
+        "graphReadProfile",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -296,6 +297,11 @@ class HermesGraphAgentTurnRequest:
     request_budget: Mapping[str, Any] | None = None
     provider_authorization_required: bool = False
     parent_graph_broker_required: bool = False
+    graph_read_profile: Literal["world_graph", "governed_build"] = "world_graph"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.graph_read_profile, str) or self.graph_read_profile not in ("world_graph", "governed_build"):
+            raise ValueError("invalid internal Graph read profile")
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -966,6 +972,12 @@ def serialize_hermes_graph_agent_turn_request(
         raise ValueError(
             "parent Graph broker requires provider authorization and a retrieval session"
         )
+    if not isinstance(request.graph_read_profile, str) or request.graph_read_profile not in ("world_graph", "governed_build"):
+        raise ValueError("invalid Graph read profile")
+    if request.graph_read_profile == "governed_build" and not (
+        request.parent_graph_broker_required and request.provider_authorization_required
+    ):
+        raise ValueError("Build read profile requires an authorized parent Graph broker")
     request_budget = _serialize_request_budget(request.request_budget)
     if request.provider_authorization_required and request_budget is None:
         raise ValueError(
@@ -1013,6 +1025,8 @@ def serialize_hermes_graph_agent_turn_request(
         payload["providerAuthorizationRequired"] = True
     if request.parent_graph_broker_required:
         payload["parentGraphBrokerRequired"] = True
+    if request.graph_read_profile != "world_graph":
+        payload["graphReadProfile"] = request.graph_read_profile
     return payload
 
 
@@ -1043,6 +1057,13 @@ def deserialize_hermes_graph_agent_turn_request(
     parent_graph_broker_required = payload.get("parentGraphBrokerRequired", False)
     if not isinstance(parent_graph_broker_required, bool):
         raise ValueError("parentGraphBrokerRequired must be a boolean")
+    graph_read_profile = payload.get("graphReadProfile", "world_graph")
+    if not isinstance(graph_read_profile, str) or graph_read_profile not in ("world_graph", "governed_build"):
+        raise ValueError("invalid Graph read profile")
+    if graph_read_profile == "governed_build" and not (
+        parent_graph_broker_required and provider_authorization_required
+    ):
+        raise ValueError("Build read profile requires an authorized parent Graph broker")
     request_budget = _serialize_request_budget(payload.get("requestBudget"))
     if provider_authorization_required and request_budget is None:
         raise ValueError(
@@ -1129,6 +1150,7 @@ def deserialize_hermes_graph_agent_turn_request(
         request_budget=request_budget,
         provider_authorization_required=provider_authorization_required,
         parent_graph_broker_required=parent_graph_broker_required,
+        graph_read_profile=graph_read_profile,
     )
 
 

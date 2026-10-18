@@ -79,7 +79,11 @@ class SyntheticHarness:
         from apps.live_control_server.services.hermes_graph_agent_contract import (
             serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
         )
-        wire = serialize_hermes_graph_agent_turn_request(map_invocation_to_hermes_request(invocation))
+        wire = serialize_hermes_graph_agent_turn_request(replace(
+            map_invocation_to_hermes_request(invocation),
+            provider_authorization_required=True, parent_graph_broker_required=True,
+            request_budget=request_budget,
+        ))
         restored = deserialize_hermes_graph_agent_turn_request(json.loads(json.dumps(wire)))
         assert restored.world_id == 'native-build-world' and restored.revision_pin == 'native-rev-3'
         message = restored.question

@@ -141,6 +141,9 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
         _normalize_interaction_arguments,
     )
 
+    build_profile = getattr(adapter, "_is_build_turn", lambda: False)()
+    detail_choice = ("object with one target, or observations with 1–8 distinct "
+                     "observationIds and no targets/query" if build_profile else "object with exactly one target")
     arguments = message["arguments"]
     try:
         request = ExpandGraphRetrievalRequest.model_validate(
@@ -149,15 +152,15 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
     except ValidationError as exc:
         raise EvidenceBundleRefusal(
             "evidence_bundle_invalid_request",
-            "Invalid bundle request. Use object with one target, or observations "
-            "with 1–8 distinct observationIds and no targets/query. Pass the current "
+            f"Invalid bundle request. Use {detail_choice}. Pass the current "
             "retrievalSessionId and only fields declared by the tool schema.",
         ) from exc
     if request.operation not in {"object", "observations"}:
         raise EvidenceBundleRefusal(
             "evidence_bundle_unsupported_operation",
-            "Source bundles require object or observations. For search, neighborhood "
-            "or support, omit includeSources; then select detail using returned IDs.",
+            ("Source bundles require object or observations. For search, neighborhood " if build_profile
+             else "Source bundles require object. For search, neighborhood ")
+            + "or support, omit includeSources; then select detail using returned IDs.",
         )
     if (
         adapter.failure is not None

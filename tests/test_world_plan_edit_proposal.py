@@ -1507,6 +1507,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
             source_read_enabled=False, context_read_enabled=False,
         ):
             assert invocation.plan_continuity_turn is True
+            assert invocation.graph_read_profile == "world_graph"
             assert context_read_enabled is True
             assert source_read_enabled is False
             projection = invocation.context_packet.retrieval_session.packet
@@ -1663,6 +1664,7 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
             from hashlib import sha256
 
             assert invocation.plan_continuity_turn and source_read_enabled
+            assert invocation.graph_read_profile == "world_graph"
             assert context_read_enabled
             bootstrap = resolved[-1]
             assert bootstrap.candidate_assertion_ids

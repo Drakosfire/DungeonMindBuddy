@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -417,3 +418,48 @@ __all__ = [
     "hermes_model_visible_tool_definitions",
     "query_threat_mechanics_hydration_tool_definition",
 ]
+
+
+def project_graph_read_tools(definitions: list[dict[str, Any]], profile: str) -> list[dict[str, Any]]:
+    """Project copies for one trusted consumer, leaving the global catalog intact."""
+    if not isinstance(profile, str) or profile not in ("world_graph", "governed_build"):
+        raise ValueError("invalid Graph read profile")
+    projected = deepcopy(definitions)
+    if profile == "governed_build":
+        return projected
+    for definition in projected:
+        function = definition.get("function", definition)
+        if function.get("name") != "expand_graph_retrieval":
+            continue
+        schema = function["parameters"]
+        properties = schema["properties"]
+        operations = properties["operation"]["enum"]
+        allowed = ["object", "neighborhood", "search", "support"]
+        if set(operations) not in (set(allowed), set(allowed + ["observations"])):
+            raise ValueError("unsupported Graph expansion schema")
+        properties["operation"]["enum"] = allowed
+        properties.pop("observationIds", None)
+        if "required" in schema:
+            schema["required"] = [key for key in schema["required"] if key != "observationIds"]
+        function["description"] = (
+            "Expand the current shared GraphRetrievalSession with object, neighborhood, search or support. "
+            "Always pass the provided retrievalSessionId. Scope and revision are server-enforced. "
+            "object/support require exactly one node target; neighborhood requires 1–8 seed nodes; "
+            "search allows 0–8 seeds, with targets=[] searching the frozen scope. "
+            "For substantive object questions prefer includeSources=true: the parent opens admitted "
+            "sources and returns a compact dmb_graph_evidence_packet_v1. Other operations do not "
+            "support this opt-in. Use original assertionId/edgeId and subject IDs for claims; "
+            "evidence handles link exact source text. Follow the answer schema and copy evidenceRefIds "
+            "exactly when required. Open supporting source anchors before answering. Preserve belief "
+            "and conditional language; a role label does not establish organizational membership. "
+            "Search source pointers are discovery, not canonical facts; expand their subjectNodeId "
+            "with object and inspect admitted sources. Check unopened/truncated coverage. "
+            "Large expansions return dmb_graph_tool_overview_v1 with usable complete selected rows, "
+            "exact identities and sourceAnchorIds; omitted counts describe coverage gaps. "
+            "detailPageToken is optional provenance, not mandatory continuation. For needed full detail, "
+            "repeat the exact original arguments with resultPageToken from nextPageToken. "
+            "dmb_graph_tool_page_v1 records retain original paths and claimDelta. Core truncation is "
+            "separate from pagination. Reassemble fragments before use; never invent tokens or IDs. "
+            "Do not open Markdown or corpus files directly on a graph gap."
+        )
+    return projected
