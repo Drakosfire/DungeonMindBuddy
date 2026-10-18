@@ -1,4 +1,4 @@
-import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
@@ -18,6 +18,7 @@ import {
 import type { PlanViewProjection, WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
 import { DurableSaveStatus, type DurableSaveState } from "../components/DurableSaveStatus";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
+import { PlanMarkdownSource } from "./components/PlanMarkdownSource";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
@@ -105,7 +106,7 @@ function markdownFidelityDetails(warnings: readonly string[]): string {
 }
 
 function markdownFidelityWarningText(warnings: readonly string[]): string {
-  return `This Plan contains Markdown the editor cannot safely preserve. Editing and Save are disabled to protect the saved text; the original and local recovery copy remain unchanged. Resolve these constructs in the source and reopen the Plan. ${markdownFidelityDetails(warnings)}`;
+  return `This Plan contains Markdown the editor cannot safely preserve. Visual editing and autosave are paused to protect the saved text. Use Markdown to resolve these constructs; the original and local recovery copy remain unchanged. ${markdownFidelityDetails(warnings)}`;
 }
 
 function markdownFidelityRejectionText(warnings: readonly string[]): string {
@@ -361,6 +362,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [localDraftId, setLocalDraftId] = useState(() => initialLocalDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
   const [title, setTitle] = useState(initialLocalDraft?.title ?? "Plan");
   const [markdown, setMarkdown] = useState(initialLocalDraft?.markdown ?? "");
+  const [sourceEditing, setSourceEditing] = useState(false);
+  const sourceEditingRef = useRef(sourceEditing);
+  sourceEditingRef.current = sourceEditing;
   const [savedBasis, setSavedBasis] = useState<WorldPlanCardBasis>({ status: "unavailable" });
   const [createUncertain, setCreateUncertain] = useState(initialLocalDraft?.create_uncertain ?? false);
   const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
@@ -523,7 +527,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     currentSceneTargetLabel: cardTargetLabel(selectedPlayableTarget?.target ?? null),
     playableTargetLabel: cardTargetLabel(selectedPlayableEditTargetRef.current?.target ?? null),
     canEdit: Boolean(
-      documentIdRef.current
+      !sourceEditingRef.current
+      && documentIdRef.current
       && serverDigestRef.current
       && isCurrentEditTarget()
       && !savingRef.current
@@ -552,14 +557,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   }), []);
 
   const structureProtectionRef = useRef(false);
-  structureProtectionRef.current = createUncertain || recoveryConflict || pendingWriteRef.current !== null || saving || fidelityBlocked;
+  structureProtectionRef.current = sourceEditing || createUncertain || recoveryConflict || pendingWriteRef.current !== null || saving || fidelityBlocked;
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => {
     const action = (id: string, label: string, invoke: (active: Editor) => void, disabled = false) => ({
       id,
       label,
       onClick: () => {
         const active = editorRef.current;
-        if (!active || !isCurrentEditTarget() || disabled) return;
+        if (!active || sourceEditingRef.current || !isCurrentEditTarget() || disabled) return;
         const fidelityIssues = getLiveFidelityWarnings(active.getJSON());
         if (fidelityIssues.length) {
           setError(markdownFidelityWarningText(fidelityIssues));
@@ -567,7 +572,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         }
         invoke(active);
       },
-      disabled: !editor || status !== "ready" || saving || fidelityBlocked || disabled,
+      disabled: sourceEditing || !editor || status !== "ready" || saving || fidelityBlocked || disabled,
     });
     const structureState = editor?.state;
     const structureDraftGeneration = editGenerationRef.current;
@@ -615,7 +620,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         },
       ],
     };
-  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status, markdown, title, selectionGeneration, createUncertain, recoveryConflict]);
+  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status, markdown, title, selectionGeneration, createUncertain, recoveryConflict, sourceEditing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1719,14 +1724,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <nav className="world-plan-view-switch" role="group" aria-label="Plan view" data-testid="world-plan-view-switch">
             <button
               type="button"
-              aria-pressed={!cardsViewActive}
-              onClick={() => selectPlanView("document")}
+              aria-pressed={!cardsViewActive && !sourceEditing}
+              onClick={() => { setSourceEditing(false); selectPlanView("document"); }}
             >Document</button>
+            <button type="button" aria-pressed={!cardsViewActive && sourceEditing}
+              disabled={status !== "ready"}
+              onClick={() => { selectPlanView("document"); setSourceEditing(true); setEditorGeneration(value => value + 1); }}>Markdown</button>
             <button
               type="button"
               aria-pressed={cardsViewActive}
               disabled={!documentId || status !== "ready" || !editor}
-              onClick={() => selectPlanView("cards")}
+              onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
           <span className="world-plan-context-toolbar__save">
@@ -1785,7 +1793,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         ) : null}
         {fidelityWarnings.length ? (
           <section role="alert" aria-label="Markdown preservation warning">
-            <p>This Plan contains Markdown the editor cannot safely preserve. Editing and Save are disabled to protect the saved text; the original and local recovery copy remain unchanged. Resolve these constructs in the source and reopen the Plan.</p>
+            <p>This Plan contains Markdown the editor cannot safely preserve. Visual editing and autosave are paused to protect the saved text. Use Markdown to resolve these constructs; the original and local recovery copy remain unchanged.</p>
             <ul>{fidelityWarnings.map((warning, index) => <li key={`${index}:${warning}`}>{warning}</li>)}</ul>
           </section>
         ) : null}
@@ -1796,6 +1804,21 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           hidden={cardsViewActive}
           aria-hidden={cardsViewActive}
         >
+          {sourceEditing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
+            onChange={body => {
+              const next = preserveLeadingYamlFrontmatter(markdownRef.current, body);
+              if (!isCurrentEditTarget(true) || next === markdownRef.current) return;
+              markdownRef.current = next;
+              const generation = ++editGenerationRef.current;
+              const pendingRecovery = pendingWriteRef.current !== null && !savingRef.current;
+              setAutoSavePaused(pendingRecovery);
+              setMarkdown(next);
+              persistEditorDraft(titleRef.current, next, generation);
+              setEditorGeneration(value => value + 1);
+              if (!pendingRecovery) setError(null);
+              setMessage(null);
+            }} /> : null}
+          <div className="world-plan-visual-editor" hidden={sourceEditing}>
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
             testId="world-owned-plan-editor"
@@ -1841,6 +1864,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
             </MarkdownEditorCore>
           </PlanSurfaceCanvasFrame>
+          </div>
         </div>
         {cardsViewActive && documentId ? (
           <WorldPlanCardProjection

@@ -3838,3 +3838,84 @@ it("pauses autosave after an uncertain commit and preserves the draft for explic
     "2026-10-18T16:50:00.000Z",
   );
 });
+
+it("autosaves exact Markdown source with preserved metadata and card IDs across view switching", async () => {
+  const envelope="---\r\ntitle: Kept metadata\r\n---\r\n";
+  const body=twoScenePlanMarkdown + "\n> [!READ-ALOUD]\n> The boardwalk crosses dark water.\n";
+  const record = mockSavedPlanForAgent(savedAgentPlanId,7,7,envelope+twoScenePlanMarkdown);
+  const committedAt = "2026-10-18T16:30:00Z";
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async (request) => ({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: record.document_id,
+    title: request.title!,
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: request.expected_revision + 1,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "autosave-token",
+    warnings: [],
+    diagnostics: [],
+  }));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => ({
+    schema_version: "dmb_tiptap_markdown_write_commit_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: record.document_id,
+    title: request.title,
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: request.expected_revision,
+    committed_revision: request.expected_revision,
+    committed_record: { ...record, title: request.title, revision: request.expected_revision, updated_at: committedAt },
+    normalized_content_sha256: "c".repeat(64),
+    writer_ok: true,
+    writer_phase: "commit",
+    diagnostics: [],
+  }));
+  const postGraph = vi.spyOn(liveApi, "postWorldGraphProjection");
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByText("Saved", { exact: true })).toBeInTheDocument());
+
+  const oldBold=capturedPlanControls().bold;
+  fireEvent.click(screen.getByRole("button",{name:"Markdown",exact:true}));
+  act(()=>oldBold());
+  expect(screen.getByRole("button",{name:"Bold",exact:true})).toBeDisabled();
+  const source=screen.getByRole("textbox",{name:"Plan Markdown"});
+  expect(source).toHaveValue(twoScenePlanMarkdown);
+  fireEvent.click(screen.getByText("Markdown help",{exact:true}));
+  expect(screen.getByText("Read Aloud block",{exact:true})).toBeInTheDocument();
+  expect(prepare).not.toHaveBeenCalled();
+  vi.useFakeTimers();
+  fireEvent.change(source,{target:{value:body}});
+  fireEvent.click(screen.getByRole("button",{name:"Document",exact:true}));
+  expect(editorSurface).toHaveTextContent("The boardwalk crosses dark water.");
+  fireEvent.click(screen.getByRole("button",{name:"Markdown",exact:true}));
+  expect(screen.getByRole("textbox",{name:"Plan Markdown"})).toHaveValue(body);
+  await act(async () => { await vi.advanceTimersByTimeAsync(699); });
+  expect(prepare).not.toHaveBeenCalled();
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({
+    world_id: worldId,
+    document_id: record.document_id,
+    markdown: envelope+body,
+  }));
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Saved", { exact: true })).toBeInTheDocument();
+  expect(document.querySelector(".durable-save-status time")).toHaveAttribute(
+    "dateTime",
+    "2026-10-18T16:30:00.000Z",
+  );
+  expect(postGraph).not.toHaveBeenCalled();
+  expect(postTurn).not.toHaveBeenCalled();
+});

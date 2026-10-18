@@ -1,6 +1,6 @@
 # PLAN — visible card boundaries in Document
 
-Status ACTIVE; operator directly requested horizontal card divisions2026-10-18 and now authorizes dogfood execution during travel.
+Status: COMPLETE — PR1415 merged660cbb2512f6ec9f2e11e5e94a651ccee122c9f3, independent PASS and delivered5202; lease ended.
 Owner PRIME; independent review ARCHITECTURE.
 Base36697f5765d7d58d3901b91674681d2831324fcc; existing buddy-context-loop checkout, codex/plan-card-document-dividers.
 Topology parallel-independent from DOGFOOD autosave; exact lease apps/live-control-ui/src/styles.css and this handoff. Settle prior Docs/Plans/HANDOFF-AUTHOR-explicit-source-link-activation.md after merged1414.
