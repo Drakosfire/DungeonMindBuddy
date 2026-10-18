@@ -30,6 +30,7 @@ def image_tool(request, monkeypatch):
         "arguments": {
             "prompt": "Edge fort, peaceful guards, warm lanterns beside the swamp",
             "alt": "Edge at dusk",
+            "purpose": "map",
         },
     }
     return tool, message, wire, turn
@@ -204,7 +205,11 @@ def test_image_tool_crosses_runtime_policy_and_strict_ipc_only_with_captured_cap
         for item in hermes_model_visible_tool_definitions()
         if item["function"]["name"] == "prepare_build_image"
     )
-    assert set(definition["function"]["parameters"]["properties"]) == {"prompt", "alt"}
+    params = definition["function"]["parameters"]
+    assert set(params["properties"]) == {"prompt", "alt", "purpose"}
+    assert set(params["required"]) == {"prompt", "alt", "purpose"}
+    assert params["properties"]["purpose"] == {"type": "string", "enum": ["illustration", "map"]}
+    assert params["additionalProperties"] is False
 
 
 @pytest.fixture
@@ -243,6 +248,7 @@ def _image_broker_worker(request_queue, response_queue):
                 "arguments": {
                     "prompt": "Edge beside a quiet swamp",
                     "alt": "Edge at dusk",
+                    "purpose": "map",
                 },
             },
         )
@@ -293,6 +299,7 @@ def test_real_parent_ipc_dispatch_persists_image_action(request_case, monkeypatc
             BuildImageService().get(UUID(reply["action_id"]), "local_operator").prompt
             == "Edge beside a quiet swamp"
         )
+        assert BuildImageService().get(UUID(reply["action_id"]), "local_operator").purpose == "map"
         assert wire.calls == []
     finally:
         host.shutdown()
@@ -310,5 +317,29 @@ def test_image_preparation_purpose_is_idempotency_bound(request_case, monkeypatc
     with pytest.raises(ApplicationStateConflictError):
         BuildImageService().prepare(
             original.reservation, "local_operator", original.prompt, original.alt,
-            writer_proof=original.writer_proof, purpose="map",
+            writer_proof=original.writer_proof, purpose="illustration",
         )
+
+
+@pytest.mark.parametrize("purpose", ["map", "illustration"])
+def test_parent_tool_persists_explicit_purpose(request_case, monkeypatch, purpose):
+    tool, message, wire, _ = image_tool(request_case[0], monkeypatch)
+    message["arguments"]["purpose"] = purpose
+    reply = json.loads(tool.dispatch(message)["resultJson"])
+    assert reply["status"] == "prepared"
+    record = BuildImageService().get(UUID(reply["action_id"]), "local_operator")
+    assert record.purpose == purpose and wire.calls == []
+    assert record.reservation.origin.arguments_sha256 == arguments_digest(message["arguments"])
+    assert json.loads(tool.dispatch(message)["resultJson"]) == reply
+
+
+@pytest.mark.parametrize("purpose", [None, "unknown", 3, {"map": True}])
+def test_parent_tool_rejects_missing_or_invalid_purpose(request_case, monkeypatch, purpose):
+    tool, message, wire, _ = image_tool(request_case[0], monkeypatch)
+    if purpose is None:
+        message["arguments"].pop("purpose")
+    else:
+        message["arguments"]["purpose"] = purpose
+    reply = json.loads(tool.dispatch(message)["resultJson"])
+    assert reply["status"] == "unavailable" and wire.calls == []
+    assert BuildImageService().list("elderwyld", request_case[0].conversation_id, "local_operator") == []
