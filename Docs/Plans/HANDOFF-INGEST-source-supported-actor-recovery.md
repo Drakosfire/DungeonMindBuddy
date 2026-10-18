@@ -1,8 +1,8 @@
 # INGEST: recover a missing source-supported actor
 
-Status: ACTIVE — bounded DOGFOOD implementation lease, activated by PRIME after
-independent contract critique and the concrete retained read-only proposal.
-No provider call, retained correction or publication is authorized.
+Status: CLOSED — implementation1407 merged c9066f00457c23411d88e4e7bc53aed396478851
+after ARCHITECTURE Cycle2 PASS on3c2fc61a3b11b479ad718cfac5570eaf2e94e45f.
+No further implementation or retained write authority remains in this lease.
 Base: Buddy main b73b3f6225aaed4954a86a54005c6837eeaa49e9.
 Proposed branch: codex/ingest-source-actor-recovery, existing suitable checkout only.
 Topology: serial successor to settled #1403; independent of the separately pinned
@@ -241,3 +241,17 @@ Return at a concrete unexpected boundary/required path expansion, or deliver one
 implementation PR with exact cumulative diff and owning evidence. Architecture
 reviews exact head; PRIME merges/adopts when gates pass. No additional operator
 confirmation is required for the bounded implementation or independent review.
+
+## PRIME post-merge settlement
+
+Two formal independent review cycles:61c6534a HOLD for missing joined producer
+proof, then3c2fc61a PASS after actual production-backed retarget and contextual-
+anchor omission witnesses. Independent owning suite210passed. Six-file API adoption
+PID785237 preserved UI66169c and existing state. Separately authorized operational
+contractb818d2553 applied exact request829057f8 to HELD childc1bbc2da-d971-5d33-8e08-7bfe0b0568c8;
+its closed settlement1072765713b1ff695b5ffc2785b41b18b3d19f5c owns that execution.
+ARCHITECTURE independently audited full persisted manifest/V12-innerV13, exact
+child67/62/13 delta, unchanged parent/native projection/nine retained surfaces and
+rendered source evidence. Held-only partial recovery; no semantic acceptance,
+faithful transfer completion or native publication. Shared test fixture54329 is
+stopped after consumers finished; retained54330/54331 and5202/API remain running.
