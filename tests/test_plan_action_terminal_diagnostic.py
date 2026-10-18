@@ -131,6 +131,9 @@ def test_action_authorization_generation_clears_prior_callback_even_on_refusal(m
     from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
     action = ActionPolicyExecutionAdapter.__new__(ActionPolicyExecutionAdapter)
     action.authorization_generation = 1
+    action.authorized_binding = (1, None, None)
+    action.last_provider_attempt_id = None
+    action.authorizing = None
     action.terminal_callback = {"generation": 1, "transition": "outcome_unknown"}
     def refuse(self, view):
         assert self.authorization_generation == 2 and self.terminal_callback is None
@@ -162,6 +165,8 @@ def test_actual_action_callback_records_only_current_attempt(application_state_d
     actual.last_provider_attempt_id = events[6].provider_attempt_id
     actual.producing_provider_attempt_id = None
     actual.authorization_generation = 2
+    actual.authorized_binding = (2, events[6].provider_attempt_id, events[6].event_id)
+    actual.authorizing = None
     actual.terminal_callback = None
     actual.failure = None
     actual.context_capture = None
@@ -178,3 +183,31 @@ def test_actual_action_callback_records_only_current_attempt(application_state_d
     assert report.parent_acknowledged is (not refuse_callback)
     assert report.latest_durable_outcome == ("sdk_entered" if refuse_callback else "outcome_unknown")
     assert (report.matching_transition_event_id is None) == refuse_callback
+
+
+def test_delayed_callback_after_denied_authorization_cannot_rebind_prior_attempt(application_state_dsn, monkeypatch):
+    from apps.live_control_server.services.plan_action_consultation import ActionPolicyExecutionAdapter, _ActionFence
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    from apps.live_control_server.services.agent_runtime import AgentRuntimeResult
+    from tests.application_state.test_plan_action_prompt_capture import append
+    store, action, _, events = frozen()
+    for event in events[:3]:
+        action = append(store, action, event)
+    actual = ActionPolicyExecutionAdapter.__new__(ActionPolicyExecutionAdapter)
+    actual.store = store
+    actual.fence = _ActionFence(store, action)
+    actual.turn = action
+    actual.last_provider_attempt_id = events[0].provider_attempt_id
+    actual.authorization_generation = 1
+    actual.authorized_binding = (1, events[0].provider_attempt_id, events[0].event_id)
+    actual.authorizing = None
+    actual.terminal_callback = None
+    actual.failure = None
+    monkeypatch.setattr(_PolicyExecutionAdapter, "authorize", lambda self, view: False)
+    assert actual.authorize({}) is False
+    assert actual.record_lifecycle({"transition": "outcome_unknown"}) is False
+    assert len(actual.stop().consultation.execution.events) == 3
+    saved = retain_terminal_diagnostic(actual, AgentRuntimeResult(status="error", final_text=None,
+        runtime_metadata={"terminal_failure": FAILURE}))
+    assert saved.consultation.terminal_diagnostic.attribution == "action_only"
+    assert saved.consultation.terminal_diagnostic.provider_attempt_id is None

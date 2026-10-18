@@ -179,20 +179,46 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.context_read_enabled = True
         self.required_context_failed = False
         self.authorization_generation = 0
+        self.authorized_binding = None
+        self.authorizing = None
         self.terminal_callback = None
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         # Supersede prior callbacks even when the new authorization is refused.
         self.authorization_generation += 1
         self.terminal_callback = None
-        return super().authorize(view)
+        self.authorized_binding = None
+        self.authorizing = (self.authorization_generation, self.last_provider_attempt_id)
+        try:
+            allowed = super().authorize(view)
+            if allowed and self.fence is not None:
+                attempts = [e for e in self._broker_execution().events
+                            if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+                if attempts and attempts[-1].provider_attempt_id == self.last_provider_attempt_id:
+                    self.authorized_binding = (self.authorization_generation,
+                        self.last_provider_attempt_id, attempts[-1].event_id)
+            return allowed
+        finally:
+            self.authorizing = None
 
     def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
         generation = self.authorization_generation
+        self.terminal_callback = None
         attempt = self.last_provider_attempt_id
         execution = None if self.fence is None else self._broker_execution()
         attempts = [] if execution is None else [e for e in execution.events
             if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+        binding = None if not attempts else (generation, attempt, attempts[-1].event_id)
+        if self.authorized_binding is None or self.authorized_binding != binding:
+            # Preserve the parent's internal pre-send capture-refusal outcome on
+            # a newly appended authorization, while denying delayed callbacks
+            # after a later refused authorization. This is not an SDK witness.
+            authorizing = self.authorizing
+            if (lifecycle.get("transition") == "known_not_sent" and authorizing is not None
+                    and authorizing[0] == generation and attempt != authorizing[1]
+                    and attempts and attempts[-1].provider_attempt_id == attempt):
+                return super().record_lifecycle(lifecycle)
+            return False
         sequence = 0 if execution is None else len(execution.events)
         acknowledged = super().record_lifecycle(lifecycle)
         self.terminal_callback = None
