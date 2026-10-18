@@ -1,13 +1,20 @@
 # INGEST: source-anchored recap beat summaries
 
-Status: ACTIVE — PRIME authorized this bounded design and implementation after ARCHITECTURE critique on 2026-10-17.
+Status: SETTLED — PR #1391 merged to `main` at `eadef26d7951f3384042f0144085f9676c41be7e` on 2026-10-18 UTC. Its implementation lease is closed.
 
-Base: `origin/main@f1045c2c4d05fe2fb9fc64f99d566ba50c315769` (verified against GitHub; local `origin/main` matches).
-Branch: `codex/ingest-extractive-beat-summaries`.
+Implementation base: `origin/main@f1045c2c4d05fe2fb9fc64f99d566ba50c315769`.
+Merged PR head: `d1185dfc53de367571e1f8f5e988a9e7bec80929`.
+Branch: `codex/ingest-extractive-beat-summaries` (settled).
 Checkout: `/home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy`.
-Topology: serial; one INGEST implementation PR. PRIME owns merge and rollout. ARCHITECTURE reviews the exact cumulative diff.
+Topology: serial; PR #1391 was the implementation PR for this slice. PRIME owns deployment. ARCHITECTURE reviewed the exact cumulative diff.
 
-The first implementation commit is this handoff plus settlement of the predecessor handoff only. No extractor or test code changes may precede it.
+## Settlement
+
+PR #1391 delivered the source-faithful recap beat correction and was deployed by PRIME on the existing API 8000. The deployed extractor module SHA-256 is `668f0ce40f4a5b1333b12bfef71d78434bcf5b82ac21462a5c4ea369e95afa42`.
+
+The first fresh deployed Session 29 Process after merge is recorded in the successor handoff, `HANDOFF-INGEST-disposition-node-type-tolerance.md`. The recap source was reused unchanged. Extraction reached OpenRouter/DeepSeek, but the thread pass's single conformance repair still failed the strict disposition schema, so no candidate graph was produced and nothing was published. This is a successor defect and does not reopen this settled beat-summary lease.
+
+PR #1391's first implementation commit contained this handoff plus settlement of its predecessor; no extractor or test code changes preceded it.
 
 PRIME expanded the ACTIVE test lease on 2026-10-17 to include one fixture-only update in `tests/test_category_extractor_promote_evidence_refs.py`: its category-pipeline persistence test must provide authoritative pinned `source_text` with a matching source digest so it continues to validate beat persistence under the new input contract. No other test in that file is in scope.
 
