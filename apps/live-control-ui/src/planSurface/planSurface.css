@@ -121,6 +121,23 @@
   cursor: pointer;
 }
 
+.world-plan-context-toolbar__save .durable-save-status {
+  white-space: normal;
+  max-width: 20rem;
+}
+
+.world-plan-context-toolbar__retry {
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid var(--border, #39445a);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary, #d0d7e2);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
 .plan-document-selector__error {
   margin: 0;
   color: #f2a6a6;

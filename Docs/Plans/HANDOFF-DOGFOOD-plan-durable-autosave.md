@@ -4,7 +4,7 @@ Status: ACTIVE — bounded implementation lease, 2026-10-18.
 
 Branch: `codex/plan-durable-autosave`.
 
-Base: fetched `origin/main@d50b0d9b8509c52930eb443aa568161f04a749b9`.
+Base: fetched `origin/main@36697f5765d7d58d3901b91674681d2831324fcc`.
 
 Topology: serial, one PR. PRIME retains merge and serving-runtime authority;
 ARCHITECTURE reviews the exact cumulative implementation head.
@@ -77,3 +77,18 @@ and no Graph/Play calls. Run focused suites, UI typecheck/build, and inspect the
 exact cumulative base-to-head diff. Record inherited failures and rendered
 limits honestly. Commit and push the implementation and open one PR; no merge or
 5202 rollout is authorized here.
+
+Implementation evidence (2026-10-18):
+
+- `npm --prefix apps/live-control-ui run typecheck` passed.
+- `npm --prefix apps/live-control-ui run build` passed; Vite emitted its
+  existing large-chunk advisory.
+- `DurableSaveStatus.test.tsx`: 3 passed.
+- Focused `PlanSurfacePage.test.tsx` coverage for blank Plan non-creation,
+  debounced save/timestamp, newer edits during a delayed save, selection fencing
+  during a pending autosave, and uncertain commit recovery: 5 passed.
+- `git diff --check` passed.
+- A previous full `PlanSurfacePage.test.tsx` run was not green (46 of 75 failed),
+  predominantly on legacy accessible-name expectations for the Plan region and
+  an older hard-break error string. Those failures need separate baseline
+  triage; the focused autosave cases above pass.

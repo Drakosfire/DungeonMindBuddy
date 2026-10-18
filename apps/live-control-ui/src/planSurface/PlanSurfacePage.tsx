@@ -16,6 +16,7 @@ import {
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
 import type { PlanViewProjection, WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
+import { DurableSaveStatus, type DurableSaveState } from "../components/DurableSaveStatus";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
@@ -328,6 +329,10 @@ function worldPlanCardBasisFromSnapshot(
   return { status: "unavailable" };
 }
 
+function durableTimestamp(value: string | null | undefined): string | null {
+  return value && Number.isFinite(Date.parse(value)) ? value : null;
+}
+
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
   const { activateNode } = useWorldPlanGraphReferenceActivation();
   const [localDraft] = useState(() => {
@@ -390,6 +395,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     { kind: "initial" } | { kind: "document"; documentId: string } | null
   >(null);
   const [saving, setSaving] = useState(false);
+  const [autoSavePaused, setAutoSavePaused] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [startingPlay, setStartingPlay] = useState(false);
   const [startPlayError, setStartPlayError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -631,6 +638,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           }
           if (cancelled) return;
           const recoverLocal = localDraft?.document_id === initialDocumentId;
+          setLastSavedAt(snapshot.record.content_status === "committed"
+            ? durableTimestamp(snapshot.record.updated_at)
+            : null);
           const revisionChangedUnderDraft = recoverLocal
             && localDraft.revision !== snapshot.loaded_revision
             && !localDraft.pending_write;
@@ -707,6 +717,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     // Close the outgoing edit lease before React paints the loading state.
     switchingDocumentRef.current = true;
     setSavedBasis({ status: "unavailable" });
+    setLastSavedAt(null);
     editorRef.current?.setEditable(false);
     editorIdentityRef.current = `${worldId}:${nextDocumentId}:${editorGeneration + 1}`;
     editorRef.current = null;
@@ -736,6 +747,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverTitleRef.current = snapshot.record.title;
       serverMarkdownRef.current = snapshot.markdown;
       serverDigestRef.current = snapshot.content_sha256;
+      setLastSavedAt(snapshot.record.content_status === "committed"
+        ? durableTimestamp(snapshot.record.updated_at)
+        : null);
       setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));
       pendingWriteRef.current = null;
       uncertainCreateDraftRef.current = preservedUncertainDraft;
@@ -799,6 +813,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     serverMarkdownRef.current = "";
     serverDigestRef.current = null;
     setSavedBasis({ status: "unavailable" });
+    setLastSavedAt(null);
+    setAutoSavePaused(false);
     pendingWriteRef.current = null;
     setRecoveryConflict(false);
     setServerDraft(null);
@@ -829,7 +845,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setStatus("ready");
   };
 
-  const save = async () => {
+  const save = async (announceSuccess = true) => {
     if (statusRef.current !== "ready") return;
     const fidelityIssues = getLiveFidelityWarnings(editorRef.current?.getJSON());
     if (fidelityIssues.length) {
@@ -838,7 +854,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
     if (savingRef.current || createUncertain || recoveryConflict
       || (uncertainCreateDraftRef.current && !documentIdRef.current)
-      || !markdownRef.current.trim()) return;
+      || (!documentIdRef.current && !markdownRef.current.trim())) return;
     const epoch = selectionEpochRef.current;
     const initialId = documentIdRef.current;
     let uiDocumentId = initialId;
@@ -850,6 +866,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     let submittedGeneration = editGenerationRef.current;
     savingRef.current = true;
     setSaving(true);
+    setAutoSavePaused(false);
     if (isCurrent()) setSavedBasis({ status: "unavailable" });
     setError(null);
     setMessage(null);
@@ -1028,6 +1045,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         serverTitleRef.current = snapshot.record.title;
         serverMarkdownRef.current = committed ? committedMarkdown ?? snapshot.markdown : snapshot.markdown;
         serverDigestRef.current = snapshot.content_sha256;
+        if (committed && snapshot.record.content_status === "committed") {
+          setLastSavedAt(durableTimestamp(snapshot.record.updated_at));
+        }
         if (isCurrent()) {
           setSavedBasis(committed && snapshot.record.content_status === "committed"
             ? worldPlanCardBasisFromSnapshot(snapshot)
@@ -1066,7 +1086,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             pending_write: null,
           });
           if (isCurrent()) {
-            setMessage("Saved to this World.");
+            setMessage(announceSuccess ? "Saved to this World." : null);
             setSaving(false);
           }
           return;
@@ -1149,12 +1169,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2" || committed.title !== submittedTitle || committed.committed_record.title !== submittedTitle) {
         throw new Error("Commit receipt did not preserve World-owned Plan scope.");
       }
+      const committedAt = durableTimestamp(committed.committed_record.updated_at);
       currentRevision = committed.registry_revision;
       revisionRef.current = currentRevision;
       serverTitleRef.current = committed.title;
       serverMarkdownRef.current = submittedMarkdown;
       serverDigestRef.current = committed.normalized_content_sha256;
       if (isCurrent()) {
+        setLastSavedAt(committedAt);
         setSavedBasis({
           status: "verified",
           revision: committed.registry_revision,
@@ -1198,10 +1220,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         setCreateUncertain(false);
         setRecoveryConflict(false);
         setServerDraft(null);
-        setMessage("Saved to this World.");
+        setMessage(announceSuccess ? "Saved to this World." : null);
       }
     } catch (reason) {
       if (isCurrent()) {
+        setAutoSavePaused(true);
         setError(reason instanceof Error ? reason.message : "Plan could not be saved.");
       }
     } finally {
@@ -1350,11 +1373,37 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   saveRef.current = save;
   const persistEditorDraftRef = useRef(persistEditorDraft);
   persistEditorDraftRef.current = persistEditorDraft;
+
+  useEffect(() => {
+    if (status !== "ready" || saving || savingRef.current || autoSavePaused
+      || fidelityBlocked || createUncertain || recoveryConflict
+      || (uncertainCreateDraft && !documentId) || pendingWriteRef.current !== null) return;
+    const dirty = documentId
+      ? title !== serverTitleRef.current || markdown !== serverMarkdownRef.current
+      : markdown.trim().length > 0;
+    if (!dirty) return;
+
+    const epoch = selectionEpochRef.current;
+    const targetDocumentId = documentId;
+    const targetDraftId = localDraftId;
+    const generation = editGenerationRef.current;
+    const timer = window.setTimeout(() => {
+      if (!selectedViewIsCurrent(epoch, targetDocumentId)
+        || localDraftIdRef.current !== targetDraftId
+        || editGenerationRef.current !== generation
+        || savingRef.current) return;
+      void saveRef.current(false);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [autoSavePaused, createUncertain, documentId, fidelityBlocked, localDraftId,
+    markdown, recoveryConflict, saving, status, title, uncertainCreateDraft, worldId]);
+
   const documentActions = useMemo(() => ({
     onTitleChange: (next: string) => {
       if (!isCurrentEditTarget(true) || getLiveFidelityWarnings(editorRef.current?.getJSON()).length > 0) return;
       titleRef.current = next;
       const generation = ++editGenerationRef.current;
+      setAutoSavePaused(false);
       setTitle(next);
       persistEditorDraftRef.current(next, markdownRef.current, generation);
     },
@@ -1398,6 +1447,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
   const savedPlanDirty = Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current));
+  const durableSaveState: DurableSaveState = status === "error"
+    ? "needs-attention"
+    : saving
+      ? "saving"
+      : autoSavePaused || createUncertain || recoveryConflict
+        ? "needs-attention"
+        : status !== "ready" || (documentId && savedBasis.status !== "verified")
+          ? "checking"
+          : !documentId
+            ? markdown.trim() ? "unsaved" : "draft"
+            : savedPlanDirty ? "unsaved" : lastSavedAt ? "saved" : "checking";
   const canStartPlayFromSavedPlan = Boolean(
     documentId
     && documentIdRef.current === documentId
@@ -1666,11 +1726,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => selectPlanView("cards")}
             >Cards</button>
           </nav>
-          <span className="world-plan-context-toolbar__save" role="status"
-            title="Plan changes stay local until you choose Save Plan.">
-            {saving ? "Saving…" : status === "error" ? "Plan unavailable" : status !== "ready" || (documentId && savedBasis.status !== "verified") ? "Checking Plan…"
-              : savedPlanDirty || !documentId ? "Unsaved changes" : "Saved"}
+          <span className="world-plan-context-toolbar__save">
+            <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>
+          {autoSavePaused && !createUncertain && !recoveryConflict && !fidelityBlocked ? (
+            <button type="button" className="world-plan-context-toolbar__retry"
+              onClick={() => { setAutoSavePaused(false); void saveRef.current(); }}>
+              Retry save
+            </button>
+          ) : null}
           <button type="button" className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
             aria-label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
             aria-describedby={status === "ready" && !canStartPlayFromSavedPlan && !startingPlay && documentId ? "world-plan-start-play-reason" : undefined}
@@ -1763,6 +1827,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                   if (next === markdownRef.current) return;
                   markdownRef.current = next;
                   const generation = ++editGenerationRef.current;
+                  setAutoSavePaused(false);
                   setMarkdown(next);
                   persistEditorDraft(titleRef.current, next, generation);
                   setError(null);
