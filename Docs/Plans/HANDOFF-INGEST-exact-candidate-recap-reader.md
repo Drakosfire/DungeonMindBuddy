@@ -71,7 +71,7 @@ lookup and authoring disabled. Never use useCompleteWorldObject/native popovers
 for these candidates. Preserve input, Process failures/source conflict behavior,
 exact route restoration, historical memory access and selection/unmount fencing.
 
-## Exclusive implementation write set (12 paths)
+## Exclusive implementation write set (14 paths)
 
 - This handoff
 - apps/live_control_server/models/exact_run_candidate_projection.py
@@ -85,8 +85,10 @@ exact route restoration, historical memory access and selection/unmount fencing.
 - apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection.test.tsx
 - apps/live-control-ui/src/modules/IngestionModule.tsx
 - apps/live-control-ui/src/modules/IngestionModule.test.tsx
+- apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
+- apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.test.tsx
 
-Existing registry/source/basis/APP-STATE/mention engine/reader/models-types remain
+Existing registry/source/basis/APP-STATE/mention engine/models-types remain
 read-only. DOGFOOD's13paths retain their exclusive lease. Any missing owning seam,
 new public contract or path requires steward split/rebrief before edits.
 
@@ -159,3 +161,21 @@ React act/Pydantic schema-shadow warnings and Vite chunk-size warning remain.
 No paid generation, real correction, semantic decision, admission or publication
 was performed. Runtime adoption remains gated on independent review and merge;
 retained S29 GET/render acceptance is still pending.
+
+
+## Cycle1 review correction — PRIME rebrief
+
+ARCHITECTURE held a83d5922f because the final shared reader unconditionally
+strips leading YAML, including unknown source text deliberately preserved by the
+server. PRIME authorizes the two shared reader paths above for this same read
+capability: optional explicit frontmatter preservation, selected only by the
+exact-candidate consumer; existing callers keep their default preprocessing.
+This is an internal presentation option, not a new durable/API contract.
+No overlap with DOGFOOD #1403's source-binding paths or settled Play #1402.
+Re-anchored against main6743466d5f167f26d49c14d87b6353a35843f39e.
+
+Prove the final mounted real renderer preserves unknown/malformed headers and
+changed flattened prefixes/suffixes, while recognized envelopes already removed
+by the server stay absent. Preserve candidate chips, evidence and raw source.
+Test the default shared-reader behavior and switching the policy on rerender.
+Do not disguise source using invented prefix prose or alter captured bytes.
