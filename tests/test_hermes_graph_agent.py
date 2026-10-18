@@ -3335,3 +3335,83 @@ def test_provider_lifecycle_diagnostic_is_projected_onto_typed_result(tmp_path: 
         "transportExceptionClass": "ConnectError",
     }
     assert "PRIVATE_TRANSPORT_BODY" not in repr(result.terminal_failure)
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        {
+            "reason": "provider_response_incomplete",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "response_status": "incomplete",
+            "incomplete_reason": "max_output_tokens",
+        },
+        None,
+        {"reason": "invalid", "transition": "known_not_sent", "acknowledged": False},
+        {
+            "reason": "lifecycle_ack_denied",
+            "transition": "known_not_sent",
+            "acknowledged": False,
+        },
+    ],
+)
+def test_lifecycle_failure_retains_uncertain_pending_attempt(
+    tmp_path, monkeypatch, diagnostic
+):
+    original = _ApiObserverCollector.register
+
+    def register(self, manager):
+        original(self, manager)
+        self.on_pre_api_request(
+            **_observer_payload(api_request_id="prior", turn_id="synthetic", kind="pre")
+        )
+        self.on_post_api_request(
+            **_observer_payload(
+                api_request_id="prior", turn_id="synthetic", kind="post"
+            )
+        )
+        self.on_pre_api_request(
+            **_observer_payload(api_request_id="tail", turn_id="synthetic", kind="pre")
+        )
+
+    monkeypatch.setattr(_ApiObserverCollector, "register", register)
+
+    class IncompleteAgent:
+        def __init__(self, **kwargs):
+            self.session_id = kwargs.get("session_id")
+
+        def run_conversation(self, *_args, **_kwargs):
+            return {
+                "messages": [],
+                "failure_reason": "request_budget_veto",
+                "failure_code": "provider_lifecycle_unavailable",
+                "api_request_id": "tail",
+                "failure_diagnostic": diagnostic,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Synthetic incomplete witness",
+            world_id=None,
+            campaign_id=None,
+            scope_mode=None,
+            capability_policy=default_conversation_only_capability_policy(),
+            root=tmp_path,
+            request_budget={
+                "schema": "dmb_hermes_request_budget_policy_v1",
+                "provider": "openai-api",
+                "model": "synthetic-model",
+                "apiMode": "chat_completions",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 32768,
+                "outputReserveTokens": 1024,
+            },
+        ),
+        agent_factory=IncompleteAgent,
+    )
+    assert len(result.model_calls) == 2
+    assert result.model_calls[0]["runtime_api_request_id"] == "prior"
+    assert result.model_calls[-1]["runtime_api_request_id"] == "tail"
+    assert result.model_calls[-1]["usage"]["status"] == "unavailable"
+    assert "denied before dispatch" not in result.error_message

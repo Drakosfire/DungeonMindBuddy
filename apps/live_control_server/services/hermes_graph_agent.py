@@ -2295,10 +2295,23 @@ def run_hermes_graph_agent_turn(
                     "failure_code"
                 ) in request_budget_failure_codes:
                     request_id = raw.get("api_request_id")
-                    api_observer.discard_pre_dispatch_veto(
-                        request_id if isinstance(request_id, str) else ""
-                    )
                     failure_code = str(raw["failure_code"])
+                    terminal_failure = (
+                        sanitize_terminal_failure_diagnostic(
+                            raw.get("failure_diagnostic")
+                        )
+                        if failure_code == "provider_lifecycle_unavailable"
+                        else None
+                    )
+                    # A lifecycle failure can follow an actual dispatch. Only a
+                    # proven no-send outcome permits dropping its pending prehook.
+                    if failure_code != "provider_lifecycle_unavailable" or (
+                        terminal_failure is not None
+                        and terminal_failure["transition"] == "known_not_sent"
+                    ):
+                        api_observer.discard_pre_dispatch_veto(
+                            request_id if isinstance(request_id, str) else ""
+                        )
                     guard = getattr(agent, "api_request_budget_guard", None)
                     guard_state = getattr(guard, "guard_state", None)
                     rejection_reason = (
@@ -2315,13 +2328,6 @@ def run_hermes_graph_agent_turn(
                             failure_code = "request_budget_guard_invalid"
                     prior_calls, prior_warnings = api_observer.finish()
                     prior_attempts = bool(prior_calls)
-                    terminal_failure = (
-                        sanitize_terminal_failure_diagnostic(
-                            raw.get("failure_diagnostic")
-                        )
-                        if failure_code == "provider_lifecycle_unavailable"
-                        else None
-                    )
                     if (
                         failure_code == "provider_lifecycle_unavailable"
                         and raw.get("failure_diagnostic") is not None
@@ -2331,7 +2337,12 @@ def run_hermes_graph_agent_turn(
                             *prior_warnings,
                             "terminal_failure_diagnostic_invalid",
                         ]
-                    if failure_code.startswith("provider_authorization_"):
+                    if failure_code == "provider_lifecycle_unavailable":
+                        failure_message = (
+                            "The provider lifecycle could not be completed; "
+                            "any dispatched attempt retains its observed or unknown outcome."
+                        )
+                    elif failure_code.startswith("provider_authorization_"):
                         failure_message = (
                             "The parent did not authorize this provider request before dispatch."
                             if failure_code == "provider_authorization_denied"
