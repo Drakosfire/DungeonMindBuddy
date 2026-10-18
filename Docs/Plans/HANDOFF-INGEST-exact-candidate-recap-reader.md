@@ -1,7 +1,8 @@
 # INGEST: read the exact unpublished candidate in recap prose
 
-Status: BLOCKED — steward design; no implementation lease until the final
-source-only read scope critique is resolved. ROOT owns design and implementation.
+Status: ACTIVE — PRIME explicitly authorizes ROOT implementation of this bounded
+read presentation contract. ARCHITECTURE accepted the design and source-only
+read scope after ROOT identified and prohibited promotion-resolver side effects.
 Base: origin/main@15aa918eb91071b469ea7f733cce6d2c6a3262e6.
 Branch: codex/ingest-exact-candidate-reader. Reuse buddy-context-loop checkout
 and established dependencies. Topology: parallel-independent of DOGFOOD's
@@ -70,7 +71,7 @@ lookup and authoring disabled. Never use useCompleteWorldObject/native popovers
 for these candidates. Preserve input, Process failures/source conflict behavior,
 exact route restoration, historical memory access and selection/unmount fencing.
 
-## Exact proposed write set (12 paths; not active yet)
+## Exclusive implementation write set (12 paths)
 
 - This handoff
 - apps/live_control_server/models/exact_run_candidate_projection.py
@@ -110,3 +111,35 @@ commit/push/open one PR, independent exact-head review, then guarded PRIME merge
 and scoped5202/API delivery preserving drafts/source/graph. No paid experiment
 or publication is required. This read model does not establish full recall,
 semantic acceptance, NPC continuity or media enrichment.
+
+## Activation and exact verification commands
+
+Steward design pinned first at a88b5a128a507d9e074da10b35f1533493063b23.
+Final critique permits source_only ONLY as prominent read metadata; malformed
+or conflicting frozen context cannot downgrade to it. No correction/disposition/
+publication control may consume that status. Use existing source/artifact/run
+SELECT + exact captured component reads; instrument transitive mutations in tests.
+The public GET/schema above is explicitly approved for this slice and no other
+new public or durable contract is authorized. All domain behavior stays read-only.
+
+Shared fixture dungeonbuddy-review-fixture-pg is running at127.0.0.1:54329,
+owned by PRIME. ROOT and DOGFOOD use unique disposable databases through owning
+fixtures. Retained54330/54331 are forbidden; no cleanup while either consumer is
+active. Runtime outputs are this checkout's .pytest_cache/candidate-reader*.
+No serving action until exact-head independent review and PRIME merge.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-main-a044ac4e/runtime/bin/python -m pytest -o addopts='' --basetemp=.pytest_cache/candidate-reader tests/test_exact_run_candidate_projection.py -q --tb=short
+cd apps/live-control-ui
+./node_modules/.bin/vitest run src/api/exactRunCandidateProjectionApi.test.ts src/planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection.test.tsx src/modules/IngestionModule.test.tsx
+./node_modules/.bin/tsc -b
+./node_modules/.bin/vite build
+```
+
+Before delivery, inspect exact cumulative diff, commit/push/open the one assigned
+PR and obtain independent ARCHITECTURE review. First runtime adoption overlays
+only reviewed paths into the existing API/UI leases and preserves original user
+tabs, source/candidates, graph head, media and ingestion state. Candidate rendered
+acceptance may use exact retained S29 read only; no Process/provider/correction/
+semantic decision/prepare/confirm or source write. No predecessor sync remains;
+#1400's settlement is already in this base.
