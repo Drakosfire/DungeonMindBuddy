@@ -1,6 +1,6 @@
 # AUTHOR — explicit source link activation
 
-Status: ACTIVE. Operator authorizes accumulated dogfood fixes during travel2026-10-18.
+Status: IMPLEMENTATION MERGED — PR1414 merge36697f5765d7d58d3901b91674681d2831324fcc, ARCHITECTURE Cycle1 PASS. Product lease ended; static UI delivery pending alongside current dogfood bundle. Operator authorizes accumulated dogfood fixes during travel2026-10-18.
 Owner PRIME implementation/delivery; ARCHITECTURE independent review.
 Base42055e92fa12fa3ed44df15bb5674d1826158812; branchcodex/activate-source-links; existing buddy-context-loop checkout.
 Topology parallel-independent from DOGFOOD Plan autosave. Exclusive lease this handoff, tiptap/extensions/WebSourceLink.ts and .test.ts under apps/live-control-ui/src. Also settle Docs/Plans/HANDOFF-CHROME-compact-navbar-spacing.md after its merge; no product lease remains there. No shared Plan page edits.
