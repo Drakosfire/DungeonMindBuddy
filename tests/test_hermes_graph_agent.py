@@ -3356,8 +3356,16 @@ def test_provider_lifecycle_diagnostic_is_projected_onto_typed_result(tmp_path: 
         },
     ],
 )
+@pytest.mark.parametrize(
+    "failure_code",
+    [
+        "provider_lifecycle_unavailable",
+        "request_budget_exceeded",
+        "provider_authorization_denied",
+    ],
+)
 def test_lifecycle_failure_retains_uncertain_pending_attempt(
-    tmp_path, monkeypatch, diagnostic
+    tmp_path, monkeypatch, diagnostic, failure_code
 ):
     original = _ApiObserverCollector.register
 
@@ -3385,7 +3393,7 @@ def test_lifecycle_failure_retains_uncertain_pending_attempt(
             return {
                 "messages": [],
                 "failure_reason": "request_budget_veto",
-                "failure_code": "provider_lifecycle_unavailable",
+                "failure_code": failure_code,
                 "api_request_id": "tail",
                 "failure_diagnostic": diagnostic,
             }
@@ -3410,8 +3418,15 @@ def test_lifecycle_failure_retains_uncertain_pending_attempt(
         ),
         agent_factory=IncompleteAgent,
     )
-    assert len(result.model_calls) == 2
+    uncertain = (
+        diagnostic is not None or failure_code == "provider_lifecycle_unavailable"
+    )
+    assert len(result.model_calls) == (2 if uncertain else 1)
     assert result.model_calls[0]["runtime_api_request_id"] == "prior"
-    assert result.model_calls[-1]["runtime_api_request_id"] == "tail"
-    assert result.model_calls[-1]["usage"]["status"] == "unavailable"
-    assert "denied before dispatch" not in result.error_message
+    if uncertain:
+        assert result.model_calls[-1]["runtime_api_request_id"] == "tail"
+        assert result.model_calls[-1]["usage"]["status"] == "unavailable"
+        assert result.error_code == "provider_lifecycle_unavailable"
+        assert "denied before dispatch" not in result.error_message
+    else:
+        assert result.error_code == failure_code

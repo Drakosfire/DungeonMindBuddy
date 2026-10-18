@@ -2296,13 +2296,14 @@ def run_hermes_graph_agent_turn(
                 ) in request_budget_failure_codes:
                     request_id = raw.get("api_request_id")
                     failure_code = str(raw["failure_code"])
-                    terminal_failure = (
-                        sanitize_terminal_failure_diagnostic(
-                            raw.get("failure_diagnostic")
-                        )
-                        if failure_code == "provider_lifecycle_unavailable"
-                        else None
+                    raw_diagnostic = raw.get("failure_diagnostic")
+                    terminal_failure = sanitize_terminal_failure_diagnostic(
+                        raw_diagnostic
                     )
+                    # A generic veto label cannot overrule lifecycle evidence.
+                    # Malformed lifecycle evidence is uncertain, never proof of no send.
+                    if terminal_failure is not None or raw_diagnostic is not None:
+                        failure_code = "provider_lifecycle_unavailable"
                     # A lifecycle failure can follow an actual dispatch. Only a
                     # proven no-send outcome permits dropping its pending prehook.
                     if failure_code != "provider_lifecycle_unavailable" or (
