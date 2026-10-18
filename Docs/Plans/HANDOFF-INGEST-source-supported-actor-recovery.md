@@ -98,3 +98,105 @@ proposal and operational authority; this design supplies neither.
    exact discriminator/basis placement and old-source-bound replay compatibility.
 3. PRIME pins exact request fields/version/basis mapping, source-grounding and
    uniqueness rules, final write lease, test commands, owner/checkout/fixture.
+
+## PRIME request and replay contract for final critique
+
+This section resolves the discriminator/source-preimage design gate; status remains
+BLOCKED pending the concrete retained proposal and independent final critique.
+No implementation or retained apply is activated by this amendment.
+
+### Exact version mapping
+
+Use request/response schema `dmb_recap_candidate_correction_request_v11` /
+`dmb_recap_candidate_correction_response_v11`, operation derivation
+`operator_recap_semantic_candidate_correction_v11`, and manifest schema
+`dmb_recap_semantic_candidate_manifest_v11`. Add inner `RecapSemanticBasisV13`
+with schema `dmb_recap_semantic_basis_v13`, the same exact-revision/inherited-PC
+proof fields as V11, and the new operation derivation/manifest literals.
+V12 is already the source-binding envelope: preserve its schema and outer
+`operator_recap_semantic_source_binding_v11` meaning. Add the ONE explicit closed
+mapping request 11 -> correction_v11 / manifest_v11 / inner BasisV13. Do not
+renumber any existing basis or infer mappings by numeric proximity.
+
+The V11 request has only these top-level fields (extra fields forbidden): `schema`,
+`parent_run_id`, strict integer `expected_parent_revision`,
+`parent_candidate_sha256`, `source_revision_sha256`, `span_index_sha256`,
+`profile_id` fixed to `recap_category_v1@1.0`, `misbound_actor_id`,
+`actor_introduction`, and `affected_edges` (0..4). Every digest is lowercase SHA256.
+The manifest retains the complete validated request and the host-derived new node
+and exact before/after edge records, in deterministic target-ID order. Reuse the
+existing canonical JSON and source-bound child UUID derivation; the manifest's new
+schema separates this operation from every older request. All V1–V10 bytes,
+hashes, child IDs and replay results must remain unchanged.
+
+### Actor grounding and identity
+
+`actor_introduction` fields are `literal_name` (1..160 codepoints),
+`source_span_ref_id`, `name_start`, `name_end` (strict zero-based codepoint offsets,
+half-open in the whole frozen source), `replacement_description` (1..4096), and
+`description_anchor_quotes` (1..4 distinct exact nonblank quotes, each <=4096).
+The name range must be wholly within the referenced indexed span, exactly equal
+the supplied literal, and not embedded in a longer letter/number/underscore name.
+Description anchors must occur in that same frozen span. Description support is
+an explicit operator judgment bound to these quotes; literal matching alone is
+not semantic certification. No inferred surname, aliases or native identity.
+
+Offsets use UTF-8 decoded source with newline translation disabled: CRLF occupies
+two codepoints; no NFC/case/newline normalization for evidence or hashing. For the
+name ambiguity check only, compare NFC+casefold+trimmed display names and aliases
+against all existing actor nodes: any match rejects for explicit identity review.
+An invalid Unicode range or partial embedded name rejects. Host derives one local
+ID `node:recovered-actor:` plus SHA256 of canonical JSON containing parent run ID,
+parent candidate SHA, source revision SHA, span ID, name range and literal name.
+Any collision with ANY candidate node/edge/Beat ID rejects, never adopts or merges.
+No caller ID or corpus reference is accepted. Host emits the normal candidate
+character shape, only the literal display name, corpus_ref=null, source-derived
+frozen evidence, and existing held/private defaults. Existing actors are immutable.
+
+### Mechanically affected assertions only
+
+Each `affected_edges` entry has `action` (`retarget` or `omit`), `edge_id`,
+`expected_edge_sha256` (whole record, existing canonical encoding),
+`expected_evidence_refs_sha256`, `original_from_id`, `original_to_id`,
+`original_predicate`, `misbound_endpoint` (`from_id` or `to_id`),
+`source_span_ref_id`, and `actor_anchor_quotes` (1..4 exact quotes). No new endpoint
+or predicate field: retarget always replaces ONLY the declared endpoint with the
+host-derived actor ID. Both preimage hashes and old tuple must match; the declared
+old endpoint must equal top-level misbound_actor_id. Reject missing actor, self-
+replacement, duplicates, unrelated edge cleanup, or a quote/span not already in
+that edge's frozen evidence. Each affected edge must cite the actor-introduction
+span and its actor anchor must contain the exact recovered literal name. This is
+bounded operator review of an affected assertion, not automated entailment.
+
+Retarget keeps other endpoint, predicate, label, description and evidence bytes.
+The retained proposal must establish that the unchanged label and tuple express
+one supported assertion; a gift label under possession, or a label naming the old
+actor, cannot be repaired by endpoint substitution and must reject or be omitted.
+Native endpoint/predicate qualification remains mandatory. Omission withdraws only
+that exact misbound assertion; it cannot clean unrelated semantic issues. No Brin
+interaction repair or other neighboring edits fit this operation. The result must
+report introduced=1, retargeted=N, omitted=M, and unresolved gift/interaction gaps
+separately. Withdrawal of every supply assertion is partial actor recovery and
+false-claim containment, never faithful gift reconstruction or full acceptance.
+
+### Consumer and test gates
+
+Explicitly inspect/update each owning consumer as needed inside the proposed paths:
+request union, is_recap_correction, source-bound assessment, child replay,
+APP-STATE inner dispatch, inherited-PC ancestry, exact review projection and
+reviewed-effect digest/prepare/confirm handling. Candidate introduction conveys
+no native identity and no new publication authority. Compatibility tests must
+prove it is still inspectable as a candidate and cannot bypass existing identity,
+source or semantic holds. No UI lease is needed for that read-model proof.
+
+Owning verification command, after PRIME confirms disposable 54329 available:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. TMPDIR="$PWD/.pytest_cache" <existing-runtime-python> -m pytest -o addopts='' --basetemp=.pytest_cache/actor-recovery tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/integration/test_recap_evidence_append.py tests/test_extract_promote_managed_world_target.py -q --tb=short`.
+The admin DSN must target only the confirmed disposable fixture and must not be
+printed. Use shared dependencies; no installs or other runtime targets. Run Ruff
+on changed Python paths and cumulative `git diff --check`.
+
+The actual production-producer fixture must prove new local actor + exact supported
+retarget/omission, unchanged captain and every unaffected node/edge/Beat/source
+byte, fresh DB reopen/replay/assessment/retry, crash-resume and mixed old/new PC
+ancestry. Exercise every rejection before child/package claim, including lock-wait
+authority drift. The public handoff/tests must contain synthetic material only.
