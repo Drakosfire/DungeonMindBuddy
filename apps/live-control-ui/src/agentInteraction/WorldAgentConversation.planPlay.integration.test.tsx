@@ -985,6 +985,23 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it("shows authored context for a historical Play answer in the shared Build conversation", async () => {
+    const row = turn("play", 1, "A useful arrival cue");
+    row.provenance.primary_work.object_id = "00000000-0000-4000-8000-000000000070";
+    row.provenance.supporting_work = [{ resolution: "resolved", kind: "dmb_play_runbook_v1",
+      object_id: "00000000-0000-4000-8000-000000000071", revision: "9", content_sha256: SHA,
+      object_revision: 9, work_revision_id: WORK_REVISION, revision_n: 2 }];
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await screen.findByText("A useful arrival cue");
+    const trail = document.querySelector<HTMLDetailsElement>(".world-plan-agent-conversation__evidence-trail")!;
+    fireEvent.click(trail.querySelector("summary")!);
+    expect(within(trail).getByRole("region", { name: "Authored Play context" })).toBeInTheDocument();
+    expect(within(trail).getByRole("button", { name: "Open pinned Runbook" })).toBeInTheDocument();
+    expect(within(trail).queryByText("No Graph citations were saved with this answer.")).not.toBeInTheDocument();
+  });
+
   it("uses the compact dock, latest exchange and conversation options in Play", async () => {
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([
       turn("plan", 1, "Older Plan answer"), turn("play", 2, "Latest Play answer"),
