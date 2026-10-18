@@ -647,3 +647,51 @@ def test_launch_rejects_malformed_profile_selectors_with_422(
     )
     assert launch.status_code == 422, launch.text
     assert detail_fragment in launch.json()["detail"]
+
+
+def test_build_launch_retains_run_under_separate_artifact_root(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.config import ARTIFACT_DATA_ROOT_ENV
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION,
+    )
+
+    code, data = tmp_path / "code", tmp_path / "data"
+    code.mkdir()
+    data.mkdir()
+    monkeypatch.setenv(ARTIFACT_DATA_ROOT_ENV, str(data))
+    monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: code)
+    committed, digest = _commit_source(data)
+    source = data / committed.target_relpath
+    original = source.read_bytes()
+    captured: list[dict[str, Any]] = []
+    _patch_build_extraction(monkeypatch, capture=captured)
+    launch = client.post("/api/live/graph-preview/extraction-runs", json={
+        "document_id": committed.document_id,
+        "expected_revision": committed.revision,
+        "expected_content_sha256": digest,
+        "profile_id": WORLDBUILDING_PROFILE_ID,
+        "profile_version": WORLDBUILDING_PROFILE_VERSION,
+    })
+    assert launch.status_code == 200, launch.text
+    assert launch.headers["content-type"].startswith("application/json")
+    assert captured[0]["repo_root"] == code
+    assert not captured[0]["output_dir"].is_absolute()
+    payload = launch.json()
+    run = payload["run"]
+    assert run["status"] == "reviewable", payload
+    assert payload["failure_kind"] is None
+    assert run["source_domain"] == "worldbuilding"
+    assert payload["source_content_sha256"] == digest
+    readback = client.get(f"/api/live/graph-preview/extraction-runs/{run['run_id']}")
+    assert readback.status_code == 200, readback.text
+    assert readback.json()["run_id"] == run["run_id"]
+    for component in run["components"].values():
+        if component["uri"]:
+            target = (data / component["uri"].removeprefix("repo://")).resolve()
+            assert target.is_relative_to(data)
+            assert target.is_file(), component
+            assert hashlib.sha256(target.read_bytes()).hexdigest() == component["sha256"].removeprefix("sha256:")
+    assert source.read_bytes() == original
+    assert not (code / "out").exists()

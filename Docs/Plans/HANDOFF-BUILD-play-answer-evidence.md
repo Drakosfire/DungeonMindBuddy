@@ -1,6 +1,6 @@
 # BUILD: show retained Play context in answer evidence
 
-Status: ACTIVE — PRIME owns this user-requested Evidence Trail repair.
+Status: DELIVERED — PR1397 merged as0b5b473babe1f512196d009de61830d6aca964c0 after ARCHITECTURE Cycle1 PASS on98485aaea640bbacb4174006f947c3eb59d7473d. Implementation lease closed.
 Base: origin/main@1b6258e304e96cd87b485785422310e0b4801120.
 Topology: serial, one PR. Reuse buddy-context-loop checkout and dependencies.
 DOGFOOD owns read-only Session26 review in996b; it has no overlapping code lease.
@@ -67,3 +67,20 @@ The dedicated Runbook endpoint returns404 for this Plan; the explicitly bounded
 Plan reader handles that kind distinction. No current source substitution.
 The turn context-trace endpoint returns attempts=[]; no trace reconstruction is
 claimed. Review, merge and live rendered delivery remain outstanding.
+
+
+## Delivered acceptance
+
+Exact baseline rebuild matched5202 index9f331e3f4912b6f480dd04ddc35738990a97719ef32e86ae1a96afe1c0c292e9.
+Only the two intended source files were overlaid; reviewed candidate index
+43b1234f36dffbea1816cb4aac88ae1d89ce09049f0dcb9f2b10646f333c4d27
+was adopted atomically. Previous browser assets retained; no API restart,
+operator-tab reload, model call or retained-data write. Static service PID17085
+unchanged. Separate verification tab on5202 rendered the original saved Play
+answer in Build, displayed retained Run/Runbook/Beat/Scene references, and opened
+the exact historical846-character pinned Plan-as-Runbook with original Mirathorn
+source quotation and proposed scene. Screenshot and DOM verified; no source was
+substituted from current revision. Original operator tab and protected draft left
+untouched. Missing per-turn context trace remains unavailable; not reconstructed.
+Private build/adoption proof: play-answer-ui-{baseline,candidate}-build.json and
+play-answer-ui-rollout.json in established jev-evidence-loop-20261016 state.
