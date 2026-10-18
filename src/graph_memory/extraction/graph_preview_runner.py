@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import re
+import copy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -48,6 +49,10 @@ from src.graph_memory.extraction import recap_extraction_profile as _recap_profi
 from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
 from src.graph_memory.extraction import (  # noqa: F401
     worldbuilding_extraction_profile as _wb_bounded_profiles,
+)
+from src.graph_memory.extraction.recap_extraction_profile import (
+    RECAP_PROFILE_ID,
+    RECAP_PROFILE_VERSION,
 )
 
 
@@ -549,11 +554,85 @@ def run_production_extraction(
             ),
         }
 
+    candidate_graph = extraction.candidate_graph
+    consolidation_diagnostics = dict(extraction.consolidation_diagnostics)
+    if (
+        profile.profile_id == RECAP_PROFILE_ID
+        and profile.profile_version == RECAP_PROFILE_VERSION
+    ):
+        from src.graph_memory.extraction.recap_quote_integrity import (
+            RecapQuoteIntegrityError,
+            validate_and_defer_nonliteral_recap_items,
+        )
+
+        try:
+            candidate_graph, quote_integrity_diagnostics = (
+                validate_and_defer_nonliteral_recap_items(
+                    extraction.candidate_graph,
+                    source_text=source.source_text,
+                    source_artifact_id=source.source_artifact_id,
+                    source_sha256=source.source_sha256,
+                    source_span_index=span_payload,
+                )
+            )
+        except RecapQuoteIntegrityError as exc:
+            message = f"recap quote-integrity validation failed ({exc.code}): {exc}"
+            failure_diagnostics = {
+                **consolidation_diagnostics,
+                "recap_quote_integrity": {
+                    "schema": "dmb_recap_quote_integrity_v1",
+                    "status": "failed",
+                    "error_code": exc.code,
+                },
+            }
+            diagnostics_ref = _retain_private_json_component(
+                request.repo_root,
+                output_dir,
+                filename="consolidation_diagnostics.json",
+                payload=failure_diagnostics,
+                kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+            )
+            components = {
+                **components,
+                "consolidation_diagnostics": diagnostics_ref,
+            }
+            failed = _fail_run(
+                request.repo_root,
+                prepared,
+                message=message,
+                failure_kind="validation",
+                components=components,
+                incomplete_components=["candidate_graph", "evidence"],
+                lineage={
+                    "profile_id": profile.profile_id,
+                    "profile_version": profile.profile_version,
+                    "model_id": model_id,
+                    "reviewable": False,
+                    "recap_quote_integrity_error": exc.code,
+                },
+            )
+            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            return ProductionExtractionResult(
+                run=loaded,
+                candidate_graph=(
+                    copy.deepcopy(extraction.candidate_graph)
+                    if exc.code in {"duplicate_node_id", "duplicate_edge_id"}
+                    else None
+                ),
+                source_span_index=span_payload,
+                failure_kind="validation",
+                diagnostics=[message],
+                model_id=model_id,
+                profile_id=profile.profile_id,
+                profile_version=profile.profile_version,
+            )
+        consolidation_diagnostics["recap_quote_integrity"] = quote_integrity_diagnostics
+
     diagnostics_ref = _retain_private_json_component(
         request.repo_root,
         output_dir,
         filename="consolidation_diagnostics.json",
-        payload=extraction.consolidation_diagnostics,
+        payload=consolidation_diagnostics,
         kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
     )
     components = {
@@ -562,7 +641,7 @@ def run_production_extraction(
     }
 
     candidate_path = output_dir / "candidate_graph.json"
-    _write_json(candidate_path, extraction.candidate_graph)
+    _write_json(candidate_path, candidate_graph)
     components = {
         **components,
         "candidate_graph": _component(
@@ -593,7 +672,7 @@ def run_production_extraction(
         },
     )
 
-    nodes = extraction.candidate_graph.get("nodes") or []
+    nodes = candidate_graph.get("nodes") or []
     missing_evidence = [
         node.get("node_id")
         for node in nodes
@@ -618,7 +697,7 @@ def run_production_extraction(
         loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
-            candidate_graph=extraction.candidate_graph,
+            candidate_graph=candidate_graph,
             source_span_index=span_payload,
             failure_kind="validation",
             diagnostics=[message],
@@ -628,7 +707,7 @@ def run_production_extraction(
         )
 
     try:
-        classification = classify_candidate_document_integrity(extraction.candidate_graph)
+        classification = classify_candidate_document_integrity(candidate_graph)
     except Exception as exc:  # noqa: BLE001 - treat malformed IR as validation failure
         message = f"candidate graph preview parse failed: {exc}"
         failed = _fail_run(
@@ -648,7 +727,7 @@ def run_production_extraction(
         loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
-            candidate_graph=extraction.candidate_graph,
+            candidate_graph=candidate_graph,
             source_span_index=span_payload,
             failure_kind="validation",
             diagnostics=[message],
@@ -688,7 +767,7 @@ def run_production_extraction(
         loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
-            candidate_graph=extraction.candidate_graph,
+            candidate_graph=candidate_graph,
             source_span_index=span_payload,
             failure_kind="validation",
             diagnostics=[message],
@@ -703,7 +782,7 @@ def run_production_extraction(
         try:
             profile_errors = [
                 str(err)
-                for err in profile.post_extraction_validator(extraction.candidate_graph)
+                for err in profile.post_extraction_validator(candidate_graph)
                 if str(err).strip()
             ]
         except Exception as exc:  # noqa: BLE001 — fail closed around profile callables
@@ -729,7 +808,7 @@ def run_production_extraction(
             loaded = get_extraction_run(request.repo_root, failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
-                candidate_graph=extraction.candidate_graph,
+                candidate_graph=candidate_graph,
                 source_span_index=span_payload,
                 failure_kind="validation",
                 diagnostics=[message],
@@ -758,7 +837,7 @@ def run_production_extraction(
             loaded = get_extraction_run(request.repo_root, failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
-                candidate_graph=extraction.candidate_graph,
+                candidate_graph=candidate_graph,
                 source_span_index=span_payload,
                 failure_kind="validation",
                 diagnostics=[message],
@@ -796,7 +875,7 @@ def run_production_extraction(
     loaded = get_extraction_run(request.repo_root, reviewable.run_id)
     return ProductionExtractionResult(
         run=loaded,
-        candidate_graph=extraction.candidate_graph,
+        candidate_graph=candidate_graph,
         source_span_index=span_payload,
         known_entity_mentions=extraction.known_entity_mentions,
         model_id=model_id,
