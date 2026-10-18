@@ -1,6 +1,6 @@
 # DOGFOOD: durable Plan autosave
 
-Status: ACTIVE — bounded implementation lease, 2026-10-18.
+Status: COMPLETE — PR1416 merged4958acdb0a2d7592558985e6c86c40da2a29c763, independently reviewed206927dce, actual disposable edit/autosave/reopen verified, delivered5202 without restart/user-tab reload; Plan lease ended.
 
 Branch: `codex/plan-durable-autosave`.
 
