@@ -868,3 +868,25 @@ it("preserves the existing worldbuilding correction action", async () => {
   await user.click(screen.getByRole("button", { name: "Create reviewed child candidate" }));
   expect(correction).toHaveBeenCalledTimes(1); expect(recap).not.toHaveBeenCalled();
 });
+
+
+it.each(["POST", "child GET"])("never changes another surface after unmount during %s", async stage => {
+  vi.restoreAllMocks(); window.sessionStorage.clear();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ records: managedWorlds }));
+  const f = setupRecap(), changed = vi.fn(), user = userEvent.setup();
+  const post = pendingValue<RecapEvidenceCorrectionResponse>(), childRead = pendingValue<ExtractionRunRecord>();
+  if (stage === "POST") f.save.mockReturnValue(post.promise);
+  else f.runs.mockImplementation(async id => id === "recap-child" ? childRead.promise : f.parent);
+  const view = render(recapWorkbench(undefined, changed)); await previewRecap(user);
+  await user.click(screen.getByRole("button", { name: "Save quote corrections" }));
+  if (stage === "child GET") await waitFor(() => expect(f.runs).toHaveBeenCalledWith("recap-child"));
+  view.unmount(); window.history.replaceState({}, "", "/plan?world=managed-world-b");
+  await act(async () => { if (stage === "POST") post.resolve(f.receipt); else childRead.resolve(f.child); });
+  expect(window.location.pathname + window.location.search).toBe("/plan?world=managed-world-b");
+  expect(changed).not.toHaveBeenCalled(); expect(f.save).toHaveBeenCalledTimes(1);
+  expect(window.sessionStorage.length).toBe(1);
+  render(recapWorkbench());
+  expect(await screen.findByRole("button", { name: "Retry saved quote corrections" })).toBeEnabled();
+  expect(f.save).toHaveBeenCalledTimes(1);
+  window.sessionStorage.clear();
+});

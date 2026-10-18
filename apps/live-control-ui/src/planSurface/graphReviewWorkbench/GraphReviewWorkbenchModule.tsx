@@ -356,6 +356,16 @@ export function GraphReviewWorkbenchModule({
       generation: operationScopeRef.current.generation + 1,
     };
   }
+  const recapMounted = useRef(true);
+  useEffect(() => {
+    recapMounted.current = true;
+    return () => {
+      // Leaving the surface invalidates operations even if a later component
+      // instance opens the same run. The saved receipt remains recoverable.
+      recapMounted.current = false;
+      operationScopeRef.current.generation += 1;
+    };
+  }, []);
   const recapQuoteKey = exactRunMatchesHandoff && exactRunStatus === "ready"
     ? recapQuoteScope(exactRun, exactReview, managedWorldId) : null;
   const recapStorageKey = recapQuoteKey ? "dmb:recap-quote-correction:v1:" + recapQuoteKey : null;
@@ -915,7 +925,7 @@ export function GraphReviewWorkbenchModule({
     } finally {
       if (recapFlight.current?.token === token) {
         recapFlight.current = null;
-        refreshRecapRecovery((value) => value + 1);
+        if (recapMounted.current) refreshRecapRecovery((value) => value + 1);
       }
     }
   }, [exactRun, exactReview, exactRunMatchesHandoff, exactRunStatus, managedWorldId, onLocationSearchChange]);
