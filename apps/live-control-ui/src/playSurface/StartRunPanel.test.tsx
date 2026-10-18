@@ -296,6 +296,21 @@ describe("StartRunPanel", () => {
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue(playManifest());
   });
 
+  it("keeps blank Runbook creation available without duplicating the parent first-run welcome", async () => {
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockResolvedValue({
+      schema_version: "dmb_world_owned_runbooks_list_v2",
+      scope_mode: "world",
+      world_id: "world-a",
+      records: [],
+    });
+    render(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-a" firstRunWelcome />);
+
+    expect(await screen.findByTestId("play-create-blank-runbook")).toBeInTheDocument();
+    expect(screen.getByTestId("play-start-run")).toHaveTextContent("Choose a saved Runbook below or create a blank one");
+    expect(screen.queryByTestId("play-start-run-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-create-blank-runbook-submit")).toBeEnabled();
+  });
+
   it("ignores a late World A Runbook list after the selected World changes to B", async () => {
     type WorldList = Awaited<ReturnType<typeof liveApi.listWorldOwnedRunbooks>>;
     const worldAList = deferred<WorldList>();
