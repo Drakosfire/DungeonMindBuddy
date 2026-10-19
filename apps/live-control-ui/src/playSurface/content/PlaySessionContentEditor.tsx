@@ -136,7 +136,7 @@ export function PlaySessionContentEditor({
       <SurfaceContextAction type="button" aria-label={open ? "Close editor" : "Edit session"} title={open ? "Close editor" : "Edit session"} aria-expanded={open} onClick={openEditor}>{open ? "Close" : "Edit"}</SurfaceContextAction>
       <SurfaceContextAction type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={["recovering", "unknown", "conflict", "storage-error"].includes(controller.state.saveState)}
         onClick={() => { setOpen(true); setHasOpened(true); setMode("visual"); setJumpCount(value => value + 1); setMediaTarget(mediaIdentity); }}>Images</SurfaceContextAction>
-      <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}>{savedLabel}</SurfaceContextStatus>
+      <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}><span tabIndex={0} title={savedLabel}>{controller.state.saveState === "saved" ? "Saved" : savedLabel}</span></SurfaceContextStatus>
     </PlaySurfaceContext>
     {mediaTarget === mediaIdentity ? <DocumentImageStudio key={mediaIdentity} bridge={mediaBridge} targetLabel="session copy" onClose={() => setMediaTarget(null)} /> : null}
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">

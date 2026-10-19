@@ -36,7 +36,8 @@ export function DurableSaveStatus({
   const showLastSaved = state !== "saved" && timestamp !== null;
 
   return (
-    <span className="durable-save-status" role="status" data-save-state={state}>
+    <span className="durable-save-status" role="status" data-save-state={state}
+      tabIndex={0} title={timestamp ? `${label} · ${showLastSaved ? "Last saved " : ""}${formatTimestamp(timestamp)}` : label}>
       <span className="durable-save-status__label">{label}</span>
       {timestamp ? (
         <time className="durable-save-status__time" dateTime={timestamp.toISOString()}>

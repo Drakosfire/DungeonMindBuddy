@@ -37,3 +37,13 @@
   .app-chrome-header .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { max-width:none; flex-basis:calc(100% - 3rem); }
   .surface-navbar-recovery__panel { position:fixed; top:auto; right:1rem; left:1rem; width:auto; }
 }
+
+/* Save timestamps remain available to keyboard/screen-reader users and on hover. */
+.app-chrome-header .surface-context-host .durable-save-status__time { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.app-chrome-header .surface-context-host :is(.durable-save-status, [data-testid="play-canvas-save-status"] span):focus-visible { outline:2px solid #86d7a3; outline-offset:3px; border-radius:3px; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon--play { color:#86d7a3; background:#86d7a30a; border-color:#86d7a333; order:50; }
+.app-chrome-header .surface-context-host :is(.durable-save-status, [data-testid="play-canvas-save-status"] > span) { position:relative; }
+.app-chrome-header .surface-context-host :is(.durable-save-status, [data-testid="play-canvas-save-status"] > span):is(:hover, :focus-visible)::after {
+  content:attr(title); position:absolute; top:calc(100% + .5rem); right:0; z-index:120; width:max-content; max-width:min(22rem, calc(100vw - 3rem));
+  padding:.45rem .65rem; border:1px solid #414d60; border-radius:6px; background:#171d28; color:#e8eaef; font-size:.75rem; line-height:1.4; white-space:normal; box-shadow:0 6px 20px #0005;
+}
