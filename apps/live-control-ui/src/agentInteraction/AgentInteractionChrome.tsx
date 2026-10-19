@@ -3,7 +3,7 @@ import { useAskPluginSlot } from "./AskPluginSlot";
 import { createPortal } from "react-dom";
 import { useAgentInteraction } from "./useAgentInteraction";
 import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent.png";
-import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type KeyboardEvent } from "react";
 
 /**
  * App-scoped Agent Interaction shell (R10b).
@@ -25,6 +25,18 @@ export function AgentInteractionChrome() {
   const surfaceSubtitle = surfaceContextSubtitle(activeSurfaceContext);
   const isPlan = surfaceId === "plan";
   const isPlay = surfaceId === "play" || surfaceId === "build";
+  const exactPlay = surfaceId === "play";
+  const [playLayout, setPlayLayout] = useState<"side" | "bottom">("side");
+  const [narrowPlay, setNarrowPlay] = useState(() => typeof window.matchMedia === "function" && window.matchMedia("(max-width: 42rem)").matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 42rem)");
+    const sync = () => setNarrowPlay(query.matches);
+    sync(); query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+  const effectivePlayLayout = narrowPlay ? "bottom" : playLayout;
+
   const [planPanelWidth, setPlanPanelWidth] = useState(440);
   const [planSheetHeight, setPlanSheetHeight] = useState(() => (
     typeof window === "undefined" ? 440 : Math.round(window.innerHeight * 0.64)
@@ -163,6 +175,7 @@ export function AgentInteractionChrome() {
       data-testid="agent-interaction-chrome"
       data-ask-available={askPluginPresent ? "true" : "false"}
       data-surface-id={surfaceId ?? "none"}
+      data-play-layout={exactPlay ? effectivePlayLayout : undefined}
       style={isPlan ? planPanelStyle : undefined}
       ref={shellElement}
     >
@@ -218,7 +231,13 @@ export function AgentInteractionChrome() {
           <div hidden={open}>{launcher}</div>
         </>
       ) : open && isPlay ? (
-        <div className="agent-interaction-ask-host" data-testid="agent-interaction-ask-host" ref={setHostElement} />
+        <>
+          {exactPlay ? <div className="agent-interaction-play-layout" role="group" aria-label="Chat layout">
+            <button type="button" aria-pressed={effectivePlayLayout === "side"} disabled={narrowPlay} title={narrowPlay ? "Side chat needs a wider screen" : "Place chat beside the scene"} onClick={() => setPlayLayout("side")}>Side</button>
+            <button type="button" aria-pressed={effectivePlayLayout === "bottom"} onClick={() => setPlayLayout("bottom")}>Bottom</button>
+          </div> : null}
+          <div className="agent-interaction-ask-host" data-testid="agent-interaction-ask-host" ref={setHostElement} />
+        </>
       ) : open ? (
         <>
           <button

@@ -79,6 +79,7 @@ function PublishPlayContext() {
 }
 
 describe("AgentInteractionChrome", () => {
+  afterEach(() => vi.unstubAllGlobals());
   function RegisterAsk({ present = true }: { present?: boolean }) {
     useRegisterAskPluginPresence(present);
     return null;
@@ -98,8 +99,25 @@ describe("AgentInteractionChrome", () => {
 
     await user.click(screen.getByRole("button", { name: "Open" }));
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("agent-interaction-shell--play", "open");
-    expect(screen.getByTestId("agent-interaction-ask-host")).toBeInTheDocument();
+    const host = screen.getByTestId("agent-interaction-ask-host");
+    expect(host).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
+    await user.click(screen.getByRole("button", { name: "Bottom", exact: true }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
+    expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+    await user.click(screen.getByRole("button", { name: "Side", exact: true }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
+    expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
     expect(screen.queryByRole("button", { name: "Close chat" })).not.toBeInTheDocument();
+  });
+
+  it("uses bottom chat on narrow Play without changing the host", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(<AgentInteractionProvider><AskPluginSlotProvider><PublishPlayContext /><RegisterAsk /><AgentInteractionChrome /></AskPluginSlotProvider></AgentInteractionProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByRole("button", { name: "Side", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Bottom", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
   });
 
   it("renders no Agent chrome or Open action without a registered Ask plugin", () => {
