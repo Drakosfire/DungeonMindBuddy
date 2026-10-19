@@ -22,7 +22,7 @@
 .play-session-content__header strong { color: #ccd8e6; font-size: .88rem; font-weight: 500; }
 .play-session-content__eyebrow { margin: 0 0 .2rem; color: #e0b24c; font-size: .68rem; font-weight: 700; letter-spacing: .12em; }
 .play-session-content__primary { border-color: #d7a83f; background: #d7a83f; color: #181817; font-weight: 700; }
-.play-session-content button { border: 1px solid #657791; border-radius: .45rem; background: #243147; color: inherit; padding: .45rem .7rem; cursor: pointer; }
+.play-session-content button { border: 1px solid #657791; border-radius: .45rem; background: #243147; color: #e8edf4; padding: .45rem .7rem; cursor: pointer; }
 .play-session-content button:hover { border-color: #e0b24c; }
 .play-session-content button[aria-pressed="true"] { border-color: #d7a83f; box-shadow: inset 0 -2px #d7a83f; }
 .play-session-content__message { margin: 0; padding: .55rem 1rem; border-top: 1px solid #344256; color: #bfcee0; }
