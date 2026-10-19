@@ -1,0 +1,61 @@
+.floating-scene-notes {
+  position: fixed;
+  inset-inline-start: max(1rem, env(safe-area-inset-left));
+  inset-block-end: max(1rem, env(safe-area-inset-bottom));
+  z-index: 6;
+  width: min(32rem, calc(100vw - 7rem));
+  max-width: calc(100vw - 2rem);
+  color: #f2eee5;
+  background: #202a38;
+  border: 1px solid #7c8b9d;
+  border-radius: .7rem;
+  box-shadow: 0 .4rem 1.5rem #0006;
+  box-sizing: border-box;
+}
+.floating-scene-notes[hidden], .floating-scene-notes__panel[hidden] { display: none; }
+.floating-scene-notes__toggle {
+  display: grid;
+  gap: .2rem;
+  width: 100%;
+  padding: .6rem .85rem;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: .7rem;
+  text-align: start;
+  cursor: pointer;
+}
+.floating-scene-notes__target { font: 600 .9rem/1.3 system-ui, sans-serif; overflow-wrap: anywhere; }
+.floating-scene-notes__summary { font: .75rem/1.3 system-ui, sans-serif; color: #d8c691; }
+.floating-scene-notes__toggle:focus-visible { outline: 3px solid #e1b34d; outline-offset: 2px; }
+.floating-scene-notes__panel {
+  border-top: 1px solid #7c8b9d;
+  max-height: min(55dvh, 30rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: .8rem;
+}
+.floating-scene-notes .play-notes { display: grid; gap: .5rem; margin: 0; }
+.floating-scene-notes .play-notes label { font: 600 .85rem/1.4 system-ui, sans-serif; }
+.floating-scene-notes .play-notes textarea {
+  width: 100%;
+  min-height: 9rem;
+  max-height: 32dvh;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: .65rem;
+  color: #f2eee5;
+  background: #111923;
+  border: 1px solid #7c8b9d;
+  border-radius: .4rem;
+  font: .95rem/1.5 system-ui, sans-serif;
+}
+.floating-scene-notes .play-notes textarea:focus-visible { outline: 2px solid #e1b34d; }
+.floating-scene-notes .play-notes p { margin: 0; color: inherit; font: .8rem/1.4 system-ui, sans-serif; }
+.play-cockpit:has(.floating-scene-notes) { padding-bottom: 5.5rem; }
+@media (max-width: 600px) {
+  .floating-scene-notes[data-open="true"] {
+    width: calc(100vw - 2rem);
+    inset-block-end: max(6.5rem, calc(env(safe-area-inset-bottom) + 6rem));
+  }
+}
