@@ -27,6 +27,7 @@ _REVISION_COLUMNS = (
     "expected_revision",
     "expected_sha256",
     "observed_run_revision",
+    "expected_run_revision",
 )
 
 

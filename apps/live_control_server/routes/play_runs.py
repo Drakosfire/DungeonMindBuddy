@@ -452,3 +452,62 @@ async def put_world_run_content_command(
         command_id=command_id,
         request=body,
     )
+
+
+@router.get("/world-play-runs/v2/{run_id}/content/proposals")
+def list_world_run_scene_proposals(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    enforce_native_graph_gm(request)
+    from application_state.play_scene_edit.service import PlaySceneEditProposalService
+    from apps.live_control_server.services.play_scene_edit_proposal import public_record
+    from application_state.errors import ApplicationStateError
+    try:
+        from uuid import UUID
+        return {"proposals": [public_record(record) for record in PlaySceneEditProposalService().list_records(world_id=world_id, run_id=UUID(run_id))]}
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+
+
+@router.get("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
+def get_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    enforce_native_graph_gm(request)
+    from application_state.play_scene_edit.service import PlaySceneEditProposalService
+    from apps.live_control_server.services.play_scene_edit_proposal import public_record
+    from application_state.errors import ApplicationStateError
+    try:
+        from uuid import UUID
+        return public_record(PlaySceneEditProposalService().get(world_id=world_id, run_id=UUID(run_id), proposal_id=UUID(proposal_id)))
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+
+
+@router.post("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
+async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    enforce_native_graph_gm(request)
+    from uuid import UUID
+    from pydantic import ValidationError
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.config import managed_world_data_root
+    from apps.live_control_server.models.play_scene_edit_proposal import PlaySceneEditProposalRequest
+    from apps.live_control_server.services.play_scene_edit_proposal import propose_scene_edit
+    raw = bytearray()
+    async for chunk in request.stream():
+        if len(raw) + len(chunk) > 65536:
+            raise HTTPException(status_code=413, detail="Scene edit request exceeds 64 KiB UTF8")
+        raw.extend(chunk)
+    try:
+        body = PlaySceneEditProposalRequest.model_validate_json(bytes(raw))
+        return await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
+                                        proposal_id=UUID(proposal_id), request=body)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

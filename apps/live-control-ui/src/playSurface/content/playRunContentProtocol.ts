@@ -60,7 +60,8 @@ export async function validatePlayRunContentReceipt(
     || value.expected_edition_revision !== expected.request.expected_edition_revision
     || value.accepted_edition_revision !== expected.request.expected_edition_revision + 1
     || value.expected_content_sha256 !== expected.request.expected_content_sha256
-    || value.accepted_content_sha256 !== await contentSha256(expected.request.markdown)) {
+    || value.accepted_content_sha256 !== await contentSha256(expected.request.markdown)
+    || (expected.request.expected_run_revision !== undefined && value.observed_run_revision !== expected.request.expected_run_revision)) {
     throw new TypeError("Session save receipt does not acknowledge the journaled base and exact content.");
   }
 

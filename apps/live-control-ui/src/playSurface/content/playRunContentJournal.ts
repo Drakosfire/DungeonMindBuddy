@@ -92,11 +92,12 @@ export async function validatePlayRunContentJournal(raw: string, expected: PlayR
     if (!object(rawPending) || !exactKeys(rawPending, ["commandId", "draftGeneration", "request"])
       || typeof rawPending.commandId !== "string" || !isCanonicalUuid(rawPending.commandId)
       || !integer(rawPending.draftGeneration, 1) || rawPending.draftGeneration > parsed.draft_generation
-      || !object(rawPending.request) || !exactKeys(rawPending.request, ["schema_version", "expected_origin", "expected_edition_revision", "expected_content_sha256", "markdown"])) {
+      || !object(rawPending.request) || !exactKeys(rawPending.request, ["schema_version", "expected_origin", "expected_edition_revision", "expected_content_sha256", "markdown", ...(object(rawPending.request) && "expected_run_revision" in rawPending.request ? ["expected_run_revision"] : [])])) {
       throw new TypeError("Saved session-copy command journal is invalid.");
     }
     const request = rawPending.request as unknown as PlayRunContentCommitRequest;
-    if (request.schema_version !== "dmb_world_play_run_content_commit_v1"
+    if ((request.expected_run_revision !== undefined && (!Number.isSafeInteger(request.expected_run_revision) || request.expected_run_revision < 1))
+      || request.schema_version !== "dmb_world_play_run_content_commit_v1"
       || !samePlayRunContentOrigin(request.expected_origin, expected.origin)
       || request.expected_edition_revision !== accepted.edition_revision
       || request.expected_content_sha256 !== accepted.content_sha256

@@ -1,3 +1,4 @@
+import type { PlaySceneEditBridge } from "../playSurface/agentEdit/playSceneEditBridge";
 import type { BuildComposeBridge } from "../buildSurface/buildComposeBridge";
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
@@ -26,6 +27,9 @@ interface Registration<T> { token: symbol; value: T; unavailableReason?: string 
 
 interface WorldConversationRegistry {
   worldId: string | null;
+  sceneEditor: Registration<PlaySceneEditBridge> | null;
+  registerSceneEditor: (token: symbol, bridge: PlaySceneEditBridge) => void;
+  unregisterSceneEditor: (token: symbol) => void;
   plan: Registration<WorldPlanAgentConversationProps> | null;
   build: Registration<BuildConversationRegistration> | null;
   registerBuild: (token: symbol, value: BuildConversationRegistration) => void;
@@ -48,6 +52,9 @@ interface WorldConversationRegistry {
 const Registry = createContext<WorldConversationRegistry | null>(null);
 
 export function WorldAgentConversationProvider({ children, worldId }: { children: ReactNode; worldId: string | null }) {
+  const [sceneEditor, setSceneEditor] = useState<Registration<PlaySceneEditBridge> | null>(null);
+  const registerSceneEditor = useCallback((token: symbol, value: PlaySceneEditBridge) => setSceneEditor({ token, value }), []);
+  const unregisterSceneEditor = useCallback((token: symbol) => setSceneEditor(current => current?.token === token ? null : current), []);
   const [plan, setPlan] = useState<Registration<WorldPlanAgentConversationProps> | null>(null);
   const [build, setBuild] = useState<Registration<BuildConversationRegistration> | null>(null);
   const registerBuild = useCallback((token: symbol, value: BuildConversationRegistration) => setBuild({ token, value }), []);
@@ -61,9 +68,9 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const unregisterPlan = useCallback((token: symbol) => setPlan((current) => current?.token === token ? null : current), []);
   const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason: string | null = null) => setPlay({ token, value, unavailableReason }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
-  const value = useMemo(() => ({ worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
+  const value = useMemo(() => ({ worldId, sceneEditor, registerSceneEditor, unregisterSceneEditor, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
     composerDrafts, setComposerDrafts, history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
-  [worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, composerDrafts, history, pendingTurn, historyRefreshNonce]);
+  [worldId, sceneEditor, registerSceneEditor, unregisterSceneEditor, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, composerDrafts, history, pendingTurn, historyRefreshNonce]);
   return <Registry.Provider value={value}>{children}</Registry.Provider>;
 }
 
@@ -112,6 +119,16 @@ export function usePublishWorldBuildConversation(context: SavedWorldBuildConvers
   }, [registry?.registerBuild, registry?.unregisterBuild, context, presentationHosts, composeBridge]);
 }
 
+export function usePublishPlaySceneEditBridge(bridge: PlaySceneEditBridge): void {
+  const registry = useContext(Registry);
+  const token = useRef(Symbol("play-scene-editor"));
+  useLayoutEffect(() => {
+    if (!registry) return;
+    registry.registerSceneEditor(token.current, bridge);
+    return () => registry.unregisterSceneEditor(token.current);
+  }, [registry?.registerSceneEditor, registry?.unregisterSceneEditor, bridge]);
+}
+
 /** One persistent conversation controller; route adapters supply current context and portal hosts. */
 export function WorldAgentConversation({ surface, worldId, worldName }: {
   surface: "plan" | "play" | "build" | "other";
@@ -142,5 +159,5 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
     presentationHosts={surface === "plan" ? props.presentationHosts : surface === "build" ? build?.presentationHosts : undefined}
     visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play" || surface === "build"}
     buildMode={surface === "build" ? { savedSource, composeBridge: build?.composeBridge ?? null } : null}
-    playMode={surface === "play" ? { admittedRun } : null} />;
+    playMode={surface === "play" ? { admittedRun, sceneEditBridge: registry.sceneEditor?.value ?? null } : null} />;
 }
