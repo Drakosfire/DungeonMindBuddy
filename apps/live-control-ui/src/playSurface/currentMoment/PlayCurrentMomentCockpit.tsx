@@ -921,7 +921,7 @@ export function PlayCurrentMomentCockpit({
       ) : null}
 
       <PlaySurfaceContext id="play-cockpit-context" order={20} identity={surfaceIdentity}>
-        <button ref={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Scenes</button>
+        <button ref={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Contents</button>
         <SurfaceContextSelect className="play-surface-context__scene" aria-label="Inspect scene" value={inspectedScene?.id ?? currentScene?.id ?? ""}
           onChange={event => { const scene = sceneInAnyBeat(deck, event.target.value); if (scene) openInspect(scene); }}>
           {!currentScene ? <option value="">Choose scene</option> : null}
@@ -946,7 +946,7 @@ export function PlayCurrentMomentCockpit({
         }} onClick={() => setMoreOpen(value => !value)}>More</button>}>
           <SurfaceContextAction type="button" onClick={() => { toggleOutcomes(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }} aria-expanded={!glanceCollapsed}>Run record</SurfaceContextAction>
           <div className="play-surface-context__compact-navigation" role="group" aria-label="Scene navigation">
-            <SurfaceContextAction type="button" onClick={() => { toggleOutline(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Browse scene outline</SurfaceContextAction>
+            <SurfaceContextAction type="button" onClick={() => { toggleOutline(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Browse Contents</SurfaceContextAction>
             <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => { returnInspectionToMoreRef.current = true; browseAdjacentScene(-1); }}>Previous</SurfaceContextAction>
             <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => { returnInspectionToMoreRef.current = true; browseAdjacentScene(1); }}>Next</SurfaceContextAction>
             {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={() => { closeToCurrent(); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Show current scene</SurfaceContextAction> : null}

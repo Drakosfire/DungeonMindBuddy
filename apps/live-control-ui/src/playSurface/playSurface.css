@@ -1357,3 +1357,8 @@
 .play-session-review header,.play-review-actions { display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;justify-content:space-between; }
 .play-session-review textarea { display:block;box-sizing:border-box;width:100%;margin-block:.6rem;background:#10151e;color:var(--play-text);padding:1rem;border:1px solid var(--play-border);border-radius:6px;line-height:1.6; }
 .play-session-review pre { white-space:pre-wrap;overflow-wrap:anywhere; }
+
+/* Play keeps inspection/overlay ownership while sharing Contents presentation. */
+.play-outline .surface-contents { position: static; width: 100%; }
+.play-outline .surface-contents__list { max-height: calc(100dvh - var(--app-chrome-top, 0px) - 8rem); }
+.play-outline .play-rail-body[hidden] { display: none !important; }

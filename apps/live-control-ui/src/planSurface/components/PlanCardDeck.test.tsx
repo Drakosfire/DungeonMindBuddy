@@ -9,7 +9,7 @@ const scene: WorldPlanCardNode = {
   kind: "scene", id: "scene:harbor", title: "Harbor", titleContent: [], order: 1,
   parentId: "beat:arrival", children: [], bodyText: "", bodyContent: [
     { type: "paragraph", content: [{ type: "text", text: "An authored <script> lantern cue." }] },
-    { type: "paragraph", content: [{ type: "mediaImage", attrs: { assetId: "ac6c15cc-8c68-4732-8ae2-d9f3f051393a" } }] },
+    { type: "paragraph", content: [{ type: "mediaImage", attrs: { assetId: "ac6c15cc-8c68-4732-8ae2-d9f3f051393a", alt: "Harbor map" } }] },
   ],
 };
 
@@ -33,8 +33,8 @@ it("starts collapsed on narrow screens and returns focus to its toggle after sel
   vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   const select = vi.fn();
   render(<PlanCardDeck scenes={[scene]} nodes={[scene]} sceneId={null} onSelect={select} visible />);
-  const deck = screen.getByRole("navigation", { name: "Plan card deck" });
-  const toggle = within(deck).getByRole("button", { name: /Scenes · 1/ });
+  const deck = screen.getByRole("navigation", { name: "Contents" });
+  const toggle = within(deck).getByRole("button", { name: /Contents · 1/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   expect(within(deck).queryByRole("button", { name: "Show scene: Harbor" })).toBeNull();
   fireEvent.click(toggle);

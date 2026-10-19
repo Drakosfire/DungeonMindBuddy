@@ -135,6 +135,15 @@ function unsupportedBodyContentReason(content: readonly JSONContent[]): string |
   return null;
 }
 
+/** Thumbnail previews use the same safety and registered schema as the full reader. */
+export function isReadableBodyContent(content: readonly JSONContent[]): boolean {
+  if (unsupportedBodyContentReason(content)) return false;
+  try {
+    generateHTML({ type: "doc", content: [...content] }, READ_ONLY_BODY_EXTENSIONS);
+    return true;
+  } catch { return false; }
+}
+
 export function ReadOnlyBodyContent({
   content,
   fallbackText,
