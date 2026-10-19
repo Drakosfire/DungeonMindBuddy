@@ -1,8 +1,8 @@
+import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useEffect, useRef, useState } from "react";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
 
 import {
-  SurfaceContextAction,
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
 
@@ -405,13 +405,11 @@ export function BuildDocumentCreateControl({
         placement="below"
         className="surface-context-popover--wide"
         trigger={
-          <SurfaceContextAction
+          <SurfaceNavbarIconButton icon="new" label="New page"
             data-testid="build-document-create-open"
             onClick={() => setCreateOpen(true)}
             disabled={disabled || creating}
-          >
-            + New page
-          </SurfaceContextAction>
+          />
         }
       >
         {createForm}
@@ -424,13 +422,11 @@ export function BuildDocumentCreateControl({
         placement="below"
         className="surface-context-popover--wide"
         trigger={
-          <SurfaceContextAction
+          <SurfaceNavbarIconButton icon="import" label="Import source"
             data-testid="build-document-import-open"
             onClick={() => setImportOpen(true)}
             disabled={disabled || creating}
-          >
-            Import source
-          </SurfaceContextAction>
+          />
         }
       >
         {importForm}

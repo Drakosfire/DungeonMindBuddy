@@ -1,3 +1,4 @@
+import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
@@ -1791,18 +1792,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>
           {autoSavePaused && !createUncertain && !recoveryConflict && !fidelityBlocked ? (
-            <button type="button" className="world-plan-context-toolbar__retry"
-              onClick={() => { setAutoSavePaused(false); void saveRef.current(); }}>
-              Retry save
-            </button>
+            <SurfaceNavbarIconButton icon="save" label="Retry save" className="world-plan-context-toolbar__retry"
+              onClick={() => { setAutoSavePaused(false); void saveRef.current(); }} />
           ) : null}
-          <button type="button" className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
-            aria-label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
+          <SurfaceNavbarIconButton icon="play" label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"} className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
             aria-describedby={status === "ready" && !canStartPlayFromSavedPlan && !startingPlay && documentId ? "world-plan-start-play-reason" : undefined}
             title={canStartPlayFromSavedPlan ? "Start Play from this saved Plan" : "Save and reopen a clean, committed Plan before starting Play."}
-            disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }}>
-            {startingPlay ? "Verifying…" : "Start Play"}
-          </button>
+            disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }} />
           {status === "ready" && documentId && !canStartPlayFromSavedPlan && !startingPlay ? (
             <span id="world-plan-start-play-reason" className="sr-only" data-testid="world-plan-start-play-disabled">
               Save and reopen a clean, committed Plan before starting Play.
