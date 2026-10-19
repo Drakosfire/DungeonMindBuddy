@@ -1,3 +1,4 @@
+import { CardSceneNavigation } from "../../shared/CardSceneNavigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import {
@@ -927,8 +928,6 @@ export function PlayCurrentMomentCockpit({
           {!currentScene ? <option value="">Choose scene</option> : null}
           {deck.beats.map(beat => <optgroup key={beat.id} label={beat.title}>{beat.scenes.map(scene => <option key={scene.id} value={scene.id}>{scene.id === currentScene?.id ? "Current: " : ""}{scene.title}</option>)}</optgroup>)}
         </SurfaceContextSelect>
-        <SurfaceContextAction className="play-surface-context__previous" type="button" aria-label="Previous scene" title="Previous scene" disabled={!currentScene} onClick={() => browseAdjacentScene(-1)}>←</SurfaceContextAction>
-        <SurfaceContextAction className="play-surface-context__next" type="button" aria-label="Next scene" title="Next scene" disabled={!currentScene} onClick={() => browseAdjacentScene(1)}>→</SurfaceContextAction>
         {workspace.kind === "scene-inspect" ? <SurfaceContextAction className="play-surface-context__return" type="button" aria-label="Return to current" title={`Return to current scene: ${currentScene?.title ?? "none"}`} onClick={closeToCurrent}>Current</SurfaceContextAction> : null}
         <button ref={notesNavbarToggleRef} className="surface-context-action play-surface-context__notes" type="button" aria-expanded={notesOpen} aria-label={`Notes · ${workspace.kind === "scene-inspect" ? "current scene " : ""}${currentScene?.title ?? "no current scene"}`} title={`Notes for current scene: ${currentScene?.title ?? "none"}`} onClick={() => setNotesOpen(value => !value)} disabled={!worldOwnedRun || !currentScene}>
           Notes{workspace.kind === "scene-inspect" ? " (current)" : ""}
@@ -979,6 +978,9 @@ export function PlayCurrentMomentCockpit({
           inert={compactOverlayOpen}
           aria-hidden={compactOverlayOpen ? true : undefined}
         >
+          <CardSceneNavigation scenes={deck.beats.flatMap(beat => beat.scenes)} sceneId={inspectedScene?.id ?? currentScene?.id ?? null}
+            hidden={workspaceKind !== "current" && workspaceKind !== "scene-inspect"}
+            onSelect={id => { const scene = sceneInAnyBeat(deck, id); if (scene) openInspect(scene); }} />
           {workspaceKind === "current" && currentBeat && currentScene ? (
             <article
               className="play-scene-board"
