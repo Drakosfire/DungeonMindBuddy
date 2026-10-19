@@ -1,6 +1,6 @@
 # PLAY — chat layout and movable scene notes
 
-Status: ACTIVE. Base origin/main56583e82a8a16bd0fc94a445d95487f3a2707004; branch codex/play-pane-narrow-fit in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
+Status: SETTLED. Base origin/main56583e82a8a16bd0fc94a445d95487f3a2707004; branch codex/play-pane-narrow-fit in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
 
 ## Outcome and invariant
 
@@ -31,3 +31,7 @@ Mounted AppChrome proves header outside workspace geometry. Chrome tests prove o
 #1435 merged94cf0cf38 after independent PASS atd3b4184a1. Normal5202 proves side/bottom switching, full-pane messages and pointer/keyboard notes movement with collapse and current targeting; the wide1778px viewport exposed a182px gap because the workspace uses the centered shared wrap while chat remained viewport-aligned. This serial successor changes only scoped Play chat CSS and this contract. Match the established1440px border-box/20px padding geometry, including the existing40rem full-width fallback, so side chat meets the workspace and bottom chat matches the full navbar. Typecheck/build, exact-head independent review and desktop/wide/narrow rendered verification remain required.
 
 #1436 merged56583e82a after independent PASS at61f6a0572. Visible wide1778px geometry now meets within0.02px and matches navbar bounds. Narrow361px inspection exposes a specificity conflict retaining the bottom pane’s36px left inset, and a wrapped Notes title making the panel10px too tall for the space above chat. This final scoped CSS correction matches the bottom selector’s specificity and constrains the whole Notes panel with a flexible scrolling body. Verify the reviewed candidate on5202 before merging; finalize the runtime receipt with its exact merge revision afterward.
+
+## Final acceptance
+
+#1437 merged76f765d3c after independent PASS atfe0aabd4b and reviewed-candidate normal5202 proof. Desktop and1778px wide side/bottom layout aligns the full navbar and panes (gap<0.02px); narrow347px client has no horizontal overflow and Notes fits exactly above chat. Actual pointer drag, keyboard movement, collapse/reopen and scene inspection retain current-scene note targeting. Fixture Plan/Run/edition and real Edge Run compare unchanged.130/137 affected tests pass; all7 failures reproduce unchanged with baseline AgentInteractionChrome. Build passes. Runtime receipt play-pane-fit-rollout.json pins exact source/merge/assets/screenshots. Source/UI lease released; session-aware Buddy context is next.
