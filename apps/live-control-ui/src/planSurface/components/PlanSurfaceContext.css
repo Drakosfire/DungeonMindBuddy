@@ -8,3 +8,10 @@
 .world-plan-context-toolbar .world-plan-context-toolbar__start { min-height: 28px; padding: 3px 10px; border-radius: 5px; border: 1px solid #ac8035; background: #d9a840; color: #211c12; font-size: .78rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .world-plan-context-toolbar .world-plan-context-toolbar__start:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 700px) { .world-plan-context-toolbar { margin-left: 0; } }
+
+/* Pin view/action controls to the right of the Plan selector in every view. */
+.app-chrome-header .surface-context-host .plan-surface-context .world-plan-view-switch { margin-left: auto; }
+.app-chrome-header .surface-context-host .plan-surface-context .world-plan-context-toolbar__save { margin-left: 0; flex: 0 0 3.5rem; }
+@media (max-width: 600px) {
+  .app-chrome-header .surface-context-host .plan-surface-context .world-plan-view-switch { margin-left: 0; }
+}

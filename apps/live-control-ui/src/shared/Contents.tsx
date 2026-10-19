@@ -76,7 +76,9 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
   }, [expanded, selectedId, visible]);
   return <nav className="surface-contents" data-expanded={expanded} aria-label="Contents">
     {showToggle ? <button ref={toggleRef} type="button" className="surface-contents__toggle" aria-expanded={expanded}
-      onClick={() => setExpanded(!expanded)}>{expanded ? "▾" : "▸"} Contents · {entries.length}</button> : null}
+      onClick={() => setExpanded(!expanded)}><span>Contents · {entries.length}</span>
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={expanded ? "M5 7l5 5 5-5" : "M7 5l5 5-5 5"} /></svg>
+    </button> : null}
     <div hidden={!expanded} className="surface-contents__contents">
       {outlineAction ? <button type="button" className="surface-contents__outline" aria-current={outlineAction.selected ? "true" : undefined}
         onClick={outlineAction.onClick}>{outlineAction.label}</button> : null}
