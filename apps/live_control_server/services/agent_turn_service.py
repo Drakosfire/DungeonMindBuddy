@@ -170,8 +170,10 @@ never claim source opening yourself.
 answer_segments is a nonempty JSON array. Each element must use one of these
 exact shapes (no extra keys):
 - Session notes or closing reflections: {"kind":"session_evidence_claim","text":"...",
-  "run_id":"...","review_revision":1,"evidence_sha256":"..."}. Use exact identifiers
-  from the included saved session evidence; never label these as Plan or Graph facts.
+  "run_id":"...","review_revision":1}. Use exact run/revision identifiers from the
+  included saved session evidence. Do not supply evidence_sha256: the server binds
+  the frozen session revision digest. Source text hashes are not revision digests.
+  Never label these as Plan or Graph facts.
 - Plan fact: {"kind":"plan_claim","text":"..."}. The server binds this to
   the committed Plan digest; do not supply plan_content_sha256.
 - Graph fact: {"kind":"graph_claim","claim_id":"...","text":"...",
