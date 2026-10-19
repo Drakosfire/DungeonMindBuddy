@@ -1,9 +1,9 @@
 import { mediaMarkdown } from "../media/mediaReferences";
 import { MediaImageWizard } from "../media/MediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
-import { BUILD_STARTER_CONTENT, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
+import { BUILD_STARTER_CONTENT, BUILD_STUDIO_ACTION, type BuildStudioAction, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
@@ -55,11 +55,11 @@ function BuildPresentableSourceView({
   const [mediaOpen, setMediaOpen] = useState(false);
   const [mediaError,setMediaError]=useState('');
   const mediaCapture=useRef<Awaited<ReturnType<BuildComposeBridge['capture']>>|null>(null);
-  async function openMedia() {
+  const openMedia = useCallback(async () => {
     try { mediaCapture.current=await composeBridge.capture();setMediaError('');setMediaOpen(true); }
     catch(reason) {setMediaError(reason instanceof Error?reason.message:'Open an editable page first.');}
-  }
-  const { openTool, setPaneOpen, surfaceInteractionPublication } = useAgentInteraction();
+  }, [composeBridge]);
+  const { openTool, surfaceInteractionPublication } = useAgentInteraction();
   const referenceTool = surfaceInteractionPublication?.tools.find(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID);
   useEffect(() => {
     const editor = session.editor;
@@ -115,6 +115,19 @@ function BuildPresentableSourceView({
     return () => onEditorTools?.(null);
   }, [onEditorTools, session.editor, session.record?.document_id, outlineVersion]);
 
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const action = (event as CustomEvent<BuildStudioAction>).detail;
+      if (action === "image") void openMedia();
+      if (action === "link") {
+        if (referenceTool?.availability.status === "enabled") openTool(BUILD_FIND_EXISTING_TOOL_ID);
+        else setMediaError("Node linking is not available for this page yet.");
+      }
+    };
+    window.addEventListener(BUILD_STUDIO_ACTION, handle);
+    return () => window.removeEventListener(BUILD_STUDIO_ACTION, handle);
+  }, [openMedia, openTool, referenceTool?.availability.status]);
+
   const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
     && navigationTarget.status === "none"
     && (session.editor?.isEmpty ?? !session.snapshot?.markdown.trim());
@@ -156,20 +169,6 @@ function BuildPresentableSourceView({
         </div>
       </div>
     </section> : null}
-    <div className="build-authoring-toolbar" role="toolbar" aria-label="Page authoring">
-      <div role="group" aria-label="Format page">
-        <button type="button" aria-pressed={session.editor?.isActive("bold") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleBold().run()}>Bold</button>
-        <button type="button" aria-pressed={session.editor?.isActive("italic") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleItalic().run()}>Italic</button>
-        <button type="button" disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleHeading({level:2}).run()}>Heading</button>
-        <button type="button" disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleBulletList().run()}>List</button>
-        <button type="button" disabled={!session.editor?.can().undo()} onClick={() => session.editor?.chain().focus().undo().run()}>Undo</button>
-      </div>
-      <div role="group" aria-label="Worldbuilding tools">
-        <button type="button" disabled={referenceTool?.availability.status !== "enabled"} onClick={() => openTool(BUILD_FIND_EXISTING_TOOL_ID)}>Link existing node</button>
-        <button type="button" onClick={() => setPaneOpen(true)}>Ask Agent</button>
-        <button type="button" onClick={() => void openMedia()}>Create image</button>
-      </div>
-    </div>
     {mediaError&&<p role="alert">{mediaError}</p>}
     {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
       const origin=mediaCapture.current;

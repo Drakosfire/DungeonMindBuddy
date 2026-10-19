@@ -325,3 +325,17 @@ it("consumes each Restore inventory event once despite a fresh callback and reta
   expect(select).not.toHaveBeenCalled();
   expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
 });
+
+it("keeps retained backups under Source actions without a permanent recovery control",()=>{
+  sessionMock.current=makeSession({dirty:false, exportedMarkdownAuthoritative:false, draftRecoveryAvailable:true,
+    conflictRecovery:{prepare:vi.fn(),resolve:vi.fn(),protectedCopies:null}});
+  renderBuildContext();
+  expect(screen.queryByText("Draft recovery",{exact:true})).not.toBeInTheDocument();
+  expect(screen.getByText("Draft and recovery copies").closest(".build-source-actions")).not.toBeNull();
+});
+it("sends image intent from the surface navbar",async()=>{
+  sessionMock.current=makeSession();renderBuildContext();
+  const dispatch=vi.spyOn(window,"dispatchEvent");
+  await userEvent.click(screen.getByRole("button",{name:"Open Image Studio"}));
+  expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({type:"dmb:build-studio-action",detail:"image"}));dispatch.mockRestore();
+});

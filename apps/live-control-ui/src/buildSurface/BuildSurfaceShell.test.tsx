@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
@@ -218,6 +218,19 @@ function buildEditGeometryFixture() {
   </body></html>`;
 }
 
+const recoveryProto = Object.getPrototypeOf(document.createElement("dialog"));
+const recoveryModal = Object.getOwnPropertyDescriptor(recoveryProto,"showModal");
+const recoveryUrl = Object.getOwnPropertyDescriptor(URL,"createObjectURL");
+const recoveryRevoke = Object.getOwnPropertyDescriptor(URL,"revokeObjectURL");
+beforeAll(()=>{
+  Object.defineProperty(recoveryProto,"showModal",{configurable:true,value(this:HTMLDialogElement){this.setAttribute("open","");}});
+  Object.defineProperty(URL,"createObjectURL",{configurable:true,value:()=>"blob:test"});
+  Object.defineProperty(URL,"revokeObjectURL",{configurable:true,value:()=>{}});
+});
+afterAll(()=>{
+  for(const [object,key,descriptor] of [[recoveryProto,"showModal",recoveryModal],[URL,"createObjectURL",recoveryUrl],[URL,"revokeObjectURL",recoveryRevoke]] as const){if(descriptor)Object.defineProperty(object,key,descriptor);else Reflect.deleteProperty(object,key);}
+});
+
 describe("BuildSurfaceShell", () => {
   it("applies an explicitly queued starter only as an unsaved edit", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({ ...buildWorldbuildingSnapshot(DOC_ID), markdown: "" });
@@ -228,8 +241,8 @@ describe("BuildSurfaceShell", () => {
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(`dmb.build.starter.${DOC_ID}`)).toBeNull();
-    expect(screen.getByRole("toolbar", {name:"Page authoring"})).toBeInTheDocument();
-    expect(screen.getByRole("button",{name:"Ask Agent"})).toBeEnabled();
+    expect(screen.queryByRole("toolbar", {name:"Page authoring"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"Ask Agent"})).not.toBeInTheDocument();
   });
 
   it("never replaces existing text with a queued starter", async () => {
@@ -404,8 +417,7 @@ describe("BuildSurfaceShell", () => {
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute("data-markdown-editor-status", "ready"));
     act(() => buildShellTestEditor?.commands.insertContent("An authored sentence."));
     expect(screen.queryByTestId("build-autosave-status")).not.toBeInTheDocument();
-    expect(within(screen.getByRole("toolbar", { name: "Page authoring" })).queryByTestId("build-autosave-status"))
-      .not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Page authoring" })).not.toBeInTheDocument();
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
 
     await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 650)); });
@@ -708,6 +720,7 @@ describe("BuildSurfaceShell", () => {
     });
     local.dirty = true;
     local.exported_markdown = "# Local dirty copy\n";
+    local.exported_markdown_authoritative = true;
     writeWorkspaceDocumentLocalState(window.localStorage, local);
 
     render(
@@ -720,7 +733,8 @@ describe("BuildSurfaceShell", () => {
     );
 
     expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /discard local draft/i }));
+    await user.click(screen.getByRole("button", { name: "Review conflicting copies" }));
+    await user.click(screen.getByRole("button", { name: "Use saved version" }));
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
     const stored = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
@@ -770,6 +784,7 @@ describe("BuildSurfaceShell", () => {
     });
     local.dirty = true;
     local.exported_markdown = "# Local dirty copy\n";
+    local.exported_markdown_authoritative = true;
     writeWorkspaceDocumentLocalState(window.localStorage, local);
 
     render(

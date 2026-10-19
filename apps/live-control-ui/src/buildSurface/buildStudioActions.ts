@@ -1,6 +1,6 @@
 /** Build-local intents; they confer no document or Graph write authority. */
 export const BUILD_STUDIO_ACTION = "dmb:build-studio-action";
-export type BuildStudioAction = "new" | "import" | "open";
+export type BuildStudioAction = "new" | "import" | "open" | "image" | "link";
 export function requestBuildStudioAction(action: BuildStudioAction) {
   window.dispatchEvent(new CustomEvent(BUILD_STUDIO_ACTION, { detail: action }));
 }

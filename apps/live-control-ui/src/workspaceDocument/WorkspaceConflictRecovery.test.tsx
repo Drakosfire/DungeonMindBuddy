@@ -29,3 +29,12 @@ it("passes the frozen review and explicit choice to the owner and shows a refusa
  fireEvent.click(screen.getByRole("button",{name:"Review conflicting copies"}));fireEvent.click(screen.getByRole("button",{name:"Use saved version"}));
  expect(await screen.findByRole("alert")).toHaveTextContent("Saved version changed");expect(resolve).toHaveBeenCalledWith(review,"saved");expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
+
+it("reviews retained copies as read-only changes without offering historical replacement",()=>{
+ const resolve=vi.fn();render(<WorkspaceConflictRecovery allowReview={false} recovery={{prepare:vi.fn(),resolve,protectedCopies:JSON.stringify({schema:"dmb_workspace_conflict_copies_v1",copies:[review]})}}/>);
+ fireEvent.click(screen.getByRole("button",{name:"Review protected copies"}));
+ const dialog=screen.getByRole("dialog",{name:"Protected recovery copies"});
+ expect(within(dialog).getByRole("region",{name:"Changes from saved document to browser draft"})).toHaveTextContent("What changed");
+ expect(within(dialog).queryByRole("button",{name:"Use saved version"})).not.toBeInTheDocument();
+ fireEvent.click(within(dialog).getByRole("button",{name:"Close"}));expect(resolve).not.toHaveBeenCalled();
+});
