@@ -7,7 +7,8 @@
 
 This checkpoint replaces the accumulated “next”, “immediate” and historical
 execution instructions previously embedded here. No implementation is activated
-by this audit. The operator is reviewing priorities. Detailed execution history
+by this audit. The operator has selected the cards/navigation design examination
+described below. Detailed execution history
 is retained in Git, merged PRs and existing bounded contracts; do not copy it
 back into the active roadmap. The pre-pruning document is available at the
 [evidence anchor](https://github.com/Drakosfire/DungeonMindBuddy/blob/fcaab28ab1db7ce2c024152d15ca844e4c3bb3ef/Docs/Roadmaps/ROADMAP-demo.md).
@@ -85,20 +86,28 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    console repair remain unaccepted. Existing selected-World use is not full
    corpus or fresh-World proof. Keep inherited failing tests explicit.
 
-## Candidates for the next operator decision
+## Current chosen design focus
 
-These are options, not a newly activated sequence.
+The operator selected cards/navigation on 2026-10-19. Architecture's
+[Plan/Play cards proposal](../Design/DESIGN-plan-play-cards-navigation.md) examines
+card purpose, capacity, editing and context-preserving navigation against the
+current code. It recommends Plan scene-navigation/view continuity first, then
+focused existing-scene editing through each surface's owning writer. The design
+is awaiting review; no implementation lease or product acceptance is implied.
+
+## Other candidates for a later operator decision
+
+These remain options, not a newly activated implementation sequence.
 
 | Candidate | User value / first useful outcome |
 |---|---|
-| Cards and navigation design | Decide what one card holds; readable short/large scenes, clear boundaries, editing, linked detail and media navigation |
 | Real session-to-memory continuation | Attach the next external recap, compare with saved notes, review/publish and use it in ordinary next-session planning |
 | Graph-aware authoring and continuity | Preserve authored table/map meaning; connect song/people/refugees and resurface ideas without turning proposals into facts |
 | Rules/statblock/combat integration | Retrieve cited 2024 rules and use the prepared mechanics through actual table controls |
 | Hosted v1 | Authenticated laptop use of the retained World at buddy.dungeonmind.net, repeatable deploy/update, backup/restore and restart proof |
 
-Recommended discussion: finish the card/navigation design decision and one
-representative shared-authoring acceptance journey before expanding that UI;
+Current discussion: review the card/navigation proposal and one representative
+shared-authoring acceptance journey before expanding that UI;
 use the next external recap as the memory-loop witness when it exists. Hosted v1
 can be chosen independently, but needs its own bounded SERVER/platform contract.
 No provider-parity program or platform-wide rewrite is an automatic prerequisite.
