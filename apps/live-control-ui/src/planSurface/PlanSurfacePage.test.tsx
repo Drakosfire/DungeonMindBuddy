@@ -4045,7 +4045,11 @@ it("disables Plan deletion immediately when an authored edit is not saved", asyn
 });
 
 it("manually edits scoped Cards in the same Plan editor and writer, preserves siblings and invalidates media on ABA navigation", async () => {
-  const source = `<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->
+  const source = `---
+private_key: retained-fixture-only
+---
+
+<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->
 ## Road
 Keep watch.
 <!-- dmb-playable-element:v2 kind=scene id=scene:a -->
@@ -4093,6 +4097,7 @@ Second body.
   expect(screen.getByText(/This change reaches outside/)).toBeInTheDocument();
   await waitFor(()=>expect(prepare).toHaveBeenCalledWith(expect.objectContaining({document_id:record.document_id,markdown:expect.stringContaining("Card edit.")})));
   expect(prepare.mock.calls[0]![0].markdown.split("<!-- dmb-playable-element:v2 kind=scene id=scene:b -->")[1]).toBe(source.split("<!-- dmb-playable-element:v2 kind=scene id=scene:b -->")[1]);
+  expect(prepare.mock.calls[0]![0].markdown.match(/private_key: retained-fixture-only/g)).toHaveLength(1);
 
   fireEvent.click(screen.getByRole("button",{name:"Document",exact:true}));
   expect((surface.querySelector(".ProseMirror") as typeof dom).editor).toBe(editor);

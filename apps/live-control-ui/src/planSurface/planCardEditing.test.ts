@@ -65,3 +65,11 @@ it("allows intermediate trailing whitespace while preserving sibling source",()=
  const range=planCardRange(ed.state.doc,"scene:a")!;ed.commands.insertContentAt(range.to-1," ");
  expect(()=>exportPlanCardMarkdown(ed,source,tiptapJsonToSemanticMarkdown(ed.getJSON()))).not.toThrow();
 });
+it("owns frontmatter once in both Cards and Document exports",()=>{
+ const ed=setup();const withYaml="---\ntitle: Retained\n---\n\n"+source;
+ const canonical=tiptapJsonToSemanticMarkdown(ed.getJSON());
+ setPlanCardScope(ed,{active:true,sceneId:"scene:a"});
+ expect(exportPlanCardMarkdown(ed,withYaml,canonical).match(/title: Retained/g)).toHaveLength(1);
+ setPlanCardScope(ed,{active:false,sceneId:null});
+ expect(exportPlanCardMarkdown(ed,withYaml,canonical).match(/title: Retained/g)).toHaveLength(1);
+});

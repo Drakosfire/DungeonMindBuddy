@@ -1970,7 +1970,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                   let next: string;
                   try {
                     const canonical = defaultMarkdownDocumentAdapter.exportMarkdown(json);
-                    next = preserveLeadingYamlFrontmatter(markdownRef.current, exportPlanCardMarkdown(updatedEditor, markdownRef.current, canonical));
+                    next = exportPlanCardMarkdown(updatedEditor, markdownRef.current, canonical);
                   } catch (cause) {
                     setError(cause instanceof Error ? cause.message : "Could not preserve the scene edit.");
                     setEditorGeneration(value => value + 1);
