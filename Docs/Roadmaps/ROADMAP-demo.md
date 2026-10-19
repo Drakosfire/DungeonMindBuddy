@@ -13,13 +13,13 @@ restart historical assignments merely because they remain in this document.
 
 ### Product decisions
 
-- **Plan wholly replaces legacy Prep.** Use **Plan** and **Live** as modes of the
+- **Plan wholly replaces legacy Prep.** Use **Plan** and **Play** as modes of the
   proposed shared Plan/Play workspace; Build remains another projection of the
   same writing system. A shared workspace is not implemented yet.
 - Both modes must edit supported **Markdown and the existing media object**,
-  including tables/callouts and media placement/manipulation. Read-only Live
+  including tables/callouts and media placement/manipulation. Read-only Play
   rendering does not meet the editing requirement.
-- Live content saves to the session's **versioned copy**, preserving the Plan and
+- Play content saves to the session's **versioned copy**, preserving the Plan and
   original accepted Run basis. Existing scenes first; structural changes later.
 - Preserve position, drafts, current/inspected scene, notes and session progress
   across mode/view/navigation changes. Notes remain prominent and independently
@@ -32,12 +32,12 @@ restart historical assignments merely because they remain in this document.
 
 | Capability | Current evidence | Remaining limit |
 |---|---|---|
-| Plan Markdown/help, Build/Plan autosave | #1416/#1418/#1417 merged; disposable saves/reopens and server timestamps; delivered5202 | Not proof of Live content editing or all surface navigation |
+| Plan Markdown/help, Build/Plan autosave | #1416/#1418/#1417 merged; disposable saves/reopens and server timestamps; delivered5202 | Not proof of Play content editing or all surface navigation |
 | Shared card Read Aloud styles | #1419 merged383fd462; rendered5202 | Presentation only |
-| Floating Live scene notes | #1420 merged09b1b3de; actual note save/reload, current-scene target and pin retained | Agent note visibility remains unimplemented |
-| Saved images in Plan Cards/Live | #1421 merged3dfa43f94; actual ready images, distinct occurrences/collapse and unchanged saved bytes | Reader controls are not editable Live media |
-| Understandable Play entry | #1423 merged8dd30d111; readable Edge resume, date/notes, normal5202 Graph Ready, entire real Run unchanged | Does not unify Plan/Live workspace |
-| Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | UI/Agent still use original pin until bounded adoption; Live content editing remains unimplemented |
+| Floating Play scene notes | #1420 merged09b1b3de; actual note save/reload, current-scene target and pin retained | Agent note visibility remains unimplemented |
+| Saved images in Plan Cards/Play | #1421 merged3dfa43f94; actual ready images, distinct occurrences/collapse and unchanged saved bytes | Reader controls are not editable Play media |
+| Understandable Play entry | #1423 merged8dd30d111; readable Edge resume, date/notes, normal5202 Graph Ready, entire real Run unchanged | Does not unify Plan/Play workspace |
+| Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | UI/Agent still use original pin until bounded adoption; Play content editing remains unimplemented |
 
 ### Next execution and ownership
 
@@ -51,7 +51,7 @@ DOGFOOD now owns the ACTIVE bounded effective-content projection successor
 PRIME owns its reviewed UI delivery. The next required serial slice remains
 existing-scene Markdown/media editing with session-copy autosave/CAS and durable
 pending-command recovery, followed by edition-aware Agent context/notes and the
-shared Plan/Live workspace with retained cross-surface acceptance. Those later
+shared Plan/Play workspace with retained cross-surface acceptance. Those later
 slices require their own explicit owner/path leases and are not complete.
 Keep original Run identity stable for notes and session progress while content
 edition identity changes. A newer Plan must not force a forbidden rebase of a

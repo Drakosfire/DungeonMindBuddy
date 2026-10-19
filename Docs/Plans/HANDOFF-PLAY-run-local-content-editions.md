@@ -1,6 +1,6 @@
 # PLAY: durable Run-local content editions
 
-Status: SETTLED — server PR #1422 merged as `7b73ffb07d21899c9007035a4b93ee9dcd455d18`, Architecture cycle 1 PASS on `6080d1a306aa96a404d19c9f5f108c37e30b81e1`. PRIME completed the separately owned schema/runtime adoption. UI/Agent adoption and Live editing remain successor work.
+Status: SETTLED — server PR #1422 merged as `7b73ffb07d21899c9007035a4b93ee9dcd455d18`, Architecture cycle 1 PASS on `6080d1a306aa96a404d19c9f5f108c37e30b81e1`. PRIME completed the separately owned schema/runtime adoption. UI/Agent adoption and Play editing remain successor work.
 
 ## Lane and ownership
 
@@ -56,7 +56,7 @@ Additive migration after0034; no eager copy/backfill or existing row rewrite. Do
 
 Use existing disposable PostgreSQL fixtures against established fixture port54329; no production database. Reuse known runtime/libraries; no environment install by default. Fresh unique synthetic DB per test, guaranteed cleanup; do not put new task files under /tmp (set TMPDIR to the established private /home/drakosfire/.local/state/dungeonmindbuddy/experiments/jev-evidence-loop-20261016 location if library temp paths are needed).
 
-Required owning proofs: real PostgreSQL Plan and Runbook sources -> exact Run -> initial note/progress -> Plan changes -> Live first edit still bases on Run pin; only edition rows change. Other Run and Plan working/committed state + original Run/manifest remain unchanged. Version2/fresh-service/history reads; replay receipt1 after version2; concurrent first commits and same-command races on real connections; stale revision/hash, command mismatch, rollback fault injection; races with progress and rebase; wrong owner/origin/grammar; no-op/strict/size constraints; corrupt head/chain/hash; migration old-Run compatibility and data-preserving downgrade refusal. Structural negative cases cover every ID/order/parent/edge/attachment invariant and positive Markdown/table/callout/media edits. Actual HTTP/ASGI API proof for auth, ownership, commit/read/replay/history backed by real persistence, plus legacy Play/progress/rebase/manifest tests. Report missing proof/skips honestly; do not claim mocks prove database or HTTP behavior.
+Required owning proofs: real PostgreSQL Plan and Runbook sources -> exact Run -> initial note/progress -> Plan changes -> Play first edit still bases on Run pin; only edition rows change. Other Run and Plan working/committed state + original Run/manifest remain unchanged. Version2/fresh-service/history reads; replay receipt1 after version2; concurrent first commits and same-command races on real connections; stale revision/hash, command mismatch, rollback fault injection; races with progress and rebase; wrong owner/origin/grammar; no-op/strict/size constraints; corrupt head/chain/hash; migration old-Run compatibility and data-preserving downgrade refusal. Structural negative cases cover every ID/order/parent/edge/attachment invariant and positive Markdown/table/callout/media edits. Actual HTTP/ASGI API proof for auth, ownership, commit/read/replay/history backed by real persistence, plus legacy Play/progress/rebase/manifest tests. Report missing proof/skips honestly; do not claim mocks prove database or HTTP behavior.
 
 Inspect cumulative diff, commit intended changes, push and open ONE PR; include exact base/head, gates and evidence. Architecture independently reviews; PRIME alone merges and owns runtime delivery. No blanket success or full-goal completion. Report back here when PR ready, blockers concrete, or path change required. Do not message other chats without separate operator authorization; PRIME coordinates review.
 
@@ -137,4 +137,4 @@ not a new worker runtime lease.
 Evidence in the established private directory: `run-editions-server-adoption.json`,
 `run-editions-adoption-preservation.json`, `run-editions-http-proof.json`.
 The UI still uses the original pin until the separately active effective-content
-projection successor is accepted. The full Live editing goal is not complete.
+projection successor is accepted. The full Play editing goal is not complete.
