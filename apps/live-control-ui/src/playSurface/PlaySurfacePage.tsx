@@ -1008,6 +1008,10 @@ export function PlaySurfacePage() {
           <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
             {v2Deck.effectiveContent?.source === "edition" ? `Session copy · revision ${v2Deck.effectiveContent.edition_revision} · ` : ""}{pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
           </p>
+          {v2Deck.effectiveContent?.source === "edition" ? (
+            <p role="status" aria-label="Session copy Agent availability" className="play-muted"
+              data-testid="play-session-copy-agent-notice">{SESSION_COPY_AGENT_UNAVAILABLE}</p>
+          ) : null}
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}

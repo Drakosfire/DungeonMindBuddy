@@ -786,6 +786,9 @@ describe("World session-copy projection", () => {
     await screen.findByTestId("play-surface-ready");
     expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Session copy · revision 2");
     expect(screen.getByText("Session prose.")).toBeInTheDocument();
+    const notice = screen.getByRole("status", { name: "Session copy Agent availability" });
+    expect(notice).toHaveTextContent("Buddy is temporarily unavailable for this session copy.");
+    expect(notice.compareDocumentPosition(screen.getByText("Session prose.")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("Origin prose.")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveTextContent("Gate");
     expect(screen.getByText("Keep watch.")).toBeInTheDocument();
@@ -831,6 +834,7 @@ describe("World session-copy projection", () => {
     await screen.findByText("Origin prose.");
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toMatchObject({ runId, runRevision: 1 });
     expect(screen.queryByText(/Session copy · revision/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-session-copy-agent-notice")).not.toBeInTheDocument();
   });
   it("fences late World A→B→A content and failures even when the Run ID repeats", async () => {
     const old = deferred<PlayRunContent>();
