@@ -156,6 +156,8 @@ def test_fingerprint_deterministic_on_empty_head(application_state_dsn: str) -> 
         "content.working_copy",
         "play.run",
         "play.run_manifest",
+        "play.run_edition",
+        "play.run_edition_revision",
         "play.active_run",
         "ingest.run",
         "source.artifact",
@@ -342,3 +344,108 @@ def test_check_with_stale_fingerprint_is_not_ready(
     assert code == 2
     assert "NOT_READY:" in captured.err
     assert "READY:" not in captured.out
+
+
+def test_editions_and_receipts_participate_in_recovery_parity(application_state_dsn):
+    """The existing v1 envelope remains readable, but missing domains fail parity."""
+    import psycopg
+    from dataclasses import replace
+    from tests.application_state.test_play_run_editions_postgres import (
+        create_source_run,
+        read,
+        request_for,
+        save,
+    )
+
+    _, _, run = create_source_run()
+    before = compute_fingerprint(application_state_dsn)
+    initial = read(run.run.run_id)
+    save(run.run.run_id, request_for(initial))
+    accepted = compute_fingerprint(application_state_dsn)
+    assert before.digest != accepted.digest
+    domains = {d.name: d for d in accepted.domains}
+    assert domains["play.run_edition"].row_count == 1
+    assert domains["play.run_edition_revision"].row_count == 1
+    old_envelope = replace(
+        accepted,
+        domains=tuple(
+            d
+            for d in accepted.domains
+            if d.name not in {"play.run_edition", "play.run_edition_revision"}
+        ),
+    )
+    assert len(compare_fingerprints(old_envelope, accepted)) == 2
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_edition_revision SET request_sha256 = %s", ("f" * 64,)
+        )
+    corrupt = compute_fingerprint(application_state_dsn)
+    assert corrupt.digest != accepted.digest
+    assert any(
+        "play.run_edition_revision" in item
+        for item in compare_fingerprints(accepted, corrupt)
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE play.run_edition_revision SET markdown = markdown || %s",
+            ("Additional content",),
+        )
+    changed_content = compute_fingerprint(application_state_dsn)
+    assert changed_content.digest != corrupt.digest
+    assert any(
+        "play.run_edition_revision" in item
+        for item in compare_fingerprints(corrupt, changed_content)
+    )
+
+
+def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn):
+    """Use the existing fixture container's pg tools; only fresh test DBs mutate."""
+    import subprocess
+    from urllib.parse import urlparse
+    from uuid import uuid4
+    from tests.application_state.test_play_run_editions_postgres import (
+        create_source_run,
+        read,
+        request_for,
+        save,
+    )
+    from tests.application_state.conftest import _create_database, _drop_database
+
+    _, _, run = create_source_run()
+    save(run.run.run_id, request_for(read(run.run.run_id)))
+    save(run.run.run_id, request_for(read(run.run.run_id), "second"))
+    expected = compute_fingerprint(application_state_dsn)
+    dsn = urlparse(application_state_dsn)
+    assert dsn.hostname == "127.0.0.1" and dsn.port == 54329
+    name = "dungeonbuddy_app_state_test_" + uuid4().hex[:12]
+    target = _replace_database(application_state_dsn, name)
+    admin = _replace_database(application_state_dsn, "postgres")
+    _create_database(admin, name)
+    try:
+        prefix = [
+            "docker",
+            "exec",
+            "-i",
+            "-e",
+            f"PGUSER={dsn.username}",
+            "-e",
+            f"PGPASSWORD={dsn.password}",
+            "dungeonbuddy-review-fixture-pg",
+        ]
+        dump = subprocess.run(
+            prefix
+            + ["pg_dump", "--format=custom", "--no-owner", "--dbname", dsn.path[1:]],
+            capture_output=True,
+            check=True,
+        ).stdout
+        subprocess.run(
+            prefix + ["pg_restore", "--no-owner", "--no-privileges", "--dbname", name],
+            input=dump,
+            capture_output=True,
+            check=True,
+        )
+        restored = compute_fingerprint(target)
+        assert compare_fingerprints(expected, restored) == []
+        assert expected.digest == restored.digest
+    finally:
+        _drop_database(admin, name)

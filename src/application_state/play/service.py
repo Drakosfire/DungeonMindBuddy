@@ -752,7 +752,10 @@ def _rebase_play_run(
         )
         if canonical_world_id is None:
             _require_campaign_run(run)
-        else:
+        from application_state.play.edition_repository import get_edition
+        if get_edition(conn, canonical_run_id, lock=True) is not None:
+            raise ApplicationStateConflictError("Run with local content editions cannot be rebased")
+        if canonical_world_id is not None:
             require_world_runbook_rebase_source(
                 conn,
                 run.playable_work_object_id,
