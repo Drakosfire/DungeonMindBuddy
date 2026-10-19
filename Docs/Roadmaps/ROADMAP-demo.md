@@ -69,7 +69,8 @@ include compact presentation, chat layout, movable Notes, shared authoring and
 session-aware Buddy support; completion remains unproven. The earlier audit's
 blocked Prep/Live goal wording is historical, not current execution authority.
 Automatic approval-review capacity failures delayed delivery commands; operator
-execution delivered #1431, and source work resumes when command access permits.
+execution delivered #1431. Full command access is now restored and PRIME is
+executing the compact correction.
 
 ## Product contract
 

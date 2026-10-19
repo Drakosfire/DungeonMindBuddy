@@ -1047,9 +1047,7 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
-          <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
-            {v2Deck.effectiveContent?.source === "edition" ? `Session copy · revision ${v2Deck.effectiveContent.edition_revision} · ` : ""}{pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
-          </p>
+
           {v2Deck.effectiveContent ? <PlaySessionContentEditor
             key={sessionCopyIdentity}
             content={v2Deck.effectiveContent}

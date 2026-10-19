@@ -744,6 +744,7 @@ export function PlayCurrentMomentCockpit({
   };
 
   const closeToCurrent = () => {
+    setMoreOpen(false);
     setWorkspace({ kind: "current" });
     restoreWorkspaceFocus();
   };
@@ -782,7 +783,15 @@ export function PlayCurrentMomentCockpit({
       setBeatCollapsed(true);
       setGlanceCollapsed(true);
     }
-    setWorkspace({ kind: "scene-inspect", sceneId: scene.id });
+    setMoreOpen(false);
+    setWorkspace(scene.id === currentScene?.id ? { kind: "current" } : { kind: "scene-inspect", sceneId: scene.id });
+  };
+
+  const browseAdjacentScene = (direction: -1 | 1) => {
+    const scenes = deck.beats.flatMap(beat => beat.scenes);
+    const index = scenes.findIndex(scene => scene.id === (inspectedScene?.id ?? currentScene?.id));
+    const scene = scenes[Math.max(0, Math.min(scenes.length - 1, index + direction))];
+    if (scene) openInspect(scene);
   };
 
   const saving = mutationStatus === "saving";
@@ -899,35 +908,49 @@ export function PlayCurrentMomentCockpit({
       ) : null}
 
       <PlaySurfaceContext id="play-cockpit-context" order={20} identity={surfaceIdentity}>
-        <button ref={scenesNavbarToggleRef} className="surface-context-action" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Scenes</button>
-        <SurfaceContextSelect aria-label="Inspect scene" value={workspace.kind === "scene-inspect" ? workspace.sceneId : ""}
+        <button ref={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Scenes</button>
+        <SurfaceContextSelect className="play-surface-context__scene" aria-label="Inspect scene" value={inspectedScene?.id ?? currentScene?.id ?? ""}
           onChange={event => { const scene = sceneInAnyBeat(deck, event.target.value); if (scene) openInspect(scene); }}>
-          <option value="">{currentScene ? `Current: ${currentScene.title}` : "No current scene"}</option>
-          {deck.beats.flatMap(beat => beat.scenes.map(scene => <option key={scene.id} value={scene.id}>{beat.title} · {scene.title}</option>))}
+          {!currentScene ? <option value="">Choose scene</option> : null}
+          {deck.beats.map(beat => <optgroup key={beat.id} label={beat.title}>{beat.scenes.map(scene => <option key={scene.id} value={scene.id}>{scene.id === currentScene?.id ? "Current: " : ""}{scene.title}</option>)}</optgroup>)}
         </SurfaceContextSelect>
-        <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => {
-          const scenes = deck.beats.flatMap(beat => beat.scenes);
-          const index = scenes.findIndex(scene => scene.id === (inspectedScene?.id ?? currentScene?.id));
-          const scene = scenes[Math.max(0, index - 1)]; if (scene) openInspect(scene);
-        }}>Previous scene</SurfaceContextAction>
-        <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => {
-          const scenes = deck.beats.flatMap(beat => beat.scenes);
-          const index = scenes.findIndex(scene => scene.id === (inspectedScene?.id ?? currentScene?.id));
-          const scene = scenes[Math.min(scenes.length - 1, index + 1)]; if (scene) openInspect(scene);
-        }}>Next scene</SurfaceContextAction>
-        {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={closeToCurrent}>Return to current</SurfaceContextAction> : null}
-        <button ref={notesNavbarToggleRef} className="surface-context-action play-surface-context__notes" type="button" aria-expanded={notesOpen} title={`Notes for current scene: ${currentScene?.title ?? "none"}`} onClick={() => setNotesOpen(value => !value)} disabled={!worldOwnedRun || !currentScene}>
-          Notes · {workspace.kind === "scene-inspect" && inspectedScene ? `current scene ${currentScene?.title ?? "none"}` : currentScene?.title ?? "no current scene"}
+        <SurfaceContextAction className="play-surface-context__previous" type="button" aria-label="Previous scene" title="Previous scene" disabled={!currentScene} onClick={() => browseAdjacentScene(-1)}>←</SurfaceContextAction>
+        <SurfaceContextAction className="play-surface-context__next" type="button" aria-label="Next scene" title="Next scene" disabled={!currentScene} onClick={() => browseAdjacentScene(1)}>→</SurfaceContextAction>
+        {workspace.kind === "scene-inspect" ? <SurfaceContextAction className="play-surface-context__return" type="button" aria-label="Return to current" title={`Return to current scene: ${currentScene?.title ?? "none"}`} onClick={closeToCurrent}>Current</SurfaceContextAction> : null}
+        <button ref={notesNavbarToggleRef} className="surface-context-action play-surface-context__notes" type="button" aria-expanded={notesOpen} aria-label={`Notes · ${workspace.kind === "scene-inspect" ? "current scene " : ""}${currentScene?.title ?? "no current scene"}`} title={`Notes for current scene: ${currentScene?.title ?? "none"}`} onClick={() => setNotesOpen(value => !value)} disabled={!worldOwnedRun || !currentScene}>
+          Notes{workspace.kind === "scene-inspect" ? " (current)" : ""}
         </button>
-        <span onKeyDownCapture={event => {
+        <div className="play-surface-context__more" onKeyDownCapture={event => {
           if (event.key !== "Escape" || !moreOpen) return;
           event.preventDefault(); event.stopPropagation(); setMoreOpen(false);
           queueMicrotask(() => moreNavbarToggleRef.current?.focus());
         }}>
-        <SurfaceContextPopover open={moreOpen} onOpenChange={setMoreOpen} title="More" trigger={<button ref={moreNavbarToggleRef} className="surface-context-action" type="button" aria-expanded={moreOpen} aria-label="More Play controls" onKeyDown={event => dismissSurfacePanelOnEscape(event, "outcomes")} onClick={() => setMoreOpen(value => !value)}>More</button>}>
+        <SurfaceContextPopover open={moreOpen} onOpenChange={setMoreOpen} title="More" trigger={<button ref={moreNavbarToggleRef} className="surface-context-action" type="button" aria-expanded={moreOpen} aria-label="More Play controls" onKeyDown={event => {
+          if (event.key !== "Escape") return;
+          event.preventDefault(); event.stopPropagation();
+          setBeatCollapsed(true); setGlanceCollapsed(true);
+          queueMicrotask(() => moreNavbarToggleRef.current?.focus());
+        }} onClick={() => setMoreOpen(value => !value)}>More</button>}>
           <SurfaceContextAction type="button" onClick={() => { toggleOutcomes(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }} aria-expanded={!glanceCollapsed}>Run record</SurfaceContextAction>
+          <div className="play-surface-context__compact-navigation" role="group" aria-label="Scene navigation">
+            <SurfaceContextAction type="button" onClick={() => { toggleOutline(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Browse scene outline</SurfaceContextAction>
+            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => browseAdjacentScene(-1)}>Previous</SurfaceContextAction>
+            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => browseAdjacentScene(1)}>Next</SurfaceContextAction>
+            {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={closeToCurrent}>Show current scene</SurfaceContextAction> : null}
+          </div>
+          <p className="play-muted" data-testid="play-source-cue">
+            {deck.effectiveContent?.source === "edition" ? `Session copy · revision ${deck.effectiveContent.edition_revision} · ` : ""}
+            Created from saved {originKind === "plan" ? "Plan" : "Runbook"} version {run.playable_revision}
+          </p>
+          {currentBeat && inspectedScene ? <>
+            <p className="play-inspect-position" data-testid="play-inspect-current">Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}</p>
+            <p className="play-inspect-position" data-testid="play-inspect-scene">Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}</p>
+          </> : null}
+          {(inspectedBeat ?? currentBeat) ? <BeatContext beat={(inspectedBeat ?? currentBeat)!}
+            resolved={run.progress.resolved_beat_ids.includes((inspectedBeat ?? currentBeat)!.id)}
+            relation={inspectedBeat ? "Viewing Beat" : "Current Beat"} /> : null}
         </SurfaceContextPopover>
-        </span>
+        </div>
       </PlaySurfaceContext>
 
       <div
@@ -954,11 +977,10 @@ export function PlayCurrentMomentCockpit({
                 scene={currentScene}
                 choices={playSceneCardChoices(decisions, run.progress.selections)}
                 variant="play-current"
-                kicker="Current Scene"
+                kicker=""
                 headingId="play-workspace-heading"
                 headingRef={workspaceHeadingRef}
-                context={<BeatContext beat={currentBeat}
-                  resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)} relation="Current Beat" />}
+
                 choiceActions={choiceActions(decisions, true)}
 
               />
@@ -1021,24 +1043,11 @@ export function PlayCurrentMomentCockpit({
                 scene={inspectedScene}
                 choices={playSceneCardChoices(inspectedDecisions, run.progress.selections)}
                 variant="play-inspection"
-                kicker={inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene · no Run change"}
-                titlePrefix={inspectedScene.id === currentScene?.id ? undefined : "Inspecting"}
+                kicker=""
                 headingId="play-workspace-heading"
                 headingRef={workspaceHeadingRef}
-                status={<>
-                  <p className="play-inspect-position" data-testid="play-inspect-current">
-                    Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}
-                  </p>
-                  <p className="play-inspect-position" data-testid="play-inspect-scene">
-                    Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}
-                  </p>
-                </>}
-                context={inspectedBeat ? <BeatContext beat={inspectedBeat}
-                  resolved={run.progress.resolved_beat_ids.includes(inspectedBeat.id)} relation="Viewing Beat" /> : null}
+
                 sceneActions={<div className="play-controls">
-                <button type="button" data-testid="play-workspace-back" onClick={closeToCurrent}>
-                  Back
-                </button>
                 {mutationsOpen && inspectedScene.id !== currentScene?.id ? (
                   <button
                     type="button"
