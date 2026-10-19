@@ -1,0 +1,85 @@
+.plan-cards-workspace {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .75rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+.plan-cards-workspace[hidden] { display: none !important; }
+.plan-cards-workspace__reader { min-width: 0; }
+.plan-card-deck {
+  position: sticky;
+  top: calc(var(--app-chrome-top, 0px) + .5rem);
+  min-width: 0;
+  width: 13.5rem;
+  color: var(--text-primary, #e8eaef);
+}
+.plan-card-deck[data-expanded="false"] { width: auto; }
+.plan-card-deck__toggle, .plan-card-deck__outline {
+  padding: .4rem .55rem;
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: .4rem;
+  background: var(--surface-raised, #18211e);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.plan-card-deck__toggle { margin-bottom: .5rem; }
+.plan-card-deck__outline { width: 100%; text-align: left; margin-bottom: .5rem; }
+.plan-card-deck__list {
+  position: relative;
+  max-height: calc(100dvh - var(--app-chrome-top, 0px) - 7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  margin: 0;
+  padding: .2rem;
+  list-style: none;
+  display: grid;
+  gap: .6rem;
+}
+.plan-card-deck__card {
+  display: grid;
+  gap: .3rem;
+  width: 100%;
+  padding: .4rem;
+  border: 2px solid transparent;
+  border-radius: .55rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.plan-card-deck__card[aria-current="true"] { border-color: #d5aa50; background: #d5aa5017; }
+.plan-card-deck__card:focus-visible, .plan-card-deck__toggle:focus-visible, .plan-card-deck__outline:focus-visible {
+  outline: 2px solid #e8c678;
+  outline-offset: 2px;
+}
+.plan-card-deck__page {
+  display: grid;
+  align-content: start;
+  gap: .4rem;
+  box-sizing: border-box;
+  height: 8.5rem;
+  overflow: hidden;
+  padding: .65rem;
+  border: 1px solid #c0ad6a;
+  border-radius: .25rem;
+  color: #332d25;
+  background: #f7ebd7;
+  font: .65rem/1.45 Georgia, serif;
+}
+.plan-card-deck__page strong { font-size: .8rem; }
+.plan-card-deck__page img { width: 100%; height: 4rem; object-fit: cover; }
+.plan-card-deck__preview { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.plan-card-deck__label { font-size: .85rem; font-weight: 600; }
+.plan-card-deck__beat, .plan-card-deck__image-placeholder { font-size: .72rem; opacity: .8; }
+@media (max-width: 700px) {
+  .plan-cards-workspace { grid-template-columns: minmax(0, 1fr); }
+  .plan-card-deck, .plan-card-deck[data-expanded="false"] { position: static; width: 100%; }
+  .plan-card-deck__list { max-height: 40dvh; }
+  .plan-card-deck__page { height: 6rem; }
+}
