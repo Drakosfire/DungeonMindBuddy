@@ -446,3 +446,9 @@
 .world-plan-document-view [data-dmb-playable-kind="scene"] {
   scroll-margin-top: calc(var(--app-chrome-top, 0px) + 1rem);
 }
+
+.shared-scene-card--plan .world-plan-cards__basis {
+  color: #453d31;
+  background: rgb(222 210 184 / 58%);
+  border-color: #c8b98e;
+}
