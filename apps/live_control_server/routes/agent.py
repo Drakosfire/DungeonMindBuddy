@@ -186,6 +186,12 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
             object_revision=record.revision, target_session=None)))
 
 
+def _planning_session_evidence(body,owner,provenance=None):
+    if body.surface.surface_id!="plan" or not owner or owner.get("kind")!="world":return None
+    from apps.live_control_server.services.session_evidence import planning_session_evidence
+    return planning_session_evidence(str(owner["id"]),provenance)
+
+
 def _work_resolver(
     body: AgentTurnRequest,
     owner: Mapping[str, Any] | None,
@@ -286,6 +292,7 @@ def _work_resolver(
             world_id=committed.world_id,
             content_basis=content_basis,
             plan_markdown=committed.markdown,
+            session_evidence=_planning_session_evidence(body,owner),
         )
     try:
         record = get_workspace_document(repo_root(), locator.object_id)
@@ -486,6 +493,7 @@ def _historical_work_resolver(
         # transient response boolean.
         content_basis=None,
         plan_markdown=committed.markdown,
+        session_evidence=_planning_session_evidence(body,owner,provenance),
     )
 
 

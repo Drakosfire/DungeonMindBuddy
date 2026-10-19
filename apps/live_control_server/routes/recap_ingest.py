@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from apps.live_control_server.config import repo_root
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.corpus.session_recap_paths import (
     is_generic_recap_tail,
@@ -44,9 +44,18 @@ RecapIngestOperation = Literal[
 _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
 
 
+class SessionEvidenceRef(BaseModel):
+    model_config=ConfigDict(extra="forbid",strict=True)
+    run_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    review_revision: int = Field(ge=1,strict=True)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class RecapIngestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    session_evidence: list[SessionEvidenceRef] = Field(default_factory=list,max_length=3)
+    _resolved_session_evidence: dict | None = PrivateAttr(default=None)
     operation: RecapIngestOperation
     campaign_id: str = Field(min_length=1)
     # Optional for general corpus maintenance. Required only when creating a
@@ -325,6 +334,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 graph_model_id=body.graph_model_id,
                 force_graph_run=body.force_graph_run,
                 ingest_context=ingest_context,
+                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
@@ -435,7 +445,17 @@ def _request_recap_context(body: RecapIngestRequest):
 
 
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)
-def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
+def post_recap_ingest(body: RecapIngestRequest, request: Request = None) -> dict[str, Any]:
+    if body.session_evidence:
+        from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+        from apps.live_control_server.services.session_evidence import resolve_evidence_refs
+        from application_state.errors import ApplicationStateError
+        if request is None:raise HTTPException(status_code=403,detail="Session supplements require authenticated GM access")
+        enforce_native_graph_gm(request)
+        if not body.managed_world_id:raise HTTPException(status_code=422,detail="Session evidence requires the selected World")
+        if body.candidate_graph_path:raise HTTPException(status_code=422,detail="Session supplements require fresh extraction, not an imported candidate")
+        try:body._resolved_session_evidence=resolve_evidence_refs(body.managed_world_id,[ref.model_dump() for ref in body.session_evidence])
+        except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
     try:
         corpus = _pipeline_corpus_root()
         if body.operation == "generate_recap_memory":
@@ -474,6 +494,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     extract_graph=body.extract_graph,
                     graph_model_id=body.graph_model_id,
                     ingest_context=ingest_context,
+                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
                 )
             else:
                 graph = materialize_recap_preview_supergraph(
@@ -486,6 +507,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     graph_model_id=body.graph_model_id,
                     force_graph_run=body.force_graph_run,
                     ingest_context=ingest_context,
+                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
                 )
             return _remove_retired_derivative_details(_append_graph_status(status, graph))
         if body.operation == "reconcile_normalized_recap":

@@ -107,6 +107,7 @@ class AgentContextPacket:
     retrieval_session: AgentRetrievalSession | None = None
     surface_context: AgentSurfaceContext | None = None
     selected_knowledge_context: Mapping[str, Any] | None = None
+    session_evidence: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -48,6 +48,7 @@ import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockp
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
+import {SessionEvidenceViewer} from "./review/SessionEvidenceViewer";
 import { SessionReviewPanel } from "./review/SessionReviewPanel";
 import {readSessionReview} from "./review/sessionReviewApi";
 import { PlayWorldPicker } from "./PlayWorldPicker";
@@ -533,6 +534,12 @@ function statusCopy(status: PlayLoadStatus, detail: string | null): { title: str
 }
 
 export function PlaySurfacePage() {
+  const search=useSyncExternalStore(subscribeLocation,playLocationSearch,()=>"");
+  const world=useSelectedWorld();const params=new URLSearchParams(search);const revision=params.get("evidence_revision");const run=params.get("run");
+  if(revision!==null&&run&&world.kind==="managed")return <AppChrome activeRoute="play"><SessionEvidenceViewer worldId={world.worldId} runId={run} revision={Number(revision)}/></AppChrome>;
+  return <PlayRuntimePage/>;
+}
+function PlayRuntimePage() {
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");

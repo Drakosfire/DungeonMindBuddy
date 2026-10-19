@@ -1309,3 +1309,11 @@ def test_failed_normalized_evidence_persistence_preserves_wire_and_stops(tmp_pat
     assert Path(call['response_artifact_path']).exists()
     assert 'normalized_artifact' not in call
     assert client.ledger()['stopped'] is True
+
+
+def test_supplemental_context_reaches_provider_without_changing_recap_source():
+    engine=Engine(TextResult(text='{"observation_nodes": []}',observation=observation()))
+    client=BoundedRecapPassClient(RecapExecutionLimits(),engine_factory=lambda:engine,supplemental_context='Separately attributed closing reflections: players want combat.')
+    invoke(client)
+    assert engine.requests[0].user_prompt.startswith('PRIVATE_SOURCE\n\n')
+    assert 'Separately attributed closing reflections' in engine.requests[0].user_prompt

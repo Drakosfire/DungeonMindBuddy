@@ -13,6 +13,8 @@ import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/wor
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { IngestionModule } from "./IngestionModule";
 
+vi.mock("../playSurface/review/SessionEvidencePicker",()=>({SessionEvidencePicker:({onChange}:{onChange:(refs:unknown[])=>void})=><button onClick={()=>onChange([{run_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",review_revision:54,sha256:"a".repeat(64)}])}>Attach saved session evidence</button>}));
+
 function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStatus {
   const result: RecapIngestStatus = {
     schema: "dmb_raw_recap_ingest_status_v1",
@@ -262,6 +264,16 @@ describe("IngestionModule", () => {
     vi.restoreAllMocks();
   });
 
+  it("passes explicitly attached session refs separately from unchanged external recap text",async()=>{
+    const user=setupIngestUser();
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async request=>makeStatus({session:30,status:"initialized",states:["ingest_status_inspected"],entity_spelling_audit:[]}));
+    render(<IngestionModule campaignId="longmont-c2" session={30} managedWorldId="elderwyld" initialSourceSession={30}/>);
+    await fillRecapInputs(user,"External authored recap stays exact.","Session 30 — Edge aftermath");
+    await user.click(screen.getByRole("button",{name:"Attach saved session evidence"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Process recap"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"Process recap"}));
+    await waitFor(()=>expect(recapIngestApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({operation:"generate_recap_memory",raw_text:"External authored recap stays exact.",session_evidence:[{run_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",review_revision:54,sha256:"a".repeat(64)}]})));
+  });
   it("lets the operator choose the ingest campaign", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest");

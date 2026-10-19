@@ -220,6 +220,7 @@ def build_recap_graph_preview_bundle(
     enable_edge_vocabulary_packet: bool = False,
     category_client: Any | None = None,
     ingest_context: Any | None = None,
+    supplemental_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
@@ -280,7 +281,7 @@ def build_recap_graph_preview_bundle(
             require_production_lineage=extract_graph,
         )
         if reusable is not None and not _summary_matches_ingest_context(
-            repo, reusable, ingest_context
+            repo, reusable, ingest_context, supplemental_evidence
         ):
             logger.info(
                 "skipping reusable recap run with a different World/campaign head snapshot "
@@ -325,6 +326,7 @@ def build_recap_graph_preview_bundle(
         enable_node_vocabulary_packet=enable_node_vocabulary_packet,
         enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
         ingest_context=ingest_context,
+        supplemental_evidence=supplemental_evidence,
     )
     logger.info(
         "production extraction run_id=%s profile=%s status=%s failure_kind=%s",
@@ -508,6 +510,7 @@ def materialize_recap_preview_supergraph(
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
     ingest_context: Any | None = None,
+    supplemental_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
@@ -552,6 +555,7 @@ def materialize_recap_preview_supergraph(
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             ingest_context=ingest_context,
+        supplemental_evidence=supplemental_evidence,
         )
 
 
@@ -567,7 +571,7 @@ def materialize_recap_preview_supergraph(
             )
             existing = [
                 run for run in existing
-                if _summary_matches_ingest_context(repo, run, ingest_context)
+                if _summary_matches_ingest_context(repo, run, ingest_context, supplemental_evidence)
             ]
             logger.info(
                 "preview union extract-then-materialize discovered runs campaign=%s session=session-%s statuses=%s",
@@ -599,6 +603,7 @@ def materialize_recap_preview_supergraph(
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
                 ingest_context=ingest_context,
+        supplemental_evidence=supplemental_evidence,
             )
 
 
@@ -606,7 +611,7 @@ def materialize_recap_preview_supergraph(
         manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
         summary = _summary_for_manifest(repo, manifest)
         if summary is not None and not _summary_matches_ingest_context(
-            repo, summary, ingest_context
+            repo, summary, ingest_context, supplemental_evidence
         ):
             raise ValueError(
                 "selected graph-ingest run does not match the selected World/campaign binding"
@@ -629,7 +634,7 @@ def materialize_recap_preview_supergraph(
         summary = next(
             (
                 run for run in runs
-                if _summary_matches_ingest_context(repo, run, ingest_context)
+                if _summary_matches_ingest_context(repo, run, ingest_context, supplemental_evidence)
             ),
             None,
         )
@@ -907,7 +912,7 @@ def _latest_matching_run(
 
 
 def _summary_matches_ingest_context(
-    repo: Path, summary: GraphIngestRunSummary, ingest_context: Any
+    repo: Path, summary: GraphIngestRunSummary, ingest_context: Any, supplemental_evidence: dict | None = None
 ) -> bool:
     """Reuse a run only while its source and selected World authority stay exact."""
     if not summary.manifest_path:
@@ -929,6 +934,13 @@ def _summary_matches_ingest_context(
         run = get_extraction_run(repo, run_id)
     except GraphRunRegistryError:
         return False
+    stored_supplement=(run.lineage or {}).get("session_evidence")
+    if (stored_supplement or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):return False
+    if stored_supplement:
+        try:
+            evidence_path=(repo/stored_supplement["uri"]).resolve();evidence_path.relative_to(repo.resolve())
+            if hashlib.sha256(evidence_path.read_bytes()).hexdigest()!=stored_supplement.get("artifact_sha256"):return False
+        except (KeyError,ValueError,OSError,TypeError):return False
     return _same_recap_ingest_context_authority(
         (run.lineage or {}).get("world_campaign_ingest_context"),
         ingest_context.as_lineage(),

@@ -327,6 +327,7 @@ class BoundedRecapPassClient:
         clock=time.monotonic,
         response_artifact_dir: str | os.PathLike[str] | None = None,
         request_context_hashes: Mapping[str, str] | None = None,
+        supplemental_context: str | None = None,
     ):
         from generationengine.types import TextRequest
 
@@ -344,6 +345,8 @@ class BoundedRecapPassClient:
             ):
                 raise ValueError("private response context must contain SHA-256 digests")
 
+        if supplemental_context is not None and (not isinstance(supplemental_context,str) or len(supplemental_context)>26000):raise ValueError("Supplemental evidence context exceeds its bound")
+        self.supplemental_context=supplemental_context
         self.limits = limits
         self._engine_factory = engine_factory or partial(_default_engine_for, limits.provider)
         self._request_type = TextRequest
@@ -463,7 +466,7 @@ class BoundedRecapPassClient:
                 "container."
             )
         request_kwargs: dict[str, Any] = {
-            "user_prompt": user_content,
+            "user_prompt": user_content+("\n\n"+self.supplemental_context if self.supplemental_context else ""),
             "system_prompt": system_prompt,
             "provider": self.limits.provider,
             "model": self.limits.model,

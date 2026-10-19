@@ -323,6 +323,8 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
+  if (pathname.startsWith("/api/live/world-session-evidence")) return true;
+  if (pathname==="/api/live/recap-ingest" && Array.isArray(requestBodyRecord(body)?.session_evidence) && (requestBodyRecord(body)!.session_evidence as unknown[]).length>0) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;

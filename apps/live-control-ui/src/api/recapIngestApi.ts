@@ -1,6 +1,6 @@
 import type { RecapIngestRequest, RecapIngestStatus } from "./types";
 
-const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+import {authenticatedApiFetch} from "./liveApi";
 
 async function parseJsonBody<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -12,7 +12,7 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
 }
 
 export async function postRecapIngest(body: RecapIngestRequest): Promise<RecapIngestStatus> {
-  const response = await fetch(`${baseUrl}/api/live/recap-ingest`, {
+  const {response} = await authenticatedApiFetch("/api/live/recap-ingest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

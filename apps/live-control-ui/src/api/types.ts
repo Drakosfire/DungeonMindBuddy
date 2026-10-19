@@ -1008,6 +1008,7 @@ export type WorldPlanGraphAnswerSegmentV1 =
     graph_revision: string;
     evidence_ref_ids: string[];
   }
+  | { kind: "session_evidence_claim"; text:string;run_id:string;review_revision:number;evidence_sha256:string }
   | { kind: "plan_claim"; text: string; plan_content_sha256: string }
   | { kind: "proposal"; text: string; label: "invented_idea" }
   | { kind: "connective"; text: string };
@@ -1041,7 +1042,7 @@ export interface WorldPlanGraphCitationMapV2 {
 export interface WorldPlanGraphCompletionV1 {
   schema: "dmb_plan_world_graph_completion_v1";
   context_receipt_sha256: string;
-  answer_basis: "committed_plan" | "committed_plan_plus_world_graph";
+  answer_basis: "committed_plan" | "committed_plan_plus_world_graph" | "committed_plan_plus_session_evidence" | "committed_plan_plus_world_graph_plus_session_evidence";
   answer_context_status: WorldPlanGraphAnswerContextStatusV1;
   answer_segments: WorldPlanGraphAnswerSegmentV1[];
   citation_map: WorldPlanGraphCitationMapV1 | null;
@@ -1818,6 +1819,7 @@ export type RecapIngestOperation =
   | "reconcile_normalized_recap";
 
 export interface RecapIngestRequest {
+  session_evidence?: Array<{run_id:string;review_revision:number;sha256:string}>;
   operation: RecapIngestOperation;
   campaign_id: string;
   managed_world_id?: string;
