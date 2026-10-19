@@ -23,6 +23,7 @@ from application_state.errors import (
 from application_state.play import edition_repository
 from application_state.play.edition_service import (
     commit_content,
+    read_context_snapshot,
     read_command,
     read_content,
 )
@@ -92,6 +93,37 @@ def snapshot(dsn):
                 "content.working_copy",
             ]
         }
+
+
+def test_context_snapshot_binds_run_progress_and_effective_edition(
+    application_state_dsn,
+):
+    _, _, aggregate = create_source_run()
+    run_id = aggregate.run.run_id
+    progressed = replace_world_play_run_progress(
+        world_id=WORLD,
+        run_id=run_id,
+        expected_run_revision=1,
+        progress={
+            "current_scene_id": "scene:gate",
+            "current_beat_id": "beat:arrival",
+            "resolved_beat_ids": [],
+            "selections": {},
+            "notes_by_element_id": {"scene:gate": "GM note bound to this Run revision."},
+        },
+    )
+    pinned = read(run_id)
+    accepted = save(run_id, request_for(pinned, "Saved session-copy context"))
+
+    run, content = read_context_snapshot(run_id=str(run_id), world_id=WORLD)
+
+    assert run.run_revision == progressed.run.run_revision
+    assert run.progress["notes_by_element_id"]["scene:gate"] == "GM note bound to this Run revision."
+    assert content.source == "edition"
+    assert content.edition_revision == accepted.accepted_edition_revision
+    assert content.edition_revision_id == accepted.accepted_edition_revision_id
+    assert content.content_sha256 == accepted.accepted_content_sha256
+    assert content.markdown.endswith("Saved session-copy context\n")
 
 
 @pytest.mark.parametrize("kind", ["plan", "runbook"])

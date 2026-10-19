@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -49,7 +49,7 @@ from apps.live_control_server.services.agent_graph_auth import enforce_native_gr
 from apps.live_control_server.services.agent_play_surface_context import (
     WorldPlaySurfaceContextError,
     resolve_historical_world_play_turn_snapshot,
-    resolve_world_play_turn_snapshot,
+    resolve_world_play_session_turn_snapshot,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.agent_turn_service import (
@@ -199,12 +199,16 @@ def _work_resolver(
         if owner is None or owner.get("kind") != "world" or not owner.get("id"):
             raise AgentTurnServiceError("A Play Run requires a verified World.", code="world_owner_unverified", status_code=403)
         try:
-            context, receipt = resolve_world_play_turn_snapshot(
+            if locator.play_content_basis is None:
+                raise WorldPlaySurfaceContextError("Refresh Play to bind the saved session content before asking Buddy")
+            context, receipt = resolve_world_play_session_turn_snapshot(
                 root=_managed_world_root(), world_id=str(owner["id"]),
                 run_id=locator.object_id, run_revision=locator.expected_revision,
+                content_basis=locator.play_content_basis,
             )
         except (WorldPlaySurfaceContextError, WorkspaceDocumentRegistryError, WorldContainerRegistryError, ValueError) as exc:
-            raise AgentTurnServiceError("The exact World Play Run is unavailable or stale.", code="play_context_unavailable", status_code=409) from exc
+            detail = str(exc) if isinstance(exc, WorldPlaySurfaceContextError) else "The exact saved Play session is unavailable"
+            raise AgentTurnServiceError(f"{detail}. Reopen Play to refresh the saved session context.", code="play_context_unavailable", status_code=409, provider_dispatched=False) from exc
         return AgentTurnResolvedWork(
             kind="run", object_id=receipt.run_id, revision=receipt.run_revision,
             changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
@@ -354,6 +358,7 @@ def _historical_work_resolver(
     body: AgentTurnRequest,
     owner: Mapping[str, Any] | None,
     provenance: TurnProvenance,
+    *, play_context_receipt: PlayRunTurnContextReceiptV2 | None = None,
 ) -> AgentTurnResolvedWork | None:
     """Load retry content from its frozen WorkRevision, never today's pointer."""
     reference = provenance.primary_work
@@ -385,6 +390,10 @@ def _historical_work_resolver(
             or receipt.run_revision != locator.expected_revision
         ):
             raise AgentTurnServiceError("The historical Play receipt does not match its World or Run.", code="turn_receipt_unverifiable", status_code=409)
+        if play_context_receipt is not None:
+            receipt = play_context_receipt
+            if receipt.world_id != provenance.world_id:
+                raise AgentTurnServiceError("Historical session context World differs", code="turn_receipt_unverifiable", status_code=409)
         try:
             context = resolve_historical_world_play_turn_snapshot(
                 root=_managed_world_root(), world_id=provenance.world_id, receipt=receipt,

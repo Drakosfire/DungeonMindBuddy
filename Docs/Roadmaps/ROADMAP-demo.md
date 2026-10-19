@@ -42,6 +42,7 @@ restart historical assignments merely because they remain in this document.
 | Play Markdown/existing-media editing | #1428 merged d7d5eedd7, Architecture Cycle2 PASS; #1429 contrast0858ac568; normal5202 pointer resize/move/collapse and prose autosave→reload/history verified; Plan/Run/progress/notes unchanged; desktop/narrow | Existing scenes only; edited-session Agent context remains unavailable |
 | Play surface navbar | #1431 merged6e9437546; independent exact-head PASS at5d2e42bbc; 104 affected tests and build pass; UI served5202 and operator screenshots confirm the shared host | Screenshots show multi-row wrapping and redundant body metadata; compact acceptance failed and is corrected next |
 | Compact Play reader correction | #1432/#1433/#1434 merged through9863c5189; independent exact-head reviews;107 tests/build; normal5202 desktop/narrow one-line row, readable menu and unchanged Plan/Run/edition | Settled; next is chat layout and movable Notes |
+| Play chat layout and movable Notes | #1435/#1436/#1437 merged through76f765d3c; independent exact-head reviews, normal5202 desktop/wide/narrow pointer/keyboard proof and retained-state parity | Settled; session-aware Buddy context is next |
 
 ### Next execution and ownership
 

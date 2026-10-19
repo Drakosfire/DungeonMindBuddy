@@ -39,6 +39,7 @@ export interface PlayCurrentMomentCockpitProps {
   mutationStatus: RunbookMutationStatus;
   onMutationStatus: (status: RunbookMutationStatus) => void;
   onAuthoritativeRun: (run: AnyPlayRunRecord) => void;
+  onNoteUnsubmittedChange?: (hasUnsubmitted: boolean) => void;
 }
 
 type SceneNoteFailure = "conflict" | "unknown" | "rejected" | "unconfirmed" | "recovered";
@@ -348,6 +349,7 @@ export function PlayCurrentMomentCockpit({
   mutationStatus,
   onMutationStatus,
   onAuthoritativeRun,
+  onNoteUnsubmittedChange,
 }: PlayCurrentMomentCockpitProps) {
   const run = deck.run;
   const runIdentity = run.schema_version === "dmb_world_play_run_record_v2"
@@ -369,6 +371,7 @@ export function PlayCurrentMomentCockpit({
   const [notesOpen, setNotesOpen] = useState(false);
   const [progressRejection, setProgressRejection] = useState<string | null>(null);
   const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
+  const [hydratedNoteScope, setHydratedNoteScope] = useState<string | null>(null);
   const [sceneNoteDrafts, setSceneNoteDrafts] = useState<Record<string, SceneNoteDraft>>({});
   const [sceneNoteStorageWarnings, setSceneNoteStorageWarnings] = useState<Record<string, string>>({});
   const cockpitRef = useRef<HTMLElement | null>(null);
@@ -470,6 +473,10 @@ export function PlayCurrentMomentCockpit({
   const sceneNoteValue = activeSceneNoteDraft?.text ?? serverSceneNote;
   const sceneNoteSaved = sceneNoteId != null
     && Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, sceneNoteId);
+  useEffect(() => {
+    onNoteUnsubmittedChange?.(sceneNoteScope != null && (sceneNoteScope !== hydratedNoteScope || activeSceneNoteDraft != null));
+    return () => onNoteUnsubmittedChange?.(false);
+  }, [activeSceneNoteDraft, sceneNoteScope, hydratedNoteScope, run.run_revision, onNoteUnsubmittedChange]);
   const sceneNoteChangedOnServer = activeSceneNoteDraft != null
     && (activeSceneNoteDraft.basisPresent !== sceneNoteSaved
       || activeSceneNoteDraft.basisText !== serverSceneNote);
@@ -589,6 +596,7 @@ export function PlayCurrentMomentCockpit({
   useEffect(() => {
     if (!sceneNoteScope || !sceneNoteId || run.schema_version !== "dmb_world_play_run_record_v2") return;
     const result = readSceneNoteDraftCache(sceneNoteScope, run, sceneNoteId);
+    setHydratedNoteScope(sceneNoteScope);
     if (result.issue) {
       setSceneNoteStorageWarnings((warnings) => ({ ...warnings, [sceneNoteScope]: result.issue! }));
       return;

@@ -17,6 +17,7 @@ from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
 
 from application_state.agent_conversation.types import (
+    PlayContentBasis,
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
@@ -93,6 +94,7 @@ class AgentTurnPrimaryWork(BaseModel):
     expected_revision: int = Field(strict=True, ge=1)
     expected_revision_n: int | None = Field(default=None, strict=True, ge=1)
     expected_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    play_content_basis: PlayContentBasis | None = None
 
     @field_validator("object_id")
     @classmethod
@@ -104,6 +106,8 @@ class AgentTurnPrimaryWork(BaseModel):
 
     @model_validator(mode="after")
     def validate_plan_content_pin(self) -> AgentTurnPrimaryWork:
+        if self.play_content_basis is not None and self.kind != "run":
+            raise ValueError("Play content basis is only valid for Run work")
         if self.kind == "build":
             if self.expected_revision_n is not None or self.expected_content_sha256 is None:
                 raise ValueError("Build work requires a saved digest and forbids Plan revision_n")

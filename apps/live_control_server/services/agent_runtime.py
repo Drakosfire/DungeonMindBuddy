@@ -78,6 +78,7 @@ class AgentPlayCurrentElementContext:
     element_id: str
     title: str
     body_text: str
+    body_markdown: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +88,8 @@ class AgentPlayCurrentMomentContext:
     playable_revision: int
     current_beat: AgentPlayCurrentElementContext
     current_scene: AgentPlayCurrentElementContext | None = None
+    edition_revision: int | None = None
+    saved_scene_note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -805,6 +805,13 @@ export interface WorldPlanAgentTurnRequestV1 {
   message: string;
 }
 
+/** Exact saved session content admitted by the Play reader. */
+export interface WorldPlayContentBasis {
+  edition_revision: number;
+  edition_revision_id: string | null;
+  content_sha256: string;
+}
+
 /** Play submits an admitted World Run. The server resolves its Graph binding and revision. */
 export interface WorldPlayAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";
@@ -812,7 +819,7 @@ export interface WorldPlayAgentTurnRequestV1 {
   turn_id: string;
   surface: { surface_id: "play"; instance_id: string };
   owner_scope: { kind: "world"; world_id: string };
-  primary_work: { kind: "run"; object_id: string; expected_revision: number };
+  primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis?: WorldPlayContentBasis };
   client_work_state: "saved_clean";
   /** The graphless variant is retained for exact recovery of older saved requests. */
   graph_request: { mode: "none" } | {

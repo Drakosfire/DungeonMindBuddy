@@ -26,6 +26,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphContextReceiptV1,
     PlanPlayableTargetReceiptV1,
     PlayRunTurnContextReceiptV1,
+    PlayRunTurnContextReceiptV2,
     PlayGraphBindingReceiptV1,
     PlanContextPolicyV1,
     SubmittedGraphFocusIntentV1,
@@ -4446,6 +4447,7 @@ def _require_playable_target_receipt_matches_request(
 
 def _require_play_run_receipt_matches_request(
     request: AgentTurnRequest, provenance: TurnProvenance,
+    session_receipt: PlayRunTurnContextReceiptV2 | None = None,
 ) -> PlayRunTurnContextReceiptV1 | None:
     if request.surface.surface_id != "play" or request.primary_work is None:
         return None
@@ -4470,7 +4472,17 @@ def _require_play_run_receipt_matches_request(
             "The stored Play Run receipt does not match the submitted intent.",
             code="turn_receipt_unverifiable", status_code=409,
         )
-    return receipt
+    basis = request.primary_work.play_content_basis
+    if (basis is None) != (session_receipt is None) or (basis is not None and session_receipt is not None and (
+        session_receipt.world_id != provenance.world_id
+        or session_receipt.run_id != receipt.run_id
+        or session_receipt.run_revision != receipt.run_revision
+        or session_receipt.edition_revision != basis.edition_revision
+        or session_receipt.edition_revision_id != basis.edition_revision_id
+        or session_receipt.content_sha256 != basis.content_sha256
+    )):
+        raise AgentTurnServiceError("The saved session receipt does not match the submitted content basis.", code="turn_receipt_unverifiable", status_code=409)
+    return session_receipt or receipt
 
 
 def _stored_play_graph_binding(
@@ -4540,7 +4552,7 @@ def _completed_turn_replay(
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
     _require_playable_target_receipt_matches_request(request, turn.provenance)
-    _require_play_run_receipt_matches_request(request, turn.provenance)
+    _require_play_run_receipt_matches_request(request, turn.provenance, turn.play_context_receipt)
     play_graph_binding = _stored_play_graph_binding(request, turn.provenance)
     segment_thread_id = _provider_segment_thread_id(
         turn.provenance, conversation_id=turn.conversation_id
@@ -5366,6 +5378,7 @@ def _accept_world_turn(
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1,
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | None = None,
     graph_context_execution: Any | None = None,
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None = None,
     expected_conversation_id: UUID | None = None,
 ) -> Turn:
     if isinstance(submitted_intent, (SubmittedTurnIntentV2, BuildGraphIntentV1)) and graph_context_receipt is None:
@@ -5404,6 +5417,7 @@ def _accept_world_turn(
             ),
             graph_context_receipt=graph_context_receipt,
             graph_context_execution=graph_context_execution,
+            play_context_receipt=play_context_receipt,
         )
         try:
             return service.accept_turn(submission)
@@ -5694,7 +5708,7 @@ def execute_agent_turn(
         stored_playable_target = _require_playable_target_receipt_matches_request(
             request, durable_turn.provenance
         )
-        _require_play_run_receipt_matches_request(request, durable_turn.provenance)
+        _require_play_run_receipt_matches_request(request, durable_turn.provenance, durable_turn.play_context_receipt)
         stored_play_graph_binding = _stored_play_graph_binding(
             request, durable_turn.provenance,
         )
@@ -5750,9 +5764,13 @@ def execute_agent_turn(
         try:
             if durable_turn is not None:
                 if historical_work_resolver is not None:
-                    work = historical_work_resolver(
-                        request, owner, durable_turn.provenance
-                    )
+                    if durable_turn.play_context_receipt is not None:
+                        work = historical_work_resolver(
+                            request, owner, durable_turn.provenance,
+                            play_context_receipt=durable_turn.play_context_receipt,
+                        )
+                    else:
+                        work = historical_work_resolver(request, owner, durable_turn.provenance)
                 elif durable_turn.provenance.primary_work.resolution == "absent":
                     work = None
                 else:
@@ -6077,8 +6095,9 @@ def execute_agent_turn(
                     world_id=canonical_world_id,
                     provenance=provenance,
                     submitted_intent=submitted_intent,
+                    play_context_receipt=work.play_context_receipt if work is not None and isinstance(work.play_context_receipt, PlayRunTurnContextReceiptV2) else None,
                 )
-            if durable_turn.provenance != provenance:
+            if durable_turn.provenance != provenance or (durable_turn.play_context_receipt != (work.play_context_receipt if work is not None and isinstance(work.play_context_receipt, PlayRunTurnContextReceiptV2) else None)):
                 # A concurrent identical submission may win acceptance after
                 # this request's early reconciliation missed. Its immutable
                 # receipt is authoritative; never dispatch the context this
