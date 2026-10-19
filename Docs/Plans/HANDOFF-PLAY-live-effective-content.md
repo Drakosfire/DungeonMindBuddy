@@ -6,7 +6,7 @@ Topology serial successor of merged server PR1422. PRIME assigns DOGFOOD exclusi
 
 ## Outcome and invariant
 
-Load and honestly project the effective content of a World-owned grammar-v2 session: its immutable original pin before editing, or its versioned session copy after editing. This is the read-adoption predecessor to Live editing/autosave, not completion of that user goal. Plan fully replaces legacy Prep; visible mode terminology Plan/Live. Preserve original Run pin/manifest/progress/notes. Existing v1/campaign behavior unchanged.
+Load and honestly project the effective content of a World-owned grammar-v2 session: its immutable original pin before editing, or its versioned session copy after editing. This is the read-adoption predecessor to Play editing/autosave, not completion of that user goal. Plan fully replaces legacy Prep; visible mode terminology Plan/Play. Preserve original Run pin/manifest/progress/notes. Existing v1/campaign behavior unchanged.
 
 GET the authenticated1422 content endpoint using existing authenticatedApiFetch/LiveApiError patterns. Validate schema, World/Run, exact origin tuple, nonnegative edition N and nullable/positive edition UUID relation, exact UTF8 SHA256, structure witness and timestamps. Effective text is neither a forged WorkRevision DTO nor a replacement for original provenance. Fail closed on missing/corrupt edition; no quiet fallback. A newer Plan/Runbook is informational; an edition-bearing Run must not enter the old latest-Runbook rebase-required path.
 
@@ -60,7 +60,7 @@ acceptance is not claimed; it remains part of PRIME's post-review 5202 delivery.
 
 Actual API-shaped fixtures plus mounted Play page prove edition text/media/table/callout while origin unchanged; progress/notes refresh retains edition; newer source cannot force forbidden rebase; explicit provenance; wrong World/origin/hash fails; v1 unchanged; edition Agent no-network assertion. Test late World/Run A→B→A and errors. Typecheck/build/cumulative diff; one PR through commit/push/open; no merge by worker. Independent exact-head Architecture review. Existing API runtime adoption is PRIME-owned; actual disposable session edition read/reopen on normal5202 and desktop/narrow rendered evidence follow accepted UI delivery. No provider call, real user document edit, Graph publication or serving service restart by this worker.
 
-Next bounded successor remains existing-scene Markdown/media Live editing with session-copy autosave/CAS, durable pending-command journal and recovery. Preserve this scope and report precise next seam, not another wide redesign.
+Next bounded successor remains existing-scene Markdown/media Play editing with session-copy autosave/CAS, durable pending-command journal and recovery. Preserve this scope and report precise next seam, not another wide redesign.
 
 ## Rendered follow-through: visible availability notice
 
