@@ -6822,3 +6822,12 @@ def test_frozen_v2_reclaim_retains_explicit_wire_and_rejects_target_only(monkeyp
     with pytest.raises(svc._AnswerValidationFailure) as rejected:
         svc._parse_policy_completion(json.dumps(answer), turn, attempt)
     assert rejected.value.reason == "top_level_shape"
+
+
+def test_plan_graph_output_instructions_name_exact_identifier_fields():
+    from apps.live_control_server.services.agent_turn_service import _PLAN_GRAPH_ANSWER_INSTRUCTIONS as prompt
+    assert "claim_id is an answer-local label" in prompt
+    assert "assertionId" in prompt and "edgeId BYTE FOR BYTE" in prompt
+    assert "initial claimLedger" in prompt
+    assert "target_ref" not in prompt
+    assert "No citation_map" in prompt
