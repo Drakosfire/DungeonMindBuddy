@@ -44,3 +44,7 @@ Verify owning parent authorization through target-only parsing, existing APP com
 - PRIME retains the approval question and any explicitly authorized acceptance
   follow-up. Record subsequent proof in a guarded state sync; until then neither
   this slice's live acceptance nor the overall grounding repair is complete.
+
+## Subsequent authorization and live attempt
+
+Operator explicitly authorized running the check and other requested external sharing of story material on2026-10-19; the pendingapproval statements above describe the earlier boundary. Newlive turn2d3f70f3-13e2-4996-a1e2-6592d93b4626 retrievedcompleteevidence butfailedafter37.55s because modeltarget assertion:a9683b58c67c8735 wasabsent; actualcompleteinputtarget wasassertion:a9688d6c6ff9c2d4. The strictvalidator correctlyrejectedit.12protectedpayloadsunchanged. Groundingacceptance remainsopen; narrowinstructionclarification successor preservesexistingwire andvalidator. Broaderreferenceformat proposal wasauto-reviewrejected beforeanywrites andisnotactivated.
