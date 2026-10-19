@@ -81,6 +81,8 @@ vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: Re
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
 vi.mock("../agentInteraction/usePublishSurfaceInteraction", () => ({ usePublishSurfaceInteraction: () => undefined }));
 vi.mock("../graphLens", () => ({ useOptionalWorldGraphLens: () => null }));
+vi.mock("./review/SessionReviewPanel",()=>({SessionReviewPanel:()=>null}));
+vi.mock("./review/sessionReviewApi",()=>({readSessionReview:vi.fn().mockResolvedValue({review:null})}));
 vi.mock("./PlayWorldPicker", () => ({PlayWorldPicker: () => <div>Choose your World</div>}));
 vi.mock("./StartRunPanel", () => ({ StartRunPanel: () => <div>Start Run</div> }));
 

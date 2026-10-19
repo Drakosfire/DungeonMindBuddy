@@ -48,6 +48,8 @@ import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockp
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
+import { SessionReviewPanel } from "./review/SessionReviewPanel";
+import {readSessionReview} from "./review/sessionReviewApi";
 import { PlayWorldPicker } from "./PlayWorldPicker";
 import { StartRunPanel } from "./StartRunPanel";
 import { SurfaceContextAction } from "../surfaceInteraction/contextHost";
@@ -357,6 +359,16 @@ function PlayChooser({
   const [records, setRecords] = useState<AnyPlayRunRecord[]>([]);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [endedIds,setEndedIds]=useState<string[]>([]);
+  useEffect(()=>{
+    let cancelled=false;setEndedIds([]);
+    if(selectedWorldId){
+      const queue=[...records],ended:string[]=[];
+      const worker=async()=>{while(!cancelled&&queue.length){const record=queue.shift()!;try{if((await readSessionReview(record.run_id,selectedWorldId)).review?.status==="ended")ended.push(record.run_id)}catch{/* Session itself remains openable if review metadata is unavailable. */}}};
+      void Promise.all(Array.from({length:Math.min(3,records.length)},worker)).then(()=>{if(!cancelled)setEndedIds(ended)});
+    }
+    return()=>{cancelled=true};
+  },[records,selectedWorldId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -437,9 +449,9 @@ function PlayChooser({
     const noteCount = Object.values(record.progress.notes_by_element_id).filter(note => note.trim()).length;
     return <li key={record.run_id}>
       <a className={primary ? "play-session-resume" : undefined}
-        data-testid={`play-session-${record.run_id}`} href={playHref({ run: record.run_id })}
-        onClick={event => { event.preventDefault(); navigateToRun(record.run_id); }}>
-        <strong>{primary ? "Resume session" : "Open session"} · {title(record)}</strong>
+        data-testid={`play-session-${record.run_id}`} href={playHref({ run: record.run_id }) + (endedIds.includes(record.run_id)?"&review=1":"")}
+        onClick={event => { if(!endedIds.includes(record.run_id)){event.preventDefault(); navigateToRun(record.run_id);} }}>
+        <strong>{endedIds.includes(record.run_id)?"Review session":primary ? "Resume session" : "Open session"} · {title(record)}</strong>
         <span className="play-muted">Last played {dateLabel(record.updated_at)} · {noteCount} saved {noteCount === 1 ? "note" : "notes"}</span>
       </a>
       <details className="play-session-details"><summary>Session details</summary>
@@ -1080,6 +1092,7 @@ export function PlaySurfacePage() {
           data-play-document-id={publication.documentId ?? ""}
         >
 
+          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/> : null}
           {v2Deck.effectiveContent ? <PlaySessionContentEditor
             key={sessionCopyIdentity}
             content={v2Deck.effectiveContent}

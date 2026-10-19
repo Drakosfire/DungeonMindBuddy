@@ -511,3 +511,37 @@ async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: 
         raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/world-play-runs/v2/{run_id}/review")
+def get_world_session_review(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from application_state.play.session_review import read_review
+    from application_state.errors import ApplicationStateError
+    enforce_native_graph_gm(request)
+    try:
+        return read_review(run_id=run_id, world_id=world_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.put("/world-play-runs/v2/{run_id}/review/commands/{command_id}")
+async def put_world_session_review(run_id: str, command_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from application_state.play.session_review import ReviewCommand, commit_review
+    from application_state.errors import ApplicationStateError
+    from pydantic import ValidationError
+    enforce_native_graph_gm(request)
+    raw = bytearray()
+    async for chunk in request.stream():
+        if len(raw) + len(chunk) > 1100000:
+            raise HTTPException(status_code=413, detail="Review command too large")
+        raw.extend(chunk)
+    try:
+        body = ReviewCommand.model_validate_json(bytes(raw))
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
+    try:
+        return commit_review(run_id=run_id, world_id=world_id, command_id=command_id, request=body)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
