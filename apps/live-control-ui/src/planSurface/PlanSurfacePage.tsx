@@ -1,3 +1,4 @@
+import { PlanCardDeck } from "./components/PlanCardDeck";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
@@ -1824,7 +1825,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
-          {navigationScenes.length > 0 ? <nav className="world-plan-scene-navigation" aria-label="Plan scene navigation">
+          {!cardsViewActive && navigationScenes.length > 0 ? <nav className="world-plan-scene-navigation" aria-label="Plan scene navigation">
             <button type="button" aria-label="Previous scene" title="Previous scene" disabled={navigationSceneIndex <= 0}
               onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex - 1]?.id ?? null)}>‹</button>
             <select aria-label="Plan scene" value={navigationSceneId ?? ""} onChange={event => navigatePlanScene(event.target.value || null)}>
@@ -1973,8 +1974,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </PlanSurfaceCanvasFrame>
           </div>
         </div>
-        {cardsViewActive && documentId ? (
-          <WorldPlanCardProjection
+        {documentId && status === "ready" ? <div className="plan-cards-workspace" hidden={!cardsViewActive}>
+          <PlanCardDeck key={navigationIdentity} visible={cardsViewActive} scenes={navigationScenes} nodes={navigationNodes}
+            sceneId={navigationSceneId} onSelect={navigatePlanScene} />
+          <div className="plan-cards-workspace__reader">
+          {cardsViewActive ? <WorldPlanCardProjection
             key={editorIdentity}
             navigation={{ sceneId: navigationSceneId, onChange: navigatePlanScene }}
             worldId={worldId}
@@ -1993,8 +1997,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             onSelectEditTarget={selectPlayableEditTarget}
             selectionStale={selectedPlayableTargetStale}
             onActivateGraphNode={activateNode}
-          />
-        ) : null}
+          /> : null}
+          </div>
+        </div> : null}
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}

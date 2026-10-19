@@ -94,6 +94,7 @@ function returnToCardOutline() {
   if (reader) {
     const sceneSelect = screen.queryByRole("combobox", { name: "Plan scene" });
     if (sceneSelect) fireEvent.change(sceneSelect, { target: { value: "" } });
+    else if (screen.queryByRole("navigation", { name: "Plan card deck" })) fireEvent.click(screen.getByRole("button", { name: "Scene outline", exact: true }));
     else fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   }
   return screen.getByTestId("world-plan-cards");
@@ -1044,7 +1045,7 @@ const navigationMarkdown = [
   "- Walk the boardwalk",
 ].join("\n") + "\n";
 
-it("navigates across Beats in the shared navbar and retains the selected scene through Document/Cards without writes", async () => {
+it("navigates the thumbnail deck across Beats and retains the scene through Document/Cards without writes", async () => {
   const apis = installApiMocks(navigationMarkdown);
   const scrollTargets: HTMLElement[] = [];
   originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
@@ -1056,26 +1057,27 @@ it("navigates across Beats in the shared navbar and retains the selected scene t
   const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(cards).toBeEnabled());
   fireEvent.click(cards);
-  const nav = screen.getByRole("navigation", { name: "Plan scene navigation" });
-  const select = within(nav).getByRole("combobox", { name: "Plan scene" });
-  expect(select).toHaveValue("scene:lantern");
-  expect(within(nav).getByRole("button", { name: "Previous scene" })).toBeDisabled();
-  fireEvent.click(within(nav).getByRole("button", { name: "Next scene" }));
-  expect(select).toHaveValue("scene:regent");
+  const deck = screen.getByRole("navigation", { name: "Plan card deck" });
+  expect(screen.queryByRole("combobox", { name: "Plan scene" })).toBeNull();
+  expect(screen.getByRole("combobox", { name: "Plan document" })).toBeInTheDocument();
+  expect(within(deck).getByRole("button", { name: "Show scene: Lantern Gate" })).toHaveAttribute("aria-current", "true");
+  fireEvent.click(within(deck).getByRole("button", { name: "Show scene: Glass Regent" }));
   expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("Glass Regent");
-  expect(screen.getByTestId("world-plan-scene-reader")).not.toHaveTextContent("Focused Scene ·");
   expect(within(screen.getByTestId("world-plan-scene-reader")).queryByRole("navigation")).toBeNull();
-  fireEvent.click(within(nav).getByRole("button", { name: "Next scene" }));
-  expect(select).toHaveValue("scene:census");
-  expect(screen.getByRole("option", { name: "Harbor arrival · Harbor Census" })).toBeInTheDocument();
+  fireEvent.click(within(deck).getByRole("button", { name: "Show scene: Harbor Census" }));
+  expect(within(deck).getByText("Harbor arrival")).toBeInTheDocument();
   expect(within(screen.getByTestId("world-plan-scene-reader")).getByText("Citizen 18")).toBeInTheDocument();
-  fireEvent.click(within(nav).getByRole("button", { name: "Previous scene" }));
-  const docButton = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
-  fireEvent.click(docButton);
+  fireEvent.click(within(deck).getByRole("button", { name: "Show scene: Glass Regent" }));
+  const thumbnailList = within(deck).getByRole("list");
+  thumbnailList.scrollTop = 80;
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" }));
   expect(scrollTargets.at(-1)?.getAttribute("data-dmb-playable-id")).toBe("scene:regent");
+  expect(screen.getByRole("combobox", { name: "Plan scene" })).toHaveValue("scene:regent");
   fireEvent.click(cards);
-  expect(select).toHaveValue("scene:regent");
-  fireEvent.change(select, { target: { value: "scene:lantern" } });
+  expect(screen.getByRole("navigation", { name: "Plan card deck" })).toBe(deck);
+  expect(thumbnailList.scrollTop).toBe(80);
+  expect(within(deck).getByRole("button", { name: "Show scene: Glass Regent" })).toHaveAttribute("aria-current", "true");
+  fireEvent.click(within(deck).getByRole("button", { name: "Show scene: Lantern Gate" }));
   expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("The lantern shines");
   expect(apis.prepare).not.toHaveBeenCalled();
   expect(apis.commit).not.toHaveBeenCalled();
@@ -1101,7 +1103,7 @@ it("retains the same editor, draft media, caret and undo history while browsing 
   const draft = editor.getJSON();
   const caret = editor.state.selection.toJSON();
   fireEvent.click(cards);
-  fireEvent.change(screen.getByRole("combobox", { name: "Plan scene" }), { target: { value: "scene:census" } });
+  fireEvent.click(screen.getByRole("button", { name: "Show scene: Harbor Census" }));
   expect(screen.getByTestId("world-plan-scene-reader").querySelector('[data-media-presentation="dmb-image:v1 width=70 collapsed=false"]')).not.toBeNull();
   fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" }));
   expect(dom.editor).toBe(editor);
@@ -1111,7 +1113,7 @@ it("retains the same editor, draft media, caret and undo history while browsing 
   const editHost = await openPlanEditHost();
   fireEvent.click(await within(editHost).findByRole("button", { name: "Save Plan" }));
   await screen.findByText("Saved to this World.");
-  expect(screen.getByRole("combobox", { name: "Plan scene" })).toHaveValue("scene:census");
+  expect(screen.getByRole("button", { name: "Show scene: Harbor Census" })).toHaveAttribute("aria-current", "true");
   expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
   expect(dom.editor).toBe(editor);
   expect(editor.state.selection.toJSON()).toEqual(caret);
