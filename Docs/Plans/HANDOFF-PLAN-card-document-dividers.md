@@ -15,4 +15,4 @@ Render actual first and later scene markers in the Plan Document at desktop and 
 
 ## Evidence
 
-Vite build PASS (existing chunk warning). Actual Plan preview5210 shows all5canonical scene IDs with a computed accent rule; ordinary travel h4 has0px border. First/later scene screenshots inspected; narrow layout has no horizontal overflow; viewport restored. No text edits or server writes. CSS-only3declarations; diffcheckPASS; independent review pending.
+Vite build PASS (existing chunk warning). Actual Plan preview5210 shows all5canonical scene IDs with a computed accent rule; ordinary travel h4 has0px border. First/later scene screenshots inspected; narrow layout has no horizontal overflow; viewport restored. No text edits or server writes. CSS-only3declarations; diffcheckPASS; the COMPLETE header records subsequent independent review and delivery.
