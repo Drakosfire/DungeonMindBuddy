@@ -21,3 +21,5 @@
   .app-nav-world-context .app-world-selector > button { max-width: min(150px, 100%); font-size: .75rem; }
   .app-nav-world-context .app-world-graph-status__prefix { display: none; }
 }
+
+.app-nav-world-context > button { flex: 0 0 auto; font-size: .8rem; padding: .35rem .55rem; }

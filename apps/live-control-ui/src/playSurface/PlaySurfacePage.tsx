@@ -1,3 +1,4 @@
+import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { getWorldPlayRunContent } from "../api/playRunContentApi";
 import { admitEffectivePlayRunContent } from "./playRunEffectiveContent";
@@ -347,6 +348,7 @@ function PlayChooser({
 }) {
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const trashInventoryVersion = useWorkspaceInventoryVersion(selectedWorldId);
   const world = useOptionalWorldGraphLens();
   const productCampaignId = selectedWorldId ? null : campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
@@ -381,7 +383,7 @@ function PlayChooser({
         setActiveId(active.run_id);
       }).catch(() => { /* The list remains usable without Resume metadata. */ });
     return () => { cancelled = true; };
-  }, [selectedWorldId, continuityWarning]);
+  }, [selectedWorldId, continuityWarning, trashInventoryVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -416,7 +418,7 @@ function PlayChooser({
     return () => {
       cancelled = true;
     };
-  }, [selectedWorldId]);
+  }, [selectedWorldId, trashInventoryVersion]);
 
   const ordered = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const matching = initialPlanId ? ordered.filter(record => record.playable_artifact_id === initialPlanId) : ordered;
@@ -1001,13 +1003,13 @@ export function PlaySurfacePage() {
     <AppChrome activeRoute="play">
       <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
         <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
-        {selectedWorldId ? <WorkspaceTrashControl worldId={selectedWorldId}
+        {selectedWorldId ? <WorkspaceTrashControl showTrash={false} worldId={selectedWorldId}
           current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
             title:`${("record" in v2Deck.snapshot ? v2Deck.snapshot.record.title : v2Deck.snapshot.title)} — ${currentWorldScene?.title ?? "Play session"}`,
             surface:"play", revision:admittedRun.run_revision, content_revision:v2Deck.effectiveContent.edition_revision} : null}
           blocked={sessionCopyBlocked || mutationStatus !== "idle" || loadStatus !== "ready"}
           onTrashed={() => window.location.assign(`/play?world=${encodeURIComponent(selectedWorldId)}&choose=1`)}
-          onRestored={() => { if (!admittedRun) window.location.reload(); }} /> : null}
+          /> : null}
       </PlaySurfaceContext>
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}

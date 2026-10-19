@@ -1,8 +1,9 @@
+import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
-import { useEffect, useMemo, type Ref } from "react";
+import { useEffect, useMemo, useRef, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -76,6 +77,15 @@ export function BuildSurfaceContext({
   const session = useOptionalMarkdownCanvasSession();
   const selectedWorld = useSelectedWorld();
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
+  const consumedTrashInventory = useRef<{worldId:string|null; version:number} | null>(null);
+  useEffect(() => {
+    if (trashInventoryVersion === 0 || (consumedTrashInventory.current?.worldId === trashWorldId
+      && consumedTrashInventory.current.version === trashInventoryVersion)) return;
+    // Mark consumed before refresh: the controller may return a new callback after its list update.
+    consumedTrashInventory.current = {worldId:trashWorldId, version:trashInventoryVersion};
+    refreshDocuments();
+  }, [trashWorldId, trashInventoryVersion, refreshDocuments]);
   useEffect(() => {
     const open = (event: Event) => {
       if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
@@ -187,10 +197,10 @@ export function BuildSurfaceContext({
               ) : null}
             </div>
           </details>
-          {trashWorldId ? <WorkspaceTrashControl worldId={trashWorldId}
+          {trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}
             current={liveRecord && activeDocumentId ? {kind:"document", id:activeDocumentId, title:displayTitle ?? "Build document", surface:"build", revision:liveRecord.revision} : null}
             blocked={documentMutationBusy || !session || session.dirty || buildSaveStateFor(session) !== "saved"}
-            onTrashed={() => window.location.assign(`/build?world=${encodeURIComponent(trashWorldId)}`)} onRestored={refreshDocuments} /> : null}
+            onTrashed={() => window.location.assign(`/build?world=${encodeURIComponent(trashWorldId)}`)} /> : null}
           {activeDocumentId && extractionTargetRef ? (
             <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
           ) : null}

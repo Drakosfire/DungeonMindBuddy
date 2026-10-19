@@ -800,7 +800,7 @@ describe("World session-copy projection", () => {
     const data=effectiveFixture();vi.mocked(getWorldPlayRun).mockResolvedValue({...data.run,lifecycle_status:"trashed"});
     render(<PlaySurfacePage />);
     expect(await screen.findByTestId("play-status-trashed")).toHaveTextContent("Session in Trash");
-    expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+    expect(screen.queryByRole("button",{name:"Trash",exact:true})).not.toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"Edit session"})).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(getWorldPlayRunContent).not.toHaveBeenCalled();
@@ -907,7 +907,7 @@ describe("World session-copy projection", () => {
       .toEqual([null, expect.stringContaining("Save your session changes")]);
     expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
     expect(screen.getByRole("button", {name:"Delete",exact:true})).toBeDisabled();
-    expect(screen.getByRole("button", {name:"Trash",exact:true})).toBeEnabled();
+    expect(screen.queryByRole("button", {name:"Trash",exact:true})).not.toBeInTheDocument();
   });
   it("keeps the current scene and its note when an edited session copy is accepted", async () => {
     const data = effectiveFixture();

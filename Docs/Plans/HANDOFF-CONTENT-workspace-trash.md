@@ -1,6 +1,6 @@
 # CONTENT: recoverable workspace deletion
 
-Status: ACTIVE. Operator requested audit, plan, implementation and a PR for ARCHITECTURE review. PRIME owns this serial slice on branch codex/workspace-trash, base18bdd2e3a1282e02d678048b6ab2b5893aecc2e1, existing buddy-context-loop checkout. One implementation PR. No serving data mutation or runtime delivery before review. Storage and UI writers share this branch with disjoint leases; PRIME alone commits.
+Status: MERGED; runtime delivered, final rendered acceptance continues in HANDOFF-CONTENT-trash-navigation.md. PR1445 merged39c6cd833d5cfc21801eb46033dfbaddda92a9ed after Architecture Cycle2 PASS on a960daaf3e52a527b3a88b643dedf7b80061a7e9. Source leases below are released to the named successor. Operator requested audit, plan, implementation and a PR for ARCHITECTURE review. PRIME owns this serial slice on branch codex/workspace-trash, base18bdd2e3a1282e02d678048b6ab2b5893aecc2e1, existing buddy-context-loop checkout. One implementation PR. No serving data mutation or runtime delivery before review. Storage and UI writers share this branch with disjoint leases; PRIME alone commits.
 
 ## Plan and safety contract
 
@@ -53,3 +53,7 @@ No serving database migration, service restart, actual user document Trash opera
 ### Architecture Cycle1 correction
 
 Cycle1 held head837ef1db69facec9d9ff0e81f37fe86230b9b195 for a same-ID stale confirmation: rerendering with a newer object/Run/edition revision silently retargeted the open modal. Confirmation now captures a copy of the displayed target and exact World/kind/ID/surface/revision/content-revision identity when opened. A changed identity immediately removes the confirmation, invalidates pending callbacks, and requires a fresh confirmation; dispatch checks the captured identity against the current host. Four added mounted cases cover document revision, session revision, content revision and a delayed delete response after a same-ID revision change. Shared lifecycle18/18 pass; production build passes. Exact successor head requires Architecture re-review before delivery.
+
+### Delivery facts learned after merge
+
+Serving API was backed up and migrated0037->0038; prior rows normalized for the new active default remain equal. Existing retained HTTP bodies, real Edge data and media library were unchanged by upgrade. Reviewed UI index915b0c2326a6849406556b274e12ed0babb8b0844b8ec854a46c234c18869a02 delivered. All three operator examples were moved to Trash through real5202 controls, restored through World Trash, and exact content/notes/history/media verified. Plan deletion did not cascade into its playable session. Actual reopening found an unchanged browser recovery cache reopening a deleted Plan as a conflict. Successor fixes that cache retirement and the operator's new request for primary-navbar Trash placement before claiming complete rendered delivery. No purge/provider call occurred.

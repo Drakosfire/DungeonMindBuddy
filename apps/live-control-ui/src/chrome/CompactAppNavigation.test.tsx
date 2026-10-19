@@ -12,6 +12,7 @@ describe("compact command-board navigation", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("link", { name: "Build" })).not.toBeInTheDocument();
     expect(document.querySelector(".app-nav-current")).toHaveTextContent("Plan");
+    expect(within(screen.getByRole("navigation",{name:"Command board navigation"})).getByRole("button",{name:"Trash",exact:true})).toBeVisible();
     expect(screen.getByRole("button", { name: "Switch World: Elderwyld" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toBeVisible();
   });
