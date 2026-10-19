@@ -104,6 +104,12 @@ leases are released. The follow-up
 14-scene draft/media continuity and protected-state acceptance. Cards uses the
 vertical deck; Plan selection remains in the navbar. One scene is one deck entry;
 this does not deliver direct editing or dense-scene facets. Its leases are released.
+The follow-up [shared Contents/top-alignment slice](../Plans/HANDOFF-CARDS-shared-contents.md)
+is settled as #1461 (`6f4092d0`), Architecture Cycle 1 PASS. PRIME verified Plan
+alignment and shared Play thumbnails at desktop/narrow widths, preserved inspection
+versus current-scene/Notes targeting, and all 12 protected responses. Contents
+shares presentation; each surface retains its existing state/save owners. Leases
+are released; this adds no editing or structural capability.
 Direct focused-card editing in Plan is the next proposed
 capability, followed by the Play adapter; neither is authorized by this settlement.
 
