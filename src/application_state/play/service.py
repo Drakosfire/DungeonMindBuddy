@@ -632,6 +632,7 @@ def _replace_play_run_progress(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        # Keep Run-before-pointer order aligned with recoverable Trash.
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
@@ -742,6 +743,7 @@ def _rebase_play_run(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        # Keep Run-before-pointer order aligned with recoverable Trash.
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")

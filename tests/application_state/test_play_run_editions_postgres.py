@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+from pathlib import Path
 from uuid import uuid4
 
 import psycopg
@@ -15,10 +16,12 @@ from application_state.content.service import (
     commit_runbook,
     create_world_plan,
     create_world_runbook,
+    update_plan_metadata,
 )
 from application_state.errors import (
     ApplicationStateError,
     ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
 )
 from application_state.play import edition_repository
 from application_state.play.edition_service import (
@@ -31,10 +34,17 @@ from application_state.play.edition_types import ContentCommit
 from application_state.play.service import (
     create_world_play_run,
     get_world_play_run_aggregate,
+    get_world_play_active_run,
     rebase_world_play_run,
     replace_world_play_run_progress,
+    set_world_play_active_run,
+)
+from application_state.play.lifecycle import (
+    list_trashed_world_play_sessions,
+    set_world_play_session_trash,
 )
 from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+from apps.live_control_server.services.play_run_registry import get_world_play_run
 
 WORLD = "edition-test-world"
 
@@ -124,6 +134,156 @@ def test_context_snapshot_binds_run_progress_and_effective_edition(
     assert content.edition_revision_id == accepted.accepted_edition_revision_id
     assert content.content_sha256 == accepted.accepted_content_sha256
     assert content.markdown.endswith("Saved session-copy context\n")
+
+
+def test_world_play_trash_preserves_history_replay_and_requires_explicit_restore(
+    application_state_dsn,
+):
+    _, _, aggregate = create_source_run()
+    _, _, other = create_source_run()
+    run_id = aggregate.run.run_id
+    set_world_play_active_run(WORLD, run_id)
+    initial = read(run_id)
+    command_id = str(uuid4())
+    request = request_for(initial, "Saved before trash")
+    receipt = save(run_id, request, command_id)
+
+    trashed = set_world_play_session_trash(
+        world_id=WORLD, run_id=run_id, expected_revision=1,
+        expected_content_revision=1, restore=False,
+    )
+    assert trashed["status"] == "trashed"
+    assert trashed["revision"] == 2
+    assert trashed["content_revision"] == 1
+    assert list_trashed_world_play_sessions(world_id=WORLD)[0]["id"] == str(run_id)
+    assert get_world_play_run(Path("."), world_id=WORLD, run_id=str(run_id)).lifecycle_status == "trashed"
+    assert get_world_play_active_run(world_id=WORLD) is None
+    assert read(run_id).markdown == request.markdown
+    assert read_command(run_id=str(run_id), world_id=WORLD, command_id=command_id) == receipt
+    assert save(run_id, request, command_id) == receipt
+    with pytest.raises(ApplicationStateConflictError, match="Trash"):
+        save(run_id, request_for(read(run_id), "Not admitted while trashed"))
+
+    restored = set_world_play_session_trash(
+        world_id=WORLD, run_id=run_id, expected_revision=2,
+        expected_content_revision=1, restore=True,
+    )
+    assert restored["status"] == "active"
+    assert restored["revision"] == 3
+    assert list_trashed_world_play_sessions(world_id=WORLD) == []
+    assert get_world_play_active_run(world_id=WORLD) is None
+
+
+def test_world_play_trash_rejects_stale_heads_foreign_world_and_new_writes(
+    application_state_dsn,
+):
+    _, _, aggregate = create_source_run()
+    _, _, other = create_source_run()
+    run_id = aggregate.run.run_id
+    set_world_play_active_run(WORLD, other.run.run_id)
+    initial = read(run_id)
+    save(run_id, request_for(initial, "Advance head"))
+    replace_world_play_run_progress(
+        world_id=WORLD, run_id=run_id, expected_run_revision=1,
+        progress={
+            "current_scene_id": "scene:gate", "current_beat_id": "beat:arrival",
+            "resolved_beat_ids": [], "selections": {}, "notes_by_element_id": {},
+        },
+    )
+    current = get_world_play_run_aggregate(run_id, world_id=WORLD)
+    assert current.run.run_revision == 2
+
+    with pytest.raises(ApplicationStateConflictError, match="content revision"):
+        set_world_play_session_trash(
+            world_id=WORLD, run_id=run_id, expected_revision=2,
+            expected_content_revision=0, restore=False,
+        )
+    with pytest.raises(ApplicationStateConflictError, match="revision changed"):
+        set_world_play_session_trash(
+            world_id=WORLD, run_id=run_id, expected_revision=1,
+            expected_content_revision=1, restore=False,
+        )
+    with pytest.raises(ApplicationStateNotFoundError):
+        set_world_play_session_trash(
+            world_id="another-world", run_id=run_id, expected_revision=2,
+            expected_content_revision=1, restore=False,
+        )
+    assert get_world_play_run_aggregate(run_id, world_id=WORLD).run.lifecycle_status == "active"
+    assert get_world_play_active_run(world_id=WORLD).run_id == other.run.run_id
+
+    trashed = set_world_play_session_trash(
+        world_id=WORLD, run_id=run_id, expected_revision=2,
+        expected_content_revision=1, restore=False,
+    )
+    with pytest.raises(ApplicationStateConflictError, match="Trash"):
+        replace_world_play_run_progress(
+            world_id=WORLD, run_id=run_id, expected_run_revision=trashed["revision"],
+            progress={
+                "current_scene_id": "scene:gate", "current_beat_id": "beat:arrival",
+                "resolved_beat_ids": [], "selections": {}, "notes_by_element_id": {},
+            },
+        )
+    with pytest.raises(ApplicationStateConflictError, match="Trash"):
+        set_world_play_active_run(WORLD, run_id)
+    assert get_world_play_active_run(world_id=WORLD).run_id == other.run.run_id
+
+
+def test_original_pin_remains_readable_after_plan_is_discarded_and_zero_head_trash_restores(
+    application_state_dsn,
+):
+    obj, pin, aggregate = create_source_run()
+    update_plan_metadata(
+        str(obj.work_object_id), status="discarded", expected_revision=obj.object_revision
+    )
+    assert read(aggregate.run.run_id).markdown == pin.markdown
+
+    trashed = set_world_play_session_trash(
+        world_id=WORLD, run_id=aggregate.run.run_id, expected_revision=1,
+        expected_content_revision=0, restore=False,
+    )
+    assert trashed["content_revision"] == 0
+    restored = set_world_play_session_trash(
+        world_id=WORLD, run_id=aggregate.run.run_id, expected_revision=2,
+        expected_content_revision=0, restore=True,
+    )
+    assert restored["content_revision"] == 0
+
+
+def test_content_commit_racing_trash_serializes_on_run_lock(application_state_dsn):
+    _, _, aggregate = create_source_run()
+    run_id = aggregate.run.run_id
+    basis = read(run_id)
+    request = request_for(basis, "Racing content commit")
+    start = Barrier(2)
+
+    def commit():
+        start.wait()
+        try:
+            return ("commit", save(run_id, request))
+        except ApplicationStateConflictError:
+            return ("commit_conflict", None)
+
+    def trash():
+        start.wait()
+        try:
+            return ("trash", set_world_play_session_trash(
+                world_id=WORLD, run_id=run_id, expected_revision=1,
+                expected_content_revision=0, restore=False,
+            ))
+        except ApplicationStateConflictError:
+            return ("trash_conflict", None)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = [pool.submit(commit), pool.submit(trash)]
+        outcomes = [future.result(timeout=10)[0] for future in results]
+
+    assert sum(outcome in {"commit", "trash"} for outcome in outcomes) == 1
+    if "trash" in outcomes:
+        assert get_world_play_run_aggregate(run_id, world_id=WORLD).run.lifecycle_status == "trashed"
+        assert read(run_id).markdown == basis.markdown
+    else:
+        assert get_world_play_run_aggregate(run_id, world_id=WORLD).run.lifecycle_status == "active"
+        assert read(run_id).edition_revision == 1
 
 
 @pytest.mark.parametrize("kind", ["plan", "runbook"])
@@ -525,7 +685,8 @@ def test_reviewed_scene_commit_checks_run_revision_atomically_but_replay_is_hist
         save(run.run_id, request)
     assert read(run.run_id).edition_revision == 0
     fresh = request.model_copy(update={"expected_run_revision": progressed.run.run_revision})
-    command_id = str(uuid4()); receipt = save(run.run_id, fresh, command_id)
+    command_id = str(uuid4())
+    receipt = save(run.run_id, fresh, command_id)
     assert receipt.observed_run_revision == progressed.run.run_revision
     replace_world_play_run_progress(world_id=WORLD, run_id=run.run_id, expected_run_revision=progressed.run.run_revision,
         progress={**progressed.run.progress, "notes_by_element_id": {"scene:gate": "Later note"}})

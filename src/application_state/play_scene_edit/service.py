@@ -60,7 +60,7 @@ class PlaySceneEditProposalService:
         except (TypeError, ValueError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
         with unit_of_work(_ready_dsn()) as conn:
-            run = conn.execute("SELECT world_id, run_revision, playable_work_object_id, playable_revision_n, playable_work_revision_id, playable_content_sha256 FROM play.run WHERE run_id=%s FOR UPDATE", (run_id,)).fetchone()
+            run = conn.execute("SELECT world_id, run_revision, playable_work_object_id, playable_revision_n, playable_work_revision_id, playable_content_sha256, lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE", (run_id,)).fetchone()
             if run is None or run[0] != world:
                 raise ApplicationStateNotFoundError("Play Run is unavailable in this World")
             existing = conn.execute(f"SELECT {_SELECT_COLUMNS} FROM play.scene_edit_proposal WHERE world_id=%s AND run_id=%s AND proposal_id=%s FOR UPDATE", (world, run_id, proposal_id)).fetchone()
@@ -69,6 +69,8 @@ class PlaySceneEditProposalService:
                 if record.request_sha256 != fingerprint:
                     raise ApplicationStateConflictError("proposal ID has a different frozen request")
                 return record, False
+            if run[6] != "active":
+                raise ApplicationStateConflictError("Play session is in Trash")
             if run[1] != request.get("run_revision"):
                 raise ApplicationStateConflictError("Play Run changed before proposal reservation")
             if (context_receipt.runbook_object_id != str(run[2])

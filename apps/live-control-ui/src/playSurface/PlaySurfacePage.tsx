@@ -1,3 +1,4 @@
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { getWorldPlayRunContent } from "../api/playRunContentApi";
 import { admitEffectivePlayRunContent } from "./playRunEffectiveContent";
 import { PlaySessionContentEditor } from "./content/PlaySessionContentEditor";
@@ -68,6 +69,7 @@ type PlayLoadStatus =
   | "loading"
   | "ready"
   | "miss"
+  | "trashed"
   | "unavailable"
   | "recovery_pending"
   | "rebase_required"
@@ -484,6 +486,8 @@ function PlayChooser({
 
 function statusCopy(status: PlayLoadStatus, detail: string | null): { title: string; body: string } {
   switch (status) {
+    case "trashed":
+      return {title:"Session in Trash",body:"Open Trash in the toolbar to restore this session, including its notes and saved content."};
     case "miss":
       return { title: "Run not found", body: detail ?? "That Run UUID does not exist." };
     case "unavailable":
@@ -586,6 +590,10 @@ export function PlaySurfacePage() {
       ) {
         setLoadStatus("integrity_failure");
         setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
+        return;
+      }
+      if (loaded.schema_version === "dmb_world_play_run_record_v2" && loaded.lifecycle_status === "trashed") {
+        setLoadStatus("trashed");
         return;
       }
       let manifest;
@@ -993,6 +1001,13 @@ export function PlaySurfacePage() {
     <AppChrome activeRoute="play">
       <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
         <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
+        {selectedWorldId ? <WorkspaceTrashControl worldId={selectedWorldId}
+          current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
+            title:`${("record" in v2Deck.snapshot ? v2Deck.snapshot.record.title : v2Deck.snapshot.title)} — ${currentWorldScene?.title ?? "Play session"}`,
+            surface:"play", revision:admittedRun.run_revision, content_revision:v2Deck.effectiveContent.edition_revision} : null}
+          blocked={sessionCopyBlocked || mutationStatus !== "idle" || loadStatus !== "ready"}
+          onTrashed={() => window.location.assign(`/play?world=${encodeURIComponent(selectedWorldId)}&choose=1`)}
+          onRestored={() => { if (!admittedRun) window.location.reload(); }} /> : null}
       </PlaySurfaceContext>
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}

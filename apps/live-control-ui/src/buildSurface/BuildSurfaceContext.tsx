@@ -1,3 +1,5 @@
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
 import { useEffect, useMemo, type Ref } from "react";
@@ -72,6 +74,8 @@ export function BuildSurfaceContext({
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const selectedWorld = useSelectedWorld();
+  const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   useEffect(() => {
     const open = (event: Event) => {
       if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
@@ -183,6 +187,10 @@ export function BuildSurfaceContext({
               ) : null}
             </div>
           </details>
+          {trashWorldId ? <WorkspaceTrashControl worldId={trashWorldId}
+            current={liveRecord && activeDocumentId ? {kind:"document", id:activeDocumentId, title:displayTitle ?? "Build document", surface:"build", revision:liveRecord.revision} : null}
+            blocked={documentMutationBusy || !session || session.dirty || buildSaveStateFor(session) !== "saved"}
+            onTrashed={() => window.location.assign(`/build?world=${encodeURIComponent(trashWorldId)}`)} onRestored={refreshDocuments} /> : null}
           {activeDocumentId && extractionTargetRef ? (
             <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
           ) : null}
@@ -247,6 +255,7 @@ export function BuildSurfaceContext({
       suggestedDestinationValue,
       switchError,
       switching,
+      trashWorldId,
     ],
   );
 

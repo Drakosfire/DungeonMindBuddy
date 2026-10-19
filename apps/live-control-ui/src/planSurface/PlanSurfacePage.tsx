@@ -1,3 +1,4 @@
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -1765,6 +1766,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </nav>
           <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
             onClick={() => { setSourceEditing(false); selectPlanView("document"); setMediaTarget(mediaIdentity); }}>Images</button>
+          <WorkspaceTrashControl worldId={worldId}
+            current={documentId && revisionRef.current ? {kind:"document", id:documentId, title, surface:"plan", revision:revisionRef.current} : null}
+            blocked={durableSaveState !== "saved" || startingPlay || pendingWriteRef.current !== null}
+            onTrashed={() => window.location.assign(`/plan?world=${encodeURIComponent(worldId)}`)}
+            onRestored={() => { void listWorldOwnedPlans(worldId).then(response => setRecords(response.records)).catch(() => undefined); }} />
           <span className="world-plan-context-toolbar__save">
             <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>

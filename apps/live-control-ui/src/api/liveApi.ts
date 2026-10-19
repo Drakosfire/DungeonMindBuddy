@@ -322,6 +322,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
+  if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
@@ -2286,7 +2287,8 @@ function assertWorldPlayRun(
   }
   const run = value as Partial<WorldPlayRunRecordV2> & { campaign_id?: unknown };
   if (
-    run.schema_version !== "dmb_world_play_run_record_v2"
+    (run.lifecycle_status !== undefined && run.lifecycle_status !== "active" && run.lifecycle_status !== "trashed")
+    || run.schema_version !== "dmb_world_play_run_record_v2"
     || run.world_id !== worldId
     || Object.prototype.hasOwnProperty.call(run, "campaign_id")
     || typeof run.run_id !== "string"

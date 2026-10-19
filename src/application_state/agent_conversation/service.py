@@ -41,6 +41,7 @@ from application_state.agent_conversation.types import (
     LegacyImportReceipt,
     PlanAskContextBasis,
     PlanWorldGraphExecutionV3,
+    PlayRunTurnContextReceiptV2,
     SourceScopeExtensionEventV3,
     ValidatedGraphOperationEventV3,
     GraphExecutionEventV3,
@@ -600,6 +601,19 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(
                     "submitted intent v1 is required for ordinary turn acceptance"
                 )
+            play_receipt = submission.play_context_receipt
+            if isinstance(play_receipt, PlayRunTurnContextReceiptV2):
+                # Acquire the Run lock before the conversation/pointer locks,
+                # matching Trash's lock order. Existing receipts above remain
+                # replayable after Trash; only new admissions are refused.
+                run = conn.execute(
+                    "SELECT world_id,lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE",
+                    (play_receipt.run_id,),
+                ).fetchone()
+                if run is None or run[0] != world_id:
+                    raise ApplicationStateNotFoundError("Play session is unavailable in this World")
+                if run[1] != "active":
+                    raise ApplicationStateConflictError("Play session is in Trash")
             pointer = _lock_pointer(conn, world_id)
             existing = repo.get_turn_by_world_key(
                 conn, world_id, submission.idempotency_key

@@ -18,6 +18,12 @@ afterAll(() => {
   else Reflect.deleteProperty(recoveryDialogPrototype, "showModal");
 });
 
+const selectedWorldMock = vi.hoisted(() => ({ managed: false }));
+vi.mock("../selectedWorld/SelectedWorldContext", async original => ({
+  ...await original<typeof import("../selectedWorld/SelectedWorldContext")>(),
+  useSelectedWorld: () => selectedWorldMock.managed ? {kind:"managed", worldId:"elderwyld", name:"Elderwyld", documentId:null} : {kind:"legacy"},
+}));
+
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
 const sessionMock = vi.hoisted(() => ({
@@ -144,6 +150,7 @@ function renderBuildContext(
 
 describe("BuildSurfaceContext", () => {
   beforeEach(() => {
+    selectedWorldMock.managed = false;
     sessionMock.current = makeSession();
   });
 
@@ -267,4 +274,18 @@ describe("BuildSurfaceContext", () => {
       }),
     ).not.toBeInTheDocument();
   });
+});
+
+it("admits Build trash only for a clean verified document in the selected World", () => {
+  selectedWorldMock.managed = true;
+  sessionMock.current = makeSession();
+  renderBuildContext();
+  expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeEnabled();
+  expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+});
+it("keeps Build deletion disabled while the source has unsaved edits", () => {
+  selectedWorldMock.managed = true;
+  sessionMock.current = makeSession({dirty:true, phase:"ready_dirty"});
+  renderBuildContext();
+  expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
 });
