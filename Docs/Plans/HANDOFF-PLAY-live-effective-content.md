@@ -1,6 +1,6 @@
 # PLAY — effective session-copy content projection
 
-Status: MERGED #1425 at e12b59363b7abace631607f4223bfb2b55c3bf3d; Architecture Cycle2 source PASS. Rendered delivery HOLD pending the bounded notice repair below. Original DOGFOOD lease ended.
+Status: MERGED #1425 at e12b59363b7abace631607f4223bfb2b55c3bf3d; Architecture Cycle2 source PASS. Rendered reader gate PASS: #1426 notice repair delivered on normal5202; PRIME verified edition3 prose/table/callout/images at desktop and narrow widths, with original Plan/Run/notes unchanged. Original DOGFOOD lease ended.
 Base origin/main7b73ffb07d21899c9007035a4b93ee9dcd455d18; branch codex/live-effective-content.
 Topology serial successor of merged server PR1422. PRIME assigns DOGFOOD exclusive implementation ownership of the existing buddy-context-loop checkout/paths below; PRIME and Architecture read/review only. PRIME separately owns private runtime/schema adoption on8000 behind5202. That operational work does not change this checkout. No new checkout/env/source export or /tmp task directory. Existing dependencies/private evidence directory reused. Architecture independently reviews; PRIME merges/delivers.
 
@@ -62,9 +62,9 @@ Actual API-shaped fixtures plus mounted Play page prove edition text/media/table
 
 Next bounded successor remains existing-scene Markdown/media Play editing with session-copy autosave/CAS, durable pending-command journal and recovery. Preserve this scope and report precise next seam, not another wide redesign.
 
-## Rendered follow-through: visible availability notice
+## Settled rendered follow-through: visible availability notice
 
-PRIME owns serial branch codex/live-session-copy-notice from e12b59363. Exact
+The #1426 corrective notice slice is merged and delivered; the reader gate is settled. The following records its bounded repair contract. PRIME owned serial branch codex/live-session-copy-notice from e12b59363. Exact
 repair lease: this handoff, PlaySurfacePage.tsx and its owning test only. Actual
 normal5202 rendering showed edition2/media/Plan-origin cues and Graph Ready, but
 the conversation host's temporary-unavailable notice was below the800px viewport

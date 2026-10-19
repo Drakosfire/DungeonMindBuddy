@@ -118,7 +118,7 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
   // Unmount the transport/recovery controller, not just its composer. Late
   // history and in-flight replies cannot reactivate a session-copy transport.
   if (surface === "play" && registry.play?.unavailableReason) {
-    return <section aria-label="Live conversation unavailable" role="status">{registry.play.unavailableReason}</section>;
+    return <section aria-label="Play conversation unavailable" role="status">{registry.play.unavailableReason}</section>;
   }
   const props: WorldPlanAgentConversationProps = lastPlan.current ?? {
     worldId, worldName: worldName ?? "World", documentId: null, surfaceInstanceId: "",

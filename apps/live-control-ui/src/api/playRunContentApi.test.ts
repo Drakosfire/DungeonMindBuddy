@@ -1,6 +1,6 @@
 import { webcrypto, createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { getWorldPlayRunContent } from "./playRunContentApi";
+import { getWorldPlayRunContent, getWorldPlayRunContentCommand, putWorldPlayRunContentCommand } from "./playRunContentApi";
 import { setNativeGraphAccessToken } from "./liveApi";
 const run = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 function payload() {
@@ -53,4 +53,33 @@ it("blocks a non-loopback content destination before credential transport", asyn
     expect(fetch).not.toHaveBeenCalled();
     api.setNativeGraphAccessToken(null);
   } finally { vi.unstubAllEnvs(); vi.resetModules(); }
+});
+
+it("reads a command receipt through the authenticated no-cache content route", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ receipt: "unvalidated here" }));
+  await expect(getWorldPlayRunContentCommand(run, "world", run)).resolves.toEqual({ receipt: "unvalidated here" });
+  expect(fetch.mock.calls[0][0]).toBe(`/api/live/world-play-runs/v2/${run}/content/commands/${run}?world_id=world`);
+  const init = fetch.mock.calls[0][1];
+  expect(init?.method).toBeUndefined();
+  expect(init?.cache).toBe("no-store");
+  expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-test-credential");
+});
+
+it("sends the exact immutable command body and preserves conflict/validation statuses", async () => {
+  const request = { schema_version: "dmb_world_play_run_content_commit_v1" as const,
+    expected_origin: payload().origin, expected_edition_revision: 0,
+    expected_content_sha256: payload().content_sha256, markdown: "Exact café 🧙\r\nEdited" };
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ accepted: true }))
+    .mockResolvedValueOnce(Response.json({ detail: "Another edition was accepted" }, { status: 409 }))
+    .mockResolvedValueOnce(Response.json({ detail: "Body exceeds request limit" }, { status: 413 }))
+    .mockResolvedValueOnce(Response.json({ detail: "Scene markers are invalid" }, { status: 422 }));
+  await expect(putWorldPlayRunContentCommand(run, "world", run, request)).resolves.toEqual({ accepted: true });
+  const [url, init] = fetch.mock.calls[0];
+  expect(url).toBe(`/api/live/world-play-runs/v2/${run}/content/commands/${run}?world_id=world`);
+  expect(init?.method).toBe("PUT");
+  expect(init?.cache).toBe("no-store");
+  expect(init?.body).toBe(JSON.stringify(request));
+  await expect(putWorldPlayRunContentCommand(run, "world", run, request)).rejects.toMatchObject({ status: 409, message: "Another edition was accepted" });
+  await expect(putWorldPlayRunContentCommand(run, "world", run, request)).rejects.toMatchObject({ status: 413, message: "Body exceeds request limit" });
+  await expect(putWorldPlayRunContentCommand(run, "world", run, request)).rejects.toMatchObject({ status: 422, message: "Scene markers are invalid" });
 });

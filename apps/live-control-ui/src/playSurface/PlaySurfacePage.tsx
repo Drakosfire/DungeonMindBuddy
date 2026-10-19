@@ -1,5 +1,7 @@
 import { getWorldPlayRunContent } from "../api/playRunContentApi";
 import { admitEffectivePlayRunContent, SESSION_COPY_AGENT_UNAVAILABLE } from "./playRunEffectiveContent";
+import { PlaySessionContentEditor } from "./content/PlaySessionContentEditor";
+import { hasUnsubmittedPlayRunContent } from "./content/usePlayRunContentController";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -29,6 +31,7 @@ import type {
   WorldPlayRunRecordV2,
   WorldPlayActiveRunStateV2,
 } from "../api/types";
+import type { PlayRunContent } from "./playRunContentTypes";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
@@ -290,7 +293,7 @@ function PlaySurfacePublisher({
     canvas: null,
     agentContext: {
       ...agentContextContribution,
-      ambientSummary: sessionCopy ? "Live session copy · Agent context unavailable" : authority.ambientSummary,
+      ambientSummary: sessionCopy ? "Play session copy · Agent context unavailable" : authority.ambientSummary,
     },
     tools: [],
     editCommands: [],
@@ -315,7 +318,7 @@ function PlaySurfacePublisher({
       campaignId: agentContextContribution.campaignId,
       documentId: agentContextContribution.documentId,
       sessionNumber: agentContextContribution.sessionNumber,
-      ambientSummary: sessionCopy ? "Live session copy · Agent context unavailable" : authority.ambientSummary,
+      ambientSummary: sessionCopy ? "Play session copy · Agent context unavailable" : authority.ambientSummary,
       sourceEnvelope: null,
     }),
     [agentContextContribution, authority.ambientSummary, sessionCopy],
@@ -535,6 +538,9 @@ export function PlaySurfacePage() {
   ));
   const [detail, setDetail] = useState<string | null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
+  const admissionRef = useRef<NativeRunbookAdmission | null>(null);
+  admissionRef.current = admission;
+  const [sessionDraftState, setSessionDraftState] = useState<{ identity: string; hasUnsubmitted: boolean } | null>(null);
   const [pendingWorldRebase, setPendingWorldRebase] = useState<{
     run: WorldPlayRunRecordV2;
     current: WorldOwnedRunbookCommittedRevisionV2;
@@ -927,6 +933,47 @@ export function PlaySurfacePage() {
       ? admission
       : null;
   const admittedRun = v1Deck?.run ?? v2Deck?.run ?? null;
+  const sessionCopyIdentity = v2Deck?.effectiveContent
+    ? JSON.stringify([v2Deck.effectiveContent.world_id, v2Deck.effectiveContent.run_id, v2Deck.effectiveContent.origin])
+    : null;
+  const sessionCopyBlocked = Boolean(v2Deck?.effectiveContent && (
+    v2Deck.effectiveContent.source === "edition"
+    || hasUnsubmittedPlayRunContent(v2Deck.effectiveContent)
+    || sessionDraftState?.identity === sessionCopyIdentity && sessionDraftState.hasUnsubmitted
+  ));
+  const onAcceptedSessionContent = useCallback((content: PlayRunContent) => {
+    const routeGeneration = routeIdentityRef.current.generation;
+    void (async () => {
+      let source = admissionRef.current;
+      while (source && routeIdentityRef.current.generation === routeGeneration) {
+        if (!isNativeRunbookReadyV2(source) || source.run.schema_version !== "dmb_world_play_run_record_v2"
+          || source.run.run_id !== content.run_id || source.run.world_id !== content.world_id) return;
+        const currentContent = source.effectiveContent;
+        if (currentContent && currentContent.edition_revision > content.edition_revision) return;
+        if (currentContent && currentContent.edition_revision === content.edition_revision
+          && currentContent.content_sha256 !== content.content_sha256) {
+          throw new TypeError("The same session-copy revision was returned with different content.");
+        }
+        const projected = await admitEffectivePlayRunContent(source, content);
+        if (routeIdentityRef.current.generation !== routeGeneration) return;
+        const latest = admissionRef.current;
+        if (latest !== source) {
+          source = latest;
+          continue;
+        }
+        admissionRef.current = projected;
+        setAdmission(projected);
+        return;
+      }
+    })().catch(error => {
+      if (routeIdentityRef.current.generation !== routeGeneration) return;
+      setLoadStatus("integrity_failure");
+      setDetail(error instanceof Error ? error.message : "The saved session copy could not be projected.");
+    });
+  }, []);
+  const onSessionDraftStateChange = useCallback((hasUnsubmitted: boolean) => {
+    if (sessionCopyIdentity) setSessionDraftState({ identity: sessionCopyIdentity, hasUnsubmitted });
+  }, [sessionCopyIdentity]);
   const currentWorldBeat = v2Deck?.beats.find((beat) => beat.id === v2Deck.currentBeatId) ?? null;
   const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
@@ -935,7 +982,7 @@ export function PlaySurfacePage() {
   return (
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
-        sessionCopy={v2Deck?.effectiveContent?.source === "edition"}
+        sessionCopy={sessionCopyBlocked}
         currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
@@ -1008,7 +1055,15 @@ export function PlaySurfacePage() {
           <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
             {v2Deck.effectiveContent?.source === "edition" ? `Session copy · revision ${v2Deck.effectiveContent.edition_revision} · ` : ""}{pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
           </p>
-          {v2Deck.effectiveContent?.source === "edition" ? (
+          {v2Deck.effectiveContent ? <PlaySessionContentEditor
+            key={sessionCopyIdentity}
+            content={v2Deck.effectiveContent}
+            currentSceneId={v2Deck.currentSceneId}
+            originLabel={pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
+            onAcceptedContent={onAcceptedSessionContent}
+            onUnsubmittedChange={onSessionDraftStateChange}
+          /> : null}
+          {sessionCopyBlocked ? (
             <p role="status" aria-label="Session copy Agent availability" className="play-muted"
               data-testid="play-session-copy-agent-notice">{SESSION_COPY_AGENT_UNAVAILABLE}</p>
           ) : null}
