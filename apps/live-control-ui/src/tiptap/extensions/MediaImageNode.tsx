@@ -4,13 +4,12 @@ import { Plugin } from '@tiptap/pm/state';
 import { mediaDragScroll } from './mediaImageDragScroll';
 import './MediaImageNode.css';
 import { useEffect, useRef, useState } from 'react';
-import { authenticatedApiFetch } from '../../api/liveApi';
+import { useSavedMediaImage } from '../../media/useSavedMediaImage';
 import { MEDIA_ASSET_ID, imagePresentation } from '../../media/mediaReferences';
 
 export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState('Loading image…');
   const id = String(node.attrs.assetId);
+  const { url, status, onError } = useSavedMediaImage(id);
   const [editable, setEditable] = useState(editor.isEditable);
   useEffect(() => {
     const sync = () => { setEditable(editor.isEditable && !editor.isDestroyed); if (!editor.isEditable) { resize.current = null; setPreviewWidth(null); } };
@@ -32,19 +31,6 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
     if (commit && active && editor.isEditable && !editor.isDestroyed) updateAttributes({width: active.next, collapsed});
   }
   useEffect(() => () => { resize.current = null; }, []);
-  useEffect(() => {
-    let active = true;
-    setUrl(null); setStatus('Loading image…');
-    if (!MEDIA_ASSET_ID.test(id)) { setStatus('Image unavailable'); return; }
-    authenticatedApiFetch(`/api/live/media/images/${id}/metadata`).then(async ({ response }) => {
-      if (!response.ok) throw new Error('Unavailable');
-      const record = await response.json();
-      const delivery = new URL(record.delivery_url);
-      if (record.asset_id !== id || record.state !== 'ready' || delivery.protocol !== 'https:' || delivery.hostname !== 'imagedelivery.net') throw new Error('Unavailable');
-      if (active) { setUrl(delivery.href); setStatus(''); }
-    }).catch(() => { if (active) setStatus('Image unavailable. Open Image Studio to inspect the saved asset.'); });
-    return () => { active = false; };
-  }, [id]);
   return <NodeViewWrapper as="span" className="document-media-image" contentEditable={false} data-media-asset-id={id}
     ref={frame} style={{width: `${previewWidth ?? width}%`}}>
     <span className="document-media-image__toolbar">
@@ -55,7 +41,7 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
         disabled={!editable}>{collapsed ? 'Expand' : 'Collapse'}</button>
     </span>
     <span className="document-media-image__body" hidden={collapsed}>
-      {url ? <img src={url} alt={String(node.attrs.alt)} draggable={false} loading="lazy" onError={() => { setUrl(null); setStatus('Image unavailable'); }} />
+      {url ? <img src={url} alt={String(node.attrs.alt)} draggable={false} loading="lazy" onError={onError} />
         : <span role="status">{status}</span>}
       {editable && <button type="button" className="document-media-image__resize" aria-label="Resize image" title="Drag to resize; arrow keys adjust size" role="slider" aria-valuemin={20} aria-valuemax={100} aria-valuenow={previewWidth ?? width}
         onPointerDown={event => {
