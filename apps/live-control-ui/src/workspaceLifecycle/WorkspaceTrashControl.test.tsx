@@ -39,6 +39,35 @@ describe("recoverable document lifecycle", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(api.changeWorkspaceTrash).not.toHaveBeenCalled();
   });
+  it.each([
+    ["document revision", doc, { ...doc, revision: 8 }],
+    ["session revision", session, { ...session, revision: 6 }],
+    ["session content revision", session, { ...session, content_revision: 14 }],
+  ] as const)("requires fresh confirmation after the same ID changes %s", async (_label, original, changed) => {
+    const onTrashed = vi.fn();
+    const { rerender } = render(<WorkspaceTrashControl worldId="elderwyld" current={original} onTrashed={onTrashed} />);
+    fireEvent.click(screen.getByRole("button", { name:"Delete", exact:true }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(original.title);
+    rerender(<WorkspaceTrashControl worldId="elderwyld" current={changed} onTrashed={onTrashed} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.changeWorkspaceTrash).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name:"Delete", exact:true }));
+    fireEvent.click(screen.getByRole("button", { name:"Move to Trash", exact:true }));
+    await waitFor(() => expect(onTrashed).toHaveBeenCalledOnce());
+    expect(api.changeWorkspaceTrash).toHaveBeenCalledWith("elderwyld", changed, "trash");
+  });
+  it("ignores a delayed delete response after the same ID advances revision", async () => {
+    let resolve!: (value: typeof item) => void;
+    vi.mocked(api.changeWorkspaceTrash).mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const onTrashed = vi.fn();
+    const { rerender } = render(<WorkspaceTrashControl worldId="elderwyld" current={doc} onTrashed={onTrashed} />);
+    fireEvent.click(screen.getByRole("button", { name:"Delete", exact:true }));
+    fireEvent.click(screen.getByRole("button", { name:"Move to Trash", exact:true }));
+    expect(api.changeWorkspaceTrash).toHaveBeenCalledWith("elderwyld", doc, "trash");
+    rerender(<WorkspaceTrashControl worldId="elderwyld" current={{...doc, revision:8}} onTrashed={onTrashed} />);
+    await act(async () => resolve(item));
+    expect(onTrashed).not.toHaveBeenCalled();
+  });
   it("does not navigate another target after a delayed delete response", async () => {
     let resolve!: (value: typeof item)=>void; vi.mocked(api.changeWorkspaceTrash).mockReturnValueOnce(new Promise(done => {resolve=done;}));
     const onTrashed=vi.fn(); const {rerender}=render(<WorkspaceTrashControl worldId="elderwyld" current={doc} onTrashed={onTrashed} />);

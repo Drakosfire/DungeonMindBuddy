@@ -12,6 +12,7 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
   onRestored?: () => void;
 }) {
   const [view, setView] = useState<"closed" | "delete" | "trash">("closed");
+  const [confirmation, setConfirmation] = useState<{ worldId: string; identity: string; target: WorkspaceTrashTarget } | null>(null);
   const [items, setItems] = useState<WorkspaceTrashItem[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +20,17 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
   const dialog = useRef<HTMLDialogElement>(null);
   const sequence = useRef(0);
   const mounted = useRef(true);
-  const identity = JSON.stringify([worldId, current?.id, current?.revision, current?.content_revision]);
+  const identity = JSON.stringify([worldId, current?.kind, current?.id, current?.surface, current?.revision, current?.content_revision]);
   const latest = useRef({ worldId, current, blocked, identity });
   latest.current = { worldId, current, blocked, identity };
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; sequence.current++; }; }, []);
-  useEffect(() => { sequence.current++; setView("closed"); setPending(false); setError(null); setNotice(null); }, [worldId, current?.id]);
+  useEffect(() => { sequence.current++; setView("closed"); setConfirmation(null); setPending(false); setError(null); setNotice(null); }, [worldId, current?.id]);
+  useEffect(() => {
+    if (confirmation && confirmation.identity !== identity) {
+      sequence.current++;
+      setView("closed"); setConfirmation(null); setPending(false);
+    }
+  }, [identity, confirmation]);
   useEffect(() => {
     const node = dialog.current;
     if (view !== "closed" && node && !node.open) node.showModal();
@@ -31,6 +38,8 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
   }, [view]);
 
   const open = async (next: "delete" | "trash") => {
+    if (next === "delete" && (!current || blocked)) return;
+    setConfirmation(next === "delete" && current ? { worldId, identity, target: { ...current } } : null);
     setView(next); setError(null); setNotice(null);
     if (next !== "trash") return;
     const stamp = ++sequence.current;
@@ -43,13 +52,13 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
     } finally { if (mounted.current && sequence.current === stamp) setPending(false); }
   };
   const change = async (target: WorkspaceTrashTarget, action: "trash" | "restore") => {
-    if (pending || (action === "trash" && (latest.current.blocked || latest.current.identity !== identity))) return;
+    if (pending || (action === "trash" && (latest.current.blocked || (!confirmation || latest.current.identity !== confirmation.identity)))) return;
     const stamp = ++sequence.current;
-    const capturedWorld = worldId;
+    const capturedWorld = action === "trash" ? confirmation!.worldId : worldId;
     setPending(true); setError(null); setNotice(null);
     try {
       await changeWorkspaceTrash(capturedWorld, target, action);
-      if (!mounted.current || sequence.current !== stamp || latest.current.worldId !== capturedWorld || (action === "trash" && latest.current.current?.id !== target.id)) return;
+      if (!mounted.current || sequence.current !== stamp || latest.current.worldId !== capturedWorld || (action === "trash" && latest.current.identity !== confirmation!.identity)) return;
       if (action === "trash") { setView("closed"); onTrashed(); }
       else { setItems(old => old.filter(item => item.id !== target.id || item.kind !== target.kind)); setNotice(`Restored “${target.title}”.`); onRestored?.(); }
     } catch (cause) {
@@ -60,17 +69,17 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
     {current ? <button type="button" disabled={blocked || pending} title={blocked ? "Finish saving changes before deleting." : undefined}
       onClick={() => { void open("delete"); }}>Delete</button> : null}
     <button type="button" onClick={() => { void open("trash"); }}>Trash</button>
-    {view !== "closed" ? createPortal(<dialog ref={dialog} className="workspace-trash" aria-label={view === "delete" ? "Move to Trash" : "World Trash"}
+    {view !== "closed" && (view !== "delete" || confirmation?.identity === identity) ? createPortal(<dialog ref={dialog} className="workspace-trash" aria-label={view === "delete" ? "Move to Trash" : "World Trash"}
       onCancel={event => { if (pending) event.preventDefault(); else setView("closed"); }}>
       <header><h2>{view === "delete" ? "Move to Trash?" : "Trash"}</h2><button type="button" disabled={pending} onClick={() => setView("closed")} aria-label="Close Trash">×</button></header>
-      {view === "delete" && current ? <>
-        <p><strong>{current.title}</strong></p>
-        <p>{current.kind === "session" ? "This moves the whole Play session, including its scene notes, out of your session list. The Plan stays unchanged."
-          : current.surface === "plan" ? "This removes the Plan from your document list. Sessions already created from it stay available."
+      {view === "delete" && confirmation ? <>
+        <p><strong>{confirmation.target.title}</strong></p>
+        <p>{confirmation.target.kind === "session" ? "This moves the whole Play session, including its scene notes, out of your session list. The Plan stays unchanged."
+          : confirmation.target.surface === "plan" ? "This removes the Plan from your document list. Sessions already created from it stay available."
           : "This removes the Build document from your source list. Published graph evidence stays available."}</p>
         <p>You can restore it from Trash. Images and saved history are retained.</p>
         {blocked ? <p role="status">Finish saving your changes before deleting.</p> : null}
-        <button type="button" disabled={blocked || pending} onClick={() => { void change(current, "trash"); }}>Move to Trash</button>
+        <button type="button" disabled={blocked || pending} onClick={() => { void change(confirmation.target, "trash"); }}>Move to Trash</button>
         <button type="button" disabled={pending} onClick={() => setView("closed")}>Cancel</button>
       </> : <>
         <p>Deleted documents and sessions in this World. Restore keeps their content, notes and history.</p>

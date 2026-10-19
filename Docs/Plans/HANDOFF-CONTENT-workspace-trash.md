@@ -49,3 +49,7 @@ First delivery deliberately has no automatic expiry, empty-Trash or permanent-de
 - New Python lifecycle files pass Ruff; cumulative diff whitespace checked.
 
 No serving database migration, service restart, actual user document Trash operation or5202 frontend adoption has run. ARCHITECTURE must review the exact cumulative head before merge/delivery. Rendered5202 deletion/restore acceptance remains a post-review delivery gate. Existing operator examples are targets for that acceptance, not permission to physically purge storage. No generation/provider call is needed.
+
+### Architecture Cycle1 correction
+
+Cycle1 held head837ef1db69facec9d9ff0e81f37fe86230b9b195 for a same-ID stale confirmation: rerendering with a newer object/Run/edition revision silently retargeted the open modal. Confirmation now captures a copy of the displayed target and exact World/kind/ID/surface/revision/content-revision identity when opened. A changed identity immediately removes the confirmation, invalidates pending callbacks, and requires a fresh confirmation; dispatch checks the captured identity against the current host. Four added mounted cases cover document revision, session revision, content revision and a delayed delete response after a same-ID revision change. Shared lifecycle18/18 pass; production build passes. Exact successor head requires Architecture re-review before delivery.
