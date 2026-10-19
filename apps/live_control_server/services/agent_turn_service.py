@@ -2692,8 +2692,12 @@ class _PolicyExecutionAdapter:
                 and request.historical_revision_id != self.bootstrap.world_scope.revision_id
             ):
                 return denied("graph_revision_conflict", 409)
-            if request.observation_ids and not self._is_build_turn():
-                return denied("selected_observations_unavailable", 422)
+            if (request.observation_ids or request.operation == "observations") and not self._is_build_turn():
+                return self._denied_tool_result(
+                    "expand_graph_retrieval", "selected_observations_unavailable", 422,
+                    "Use object on the discovered subjectNodeId for reviewed source support. "
+                    "Observation selectors are available only in governed Build.", arguments=arguments,
+                )
             target_ids = resolve_expansion_target_ids(request, session)
             common = {
                 "worldId": self.bootstrap.world_scope.world_id,
@@ -2734,7 +2738,7 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
-                if self._is_build_turn():
+                if self._is_build_turn() or isinstance(execution, graph_types.PlanWorldGraphExecutionV3):
                     reviewed = get_object_with_reviewed_sources_direct_v3(
                         services, effective_request,
                         **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),
@@ -4030,7 +4034,7 @@ def _policy_request_budget() -> dict[str, Any]:
         "contextLimitTokens": 1_050_000,
         "graphToolPageBytes": 32_000,
         "maxProviderRequestBytes": 1_050_000,
-        "outputReserveTokens": 2048,
+        "outputReserveTokens": 8192,
         "maxProviderAttempts": None,
         "maxToolCapableAttempts": None,
         "maxGraphOperations": None,
@@ -5464,9 +5468,9 @@ def _accept_world_turn(
 
 
 def _interrupt_policy_delivery(
-    service: AgentConversationService, turn: Turn,
+    service: AgentConversationService, turn: Turn, *, output_limit_exceeded: bool = False,
 ) -> None:
-    """Settle only the current owned claim; retain its uncertain execution ledger."""
+    """Settle the owned claim without rewriting provider outcome or retry authority."""
     failure_code = "plan_context_delivery_failure"
     execution = turn.graph_context_execution
     if execution is not None:
@@ -5479,6 +5483,8 @@ def _interrupt_policy_delivery(
             ]
             if outcomes and outcomes[-1] == "outcome_unknown":
                 failure_code = "provider_outcome_unknown"
+    if output_limit_exceeded:
+        failure_code = "provider_output_limit_exceeded"
     try:
         service.fail_turn(TurnFailure(
             world_id=turn.world_id, conversation_id=turn.conversation_id,
@@ -6561,10 +6567,15 @@ def execute_agent_turn(
         ):
             trace.complete_phase(span_id, status="error")
             if policy_turn is not None and adapter.fence is not None:
-                _interrupt_policy_delivery(conversation_service, policy_turn)
+                _interrupt_policy_delivery(conversation_service, policy_turn,
+                    output_limit_exceeded=policy_result.error_code == "provider_output_limit_exceeded")
+            output_limited = policy_result.error_code == "provider_output_limit_exceeded"
             raise AgentTurnServiceError(
-                "The Plan Graph provider did not return a durably acknowledged answer.",
-                code="plan_context_delivery_failure", status_code=503,
+                ("Buddy reached the response output limit. No partial answer or Plan change was accepted. "
+                 "The request was not retried." if output_limited else
+                 "The Plan Graph provider did not return a durably acknowledged answer."),
+                code="provider_output_limit_exceeded" if output_limited else "plan_context_delivery_failure",
+                status_code=503,
             )
         try:
             capture_error = None

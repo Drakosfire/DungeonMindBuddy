@@ -3426,7 +3426,9 @@ def test_lifecycle_failure_retains_uncertain_pending_attempt(
     if uncertain:
         assert result.model_calls[-1]["runtime_api_request_id"] == "tail"
         assert result.model_calls[-1]["usage"]["status"] == "unavailable"
-        assert result.error_code == "provider_lifecycle_unavailable"
+        output_limited = isinstance(diagnostic, dict) and diagnostic.get("incomplete_reason") == "max_output_tokens"
+        assert result.error_code == ("provider_output_limit_exceeded" if output_limited else "provider_lifecycle_unavailable")
+        assert result.final_response is None
         assert "denied before dispatch" not in result.error_message
     else:
         assert result.error_code == failure_code
@@ -3446,13 +3448,14 @@ def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(
     policy = parent_brokered_graph_expansion_policy(scope)
     budget = {"schema":"dmb_hermes_request_budget_policy_v1", "provider":"openai-api", "model":"gpt-6-luna", "apiMode":"codex_responses",
         "estimator":"utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens":100000,
-        "outputReserveTokens":100, "maxProviderAttempts":4, "maxToolCapableAttempts":3,
+        "outputReserveTokens":8192, "maxProviderAttempts":4, "maxToolCapableAttempts":3,
         "maxGraphOperations":8}
     observed = []
     authorizations = []
     class ProbeAgent(_FakeAgent):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
+            assert kwargs["max_tokens"] == budget["outputReserveTokens"] == 8192
             # AIAgent rediscovers definitions: intentionally give it the broad catalog.
             self.tools = deepcopy(original)
         def run_conversation(self, user_message, **kwargs):
@@ -3460,7 +3463,7 @@ def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(
                 module = importlib.import_module("run_agent")
                 with patch("run_agent.OpenAI"):
                     sdk = module.AIAgent(api_key="synthetic-test-key", base_url="https://api.openai.com/v1",
-                        provider="openai-api", model="gpt-6-luna", max_tokens=100, max_iterations=1,
+                        provider="openai-api", model="gpt-6-luna", max_tokens=budget["outputReserveTokens"], max_iterations=1,
                         enabled_toolsets=[], quiet_mode=True, skip_context_files=True, skip_memory=True)
                 sdk.api_request_budget_guard = lambda _view: True
                 sdk.tools = self.tools
@@ -3469,6 +3472,7 @@ def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(
                 continuation = sdk._build_api_kwargs(messages + [{"role":"assistant", "content":"Continue from admitted evidence."}, {"role":"user", "content":"Continue."}])
                 budget_module = importlib.import_module("agent.api_request_budget")
                 for payload in (initial, continuation):
+                    assert payload["max_output_tokens"] == budget["outputReserveTokens"]
                     view = budget_module.build_api_request_budget_view(provider=sdk.provider, model=sdk.model,
                         api_mode=sdk.api_mode, base_url=sdk.base_url, request=payload)
                     assert self.api_request_budget_guard(view) is True
@@ -3489,6 +3493,10 @@ def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(
             on_provider_lifecycle=lambda event: True, on_parent_graph_operation=lambda message: {})
         assert result.status == "ok", result.error_code
         tools, initial, continuation = observed[-1]
+        prompt = hermes_graph_agent_mod._build_ephemeral_system_prompt(policy, request, retrieval_session_packet=None)
+        assert ("Governed Build read capabilities:" in prompt) == (profile == "governed_build")
+        assert ("Do not request observations or observationIds" in prompt) == (profile == "world_graph")
+        assert "In governed Build" not in prompt
         expected = next(t['function'] for t in original if t['function']['name']=='expand_graph_retrieval')
         actual = next(t['function'] for t in tools if t['function']['name']=='expand_graph_retrieval')
         if profile == 'governed_build':

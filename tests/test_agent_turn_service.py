@@ -1588,7 +1588,7 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         assert changed_scope.value.code == "turn_receipt_unverifiable"
 
     provider_body = json.dumps({"input": [], "tools": []})
-    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8, "outputReserveTokens": 2048}  # Frozen finite fixture
     view = {
         "provider": budget["provider"], "model": budget["model"],
         "apiMode": budget["apiMode"], "payloadJson": provider_body,
@@ -1757,8 +1757,9 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         clear_sessions()
 
 
+@pytest.mark.parametrize("reviewed_object", [False, True])
 def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
-    monkeypatch: Any,
+    monkeypatch: Any, reviewed_object: bool,
 ) -> None:
     from types import SimpleNamespace
 
@@ -1912,6 +1913,26 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
             **pin.model_dump(), graph_revision=receipt.graph_authority.graph_revision,
         ) for pin in pins],
     ))
+    if reviewed_object:
+        from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectReviewedSourceObservation
+        observation = WorldGraphObjectReviewedSourceObservation(
+            assertion_id="reviewed:road", subject_node_id="road", observation_kind="worldbuilding_observation",
+            text="The road crosses a swamp.", entity_kind="location", review_id="review:road",
+            contribution_id="contribution:road", publication_revision_id=receipt.graph_authority.graph_revision,
+            source_artifact_id=pins[0].source_artifact_id, source_revision_id=pins[0].source_revision_id,
+            evidence_ref_ids=[pins[0].evidence_ref_id], visibility="gm", epistemic_kind="belief")
+        for anchor in native_result.source_anchors:
+            anchor.supporting_assertion_ids = [observation.assertion_id]
+        def reviewed_read(_services, request, **kwargs):
+            assert request.node_id == "road" and kwargs == {}
+            assert request.world_id == receipt.graph_authority.native_world_id
+            assert request.revision_pin == receipt.graph_authority.graph_revision
+            assert request.admissibility == "gm"
+            return SimpleNamespace(result=native_result, source_pins=[SimpleNamespace(
+                **pin.model_dump(), graph_revision=receipt.graph_authority.graph_revision) for pin in pins],
+                reviewed_source_observations=[observation], observation_gap_codes=(), observation_missing_ids=())
+        monkeypatch.setattr(world_graph_reads, "get_object_with_reviewed_sources_direct_v3", reviewed_read)
+        monkeypatch.setattr(world_graph_reads, "get_object_direct_v3", lambda *_: pytest.fail("Plan skipped reviewed support"))
     contents = {
         pin.anchor_id: f"Passage for discovered source {index}."
         for index, pin in enumerate(pins)
@@ -1970,7 +1991,7 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={}, source_scope_anchors=(),
     )
-    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8, "outputReserveTokens": 2048}  # Frozen finite fixture
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id=receipt.graph_authority.managed_world_id,
         work=None, bootstrap=bootstrap, playable_target=None, submitted_intent=None,
@@ -1984,12 +2005,16 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
     create_session(session)
     try:
         graph_arguments = {
-            "retrievalSessionId": session.id, "operation": "search",
+            "retrievalSessionId": session.id, "operation": "object" if reviewed_object else "search",
+            **({"targets": [{"kind": "node", "id": "road"}]} if reviewed_object else {}),
         }
         graph_reply = adapter.broker_graph_operation({
             "toolName": "expand_graph_retrieval", "arguments": graph_arguments,
         })
         assert all(content not in graph_reply["resultJson"] for content in contents.values())
+        if reviewed_object:
+            row = json.loads(graph_reply["resultJson"])["reviewedSourceObservations"][0]
+            assert row["epistemicKind"] == "belief" and row["sourceArtifactId"] == pins[0].source_artifact_id
         execution_after_graph = adapter.fence.turn.graph_context_execution
         assert isinstance(execution_after_graph, graph_types.PlanWorldGraphExecutionV3)
         origin, extension = execution_after_graph.events[-2:]
@@ -2281,7 +2306,7 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
         )
 
     monkeypatch.setattr(source_reads, "read_recap_context_v2", read_source)
-    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8}  # Frozen finite fixture
+    budget = service_module._policy_request_budget() | {"schema": "dmb_hermes_request_budget_policy_v1", "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8, "outputReserveTokens": 2048}  # Frozen finite fixture
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id=turn.world_id, work=None,
         bootstrap=service_module.AgentPlanWorldGraphBootstrap(
@@ -6601,3 +6626,24 @@ def test_actual_plan_action_broker_refuses_forged_observation_read_profile_befor
         'retrievalSessionId':session.id,'operation':operation,'targets':targets,'observationIds':['assertion:forged']}})
     payload=json.loads(reply['resultJson'])
     assert payload['statusCode']==422 and payload['code']=='selected_observations_unavailable'
+
+
+def test_plan_default_budget_reserves_provider_output(monkeypatch):
+    from apps.live_control_server.services import agent_turn_service as service
+    monkeypatch.setattr("apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"))
+    assert service._policy_request_budget()["outputReserveTokens"] == 8192
+
+
+def test_known_output_limit_failure_preserves_ledger_and_specific_failure():
+    from apps.live_control_server.services.agent_turn_service import _interrupt_policy_delivery
+    turn = _policy_turn(status="running", completion_present=False)
+    original = turn.graph_context_execution
+    recorded = []
+    class Service:
+        def fail_turn(self, failure, **kwargs):
+            recorded.append((failure, kwargs))
+    _interrupt_policy_delivery(Service(), turn, output_limit_exceeded=True)
+    assert recorded[0][0].failure_code == "provider_output_limit_exceeded"
+    assert recorded[0][1] == {"interrupted": True}
+    assert turn.graph_context_execution == original

@@ -28,11 +28,6 @@ Factual retrieval rules:
   relationships are sparse. Try spelling/alias variants when a search is empty.
   If evidence is genuinely insufficient, identify the World coverage gap.
 - Use expand_graph_retrieval for object/neighborhood/search/support.
-  In governed Build, use observations with observationIds from the saved-source
-  discovery to fetch up to eight full relevant records across subjects in one
-  call. This avoids unrelated object history. Pass IDs only, no targets/query.
-  Discovery excerpts are hints, not claims; read the returned complete records
-  and open their relevant supporting sources. Batch source opening when useful.
 - For relationships, connections, or multi-entity questions, use neighborhood with
   1–8 seed nodes. Use object or support for one node at a time; repeat the call
   per node. Use search when discovering or anchoring without a pinned node
@@ -43,8 +38,7 @@ Factual retrieval rules:
   search with the topic words and zero seeds before following unrelated named
   individuals or falling back to the saved document. Relevant reviewed-source
   observations may be attached to a place or institution rather than a topic node.
-  In governed Build, follow search pointers with object on subjectNodeId and
-  observationIds containing the relevant assertionId values. Inspect the returned
+  Follow search pointers with object on subjectNodeId and inspect the returned
   supporting assertions; do not infer general properties
   from one individual. Stop when the question has adequate supporting evidence.
 - Use read_graph_source only for quotation, exact detail, conflict checks, or when
@@ -155,3 +149,22 @@ __all__ = [
     "GRAPH_SYSTEM_POLICY",
     "resolve_agent_graph_openai_inference",
 ]
+
+
+def graph_read_profile_policy(profile: str) -> str:
+    """Separate shared evidence invariants from authorized read capabilities."""
+    if profile == "governed_build":
+        return (
+            "Governed Build read capabilities: use observations with observationIds from "
+            "saved-source discovery for up to eight complete records across subjects. "
+            "Pass IDs only, no targets/query. Object also accepts observationIds for its subject. "
+            "Discovery excerpts are hints, not claims; inspect returned records and supporting sources."
+        )
+    return (
+        "World read capabilities: use search, object, neighborhood and support. "
+        "Do not request observations or observationIds; those selectors belong to governed Build. "
+        "Follow discovered subjectNodeId with object and includeSources=true for reviewed source support. "
+        "Reviewed source statements are attributed observations, not automatic current-world truth. "
+        "Read admitted sources before grounding visual details; distinguish prepared material "
+        "and creative suggestions from played facts."
+    )
