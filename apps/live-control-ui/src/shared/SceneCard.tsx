@@ -168,7 +168,8 @@ export function SceneCardChoices({ choices, variant, actions = {}, onActivateGra
 /** Shared Scene paper/card. Each surface supplies its own existing action slots. */
 export function SceneCard({ identity, scene, choices, variant, kicker, titlePrefix, headingId, headingRef,
   headerRef, className = "", testId, context, status, sceneActions, footer, choiceActions,
-  onActivateGraphNode, unsupportedMessage }: {
+  onActivateGraphNode, unsupportedMessage, compactHeader = false }: {
+  compactHeader?: boolean;
   identity: SceneCardIdentity;
   scene: SceneCardElement;
   choices: readonly SceneCardChoice[];
@@ -200,18 +201,18 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
       data-content-sha256={identity.contentSha256 ?? ""} data-source-state={identity.sourceState}
       aria-labelledby={headingId}>
       <header ref={headerRef} className={`shared-scene-card__header${plan ? " world-plan-scene-reader__heading" : ""}`}>
-        <p className={plan ? "world-plan-card__kind" : "play-kicker"}>{kicker}</p>
-        <p className="shared-scene-card__source-cue" data-testid="scene-card-source-cue">
+        {!compactHeader ? <p className={plan ? "world-plan-card__kind" : "play-kicker"}>{kicker}</p> : null}
+        {!compactHeader ? <p className="shared-scene-card__source-cue" data-testid="scene-card-source-cue">
           {identity.sourceState === "verified" ? "Saved Plan"
             : identity.sourceState === "draft" ? "Draft Plan · Ask uses the saved Plan until Save"
               : identity.sourceState === "run-edition" ? `Session copy · revision ${identity.edition?.revision}`
                 : "Run-pinned Playable"}
           {identity.sourceState === "run-edition" ? ` · ${identity.originLabel ?? `From Plan version ${identity.revision}`}` : ""}
-        </p>
+        </p> : null}
         <Title element={scene} level={2} className={plan ? "world-plan-scene-reader__title" : "shared-scene-card__title"}
           headingId={headingId} headingRef={headingRef} prefix={titlePrefix}
           onActivateGraphNode={onActivateGraphNode} unsupportedMessage={unsupportedMessage} />
-        {plan ? <code className="shared-scene-card__id">{scene.id}</code> : null}
+        {plan && !compactHeader ? <code className="shared-scene-card__id">{scene.id}</code> : null}
         {context}{status}{sceneActions}
       </header>
       <div className={`shared-scene-card__content${plan ? " world-plan-scene-reader__content" : ""}`}>

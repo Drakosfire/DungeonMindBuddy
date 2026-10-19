@@ -93,7 +93,10 @@ The operator selected cards/navigation on 2026-10-19. Architecture's
 card purpose, capacity, editing and context-preserving navigation against the
 current code. It recommends Plan scene-navigation/view continuity first, then
 focused existing-scene editing through each surface's owning writer. The design
-is awaiting review; no implementation lease or product acceptance is implied.
+was independently reviewed and merged as #1457. The first bounded navigation/
+continuity slice is authorized under
+[its handoff](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md); implementation
+and rendered acceptance remain open.
 
 ## Other candidates for a later operator decision
 
