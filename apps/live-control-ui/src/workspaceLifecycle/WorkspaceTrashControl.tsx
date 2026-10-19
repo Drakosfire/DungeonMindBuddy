@@ -68,8 +68,13 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, showT
     } finally { if (mounted.current && sequence.current === stamp) setPending(false); }
   };
   return <>
-    {current ? <button type="button" disabled={blocked || pending} title={blocked ? "Finish saving changes before deleting." : undefined}
-      onClick={() => { void open("delete"); }}>Delete</button> : null}
+    {current ? <button type="button" className="workspace-trash-delete" aria-label="Delete" disabled={blocked || pending}
+      title={blocked ? "Finish saving changes before deleting." : "Move to Trash"}
+      onClick={() => { void open("delete"); }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+      </svg>
+    </button> : null}
     {showTrash ? <button type="button" onClick={() => { void open("trash"); }}>Trash</button> : null}
     {view !== "closed" && (view !== "delete" || confirmation?.identity === identity) ? createPortal(<dialog ref={dialog} className="workspace-trash" aria-label={view === "delete" ? "Move to Trash" : "World Trash"}
       onCancel={event => { if (pending) event.preventDefault(); else setView("closed"); }}>

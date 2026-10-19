@@ -9,3 +9,8 @@
 .workspace-trash small { display:block; opacity:.75; }
 .workspace-trash button { cursor:pointer; padding:.4rem .65rem; margin:.15rem; }
 .workspace-trash__sr { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+
+button.workspace-trash-delete { display:inline-flex; align-items:center; justify-content:center; flex:0 0 2rem; width:2rem; min-width:2rem; height:2rem; padding:0; color:#f87171; border:1px solid transparent; border-radius:6px; background:transparent; cursor:pointer; }
+button.workspace-trash-delete:hover:not(:disabled) { color:#fca5a5; background:#ef44441a; border-color:#ef444466; }
+button.workspace-trash-delete:focus-visible { outline:2px solid #f87171; outline-offset:2px; }
+button.workspace-trash-delete:disabled { opacity:.45; cursor:not-allowed; }
