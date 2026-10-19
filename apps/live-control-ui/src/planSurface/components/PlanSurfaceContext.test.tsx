@@ -59,20 +59,18 @@ function renderPlanContext(overrides: Partial<Parameters<typeof PlanSurfaceConte
 }
 
 describe("PlanSurfaceContext", () => {
-  it("publishes PREP with selector, session badge, and create action in the context host", () => {
+  it("publishes selector and shared create action without redundant metadata in the context host", () => {
     renderPlanContext({
       saveStatusLabel: "Unsaved local changes",
     });
 
     const host = screen.getByTestId("surface-context-host");
-    expect(within(host).getByText("PREP")).toBeInTheDocument();
+    expect(within(host).queryByText("PREP")).not.toBeInTheDocument();
     expect(within(host).getByTestId("plan-document-select")).toHaveValue(DOC_A);
     expect(within(host).getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
-    expect(within(host).getByText("S23")).toBeInTheDocument();
-    expect(within(host).getByTestId("plan-canvas-save-status")).toHaveTextContent(
-      "Unsaved local changes",
-    );
-    expect(within(host).getByTestId("plan-document-create-open")).toHaveTextContent("+ New prep");
+    expect(within(host).queryByText("S23")).not.toBeInTheDocument();
+    expect(within(host).queryByTestId("plan-canvas-save-status")).not.toBeInTheDocument();
+    expect(within(host).getByTestId("plan-document-create-open")).toHaveAccessibleName("New Plan");
   });
 
   it("shows empty prep state and create action when no active document", () => {
@@ -83,7 +81,7 @@ describe("PlanSurfaceContext", () => {
     });
 
     const host = screen.getByTestId("surface-context-host");
-    expect(within(host).getByText("No prep loaded")).toBeInTheDocument();
+    expect(within(host).getByText("No Plan loaded")).toBeInTheDocument();
     expect(within(host).queryByTestId("plan-document-select")).not.toBeInTheDocument();
     expect(within(host).getByTestId("plan-document-create-open")).toBeInTheDocument();
   });
@@ -107,7 +105,7 @@ describe("PlanSurfaceContext", () => {
     await user.click(within(host).getByTestId("plan-document-create-open"));
 
     expect(screen.getByTestId("surface-context-popover")).toBeInTheDocument();
-    expect(screen.getByText("New prep")).toBeInTheDocument();
+    expect(screen.getByText("New Plan")).toBeInTheDocument();
     expect(screen.getByTestId("plan-document-create-form")).toBeInTheDocument();
   });
 

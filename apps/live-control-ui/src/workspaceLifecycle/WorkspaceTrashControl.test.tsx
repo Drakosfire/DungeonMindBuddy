@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTrashControl } from "./WorkspaceTrashControl";
 import * as api from "./workspaceTrashApi";
-vi.mock("./workspaceTrashApi", () => ({ listWorkspaceTrash: vi.fn(), changeWorkspaceTrash: vi.fn() }));
+vi.mock("./workspaceTrashApi", () => ({ listWorkspaceTrash: vi.fn(), changeWorkspaceTrash: vi.fn(), listCampaignPlanTrash:vi.fn(), changeCampaignPlanTrash:vi.fn() }));
 const doc = { kind:"document" as const, id:"doc-a", title:"Disposable Plan", surface:"plan" as const, revision:7 };
 const session = { kind:"session" as const, id:"run-a", title:"Lakeside session", surface:"play" as const, revision:5, content_revision:13 };
 const item = { ...doc, status:"trashed" as const, updated_at:"2026-10-19T15:00:00Z" };
@@ -98,4 +98,18 @@ describe("recoverable document lifecycle", () => {
     rerender(<WorkspaceTrashControl worldId="other" current={null} onTrashed={vi.fn()} />);
     await act(async () => resolve([item]));expect(screen.queryByText("Disposable Plan")).not.toBeInTheDocument();
   });
+});
+
+it("cancels campaign confirmation on scope change and uses the campaign adapter",async()=>{
+ vi.mocked(api.changeCampaignPlanTrash).mockResolvedValue(item);
+ const onTrashed=vi.fn();const {rerender}=render(<WorkspaceTrashControl campaignId="campaign-a" current={doc} onTrashed={onTrashed}/>);
+ fireEvent.click(screen.getByRole("button",{name:"Delete",exact:true}));
+ rerender(<WorkspaceTrashControl campaignId="campaign-b" current={doc} onTrashed={onTrashed}/>);
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(api.changeCampaignPlanTrash).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole("button",{name:"Delete",exact:true}));
+ fireEvent.click(screen.getByRole("button",{name:"Move to Trash",exact:true}));
+ await waitFor(()=>expect(onTrashed).toHaveBeenCalledOnce());
+ expect(api.changeCampaignPlanTrash).toHaveBeenCalledWith("campaign-b",doc,"trash");
+ expect(api.changeWorkspaceTrash).not.toHaveBeenCalled();
 });

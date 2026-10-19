@@ -37,8 +37,8 @@ function renderSelector(overrides: Partial<Parameters<typeof PlanDocumentSelecto
 describe("PlanDocumentSelector", () => {
   it("labels the control as a prep document picker, not session/graph memory", () => {
     renderSelector();
-    expect(screen.getByText("Prep document")).toBeInTheDocument();
-    expect(screen.getByLabelText("Prep document")).toBe(screen.getByTestId("plan-document-select"));
+    expect(screen.getByText("Plan document")).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan document")).toBe(screen.getByTestId("plan-document-select"));
   });
 
   it("keeps exact documentId identity on every option", () => {

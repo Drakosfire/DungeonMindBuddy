@@ -1,4 +1,4 @@
-import { authenticatedApiFetch, LiveApiError } from "../api/liveApi";
+import { authenticatedApiFetch, LiveApiError, listWorkspaceDocuments, getWorkspaceDocumentSnapshot, discardWorkspaceDocument, restoreWorkspaceDocument } from "../api/liveApi";
 
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { response } = await authenticatedApiFetch(path, { ...init, cache: "no-store" });
@@ -45,5 +45,28 @@ export async function changeWorkspaceTrash(worldId: string, target: WorkspaceTra
   if (!admittedItem(result) || result.id !== target.id || result.kind !== target.kind || result.status !== (action === "trash" ? "trashed" : "active")) {
     throw new Error("The lifecycle response does not match the selected item. Reload to check its state.");
   }
+  return result;
+}
+
+/** Campaign plans retain their existing ownership; never infer a World from campaign names. */
+function campaignPlanItem(record: import("../api/types").WorkspaceDocumentRecord, campaignId: string): WorkspaceTrashItem {
+  if (record.kind !== "plan" || record.world_id || record.campaign_id !== campaignId || !["active", "discarded"].includes(record.status)) throw new Error("Plan does not belong to this campaign.");
+  const item: WorkspaceTrashItem = {kind:"document",id:record.document_id,title:record.title,surface:"plan",revision:record.revision,
+    status:record.status === "discarded" ? "trashed" : "active",updated_at:record.updated_at};
+  if (!admittedItem(item)) throw new Error("Campaign Plan lifecycle response is invalid.");
+  return item;
+}
+export async function listCampaignPlanTrash(campaignId: string): Promise<WorkspaceTrashItem[]> {
+  const result = await listWorkspaceDocuments({campaign_id:campaignId,kind:"plan",status:"discarded"});
+  return result.records.map(record => { const item=campaignPlanItem(record,campaignId); if(item.status!=="trashed")throw new Error("Campaign Trash inventory changed. Reload it.");return item; });
+}
+export async function changeCampaignPlanTrash(campaignId: string, target: WorkspaceTrashTarget, action: "trash" | "restore"): Promise<WorkspaceTrashItem> {
+  if(target.kind!=="document" || target.surface!=="plan") throw new Error("Only campaign Plans can use this Trash.");
+  const snapshot=await getWorkspaceDocumentSnapshot(target.id);
+  const current=campaignPlanItem(snapshot.record,campaignId);
+  if(current.id!==target.id || current.revision!==target.revision || current.status!==(action==="trash"?"active":"trashed")) throw new Error("The Plan changed. Reload before trying again.");
+  const record=await (action==="trash"?discardWorkspaceDocument:restoreWorkspaceDocument)(target.id,{expected_revision:target.revision});
+  const result=campaignPlanItem(record,campaignId);
+  if(result.id!==target.id || result.status!==(action==="trash"?"trashed":"active")) throw new Error("The lifecycle response does not match this Plan. Reload to check its state.");
   return result;
 }
