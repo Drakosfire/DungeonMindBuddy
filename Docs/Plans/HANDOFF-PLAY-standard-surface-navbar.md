@@ -24,7 +24,7 @@ Use controlled presentation props for FloatingSceneNotes only if needed; retain 
 - apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.tsx and .test.tsx
 - apps/live-control-ui/src/playSurface/currentMoment/FloatingSceneNotes.tsx and existing owning .test.tsx
 - apps/live-control-ui/src/playSurface/content/PlaySessionContentEditor.tsx and .test.tsx, playSessionContentEditor.css
-- Existing Play-scoped cockpit/panel stylesheet only if scoped duplicate-control/default-panel layout requires it; identify exact file before editing and amend this allowlist.
+- `apps/live-control-ui/src/playSurface/playSurface.css` — scoped duplicate-control/default-panel layout only; shared header/host layout remains read-only.
 
 Shared chrome/context host/provider/primitives/registries, editor/media/parser internals, server/API/DTOs, note/content save controllers, dependencies/lockfiles and other surfaces are read-only. Return exact required path/invariant before widening. Tests should mount the real SurfaceContextProvider/Host to prove contributions land in the actual shared navbar; no fake local toolbar fallback just to satisfy old isolated fixtures. Adapt only leased test harnesses where needed.
 

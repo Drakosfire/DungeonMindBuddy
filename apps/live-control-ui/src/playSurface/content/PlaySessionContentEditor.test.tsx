@@ -1,11 +1,21 @@
 import { webcrypto } from "node:crypto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { contentSha256 } from "../playRunEffectiveContent";
 import type { PlayRunContent } from "../playRunContentTypes";
 import { writePlayRunContentJournal } from "./playRunContentJournal";
 import { PlaySessionContentEditor } from "./PlaySessionContentEditor";
+import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
+import { SurfaceContextAction } from "../../surfaceInteraction/contextHost";
+import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
+import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
+
+function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
+  return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+}
 
 vi.mock("../../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
 
@@ -25,6 +35,27 @@ beforeEach(async () => {
 });
 
 describe("Play session-copy editor", () => {
+  it("keeps an editor draft mounted while shared surface controls toggle", async () => {
+    function Harness() {
+      const [panelOpen, setPanelOpen] = useState(false);
+      return <>
+        <PlaySurfaceContext id="play-test-scene" order={20} identity={buildSurfaceInteractionIdentity({ surfaceId: "play", instanceParts: ["play", identity.worldId, identity.runId, identity.origin.playable_work_revision_id] })}>
+          <SurfaceContextAction aria-expanded={panelOpen} onClick={() => setPanelOpen(value => !value)}>Scenes</SurfaceContextAction>
+        </PlaySurfaceContext>
+        <PlaySessionContentEditor content={content} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />
+      </>;
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    const source = await screen.findByRole("textbox", { name: "Session copy Markdown" });
+    await user.clear(source);
+    await user.type(source, "# Gate\n\nDraft kept while navigating.");
+    await user.click(screen.getByRole("button", { name: "Scenes" }));
+    expect(screen.getByRole("button", { name: "Scenes" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: "Session copy Markdown" })).toHaveValue("# Gate\n\nDraft kept while navigating.");
+  });
   it("replaces an already-open visual document when the durable recovery journal restores a draft", async () => {
     const recovered = "# Gate\n\nRecovered prose from the local journal.\n";
     writePlayRunContentJournal(identity, { schema_version: "dmb_play_run_content_journal_v1", identity, accepted: content,

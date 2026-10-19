@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import {
   LiveApiError,
@@ -31,6 +31,8 @@ import {
   planSelectOption,
   selectedOptionForChoice,
 } from "./decisionInteractionModel";
+import { SurfaceContextAction, SurfaceContextPopover, SurfaceContextSelect } from "../../surfaceInteraction/contextHost";
+import { PlaySurfaceContext, playSurfaceContextIdentity } from "../components/PlaySurfaceContext";
 
 export interface PlayCurrentMomentCockpitProps {
   deck: NativeRunbookReadyV2;
@@ -362,7 +364,9 @@ export function PlayCurrentMomentCockpit({
   const mutationsOpen = mutationStatus === "idle" || mutationStatus === "saving";
   const [workspace, setWorkspace] = useState<PlayWorkspace>({ kind: "current" });
   const [beatCollapsed, setBeatCollapsed] = useState(narrowPlayViewport);
-  const [glanceCollapsed, setGlanceCollapsed] = useState(narrowPlayViewport);
+  const [glanceCollapsed, setGlanceCollapsed] = useState(true);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [progressRejection, setProgressRejection] = useState<string | null>(null);
   const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
   const [sceneNoteDrafts, setSceneNoteDrafts] = useState<Record<string, SceneNoteDraft>>({});
@@ -380,6 +384,9 @@ export function PlayCurrentMomentCockpit({
   const sceneNoteRequestCounterRef = useRef(0);
   const compactOutlineToggleRef = useRef<HTMLButtonElement | null>(null);
   const compactOutcomesToggleRef = useRef<HTMLButtonElement | null>(null);
+  const notesNavbarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const scenesNavbarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const moreNavbarToggleRef = useRef<HTMLButtonElement | null>(null);
   const compactPanelFocusRef = useRef<"scenes" | "outcomes">("scenes");
   const workspaceHeadingRef = useRef<HTMLHeadingElement | null>(null);
   sceneNoteDraftsRef.current = sceneNoteDrafts;
@@ -389,9 +396,11 @@ export function PlayCurrentMomentCockpit({
     liveRunIdRef.current = run.run_id;
     liveRunIdentityRef.current = runIdentity;
     setWorkspace({ kind: "current" });
+    setNotesOpen(false);
+    setMoreOpen(false);
     const compactPanels = compactLayoutRef.current;
     setBeatCollapsed(compactPanels);
-    setGlanceCollapsed(compactPanels);
+    setGlanceCollapsed(true);
     setProgressRejection(null);
     setExactRereadSucceeded(false);
     inFlightRef.current = false;
@@ -412,7 +421,7 @@ export function PlayCurrentMomentCockpit({
         if (previousCompact === compact) return;
         previousCompact = compact;
         setBeatCollapsed(compact);
-        setGlanceCollapsed(compact);
+        setGlanceCollapsed(true);
       });
       observer.observe(cockpit);
       return () => observer.disconnect();
@@ -423,7 +432,7 @@ export function PlayCurrentMomentCockpit({
     const sync = () => {
       compactLayoutRef.current = query.matches;
       setBeatCollapsed(query.matches);
-      setGlanceCollapsed(query.matches);
+      setGlanceCollapsed(true);
     };
     sync();
     query.addEventListener?.("change", sync);
@@ -438,6 +447,7 @@ export function PlayCurrentMomentCockpit({
   const moment = resolveCurrentMoment(deck);
   const currentBeat = moment.status === "ok" ? moment.beat : null;
   const currentScene = moment.status === "ok" ? moment.scene : null;
+  const surfaceIdentity = playSurfaceContextIdentity(run, run.run_id);
   const inspectedScene = workspace.kind === "scene-inspect"
     ? sceneInAnyBeat(deck, workspace.sceneId)
     : null;
@@ -725,7 +735,7 @@ export function PlayCurrentMomentCockpit({
   const restoreWorkspaceFocus = () => {
     queueMicrotask(() => {
       const outline = compactLayoutRef.current
-        ? compactOutlineToggleRef.current
+        ? scenesNavbarToggleRef.current
         : outlineToggleRef.current;
       if (outline?.isConnected) {
         outline.focus();
@@ -745,6 +755,7 @@ export function PlayCurrentMomentCockpit({
       setGlanceCollapsed(true);
     }
     setBeatCollapsed(nextCollapsed);
+    if (!nextCollapsed) queueMicrotask(() => compactOutlineToggleRef.current?.focus());
   };
 
   const toggleOutcomes = () => {
@@ -754,6 +765,16 @@ export function PlayCurrentMomentCockpit({
       setBeatCollapsed(true);
     }
     setGlanceCollapsed(nextCollapsed);
+    if (!nextCollapsed) queueMicrotask(() => compactOutcomesToggleRef.current?.focus());
+  };
+
+  const dismissSurfacePanelOnEscape = (event: KeyboardEvent<HTMLButtonElement>, panel: "scenes" | "outcomes") => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (panel === "scenes") setBeatCollapsed(true);
+    else setGlanceCollapsed(true);
+    queueMicrotask(() => (panel === "scenes" ? scenesNavbarToggleRef.current : moreNavbarToggleRef.current)?.focus());
   };
 
   const openInspect = (scene: NativeRunbookSceneV2) => {
@@ -838,8 +859,8 @@ export function PlayCurrentMomentCockpit({
         event.preventDefault();
         if (compactOverlayOpen) {
           const focusTarget = compactPanelFocusRef.current === "scenes"
-            ? compactOutlineToggleRef
-            : compactOutcomesToggleRef;
+            ? scenesNavbarToggleRef
+            : moreNavbarToggleRef;
           setBeatCollapsed(true);
           setGlanceCollapsed(true);
           queueMicrotask(() => focusTarget.current?.focus());
@@ -877,30 +898,37 @@ export function PlayCurrentMomentCockpit({
         </p>
       ) : null}
 
-      <nav className="play-compact-tools" aria-label="Play panels">
-        <button
-          type="button"
-          data-testid="play-compact-outline-toggle"
-          ref={compactOutlineToggleRef}
-          aria-expanded={!beatCollapsed}
-          aria-controls="play-outline-body"
-          onClick={toggleOutline}
-        >
-          <span>Scenes</span>
-          <span aria-hidden="true">{beatCollapsed ? "Browse" : "Close"}</span>
+      <PlaySurfaceContext id="play-cockpit-context" order={20} identity={surfaceIdentity}>
+        <button ref={scenesNavbarToggleRef} className="surface-context-action" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Scenes</button>
+        <SurfaceContextSelect aria-label="Inspect scene" value={workspace.kind === "scene-inspect" ? workspace.sceneId : ""}
+          onChange={event => { const scene = sceneInAnyBeat(deck, event.target.value); if (scene) openInspect(scene); }}>
+          <option value="">{currentScene ? `Current: ${currentScene.title}` : "No current scene"}</option>
+          {deck.beats.flatMap(beat => beat.scenes.map(scene => <option key={scene.id} value={scene.id}>{beat.title} · {scene.title}</option>))}
+        </SurfaceContextSelect>
+        <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => {
+          const scenes = deck.beats.flatMap(beat => beat.scenes);
+          const index = scenes.findIndex(scene => scene.id === (inspectedScene?.id ?? currentScene?.id));
+          const scene = scenes[Math.max(0, index - 1)]; if (scene) openInspect(scene);
+        }}>Previous scene</SurfaceContextAction>
+        <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => {
+          const scenes = deck.beats.flatMap(beat => beat.scenes);
+          const index = scenes.findIndex(scene => scene.id === (inspectedScene?.id ?? currentScene?.id));
+          const scene = scenes[Math.min(scenes.length - 1, index + 1)]; if (scene) openInspect(scene);
+        }}>Next scene</SurfaceContextAction>
+        {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={closeToCurrent}>Return to current</SurfaceContextAction> : null}
+        <button ref={notesNavbarToggleRef} className="surface-context-action play-surface-context__notes" type="button" aria-expanded={notesOpen} title={`Notes for current scene: ${currentScene?.title ?? "none"}`} onClick={() => setNotesOpen(value => !value)} disabled={!worldOwnedRun || !currentScene}>
+          Notes · {workspace.kind === "scene-inspect" && inspectedScene ? `current scene ${currentScene?.title ?? "none"}` : currentScene?.title ?? "no current scene"}
         </button>
-        <button
-          type="button"
-          data-testid="play-compact-outcomes-toggle"
-          ref={compactOutcomesToggleRef}
-          aria-expanded={!glanceCollapsed}
-          aria-controls="play-recorded-outcomes-body"
-          onClick={toggleOutcomes}
-        >
-          <span>Run record</span>
-          <span aria-hidden="true">{glanceCollapsed ? "Open" : "Close"}</span>
-        </button>
-      </nav>
+        <span onKeyDownCapture={event => {
+          if (event.key !== "Escape" || !moreOpen) return;
+          event.preventDefault(); event.stopPropagation(); setMoreOpen(false);
+          queueMicrotask(() => moreNavbarToggleRef.current?.focus());
+        }}>
+        <SurfaceContextPopover open={moreOpen} onOpenChange={setMoreOpen} title="More" trigger={<button ref={moreNavbarToggleRef} className="surface-context-action" type="button" aria-expanded={moreOpen} aria-label="More Play controls" onKeyDown={event => dismissSurfacePanelOnEscape(event, "outcomes")} onClick={() => setMoreOpen(value => !value)}>More</button>}>
+          <SurfaceContextAction type="button" onClick={() => { toggleOutcomes(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }} aria-expanded={!glanceCollapsed}>Run record</SurfaceContextAction>
+        </SurfaceContextPopover>
+        </span>
+      </PlaySurfaceContext>
 
       <div
         className="play-cockpit-shell"
@@ -1055,7 +1083,7 @@ export function PlayCurrentMomentCockpit({
       </div>
 
       {worldOwnedRun ? (
-        <FloatingSceneNotes sceneTitle={currentScene?.title ?? null}
+        <FloatingSceneNotes sceneTitle={currentScene?.title ?? null} open={notesOpen} onOpenChange={setNotesOpen} returnFocusRef={notesNavbarToggleRef} hideToggle
           available={Boolean(sceneNoteScope && sceneNoteId)} suspended={compactOverlayOpen}
           status={activeSceneNoteStorageWarning || activeSceneNoteDraft?.failure || sceneNoteChangedOnServer
             ? "Needs attention" : activeSceneNoteDraft?.state === "saving" ? "Saving…"

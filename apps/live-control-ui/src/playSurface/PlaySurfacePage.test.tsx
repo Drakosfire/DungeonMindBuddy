@@ -2,7 +2,8 @@ import { createHash, webcrypto } from "node:crypto";
 import { getWorldPlayRunContent, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
 import type { PlayRunContent } from "./playRunContentTypes";
 import { usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from "@testing-library/react";
+import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -27,6 +28,11 @@ import {
 import { LiveApiError } from "../api/liveApi";
 import type { WorldOwnedCommittedRevisionV2, WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
 import { PlaySurfacePage } from "./PlaySurfacePage";
+import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+
+function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
+  return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+}
 
 vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
 vi.mock("../agentInteraction/WorldAgentConversation", async original => ({
@@ -348,7 +354,7 @@ describe("Play selected-World admission", () => {
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByTestId("play-start-new-run"));
+    await user.click(screen.getByTestId("play-load-run"));
     const firstRun = await screen.findByTestId(`play-session-${runId}`);
     await user.click(firstRun);
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
@@ -370,7 +376,7 @@ describe("Play selected-World admission", () => {
     expect(await screen.findByTestId("play-active-run-save-warning")).toHaveTextContent("pointer write failed");
     expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
 
-    await user.click(screen.getByTestId("play-start-new-run"));
+    await user.click(screen.getByTestId("play-load-run"));
     await user.click(await screen.findByTestId(`play-session-${runId}`));
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
 
@@ -420,7 +426,7 @@ describe("Play selected-World admission", () => {
 
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
-    await user.click(screen.getByTestId("play-start-new-run"));
+    await user.click(screen.getByTestId("play-load-run"));
     await user.click(await screen.findByTestId(`play-session-${secondRunId}`));
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
 
@@ -888,8 +894,8 @@ describe("World session-copy projection", () => {
     await waitFor(() => expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce(), { timeout: 5000 });
     expect(screen.getByRole("textbox", { name: "Session copy Markdown" })).toHaveValue(edited);
     expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:hall");
-    expect(screen.getByRole("button", { name: /Scene notes — Hall/ })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Scene notes — Hall/ }));
+    expect(screen.getByRole("button", { name: /Notes · Hall/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Notes · Hall/ }));
     expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this scene note.");
     expect(putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
   });

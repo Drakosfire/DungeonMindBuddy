@@ -6,6 +6,9 @@ import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { semanticMarkdownSerializationDiagnostics } from "../../tiptap/markdown/semanticMarkdownSafety";
+import { SurfaceContextAction, SurfaceContextStatus } from "../../surfaceInteraction/contextHost";
+import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
+import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
 import { usePlayRunContentController } from "./usePlayRunContentController";
 import type { PlayRunContent } from "../playRunContentTypes";
 import "./playSessionContentEditor.css";
@@ -33,6 +36,7 @@ export function PlaySessionContentEditor({
   const split = useMemo(() => splitLeadingYamlFrontmatter(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const imported = useMemo(() => markdownToTiptapDoc(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const identityKey = `${content.world_id}:${content.run_id}:${content.origin.playable_work_revision_id}:${content.origin.playable_content_sha256}`;
+  const surfaceIdentity = buildSurfaceInteractionIdentity({ surfaceId: "play", instanceParts: ["play", content.world_id, content.run_id, content.origin.playable_artifact_id, String(content.origin.playable_revision), content.origin.playable_work_revision_id, content.origin.playable_content_sha256] });
 
   const diagnostics = useCallback((doc: unknown): string[] => {
     const semantic = semanticMarkdownSerializationDiagnostics(doc).map(item => item.message);
@@ -98,16 +102,12 @@ export function PlaySessionContentEditor({
                 : "Recovery storage needs attention";
 
   return (
+    <>
+    <PlaySurfaceContext id="play-editor-context" order={30} identity={surfaceIdentity}>
+      <SurfaceContextAction type="button" aria-expanded={open} onClick={openEditor}>{open ? "Close editor" : "Edit session"}</SurfaceContextAction>
+      <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}>{savedLabel}</SurfaceContextStatus>
+    </PlaySurfaceContext>
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">
-      <header className="play-session-content__header">
-        <div>
-          <p className="play-session-content__eyebrow">PLAY · SESSION COPY</p>
-          <strong>{savedLabel}</strong>
-        </div>
-        <button type="button" className="play-session-content__primary" aria-expanded={open} onClick={openEditor}>
-          {open ? "Close editor" : "Edit session"}
-        </button>
-      </header>
 
       {controller.state.message ? <p className="play-session-content__message" role={controller.state.saveState === "invalid" || controller.state.saveState === "rejected" || controller.state.saveState === "storage-error" ? "alert" : "status"}>{controller.state.message}</p> : null}
       {controller.state.serializationIssues.length ? (
@@ -179,5 +179,6 @@ export function PlaySessionContentEditor({
         </div>
       ) : null}
     </section>
+    </>
   );
 }

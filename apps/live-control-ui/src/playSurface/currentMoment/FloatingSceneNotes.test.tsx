@@ -32,6 +32,17 @@ describe("FloatingSceneNotes", () => {
     expect(screen.getByRole("button")).toHaveTextContent("Scene notes — B");
   });
 
+  it("hides the collapsed navbar-owned frame while retaining its mounted draft", () => {
+    const content = <label>Scene note<textarea defaultValue="Retained draft" /></label>;
+    const view = render(<FloatingSceneNotes sceneTitle="North Gate" status="Saved" hideToggle open={false}>{content}</FloatingSceneNotes>);
+    const field = screen.getByLabelText("Scene note");
+    expect(screen.getByTestId("floating-scene-notes")).not.toBeVisible();
+    view.rerender(<FloatingSceneNotes sceneTitle="North Gate" status="Saved" hideToggle open>{content}</FloatingSceneNotes>);
+    expect(screen.getByLabelText("Scene note")).toBe(field);
+    expect(field).toBeVisible();
+    expect(field).toHaveValue("Retained draft");
+  });
+
   it("does not fabricate a target when no scene is current", () => {
     render(<FloatingSceneNotes sceneTitle={null} available={false} status="No current scene">None</FloatingSceneNotes>);
     expect(screen.getByRole("button")).toBeDisabled();
