@@ -1339,3 +1339,16 @@
 .play-session-details summary { cursor: pointer; }
 .play-session-details p { margin-block: 0.3rem; }
 .play-session-details code { overflow-wrap: anywhere; }
+
+/* The Play entry explains the workflow before asking for a document identity. */
+.play-chooser .play-welcome-intro { font-size:1.15rem; }
+.play-chooser .play-kicker { color:#d4ae58; letter-spacing:.12em; text-transform:uppercase; font-size:.8rem; font-weight:700; }
+.play-world-picker { padding:1.4rem; border:1px solid var(--play-border); border-radius:12px; background:var(--play-surface); }
+.play-world-picker > h2 { margin-top:0; }
+.play-world-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr)); gap:.75rem; list-style:none; padding:0; margin-bottom:0; }
+.play-world-list a { display:flex; flex-direction:column; gap:.35rem; padding:1rem; border:1px solid var(--play-border); border-radius:8px; color:var(--play-text); text-decoration:none; }
+.play-world-list a:hover { background:var(--play-surface-active); border-color:var(--play-accent); }
+.play-world-list a span { color:var(--play-muted); font-size:.9rem; }
+.play-welcome-plan { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; padding-block:.75rem; }
+.play-welcome-plan a { padding:.55rem .9rem; border:1px solid #d4ae58; border-radius:6px; color:#f1d18d; text-decoration:none; }
+.play-welcome-plan span { color:var(--play-muted); font-size:.9rem; }

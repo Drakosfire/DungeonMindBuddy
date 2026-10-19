@@ -48,6 +48,7 @@ import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockp
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
+import { PlayWorldPicker } from "./PlayWorldPicker";
 import { StartRunPanel } from "./StartRunPanel";
 import { SurfaceContextAction } from "../surfaceInteraction/contextHost";
 import { PlaySurfaceContext, playSurfaceContextIdentity } from "./components/PlaySurfaceContext";
@@ -451,17 +452,22 @@ function PlayChooser({
   return (
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
       <header>
-        <h1>{initialPlanId && titles[initialPlanId] ? titles[initialPlanId] : "Your sessions"}</h1>
-        <p className="play-muted">Pick up where you left off. Your scene notes and choices stay with the session.</p>
+        <p className="play-kicker">At the table</p>
+        <h1>{initialPlanId && titles[initialPlanId] ? titles[initialPlanId] : "Bring your next session to life"}</h1>
+        <p className="play-welcome-intro">Run your game with scenes, read-alouds, images and Buddy beside you.</p>
+        <p className="play-muted">Take scene notes and edit as you improvise. Your changes save to this session’s copy, keeping the Plan intact.</p>
+        {selectedWorldId ? <p className="play-welcome-plan"><a href={`/plan?world=${encodeURIComponent(selectedWorldId)}`}>Open a Plan →</a><span>Prepare scenes, then press Play to begin a session.</span></p> : null}
         {continuityWarning ? <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">{continuityWarning}</p> : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
+      {!selectedWorldId ? <PlayWorldPicker /> : null}
       <section data-testid="play-existing-runs" aria-label="Saved sessions">
+        {selectedWorldId || records.length > 0 ? <h2>{selectedWorldId ? "Your sessions" : "Earlier campaign sessions"}</h2> : null}
         {status === "loading" ? <p>Loading sessions…</p> : null}
         {status === "recovery_pending" ? <p role="alert">Your sessions are being recovered. Please try again when recovery finishes.</p> : null}
         {status === "unavailable" ? <p role="alert">{detail ?? "Saved sessions are unavailable."}</p> : null}
-        {status === "ready" && matching.length === 0 ? <p className="play-muted">
-          {initialPlanId ? "You haven’t played this Plan yet. Start a session below." : "No saved sessions yet. Start your first session below."}
+        {selectedWorldId && status === "ready" && matching.length === 0 ? <p className="play-muted">
+          {initialPlanId ? "You haven’t played this Plan yet. Start a session below." : "No sessions in this World yet. Open a Plan and press Play to start one."}
         </p> : null}
         {status === "ready" && recommended ? <ul className="play-run-list">{sessionLink(recommended, true)}</ul> : null}
         {status === "ready" && remaining.length > 0 ? <details className="play-session-group">
@@ -473,15 +479,15 @@ function PlayChooser({
           <ul className="play-run-list">{other.map(record => sessionLink(record))}</ul>
         </details> : null}
       </section>
-      <details className="play-session-group" open={status === "ready" && matching.length === 0}>
-        <summary>Start a new session</summary>
+      {selectedWorldId ? <details className="play-session-group" open={Boolean(initialPlanId) && status === "ready" && matching.length === 0}>
+        <summary>{initialPlanId ? "Start a new session from this Plan" : "Start from an existing Runbook"}</summary>
         <StartRunPanel
           key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "runbook-chooser"}`}
           onStarted={navigateToRun} productCampaignId={productCampaignId} verifiedWorldId={selectedWorldId}
           initialPlanId={selectedWorldId ? initialPlanId : null}
           initialPlanRevisionPin={selectedWorldId ? initialPlanRevisionPin : null}
         />
-      </details>
+      </details> : null}
     </main>
   );
 }
@@ -1001,7 +1007,7 @@ export function PlaySurfacePage() {
 
   return (
     <AppChrome activeRoute="play">
-      <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
+      {loadStatus !== "chooser" ? <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
         <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
         {selectedWorldId ? <WorkspaceTrashControl showTrash={false} worldId={selectedWorldId}
           current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
@@ -1010,7 +1016,7 @@ export function PlaySurfacePage() {
           blocked={sessionCopyBlocked || mutationStatus !== "idle" || loadStatus !== "ready"}
           onTrashed={() => window.location.assign(`/play?world=${encodeURIComponent(selectedWorldId)}&choose=1`)}
           /> : null}
-      </PlaySurfaceContext>
+      </PlaySurfaceContext> : null}
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}
         contentBasis={v2Deck?.effectiveContent ? { edition_revision: v2Deck.effectiveContent.edition_revision, edition_revision_id: v2Deck.effectiveContent.edition_revision_id, content_sha256: v2Deck.effectiveContent.content_sha256 } : null}

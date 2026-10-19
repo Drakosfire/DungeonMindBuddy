@@ -47,7 +47,7 @@ vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), ge
 vi.mock("../agentInteraction/WorldAgentConversation", async original => ({
   ...await original<typeof import("../agentInteraction/WorldAgentConversation")>(), usePublishWorldPlayConversation: vi.fn(),
 }));
-const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b" }));
+const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b", legacy: false }));
 
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
@@ -70,7 +70,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   putWorldPlayRunProgress: vi.fn(),
 }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({
-  useSelectedWorld: () => ({
+  useSelectedWorld: () => selectedWorldHarness.legacy ? {kind:"legacy"} : ({
     kind: "managed",
     worldId: selectedWorldHarness.worldId,
     name: `World ${selectedWorldHarness.worldId}`,
@@ -81,6 +81,7 @@ vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: Re
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
 vi.mock("../agentInteraction/usePublishSurfaceInteraction", () => ({ usePublishSurfaceInteraction: () => undefined }));
 vi.mock("../graphLens", () => ({ useOptionalWorldGraphLens: () => null }));
+vi.mock("./PlayWorldPicker", () => ({PlayWorldPicker: () => <div>Choose your World</div>}));
 vi.mock("./StartRunPanel", () => ({ StartRunPanel: () => <div>Start Run</div> }));
 
 const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -198,6 +199,7 @@ describe("Play selected-World admission", () => {
     vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [] });
     vi.mocked(listWorldOwnedRunbooks).mockResolvedValue({ schema_version: "dmb_world_owned_runbooks_list_v2", scope_mode: "world", world_id: "world-b", records: [] });
     selectedWorldHarness.worldId = "world-b";
+    selectedWorldHarness.legacy = false;
     vi.mocked(getWorldOwnedPlanCommittedRevision).mockRejectedValue(new LiveApiError("Plan revision not found", 404));
     vi.mocked(listPlayRuns).mockResolvedValue({ records: [] } as Awaited<ReturnType<typeof listPlayRuns>>);
     vi.mocked(listWorldPlayRuns).mockResolvedValue({
@@ -207,6 +209,25 @@ describe("Play selected-World admission", () => {
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
   });
 
+  it("explains Play at the exact root chooser without an inert Load or campaign creation form", async () => {
+    selectedWorldHarness.legacy = true;
+    vi.mocked(listPlayRuns).mockResolvedValue({records:[]} as never);
+    window.history.replaceState({}, "", "/play?choose=1");
+    render(<PlaySurfacePage/>);
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.getByRole("heading",{name:"Bring your next session to life"})).toBeInTheDocument();
+    expect(screen.getByText("Choose your World")).toBeInTheDocument();
+    expect(screen.queryByTestId("play-load-run")).not.toBeInTheDocument();
+    expect(screen.queryByText("Start Run")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No saved sessions yet/)).not.toBeInTheDocument();
+  });
+  it("offers the selected World's Plan workflow and omits Load while already choosing", async () => {
+    window.history.replaceState({}, "", "/play?world=world-b&choose=1");
+    render(<PlaySurfacePage/>);
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.getByRole("link",{name:"Open a Plan →"})).toHaveAttribute("href","/plan?world=world-b");
+    expect(screen.queryByTestId("play-load-run")).not.toBeInTheDocument();
+  });
   it("puts the selected Plan's active session first with its title and notes, without creating anything", async () => {
     window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${artifactId}`);
     vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun(runId));
@@ -229,7 +250,7 @@ describe("Play selected-World admission", () => {
     expect(resume).not.toHaveTextContent(runId);
     expect(screen.getByText("Other sessions (1)").parentElement).not.toHaveAttribute("open");
     expect(screen.getByText("Sessions from other Plans (1)").parentElement).not.toHaveAttribute("open");
-    expect(screen.getByText("Start a new session").parentElement).not.toHaveAttribute("open");
+    expect(screen.getByText("Start a new session from this Plan").parentElement).not.toHaveAttribute("open");
     expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
     expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
     expect(screen.getAllByRole("link", { name: /Resume session/ })).toHaveLength(1);
@@ -255,7 +276,7 @@ describe("Play selected-World admission", () => {
     render(<PlaySurfacePage />);
     expect(await screen.findByText("You haven’t played this Plan yet. Start a session below.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Resume session/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Start a new session").parentElement).toHaveAttribute("open");
+    expect(screen.getByText("Start a new session from this Plan").parentElement).toHaveAttribute("open");
   });
 
   it("rejects a foreign World V2 Run without using campaign V1", async () => {
@@ -793,6 +814,7 @@ describe("World session-copy projection", () => {
     vi.stubGlobal("crypto", webcrypto);
     window.localStorage.clear();
     selectedWorldHarness.worldId = "world-b";
+    selectedWorldHarness.legacy = false;
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
     mockEffectiveFixture();
   });
