@@ -677,12 +677,24 @@ body.surface-projection-open .plan-agent-shell {
   --agent-play-panel-width: min(440px, 38vw);
 }
 
-#root:has(.agent-interaction-shell--play.open) .app-wrap:has(.play-surface) {
+#root:has(.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="side"]) .app-chrome-play-workspace {
   width: calc(100% - var(--agent-play-panel-width));
-  max-width: none;
-  margin-right: var(--agent-play-panel-width);
-  margin-left: 0;
+  min-width: 0;
 }
+#root:has(.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"]) .app-chrome-play-workspace {
+  padding-bottom: min(46dvh, 28rem);
+}
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+  top: auto; left: 0; right: 0; bottom: 0;
+  width: 100%; height: min(46dvh, 28rem);
+}
+.agent-interaction-play-layout { display: flex; justify-content: flex-end; gap: .35rem; padding: .25rem .5rem; flex: 0 0 auto; }
+.agent-interaction-play-layout button { color: #ccd8e6; background: #202a38; border: 1px solid #536279; border-radius: .35rem; padding: .2rem .55rem; cursor: pointer; }
+.agent-interaction-play-layout button[aria-pressed="true"] { border-color: #d7ac50; color: #f4d38f; }
+.agent-interaction-play-layout button:disabled { opacity: .5; cursor: default; }
+.plan-agent-shell.open[data-surface-id="play"] { display: flex; flex-direction: column; }
+.plan-agent-shell[data-surface-id="play"] .agent-interaction-ask-host:not(:empty) { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.plan-agent-shell[data-surface-id="play"] .world-agent-conversation { flex: 1 1 auto; }
 
 .plan-agent-shell.agent-interaction-shell--play.open {
   top: var(--app-chrome-top, 0px);
@@ -8114,10 +8126,6 @@ body.surface-projection-open .plan-agent-shell {
 }
 
 @media (max-width: 42rem) {
-  #root:has(.agent-interaction-shell--play.open) .app-wrap:has(.play-surface) {
-    width: 100%;
-    margin-right: 0;
-  }
 
   .plan-agent-shell.agent-interaction-shell--play.open {
     top: auto;

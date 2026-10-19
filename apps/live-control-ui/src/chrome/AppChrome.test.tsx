@@ -53,6 +53,12 @@ describe("AppChrome Ingest peek composition", () => {
     expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
     expect(screen.queryByTestId("app-peek-region")).toBeNull();
   });
+  it("keeps the Play navbar outside the reflowing chat workspace", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="play"><main>Play scene</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const workspace = screen.getByTestId("app-chrome-play-workspace");
+    expect(workspace).toContainElement(screen.getByText("Play scene"));
+    expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
+  });
   it("leaves ordinary non-Plan chrome in content flow", () => {
     render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="build"><main>Build source</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
     expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "content");

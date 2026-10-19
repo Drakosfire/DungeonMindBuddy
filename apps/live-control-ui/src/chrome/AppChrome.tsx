@@ -361,7 +361,7 @@ export function AppChrome({
           </div>
           {activeRoute === "ingest" ? <PeekRegionSlot /> : null}
         </div>
-      ) : children}
+      ) : activeRoute === "play" ? <div className="app-chrome-play-workspace" data-testid="app-chrome-play-workspace">{children}</div> : children}
     </div>
   );
 
