@@ -5,6 +5,8 @@ import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as markdownImporter from "../tiptap/markdown/markdownToTiptap";
+import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV3 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
@@ -3918,4 +3920,84 @@ it("autosaves exact Markdown source with preserved metadata and card IDs across 
   );
   expect(postGraph).not.toHaveBeenCalled();
   expect(postTurn).not.toHaveBeenCalled();
+});
+
+
+it.each([983, 4903, 14703])("reuses the validated parse for 20 consecutive accepted edits of a %s-word Plan under StrictMode", async words => {
+  const text = "# Synthetic parsing acceptance\n\n" + Array.from({ length: words }, (_, i) => `word${i}`).join(" ") + "\n";
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, text);
+  const imports = vi.spyOn(markdownImporter, "markdownToTiptapDoc");
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider></StrictMode>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(surface.querySelector(".ProseMirror")).toHaveTextContent("word0"));
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, " warmup"); });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  imports.mockClear();
+  const start = performance.now();
+  for (let i = 0; i < 20; i++) {
+    await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, ` acceptance${i}`); });
+  }
+  const elapsed = performance.now() - start;
+  const accepted = imports.mock.calls.filter(([source]) => source.includes("acceptance"));
+  console.log(JSON.stringify({ measurement: "Plan accepted-edit parse reuse", words, edits: 20, imports: accepted.length, synthetic_dom_ms: elapsed }));
+  expect(accepted).toHaveLength(20);
+  expect(surface).toHaveTextContent("acceptance19");
+  const recovery = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null");
+  expect(recovery.markdown).toContain("acceptance19");
+  const last = accepted.at(-1)!;
+  expect(markdownImporter.markdownToTiptapDoc(recovery.markdown)).toEqual(imports.mock.results[imports.mock.calls.indexOf(last)]!.value);
+});
+
+
+it("drops a validated Plan parse on fidelity rejection and ignores the retired editor callback", async () => {
+  const record = mockSavedPlanForAgent();
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider></StrictMode>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(surface).toHaveTextContent("The keeper waits beneath the black arch."));
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, " Accepted safe addition."); });
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const safeBytes = localStorage.getItem(key);
+  const exportMarkdown = vi.spyOn(defaultMarkdownDocumentAdapter, "exportMarkdown").mockReturnValueOnce("# Plan\n\n<div>Cannot preserve this HTML</div>\n");
+  await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, " Rejected addition."); });
+  expect(screen.getByRole("alert")).toHaveTextContent(/edit was reverted to protect the saved Plan/i);
+  expect(localStorage.getItem(key)).toBe(safeBytes);
+  expect(surface).toHaveTextContent("Accepted safe addition.");
+  expect(surface).not.toHaveTextContent("Rejected addition.");
+  const restored = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  expect(restored).not.toBe(editor);
+  exportMarkdown.mockClear();
+  await act(async () => { (editor.options.onUpdate as unknown as (event: { editor: typeof editor }) => void)({ editor }); });
+  expect(exportMarkdown).not.toHaveBeenCalled();
+  expect(localStorage.getItem(key)).toBe(safeBytes);
+  expect(prepare).not.toHaveBeenCalled();
+});
+
+it("imports the new Plan after switching identity and refuses the previous validated editor", async () => {
+  const a = mockSavedPlanForAgent(); const b = { ...worldPlanRecord("parse-reuse-plan-b", worldId, 3), title: "Second Plan" };
+  vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: worldId, records: [a, b] });
+  const bodyB = "# Second Plan\n\n> [!READ-ALOUD]\n> A bell sounds above the water.\n";
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async id => ({ schema_version: "dmb_workspace_document_snapshot_v2", record: id === b.document_id ? b : a,
+    markdown: id === b.document_id ? bodyB : savedAgentPlanText, content_sha256: "b".repeat(64), file_fingerprint: "postgres", file_exists: true, loaded_revision: id === b.document_id ? 3 : 7 }));
+  const imports = vi.spyOn(markdownImporter, "markdownToTiptapDoc");
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${a.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider></StrictMode>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(surface).toHaveTextContent("The keeper waits beneath the black arch."));
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, " Accepted in A only."); });
+  imports.mockClear();
+  await act(async () => { fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: b.document_id } }); });
+  expect(surface).toHaveTextContent("A bell sounds above the water.");
+  expect(surface).not.toHaveTextContent("Accepted in A only.");
+  expect(imports.mock.calls.some(([source]) => source === bodyB)).toBe(true);
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;const savedB = localStorage.getItem(key);
+  imports.mockClear();
+  await act(async () => { (editor.options.onUpdate as unknown as (event: { editor: typeof editor }) => void)({ editor }); });
+  expect(localStorage.getItem(key)).toBe(savedB);
+  expect(imports).not.toHaveBeenCalled();
+  expect(JSON.parse(savedB ?? "null").document_id).toBe(b.document_id);
 });

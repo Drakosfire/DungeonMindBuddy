@@ -1,6 +1,6 @@
 # PLAY: reviewed session-scene edits
 
-Status: ACTIVE. Operator's authoring-to-play goal authorizes this successor to delivered session context1438 and composer retention1439. Base origin/main c850a8a501f528d2f09fa149614800d6cbbdf4f1; branch codex/play-scene-edit-proposals; reuse buddy-context-loop checkout. PRIME owns design/integration/merge/5202. Serial: one implementation PR. No new checkout/environment. Independent exact-head review required.
+Status: DELIVERED — rendered acceptance PASS on normal5202. Historical contract follows. Operator's authoring-to-play goal authorizes this successor to delivered session context1438 and composer retention1439. Base origin/main c850a8a501f528d2f09fa149614800d6cbbdf4f1; branch codex/play-scene-edit-proposals; reuse buddy-context-loop checkout. PRIME owns design/integration/merge/5202. Serial: one implementation PR. No new checkout/environment. Independent exact-head review required.
 
 ## Outcome and invariant critique
 
@@ -48,3 +48,8 @@ Verification refinement: PRIME owns migration-head assertions in the two agent_c
 PR1440 merged at62c97e3d7592b6dad1b87c59dd30e14d1e7784a5 and is running on5202. Manual Markdown/media autosave/reopen, exact fixture restoration, unchanged Plans/notes/progress and Notes collapse passed. Actual proposal POST was rejected403 before reservation/provider dispatch: liveApi's native-authorized route classifier omits /content/proposals. GET succeeded by ambient cookie, masking the missing transport ownership. User explicitly approved one disposable scene/context transfer to OpenAI gpt-6-luna; that inference remains unconsumed.
 
 PRIME activates one serial bounded repair on codex/play-proposal-auth-transport from that merge, in the same buddy-context-loop checkout. Exclusive added lease: apps/live-control-ui/src/api/liveApi.ts and apps/live-control-ui/src/api/playSceneEditApi.test.ts, plus this handoff. Extend the existing content-route classifier for proposal collection/exact routes; preserve loopback restriction, bearer/cookie CSRF behavior, server GM enforcement and no automatic POST retry. No auth weakening, token configuration or server changes. Prove bearer transport, cookie-session CSRF, foreign-destination rejection and uncertain POST no retry. Independent exact-head review, merge, guarded UI5202 adoption and approved real proposal->review->apply->reopen acceptance remain required. Runtime API and data unchanged by this repair.
+
+
+## Delivered acceptance settlement — 2026-10-19
+
+PR1440 merged62c97e3d7592b6dad1b87c59dd30e14d1e7784a5, then rendered authentication repair1441 merged1d853915c869f5b18afb68fa7e3457cdbd980928 after independent PASS. Normal5202 one approved gpt-6-luna proposal completed in6625ms provider time. Before Apply all authority stayed unchanged; explicit Apply accepted edition13 with expected/observed Run revision5. Reopen preserved candidate/table/callouts/two media presentations and historical disabled proposal with no regeneration. Both Plans, real Edge, notes and progress compare unchanged. Private evidence play-scene-proposals-acceptance.json and play-proposal-auth-ui-rollout.json in established JEV evidence location; screenshot play-reviewed-edit-reopened.png. Exclusive implementation lease released. Follow-on measured Plan parsing optimization is separately bounded by HANDOFF-PLAN-validated-import-reuse.md.

@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: guard World Plan saves against Markdown loss
 
-- **Status:** ACTIVE — PRIME-authorized, bounded Buddy slice
+- **Status:** MERGED — historical guard contract; overlapping Plan page/test lease released
 - **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 - **Authority:** PRIME transfer decision on 2026-10-03
 - **Repository/base:** `Drakosfire/DungeonMindBuddy`, `main@ea331ffee4e7f6b8603dcc8d2d2b18d4827f88cd` (#888 merge)
@@ -54,3 +54,8 @@ PRIME reviews and merges this guard first. Afterward PRIME re-anchors #886 to th
 ## Predecessor settlement
 
 PR #888 merged at `ea331ffee4e7f6b8603dcc8d2d2b18d4827f88cd` from reviewed code head `0aa89e758bbe62014c23c20d112f7bad430aa118`; its root-blockquote parser lease is closed. PRIME independently reported 235 focused Markdown/corpus tests passing. The merge makes root plain quotes in the Session 29 linked Plan supported; it does not remove this guard for other unsupported Markdown. The handoff for #886 is frozen at the head above, with its two overlapping Page paths transferred here. Neither predecessor is claimed to close the overall DEMO journey or operator acceptance.
+
+
+## PRIME lease settlement — 2026-10-19
+
+PR904 merged atfb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0. Current main retains the fidelity guards. PRIME explicitly releases the old PlanSurfacePage.tsx and PlanSurfacePage.test.tsx reservation and transfers those paths to HANDOFF-PLAN-validated-import-reuse.md. Historical verification requirements remain regression obligations; this settlement does not claim any unrelated DEMO acceptance.

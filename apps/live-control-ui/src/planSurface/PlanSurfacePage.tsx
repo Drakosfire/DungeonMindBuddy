@@ -361,7 +361,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
   const [localDraftId, setLocalDraftId] = useState(() => initialLocalDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
   const [title, setTitle] = useState(initialLocalDraft?.title ?? "Plan");
-  const [markdown, setMarkdown] = useState(initialLocalDraft?.markdown ?? "");
+  // Accepted visual edits already have a fidelity-validated import. Keep it
+  // paired with its exact source in immutable state; every other source write
+  // drops the pair, so load/recovery cannot reuse an outgoing document's parse.
+  const [markdownState, setMarkdownState] = useState<{
+    markdown: string;
+    validated?: { editorIdentity: string; imported: ReturnType<typeof markdownToTiptapDoc> };
+  }>(() => ({ markdown: initialLocalDraft?.markdown ?? "" }));
+  const markdown = markdownState.markdown;
+  const setMarkdown = useCallback((value: string) => setMarkdownState({ markdown: value }), []);
   const [sourceEditing, setSourceEditing] = useState(false);
   const sourceEditingRef = useRef(sourceEditing);
   sourceEditingRef.current = sourceEditing;
@@ -386,7 +394,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
-  const importedMarkdown = useMemo(() => markdownToTiptapDoc(markdown), [markdown]);
+  const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}`;
+  const importedMarkdown = useMemo(() => {
+    const accepted = markdownState.validated;
+    return accepted?.editorIdentity === editorIdentity
+      ? accepted.imported
+      : markdownToTiptapDoc(markdownState.markdown);
+  }, [markdownState, editorIdentity]);
   const editorContent = importedMarkdown.doc;
   const fidelityWarnings = useMemo(
     () => markdownFidelityWarnings(importedMarkdown.diagnostics, editorContent),
@@ -467,7 +481,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && selectionEpochRef.current === epoch
     && documentIdRef.current === expectedDocumentId;
 
-  const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}`;
   const editorIdentityRef = useRef(editorIdentity);
   editorIdentityRef.current = editorIdentity;
   const isCurrentEditTarget = useMemo(() => {
@@ -1833,7 +1846,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onEditorChange={setCurrentEditor}
               dataTestId="world-owned-plan-markdown-editor"
               onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
-                if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
+                if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current && isCurrentEditTarget(true)) {
                   const currentFidelityIssues = getLiveFidelityWarnings(json);
                   if (currentFidelityIssues.length) {
                     if (!fidelityBlocked) {
@@ -1855,7 +1868,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                   const generation = ++editGenerationRef.current;
                   const pendingRecovery = pendingWriteRef.current !== null && !savingRef.current;
                   setAutoSavePaused(pendingRecovery);
-                  setMarkdown(next);
+                  setMarkdownState({ markdown: next, validated: { editorIdentity, imported: nextImport } });
                   persistEditorDraft(titleRef.current, next, generation);
                   if (!pendingRecovery) setError(null);
                 }

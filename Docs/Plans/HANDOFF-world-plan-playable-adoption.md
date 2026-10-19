@@ -1,7 +1,7 @@
 ---
 title: Saved World Plan → Playable Run adoption
 document_class: implementation_handoff
-status: ACTIVE
+status: MERGED
 created_at: "2026-10-04"
 activated_at: "2026-10-06"
 workstream: DEMO
@@ -425,3 +425,8 @@ base-to-head diff. Block and return to design if:
 
 No acceptance claim may exceed the concrete tests, isolated resource and
 operator-facing evidence actually completed.
+
+
+## PRIME lease settlement — 2026-10-19
+
+The ACTIVE/pending statements above describe the historical activation. GitHub confirms PR931 merged2026-10-06 at27337116bbbbe039fac1387f1a9135edac22ddf9. PRIME explicitly releases its old PlanSurfacePage.tsx and PlanSurfacePage.test.tsx reservation and transfers only those overlapping paths to HANDOFF-PLAN-validated-import-reuse.md. Other historical ownership is not silently expanded by this transfer.
