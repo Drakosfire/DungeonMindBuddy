@@ -12,7 +12,9 @@ export type SceneCardIdentity = {
   revision: number | null;
   workRevisionId?: string | null;
   contentSha256: string | null;
-  sourceState: "verified" | "draft" | "run-pin";
+  sourceState: "verified" | "draft" | "run-pin" | "run-edition";
+  edition?: { revision: number; revisionId: string; contentSha256: string };
+  originLabel?: string;
 };
 
 export type SceneCardElement = {
@@ -193,6 +195,8 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
       data-world-id={identity.worldId ?? ""} data-campaign-id={identity.campaignId ?? ""}
       data-document-id={identity.documentId} data-scene-id={identity.sceneId}
       data-source-revision={identity.revision ?? ""} data-work-revision-id={identity.workRevisionId ?? ""}
+      data-edition-revision={identity.edition?.revision ?? ""} data-edition-revision-id={identity.edition?.revisionId ?? ""}
+      data-effective-content-sha256={identity.edition?.contentSha256 ?? identity.contentSha256 ?? ""}
       data-content-sha256={identity.contentSha256 ?? ""} data-source-state={identity.sourceState}
       aria-labelledby={headingId}>
       <header ref={headerRef} className={`shared-scene-card__header${plan ? " world-plan-scene-reader__heading" : ""}`}>
@@ -200,7 +204,9 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
         <p className="shared-scene-card__source-cue" data-testid="scene-card-source-cue">
           {identity.sourceState === "verified" ? "Saved Plan"
             : identity.sourceState === "draft" ? "Draft Plan · Ask uses the saved Plan until Save"
-              : "Run-pinned Playable"}
+              : identity.sourceState === "run-edition" ? `Session copy · revision ${identity.edition?.revision}`
+                : "Run-pinned Playable"}
+          {identity.sourceState === "run-edition" ? ` · ${identity.originLabel ?? `From Plan version ${identity.revision}`}` : ""}
         </p>
         <Title element={scene} level={2} className={plan ? "world-plan-scene-reader__title" : "shared-scene-card__title"}
           headingId={headingId} headingRef={headingRef} prefix={titlePrefix}

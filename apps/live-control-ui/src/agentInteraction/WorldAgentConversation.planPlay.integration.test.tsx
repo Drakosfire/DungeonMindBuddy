@@ -1,3 +1,4 @@
+import { SESSION_COPY_AGENT_UNAVAILABLE } from "../playSurface/playRunEffectiveContent";
 import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -106,14 +107,14 @@ function PlanPublisher({ documentId, editBridge = null }: { documentId: string; 
     surfaceInstanceId="plan-instance" revision={7} editBridge={editBridge} draftGeneration={0} selectionGeneration={0}
     savedDirty={false} pageReady saveInFlight={false} />;
 }
-function PlayPublisher({ admitted }: { admitted: boolean }) {
+function PlayPublisher({ admitted, sessionCopy = false }: { admitted: boolean; sessionCopy?: boolean }) {
   const context = useMemo(() => ({ surfaceId: "play" as const, label: "Play", campaignId: null,
     documentId: null, sessionNumber: null, ambientSummary: "World Run", sourceEnvelope: null }), []);
-  const run = useMemo(() => admitted ? ({ worldId: WORLD, runId: RUN,
+  const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: RUN,
     runRevision: 3, surfaceInstanceId: "play-instance",
-    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted]);
+    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy]);
   usePublishAgentSurfaceContext(context);
-  usePublishWorldPlayConversation(run);
+  usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
 }
 function BuildPublisher({ admitted }: { admitted: boolean }) {
@@ -157,6 +158,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
   initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null;
 }) {
   const [surface, setSurface] = useState(initial);
+  const [sessionCopy, setSessionCopy] = useState(false);
   const [world, setWorld] = useState(WORLD);
   const [documentId, setDocumentId] = useState("plan-one");
   return <AgentInteractionProvider><AskPluginSlotProvider>
@@ -164,8 +166,9 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
       <button type="button" onClick={() => setSurface(surface === "plan" ? "play" : "plan")}>Switch surface</button>
       <button type="button" onClick={() => setDocumentId("plan-two")}>Switch Plan document</button>
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
+      <button type="button" onClick={() => setSessionCopy(true)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} />}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
     </WorldAgentConversationProvider>
@@ -1171,4 +1174,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue(""));
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
   });
+  it("unmounts Play transport for a session copy and ignores a late history result", async () => {
+    let resolve!: (value: WorldAgentConversationHistoryResponseV1) => void;
+    vi.mocked(getWorldAgentConversationHistory).mockReturnValue(new Promise(done => { resolve = done; }));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("temporarily unavailable");
+    await act(async () => resolve(history([turn("play", 2, "Late original-pin reply")])));
+    expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Late original-pin reply")).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it("does not revive a session-copy composer when an original-pin in-flight reply arrives", async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof postWorldPlayAgentTurn>>) => void;
+    vi.mocked(postWorldPlayAgentTurn).mockReturnValue(new Promise(done => { resolve = done; }));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "Original pin question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledOnce());
+    const request = vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0];
+    fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
+    await screen.findByRole("status");
+    await act(async () => resolve(playResponse(request)));
+    expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /retry.*request/i })).not.toBeInTheDocument();
+  });
+
 });

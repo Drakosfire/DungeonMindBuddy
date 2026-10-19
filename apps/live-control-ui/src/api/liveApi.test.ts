@@ -3512,3 +3512,13 @@ it('authenticates Markdown saves containing saved-media references', async () =>
   expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe('Bearer test-only-local-operator-credential-value');
   expect(String(fetchSpy.mock.calls[0]?.[0])).toBe('/api/live/tiptap/markdown-write/prepare');
 });
+
+it.each(["/content", "/content/revisions/1", "/content/commands/11111111-1111-4111-8111-111111111111"])("authenticates the exact World session content path %s", async suffix => {
+  const api = await import("./liveApi");
+  api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  await api.authenticatedApiFetch(`/api/live/world-play-runs/v2/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa${suffix}?world_id=world`);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer test-only-local-operator-credential-value");
+  expect(fetch.mock.calls[0][1]?.redirect).toBe("error");
+  fetch.mockRestore();
+});

@@ -21,7 +21,7 @@ export interface SavedWorldBuildConversationContext {
 
 interface BuildConversationRegistration { savedSource: SavedWorldBuildConversationContext | null; composeBridge?: BuildComposeBridge | null; presentationHosts?: PlanConversationPresentationHosts }
 
-interface Registration<T> { token: symbol; value: T }
+interface Registration<T> { token: symbol; value: T; unavailableReason?: string | null }
 
 interface WorldConversationRegistry {
   worldId: string | null;
@@ -32,7 +32,7 @@ interface WorldConversationRegistry {
   play: Registration<AdmittedWorldPlayConversationContext | null> | null;
   registerPlan: (token: symbol, value: WorldPlanAgentConversationProps) => void;
   unregisterPlan: (token: symbol) => void;
-  registerPlay: (token: symbol, value: AdmittedWorldPlayConversationContext | null) => void;
+  registerPlay: (token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason?: string | null) => void;
   unregisterPlay: (token: symbol) => void;
   history: WorldAgentConversationHistoryResponse | null;
   setHistory: Dispatch<SetStateAction<WorldAgentConversationHistoryResponse | null>>;
@@ -55,7 +55,7 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const registerPlan = useCallback((token: symbol, value: WorldPlanAgentConversationProps) => setPlan({ token, value }), []);
   const unregisterPlan = useCallback((token: symbol) => setPlan((current) => current?.token === token ? null : current), []);
-  const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null) => setPlay({ token, value }), []);
+  const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason: string | null = null) => setPlay({ token, value, unavailableReason }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
   const value = useMemo(() => ({ worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
     history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
@@ -78,7 +78,7 @@ export function WorldPlanConversationRegistration(props: WorldPlanAgentConversat
 }
 
 /** A Play route may publish only the Run admitted by its current native projection. */
-export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConversationContext | null): void {
+export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConversationContext | null, unavailableReason: string | null = null): void {
   const registry = useContext(Registry);
   const token = useRef(Symbol("world-play-conversation"));
   const worldId = context?.worldId ?? null;
@@ -89,10 +89,10 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
   const sceneTitle = context?.sceneTitle ?? null;
   useLayoutEffect(() => {
     if (!registry) return;
-    registry.registerPlay(token.current, context);
+    registry.registerPlay(token.current, context, unavailableReason);
     return () => registry.unregisterPlay(token.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, surfaceInstanceId, beatTitle, sceneTitle]);
+  }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, surfaceInstanceId, beatTitle, sceneTitle, unavailableReason]);
 }
 
 export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts, composeBridge?: BuildComposeBridge | null) {
@@ -115,6 +115,11 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
   const lastPlan = useRef<WorldPlanAgentConversationProps | null>(null);
   if (registry?.plan?.value.worldId === worldId) lastPlan.current = registry.plan.value;
   if (!worldId || !registry || registry.worldId !== worldId) return null;
+  // Unmount the transport/recovery controller, not just its composer. Late
+  // history and in-flight replies cannot reactivate a session-copy transport.
+  if (surface === "play" && registry.play?.unavailableReason) {
+    return <section aria-label="Live conversation unavailable" role="status">{registry.play.unavailableReason}</section>;
+  }
   const props: WorldPlanAgentConversationProps = lastPlan.current ?? {
     worldId, worldName: worldName ?? "World", documentId: null, surfaceInstanceId: "",
     revision: null, editBridge: null, draftGeneration: 0, selectionGeneration: 0,

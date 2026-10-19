@@ -322,6 +322,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
