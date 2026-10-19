@@ -117,3 +117,41 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     assert not _summary_matches_ingest_context(tmp_path,summary,context,{**bundle,'sha256':'b'*64})
     (tmp_path/supplement['uri']).write_text('tampered')
     assert not _summary_matches_ingest_context(tmp_path,summary,context,bundle)
+
+
+@pytest.mark.parametrize("execution_version",[1,2,3])
+def test_session_evidence_completion_persists_at_actual_database_boundary(application_state_dsn,execution_version):
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import TurnResult,ProviderOutcomeEventV1
+    from tests.application_state.test_agent_conversation_postgres import _accepted_execution_turn,_provider_authorization_event
+    from apps.live_control_server.services.agent_turn_service import _parse_policy_completion
+    import json
+    world="session-completion-world";run_id=str(uuid4());service=AgentConversationService()
+    refs=[HistoricalReference(resolution="resolved",kind="session_evidence_v1",object_id=run_id,revision="54",content_sha256="a"*64)]
+    conversation,receipt,accepted,claimed=_accepted_execution_turn(service,world,execution_version=execution_version,supporting_work=refs)
+    attempt=uuid4();auth=_provider_authorization_event(attempt_id=attempt,sequence=0)
+    if execution_version==3:
+        from application_state.agent_conversation.types import ProviderAttemptAuthorizedEventV3
+        auth=ProviderAttemptAuthorizedEventV3.model_validate(auth.model_dump()|{"kind":"provider_attempt_authorized_v3","included_source_read_event_ids":[]})
+    current,allowed=service.authorize_provider_attempt(world,conversation.conversation_id,accepted.turn_id,expected_revision=claimed.revision,expected_attempt=claimed.attempt,provider_attempt_event=auth)
+    assert allowed
+    for sequence,outcome in ((1,"sdk_entered"),(2,"response_received")):
+        current,_=service.record_provider_outcome(world,conversation.conversation_id,accepted.turn_id,expected_revision=current.revision,expected_attempt=claimed.attempt,outcome=ProviderOutcomeEventV1(event_id=uuid4(),sequence=sequence,kind="provider_outcome",provider_attempt_id=attempt,outcome=outcome))
+    raw=json.dumps({"answer_context_status":"plan_only_graph_unused","answer_segments":[{"kind":"session_evidence_claim","text":"Closing reflections: players want more combat.","run_id":run_id,"review_revision":54}],"citation_map":None})
+    completion,bindings,answer=_parse_policy_completion(raw,current,attempt)
+    completed=service.complete_turn(TurnResult(world_id=world,conversation_id=conversation.conversation_id,turn_id=accepted.turn_id,expected_revision=current.revision,assistant_text=answer,completion=completion,producing_provider_attempt_id=attempt,claim_graph_event_ids=bindings))
+    loaded=AgentConversationService().list_turns(world,conversation.conversation_id)[0]
+    assert loaded==completed and loaded.status=="completed"
+    assert loaded.completion.answer_basis=="committed_plan_plus_session_evidence"
+    assert loaded.completion.answer_segments[0].evidence_sha256=="a"*64
+
+    if execution_version==1:
+        import psycopg
+        from alembic import command
+        from application_state.cli import alembic_config,_current_and_head
+        with psycopg.connect(application_state_dsn) as conn:
+            with pytest.raises(psycopg.errors.CheckViolation),conn.transaction():
+                conn.execute("UPDATE agent.turn SET completion=jsonb_set(completion,'{answer_segments}','[{\"kind\":\"proposal\",\"text\":\"not session evidence\"}]') WHERE turn_id=%s",(accepted.turn_id,))
+        with pytest.raises(RuntimeError,match="retained session-evidence"):
+            command.downgrade(alembic_config(),"20261019_0039")
+        assert _current_and_head(application_state_dsn)==("20261019_0040","20261019_0040")

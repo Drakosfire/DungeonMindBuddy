@@ -453,6 +453,7 @@ def _accepted_execution_turn(
     uncapped: bool = False,
     execution_version: int = 1,
     candidate_assertion_ids: list[str] | None = None,
+    supporting_work: list[HistoricalReference] | None = None,
 ) -> tuple[Any, PlanWorldGraphContextReceiptV1, Any, Any]:
     from application_state.agent_conversation.types import (
         GraphExecutionAccountingV1,
@@ -500,6 +501,7 @@ def _accepted_execution_turn(
             revision_n=2,
         ),
         selected_object=HistoricalReference(resolution="absent"),
+        supporting_work=supporting_work or [],
     )
     execution = PlanWorldGraphExecutionV1(
         schema="dmb_agent_plan_world_graph_execution_v1",
