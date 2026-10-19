@@ -557,14 +557,17 @@ describe("PlayCurrentMomentCockpit", () => {
 
   it("keeps More navigation read-only and restores its focus", async () => {
     const user = userEvent.setup();
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     render(<Harness initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })} />);
     const more = screen.getByRole("button", { name: "More Play controls" });
     await user.click(more);
     await user.click(screen.getByRole("button", { name: "Next", exact: true }));
     expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");
     expect(more).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(more).toHaveFocus());
     await user.click(more);
     await user.click(screen.getByRole("button", { name: "Show current scene" }));
+    await waitFor(() => expect(more).toHaveFocus());
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel Breach");
     await user.click(more);
     await user.click(screen.getByRole("button", { name: "Browse scene outline" }));
@@ -572,6 +575,12 @@ describe("PlayCurrentMomentCockpit", () => {
     await user.keyboard("{Escape}");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("preserves Worldbuilding source provenance under More", () => {
+    const deck = readyWorldDeck();
+    render(<PlayCurrentMomentCockpit deck={{ ...deck, snapshot: { ...deck.snapshot, kind: "worldbuilding_source" } }} campaignId="longmont-c2" onRunChange={vi.fn()} />);
+    expect(playDetails("play-source-cue")).toHaveTextContent("Created from saved Worldbuilding source version 3");
   });
 
   it("returns focus to More when Escape closes its focused menu action", async () => {

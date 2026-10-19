@@ -389,6 +389,7 @@ export function PlayCurrentMomentCockpit({
   const moreNavbarToggleRef = useRef<HTMLButtonElement | null>(null);
   const compactPanelFocusRef = useRef<"scenes" | "outcomes">("scenes");
   const workspaceHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const returnInspectionToMoreRef = useRef(false);
   sceneNoteDraftsRef.current = sceneNoteDrafts;
 
   useEffect(() => {
@@ -440,8 +441,12 @@ export function PlayCurrentMomentCockpit({
   }, []);
 
   useEffect(() => {
-    if (workspace.kind !== "scene-inspect") return;
-    queueMicrotask(() => workspaceHeadingRef.current?.focus());
+    if (returnInspectionToMoreRef.current) {
+      returnInspectionToMoreRef.current = false;
+      queueMicrotask(() => moreNavbarToggleRef.current?.focus());
+    } else if (workspace.kind === "scene-inspect") {
+      queueMicrotask(() => workspaceHeadingRef.current?.focus());
+    }
   }, [workspace]);
 
   const moment = resolveCurrentMoment(deck);
@@ -925,7 +930,7 @@ export function PlayCurrentMomentCockpit({
           event.preventDefault(); event.stopPropagation(); setMoreOpen(false);
           queueMicrotask(() => moreNavbarToggleRef.current?.focus());
         }}>
-        <SurfaceContextPopover open={moreOpen} onOpenChange={setMoreOpen} title="More" trigger={<button ref={moreNavbarToggleRef} className="surface-context-action" type="button" aria-expanded={moreOpen} aria-label="More Play controls" onKeyDown={event => {
+        <SurfaceContextPopover open={moreOpen} onOpenChange={setMoreOpen} title="More" align="end" trigger={<button ref={moreNavbarToggleRef} className="surface-context-action" type="button" aria-expanded={moreOpen} aria-label="More Play controls" onKeyDown={event => {
           if (event.key !== "Escape") return;
           event.preventDefault(); event.stopPropagation();
           setBeatCollapsed(true); setGlanceCollapsed(true);
@@ -934,13 +939,13 @@ export function PlayCurrentMomentCockpit({
           <SurfaceContextAction type="button" onClick={() => { toggleOutcomes(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }} aria-expanded={!glanceCollapsed}>Run record</SurfaceContextAction>
           <div className="play-surface-context__compact-navigation" role="group" aria-label="Scene navigation">
             <SurfaceContextAction type="button" onClick={() => { toggleOutline(); setMoreOpen(false); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Browse scene outline</SurfaceContextAction>
-            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => browseAdjacentScene(-1)}>Previous</SurfaceContextAction>
-            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => browseAdjacentScene(1)}>Next</SurfaceContextAction>
-            {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={closeToCurrent}>Show current scene</SurfaceContextAction> : null}
+            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => { returnInspectionToMoreRef.current = true; browseAdjacentScene(-1); }}>Previous</SurfaceContextAction>
+            <SurfaceContextAction type="button" disabled={!currentScene} onClick={() => { returnInspectionToMoreRef.current = true; browseAdjacentScene(1); }}>Next</SurfaceContextAction>
+            {workspace.kind === "scene-inspect" ? <SurfaceContextAction type="button" onClick={() => { closeToCurrent(); queueMicrotask(() => moreNavbarToggleRef.current?.focus()); }}>Show current scene</SurfaceContextAction> : null}
           </div>
           <p className="play-muted" data-testid="play-source-cue">
             {deck.effectiveContent?.source === "edition" ? `Session copy · revision ${deck.effectiveContent.edition_revision} · ` : ""}
-            Created from saved {originKind === "plan" ? "Plan" : "Runbook"} version {run.playable_revision}
+            Created from saved {originKind === "plan" ? "Plan" : originKind === "runbook" ? "Runbook" : originKind === "worldbuilding_source" ? "Worldbuilding source" : "source"} version {run.playable_revision}
           </p>
           {currentBeat && inspectedScene ? <>
             <p className="play-inspect-position" data-testid="play-inspect-current">Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}</p>
