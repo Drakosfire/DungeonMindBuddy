@@ -1,6 +1,9 @@
 # PLAN — simple Markdown entry
 
-Status ACTIVE. Operator explicitly requested simple Markdown write-in, popup syntax help and now execution during travel2026-10-18.
+Status: COMPLETE — PR#1418 merged at `e1223408a4210db40cd92f33720f0e202fd1835d` and delivered on5202. Implementation/write lease ended. Reconciled2026-10-18.
+
+Current disposition: Independent review; disposable Plan Markdown autosave/reopen, frontmatter/marker retention and syntax help verified; delivered5202. This does not establish Live or focused Cards editing. Remaining work requires its own bounded successor; this document grants no continuing lease.
+
 Owner PRIME implementation/delivery; ARCHITECTURE independent review.
 Base4958acdb0a2d7592558985e6c86c40da2a29c763; branchcodex/plan-markdown-authoring; existing buddy-context-loop checkout.
 Topology parallel-independent from DOGFOOD Build autosave; no unmerged dependency.
@@ -23,4 +26,4 @@ Mounted World Plan route source edit through actual autosave API boundary sends 
 
 Four focused mounted Plan cases pass: exact Markdown source/CRLF metadata/card-ID save and view switching with stale Bold action rejection; existing autosave debounce, in-flight follow-up and uncertain outcome recovery. UI typecheck and final Vite build PASS (existing chunk warning), diffcheckPASS. Full older Plan suite remains untriaged, not claimed green.
 
-Existing PRIME disposable Plan3aa3df48-533c-44be-9ef8-2162e8d21196 was edited in source mode without Save: Read Aloud source committed automatically at revision13/server17:00:10.300681Z, all original playable marker strings unchanged. Rendered Document showed the Read Aloud text; switching back retained exact source, reload reopened the saved text/status. Narrow source layout has no horizontal overflow; popup syntax help inspected. Original fixture preserved privately before test; no session Plan/provider/graph/Play change. Final stale-action guards tested in mounted route; browser source interaction predates only that guard strengthening. Independent review pending.
+Existing PRIME disposable Plan3aa3df48-533c-44be-9ef8-2162e8d21196 was edited in source mode without Save: Read Aloud source committed automatically at revision13/server17:00:10.300681Z, all original playable marker strings unchanged. Rendered Document showed the Read Aloud text; switching back retained exact source, reload reopened the saved text/status. Narrow source layout has no horizontal overflow; popup syntax help inspected. Original fixture preserved privately before test; no session Plan/provider/graph/Play change. Final stale-action guards tested in mounted route; browser source interaction predates only that guard strengthening. The preceding evidence was recorded before review; see current disposition above.

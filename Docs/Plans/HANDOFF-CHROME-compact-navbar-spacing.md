@@ -24,4 +24,4 @@ Inspect exact cumulative diff; build existing UI dependencies; render desktop an
 - Vite production build passed (existing large chunk warning). Existing dependencies reused; no typecheck rerun for three CSS declarations.
 - Actual Plan rendered on isolated UI port5210 with current API reads only. Desktop1422x800 CSS viewport and narrow433x937 CSS viewport (390x844 requested browser override at existing zoom): no horizontal overflow, header ends before document content, all surface controls retained. World selector menu opens and remains visible at both sizes. Screenshots retained in PRIME visualization directory; viewport restored.
 - Preview Graph status requires local session for this different origin; it is not graph readiness evidence. No authoring, persistence, graph or provider behavior changed.
-- Cumulative CSS diff is exactly three spacing declarations; git diff --check passed. Independent review and merge still pending.
+- Cumulative CSS diff is exactly three spacing declarations; git diff --check passed. This is historical pre-review evidence; the COMPLETE header records the accepted delivery.

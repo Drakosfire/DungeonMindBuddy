@@ -5,6 +5,62 @@
 **Steward:** [STEWARDS-HANDOFF-demo.md](../Plans/STEWARDS-HANDOFF-demo.md)  
 **Transfer mapping and source evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
+## Current operator priority — shared authoring, reconciled2026-10-18
+
+This checkpoint supersedes older “immediate”, “primary”, “next” and mutable-ledger
+sequencing below for PRIME's current work. Retain the broader DEMO journey; do not
+restart historical assignments merely because they remain in this document.
+
+### Product decisions
+
+- **Plan wholly replaces legacy Prep.** Use **Plan** and **Live** as modes of the
+  proposed shared Plan/Play workspace; Build remains another projection of the
+  same writing system. A shared workspace is not implemented yet.
+- Both modes must edit supported **Markdown and the existing media object**,
+  including tables/callouts and media placement/manipulation. Read-only Live
+  rendering does not meet the editing requirement.
+- Live content saves to the session's **versioned copy**, preserving the Plan and
+  original accepted Run basis. Existing scenes first; structural changes later.
+- Preserve position, drafts, current/inspected scene, notes and session progress
+  across mode/view/navigation changes. Notes remain prominent and independently
+  saved. Agent context must eventually see the effective session content/notes;
+  disabling the Agent is only a temporary explicit state, not final acceptance.
+- Cross-surface autosave/reopen/fidelity and actual5202 use are required. Hosted
+  deployment and graph-linked map authoring remain separate.
+
+### Proven deliveries and remaining scope
+
+| Capability | Current evidence | Remaining limit |
+|---|---|---|
+| Plan Markdown/help, Build/Plan autosave | #1416/#1418/#1417 merged; disposable saves/reopens and server timestamps; delivered5202 | Not proof of Live content editing or all surface navigation |
+| Shared card Read Aloud styles | #1419 merged383fd462; rendered5202 | Presentation only |
+| Floating Live scene notes | #1420 merged09b1b3de; actual note save/reload, current-scene target and pin retained | Agent note visibility remains unimplemented |
+| Saved images in Plan Cards/Live | #1421 merged3dfa43f94; actual ready images, distinct occurrences/collapse and unchanged saved bytes | Reader controls are not editable Live media |
+| Understandable Play entry | #1423 merged8dd30d111; readable Edge resume, date/notes, normal5202 Graph Ready, entire real Run unchanged | Does not unify Plan/Live workspace |
+| Run-local content edition server | #1422 head6080d1a306aa96a404d19c9f5f108c37e30b81e1; Architecture Cycle1 PASS; owning realPG/HTTP/recovery proofs | **Open/unmerged; not migrated or served; no UI/Agent adoption** |
+
+### Next execution and ownership
+
+PRIME owns the next action: re-anchor and settle reviewed server PR#1422, then
+perform a guarded existing-runtime/schema adoption with backup/restore parity,
+old content/notes retained and compatible rollback. Its implementation handoff
+is on the PR branch, not yet on main:
+[Run-local edition contract](https://github.com/Drakosfire/DungeonMindBuddy/blob/6080d1a306aa96a404d19c9f5f108c37e30b81e1/Docs/Plans/HANDOFF-PLAY-run-local-content-editions.md).
+Do not copy that migration into a live service before review/adoption gates.
+
+After adoption, pin bounded serial successors for effective-content projection,
+existing-scene editing/autosave/recovery, edition-aware Agent context, then the
+shared Plan/Live workspace and retained cross-surface acceptance. Each successor
+needs an explicit owner/path lease; these are ordered gaps, not active jobs.
+Keep original Run identity stable for notes and session progress while content
+edition identity changes. A newer Plan must not force a forbidden rebase of a
+session-edited Run. Do not present edited text as the original pinned Plan.
+
+At audit time DOGFOOD and ARCHITECTURE are idle, their prior leases released.
+No external blocker was established for the next PRIME coordination action.
+The Codex goal object nevertheless reports blocked and still says Prep; that
+UI goal metadata is stale and cannot serve as product completion evidence.
+
 ## Product contract
 
 A new GM creates/selects a World through the existing fixed-URL World primitive,
@@ -23,7 +79,7 @@ with representative NPC, Threat/statblock, choice, encounter and roll table.
 The final journey includes image selection and editable generated statblocks.
 PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
-## Immediate foundation — MIND retrieval efficiency and Jev, 2026-10-16
+## Retained foundation — MIND retrieval efficiency and Jev, 2026-10-16
 
 The Mirathorn lifecycle below remains the product acceptance journey. MIND #130
 and #131 are merged; Buddy #1269 batches acquisition and #1270 reuses immutable
@@ -82,7 +138,7 @@ available for operator inspection. This does not close full Mirathorn acceptance
 Cross-document edits, automatic Graph publication and replacing selected text
 remain separate work. DOGFOOD continues Ingest ownership.
 
-## Primary priority — Mirathorn worldbuilding in Build, 2026-10-14
+## Retained Mirathorn journey — prior priority, 2026-10-14
 
 Operator-authorized delivery priority: reuse the existing local Markdown hierarchy,
 starting with `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md`.
@@ -231,7 +287,7 @@ merges. Each new runtime slice declares its paths, contracts, resource ownership
 and owning-boundary evidence before implementation. Product acceptance includes
 operator use; visual polish alone does not establish durable or Graph behavior.
 
-## Current execution checkpoint
+## Earlier execution checkpoints
 
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
@@ -1404,10 +1460,12 @@ roll/combat code. Table parsing alone does not prove durable recorded results.
 define unsupported/out-of-range input visibly. No need for Rules/Jev reasoning
 to resolve an explicit table. Do not mutate canonical mechanics to record HP.
 
-## Execution ledger — sole mutable work state
+## Historical execution ledger
 
-Maintain one concise record per selected slice or delegated blocker here. Do not
-prematurely create six implementation PRs from the six journey milestones.
+These entries preserve earlier work. Current priority is the reconciled checkpoint
+above; current execution authority is each explicitly selected, pinned handoff
+and its owner/PR. Do not treat old ledger entries as active assignments or create
+all future implementation PRs at once.
 
 Each record contains:
 

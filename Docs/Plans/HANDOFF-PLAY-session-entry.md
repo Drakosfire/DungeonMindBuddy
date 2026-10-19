@@ -1,6 +1,9 @@
 # PLAY — understandable session entry
 
-Status: ACTIVE. Operator requests immediate repair of the UUID-first Play chooser.
+Status: COMPLETE — PR#1423 merged at `8dd30d111a220bd469436b7c1a90f845d4a63a4f` and delivered on5202. Implementation/write lease ended. Reconciled2026-10-18.
+
+Current disposition: Architecture independently passed49 tests and rendered evidence. Delivered5202 with normal Graph Ready; full real Edge Run before/after equality verified. Session-copy server PR1422 was not adopted by this delivery. Remaining work requires its own bounded successor; this document grants no continuing lease.
+
 Base: origin/main 3dfa43f946837d4ffb1a1a1d3c84b33d497e0b31.
 Topology: parallel-independent of server PR1422; same checkout reused serially after DOGFOOD released its clean checkout. PRIME owns implementation; Architecture reviews exact head. Branch codex/play-session-entry. No API/schema or serving-state writes during implementation.
 

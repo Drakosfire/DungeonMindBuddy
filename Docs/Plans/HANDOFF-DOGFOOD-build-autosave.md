@@ -1,6 +1,9 @@
 # DOGFOOD: durable Build autosave
 
-Status: ACTIVE — bounded implementation lease, 2026-10-18.
+Status: COMPLETE — PR#1417 merged at `04f6ad479fba1e0a1bbac4a2294f0c909b36adfa` and delivered on5202. Implementation/write lease ended. Reconciled2026-10-18.
+
+Current disposition: Final Architecture Cycle3 PASS; disposable Build autosave/reopen and durable timestamp verified; delivered5202. Shared Live saving remains a successor. Remaining work requires its own bounded successor; this document grants no continuing lease.
+
 
 Branch: `codex/build-autosave`.
 
@@ -121,7 +124,7 @@ PR; do not merge it or move 5202 without separate authority.
 - ARCHITECTURE review cycle 1 found two missing regressions: edits made during
   an unchanged dirty session did not restart the debounce, and a clean server
   draft was presented as saved. Both are corrected in the current head and now
-  covered by mounted-editor and draft-status tests; review cycle 2 is pending.
+  covered by mounted-editor and draft-status tests; review cycle2 was pending at that historical checkpoint; final Cycle3 passed.
 - `git fetch origin main` and local branch mutation are unavailable because
   the checkout's shared `.git/worktrees` metadata is read-only. The GitHub API
   confirmed and created `codex/build-autosave` directly at exact main
@@ -135,4 +138,4 @@ PRIME final navbar-placement ownership transferred after DOGFOOD freeze at011689
 
 PRIME completed the frozen-owner navbar transfer: status is rendered in BuildSurfaceContext's existing surface status slot; no duplicate Page authoring status. Pure state presentation is shared, save orchestration remains mounted exactly once. Corrected literal escaped backticks in the new Context test and restricted the duplicate-label assertion to the visible status container (legacy hidden diagnostic remains).
 
-47 focused hook/Shell/Context tests PASS, one inherited layout skip; React act warnings retained. Typecheck/final Vite build/diff check PASS (existing chunk advisory). Existing disposable Build31e6d747-a70a-4dc6-8b94-6f2f2c7ba05d was typed in without pressing Save, committed automatically at revision3/server17:15:27.579267Z, reopened with witness/original text retained and timestamp in banner. No real Edge edit, provider call or Graph publication. Independent final-head review pending before merge/delivery.
+47 focused hook/Shell/Context tests PASS, one inherited layout skip; React act warnings retained. Typecheck/final Vite build/diff check PASS (existing chunk advisory). Existing disposable Build31e6d747-a70a-4dc6-8b94-6f2f2c7ba05d was typed in without pressing Save, committed automatically at revision3/server17:15:27.579267Z, reopened with witness/original text retained and timestamp in banner. No real Edge edit, provider call or Graph publication. The preceding evidence was recorded before final review; see current disposition above.
