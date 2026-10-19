@@ -131,7 +131,9 @@
 }
 
 .world-plan-cards--reader {
-  max-width: 58rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
 }
 
 .shared-scene-card--plan h2,
@@ -451,4 +453,23 @@
   color: #453d31;
   background: rgb(222 210 184 / 58%);
   border-color: #c8b98e;
+}
+
+/* The surface owns the reading width; the card should not shrink to its prose. */
+.world-plan-cards--reader .world-plan-card__content {
+  max-width: none;
+}
+.world-plan-cards--reader .world-plan-scene-reader__context {
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.world-plan-cards__basis .world-plan-card__edit-target {
+  min-height: 2rem;
+  padding: .25rem .5rem;
+  background: transparent;
+  border-color: #9d8965;
+  color: inherit;
 }
