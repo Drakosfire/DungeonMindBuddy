@@ -125,6 +125,6 @@ export function exportPlanCardMarkdown(editor: Editor, source: string, canonical
   const end = next?.node.position?.start.offset ?? source.length;
   const body = tiptapJsonToSemanticMarkdown({type:"doc",content:editor.state.doc.slice(range.from,range.to).content.toJSON()});
   const result = source.slice(0,heading.position.end.offset) + "\n\n" + body.trimEnd() + "\n\n" + source.slice(end);
-  if (tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(result).doc) !== canonical) throw new Error("The scene edit cannot preserve this document. Open Document.");
+  if (tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(result).doc) !== tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(canonical).doc)) throw new Error("The scene edit cannot preserve this document. Open Document.");
   return result;
 }

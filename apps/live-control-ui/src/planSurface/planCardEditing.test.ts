@@ -60,3 +60,8 @@ it("preserves scoped media and tables through export", () => {
   const output=exportPlanCardMarkdown(ed,source,canonical);
   expect(output).toContain("dmb-media:73b40978");expect(output).toContain("| one | two |");
 });
+it("allows intermediate trailing whitespace while preserving sibling source",()=>{
+ const ed=setup();setPlanCardScope(ed,{active:true,sceneId:"scene:a"});
+ const range=planCardRange(ed.state.doc,"scene:a")!;ed.commands.insertContentAt(range.to-1," ");
+ expect(()=>exportPlanCardMarkdown(ed,source,tiptapJsonToSemanticMarkdown(ed.getJSON()))).not.toThrow();
+});
