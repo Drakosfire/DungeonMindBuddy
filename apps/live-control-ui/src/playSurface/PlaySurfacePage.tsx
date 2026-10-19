@@ -47,6 +47,8 @@ import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
 import { StartRunPanel } from "./StartRunPanel";
+import { SurfaceContextAction } from "../surfaceInteraction/contextHost";
+import { PlaySurfaceContext, playSurfaceContextIdentity } from "./components/PlaySurfaceContext";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import {
   admitNativeRunbook,
@@ -981,6 +983,9 @@ export function PlaySurfacePage() {
 
   return (
     <AppChrome activeRoute="play">
+      <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
+        <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
+      </PlaySurfaceContext>
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}
         currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
@@ -1009,11 +1014,6 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
-          <div className="play-continuity-actions">
-            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
-              Start New Run
-            </button>
-          </div>
           <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
             {pinnedSourceCue(v1Deck.run, v1Deck.snapshot)}
           </p>
@@ -1047,11 +1047,6 @@ export function PlaySurfacePage() {
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
-          <div className="play-continuity-actions">
-            <button type="button" data-testid="play-start-new-run" onClick={navigateToChooser}>
-              Start New Run
-            </button>
-          </div>
           <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
             {v2Deck.effectiveContent?.source === "edition" ? `Session copy · revision ${v2Deck.effectiveContent.edition_revision} · ` : ""}{pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
           </p>

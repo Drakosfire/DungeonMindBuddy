@@ -40,6 +40,7 @@ restart historical assignments merely because they remain in this document.
 | Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | Edition-aware Agent context remains later |
 | Effective Play session reader | #1425/#1426 merged and delivered5202; PRIME reader gate PASS on edition3 prose/table/callout/images, desktop+narrow, original Plan/Run/notes unchanged | Read adoption only; editing evidence is separate below |
 | Play Markdown/existing-media editing | #1428 merged d7d5eedd7, Architecture Cycle2 PASS; #1429 contrast0858ac568; normal5202 pointer resize/move/collapse and prose autosave→reload/history verified; Plan/Run/progress/notes unchanged; desktop/narrow | Existing scenes only; edited-session Agent context remains unavailable |
+| Play surface navbar | Implementation active on `codex/play-surface-navbar`; owner-local contributions use the shared SurfaceContextHost and retain existing Load, scene inspection, Notes and session-copy controllers | Architecture review and normal5202 desktop/narrow acceptance remain pending |
 
 ### Next execution and ownership
 

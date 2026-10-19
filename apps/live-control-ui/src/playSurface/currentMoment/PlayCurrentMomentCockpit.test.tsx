@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from "@testing-library/react";
+import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,13 +15,23 @@ import type {
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRunbookProjection";
 import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
+import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
 import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
+
+function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
+  return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+}
 
 // Existing writer cases exercise the now-collapsed control through its public toggle.
 function sceneNoteField() {
-  const toggle = screen.getByRole("button", { name: /^Scene notes —/ });
+  const toggle = screen.getByRole("button", { name: /^Notes ·/ });
   if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
   return screen.getByLabelText("Scene note");
+}
+
+function openRunRecord() {
+  fireEvent.click(screen.getByRole("button", { name: "More Play controls" }));
+  fireEvent.click(screen.getByRole("button", { name: "Run record" }));
 }
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -453,7 +464,7 @@ describe("PlayCurrentMomentCockpit", () => {
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
-    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-beat-context")).toHaveClass("is-collapsed");
     expect(screen.queryByTestId("play-beat-context-title")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
@@ -463,10 +474,11 @@ describe("PlayCurrentMomentCockpit", () => {
   it("collapses Recorded outcomes without writing progress", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const toggle = screen.getByTestId("play-at-a-glance-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "false");
+    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "false");
     expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
@@ -485,8 +497,10 @@ describe("PlayCurrentMomentCockpit", () => {
     );
     const shell = screen.getByTestId("play-cockpit-shell");
     expect(shell).toHaveAttribute("data-beat-collapsed", "false");
-    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
     await user.click(screen.getByTestId("play-beat-context-toggle"));
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
     await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(shell).toHaveAttribute("data-beat-collapsed", "true");
     expect(shell).toHaveAttribute("data-glance-collapsed", "true");
@@ -514,22 +528,59 @@ describe("PlayCurrentMomentCockpit", () => {
     );
 
     const shell = screen.getByTestId("play-cockpit-shell");
-    const scenes = screen.getByTestId("play-compact-outline-toggle");
-    const runRecordToggle = screen.getByTestId("play-compact-outcomes-toggle");
+    const scenes = screen.getByRole("button", { name: "Scenes" });
     expect(scenes).toHaveAttribute("aria-expanded", "false");
-    expect(runRecordToggle).toHaveAttribute("aria-expanded", "false");
 
     await user.click(scenes);
     expect(scenes).toHaveAttribute("aria-expanded", "true");
-    expect(runRecordToggle).toHaveAttribute("aria-expanded", "false");
     expect(shell).toHaveAttribute("data-beat-collapsed", "false");
     expect(shell).toHaveAttribute("data-glance-collapsed", "true");
 
-    await user.click(runRecordToggle);
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
     expect(scenes).toHaveAttribute("aria-expanded", "false");
-    expect(runRecordToggle).toHaveAttribute("aria-expanded", "true");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
     expect(shell).toHaveAttribute("data-beat-collapsed", "true");
     expect(shell).toHaveAttribute("data-glance-collapsed", "false");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("returns focus to More when Escape closes its focused menu action", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    await user.click(more);
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Run record" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Run record" })).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("navigates from the inspected Scene and keeps Run record behind More by default", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(<Harness initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })} />);
+    const shell = screen.getByTestId("play-cockpit-shell");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
+    expect(screen.queryByTestId("play-recorded-outcomes-body")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Inspect scene" }), "scene:courtyard");
+    await user.click(screen.getByRole("button", { name: "Previous scene" }));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");
+    await user.click(screen.getByRole("button", { name: "Previous scene" }));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("Tunnel Breach");
+    await user.click(screen.getByRole("button", { name: "More Play controls" }));
+    await user.click(screen.getByRole("button", { name: "Run record" }));
+    expect(screen.getByTestId("play-recorded-outcomes-body")).toBeInTheDocument();
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(screen.getByTestId("play-central-workspace")).toHaveAttribute("inert");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true"));
+    expect(more).toHaveFocus();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -549,14 +600,14 @@ describe("PlayCurrentMomentCockpit", () => {
       />,
     );
 
-    const scenes = screen.getByTestId("play-compact-outline-toggle");
+    const scenes = screen.getByRole("button", { name: "Scenes" });
     await user.click(scenes);
     await user.click(screen.getByRole("button", { name: /Courtyard/ }));
 
     const inspectedHeading = screen.getByRole("heading", { name: "Inspecting Courtyard" });
     await waitFor(() => expect(inspectedHeading).toHaveFocus());
     expect(scenes).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("play-compact-outcomes-toggle")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
 
@@ -581,24 +632,17 @@ describe("PlayCurrentMomentCockpit", () => {
     })));
     render(<Harness />);
 
-    const scenes = screen.getByTestId("play-compact-outline-toggle");
-    const runRecord = screen.getByTestId("play-compact-outcomes-toggle");
+    const scenes = screen.getByRole("button", { name: "Scenes" });
     const central = screen.getByTestId("play-central-workspace");
     await user.click(scenes);
     expect(central).toHaveAttribute("inert");
     expect(central).toHaveAttribute("aria-hidden", "true");
     await user.keyboard("{Escape}");
-    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(scenes).toHaveAttribute("aria-expanded", "false"));
     expect(central).not.toHaveAttribute("inert");
     await waitFor(() => expect(scenes).toHaveFocus());
     expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
 
-    await user.click(runRecord);
-    expect(central).toHaveAttribute("inert");
-    await user.keyboard("{Escape}");
-    expect(runRecord).toHaveAttribute("aria-expanded", "false");
-    await waitFor(() => expect(runRecord).toHaveFocus());
-    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -815,14 +859,14 @@ describe("PlayCurrentMomentCockpit", () => {
     render(<WorldHarness initialRun={currentWorldRun({
       notes_by_element_id: { "scene:north-gate": "Current scene note" },
     })} />);
-    const toggle = screen.getByRole("button", { name: /^Scene notes — North Gate/ });
+    const toggle = screen.getByRole("button", { name: /^Notes ·/ });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByLabelText("Scene note")).not.toBeVisible();
     await user.click(toggle);
     expect(screen.getByLabelText("Scene note")).toHaveFocus();
     expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
     await user.click(screen.getByRole("button", { name: /Tunnel Breach/ }));
-    expect(screen.getByTestId("floating-scene-notes")).toHaveTextContent("Scene notes — North Gate");
+    expect(toggle).toHaveTextContent("current scene North Gate");
     expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -842,7 +886,7 @@ describe("PlayCurrentMomentCockpit", () => {
     const view = render(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
     fireEvent.change(sceneNoteField(), { target: { value: "North draft" } });
     view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(b)} />);
-    expect(screen.getByRole("button", { name: /^Scene notes — Tunnel Breach/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Notes ·/ })).toHaveTextContent("Tunnel Breach");
     expect(sceneNoteField()).toHaveValue("");
     fireEvent.change(sceneNoteField(), { target: { value: "Tunnel draft" } });
     view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
@@ -1406,6 +1450,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
 
   it("renders the North Gate Decision inside the Scene board, not a rail", () => {
     render(<BreachHarness />);
+    openRunRecord();
     const board = screen.getByTestId("play-workspace-current");
     const decision = screen.getByTestId("play-decision");
     expect(board).toContainElement(decision);
@@ -1434,6 +1479,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
         })}
       />,
     );
+    openRunRecord();
 
     const outcomes = screen.getByTestId("play-at-a-glance");
     expect(outcomes).toHaveTextContent("Saved choices & notes");
@@ -1664,6 +1710,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     const user = userEvent.setup();
     render(<BreachHarness />);
     await user.click(screen.getByTestId("play-beat-context-toggle"));
+    openRunRecord();
     await user.click(screen.getByTestId("play-at-a-glance-toggle"));
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "true");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");

@@ -542,7 +542,18 @@
 }
 
 .play-cockpit-shell[data-glance-collapsed="true"] {
-  --play-outcomes-rail: 3.25rem;
+  --play-outcomes-rail: 0;
+  grid-template-areas: "outline center .";
+}
+
+.play-cockpit-shell[data-glance-collapsed="true"] .play-recorded-outcomes { display: none; }
+
+.play-surface-context__row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .55rem; min-width: 0; }
+.play-surface-context .surface-context-module__body { min-width: 0; }
+.play-surface-context__notes { max-width: min(18rem, 38vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 60rem) {
+  .play-cockpit-shell[data-glance-collapsed="true"] { grid-template-areas: "center"; }
 }
 
 .play-cockpit-rail {
