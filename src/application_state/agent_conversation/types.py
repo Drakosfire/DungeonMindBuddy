@@ -1229,8 +1229,35 @@ class PlanWorldGraphConnectiveSegmentV1(StrictModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
+class SessionEvidenceClaimV1(StrictModel):
+    kind: Literal["session_evidence_claim"]
+    text: str = Field(min_length=1,max_length=4000)
+    run_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    review_revision: int = Field(strict=True,ge=1)
+    evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+def plan_answer_basis(segments):
+    graph=any(isinstance(segment,PlanWorldGraphClaimSegmentV1) for segment in segments)
+    session=any(isinstance(segment,SessionEvidenceClaimV1) for segment in segments)
+    base="committed_plan_plus_world_graph" if graph else "committed_plan"
+    return base+"_plus_session_evidence" if session else base
+
+
+def validate_session_evidence_claims(segments,provenance):
+    from urllib.parse import urlencode
+    allowed={(ref.object_id,int(ref.revision),ref.content_sha256) for ref in provenance.supporting_work if ref.kind=="session_evidence_v1" and ref.resolution=="resolved"}
+    for segment in segments:
+        if not isinstance(segment,SessionEvidenceClaimV1):continue
+        if (segment.run_id,segment.review_revision,segment.evidence_sha256) not in allowed:
+            raise ValueError("Session evidence claim is not bound to frozen turn provenance")
+        url="/play?"+urlencode({"world":provenance.world_id,"run":segment.run_id,"evidence_revision":segment.review_revision})
+        if url not in segment.text:raise ValueError("Session evidence claim lacks its exact pinned citation")
+
+
 PlanWorldGraphAnswerSegmentV1 = (
-    PlanWorldGraphClaimSegmentV1
+    SessionEvidenceClaimV1
+    | PlanWorldGraphClaimSegmentV1
     | PlanWorldGraphPlanClaimSegmentV1
     | PlanWorldGraphProposalSegmentV1
     | PlanWorldGraphConnectiveSegmentV1
@@ -1259,7 +1286,7 @@ class PlanWorldGraphCompletionV1(StrictModel):
         default="dmb_plan_world_graph_completion_v1", alias="schema"
     )
     context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph"]
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
     answer_context_status: Literal[
         "graph_grounded",
         "graph_grounded_partial",
@@ -1278,9 +1305,7 @@ class PlanWorldGraphCompletionV1(StrictModel):
             for segment in self.answer_segments
             if isinstance(segment, PlanWorldGraphClaimSegmentV1)
         ]
-        expected_basis = (
-            "committed_plan_plus_world_graph" if graph_claims else "committed_plan"
-        )
+        expected_basis = plan_answer_basis(self.answer_segments)
         if self.answer_basis != expected_basis:
             raise ValueError("answer basis must follow the typed answer segments")
         if (
@@ -1368,7 +1393,7 @@ class PlanWorldGraphCompletionV2(StrictModel):
         default="dmb_plan_world_graph_completion_v2", alias="schema"
     )
     context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph"]
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
     answer_context_status: Literal[
         "graph_grounded", "graph_grounded_partial",
         "plan_only_insufficient_evidence", "plan_only_graph_unused",
@@ -1379,7 +1404,7 @@ class PlanWorldGraphCompletionV2(StrictModel):
     @model_validator(mode="after")
     def validate_completion_shape(self) -> PlanWorldGraphCompletionV2:
         graph_claims = [s for s in self.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
-        if self.answer_basis != ("committed_plan_plus_world_graph" if graph_claims else "committed_plan"):
+        if self.answer_basis != plan_answer_basis(self.answer_segments):
             raise ValueError("answer basis must follow the typed answer segments")
         if self.citation_map is not None and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256:
             raise ValueError("citation map must bind the completion receipt digest")
@@ -1638,7 +1663,7 @@ class PlanAskHistoryAttributionV1(StrictModel):
     plan_basis: PlanAskContextBasis
     playable_target: PlanPlayableTargetReceiptV1 | None
     context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph"]
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]
     answer_context_status: Literal[
         "graph_grounded",
         "graph_grounded_partial",
@@ -4462,6 +4487,8 @@ class Turn(StrictModel):
 
     @model_validator(mode="after")
     def validate_claim_expiry(self) -> "Turn":
+        if self.completion is not None:
+            validate_session_evidence_claims(self.completion.answer_segments,self.provenance)
         try:
             validate_play_context_receipt(
                 self.play_context_receipt, self.world_id, self.provenance

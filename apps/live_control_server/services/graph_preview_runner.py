@@ -210,12 +210,15 @@ def run_recap_production_extraction(
     execution_limits: RecapExecutionLimits | None = None,
     ingest_context: Any | None = None,
     extra_known_entities: tuple[KnownEntity, ...] | None = None,
+    supplemental_evidence: dict | None = None,
 ) -> ProductionExtractionResult:
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _verified_ingest_context_lineage(
         ingest_context,
         campaign_id=campaign_id,
     )
+    if supplemental_evidence is not None and supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:
+        raise ValueError("Session supplement belongs to another managed World")
     if output_dir is not None:
         output_dir = (
             output_dir if output_dir.is_absolute() else repo_root / output_dir
@@ -289,12 +292,24 @@ def run_recap_production_extraction(
         recap_path=recap_path,
     )
     source = _normalized_from_registered(repo_root, artifact.source_artifact_id)
+    supplement_context=None
+    supplement_lineage={}
+    if supplemental_evidence is not None:
+        from apps.live_control_server.services.session_evidence import render_session_evidence
+        if supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:raise ValueError("Session supplement belongs to another managed World")
+        if output_dir is None:raise ValueError("Session supplements require an explicit extraction output directory")
+        private=output_dir/".private";private.mkdir(mode=0o700,parents=True,exist_ok=True)
+        _write_recap_private_json(private/"session_evidence.json",supplemental_evidence)
+        supplement_context=("Supplemental GM session evidence: use for context and discrepancies, never as a quotation or source span from the external recap. "
+            "Extract only claims supported by the actual recap source; do not turn GM preferences or reflections into recap events.\n"+render_session_evidence(supplemental_evidence))
+        supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],"uri":str((private/"session_evidence.json").relative_to(repo_root)),"artifact_sha256":hashlib.sha256((private/"session_evidence.json").read_bytes()).hexdigest(),
+            "sources":[{"run_id":item["run_id"],"review_revision":item["review_revision"],"sha256":item["sha256"],"citation_url":item["citation_url"]} for item in supplemental_evidence["sessions"]]}}
     if default_ge:
         snapshot = _recap_identity_snapshot(
             campaign_id, session_id, extra_known_entities
         )
         private = output_dir / ".private"
-        private.mkdir(mode=0o700)
+        private.mkdir(mode=0o700,exist_ok=True)
         _write_recap_private_json(private / "identity_context.json", snapshot)
         context_hashes = {
             "source_content": source.source_sha256,
@@ -311,9 +326,13 @@ def run_recap_production_extraction(
         bounded = BoundedRecapPassClient(
             execution_limits,
             response_artifact_dir=private / "generationengine_attempts",
-            request_context_hashes=context_hashes,
+            request_context_hashes={**context_hashes,**({"session_evidence":supplemental_evidence["sha256"]} if supplemental_evidence else {})},
+            supplemental_context=supplement_context,
         )
         category_client = bounded
+    if supplement_context and not default_ge and category_client is not None:
+        if not isinstance(category_client,BoundedRecapPassClient):raise ValueError("Session supplements require the owned bounded recap client")
+        category_client.supplemental_context=supplement_context
     result = None
     try:
         result = run_production_extraction(
@@ -330,7 +349,7 @@ def run_recap_production_extraction(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-                initial_lineage={"world_campaign_ingest_context": frozen_context},
+                initial_lineage={"world_campaign_ingest_context": frozen_context,**supplement_lineage},
             )
         )
         return result

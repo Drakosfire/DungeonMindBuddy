@@ -1107,13 +1107,14 @@ function isWorldPlanGraphCompletion(
   ])
     || value.schema !== (build ? "dmb_build_graph_completion_v1" : `dmb_plan_world_graph_completion_v${version}`)
     || value.context_receipt_sha256 !== receipt.context_receipt_sha256
-    || !(build ? ["saved_source", "saved_source_plus_world_graph"] : ["committed_plan", "committed_plan_plus_world_graph"]).includes(String(value.answer_basis))
+    || !(build ? ["saved_source", "saved_source_plus_world_graph"] : ["committed_plan", "committed_plan_plus_world_graph", "committed_plan_plus_session_evidence", "committed_plan_plus_world_graph_plus_session_evidence"]).includes(String(value.answer_basis))
     || !["graph_grounded", "graph_grounded_partial", ...(build ? ["source_only_insufficient_evidence", "source_only_graph_unused"] : ["plan_only_insufficient_evidence", "plan_only_graph_unused"])]
       .includes(String(value.answer_context_status))
     || !Array.isArray(value.answer_segments)
     || value.answer_segments.length < 1 || value.answer_segments.length > 128) return false;
 
   const graphClaims: Extract<WorldPlanGraphAnswerSegmentV1, { kind: "graph_claim" }>[] = [];
+  let hasSessionEvidence = false;
   for (const segment of value.answer_segments) {
     if (!isRecord(segment) || typeof segment.kind !== "string") return false;
     if (segment.kind === "graph_claim") {
@@ -1125,6 +1126,14 @@ function isWorldPlanGraphCompletion(
         || segment.graph_revision !== receipt.graph_authority.graph_revision
         || !isNonEmptyStringList(segment.evidence_ref_ids) || segment.evidence_ref_ids.length > 64) return false;
       graphClaims.push(segment as unknown as Extract<WorldPlanGraphAnswerSegmentV1, { kind: "graph_claim" }>);
+    } else if (segment.kind === "session_evidence_claim" && !build) {
+      if (!hasExactKeys(segment, ["kind", "text", "run_id", "review_revision", "evidence_sha256"])
+        || typeof segment.text !== "string" || !segment.text.trim() || segment.text.length > 4000
+        || typeof segment.run_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(segment.run_id)
+        || typeof segment.review_revision !== "number" || !Number.isSafeInteger(segment.review_revision) || segment.review_revision < 1
+        || typeof segment.evidence_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(segment.evidence_sha256)
+        || !segment.text.includes("/play?" + new URLSearchParams({world: receipt.plan_basis.world_id, run: segment.run_id, evidence_revision: String(segment.review_revision)}).toString())) return false;
+      hasSessionEvidence = true;
     } else if (segment.kind === "saved_source_claim" && build) {
       if (!hasExactKeys(segment, ["kind", "text", "content_sha256"])
         || typeof segment.text !== "string" || !segment.text.trim()
@@ -1144,7 +1153,7 @@ function isWorldPlanGraphCompletion(
 
   const sourceBasis = build ? "saved_source" : "committed_plan";
   const graphBasis = build ? "saved_source_plus_world_graph" : "committed_plan_plus_world_graph";
-  const expectedBasis = graphClaims.length > 0 ? graphBasis : sourceBasis;
+  const expectedBasis = (graphClaims.length > 0 ? graphBasis : sourceBasis) + (hasSessionEvidence ? "_plus_session_evidence" : "");
   if (value.answer_basis !== expectedBasis) return false;
 
   const citationMap = value.citation_map;
@@ -1196,12 +1205,12 @@ function isWorldPlanGraphCompletion(
     return (build || (receipt.graph_packet.evidence_sufficiency_status === "insufficient"
       && receipt.assembled_input.packet_disposition === "omitted_insufficient"))
       && graphClaims.length === 0 && citationMap === null
-      && value.answer_basis === sourceBasis;
+      && value.answer_basis === expectedBasis;
   }
   if (status === (build ? "source_only_graph_unused" : "plan_only_graph_unused")) {
-    return graphClaims.length === 0 && citationMap === null && value.answer_basis === sourceBasis;
+    return graphClaims.length === 0 && citationMap === null && value.answer_basis === expectedBasis;
   }
-  return graphClaims.length > 0 && citationMap !== null && value.answer_basis === graphBasis;
+  return graphClaims.length > 0 && citationMap !== null && value.answer_basis === expectedBasis;
 }
 
 function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecutionProjectionV1 {
@@ -5287,12 +5296,13 @@ export function WorldPlanAgentConversation({
                 && replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id) ? (
                 <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
                   title={graphContextStatusLabel(graphContextForTurn(turn)!.completion!.answer_context_status)}>
-                  {replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
+                  {graphContextForTurn(turn)!.completion!.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
                 </span>
               ) : null}
             </div>
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
+              allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
               displaySegments={graphContextForTurn(turn)?.completion
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}

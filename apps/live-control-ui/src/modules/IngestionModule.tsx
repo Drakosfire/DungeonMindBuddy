@@ -1,3 +1,5 @@
+import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
+import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getHistoricalRecapWorldProjection, getRecapArtifacts, postWorldGraphRecapProjection } from "../api/liveApi";
@@ -667,6 +669,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
   const selectedIngestTarget = getIngestTargetIdentity(ingestCampaignId, recapSession);
+  const [sessionSupplements,setSessionSupplements]=useState<{identity:string;refs:SessionEvidenceRef[]}>({identity:"",refs:[]});
+  const evidenceTargetKey=JSON.stringify([managedWorldId??null,ingestCampaignId,recapSession]);
   const selectedIngestTargetRef = useRef(selectedIngestTarget);
   selectedIngestTargetRef.current = selectedIngestTarget;
   const previousRouteTargetIdentityRef = useRef(routeTargetIdentity);
@@ -957,7 +961,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     const draftEpoch = recapDraftEpochRef.current;
     let result: RecapIngestStatus;
     try {
-      result = await postRecapIngest(request);
+      const refs=sessionSupplements.identity===evidenceTargetKey?sessionSupplements.refs:[];
+      result = await postRecapIngest({...request,...(refs.length&&["generate_recap_memory","build_graph_preview_bundle","materialize_preview_supergraph"].includes(request.operation)?{session_evidence:refs}:{})});
     } catch (error) {
       // Resetting the draft invalidates pending responses and their failures.
       // Do not let an older request publish an error into the new draft.
@@ -2721,6 +2726,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </div>
           )}
 
+          {managedWorldId?<SessionEvidencePicker key={evidenceTargetKey} worldId={managedWorldId} targetKey={evidenceTargetKey} disabled={primaryOp!==null} onChange={refs=>setSessionSupplements({identity:evidenceTargetKey,refs})}/>:null}
         </section>
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">

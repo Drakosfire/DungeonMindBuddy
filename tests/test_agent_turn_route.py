@@ -3266,6 +3266,7 @@ def test_plan_resolver_reads_exact_committed_world_revision_and_returns_basis(
     from apps.live_control_server.routes import agent as agent_route
 
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_route, "_planning_session_evidence", lambda *_args: {"world_id":"world-1","sessions":[]})
     basis = {
         "world_id": "world-1",
         "document_id": "plan-1",

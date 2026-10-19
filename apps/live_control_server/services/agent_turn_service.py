@@ -169,6 +169,11 @@ never claim source opening yourself.
 
 answer_segments is a nonempty JSON array. Each element must use one of these
 exact shapes (no extra keys):
+- Session notes or closing reflections: {"kind":"session_evidence_claim","text":"...",
+  "run_id":"...","review_revision":1}. Use exact run/revision identifiers from the
+  included saved session evidence. Do not supply evidence_sha256: the server binds
+  the frozen session revision digest. Source text hashes are not revision digests.
+  Never label these as Plan or Graph facts.
 - Plan fact: {"kind":"plan_claim","text":"..."}. The server binds this to
   the committed Plan digest; do not supply plan_content_sha256.
 - Graph fact: {"kind":"graph_claim","claim_id":"...","text":"...",
@@ -1285,6 +1290,7 @@ class AgentTurnResolvedWork:
     build_source: BuildSavedSourceBasis | None = None
     play_context_receipt: PlayRunTurnContextReceiptV1 | None = None
     build_source_discovery: Mapping[str, Any] | None = None
+    session_evidence: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3793,6 +3799,14 @@ def _parse_policy_completion(
                 if normalized.get("content_sha256") not in {None, receipt.source_basis.content_sha256}:
                     raise ValueError("Saved-source claim used another content digest")
                 normalized["content_sha256"] = receipt.source_basis.content_sha256
+            if normalized.get("kind")=="session_evidence_claim":
+                if isinstance(receipt,BuildGraphContextReceiptV1):raise ValueError("Session evidence is admitted for Plan turns only")
+                matching=[ref for ref in turn.provenance.supporting_work if ref.kind=="session_evidence_v1" and ref.object_id==normalized.get("run_id") and ref.revision==str(normalized.get("review_revision"))]
+                if len(matching)!=1 or normalized.get("evidence_sha256") not in {None,matching[0].content_sha256}:raise ValueError("Session evidence reference is not frozen on this turn")
+                normalized["evidence_sha256"]=matching[0].content_sha256
+                from urllib.parse import urlencode
+                url="/play?"+urlencode({"world":turn.world_id,"run":matching[0].object_id,"evidence_revision":int(matching[0].revision)})
+                if url not in normalized.get("text", ""):normalized["text"]=normalized.get("text", "")+f" [Session notes and reflections]({url})"
             if normalized.get("kind") == "plan_claim" and not isinstance(receipt, BuildGraphContextReceiptV1):
                 stage, reason = "typed", "segment_attribution"
                 if normalized.get("plan_content_sha256") not in {
@@ -3956,7 +3970,7 @@ def _parse_policy_completion(
             "answer_basis": (
                 ("saved_source_plus_world_graph" if has_graph else "saved_source")
                 if isinstance(receipt, BuildGraphContextReceiptV1) else
-                ("committed_plan_plus_world_graph" if has_graph else "committed_plan")
+                graph_types.plan_answer_basis(typed_segments)
             ),
             "answer_context_status": ({"plan_only_graph_unused": "source_only_graph_unused",
                 "plan_only_insufficient_evidence": "source_only_insufficient_evidence"}.get(derived_status, derived_status)
@@ -4163,6 +4177,9 @@ def _conversation_provenance(
             revision_n=None if content_basis is None else content_basis.revision_n,
         )
     supporting_work: list[HistoricalReference] = []
+    if work is not None and work.session_evidence is not None:
+        for source in work.session_evidence["sessions"]:
+            supporting_work.append(HistoricalReference(resolution="resolved",kind="session_evidence_v1",object_id=source["run_id"],revision=str(source["review_revision"]),content_sha256=source["sha256"]))
     if selected_knowledge_context is not None:
         supporting_work.append(HistoricalReference(
             resolution="resolved", kind="ingest_selection_context",
@@ -6202,6 +6219,10 @@ def execute_agent_turn(
                     None if policy_bootstrap is None else policy_bootstrap.retrieval_session
                 ),
             )
+        if work is not None and work.session_evidence is not None:
+            assembly = replace(assembly, invocation=replace(assembly.invocation,
+                context_packet=replace(assembly.invocation.context_packet,session_evidence=work.session_evidence),
+                input_kind="server_assembled_saved_work" if work.session_evidence.get("sessions") else assembly.invocation.input_kind))
         if selected_knowledge_context is not None:
             assembly = replace(assembly, invocation=replace(
                 assembly.invocation,

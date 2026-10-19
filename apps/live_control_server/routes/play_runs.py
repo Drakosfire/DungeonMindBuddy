@@ -545,3 +545,23 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
         return commit_review(run_id=run_id, world_id=world_id, command_id=command_id, request=body)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/world-session-evidence")
+def list_session_evidence_route(request: Request,world_id: Annotated[str,Query(min_length=1)],limit: Annotated[int,Query(ge=1,le=20)]=20):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from application_state.play.session_evidence import recent_session_evidence
+    from application_state.errors import ApplicationStateError
+    enforce_native_graph_gm(request)
+    try:return {"world_id":world_id,"sessions":recent_session_evidence(world_id=world_id,limit=limit)}
+    except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
+
+
+@router.get("/world-session-evidence/{run_id}/revisions/{revision}")
+def read_session_evidence_route(run_id:str,revision:int,request:Request,world_id:Annotated[str,Query(min_length=1)]):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from application_state.play.session_evidence import read_session_evidence
+    from application_state.errors import ApplicationStateError
+    enforce_native_graph_gm(request)
+    try:return read_session_evidence(world_id=world_id,run_id=run_id,revision=revision)
+    except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc

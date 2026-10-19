@@ -175,6 +175,10 @@ def map_invocation_to_hermes_request(
         if invocation.input_kind != "server_assembled_saved_work":
             raise ValueError("selected knowledge requires trusted saved-work assembly")
         question = selected_block + "\n\nUser question:\n" + invocation.message
+    if invocation.context_packet.session_evidence is not None:
+        from apps.live_control_server.services.session_evidence import render_session_evidence
+        evidence_block=render_session_evidence(invocation.context_packet.session_evidence)
+        if evidence_block:question=evidence_block+"\n\n"+question
     return HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,
