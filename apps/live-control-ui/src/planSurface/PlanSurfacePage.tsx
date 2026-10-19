@@ -1,3 +1,5 @@
+import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
+import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
@@ -410,6 +412,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     [importedMarkdown, editorContent],
   );
   const fidelityBlocked = fidelityWarnings.length > 0;
+  const trashInventoryVersion = useWorkspaceInventoryVersion(worldId);
+  useEffect(() => {
+    if (trashInventoryVersion === 0) return;
+    let cancelled = false;
+    void listWorldOwnedPlans(worldId).then(result => { if (!cancelled) setRecords(result.records); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [worldId, trashInventoryVersion]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [initialLoadAttempt, setInitialLoadAttempt] = useState(0);
   const [retryTarget, setRetryTarget] = useState<
@@ -1714,6 +1723,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setSelectedPlayableEditTarget(null);
   }, []);
 
+  const planTrashCacheBasis = documentId && revisionRef.current !== null ? {
+    document_id:documentId, revision:revisionRef.current, title:serverTitleRef.current,
+    markdown:serverMarkdownRef.current, edit_generation:editGenerationRef.current,
+  } : null;
   const mediaIdentity = `${worldId}:${documentId ?? localDraftId}`;
   const [mediaTarget, setMediaTarget] = useState<string | null>(null);
   const mediaState = useRef<DocumentMediaState | null>(null);
@@ -1766,11 +1779,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </nav>
           <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
             onClick={() => { setSourceEditing(false); selectPlanView("document"); setMediaTarget(mediaIdentity); }}>Images</button>
-          <WorkspaceTrashControl worldId={worldId}
+          <WorkspaceTrashControl showTrash={false} worldId={worldId}
             current={documentId && revisionRef.current ? {kind:"document", id:documentId, title, surface:"plan", revision:revisionRef.current} : null}
             blocked={durableSaveState !== "saved" || startingPlay || pendingWriteRef.current !== null}
-            onTrashed={() => window.location.assign(`/plan?world=${encodeURIComponent(worldId)}`)}
-            onRestored={() => { void listWorldOwnedPlans(worldId).then(response => setRecords(response.records)).catch(() => undefined); }} />
+            onTrashed={() => {
+              if (planTrashCacheBasis) clearTrashedPlanRecovery(worldId, planTrashCacheBasis);
+              window.location.assign(`/plan?world=${encodeURIComponent(worldId)}`);
+            }}
+            />
           <span className="world-plan-context-toolbar__save">
             <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>

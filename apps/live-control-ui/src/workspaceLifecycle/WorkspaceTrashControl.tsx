@@ -1,13 +1,15 @@
+import { announceWorkspaceInventoryChange } from "./workspaceInventoryChange";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { changeWorkspaceTrash, listWorkspaceTrash, type WorkspaceTrashItem, type WorkspaceTrashTarget } from "./workspaceTrashApi";
 import "./workspaceTrash.css";
 
 /** Lifecycle controls share a view; each owning writer still controls whether deletion is safe. */
-export function WorkspaceTrashControl({ worldId, current, blocked = false, onTrashed, onRestored }: {
+export function WorkspaceTrashControl({ worldId, current, blocked = false, showTrash = true, onTrashed, onRestored }: {
   worldId: string;
   current: WorkspaceTrashTarget | null;
   blocked?: boolean;
+  showTrash?: boolean;
   onTrashed: () => void;
   onRestored?: () => void;
 }) {
@@ -60,7 +62,7 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
       await changeWorkspaceTrash(capturedWorld, target, action);
       if (!mounted.current || sequence.current !== stamp || latest.current.worldId !== capturedWorld || (action === "trash" && latest.current.identity !== confirmation!.identity)) return;
       if (action === "trash") { setView("closed"); onTrashed(); }
-      else { setItems(old => old.filter(item => item.id !== target.id || item.kind !== target.kind)); setNotice(`Restored “${target.title}”.`); onRestored?.(); }
+      else { setItems(old => old.filter(item => item.id !== target.id || item.kind !== target.kind)); setNotice(`Restored “${target.title}”.`); announceWorkspaceInventoryChange(capturedWorld); onRestored?.(); }
     } catch (cause) {
       if (mounted.current && sequence.current === stamp) setError(cause instanceof Error ? cause.message : "The action could not be confirmed. Reload to check its state.");
     } finally { if (mounted.current && sequence.current === stamp) setPending(false); }
@@ -68,7 +70,7 @@ export function WorkspaceTrashControl({ worldId, current, blocked = false, onTra
   return <>
     {current ? <button type="button" disabled={blocked || pending} title={blocked ? "Finish saving changes before deleting." : undefined}
       onClick={() => { void open("delete"); }}>Delete</button> : null}
-    <button type="button" onClick={() => { void open("trash"); }}>Trash</button>
+    {showTrash ? <button type="button" onClick={() => { void open("trash"); }}>Trash</button> : null}
     {view !== "closed" && (view !== "delete" || confirmation?.identity === identity) ? createPortal(<dialog ref={dialog} className="workspace-trash" aria-label={view === "delete" ? "Move to Trash" : "World Trash"}
       onCancel={event => { if (pending) event.preventDefault(); else setView("closed"); }}>
       <header><h2>{view === "delete" ? "Move to Trash?" : "Trash"}</h2><button type="button" disabled={pending} onClick={() => setView("closed")} aria-label="Close Trash">×</button></header>

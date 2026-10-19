@@ -281,7 +281,7 @@ it("admits Build trash only for a clean verified document in the selected World"
   sessionMock.current = makeSession();
   renderBuildContext();
   expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeEnabled();
-  expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+  expect(screen.queryByRole("button",{name:"Trash",exact:true})).not.toBeInTheDocument();
 });
 it("keeps Build deletion disabled while the source has unsaved edits", () => {
   selectedWorldMock.managed = true;

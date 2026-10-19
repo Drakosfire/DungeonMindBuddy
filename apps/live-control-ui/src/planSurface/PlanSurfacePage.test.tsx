@@ -4041,5 +4041,5 @@ it("disables Plan deletion immediately when an authored edit is not saved", asyn
   vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
   await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1," Unsaved trash guard witness."); });
   expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
-  expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+  expect(screen.queryByRole("button",{name:"Trash",exact:true})).not.toBeInTheDocument();
 });

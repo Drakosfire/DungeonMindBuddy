@@ -1,3 +1,4 @@
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
@@ -40,6 +41,6 @@ export function CompactAppNavigation({ activeRoute }: { activeRoute: AppRouteKey
         {item.label}
       </a>)}
     </div>
-    <div className="app-nav-world-context"><WorldSelector compact /><AppChromeWorldGraphStatus compact /></div>
+    <div className="app-nav-world-context">{world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact /><AppChromeWorldGraphStatus compact /></div>
   </nav>;
 }
