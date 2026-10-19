@@ -272,6 +272,7 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
         source_events,
         compact_refs=compact_refs,
         source_read_stop_code=stop_code,
+        source_pins=pins,
     )
     result = {"resultJson": payload, "retrievalSession": latest_session_packet}
     adapter.evidence_bundle_cache[cache_key] = result

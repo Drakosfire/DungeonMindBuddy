@@ -1889,6 +1889,8 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         outcome="truncated",
         model_dump=lambda **_kwargs: {
             "schema": "dmb_world_graph_retrieval_result_v1",
+            "snapshot": {"worldId": receipt.graph_authority.native_world_id,
+                         "revisionId": receipt.graph_authority.graph_revision},
             "operation": "search", "outcome": "truncated",
             "attributes": [{
                 "assertionId": "assertion:discovered",
@@ -1938,7 +1940,10 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         for index, pin in enumerate(pins)
     }
 
+    source_read_sequence = 0
     def read_source(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
+        nonlocal source_read_sequence
+        source_read_sequence += 1
         assert receipt_version == 2
         assert append_order[-1] == "authorize_source_read"
         returned = []
@@ -1947,6 +1952,8 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
             content = contents[anchor_id]
             content_digest = sha256(content.encode()).hexdigest()
             read_id = f"source-read:{anchor_id.rsplit(':', 1)[1]}"
+            if source_read_sequence > len(pins):
+                read_id += f":repeat-{source_read_sequence}"
             returned.append({
                 "sourceReadId": read_id,
                 "result": {
@@ -2053,6 +2060,31 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
                 "authorize_source_read", "record_validated_source_read",
             )
         ]
+        expected_graph_ids = [origin.event_id]
+        if reviewed_object:
+            presenter = adapter._tool_presentation()
+            first_reads = list(adapter.source_payloads.items())
+            repeat_reply = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": graph_arguments})
+            assert "reviewedSourceObservations" in json.loads(repeat_reply["resultJson"])
+            second_origin = next(event for event in reversed(adapter._broker_execution().events)
+                if event.kind == "validated_graph_operation_v3")
+            expected_graph_ids = [second_origin.event_id]
+            before_reads = set(adapter.source_payloads)
+            for pin in pins:
+                repeat_source = adapter.broker_source_read({"toolName": "read_graph_source", "arguments": {
+                    "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id]}})
+                assert contents[pin.anchor_id] in repeat_source["resultJson"], repeat_source
+            repeated_reads = [(sid, raw) for sid, raw in adapter.source_payloads.items() if sid not in before_reads]
+            assert len(repeated_reads) == 9
+            repeated = presenter.present_bundle(adapter.operation_payloads[second_origin.event_id], second_origin.event_id,
+                repeated_reads, source_pins=adapter._broker_execution().effective_source_pins())
+            assert all(row["content"] is None and row["contentRef"] for row in json.loads(repeated)["sources"])
+            input_items = input_items[2:]  # The final graph packet supersedes the earlier object read.
+            for number, packet in enumerate((repeated,)):
+                input_items.extend([
+                    {"type": "function_call", "call_id": f"bundle-{number}", "name": "expand_graph_retrieval",
+                     "arguments": json.dumps({**graph_arguments, "includeSources": True})},
+                    {"type": "function_call_output", "call_id": f"bundle-{number}", "output": packet}])
         payload = json.dumps({"input": input_items, "tools": []})
         provider_view = {
             "provider": budget["provider"], "model": budget["model"],
@@ -2060,7 +2092,7 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
             "payloadSha256": sha256(payload.encode()).hexdigest(),
             "payloadUtf8Bytes": len(payload.encode()),
         }
-        assert adapter.authorize(provider_view) is True
+        assert adapter.authorize(provider_view) is True, adapter.failure
         assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
         assert adapter.record_lifecycle({"transition": "response_received"}) is True
         final_execution = adapter.fence.turn.graph_context_execution
@@ -2073,7 +2105,10 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         assert final_authorization.kind == "provider_attempt_authorized_v3"
         assert len(final_authorization.included_source_read_event_ids) == 9
         assert read_event.event_id in final_authorization.included_source_read_event_ids
-        assert final_authorization.included_graph_event_ids == [origin.event_id]
+        assert final_authorization.included_graph_event_ids == expected_graph_ids
+        if reviewed_object:
+            assert len([event for event in final_execution.events if event.kind == "validated_source_read_v2"]) == 18
+            assert set(final_authorization.included_source_read_event_ids) == {sid for sid, _ in first_reads}
 
         model_answer = json.dumps({
             "answer_context_status": "graph_grounded_partial",
@@ -2098,7 +2133,7 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         citation = completion.citation_map.entries[0]
         assert citation.source_opened is True
         assert citation.source_read_ids == ["source-read:00"]
-        assert bindings["claim:gate"] == [origin.event_id]
+        assert bindings["claim:gate"] == expected_graph_ids
         completion_binding = graph_types.CompletionBindingEventV1(
             event_id=uuid4(), sequence=len(final_execution.events),
             kind="completion_binding",
@@ -2136,6 +2171,16 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         assert len(saved_plan_targets) == 1
         assert saved_plan_targets[0]['source_read_id'] == citation.source_read_ids[0]
         assert saved_plan_targets[0]['anchor_id'] == cited_pin.anchor_id
+        if reviewed_object:
+            # Exact finalized-envelope guard rejects compaction of the donor;
+            # no later source receipt can substitute for its absent body.
+            prior_events = list(adapter.fence.turn.graph_context_execution.events)
+            missing_donor = json.dumps({"input": input_items[2:], "tools": []})
+            assert adapter.authorize({**provider_view, "payloadJson": missing_donor,
+                "payloadSha256": sha256(missing_donor.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(missing_donor.encode())}) is False
+            assert adapter.failure.code == "graph_evidence_invalid"
+            assert adapter.fence.turn.graph_context_execution.events == prior_events
     finally:
         clear_sessions()
 

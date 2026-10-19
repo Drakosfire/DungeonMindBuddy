@@ -1933,9 +1933,9 @@ class _PolicyExecutionAdapter:
                 ) from exc
             try:
                 presenter = self._tool_presentation()
-                graph_exposure = presenter.inclusion("expand_graph_retrieval", included_payloads)
+                graph_exposure = presenter.inclusion("expand_graph_retrieval", included_payloads, source_payloads=included_source_payloads)
                 source_exposure = presenter.inclusion("read_graph_source", included_source_payloads)
-                source_exposure.extend(presenter.bundled_source_inclusion(included_payloads))
+                source_exposure.extend(presenter.bundled_source_inclusion(included_payloads, source_payloads=included_source_payloads))
                 context_exposure = presenter.inclusion("read_related_recap_context", included_context_payloads)
             except ValueError as exc:
                 raise AgentTurnServiceError(
@@ -2186,9 +2186,9 @@ class _PolicyExecutionAdapter:
                 or len(set(source_payloads)) != len(source_payloads)):
             raise ValueError("Controller exposure needs distinct completed payloads")
         presenter = self._tool_presentation()
-        graphs = presenter.inclusion("expand_graph_retrieval", list(graph_payloads))
+        graphs = presenter.inclusion("expand_graph_retrieval", list(graph_payloads), source_payloads=list(source_payloads))
         sources = presenter.inclusion("read_graph_source", list(source_payloads))
-        sources.extend(presenter.bundled_source_inclusion(list(graph_payloads)))
+        sources.extend(presenter.bundled_source_inclusion(list(graph_payloads), source_payloads=list(source_payloads)))
         by_event = {event.event_id: event for event in execution.events}
         if source_read_event_ids:
             from .graph_tool_presentation import Exposure
@@ -3280,7 +3280,7 @@ class _PolicyExecutionAdapter:
             )
             result_json = json.dumps(public, ensure_ascii=False, separators=(",", ":"))
             self.source_payloads[event.event_id] = result_json
-            return {"resultJson": self._tool_presentation().present("read_graph_source", dict(message["arguments"]), result_json, event.event_id), "retrievalSession": session.project_for_hermes()}
+            return {"resultJson": self._tool_presentation().present("read_graph_source", dict(message["arguments"]), result_json, event.event_id, source_pins=frozen), "retrievalSession": session.project_for_hermes()}
         except Exception:
             self.failure = AgentTurnServiceError(
                 "The parent source read could not be durably validated.",
