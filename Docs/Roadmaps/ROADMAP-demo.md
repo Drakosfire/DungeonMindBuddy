@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-19.
-**Evidence anchor:** remote main `fcaab28ab1db7ce2c024152d15ca844e4c3bb3ef` (PR #1455).
+**Evidence anchor:** remote main `74a604ce3542fbb0501ac0baf2ff9a32cdfa42a5` (PR #1458).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -44,6 +44,7 @@ back into the active roadmap. The pre-pruning document is available at the
 | Image authoring in Plan and Play | #1443/#1444; generation/selection/insertion delivered | Media availability, navigation and consistent use remain dogfood concerns |
 | Recoverable Trash across Build, Plan and Play | #1445–#1447 | Reversible document/session lifecycle; not a universal source-artifact purge contract |
 | Shared compact navbar actions and actionable draft recovery | #1448–#1451; root Plan route included | Further layout issues require concrete reproduction |
+| Plan Cards navigation and Document continuity | #1458 merged `74a604ce`; Architecture Cycle 1 PASS on `d6936b0e`; PRIME desktop/narrow and 12 protected-response preservation checks passed | Existing-scene browsing; direct card editing and dense-scene facets remain open |
 | Useful root Play landing | #1452 | Old #1190 welcome proposal is not the current delivery plan |
 | End/reopen sessions and retain final recollections separately | #1453 corrected by #1454 | External recap remains separate |
 | Next-session planning from notes/reflections with active exact-revision citations | #1455; actual saved-session planning answer and pinned citation navigation on 5202 | Recent ended active sessions, bounded context; not automatic Graph truth |
@@ -64,10 +65,11 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    Agent edits, autosave/reopen, navigation and conflict recovery. Preserve each
    document/session authority. Cross-surface availability is not arbitrary
    bidirectional synchronization.
-2. **Cards:** define the unit and information capacity before another broad visual
-   implementation. Recheck direct focused-scene editing, visible boundaries,
-   reorder/create/remove behavior and content-first layout. Play's compact navbar
-   repair does not prove Plan Cards' entire workflow.
+2. **Cards:** the reviewed design distinguishes scene navigation from bounded card
+   presentation; Plan navigation/view continuity has delivered. Direct focused-scene
+   editing, dense-content acceptance, visible boundaries, reorder/create/remove and
+   the full content-first workflow remain open. The navigation slice does not prove
+   Plan Cards' entire workflow.
 3. **Connected knowledge:** ordinary Plan access to the published Session 29 recap,
    the exact Edge revision link and the song callback remain specific open
    witnesses unless demonstrated. #1455 proves session-note use, not these recap
@@ -94,9 +96,10 @@ card purpose, capacity, editing and context-preserving navigation against the
 current code. It recommends Plan scene-navigation/view continuity first, then
 focused existing-scene editing through each surface's owning writer. The design
 was independently reviewed and merged as #1457. The first bounded navigation/
-continuity slice is authorized under
-[its handoff](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md); implementation
-and rendered acceptance remain open.
+continuity slice is now [settled](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md)
+after #1458 review, merge and PRIME's final delivery/preservation checks. Its source
+leases are released. Direct focused-card editing in Plan is the next proposed
+capability, followed by the Play adapter; neither is authorized by this settlement.
 
 ## Other candidates for a later operator decision
 
@@ -109,7 +112,7 @@ These remain options, not a newly activated implementation sequence.
 | Rules/statblock/combat integration | Retrieve cited 2024 rules and use the prepared mechanics through actual table controls |
 | Hosted v1 | Authenticated laptop use of the retained World at buddy.dungeonmind.net, repeatable deploy/update, backup/restore and restart proof |
 
-Current discussion: review the card/navigation proposal and one representative
+Next discussion: bound direct focused-card editing and its representative
 shared-authoring acceptance journey before expanding that UI;
 use the next external recap as the memory-loop witness when it exists. Hosted v1
 can be chosen independently, but needs its own bounded SERVER/platform contract.

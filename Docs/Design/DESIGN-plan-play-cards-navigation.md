@@ -1,9 +1,13 @@
 # Plan/Play cards and navigation
 
-Status: reviewed design, 2026-10-19. Merged as #1457 at `b7bf9976b`. Architecture owns this design-only serial
-PR under PRIME's explicit assignment. Base: `15ea069459709b5b61f82ce88d89185f6d0cec83`.
-Write lease: this file and the chosen-focus pointer in `ROADMAP-demo.md` only.
-No implementation or runtime lease is activated. Synthetic examples below are
+Status: reviewed design, 2026-10-19. Merged as #1457 at `b7bf9976b`.
+The first Plan navigation/Document-continuity slice is settled: #1458 merged at
+`74a604ce3542fbb0501ac0baf2ff9a32cdfa42a5`, with Architecture Cycle 1 PASS and
+PRIME's completed desktop/narrow delivery and retained-state checks. See its
+[settled handoff](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md).
+The design PR's base was `15ea069459709b5b61f82ce88d89185f6d0cec83`; its
+documentation lease is complete. No successor implementation or runtime lease is
+activated. Synthetic examples below are
 design fixtures, not campaign material. PRIME retains review/merge coordination.
 
 ## Recommendation
@@ -14,8 +18,8 @@ complete Document view and the same owning Markdown/save controller behind both
 views. A linked creature, map or source has its own identity and detail view;
 placing its reference on a card does not transfer that identity to the card.
 
-Start with Plan Cards navigation and Cards/Document continuity. Then deliver
-focused existing-scene editing in Plan, followed by the equivalent Play adapter.
+Plan Cards navigation and Cards/Document continuity have delivered. Next proposed
+work is focused existing-scene editing in Plan, followed by the equivalent Play adapter.
 Each is independently reviewable; no universal card store or new schema is needed
 to start. This order establishes the visible target before expanding its edits.
 
@@ -181,9 +185,11 @@ writer and pending draft. Closing detail/editor/cards must not close or retarget
 the note controller. Read-only notes for an inspected scene, if shown, must be
 labelled separately; they are not an alternate write target.
 
-## First implementation recommendation
+## First implementation — settled
 
 **CARDS: retain Plan scene focus across shared navigation and view switches.**
+Delivered by #1458; the scope and acceptance criteria below remain its design
+record, not a fresh dispatch. Later editing adapters remain proposals.
 One invariant: the same existing scene stays selected and reachable while the GM
 navigates Cards and Document, without changing authored or Run state. Lift Plan
 scene focus/bookmarks to the existing Page/controller identity and publish compact
@@ -220,7 +226,7 @@ map pins or richer shared-object editing. These need their own activation/leases
 No card database, universal entity, inferred publication, media redesign, combat
 rewrite or automatic scene splitting is proposed here.
 
-No blocking operator decision is needed to implement the first recommendation
-after design review. Density defaults remain an operator acceptance judgment on
+The navigation recommendation is settled. A focused-editing implementation still
+requires its own bounded contract and authorization. Density defaults remain an operator acceptance judgment on
 short and dense fixtures, not an excuse to freeze arbitrary truncation rules.
 This proposal does not accept the broader J2/J5 or shared Plan/Play journey.
