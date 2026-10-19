@@ -561,6 +561,10 @@
 .play-cockpit-center .shared-scene-card__source-cue { display: none; }
 .play-session-content:empty { display: none; }
 .play-surface-context__compact-navigation { display: none; }
+.play-surface-context__more .play-beat-context { background: #202a38; color: #e8edf4; border-color: #536279; }
+.play-surface-context__more .play-beat-context summary { grid-template-columns: minmax(0, 1fr); gap: .2rem; }
+.play-surface-context__more .play-beat-context summary > span { color: #b8c6d8; }
+
 .surface-context-host:has(.play-surface-context) .surface-context-popover__panel { max-height: calc(100dvh - var(--app-chrome-top, 5rem) - 1rem); overflow-y: auto; }
 @media (max-width: 42rem) {
   .surface-context-host:has(.play-surface-context) { gap: .1rem; padding-inline: .35rem; }
