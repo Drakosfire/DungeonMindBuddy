@@ -1,0 +1,9 @@
+/* A disclosure is reading state: neither kind, title nor body is rewritten. */
+details.md-callout > summary.md-callout-label {
+  display: list-item;
+  cursor: pointer;
+  text-transform: none;
+}
+details.md-callout > summary.md-callout-label .md-callout-kind { text-transform: uppercase; }
+details.md-callout:not([open]) > summary.md-callout-label { margin-bottom: 0; }
+details.md-callout > summary.md-callout-label:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
