@@ -28,6 +28,8 @@ from application_state.agent_conversation.types import (
     PlanContextPolicyV1,
     PlanPlayableTargetReceiptV1,
     PlayRunTurnContextReceiptV1,
+    PlayContentBasis,
+    PlayRunTurnContextReceiptV2,
     PlayGraphBindingReceiptV1,
     PlanWorldGraphCitationMapV1,
     PlanWorldGraphCitationV1,
@@ -67,7 +69,11 @@ def _authorize_route_execution(
 
     if request.node.name == "test_agent_conversation_history_auth_precedes_world_lookup":
         return
-    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(
+        agent_route,
+        "enforce_native_graph_gm",
+        lambda _request: SimpleNamespace(subject="test-gm"),
+    )
 
 
 def _reference(kind: str, object_id: str, revision: str, digest: str | None = None):
@@ -158,6 +164,101 @@ def test_play_run_context_complete_tuple_survives_fresh_service(
         )
         == receipt
     )
+
+
+def test_play_v2_edition_and_saved_note_receipt_round_trip_and_replay_binding(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    writer = AgentConversationService()
+    world_id = "play-v2-receipt-world"
+    conversation = _new(writer, world_id)
+    origin = PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id="run-v2",
+        run_revision=3,
+        runbook_object_id="runbook-v2",
+        runbook_object_revision=5,
+        runbook_work_revision_id=uuid4(),
+        runbook_revision_n=2,
+        runbook_content_sha256="b" * 64,
+        beat_id="beat:a",
+        scene_id="scene:arrival",
+    )
+    primary, supporting = encode_play_run_turn_context_references(origin)
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    note = "A durable accepted-edition Scene note."
+    basis = PlayContentBasis(
+        edition_revision=1,
+        edition_revision_id=uuid4(),
+        content_sha256="c" * 64,
+    )
+    receipt = PlayRunTurnContextReceiptV2(
+        **(origin.model_dump(mode="python", by_alias=True) | {
+            "schema": "dmb_play_run_turn_context_receipt_v2"
+        }),
+        world_id=world_id,
+        edition_revision=basis.edition_revision,
+        edition_revision_id=basis.edition_revision_id,
+        content_sha256=basis.content_sha256,
+        scene_note=note,
+        scene_note_sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+    )
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text="Ask from the exact saved edition.",
+        provenance=provenance,
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id=world_id,
+            client_thread_id="play-v2-test-thread",
+            message="Ask from the exact saved edition.",
+            surface_id="play",
+            surface_instance_id="play-main",
+            client_work_state="saved_clean",
+            primary_work=SubmittedPrimaryWorkIntentV1(
+                kind="run", object_id="run-v2", expected_revision=3,
+                play_content_basis=basis,
+            ),
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
+        play_context_receipt=receipt,
+    )
+    accepted = writer.accept_turn(submission)
+    loaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert loaded == accepted
+    assert loaded.play_context_receipt == receipt
+    assert AgentConversationService().accept_turn(submission) == accepted
+    with psycopg.connect(application_state_dsn) as conn:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            conn.execute(
+                "UPDATE agent.turn SET play_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                (accepted.turn_id,),
+            )
+
+    changed_note = "A different note under the same idempotency key."
+    changed_receipt = receipt.model_copy(update={
+        "scene_note": changed_note,
+        "scene_note_sha256": hashlib.sha256(changed_note.encode("utf-8")).hexdigest(),
+    })
+    changed_submission = submission.model_copy(
+        update={"play_context_receipt": changed_receipt}
+    )
+    with pytest.raises(ApplicationStateConflictError, match="different Play context receipt"):
+        AgentConversationService().accept_turn(changed_submission)
 
 
 def _provenance(world_id: str) -> TurnProvenance:
@@ -607,7 +708,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261016_0025"
+    assert current == head == "20261018_0036"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1153,11 +1254,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert v1_execution_before is not None
     command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261016_0025"
+        "20261005_0017", "20261018_0036"
     )
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0025", "20261016_0025"
+        "20261018_0036", "20261018_0036"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1181,7 +1282,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0025", "20261016_0025"
+        "20261018_0036", "20261018_0036"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1206,8 +1307,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0025",
-        "20261016_0025",
+        "20261018_0036",
+        "20261018_0036",
     )
 
 
@@ -3450,7 +3551,7 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     from application_state.cli import alembic_config
     with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
         command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
+    assert _current_and_head(application_state_dsn) == ("20261018_0036", "20261018_0036")
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
 
 
@@ -3887,7 +3988,7 @@ def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(applica
                 conn.execute(statement)
     with pytest.raises(Exception, match="downgrade refused"):
         migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
+    assert _current_and_head(application_state_dsn) == ("20261018_0036", "20261018_0036")
     assert service.get_command_resolution(request) == record
 
 
@@ -3903,9 +4004,9 @@ def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(applicat
         assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
     migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261016_0025")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261018_0036")
     migration.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
+    assert _current_and_head(application_state_dsn) == ("20261018_0036", "20261018_0036")
 
 
 def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):

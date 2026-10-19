@@ -112,6 +112,7 @@ function PlayPublisher({ admitted, sessionCopy = false }: { admitted: boolean; s
     documentId: null, sessionNumber: null, ambientSummary: "World Run", sourceEnvelope: null }), []);
   const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: RUN,
     runRevision: 3, surfaceInstanceId: "play-instance",
+    contentBasis: { edition_revision: 0, edition_revision_id: null, content_sha256: SHA },
     beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy]);
   usePublishAgentSurfaceContext(context);
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
@@ -866,6 +867,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.getByText("Retried Play answer")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument();
+  });
+
+  it.each([0, 3])("recovers the exact saved session edition basis %s without substituting the current head", async edition => {
+    const basis = { edition_revision: edition, edition_revision_id: edition ? "00000000-0000-4000-8000-000000000099" : null, content_sha256: SHA };
+    const request: WorldPlayAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1", client_thread_id: "00000000-0000-4000-8000-000000000021", turn_id: "00000000-0000-4000-8000-000000000022",
+      surface: { surface_id: "play", instance_id: "play-instance" }, owner_scope: { kind: "world", world_id: WORLD },
+      primary_work: { kind: "run", object_id: RUN, expected_revision: 3, play_content_basis: basis },
+      client_work_state: "saved_clean", graph_request: { mode: "none" }, graph_selection: null, message: "Saved edition question",
+    };
+    const key = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    window.localStorage.setItem(key, JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request }));
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async posted => playResponse(posted));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry exact saved turn" }));
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
+    expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0].primary_work.play_content_basis).toEqual(basis);
   });
 
   it("recovers an actual saved legacy graphless Play turn without changing its request", async () => {

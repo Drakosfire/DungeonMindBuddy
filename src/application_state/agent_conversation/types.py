@@ -69,6 +69,7 @@ def _fingerprint_compatible_payload(value: object) -> object:
                 item is None
                 and (
                     (key == "surface_instance_id" and is_provenance)
+                    or (key == "play_context_receipt" and is_turn_submission)
                     or (
                         key in {
                             "submitted_intent_v2",
@@ -77,6 +78,7 @@ def _fingerprint_compatible_payload(value: object) -> object:
                         }
                         and is_turn_submission
                     )
+                    or key == "play_content_basis"
                     or (
                         key in {"object_revision", "work_revision_id", "revision_n"}
                         and is_reference
@@ -102,7 +104,8 @@ def request_fingerprint(value: BaseModel) -> str:
 
 
 def turn_idempotency_fingerprint(
-    world_id: str, user_text: str, provenance: "TurnProvenance"
+    world_id: str, user_text: str, provenance: "TurnProvenance",
+    play_context_receipt: "PlayRunTurnContextReceiptV2 | None" = None,
 ) -> str:
     """Fingerprint turn meaning, independent of conversation routing and CAS revision."""
 
@@ -112,6 +115,9 @@ def turn_idempotency_fingerprint(
                 "world_id": world_id,
                 "user_text": user_text,
                 "provenance": provenance.model_dump(mode="json"),
+                **({} if play_context_receipt is None else {
+                    "play_context_receipt": play_context_receipt.model_dump(mode="json", by_alias=True)
+                }),
             }
         )
     )
@@ -386,6 +392,81 @@ class PlayRunTurnContextReceiptV1(StrictModel):
         return self
 
 
+class PlayContentBasis(StrictModel):
+    """Exact accepted Run edition supplied by a Play turn submitter."""
+
+    edition_revision: int = Field(strict=True, ge=0)
+    edition_revision_id: UUID | None = None
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_revision_identity(self) -> "PlayContentBasis":
+        if (self.edition_revision > 0) != (self.edition_revision_id is not None):
+            raise ValueError("Play edition revision ID is required exactly when revision is positive")
+        return self
+
+
+class PlayRunTurnContextReceiptV2(PlayRunTurnContextReceiptV1):
+    """Durable edition and saved-note basis for a Play answer."""
+
+    schema_: Literal["dmb_play_run_turn_context_receipt_v2"] = Field(
+        default="dmb_play_run_turn_context_receipt_v2", alias="schema"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    edition_revision: int = Field(strict=True, ge=0)
+    edition_revision_id: UUID | None = None
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    scene_note: str | None = None
+    scene_note_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_edition_and_note(self) -> "PlayRunTurnContextReceiptV2":
+        if self.world_id != self.world_id.strip():
+            raise ValueError("Play receipt World cannot contain surrounding whitespace")
+        if (self.edition_revision > 0) != (self.edition_revision_id is not None):
+            raise ValueError("Play edition revision ID is required exactly when revision is positive")
+        if self.edition_revision == 0 and self.content_sha256 != self.runbook_content_sha256:
+            raise ValueError("initial Play edition digest must match its Runbook origin")
+        if self.scene_id is None and (self.scene_note is not None or self.scene_note_sha256 is not None):
+            raise ValueError("Play receipt without a current Scene cannot carry a saved Scene note")
+        if self.scene_note is None:
+            if self.scene_note_sha256 is not None:
+                raise ValueError("absent saved Scene note cannot carry a digest")
+        else:
+            if len(self.scene_note.encode("utf-8")) > 32 * 1024:
+                raise ValueError("saved Scene note exceeds 32 KiB UTF-8")
+            digest = hashlib.sha256(self.scene_note.encode("utf-8")).hexdigest()
+            if self.scene_note_sha256 != digest:
+                raise ValueError("saved Scene note digest does not match its UTF-8 content")
+        return self
+
+
+def validate_play_context_receipt(
+    receipt: PlayRunTurnContextReceiptV2 | None,
+    world_id: str,
+    provenance: "TurnProvenance",
+) -> None:
+    if receipt is None:
+        return
+    structural = decode_play_run_turn_context_references(
+        provenance.primary_work, provenance.supporting_work
+    )
+    if structural is None or (
+        receipt.world_id != world_id
+        or provenance.world_id != world_id
+        or receipt.run_id != structural.run_id
+        or receipt.run_revision != structural.run_revision
+        or receipt.runbook_object_id != structural.runbook_object_id
+        or receipt.runbook_object_revision != structural.runbook_object_revision
+        or receipt.runbook_work_revision_id != structural.runbook_work_revision_id
+        or receipt.runbook_revision_n != structural.runbook_revision_n
+        or receipt.runbook_content_sha256 != structural.runbook_content_sha256
+        or receipt.beat_id != structural.beat_id
+        or receipt.scene_id != structural.scene_id
+    ):
+        raise ValueError("Play context receipt must match its World and typed provenance witnesses")
+
+
 def encode_play_run_turn_context_references(
     receipt: PlayRunTurnContextReceiptV1,
 ) -> tuple[HistoricalReference, list[HistoricalReference]]:
@@ -609,9 +690,12 @@ class SubmittedPrimaryWorkIntentV1(StrictModel):
     expected_revision: int = Field(strict=True, ge=1)
     expected_revision_n: int | None = Field(default=None, strict=True, ge=1)
     expected_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    play_content_basis: PlayContentBasis | None = None
 
     @model_validator(mode="after")
     def validate_plan_basis(self) -> "SubmittedPrimaryWorkIntentV1":
+        if self.play_content_basis is not None and self.kind != "run":
+            raise ValueError("Play content basis is only valid for Run work")
         if self.kind == "build":
             if self.expected_revision_n is not None or self.expected_content_sha256 is None:
                 raise ValueError("Build work requires a saved digest and forbids Plan revision_n")
@@ -753,6 +837,9 @@ def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
         payload.pop("playable_target", None)
     if payload.get("selected_knowledge") is None:
         payload.pop("selected_knowledge", None)
+    primary_work_payload = payload.get("primary_work")
+    if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
+        primary_work_payload.pop("play_content_basis", None)
     return _fingerprint(payload)
 
 
@@ -854,6 +941,9 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
     )
     if payload.get("build_write_capability_sha256") is None:
         payload.pop("build_write_capability_sha256", None)
+    primary_work_payload = payload.get("primary_work")
+    if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
+        primary_work_payload.pop("play_content_basis", None)
     return _fingerprint(payload)
 
 
@@ -4147,6 +4237,7 @@ class TurnSubmission(StrictModel):
     submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: PlanWorldGraphExecution | None = None
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
 
     @model_validator(mode="after")
     def validate_submission(self) -> "TurnSubmission":
@@ -4156,6 +4247,23 @@ class TurnSubmission(StrictModel):
             raise ValueError("user_text is required")
         if self.provenance.world_id != self.world_id:
             raise ValueError("turn provenance World does not match request World")
+        validate_play_context_receipt(
+            self.play_context_receipt, self.world_id, self.provenance
+        )
+        play_basis = (
+            self.submitted_intent_v1.primary_work.play_content_basis
+            if self.submitted_intent_v1 is not None
+            and self.submitted_intent_v1.primary_work is not None
+            else self.submitted_intent_v2.primary_work.play_content_basis
+            if isinstance(self.submitted_intent_v2, SubmittedTurnIntentV2)
+            else None
+        )
+        if self.play_context_receipt is not None and play_basis is not None and (
+            play_basis.edition_revision != self.play_context_receipt.edition_revision
+            or play_basis.edition_revision_id != self.play_context_receipt.edition_revision_id
+            or play_basis.content_sha256 != self.play_context_receipt.content_sha256
+        ):
+            raise ValueError("Play content basis differs from the admitted context receipt")
         if self.submitted_intent_v1 is not None and (
             self.submitted_intent_v1.world_id != self.world_id
             or self.submitted_intent_v1.message != self.user_text
@@ -4344,6 +4452,7 @@ class Turn(StrictModel):
     )
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: PlanWorldGraphExecution | None = None
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
     completion: GraphTurnCompletion | None = None
     attempt: int = Field(ge=0)
     claim_expires_at: datetime | None = None
@@ -4353,6 +4462,12 @@ class Turn(StrictModel):
 
     @model_validator(mode="after")
     def validate_claim_expiry(self) -> "Turn":
+        try:
+            validate_play_context_receipt(
+                self.play_context_receipt, self.world_id, self.provenance
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("stored Play context receipt differs from its provenance") from exc
         if self.status != "running" and self.claim_expires_at is not None:
             raise ValueError("only a running turn can carry an active claim expiry")
         if (

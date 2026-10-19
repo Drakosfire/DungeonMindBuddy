@@ -18,6 +18,7 @@ from application_state.errors import (
 )
 from application_state.play import edition_repository as editions
 from application_state.play import repository as runs
+from application_state.play.types import PlayRun
 from application_state.play.edition_types import (
     ContentCommit,
     ContentReceipt,
@@ -208,6 +209,22 @@ def read_content(
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         return _content(_locked_state(conn, run_id, world_id), world_id, revision_n)
+
+
+def read_context_snapshot(*, run_id: str, world_id: str) -> tuple[PlayRun, RunContent]:
+    """Read the locked Run and its effective content from one database snapshot.
+
+    Agent context admission must bind progress (including current scene notes)
+    and the edition head together. Both are protected by the Run lock used by
+    progress writes and edition commits.
+    """
+    run_id, world_id = _coordinates(run_id, world_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        state = _locked_state(conn, run_id, world_id)
+        run = state[0]
+        return run, _content(state, world_id)
 
 
 def read_command(*, run_id: str, world_id: str, command_id: str) -> ContentReceipt:

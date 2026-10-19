@@ -227,6 +227,21 @@ def render_agent_surface_context(context: AgentSurfaceContext | None) -> str | N
     if owner is not None:
         owner_name = _clip_model_value(owner.name, TITLE_MODEL_MAX_CHARS)
         block = f'{block}\nCurrent World: {json.dumps(owner_name, ensure_ascii=False)}.'
+    if (
+        context.surface_id == "play"
+        and context.current_play is not None
+        and context.current_play.edition_revision is not None
+    ):
+        from apps.live_control_server.services.agent_play_surface_context import (
+            PLAY_SESSION_CONTEXT_MAX_UTF8_BYTES,
+            WorldPlaySurfaceContextError,
+        )
+
+        if len(block.encode("utf-8")) > PLAY_SESSION_CONTEXT_MAX_UTF8_BYTES:
+            raise WorldPlaySurfaceContextError(
+                "Admitted Play session context exceeds the 64 KiB UTF8 limit"
+            )
+        return block
     if len(block) > MODEL_BLOCK_MAX_CHARS:
         block = block[: MODEL_BLOCK_MAX_CHARS - 1] + "…"
     return block

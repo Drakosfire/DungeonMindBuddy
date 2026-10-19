@@ -518,7 +518,8 @@ class AgentConversationService:
         now = _now()
         fingerprint = request_fingerprint(submission)
         stable_fingerprint = turn_idempotency_fingerprint(
-            world_id, submission.user_text, submission.provenance
+            world_id, submission.user_text, submission.provenance,
+            submission.play_context_receipt,
         )
         submitted_intent_fingerprint = (
             None if submitted_intent is None else submitted_turn_intent_fingerprint_v1(submitted_intent)
@@ -537,6 +538,13 @@ class AgentConversationService:
                 old_submitted_intent_fingerprint,
                 old_submitted_intent_fingerprint_v2,
             ) = existing
+            if (
+                turn.play_context_receipt is not None
+                and turn.play_context_receipt != submission.play_context_receipt
+            ):
+                raise ApplicationStateConflictError(
+                    "turn idempotency key was already used with a different Play context receipt"
+                )
             if (
                 old_submitted_intent_fingerprint is None
                 and old_submitted_intent_fingerprint_v2 is None

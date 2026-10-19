@@ -19,6 +19,8 @@ from application_state.agent_conversation.types import (
     LegacyImport,
     LegacyTurn,
     PlayRunTurnContextReceiptV1,
+    PlayContentBasis,
+    PlayRunTurnContextReceiptV2,
     PlayGraphBindingReceiptV1,
     ReopenCommand,
     SubmittedGraphFocusIntentV1,
@@ -35,6 +37,7 @@ from application_state.agent_conversation.types import (
     decode_play_graph_binding_references,
     encode_play_graph_binding_reference,
     encode_play_run_turn_context_references,
+    validate_play_context_receipt,
     submitted_turn_intent_fingerprint_v1,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV
@@ -59,6 +62,76 @@ def _play_run_receipt() -> PlayRunTurnContextReceiptV1:
         beat_id="beat:a",
         scene_id="scene:arrival",
     )
+
+
+def test_play_v2_receipt_and_basis_validate_utf8_note_and_typed_witnesses() -> None:
+    from application_state.agent_conversation.types import encode_play_run_turn_context_references
+
+    witness = _play_run_receipt()
+    primary, supporting = encode_play_run_turn_context_references(witness)
+    provenance = TurnProvenance(
+        world_id="world-one",
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    note = ""
+    v2_witness = witness.model_dump(mode="python", by_alias=True) | {
+        "schema": "dmb_play_run_turn_context_receipt_v2"
+    }
+    receipt = PlayRunTurnContextReceiptV2(
+        **v2_witness,
+        world_id="world-one",
+        edition_revision=0,
+        content_sha256=witness.runbook_content_sha256,
+        scene_note=note,
+        scene_note_sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+    )
+    assert receipt.scene_note == ""  # A saved empty note differs from no note.
+    assert receipt.model_dump(mode="json", by_alias=True)["schema"] == (
+        "dmb_play_run_turn_context_receipt_v2"
+    )
+    validate_play_context_receipt(receipt, "world-one", provenance)
+    without_saved_note = PlayRunTurnContextReceiptV2.model_validate(
+        receipt.model_dump(mode="python", by_alias=True)
+        | {"scene_note": None, "scene_note_sha256": None}
+    )
+    assert without_saved_note.scene_note is None and without_saved_note != receipt
+    with pytest.raises((ValueError, ValidationError), match="Runbook origin"):
+        PlayRunTurnContextReceiptV2.model_validate(
+            receipt.model_dump(mode="python", by_alias=True)
+            | {"content_sha256": "b" * 64}
+        )
+    assert PlayContentBasis(edition_revision=0, content_sha256="b" * 64)
+    with pytest.raises((ValueError, ValidationError), match="only valid for Run"):
+        SubmittedPrimaryWorkIntentV1(
+            kind="plan", object_id="plan-1", expected_revision=1,
+            play_content_basis=PlayContentBasis(
+                edition_revision=0, content_sha256="b" * 64
+            ),
+        )
+    with pytest.raises((ValueError, ValidationError), match="digest"):
+        PlayRunTurnContextReceiptV2.model_validate(
+            receipt.model_dump(mode="python", by_alias=True)
+            | {"scene_note_sha256": "c" * 64}
+        )
+    with pytest.raises((ValueError, ValidationError), match="revision ID"):
+        PlayContentBasis(
+            edition_revision=1, edition_revision_id=None, content_sha256="b" * 64
+        )
+    with pytest.raises((ValueError, ValidationError), match="32 KiB"):
+        PlayRunTurnContextReceiptV2(
+            **v2_witness,
+            world_id="world-one",
+            edition_revision=0,
+            content_sha256=witness.runbook_content_sha256,
+            scene_note="é" * 16385,
+            scene_note_sha256=hashlib.sha256(("é" * 16385).encode()).hexdigest(),
+        )
+    with pytest.raises((ValueError, ValidationError), match="witnesses"):
+        validate_play_context_receipt(receipt, "world-two", provenance)
 
 
 def test_play_graph_binding_codec_requires_exact_play_graph_basis() -> None:
@@ -293,6 +366,8 @@ def _without_0012_fields(value):
                     "object_revision",
                     "work_revision_id",
                     "revision_n",
+                    "play_content_basis",
+                    "play_context_receipt",
                 }
                 and item is None
             )
@@ -537,10 +612,22 @@ def test_content_reference_requires_complete_typed_revision_and_resolved_identit
 
 
 def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> None:
+    from application_state.agent_conversation.types import _fingerprint
+
     intent = _submitted_intent("intent-world", "Where is the caravan?")
     fingerprint = submitted_turn_intent_fingerprint_v1(intent)
+    historical_payload = intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
+    )
+    if isinstance(historical_payload.get("primary_work"), dict):
+        historical_payload["primary_work"].pop("play_content_basis", None)
+    if historical_payload.get("playable_target") is None:
+        historical_payload.pop("playable_target", None)
+    if historical_payload.get("selected_knowledge") is None:
+        historical_payload.pop("selected_knowledge", None)
 
     assert len(fingerprint) == 64
+    assert fingerprint == _fingerprint(historical_payload)
     assert submitted_turn_intent_fingerprint_v1(intent) == fingerprint
     assert submitted_turn_intent_fingerprint_v1(
         intent.model_copy(update={"message": "Where is the caravan now?"})
@@ -577,6 +664,8 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
         mode="json", by_alias=True, exclude={"client_thread_id"}
     )
     pre_target_payload.pop("playable_target", None)
+    pre_target_payload["primary_work"].pop("play_content_basis", None)
+    pre_target_payload.pop("selected_knowledge", None)
     assert plan_fingerprint == hashlib.sha256(
         json.dumps(pre_target_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -1085,8 +1174,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0025",
-        "20261016_0025",
+        "20261018_0036",
+        "20261018_0036",
     )
 
     loaded = AgentConversationService().list_turns(

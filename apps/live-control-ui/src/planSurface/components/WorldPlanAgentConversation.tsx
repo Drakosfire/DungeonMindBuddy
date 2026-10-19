@@ -104,8 +104,7 @@ export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
   buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null; composeBridge?: import("../../buildSurface/buildComposeBridge").BuildComposeBridge | null } | null;
-  playMode?: { admittedRun: { worldId: string; runId: string; runRevision: number; surfaceInstanceId: string;
-    beatTitle?: string | null; sceneTitle?: string | null } | null } | null;
+  playMode?: { admittedRun: import("../../agentInteraction/WorldAgentConversation").AdmittedWorldPlayConversationContext | null } | null;
   presentationHosts?: PlanConversationPresentationHosts;
   worldId: string;
   worldName: string;
@@ -288,6 +287,13 @@ function matchesPlayGraphResponse(value: unknown, request: WorldPlayAgentTurnReq
     && value.selection_node_id === null && value.selection_found === null;
 }
 
+function isSavedPlayContentBasis(value: unknown): boolean {
+  return hasExactKeys(value, ["edition_revision", "edition_revision_id", "content_sha256"])
+    && typeof value.edition_revision === "number" && Number.isSafeInteger(value.edition_revision) && value.edition_revision >= 0
+    && (value.edition_revision === 0 ? value.edition_revision_id === null : commandUuid(value.edition_revision_id))
+    && typeof value.content_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.content_sha256);
+}
+
 function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
   const storageKey = pendingPlayTurnStorageKey(worldId);
   const serialized = window.localStorage.getItem(storageKey);
@@ -305,13 +311,14 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || !hasExactKeys(value.request.owner_scope, ["kind", "world_id"])
     || value.request.owner_scope.kind !== "world" || value.request.owner_scope.world_id !== worldId
     || !hasExactKeys(value.request.primary_work, value.request.surface.surface_id === "build"
-      ? ["kind", "object_id", "expected_revision", "expected_content_sha256"] : ["kind", "object_id", "expected_revision"])
+      ? ["kind", "object_id", "expected_revision", "expected_content_sha256"] : ["kind", "object_id", "expected_revision", ...(isRecord(value.request.primary_work) && "play_content_basis" in value.request.primary_work ? ["play_content_basis"] : [])])
     || value.request.primary_work.kind !== (value.request.surface.surface_id === "build" ? "build" : "run") || typeof value.request.primary_work.object_id !== "string"
     || !value.request.primary_work.object_id.trim() || !isPositiveRevision(value.request.primary_work.expected_revision)
     || !["saved_clean", ...(value.request.surface.surface_id === "build" ? ["saved_dirty"] : [])].includes(String(value.request.client_work_state))
     || (value.request.surface.surface_id === "build" && (!isRecord(value.request.primary_work)
       || typeof value.request.primary_work.expected_content_sha256 !== "string"
       || !/^[0-9a-f]{64}$/.test(value.request.primary_work.expected_content_sha256)))
+    || (value.request.surface.surface_id === "play" && "play_content_basis" in value.request.primary_work && !isSavedPlayContentBasis(value.request.primary_work.play_content_basis))
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim() || value.request.message.length > 8000) {
@@ -3731,7 +3738,8 @@ export function WorldPlanAgentConversation({
       turn_id: crypto.randomUUID(),
       surface: { surface_id: "play", instance_id: admittedRun.surfaceInstanceId },
       owner_scope: { kind: "world", world_id: admittedRun.worldId },
-      primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision },
+      primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision,
+        ...(admittedRun.contentBasis ? { play_content_basis: admittedRun.contentBasis } : {}) },
       client_work_state: "saved_clean",
       graph_request: { mode: "world", world_id: admittedRun.worldId, campaign_id: null,
         revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },

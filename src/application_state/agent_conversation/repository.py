@@ -48,7 +48,7 @@ _TURN_COLS = """
     status, user_text, assistant_text, failure_code, surface_resolution,
     surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
     submitted_intent_fingerprint_v2, graph_context_receipt, completion,
-    graph_context_execution,
+    graph_context_execution, play_context_receipt,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
 _TURN_COLS_T = ", ".join(f"t.{column.strip()}" for column in _TURN_COLS.split(","))
@@ -764,6 +764,7 @@ def insert_turn(
     provenance: TurnProvenance = submission.provenance
     graph_context_receipt = getattr(submission, "graph_context_receipt", None)
     graph_context_execution = getattr(submission, "graph_context_execution", None)
+    play_context_receipt = getattr(submission, "play_context_receipt", None)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -773,13 +774,14 @@ def insert_turn(
                 failure_code, surface_resolution, surface_id, surface_instance_id,
                 submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2,
                 graph_context_receipt, completion, graph_context_execution,
+                play_context_receipt,
                 attempt, claim_expires_at,
                 accepted_at, completed_at, updated_at
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 1, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s,
-                NULL, %s, %s, %s
+                %s, NULL, %s, %s, %s
             )
             RETURNING {_TURN_COLS}
             """,
@@ -812,6 +814,10 @@ def insert_turn(
                     None
                     if graph_context_execution is None
                     else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                (
+                    None if play_context_receipt is None else
+                    Jsonb(play_context_receipt.model_dump(mode="json", by_alias=True))
                 ),
                 attempt,
                 now,

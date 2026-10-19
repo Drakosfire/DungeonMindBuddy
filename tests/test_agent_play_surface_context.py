@@ -816,6 +816,189 @@ def test_real_world_play_pin_survives_plan_edits_and_run_progress(
             )
 
 
+def test_saved_session_turn_admits_exact_edition_and_scene_note_then_reconstructs_history(
+    tmp_path: Path, application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import PlayContentBasis
+    from application_state.play.edition_service import commit_content, read_content
+    from application_state.play.edition_types import ContentCommit
+    from apps.live_control_server.services.agent_play_surface_context import (
+        resolve_world_play_session_turn_snapshot,
+        resolve_historical_world_play_turn_snapshot,
+    )
+    from apps.live_control_server.services.play_run_registry import replace_world_play_run_progress
+
+    assert application_state_dsn
+    world, _obj, _revision, run = _create_real_world_play_context(tmp_path)
+    with_note = run.progress.model_copy(update={
+        "notes_by_element_id": {"scene:gate-line": "The eastern lantern is dark."},
+    })
+    run = replace_world_play_run_progress(
+        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision, progress=with_note,
+    )
+    current = read_content(run_id=run.run_id, world_id=world.world_id)
+    edited_markdown = current.markdown.replace(
+        "Guards waver while Lysandro works the crowd.",
+        "Guards waver while Lysandro works the crowd.\n\n![Gate lantern](media:gate-lantern.png)\n\n```text\nKeep this fenced clue.\n```",
+    )
+    accepted = commit_content(
+        run_id=run.run_id, world_id=world.world_id, command_id=str(uuid.uuid4()),
+        request=ContentCommit(
+            schema_version="dmb_world_play_run_content_commit_v1",
+            expected_origin=current.origin,
+            expected_edition_revision=current.edition_revision,
+            expected_content_sha256=current.content_sha256,
+            markdown=edited_markdown,
+        ),
+    )
+    basis = PlayContentBasis(
+        edition_revision=accepted.accepted_edition_revision,
+        edition_revision_id=accepted.accepted_edition_revision_id,
+        content_sha256=accepted.accepted_content_sha256,
+    )
+    with pytest.raises(WorldPlaySurfaceContextError, match="Run revision is stale"):
+        resolve_world_play_session_turn_snapshot(
+            root=tmp_path, world_id=world.world_id, run_id=run.run_id,
+            run_revision=run.run_revision + 1, content_basis=basis,
+        )
+    context, receipt = resolve_world_play_session_turn_snapshot(
+        root=tmp_path, world_id=world.world_id, run_id=run.run_id,
+        run_revision=run.run_revision, content_basis=basis,
+    )
+    rendered = render_agent_play_surface_context(context)
+    assert rendered is not None
+    assert "![Gate lantern](media:gate-lantern.png)" in rendered
+    assert "Keep this fenced clue." in rendered
+    assert "The eastern lantern is dark." in rendered
+    assert receipt.scene_note == "The eastern lantern is dark."
+
+    latest = read_content(run_id=run.run_id, world_id=world.world_id)
+    revised = commit_content(
+        run_id=run.run_id, world_id=world.world_id, command_id=str(uuid.uuid4()),
+        request=ContentCommit(
+            schema_version="dmb_world_play_run_content_commit_v1",
+            expected_origin=latest.origin,
+            expected_edition_revision=latest.edition_revision,
+            expected_content_sha256=latest.content_sha256,
+            markdown=latest.markdown.replace("Keep this fenced clue.", "Changed clue."),
+        ),
+    )
+    with pytest.raises(WorldPlaySurfaceContextError, match="session copy changed"):
+        resolve_world_play_session_turn_snapshot(
+            root=tmp_path, world_id=world.world_id, run_id=run.run_id,
+            run_revision=run.run_revision, content_basis=basis,
+        )
+    changed = replace_world_play_run_progress(
+        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision,
+        progress=run.progress.model_copy(update={
+            "notes_by_element_id": {"scene:gate-line": "A later note."},
+        }),
+    )
+    historical = resolve_historical_world_play_turn_snapshot(
+        root=tmp_path, world_id=world.world_id, receipt=receipt,
+    )
+    historical_render = render_agent_play_surface_context(historical)
+    assert historical_render is not None
+    assert "Keep this fenced clue." in historical_render
+    assert "Changed clue." not in historical_render
+    assert "The eastern lantern is dark." in historical_render
+    assert "A later note." not in historical_render
+    assert changed.run_revision > run.run_revision
+    assert revised.accepted_edition_revision > receipt.edition_revision
+
+
+def test_session_context_utf8_budget_rejects_instead_of_clipping() -> None:
+    from apps.live_control_server.services.agent_play_surface_context import (
+        WorldPlaySurfaceContextError,
+    )
+
+    context = AgentSurfaceContext(
+        surface_id="play",
+        current_play=AgentPlayCurrentMomentContext(
+            run_id=RUN_ID,
+            playable_artifact_id=DOC_ID,
+            playable_revision=1,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat", element_id="beat:hold-the-gate", title="Gate",
+                body_text="", body_markdown="🧙" * 17_000,
+            ),
+            edition_revision=1,
+        ),
+    )
+    with pytest.raises(WorldPlaySurfaceContextError, match="64 KiB UTF8"):
+        render_agent_play_surface_context(context)
+
+
+def test_revision_zero_history_uses_original_pin_after_run_rebase(
+    tmp_path: Path, application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import PlayContentBasis
+    from application_state.content.service import commit_runbook
+    from application_state.play.edition_service import read_content
+    from apps.live_control_server.services.agent_play_surface_context import (
+        resolve_world_play_session_turn_snapshot,
+        resolve_historical_world_play_turn_snapshot,
+    )
+    from apps.live_control_server.services.play_run_registry import replace_world_play_run_progress
+    from apps.live_control_server.services.play_run_rebase import rebase_or_replay_world_play_run
+
+    assert application_state_dsn
+    world, obj, _revision, run = _create_real_world_play_context(tmp_path, kind="runbook")
+    run = replace_world_play_run_progress(
+        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision,
+        progress=run.progress.model_copy(update={
+            "notes_by_element_id": {"scene:gate-line": "Note before the first edit."},
+        }),
+    )
+    pinned = read_content(run_id=run.run_id, world_id=world.world_id)
+    context, receipt = resolve_world_play_session_turn_snapshot(
+        root=tmp_path, world_id=world.world_id, run_id=run.run_id,
+        run_revision=run.run_revision,
+        content_basis=PlayContentBasis(
+            edition_revision=0, edition_revision_id=None,
+            content_sha256=pinned.content_sha256,
+        ),
+    )
+    assert context.current_play is not None
+
+    _updated, revision = commit_runbook(
+        str(obj.work_object_id),
+        C2S27_SHAPED_V2_MARKDOWN.replace(
+            "Guards waver while Lysandro works the crowd.",
+            "The newly committed Plan has different guard details.",
+        ),
+        expected_revision=obj.object_revision,
+    )
+    rebased = rebase_or_replay_world_play_run(
+        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        expected_run_revision=run.run_revision,
+        target_playable_revision=revision.revision_n,
+        target_playable_content_sha256=revision.content_sha256,
+    )
+    assert rebased.run_revision > run.run_revision
+    with (
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+            side_effect=AssertionError("revision-zero history must not read current Run"),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+            side_effect=AssertionError("revision-zero history must not read current manifest"),
+        ),
+    ):
+        historical = resolve_historical_world_play_turn_snapshot(
+            root=tmp_path, world_id=world.world_id, receipt=receipt,
+        )
+    rendered = render_agent_play_surface_context(historical)
+    assert rendered is not None
+    assert "Guards waver while Lysandro works the crowd." in rendered
+    assert "newly committed Plan" not in rendered
+    assert "Note before the first edit." in rendered
+
+
 @pytest.mark.parametrize("failure", ["kind", "manifest", "scene_parent"])
 def test_world_play_context_rejects_unsupported_kind_or_broken_membership(tmp_path, failure):
     committed = _world_committed().model_copy(update={"kind": "worldbuilding_source"}) if failure == "kind" else _world_committed()

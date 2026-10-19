@@ -28,7 +28,7 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     TurnSubmission,
 )
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 
 class FakeRuntime:
@@ -67,9 +67,56 @@ def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
         "turn_id": "play-turn-1",
         "surface": {"surface_id": "play", "instance_id": "play-main"},
         "owner_scope": {"kind": "world", "world_id": "world-a"},
-        "primary_work": {"kind": "run", "object_id": RUN_ID, "expected_revision": revision},
+        "primary_work": {
+            "kind": "run", "object_id": RUN_ID, "expected_revision": revision,
+            "play_content_basis": {
+                "edition_revision": 0, "edition_revision_id": None,
+                "content_sha256": "c" * 64,
+            },
+        },
         "client_work_state": "saved_clean",
     }
+
+
+@pytest.fixture
+def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
+    """Route tests bind the typed atomic snapshot to their existing read fakes."""
+    from application_state.play.edition_types import RunContent
+    from application_state.play.types import PlayRun
+    from apps.live_control_server.services import agent_play_surface_context as play
+
+    def snapshot(*, run_id: str, world_id: str):
+        record = play.get_world_play_run(Path("."), world_id=world_id, run_id=run_id)
+        committed = play.get_committed_playable_revision(
+            record.playable_artifact_id, revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256, kind=None,
+            expected_world_id=world_id,
+        )
+        run = PlayRun.model_construct(
+            run_id=record.run_id, campaign_id=None, world_id=world_id,
+            playable_work_object_id=record.playable_artifact_id,
+            playable_revision_n=record.playable_revision,
+            playable_work_revision_id=record.playable_work_revision_id,
+            playable_content_sha256=record.playable_content_sha256,
+            run_revision=record.run_revision, progress=record.progress.model_dump(),
+            rebased_from_run_revision=None,
+        )
+        content = RunContent.model_construct(
+            world_id=world_id, run_id=run_id,
+            origin=SimpleNamespace(
+                playable_artifact_id=record.playable_artifact_id,
+                playable_revision=record.playable_revision,
+                playable_work_revision_id=record.playable_work_revision_id,
+                playable_content_sha256=record.playable_content_sha256,
+            ),
+            source="pinned", edition_revision=0, edition_revision_id=None,
+            markdown=committed.markdown, content_sha256=record.playable_content_sha256,
+            committed_at=datetime.now(UTC), observed_run_revision=record.run_revision,
+            structure_sha256="d" * 64,
+        )
+        return run, content
+
+    monkeypatch.setattr(play, "read_context_snapshot", snapshot)
 
 
 def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
@@ -98,6 +145,7 @@ def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
             AgentTurnRequest.model_validate({**payload, **change})
 
 
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
 def test_world_play_turn_admits_exact_current_run_and_freezes_receipt(
     tmp_path: Path, monkeypatch: Any,
 ) -> None:
@@ -132,6 +180,44 @@ def test_world_play_turn_admits_exact_current_run_and_freezes_receipt(
     assert receipt.run_revision == 7
     assert receipt.scene_id == "scene:gate-line"
     assert receipt.runbook_content_sha256 == "c" * 64
+
+
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+def test_world_play_turn_rejects_missing_or_stale_content_basis_before_runtime(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from tests.test_agent_play_surface_context import _manifest, _world_committed, _world_play_record
+
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    common = (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=_world_play_record()),
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed()),
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
+    )
+    with common[0], common[1], common[2], common[3]:
+        request = AgentTurnRequest.model_validate({
+            **_play_turn_payload(),
+            "primary_work": {**_play_turn_payload()["primary_work"], "play_content_basis": None},
+        })
+        with pytest.raises(AgentTurnServiceError, match="Refresh Play") as missing:
+            route._work_resolver(request, {"kind": "world", "id": "world-a"})
+        assert missing.value.provider_dispatched is False
+
+        original_snapshot = play.read_context_snapshot
+        monkeypatch.setattr(play, "read_context_snapshot", lambda **kwargs: (
+            original_snapshot(**kwargs)[0],
+            original_snapshot(**kwargs)[1].model_copy(update={"content_sha256": "e" * 64}),
+        ))
+        request = AgentTurnRequest.model_validate(_play_turn_payload())
+        with pytest.raises(AgentTurnServiceError, match="saved session context") as stale:
+            route._work_resolver(request, {"kind": "world", "id": "world-a"})
+        assert stale.value.provider_dispatched is False
 
 
 def test_historical_play_retry_uses_original_runbook_and_moment(
@@ -177,6 +263,7 @@ def test_historical_play_retry_uses_original_runbook_and_moment(
     get_current_run.assert_not_called()
 
 
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
 def test_world_play_http_turn_replays_without_current_run_or_provider(
     tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
 ) -> None:
@@ -191,6 +278,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
     )
 
     assert application_state_dsn
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
     service = AgentConversationService()
     pointer = service.get_world_pointer("world-a")
     service.new_conversation(ConversationCommand(
@@ -219,7 +307,11 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
     with (
         patch("apps.live_control_server.services.world_container_registry.get_world_container",
               return_value=SimpleNamespace(world_id="world-a", name="World A")),
-        patch.object(play, "get_world_play_run", return_value=_world_play_record()) as get_run,
+        patch.object(play, "get_world_play_run", return_value=_world_play_record(
+            progress=_world_play_record().progress.model_copy(update={
+                "notes_by_element_id": {"scene:gate-line": "Keep the eastern gate clear."},
+            }),
+        )) as get_run,
         patch.object(play, "get_committed_playable_revision", return_value=_world_committed(kind="plan", object_revision=9)) as get_runbook,
         patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
     ):
@@ -229,14 +321,15 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
         assert first.json()["conversation"]["conversation_id"] is not None, first.text
         assert len(runtime.invocations) == 1
         assert runtime.invocations[0].context_packet.surface_context.current_play.current_beat.element_id == "beat:hold-the-gate"
-        assert get_run.call_count == 1
+        assert runtime.invocations[0].context_packet.surface_context.current_play.saved_scene_note == "Keep the eastern gate clear."
+        assert get_run.call_count == 2  # legacy wrapper plus locked atomic snapshot
         get_run.side_effect = AssertionError("completed retry read mutable Run")
         get_runbook.side_effect = AssertionError("completed retry read mutable Runbook")
         again = asyncio.run(request_turn(payload))
         assert again.status_code == 200, again.text
         assert again.json()["answer"]["text"] == first.json()["answer"]["text"]
         assert len(runtime.invocations) == 1
-        assert get_run.call_count == 1
+        assert get_run.call_count == 2
         altered = asyncio.run(request_turn({**payload, "message": "Changed question"}))
         assert altered.status_code == 409
         get_run.side_effect = None
@@ -263,9 +356,16 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
         turns = history.json()["turns"]
         assert [turn["provenance"]["surface_id"] for turn in turns] == ["play", "plan"]
         assert turns[0]["provenance"]["primary_work"]["kind"] == "run"
+        persisted_turns = service.list_turns(
+            "world-a", UUID(history.json()["conversation_id"]), limit=10,
+        )
+        assert persisted_turns[0].play_context_receipt is not None
+        assert persisted_turns[0].play_context_receipt.schema_ == "dmb_play_run_turn_context_receipt_v2"
+        assert persisted_turns[0].play_context_receipt.scene_note == "Keep the eastern gate clear."
         assert turns[1]["provenance"]["primary_work"]["resolution"] == "absent"
 
 
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
 def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
 ) -> None:
@@ -299,6 +399,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     )
 
     assert application_state_dsn
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
     managed = create_world_container(tmp_path, name="Play Graph World")
     assert managed.world_id != NATIVE_ID
     (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(parents=True, exist_ok=True)
@@ -417,6 +518,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             expected_conversation_revision=active.revision,
             user_text=request.message, provenance=provenance,
             submitted_intent_v1=_submitted_turn_intent(request, world_id=managed.world_id),
+            play_context_receipt=work.play_context_receipt,
         ))
         second = graph.publish_revision(PublishRevisionCommand(
             world_id=NATIVE_ID, parent_revision_id=first.revision_id,
@@ -507,6 +609,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             expected_conversation_revision=active.revision,
             user_text=retry_request.message, provenance=retry_provenance,
             submitted_intent_v1=_submitted_turn_intent(retry_request, world_id=managed.world_id),
+            play_context_receipt=retry_work.play_context_receipt,
         ))
         current["record"] = managed.model_copy(update={
             "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
@@ -548,6 +651,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     "scene_id,expected_status",
     [("scene:gate-line", 200), ("scene:the-crush", 409)],
 )
+@pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
 def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
     tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
     scene_id: str, expected_status: int,
@@ -568,7 +672,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
     assert application_state_dsn
     service = AgentConversationService()
     request = AgentTurnRequest.model_validate(_play_turn_payload())
-    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
@@ -603,6 +707,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
             expected_conversation_revision=active.revision,
             user_text=request.message, provenance=provenance,
             submitted_intent_v1=_submitted_turn_intent(request, world_id="world-a"),
+            play_context_receipt=work.play_context_receipt,
         ))
         get_run.side_effect = AssertionError("pending retry read current Run progress")
 
@@ -619,7 +724,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
             assert moment.current_scene.element_id == "scene:gate-line"
         else:
             assert runtime.invocations == []
-        assert get_run.call_count == 1
+        assert get_run.call_count == 2
 
 
 def test_source_session_handles_reconstruct_only_for_the_same_frozen_turn() -> None:
@@ -4212,7 +4317,8 @@ def test_world_plan_real_pin_reaches_http_runtime_and_stale_run_does_not(
     payload = {**_play_turn_payload(revision=run.run_revision),
                "owner_scope": {"kind": "world", "world_id": world.world_id},
                "primary_work": {"kind": "run", "object_id": run.run_id,
-                                "expected_revision": run.run_revision}}
+                                "expected_revision": run.run_revision,
+                                "play_content_basis": {"edition_revision": 0, "edition_revision_id": None, "content_sha256": revision.content_sha256}}}
 
     async def send(body):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),

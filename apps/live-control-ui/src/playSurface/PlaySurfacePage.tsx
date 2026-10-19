@@ -1,5 +1,5 @@
 import { getWorldPlayRunContent } from "../api/playRunContentApi";
-import { admitEffectivePlayRunContent, SESSION_COPY_AGENT_UNAVAILABLE } from "./playRunEffectiveContent";
+import { admitEffectivePlayRunContent } from "./playRunEffectiveContent";
 import { PlaySessionContentEditor } from "./content/PlaySessionContentEditor";
 import { hasUnsubmittedPlayRunContent } from "./content/usePlayRunContentController";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -268,8 +268,10 @@ function PlaySurfacePublisher({
   runQuery,
   currentMoment,
   sessionCopy = false,
+  contentBasis = null,
 }: {
   sessionCopy?: boolean;
+  contentBasis?: import("../api/types").WorldPlayContentBasis | null;
   admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
   currentMoment: { beatTitle: string; sceneTitle: string | null } | null;
@@ -303,15 +305,16 @@ function PlaySurfacePublisher({
     projectionBindings: [],
   }), [authority, agentContextContribution, sessionCopy]);
 
-  usePublishWorldPlayConversation(!sessionCopy && admittedRun?.schema_version === "dmb_world_play_run_record_v2"
+  usePublishWorldPlayConversation(!sessionCopy && contentBasis != null && admittedRun?.schema_version === "dmb_world_play_run_record_v2"
     ? {
       worldId: admittedRun.world_id,
       runId: admittedRun.run_id,
       runRevision: admittedRun.run_revision,
+      ...(contentBasis ? { contentBasis } : {}),
       surfaceInstanceId: publication.identity.instanceKey,
       beatTitle: currentMoment?.beatTitle ?? null,
       sceneTitle: currentMoment?.sceneTitle ?? null,
-    } : null, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
+    } : null, sessionCopy ? "Save your session changes before asking Buddy. Buddy will use the saved session copy and current-scene notes." : null);
 
   const agentContext = useMemo(
     () => ({
@@ -543,6 +546,7 @@ export function PlaySurfacePage() {
   const admissionRef = useRef<NativeRunbookAdmission | null>(null);
   admissionRef.current = admission;
   const [sessionDraftState, setSessionDraftState] = useState<{ identity: string; hasUnsubmitted: boolean } | null>(null);
+  const [noteDraftState, setNoteDraftState] = useState<{ identity: string; hasUnsubmitted: boolean } | null>(null);
   const [pendingWorldRebase, setPendingWorldRebase] = useState<{
     run: WorldPlayRunRecordV2;
     current: WorldOwnedRunbookCommittedRevisionV2;
@@ -938,10 +942,11 @@ export function PlaySurfacePage() {
   const sessionCopyIdentity = v2Deck?.effectiveContent
     ? JSON.stringify([v2Deck.effectiveContent.world_id, v2Deck.effectiveContent.run_id, v2Deck.effectiveContent.origin])
     : null;
+  const noteDraftIdentity = JSON.stringify([sessionCopyIdentity, admittedRun?.run_revision, v2Deck?.currentSceneId ?? null]);
   const sessionCopyBlocked = Boolean(v2Deck?.effectiveContent && (
-    v2Deck.effectiveContent.source === "edition"
-    || hasUnsubmittedPlayRunContent(v2Deck.effectiveContent)
+    hasUnsubmittedPlayRunContent(v2Deck.effectiveContent)
     || sessionDraftState?.identity === sessionCopyIdentity && sessionDraftState.hasUnsubmitted
+    || noteDraftState?.identity !== noteDraftIdentity || noteDraftState.hasUnsubmitted
   ));
   const onAcceptedSessionContent = useCallback((content: PlayRunContent) => {
     const routeGeneration = routeIdentityRef.current.generation;
@@ -973,6 +978,9 @@ export function PlaySurfacePage() {
       setDetail(error instanceof Error ? error.message : "The saved session copy could not be projected.");
     });
   }, []);
+  const onNoteDraftStateChange = useCallback((hasUnsubmitted: boolean) => {
+    if (sessionCopyIdentity) setNoteDraftState({ identity: noteDraftIdentity, hasUnsubmitted });
+  }, [sessionCopyIdentity, noteDraftIdentity]);
   const onSessionDraftStateChange = useCallback((hasUnsubmitted: boolean) => {
     if (sessionCopyIdentity) setSessionDraftState({ identity: sessionCopyIdentity, hasUnsubmitted });
   }, [sessionCopyIdentity]);
@@ -988,6 +996,7 @@ export function PlaySurfacePage() {
       </PlaySurfaceContext>
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}
+        contentBasis={v2Deck?.effectiveContent ? { edition_revision: v2Deck.effectiveContent.edition_revision, edition_revision_id: v2Deck.effectiveContent.edition_revision_id, content_sha256: v2Deck.effectiveContent.content_sha256 } : null}
         currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
@@ -1058,13 +1067,14 @@ export function PlaySurfacePage() {
           /> : null}
           {sessionCopyBlocked ? (
             <p role="status" aria-label="Session copy Agent availability" className="play-muted"
-              data-testid="play-session-copy-agent-notice">{SESSION_COPY_AGENT_UNAVAILABLE}</p>
+              data-testid="play-session-copy-agent-notice">{"Save your session changes before asking Buddy. Buddy will use the saved session copy and current-scene notes."}</p>
           ) : null}
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
+            onNoteUnsubmittedChange={onNoteDraftStateChange}
             onAuthoritativeRun={(nextRun) => {
               if (nextRun.run_id !== v2Deck.run.run_id) return;
               const overlaid = overlayRuntimeOnV2Ready(v2Deck, nextRun);

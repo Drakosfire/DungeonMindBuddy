@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -9,7 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from application_state.agent_conversation.types import PlayRunTurnContextReceiptV1
+from application_state.agent_conversation.types import (
+    PlayContentBasis,
+    PlayRunTurnContextReceiptV1,
+    PlayRunTurnContextReceiptV2,
+)
 
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentOwnerContext,
@@ -49,11 +54,13 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     get_committed_playable_revision,
 )
+from application_state.play.edition_service import read_content, read_context_snapshot
 
 PLAY_ELEMENT_TITLE_MAX_CHARS = 160
 PLAY_BEAT_BODY_MAX_CHARS = 320
 PLAY_SCENE_BODY_MAX_CHARS = 640
 PLAY_MODEL_BLOCK_MAX_CHARS = 1536
+PLAY_SESSION_CONTEXT_MAX_UTF8_BYTES = 65536
 
 
 class WorldPlaySurfaceContextError(ValueError):
@@ -88,6 +95,7 @@ class _PlayAuthoredSlice:
     element_id: str
     title: str
     body_text: str
+    body_markdown: str
 
 
 def _clip(text: str, limit: int) -> str:
@@ -122,33 +130,44 @@ def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSli
     active_id: str | None = None
     active_title = ""
     body_lines: list[str] = []
+    body_markdown_lines: list[str] = []
 
     def flush() -> None:
-        nonlocal active_kind, active_id, active_title, body_lines
+        nonlocal active_kind, active_id, active_title, body_lines, body_markdown_lines
         if active_kind is None or active_id is None:
             body_lines = []
+            body_markdown_lines = []
             return
         slices[active_id] = _PlayAuthoredSlice(
             kind=active_kind,
             element_id=active_id,
             title=active_title,
             body_text="\n".join(body_lines).strip(),
+            body_markdown="\n".join(body_markdown_lines),
         )
         active_kind = None
         active_id = None
         active_title = ""
         body_lines = []
+        body_markdown_lines = []
 
     for line in lines:
         if fence_char is not None:
             if _closes_fence(line, fence_char, fence_length):
+                if active_kind is not None:
+                    body_markdown_lines.append(line)
                 fence_char = None
                 fence_length = 0
+            elif active_kind is not None:
+                body_markdown_lines.append(line)
             continue
         opening = _opening_fence(line)
         if opening is not None:
-            flush()
-            pending = None
+            if active_kind is not None:
+                body_markdown_lines.append(line)
+            else:
+                flush()
+                pending = None
             fence_char, fence_length = opening
             continue
         if MARKER_V2_PROBE in line:
@@ -178,6 +197,7 @@ def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSli
                     active_id = element_id
                     active_title = heading.group(2).strip()
                     body_lines = []
+                    body_markdown_lines = []
                     pending = None
                     continue
         if pending is None and _is_ordinary_root_heading(line):
@@ -185,6 +205,7 @@ def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSli
             continue
         if active_kind is not None:
             body_lines.append(line)
+            body_markdown_lines.append(line)
 
     flush()
     return slices
@@ -678,8 +699,165 @@ def resolve_world_play_turn_snapshot(
     return _world_play_turn_context(world_id, resolved.world_name, receipt, resolved.beat, resolved.scene), receipt
 
 
+def resolve_world_play_session_turn_snapshot(
+    *, root: Path, world_id: str, run_id: str, run_revision: int,
+    content_basis: PlayContentBasis,
+) -> tuple[AgentSurfaceContext, PlayRunTurnContextReceiptV2]:
+    """Admit exact saved session content and current-scene note atomically."""
+    from apps.live_control_server.services.world_container_registry import (
+        get_world_container,
+    )
+
+    try:
+        world = get_world_container(root, world_id)
+        record = get_world_play_run(root, world_id=world_id, run_id=run_id)
+        run, content = read_context_snapshot(run_id=run_id, world_id=world_id)
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play session context is unavailable or stale"
+        ) from exc
+    if world.world_id != world_id or record.world_id != world_id:
+        raise WorldPlaySurfaceContextError(
+            "World Play context does not match the selected managed World"
+        )
+    if (
+        str(run.run_id) != run_id
+        or run.run_revision != run_revision
+        or record.run_revision != run.run_revision
+        or str(run.playable_work_object_id) != record.playable_artifact_id
+        or run.playable_revision_n != record.playable_revision
+        or str(run.playable_work_revision_id) != record.playable_work_revision_id
+        or run.playable_content_sha256 != record.playable_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError("World Play context Run revision is stale")
+    if (
+        content.world_id != world_id or content.run_id != run_id
+        or content.edition_revision != content_basis.edition_revision
+        or content.edition_revision_id != (
+            None if content_basis.edition_revision_id is None
+            else str(content_basis.edition_revision_id)
+        )
+        or content.content_sha256 != content_basis.content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Saved session copy changed; refresh Play context and try again"
+        )
+    if (
+        content.origin.playable_artifact_id != record.playable_artifact_id
+        or content.origin.playable_revision != record.playable_revision
+        or content.origin.playable_work_revision_id != record.playable_work_revision_id
+        or content.origin.playable_content_sha256 != record.playable_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Saved session copy origin does not match the Run pin"
+        )
+    try:
+        manifest = get_world_play_run_reference_manifest(
+            root, world_id=world_id, run_id=run_id
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run reference manifest is unavailable"
+        ) from exc
+    if (
+        getattr(manifest, "schema_version", None) != PLAY_RUN_REFERENCE_MANIFEST_V2_SCHEMA
+        or compare_run_manifest_binding(record, manifest) is not None
+        or compare_v2_sealed_structure(content.markdown, manifest) is not None
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Saved session copy does not match the sealed Run structure"
+        )
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256,
+            kind=None,
+            expected_world_id=world_id,
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run's exact pinned Runbook revision is unavailable"
+        ) from exc
+    if (
+        committed.kind not in {"plan", "runbook"}
+        or committed.document_id != record.playable_artifact_id
+        or committed.revision_n != record.playable_revision
+        or committed.work_revision_id != record.playable_work_revision_id
+        or committed.content_sha256 != record.playable_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "World Play Run's exact pinned Runbook identity does not match"
+        )
+    beat_id = run.progress.get("current_beat_id")
+    scene_id = run.progress.get("current_scene_id")
+    if not isinstance(beat_id, str) or not _manifest_has_beat(manifest, beat_id):
+        raise WorldPlaySurfaceContextError("World Play Run has no valid current Beat")
+    if scene_id is not None and (
+        not isinstance(scene_id, str) or _manifest_scene_beat(manifest, scene_id) != beat_id
+    ):
+        raise WorldPlaySurfaceContextError(
+            "World Play Run current Scene does not belong to its current Beat"
+        )
+    slices = extract_v2_play_authored_slices(content.markdown)
+    beat = slices.get(beat_id)
+    scene = None if scene_id is None else slices.get(scene_id)
+    if beat is None or beat.kind != "beat":
+        raise WorldPlaySurfaceContextError(
+            "Current Beat is absent from the effective session copy"
+        )
+    if scene_id is not None and (scene is None or scene.kind != "scene"):
+        raise WorldPlaySurfaceContextError(
+            "Current Scene is absent from the effective session copy"
+        )
+    scene_note = None
+    if scene_id is not None:
+        notes = run.progress.get("notes_by_element_id")
+        if not isinstance(notes, dict):
+            raise WorldPlaySurfaceContextError("World Play Run notes are malformed")
+        scene_note = notes.get(scene_id)
+        if scene_note is not None and (
+            not isinstance(scene_note, str)
+            or len(scene_note.encode("utf-8")) > 32 * 1024
+        ):
+            raise WorldPlaySurfaceContextError(
+                "Current saved Scene note exceeds the 32 KiB UTF8 context limit"
+            )
+    receipt = PlayRunTurnContextReceiptV2.model_validate({
+        "schema": "dmb_play_run_turn_context_receipt_v2",
+        "world_id": world_id,
+        "run_id": str(run.run_id),
+        "run_revision": run.run_revision,
+        "runbook_object_id": record.playable_artifact_id,
+        "runbook_object_revision": committed.object_revision,
+        "runbook_work_revision_id": content.origin.playable_work_revision_id,
+        "runbook_revision_n": content.origin.playable_revision,
+        "runbook_content_sha256": content.origin.playable_content_sha256,
+        "beat_id": beat_id,
+        "scene_id": scene_id,
+        "edition_revision": content.edition_revision,
+        "edition_revision_id": content.edition_revision_id,
+        "content_sha256": content.content_sha256,
+        "scene_note": scene_note,
+        "scene_note_sha256": (
+            None if scene_note is None
+            else hashlib.sha256(scene_note.encode("utf-8")).hexdigest()
+        ),
+    })
+    context = _world_play_turn_context(
+        world_id, world.name, receipt, beat, scene,
+        edition_revision=content.edition_revision, scene_note=scene_note,
+    )
+    # Fail closed here, before any runtime can dispatch the provider.
+    from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
+
+    render_agent_surface_context(context)
+    return context, receipt
+
+
 def resolve_historical_world_play_turn_snapshot(
-    *, root: Path, world_id: str, receipt: PlayRunTurnContextReceiptV1,
+    *, root: Path, world_id: str,
+    receipt: PlayRunTurnContextReceiptV1 | PlayRunTurnContextReceiptV2,
 ) -> AgentSurfaceContext:
     """Reconstruct the accepted moment from its immutable Runbook pin."""
     from apps.live_control_server.services.world_container_registry import get_world_container
@@ -687,6 +865,10 @@ def resolve_historical_world_play_turn_snapshot(
     world = get_world_container(root, world_id)
     if world.world_id != world_id:
         raise WorldPlaySurfaceContextError("Historical Play World identity changed")
+    if isinstance(receipt, PlayRunTurnContextReceiptV2):
+        return _resolve_historical_world_play_session_turn_snapshot(
+            root=root, world_id=world_id, world=world, receipt=receipt,
+        )
     committed = get_committed_playable_revision(
         receipt.runbook_object_id, revision_n=receipt.runbook_revision_n,
         expected_sha256=receipt.runbook_content_sha256, kind=None,
@@ -726,9 +908,178 @@ def resolve_historical_world_play_turn_snapshot(
     return _world_play_turn_context(world_id, world.name, receipt, beat, scene)
 
 
+def _resolve_historical_world_play_session_turn_snapshot(
+    *, root: Path, world_id: str, world: object,
+    receipt: PlayRunTurnContextReceiptV2,
+) -> AgentSurfaceContext:
+    if receipt.edition_revision == 0:
+        return _resolve_historical_world_play_origin_turn_snapshot(
+            world_id=world_id, world=world, receipt=receipt,
+        )
+    try:
+        content = read_content(
+            run_id=receipt.run_id,
+            world_id=world_id,
+            revision_n=receipt.edition_revision,
+        )
+        record = get_world_play_run(root, world_id=world_id, run_id=receipt.run_id)
+        manifest = get_world_play_run_reference_manifest(
+            root, world_id=world_id, run_id=receipt.run_id
+        )
+        committed = get_committed_playable_revision(
+            receipt.runbook_object_id,
+            revision_n=receipt.runbook_revision_n,
+            expected_sha256=receipt.runbook_content_sha256,
+            kind=None,
+            expected_world_id=world_id,
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "Historical Play session copy or its exact origin is unavailable"
+        ) from exc
+    if (
+        content.world_id != world_id
+        or content.run_id != receipt.run_id
+        or content.edition_revision != receipt.edition_revision
+        or content.edition_revision_id != (
+            None if receipt.edition_revision_id is None
+            else str(receipt.edition_revision_id)
+        )
+        or content.content_sha256 != receipt.content_sha256
+        or content.origin.playable_artifact_id != receipt.runbook_object_id
+        or content.origin.playable_revision != receipt.runbook_revision_n
+        or content.origin.playable_work_revision_id != str(receipt.runbook_work_revision_id)
+        or content.origin.playable_content_sha256 != receipt.runbook_content_sha256
+        or record.playable_artifact_id != receipt.runbook_object_id
+        or record.playable_revision != receipt.runbook_revision_n
+        or record.playable_work_revision_id != str(receipt.runbook_work_revision_id)
+        or record.playable_content_sha256 != receipt.runbook_content_sha256
+        or getattr(manifest, "schema_version", None) != PLAY_RUN_REFERENCE_MANIFEST_V2_SCHEMA
+        or compare_run_manifest_binding(record, manifest) is not None
+        or compare_v2_sealed_structure(content.markdown, manifest) is not None
+        or committed.kind not in {"plan", "runbook"}
+        or committed.document_id != receipt.runbook_object_id
+        or committed.revision_n != receipt.runbook_revision_n
+        or committed.work_revision_id != str(receipt.runbook_work_revision_id)
+        or committed.content_sha256 != receipt.runbook_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical Play session-copy identity or structure changed"
+        )
+    try:
+        membership = derive_play_run_reference_elements_v2(content.markdown)
+    except ValueError as exc:
+        raise WorldPlaySurfaceContextError(
+            "Historical Play session-copy structure is invalid"
+        ) from exc
+    if (
+        not any(item.beat_id == receipt.beat_id for item in membership.beats)
+        or (
+            receipt.scene_id is not None
+            and not any(
+                item.scene_id == receipt.scene_id and item.beat_id == receipt.beat_id
+                for item in membership.scenes
+            )
+        )
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical Play Scene does not belong to its accepted Beat"
+        )
+    slices = extract_v2_play_authored_slices(content.markdown)
+    beat = slices.get(receipt.beat_id)
+    scene = None if receipt.scene_id is None else slices.get(receipt.scene_id)
+    if beat is None or beat.kind != "beat" or (
+        receipt.scene_id is not None and (scene is None or scene.kind != "scene")
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical Play moment is absent from its saved session copy"
+        )
+    context = _world_play_turn_context(
+        world_id, world.name, receipt, beat, scene,
+        edition_revision=receipt.edition_revision,
+        scene_note=receipt.scene_note,
+    )
+    from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
+
+    render_agent_surface_context(context)
+    return context
+
+
+def _resolve_historical_world_play_origin_turn_snapshot(
+    *, world_id: str, world: object, receipt: PlayRunTurnContextReceiptV2,
+) -> AgentSurfaceContext:
+    """Rehydrate revision zero from its immutable origin, independent of Run head."""
+    if (
+        receipt.edition_revision_id is not None
+        or receipt.content_sha256 != receipt.runbook_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical revision-zero session copy does not match its origin digest"
+        )
+    try:
+        committed = get_committed_playable_revision(
+            receipt.runbook_object_id,
+            revision_n=receipt.runbook_revision_n,
+            expected_sha256=receipt.runbook_content_sha256,
+            kind=None,
+            expected_world_id=world_id,
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "Historical Play origin revision is unavailable"
+        ) from exc
+    if (
+        committed.kind not in {"plan", "runbook"}
+        or committed.world_id != world_id
+        or committed.document_id != receipt.runbook_object_id
+        or committed.work_revision_id != str(receipt.runbook_work_revision_id)
+        or committed.revision_n != receipt.runbook_revision_n
+        or committed.content_sha256 != receipt.runbook_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError("Historical Play origin identity changed")
+    try:
+        membership = derive_play_run_reference_elements_v2(committed.markdown)
+    except ValueError as exc:
+        raise WorldPlaySurfaceContextError(
+            "Historical Play origin structure is invalid"
+        ) from exc
+    if (
+        not any(item.beat_id == receipt.beat_id for item in membership.beats)
+        or (
+            receipt.scene_id is not None
+            and not any(
+                item.scene_id == receipt.scene_id and item.beat_id == receipt.beat_id
+                for item in membership.scenes
+            )
+        )
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical Play Scene does not belong to its accepted Beat"
+        )
+    slices = extract_v2_play_authored_slices(committed.markdown)
+    beat = slices.get(receipt.beat_id)
+    scene = None if receipt.scene_id is None else slices.get(receipt.scene_id)
+    if beat is None or beat.kind != "beat" or (
+        receipt.scene_id is not None and (scene is None or scene.kind != "scene")
+    ):
+        raise WorldPlaySurfaceContextError(
+            "Historical Play moment is absent from its origin revision"
+        )
+    context = _world_play_turn_context(
+        world_id, world.name, receipt, beat, scene,
+        edition_revision=0, scene_note=receipt.scene_note,
+    )
+    from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
+
+    render_agent_surface_context(context)
+    return context
+
+
 def _world_play_turn_context(
-    world_id: str, world_name: str, receipt: PlayRunTurnContextReceiptV1,
+    world_id: str, world_name: str,
+    receipt: PlayRunTurnContextReceiptV1 | PlayRunTurnContextReceiptV2,
     beat: _PlayAuthoredSlice, scene: _PlayAuthoredSlice | None,
+    *, edition_revision: int | None = None, scene_note: str | None = None,
 ) -> AgentSurfaceContext:
     return AgentSurfaceContext(
         surface_id="play",
@@ -738,11 +1089,17 @@ def _world_play_turn_context(
             playable_artifact_id=receipt.runbook_object_id,
             playable_revision=receipt.runbook_revision_n,
             current_beat=AgentPlayCurrentElementContext(
-                kind="beat", element_id=beat.element_id, title=beat.title, body_text=beat.body_text,
+                kind="beat", element_id=beat.element_id, title=beat.title,
+                body_text=beat.body_text,
+                body_markdown=beat.body_markdown if edition_revision is not None else None,
             ),
             current_scene=None if scene is None else AgentPlayCurrentElementContext(
-                kind="scene", element_id=scene.element_id, title=scene.title, body_text=scene.body_text,
+                kind="scene", element_id=scene.element_id, title=scene.title,
+                body_text=scene.body_text,
+                body_markdown=scene.body_markdown if edition_revision is not None else None,
             ),
+            edition_revision=edition_revision,
+            saved_scene_note=scene_note,
         ),
     )
 
@@ -835,6 +1192,30 @@ def render_agent_play_surface_context(context: AgentSurfaceContext) -> str | Non
     if play is None:
         return None
 
+    if play.edition_revision is not None:
+        lines = [
+            _PLAY_MODEL_BLOCK_PREFIX,
+            "",
+            f'Effective saved session copy · edition revision {play.edition_revision}',
+            "",
+            f'Current phase of play (Beat) — {json.dumps(play.current_beat.title, ensure_ascii=False)}',
+            play.current_beat.body_markdown or "",
+        ]
+        if play.current_scene is not None:
+            lines.extend([
+                "",
+                f'Current immediate table situation (Scene) — {json.dumps(play.current_scene.title, ensure_ascii=False)}',
+                play.current_scene.body_markdown or "",
+            ])
+            if play.saved_scene_note is not None:
+                lines.extend(["", "Current saved Scene note (GM note):", play.saved_scene_note])
+        block = "\n".join(lines).strip()
+        if len(block.encode("utf-8")) > PLAY_SESSION_CONTEXT_MAX_UTF8_BYTES:
+            raise WorldPlaySurfaceContextError(
+                "Admitted Play session context exceeds the 64 KiB UTF8 limit"
+            )
+        return block
+
     beat_title = _clip(play.current_beat.title, PLAY_ELEMENT_TITLE_MAX_CHARS)
     beat_body = _clip(play.current_beat.body_text, PLAY_BEAT_BODY_MAX_CHARS)
     beat_quoted = json.dumps(beat_title, ensure_ascii=False)
@@ -869,9 +1250,11 @@ __all__ = [
     "PLAY_ELEMENT_TITLE_MAX_CHARS",
     "PLAY_MODEL_BLOCK_MAX_CHARS",
     "PLAY_SCENE_BODY_MAX_CHARS",
+    "PLAY_SESSION_CONTEXT_MAX_UTF8_BYTES",
     "extract_v2_play_authored_slices",
     "render_agent_play_surface_context",
     "resolve_agent_play_surface_context",
     "resolve_agent_play_world_surface_context_v2",
+    "resolve_world_play_session_turn_snapshot",
     "validate_agent_play_world_surface_context_v2",
 ]

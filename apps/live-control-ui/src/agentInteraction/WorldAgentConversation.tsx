@@ -9,6 +9,7 @@ export interface AdmittedWorldPlayConversationContext {
   worldId: string;
   runId: string;
   runRevision: number;
+  contentBasis?: import("../api/types").WorldPlayContentBasis;
   surfaceInstanceId: string;
   beatTitle?: string | null;
   sceneTitle?: string | null;
@@ -84,6 +85,9 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
   const worldId = context?.worldId ?? null;
   const runId = context?.runId ?? null;
   const runRevision = context?.runRevision ?? null;
+  const editionRevision = context?.contentBasis?.edition_revision ?? null;
+  const editionRevisionId = context?.contentBasis?.edition_revision_id ?? null;
+  const contentSha = context?.contentBasis?.content_sha256 ?? null;
   const surfaceInstanceId = context?.surfaceInstanceId ?? null;
   const beatTitle = context?.beatTitle ?? null;
   const sceneTitle = context?.sceneTitle ?? null;
@@ -92,7 +96,7 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
     registry.registerPlay(token.current, context, unavailableReason);
     return () => registry.unregisterPlay(token.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, surfaceInstanceId, beatTitle, sceneTitle, unavailableReason]);
+  }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, editionRevision, editionRevisionId, contentSha, surfaceInstanceId, beatTitle, sceneTitle, unavailableReason]);
 }
 
 export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts, composeBridge?: BuildComposeBridge | null) {

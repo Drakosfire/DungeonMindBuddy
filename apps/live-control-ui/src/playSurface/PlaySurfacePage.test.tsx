@@ -796,23 +796,52 @@ describe("World session-copy projection", () => {
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
     mockEffectiveFixture();
   });
-  it("renders effective native text, tables, callouts and media with explicit provenance and disabled Agent registration", async () => {
+  it("renders effective native text, tables, callouts and media with explicit provenance and exact saved-edition Agent registration", async () => {
     const data = effectiveFixture();
     render(<PlaySurfacePage />);
     await screen.findByTestId("play-surface-ready");
     expect(playDetails("play-source-cue")).toHaveTextContent("Session copy · revision 2");
     expect(screen.getByText("Session prose.")).toBeInTheDocument();
-    const notice = screen.getByRole("status", { name: "Session copy Agent availability" });
-    expect(notice).toHaveTextContent("Buddy is temporarily unavailable for this session copy.");
-    expect(notice.compareDocumentPosition(screen.getByText("Session prose.")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Session copy Agent availability" })).not.toBeInTheDocument();
     expect(screen.queryByText("Origin prose.")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveTextContent("Gate");
     expect(screen.getByText("Keep watch.")).toBeInTheDocument();
     expect(document.querySelector('[data-effective-content-sha256]')).toHaveAttribute("data-effective-content-sha256", data.content.content_sha256);
     expect(document.querySelector('[data-source-state="run-edition"]')).toHaveAttribute("data-work-revision-id", workRevisionId);
     expect(screen.getByTestId("scene-card-source-cue")).toHaveTextContent("Session copy · revision 2 · From Plan version 1");
-    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([null, expect.stringContaining("temporarily unavailable")]);
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([expect.objectContaining({ worldId: data.content.world_id, runId, runRevision: data.run.run_revision,
+      contentBasis: { edition_revision: 2, edition_revision_id: data.content.edition_revision_id, content_sha256: data.content.content_sha256 } }), null]);
     expect(data.committed.markdown).toContain("Origin prose.");
+  });
+  it("blocks Buddy for unsaved and saving scene notes, then publishes the accepted Run revision", async () => {
+    const data = effectiveFixture();
+    const pending = deferred<WorldPlayRunRecordV2>();
+    vi.mocked(putWorldPlayRunProgress).mockReturnValue(pending.promise);
+    render(<PlaySurfacePage />);
+    await screen.findByTestId("play-surface-ready");
+    await userEvent.click(screen.getByRole("button", { name: /Notes · Gate/ }));
+    fireEvent.change(screen.getByLabelText("Scene note"), { target: { value: "A new saved scene note." } });
+    await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toBeNull());
+    await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalled());
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toBeNull();
+    await act(async () => pending.resolve({ ...data.run, run_revision: data.run.run_revision + 1,
+      progress: { ...data.run.progress, notes_by_element_id: { "scene:gate": "A new saved scene note." } } }));
+    await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([
+      expect.objectContaining({ runRevision: data.run.run_revision + 1, contentBasis: expect.objectContaining({ edition_revision: 2 }) }), null,
+    ]));
+  });
+  it("keeps Buddy blocked while a recovered scene note draft hydrates", async () => {
+    const first = render(<PlaySurfacePage />);
+    await screen.findByTestId("play-surface-ready");
+    await userEvent.click(screen.getByRole("button", { name: /Notes · Gate/ }));
+    fireEvent.change(screen.getByLabelText("Scene note"), { target: { value: "Recovered unsaved note." } });
+    first.unmount();
+    vi.mocked(usePublishWorldPlayConversation).mockClear();
+    render(<PlaySurfacePage />);
+    await screen.findByTestId("play-surface-ready");
+    await userEvent.click(screen.getByRole("button", { name: /Notes · Gate/ }));
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Recovered unsaved note.");
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.every(([context]) => context === null)).toBe(true);
   });
   it("retains the session copy after a progress/notes refresh and does not fetch a newer legacy source to demand rebase", async () => {
     const data = effectiveFixture();
@@ -863,9 +892,9 @@ describe("World session-copy projection", () => {
     await user.click(screen.getByRole("button", { name: "Markdown" }));
     await user.type(screen.getByRole("textbox", { name: "Session copy Markdown" }), "\nFirst unsaved edit.");
     expect(await screen.findByRole("status", { name: "Session copy Agent availability" }))
-      .toHaveTextContent("Buddy is temporarily unavailable for this session copy.");
+      .toHaveTextContent("Save your session changes before asking Buddy.");
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1))
-      .toEqual([null, expect.stringContaining("temporarily unavailable")]);
+      .toEqual([null, expect.stringContaining("Save your session changes")]);
     expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
   });
   it("keeps the current scene and its note when an edited session copy is accepted", async () => {
@@ -903,6 +932,9 @@ describe("World session-copy projection", () => {
     await waitFor(() => expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce(), { timeout: 5000 });
     expect(screen.getByRole("textbox", { name: "Session copy Markdown" })).toHaveValue(edited);
     expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:hall");
+    await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toMatchObject({ runId, runRevision: 2,
+      contentBasis: { edition_revision: 3, edition_revision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", content_sha256: data.hash(edited) } }));
+    expect(screen.queryByTestId("play-session-copy-agent-notice")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Notes · Hall/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Notes · Hall/ }));
     expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this scene note.");
