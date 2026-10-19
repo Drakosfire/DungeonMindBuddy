@@ -42,6 +42,7 @@ import { PlanConversationDockAdapter } from "./components/PlanConversationDockAd
 import { WorldPlanConversationRegistration } from "../agentInteraction/WorldAgentConversation";
 import {
   buildWorldPlanCardProjectionModel,
+  flattenNodes,
   WorldPlanCardProjection,
   worldPlanCardTargetKey,
   worldPlanCardTargetKeys,
@@ -397,6 +398,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     () => new URLSearchParams(window.location.search).get("view") === "cards",
   );
   const [selectedCardViewIdentity, setSelectedCardViewIdentity] = useState<string | null>(null);
+  const [sceneNavigation, setSceneNavigation] = useState<{ identity: string; sceneId: string | null } | null>(null);
+  const [documentSceneJump, setDocumentSceneJump] = useState<{ identity: string; sceneId: string } | null>(null);
+  const [sceneNavigationNotice, setSceneNavigationNotice] = useState<{ identity: string; message: string } | null>(null);
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
@@ -494,6 +498,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && selectionEpochRef.current === epoch
     && documentIdRef.current === expectedDocumentId;
 
+  const navigationIdentity = `${worldId}:${documentId ?? localDraftId}:${selectionEpochRef.current}`;
   const editorIdentityRef = useRef(editorIdentity);
   editorIdentityRef.current = editorIdentity;
   const isCurrentEditTarget = useMemo(() => {
@@ -1247,7 +1252,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           markdownRef.current = submittedMarkdown;
           setTitle(committed.title);
           setMarkdown(submittedMarkdown);
-          setEditorGeneration((value) => value + 1);
+          // Acknowledging these exact bytes must not reset the mounted editor
+          // selection/undo history or the active Cards view.
         }
         setRecords((current) => current.map((record) => record.document_id === exactId ? committed.committed_record : record));
         setCreateUncertain(false);
@@ -1467,15 +1473,26 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
   const cardsViewActive = Boolean(documentId) && status === "ready"
-    && (selectedCardViewIdentity === editorIdentity
+    && (selectedCardViewIdentity === navigationIdentity
       || (routeCardsViewRequested && documentId === initialDocumentId));
   const selectPlanView = (view: "cards" | "document") => {
     const url = new URL(window.location.href);
-    if (view === "cards") url.searchParams.set("view", "cards");
+    if (view === "cards") {
+      url.searchParams.set("view", "cards");
+      if (sceneNavigation?.identity !== navigationIdentity) {
+        setSceneNavigation({ identity: navigationIdentity, sceneId: navigationSceneId });
+        const target = navigationSceneId ? { kind: "scene" as const, id: navigationSceneId } : null;
+        selectPlayableTarget(target && selectableTargetKeys.has(worldPlanCardTargetKey(target)) ? target : null);
+      }
+    }
     else url.searchParams.delete("view");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     setRouteCardsViewRequested(false);
-    setSelectedCardViewIdentity(view === "cards" ? editorIdentity : null);
+    setSelectedCardViewIdentity(view === "cards" ? navigationIdentity : null);
+    if (view === "document" && cardsViewActive && navigationSceneId) {
+      setSceneNavigation({ identity: navigationIdentity, sceneId: navigationSceneId });
+      setDocumentSceneJump({ identity: editorIdentity, sceneId: navigationSceneId });
+    }
   };
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
@@ -1585,6 +1602,35 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }),
     [cardProjectionDocument, markdown, fidelityWarnings],
   );
+  const navigationNodes = useMemo(() => currentCardProjection.status === "ready"
+    ? flattenNodes(currentCardProjection.roots) : [], [currentCardProjection]);
+  const navigationScenes = navigationNodes.filter(node => node.kind === "scene");
+  const navigationSceneId = sceneNavigation?.identity === navigationIdentity
+    ? sceneNavigation.sceneId : savedBasis.status === "verified" ? navigationScenes[0]?.id ?? null : null;
+  const navigationSceneIndex = navigationScenes.findIndex(scene => scene.id === navigationSceneId);
+  const navigatePlanScene = (sceneId: string | null) => {
+    if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
+    setSceneNavigation({ identity: navigationIdentity, sceneId });
+    setSceneNavigationNotice(null);
+    const target = sceneId ? { kind: "scene" as const, id: sceneId } : null;
+    selectPlayableTarget(target && selectableTargetKeys.has(worldPlanCardTargetKey(target)) ? target : null);
+    if (!cardsViewActive && sceneId) setDocumentSceneJump({ identity: editorIdentity, sceneId });
+  };
+  useEffect(() => {
+    if (sceneNavigation?.identity !== navigationIdentity || !sceneNavigation.sceneId
+      || currentCardProjection.status !== "ready"
+      || navigationScenes.some(scene => scene.id === sceneNavigation.sceneId)) return;
+    setSceneNavigation({ identity: navigationIdentity, sceneId: null });
+    setSceneNavigationNotice({ identity: navigationIdentity, message: "The selected scene is no longer in this draft. Choose another scene or use Document." });
+  }, [currentCardProjection, navigationIdentity, sceneNavigation]);
+  useLayoutEffect(() => {
+    if (!documentSceneJump || cardsViewActive || sourceEditing || !editor
+      || documentSceneJump.identity !== editorIdentity || !isCurrentEditTarget(true)) return;
+    const heading = Array.from(editor.view.dom.querySelectorAll('[data-dmb-playable-kind="scene"]'))
+      .find(element => element.getAttribute("data-dmb-playable-id") === documentSceneJump.sceneId);
+    heading?.scrollIntoView?.({ block: "start" });
+    setDocumentSceneJump(null);
+  }, [documentSceneJump, cardsViewActive, sourceEditing, editor, editorIdentity, isCurrentEditTarget]);
   const savedCardProjection = useMemo(() => {
     if (savedBasis.status !== "verified" || !documentId) return null;
     const imported = markdownToTiptapDoc(serverMarkdownRef.current);
@@ -1778,6 +1824,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
+          {navigationScenes.length > 0 ? <nav className="world-plan-scene-navigation" aria-label="Plan scene navigation">
+            <button type="button" aria-label="Previous scene" title="Previous scene" disabled={navigationSceneIndex <= 0}
+              onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex - 1]?.id ?? null)}>‹</button>
+            <select aria-label="Plan scene" value={navigationSceneId ?? ""} onChange={event => navigatePlanScene(event.target.value || null)}>
+              <option value="">Scene outline</option>
+              {navigationScenes.map(scene => {
+                const beat = navigationNodes.find(node => node.id === scene.parentId && node.kind === "beat");
+                return <option key={scene.id} value={scene.id}>{beat ? `${beat.title} · ` : ""}{scene.title || "Untitled scene"}</option>;
+              })}
+            </select>
+            <button type="button" aria-label="Next scene" title="Next scene" disabled={navigationSceneIndex < 0 || navigationSceneIndex >= navigationScenes.length - 1}
+              onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex + 1]?.id ?? null)}>›</button>
+          </nav> : null}
           <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
             onClick={() => { setSourceEditing(false); selectPlanView("document"); setMediaTarget(mediaIdentity); }}>Images</button>
           <WorkspaceTrashControl showTrash={false} worldId={worldId}
@@ -1817,6 +1876,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         <h1 id="world-owned-plan-title" className="sr-only">
           {documentId ? title || "Untitled Plan" : "New Plan"}
         </h1>
+        {sceneNavigationNotice?.identity === navigationIdentity ? <p role="status">{sceneNavigationNotice.message}</p> : null}
         {startPlayError ? <p role="alert" data-testid="world-plan-start-play-error">{startPlayError}</p> : null}
         {createUncertain ? (
           <section role="alert">
@@ -1916,6 +1976,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {cardsViewActive && documentId ? (
           <WorldPlanCardProjection
             key={editorIdentity}
+            navigation={{ sceneId: navigationSceneId, onChange: navigatePlanScene }}
             worldId={worldId}
             documentId={documentId}
             document={cardProjectionDocument}

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { JSONContent } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 
 import * as liveApi from "../api/liveApi";
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
@@ -91,7 +91,11 @@ const initialDigest = "a".repeat(64);
 
 function returnToCardOutline() {
   const reader = screen.queryByTestId("world-plan-scene-reader");
-  if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
+  if (reader) {
+    const sceneSelect = screen.queryByRole("combobox", { name: "Plan scene" });
+    if (sceneSelect) fireEvent.change(sceneSelect, { target: { value: "" } });
+    else fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
+  }
   return screen.getByTestId("world-plan-cards");
 }
 const committedDigest = "b".repeat(64);
@@ -1004,4 +1008,133 @@ it("invalidates the selected card projection when the saved document or World ch
   expect(within(otherWorldCards).getByText(secondWorldId)).toBeInTheDocument();
   expect(within(otherWorldCards).getByText(thirdDocumentId)).toBeInTheDocument();
   expect(within(otherWorldCards).getByText("21", { selector: "dd" })).toBeInTheDocument();
+});
+
+
+const navigationMarkdown = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->",
+  "## North road",
+  "Keep the lantern lit.",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:lantern -->",
+  "### Lantern Gate",
+  "> [!READ-ALOUD]",
+  "> The lantern shines through the mist.",
+  "",
+  "Original lantern cue.",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:regent -->",
+  "### Glass Regent",
+  "Boss mechanics remain in full: " + "Legendary action; lair action. ".repeat(100),
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:harbor beat_kind=optional -->",
+  "## Harbor arrival",
+  "Watch the tide.",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:census -->",
+  "### Harbor Census",
+  "![Harbor map](dmb-media:ac6c15cc-8c68-4732-8ae2-d9f3f051393a \"dmb-image:v1 width=55 collapsed=true\")",
+  "",
+  "| Name | Duty |",
+  "| --- | --- |",
+  ...Array.from({ length: 18 }, (_, i) => `| Citizen ${i + 1} | Gate watch |`),
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:crossing scene=scene:census -->",
+  "### Choose the crossing",
+  "<!-- dmb-playable-element:v2 kind=option id=option:wait -->",
+  "- Wait",
+  "<!-- dmb-playable-element:v2 kind=option id=option:boat -->",
+  "- Take the boat",
+  "<!-- dmb-playable-element:v2 kind=option id=option:walk -->",
+  "- Walk the boardwalk",
+].join("\n") + "\n";
+
+it("navigates across Beats in the shared navbar and retains the selected scene through Document/Cards without writes", async () => {
+  const apis = installApiMocks(navigationMarkdown);
+  const scrollTargets: HTMLElement[] = [];
+  originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+  scrollIntoViewWasPatched = true;
+  HTMLElement.prototype.scrollIntoView = function () { scrollTargets.push(this); };
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  await screen.findByTestId("world-owned-plan");
+  const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(cards).toBeEnabled());
+  fireEvent.click(cards);
+  const nav = screen.getByRole("navigation", { name: "Plan scene navigation" });
+  const select = within(nav).getByRole("combobox", { name: "Plan scene" });
+  expect(select).toHaveValue("scene:lantern");
+  expect(within(nav).getByRole("button", { name: "Previous scene" })).toBeDisabled();
+  fireEvent.click(within(nav).getByRole("button", { name: "Next scene" }));
+  expect(select).toHaveValue("scene:regent");
+  expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("Glass Regent");
+  expect(screen.getByTestId("world-plan-scene-reader")).not.toHaveTextContent("Focused Scene ·");
+  expect(within(screen.getByTestId("world-plan-scene-reader")).queryByRole("navigation")).toBeNull();
+  fireEvent.click(within(nav).getByRole("button", { name: "Next scene" }));
+  expect(select).toHaveValue("scene:census");
+  expect(screen.getByRole("option", { name: "Harbor arrival · Harbor Census" })).toBeInTheDocument();
+  expect(within(screen.getByTestId("world-plan-scene-reader")).getByText("Citizen 18")).toBeInTheDocument();
+  fireEvent.click(within(nav).getByRole("button", { name: "Previous scene" }));
+  const docButton = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
+  fireEvent.click(docButton);
+  expect(scrollTargets.at(-1)?.getAttribute("data-dmb-playable-id")).toBe("scene:regent");
+  fireEvent.click(cards);
+  expect(select).toHaveValue("scene:regent");
+  fireEvent.change(select, { target: { value: "scene:lantern" } });
+  expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("The lantern shines");
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+});
+
+it("retains the same editor, draft media, caret and undo history while browsing scenes and switching views", async () => {
+  const apis = installApiMocks(navigationMarkdown);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  await screen.findByTestId("world-owned-plan");
+  const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(cards).toBeEnabled());
+  const dom = screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as HTMLElement & { editor: Editor };
+  const editor = dom.editor;
+  const accepted = editor.getJSON();
+  act(() => {
+    editor.commands.setTextSelection(2);
+    editor.commands.insertContent("Draft lantern ");
+    let mediaPos = -1;
+    editor.state.doc.descendants((node, pos) => { if (node.type.name === "mediaImage") mediaPos = pos; });
+    editor.commands.command(({ tr }) => { tr.setNodeMarkup(mediaPos, undefined, { ...tr.doc.nodeAt(mediaPos)!.attrs, width: 70, collapsed: false }); return true; });
+  });
+  const draft = editor.getJSON();
+  const caret = editor.state.selection.toJSON();
+  fireEvent.click(cards);
+  fireEvent.change(screen.getByRole("combobox", { name: "Plan scene" }), { target: { value: "scene:census" } });
+  expect(screen.getByTestId("world-plan-scene-reader").querySelector('[data-media-presentation="dmb-image:v1 width=70 collapsed=false"]')).not.toBeNull();
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" }));
+  expect(dom.editor).toBe(editor);
+  expect(editor.getJSON()).toEqual(draft);
+  expect(editor.state.selection.toJSON()).toEqual(caret);
+  fireEvent.click(cards);
+  const editHost = await openPlanEditHost();
+  fireEvent.click(await within(editHost).findByRole("button", { name: "Save Plan" }));
+  await screen.findByText("Saved to this World.");
+  expect(screen.getByRole("combobox", { name: "Plan scene" })).toHaveValue("scene:census");
+  expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
+  expect(dom.editor).toBe(editor);
+  expect(editor.state.selection.toJSON()).toEqual(caret);
+  expect(editor.getJSON()).toEqual(draft);
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+  expect(apis.readServer().savedMarkdown).toContain("width=70 collapsed=false");
+  act(() => { while (editor.commands.undo()) { /* complete user history */ } });
+  expect(editor.getJSON()).toEqual(accepted);
+  expect(apis.prepare).toHaveBeenCalledTimes(1);
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+});
+
+
+it("opens an initial Cards deep link at the same canonical scene in Document", async () => {
+  const apis = installApiMocks(navigationMarkdown);
+  const scrolled: HTMLElement[] = [];
+  originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+  scrollIntoViewWasPatched = true;
+  HTMLElement.prototype.scrollIntoView = function () { scrolled.push(this); };
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}&view=cards`);
+  renderPlan();
+  await screen.findByTestId("world-plan-scene-reader");
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" }));
+  expect(scrolled.at(-1)?.getAttribute("data-dmb-playable-id")).toBe("scene:lantern");
+  expect(apis.commit).not.toHaveBeenCalled();
 });

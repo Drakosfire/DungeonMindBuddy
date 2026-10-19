@@ -1,6 +1,6 @@
 # Plan/Play cards and navigation
 
-Status: decision proposal, 2026-10-19. Architecture owns this design-only serial
+Status: reviewed design, 2026-10-19. Merged as #1457 at `b7bf9976b`. Architecture owns this design-only serial
 PR under PRIME's explicit assignment. Base: `15ea069459709b5b61f82ce88d89185f6d0cec83`.
 Write lease: this file and the chosen-focus pointer in `ROADMAP-demo.md` only.
 No implementation or runtime lease is activated. Synthetic examples below are

@@ -116,7 +116,7 @@ export type WorldPlanCardProjectionModel =
   | { status: "blocked"; diagnostics: ProjectionDiagnostic[] }
   | { status: "ready"; version: ProjectionVersion; roots: WorldPlanCardNode[] };
 
-function flattenNodes(nodes: readonly WorldPlanCardNode[]): WorldPlanCardNode[] {
+export function flattenNodes(nodes: readonly WorldPlanCardNode[]): WorldPlanCardNode[] {
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
 }
 
@@ -427,7 +427,9 @@ export function WorldPlanCardProjection({
   onSelectEditTarget,
   selectionStale = false,
   onActivateGraphNode,
+  navigation,
 }: {
+  navigation?: { sceneId: string | null; onChange: (sceneId: string | null) => void };
   worldId: string;
   documentId: string;
   document: JSONContent;
@@ -448,7 +450,9 @@ export function WorldPlanCardProjection({
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
   const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
   const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
-  const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const [localFocusedSceneId, setLocalFocusedSceneId] = useState<string | null>(null);
+  const focusedSceneId = navigation ? navigation.sceneId : localFocusedSceneId;
+  const setFocusedSceneId = navigation ? navigation.onChange : setLocalFocusedSceneId;
   const defaultFocusAttemptedRef = useRef(false);
   const focusedSceneHeadingRef = useRef<HTMLElement | null>(null);
   const basisIdentity = basis.status === "verified"
@@ -486,7 +490,7 @@ export function WorldPlanCardProjection({
   }, [basis.status, onSelectTarget, selectableTargetKeys]);
 
   useEffect(() => {
-    if (focusIdentityRef.current === focusIdentity) return;
+    if (navigation || focusIdentityRef.current === focusIdentity) return;
     focusIdentityRef.current = focusIdentity;
     setFocusedSceneId(null);
     onSelectTarget?.(null);
@@ -499,7 +503,7 @@ export function WorldPlanCardProjection({
   }, [focusedScene, focusedSceneId, onSelectTarget]);
 
   useEffect(() => {
-    if (defaultFocusAttemptedRef.current || basis.status !== "verified") return;
+    if (navigation || defaultFocusAttemptedRef.current || basis.status !== "verified") return;
     const selectableScenes = scenes.filter((scene) => selectableTargetKeys.has(
       worldPlanCardTargetKey({ kind: scene.kind, id: scene.id }),
     ));
@@ -566,11 +570,12 @@ export function WorldPlanCardProjection({
     };
     return (
       <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
-        <nav className="world-plan-scene-reader__navigation" aria-label="Scene navigation">
+        {!navigation ? <nav className="world-plan-scene-reader__navigation" aria-label="Scene navigation">
           <button type="button" disabled={!previousScene} onClick={() => previousScene && focusScene(previousScene)}>Previous scene</button>
           <button type="button" onClick={() => setFocusedSceneId(null)}>Back to outline</button>
           <button type="button" disabled={!nextScene} onClick={() => nextScene && focusScene(nextScene)}>Next scene</button>
-        </nav>
+        </nav> : null}
+        {selectionStale ? <p role="alert">The selected Ask card is stale. Select a matching saved card again before asking.</p> : null}
         <SceneCard
           identity={{ worldId, documentId, sceneId: focusedScene.id,
             revision: basis.status === "verified" && !isDirty ? basis.revision : null,
@@ -580,6 +585,7 @@ export function WorldPlanCardProjection({
           choices={focusedChoices}
           variant="plan"
           kicker={`Focused Scene · ${model.version}`}
+          compactHeader={Boolean(navigation)}
           headingId="world-plan-focused-scene-heading"
           headerRef={focusedSceneHeadingRef}
           sceneActions={editAction("scene", focusedScene.id)}
@@ -617,13 +623,15 @@ export function WorldPlanCardProjection({
               ) : null}
             </section>
           ))}
-          status={<p className="world-plan-scene-reader__target" role="status">
+          footer={<details className="world-plan-cards__basis"><summary>Plan and Agent details</summary>
+          <p>{cardState} · {basisLabel}</p>
+          <p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
               ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."
               : focusedTargetSelectable
                 ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
-          </p>}
+          </p></details>}
           onActivateGraphNode={onActivateGraphNode}
           unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
         />

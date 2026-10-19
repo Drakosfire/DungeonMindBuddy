@@ -427,3 +427,28 @@
     padding-left: 0.55rem;
   }
 }
+
+/* Scene traversal occupies the established surface host, never the reader body. */
+.world-plan-scene-navigation {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  min-width: 0;
+  flex: 1 1 14rem;
+  max-width: 30rem;
+}
+.world-plan-scene-navigation select {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
+}
+.world-plan-scene-navigation button { flex: 0 0 auto; }
+.world-plan-document-view [data-dmb-playable-kind="scene"] {
+  scroll-margin-top: calc(var(--app-chrome-top, 0px) + 1rem);
+}
+
+.shared-scene-card--plan .world-plan-cards__basis {
+  color: #453d31;
+  background: rgb(222 210 184 / 58%);
+  border-color: #c8b98e;
+}
