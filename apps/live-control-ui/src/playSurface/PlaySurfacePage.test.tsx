@@ -30,6 +30,15 @@ import type { WorldOwnedCommittedRevisionV2, WorldOwnedRunbookCommittedRevisionV
 import { PlaySurfacePage } from "./PlaySurfacePage";
 import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 
+// Read retained source/context through the same More action used by the UI.
+function playDetails(testId: string) {
+  if (!screen.queryByTestId(testId)) {
+    const more = screen.getByRole("button", { name: "More Play controls" });
+    if (more.getAttribute("aria-expanded") === "false") fireEvent.click(more);
+  }
+  return screen.getByTestId(testId);
+}
+
 function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
   return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
 }
@@ -291,7 +300,7 @@ describe("Play selected-World admission", () => {
     const ready = await screen.findByTestId("play-surface-ready");
     expect(ready).toHaveAttribute("data-play-campaign-id", "");
     expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
-    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Created from saved Runbook version 1");
+    expect(playDetails("play-source-cue")).toHaveTextContent("Created from saved Runbook version 1");
     expect(getWorldPlayRun).toHaveBeenCalledWith(runId, "world-b");
     expect(listWorldPlayRuns).toHaveBeenCalledExactlyOnceWith("world-b");
     expect(listPlayRuns).not.toHaveBeenCalled();
@@ -489,7 +498,7 @@ describe("Play selected-World admission", () => {
 
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
-    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Created from saved Plan version 3");
+    expect(playDetails("play-source-cue")).toHaveTextContent("Created from saved Plan version 3");
     expect(screen.queryByText(/version 4/)).not.toBeInTheDocument();
     expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(artifactId, 3);
     expect(getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
@@ -791,7 +800,7 @@ describe("World session-copy projection", () => {
     const data = effectiveFixture();
     render(<PlaySurfacePage />);
     await screen.findByTestId("play-surface-ready");
-    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Session copy · revision 2");
+    expect(playDetails("play-source-cue")).toHaveTextContent("Session copy · revision 2");
     expect(screen.getByText("Session prose.")).toBeInTheDocument();
     const notice = screen.getByRole("status", { name: "Session copy Agent availability" });
     expect(notice).toHaveTextContent("Buddy is temporarily unavailable for this session copy.");
@@ -816,7 +825,7 @@ describe("World session-copy projection", () => {
     await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:hall")!);
     await user.click(screen.getByTestId("play-make-current"));
     await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());
-    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Session copy · revision 2");
+    expect(playDetails("play-source-cue")).toHaveTextContent("Session copy · revision 2");
     await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:gate")!);
     expect(await screen.findByText("Session prose.")).toBeInTheDocument();
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledTimes(1);

@@ -548,9 +548,27 @@
 
 .play-cockpit-shell[data-glance-collapsed="true"] .play-recorded-outcomes { display: none; }
 
-.play-surface-context__row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .55rem; min-width: 0; }
-.play-surface-context .surface-context-module__body { min-width: 0; }
-.play-surface-context__notes { max-width: min(18rem, 38vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Play's owner-local contributions share one compact surface row. */
+.surface-context-host:has(.play-surface-context) { flex-wrap: nowrap; gap: .25rem; }
+.surface-context-host__slot:has(.play-surface-context),
+.play-surface-context,
+.play-surface-context .surface-context-module__body,
+.play-surface-context__row { display: contents; }
+.surface-context-host:has(.play-surface-context) .surface-context-action { flex: 0 0 auto; white-space: nowrap; }
+.surface-context-host:has(.play-surface-context) .play-surface-context__scene { flex: 1 1 10rem; width: 0; min-width: 3rem; max-width: none; }
+.surface-context-host:has(.play-surface-context) .surface-context-status { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.play-cockpit-center .shared-scene-card__header > .play-kicker:empty,
+.play-cockpit-center .shared-scene-card__source-cue { display: none; }
+.play-session-content:empty { display: none; }
+.play-surface-context__compact-navigation { display: none; }
+.surface-context-host:has(.play-surface-context) .surface-context-popover__panel { max-height: calc(100dvh - var(--app-chrome-top, 5rem) - 1rem); overflow-y: auto; }
+@media (max-width: 42rem) {
+  .surface-context-host:has(.play-surface-context) { gap: .1rem; padding-inline: .35rem; }
+  .surface-context-host:has(.play-surface-context) .surface-context-action { padding-inline: .25rem; font-size: .72rem; }
+  .surface-context-host:has(.play-surface-context) .surface-context-status { max-width: 5rem; font-size: .68rem; }
+  .surface-context-host:has(.play-surface-context) :is(.play-surface-context__outline, .play-surface-context__previous, .play-surface-context__next, .play-surface-context__return) { display: none; }
+  .play-surface-context__compact-navigation { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; }
+}
 
 @media (max-width: 60rem) {
   .play-cockpit-shell[data-glance-collapsed="true"] { grid-template-areas: "center"; }

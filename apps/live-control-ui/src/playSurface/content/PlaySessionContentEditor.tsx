@@ -104,7 +104,7 @@ export function PlaySessionContentEditor({
   return (
     <>
     <PlaySurfaceContext id="play-editor-context" order={30} identity={surfaceIdentity}>
-      <SurfaceContextAction type="button" aria-expanded={open} onClick={openEditor}>{open ? "Close editor" : "Edit session"}</SurfaceContextAction>
+      <SurfaceContextAction type="button" aria-label={open ? "Close editor" : "Edit session"} title={open ? "Close editor" : "Edit session"} aria-expanded={open} onClick={openEditor}>{open ? "Close" : "Edit"}</SurfaceContextAction>
       <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}>{savedLabel}</SurfaceContextStatus>
     </PlaySurfaceContext>
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">
