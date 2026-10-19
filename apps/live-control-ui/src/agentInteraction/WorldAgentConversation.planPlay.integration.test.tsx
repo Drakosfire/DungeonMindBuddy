@@ -167,7 +167,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
       <button type="button" onClick={() => setSurface(surface === "plan" ? "play" : "plan")}>Switch surface</button>
       <button type="button" onClick={() => setDocumentId("plan-two")}>Switch Plan document</button>
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
-      <button type="button" onClick={() => setSessionCopy(true)}>Use session copy</button>
+      <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
       {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} />}
       <AgentInteractionChrome />
@@ -1193,6 +1193,21 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue(""));
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
   });
+  it("retains an unsent Play question while the session note save gate unmounts transport", async () => {
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "Keep my unsent scene question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
+    await screen.findByRole("status", { name: "Play conversation unavailable" });
+    expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep my unsent scene question"));
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
   it("unmounts Play transport for a session copy and ignores a late history result", async () => {
     let resolve!: (value: WorldAgentConversationHistoryResponseV1) => void;
     vi.mocked(getWorldAgentConversationHistory).mockReturnValue(new Promise(done => { resolve = done; }));

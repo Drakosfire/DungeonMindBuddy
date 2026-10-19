@@ -1,6 +1,6 @@
 # PLAY — saved session context and durable answer basis
 
-Status: ACTIVE. Base origin/main76f765d3c77d9cf84ac529b0f07617c5875cb58e; branch codex/play-session-agent-context, existing buddy-context-loop checkout. PRIME owns design, integration, PR/merge and5202 delivery. One serial implementation PR, with explicit concurrent nonoverlapping source leases below. No new checkout/environment. Independent review of cumulative exact head required.
+Status: SETTLED by PR1438, merge436d361a80d6271d014424de8b03ecd945a4ba65; reviewed74124b25ef5f8d11abdcfa8afaad49d0e53c39b0. Delivered on normal5202 with additive0036, serving backup, retained Plan/Run/content checks, and actual provider answer plus durable edition9/note receipt. Acceptance evidence: private experiment play-agent-context-acceptance.json. One UI follow-up retains unsent composer text while note save gates unmount transport. Session-copy edit proposals remain the next separate capability. Base origin/main76f765d3c77d9cf84ac529b0f07617c5875cb58e; branch codex/play-session-agent-context, existing buddy-context-loop checkout. PRIME owns design, integration, PR/merge and5202 delivery. One serial implementation PR, with explicit concurrent nonoverlapping source leases below. No new checkout/environment. Independent review of cumulative exact head required.
 
 ## Outcome and failure critique
 

@@ -35,6 +35,8 @@ interface WorldConversationRegistry {
   unregisterPlan: (token: symbol) => void;
   registerPlay: (token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason?: string | null) => void;
   unregisterPlay: (token: symbol) => void;
+  composerDrafts: Record<string, string>;
+  setComposerDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   history: WorldAgentConversationHistoryResponse | null;
   setHistory: Dispatch<SetStateAction<WorldAgentConversationHistoryResponse | null>>;
   pendingTurn: { surface: "plan" | "play" | "build"; turnId: string } | null;
@@ -51,6 +53,7 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const registerBuild = useCallback((token: symbol, value: BuildConversationRegistration) => setBuild({ token, value }), []);
   const unregisterBuild = useCallback((token: symbol) => setBuild(current => current?.token === token ? null : current), []);
   const [play, setPlay] = useState<Registration<AdmittedWorldPlayConversationContext | null> | null>(null);
+  const [composerDrafts, setComposerDrafts] = useState<Record<string, string>>({});
   const [history, setHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
   const [pendingTurn, setPendingTurn] = useState<{ surface: "plan" | "play" | "build"; turnId: string } | null>(null);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -59,8 +62,8 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason: string | null = null) => setPlay({ token, value, unavailableReason }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
   const value = useMemo(() => ({ worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
-    history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
-  [worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, history, pendingTurn, historyRefreshNonce]);
+    composerDrafts, setComposerDrafts, history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
+  [worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, composerDrafts, history, pendingTurn, historyRefreshNonce]);
   return <Registry.Provider value={value}>{children}</Registry.Provider>;
 }
 
