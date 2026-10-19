@@ -1,3 +1,5 @@
+import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
@@ -77,6 +79,9 @@ export function BuildSurfaceContext({
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const agentInteraction = useOptionalAgentInteraction();
+  const openReferenceTool = agentInteraction?.openTool;
+  const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
@@ -207,8 +212,8 @@ export function BuildSurfaceContext({
             </div>
           </details>
           {activeDocumentId ? <>
-            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!renameAdmitted || documentMutationBusy}
-              onClick={() => requestBuildStudioAction("link")}>Link node</SurfaceContextAction>
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
+              onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
             <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title="Create or place an image" disabled={!renameAdmitted || documentMutationBusy}
               onClick={() => requestBuildStudioAction("image")}>Images</SurfaceContextAction>
           </> : null}
@@ -249,6 +254,8 @@ export function BuildSurfaceContext({
       </SurfaceContextModule>
     ),
     [
+      openReferenceTool,
+      linkAvailable,
       activationError,
       activeDocumentId,
       authoringStatusLabel,

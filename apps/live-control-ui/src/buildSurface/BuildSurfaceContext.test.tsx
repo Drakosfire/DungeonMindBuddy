@@ -339,3 +339,9 @@ it("sends image intent from the surface navbar",async()=>{
   await userEvent.click(screen.getByRole("button",{name:"Open Image Studio"}));
   expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({type:"dmb:build-studio-action",detail:"image"}));dispatch.mockRestore();
 });
+
+it("disables node linking when no reference tool is published even for an editable page",()=>{
+ sessionMock.current=makeSession();renderBuildContext();
+ expect(screen.getByRole("button",{name:"Open Image Studio"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"Link existing node"})).toBeDisabled();
+});

@@ -2,7 +2,6 @@ import { mediaMarkdown } from "../media/mediaReferences";
 import { MediaImageWizard } from "../media/MediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
 import { BUILD_STARTER_CONTENT, BUILD_STUDIO_ACTION, type BuildStudioAction, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
-import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
@@ -59,8 +58,6 @@ function BuildPresentableSourceView({
     try { mediaCapture.current=await composeBridge.capture();setMediaError('');setMediaOpen(true); }
     catch(reason) {setMediaError(reason instanceof Error?reason.message:'Open an editable page first.');}
   }, [composeBridge]);
-  const { openTool, surfaceInteractionPublication } = useAgentInteraction();
-  const referenceTool = surfaceInteractionPublication?.tools.find(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID);
   useEffect(() => {
     const editor = session.editor;
     const record = session.record;
@@ -119,14 +116,10 @@ function BuildPresentableSourceView({
     const handle = (event: Event) => {
       const action = (event as CustomEvent<BuildStudioAction>).detail;
       if (action === "image") void openMedia();
-      if (action === "link") {
-        if (referenceTool?.availability.status === "enabled") openTool(BUILD_FIND_EXISTING_TOOL_ID);
-        else setMediaError("Node linking is not available for this page yet.");
-      }
     };
     window.addEventListener(BUILD_STUDIO_ACTION, handle);
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, handle);
-  }, [openMedia, openTool, referenceTool?.availability.status]);
+  }, [openMedia]);
 
   const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
     && navigationTarget.status === "none"
