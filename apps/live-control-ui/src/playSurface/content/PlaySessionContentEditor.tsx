@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
+import { PLAYABLE_ELEMENT_ID_HTML_ATTR, PLAYABLE_ELEMENT_KIND_HTML_ATTR } from "../../tiptap/playable/playableElementIdentity";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
@@ -63,7 +64,7 @@ export function PlaySessionContentEditor({
     const editor = editorRef.current;
     let selection: number | null = null;
     editor.state.doc.descendants((node, position) => {
-      if (node.type.name === "heading" && node.attrs.playableSceneId === currentSceneId) {
+      if (node.type.name === "heading" && node.attrs.playableElementKind === "scene" && node.attrs.playableElementId === currentSceneId) {
         selection = position + 1;
         return false;
       }
@@ -72,8 +73,8 @@ export function PlaySessionContentEditor({
     if (selection === null) return;
     editor.commands.setTextSelection(selection);
     editor.commands.focus();
-    const heading = Array.from(editor.view.dom.querySelectorAll("[data-playable-scene-id]"))
-      .find(element => (element as HTMLElement).dataset.playableSceneId === currentSceneId);
+    const heading = Array.from(editor.view.dom.querySelectorAll(`[${PLAYABLE_ELEMENT_KIND_HTML_ATTR}="scene"]`))
+      .find(element => element.getAttribute(PLAYABLE_ELEMENT_ID_HTML_ATTR) === currentSceneId);
     heading?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [currentSceneId, hasOpened, jumpCount, mode, open]);
 
@@ -137,7 +138,7 @@ export function PlaySessionContentEditor({
               <button type="button" aria-pressed={mode === "visual"} onClick={() => setMode("visual")}>Visual</button>
               <button type="button" aria-pressed={mode === "markdown"} onClick={() => setMode("markdown")}>Markdown</button>
             </div>
-            {currentSceneId ? <button type="button" onClick={() => setJumpCount(value => value + 1)}>Go to current scene</button> : <span>No current scene selected</span>}
+            {mode === "visual" ? currentSceneId ? <button type="button" onClick={() => setJumpCount(value => value + 1)}>Go to current scene</button> : <span>No current scene selected</span> : null}
           </div>
           {split.frontmatter ? <details className="play-session-content__frontmatter"><summary>Preserved document metadata</summary><pre>{split.frontmatter}</pre></details> : null}
           {mode === "visual" ? (

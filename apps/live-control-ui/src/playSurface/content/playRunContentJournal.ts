@@ -80,7 +80,7 @@ export async function validatePlayRunContentJournal(raw: string, expected: PlayR
     || typeof parsed.identity.runId !== "string" || !object(parsed.identity.origin)
     || !exactKeys(parsed.identity.origin, ["playable_artifact_id", "playable_revision", "playable_work_revision_id", "playable_content_sha256"])
     || !sameIdentity(parsed.identity as unknown as PlayRunContentIdentity, expected)
-    || typeof parsed.draft_markdown !== "string" || new TextEncoder().encode(parsed.draft_markdown).byteLength > 1_048_576
+    || typeof parsed.draft_markdown !== "string"
     || !integer(parsed.draft_generation, 0)) throw new TypeError("Saved session-copy recovery data has an invalid identity or shape.");
 
   const accepted = await validatePlayRunContent(parsed.accepted, { worldId: expected.worldId, runId: expected.runId });

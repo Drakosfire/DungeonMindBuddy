@@ -41,6 +41,15 @@ describe("Play session-copy editor", () => {
     render(<PlaySessionContentEditor content={content} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Edit session" }));
     expect(await screen.findByText("Original prose.")).toBeInTheDocument();
+    const rawBefore = window.localStorage.getItem((await import("./playRunContentJournal")).playRunContentJournalKey(identity));
+    expect(screen.getByTestId("play-session-copy-visual").querySelector(".ProseMirror")).toHaveAttribute("contenteditable", "false");
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    const source = screen.getByRole("textbox", { name: "Session copy Markdown" });
+    expect(source).toBeDisabled();
+    await user.type(source, "Too early");
+    expect(window.localStorage.getItem((await import("./playRunContentJournal")).playRunContentJournalKey(identity))).toBe(rawBefore);
+    expect(source).toHaveValue("# Gate\n\nOriginal prose.\n");
+    await user.click(screen.getByRole("button", { name: "Visual" }));
     releaseDigest();
     await waitFor(() => expect(screen.getByText("Recovered prose from the local journal.")).toBeInTheDocument());
     expect(screen.queryByText("Original prose.")).not.toBeInTheDocument();
@@ -84,6 +93,22 @@ describe("Play session-copy editor", () => {
     expect(saved).toContain("> [!NOTE] Reminder");
     expect(saved).toContain("Edited prose.");
     mounted.unmount();
+  });
+
+  it("navigates to the canonical marked Scene heading in the visual editor", async () => {
+    const markdown = "<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n## First\n\nOpening.\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\n\nCurrent scene.\n";
+    const marked = { ...content, markdown, content_sha256: await contentSha256(markdown) };
+    const user = userEvent.setup();
+    render(<PlaySessionContentEditor content={marked} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    const heading = screen.getByRole("heading", { name: "Gate" });
+    const scroll = vi.fn();
+    heading.scrollIntoView = scroll;
+    await user.click(screen.getByRole("button", { name: "Go to current scene" }));
+    expect(scroll).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    await waitFor(() => expect(window.getSelection()?.anchorNode?.parentElement?.closest("h2")).toBe(heading));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    expect(screen.queryByRole("button", { name: "Go to current scene" })).not.toBeInTheDocument();
   });
 
 });

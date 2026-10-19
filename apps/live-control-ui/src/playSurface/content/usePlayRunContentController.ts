@@ -362,6 +362,9 @@ export function usePlayRunContentController(
   }, [identity, persist, publish, sendPending, state]);
 
   const changeDraft = useCallback((markdown: string, issues: string[] = []) => {
+    // The journal may contain an unknown command whose body is not admitted yet.
+    // Match the disabled editor: do not replace recovery data before admission.
+    if (initialRawRef.current != null) return;
     const current = stateRef.current;
     if (markdown === current.draftMarkdown && JSON.stringify(issues) === JSON.stringify(current.serializationIssues)) return;
     const next = { ...current, draftMarkdown: markdown, draftGeneration: current.draftGeneration + 1,
@@ -403,6 +406,7 @@ export function usePlayRunContentController(
   }, [onAcceptedContent, persist, publish]);
 
   const resetDraftFromAccepted = useCallback(() => {
+    if (initialRawRef.current != null) return;
     const current = stateRef.current;
     const next = { ...current, draftMarkdown: current.accepted.markdown, draftGeneration: current.draftGeneration + 1,
       editorRevision: current.editorRevision + 1,

@@ -120,7 +120,7 @@ describe("Play session-copy autosave controller", () => {
   });
 
   it("treats a request-body size rejection as definitive while retaining the editable draft", async () => {
-    const draft = "# Gate\n\nA request that exceeded the transport limit.\n";
+    const draft = "# Gate\n\n" + "é".repeat(524_289) + "\n";
     vi.mocked(putWorldPlayRunContentCommand).mockRejectedValue(new LiveApiError("Request body exceeds the server limit.", 413));
     const hook = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
     act(() => hook.result.current.changeDraft(draft));
@@ -130,6 +130,11 @@ describe("Play session-copy autosave controller", () => {
     expect(hook.result.current.state.draftMarkdown).toBe(draft);
     expect(hook.result.current.state.message).toContain("server limit");
     expect(JSON.parse(window.localStorage.getItem(playRunContentJournalKey({ worldId, runId, origin: content.origin }))!).pending).toBeNull();
+    expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce();
+    hook.unmount();
+    const reopened = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+    await waitFor(() => expect(reopened.result.current.state.saveState).toBe("rejected"));
+    expect(reopened.result.current.state.draftMarkdown).toBe(draft);
     expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce();
   });
 
@@ -219,6 +224,41 @@ describe("Play session-copy autosave controller", () => {
     await waitFor(() => expect(returningA.result.current.state.saveState).toBe("saved"));
     expect(returningA.result.current.state.accepted.markdown).toBe(call[3].markdown);
     expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce();
+  });
+
+  it("holds direct edits during deferred journal admission, then retains newer edits beside an admitted unknown command", async () => {
+    const identity = { worldId, runId, origin: content.origin };
+    const key = playRunContentJournalKey(identity);
+    const request: PlayRunContentCommitRequest = { schema_version: "dmb_world_play_run_content_commit_v1", expected_origin: content.origin,
+      expected_edition_revision: 0, expected_content_sha256: content.content_sha256, markdown: "# Gate\n\nUnknown submitted body.\n" };
+    const pending = { commandId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", draftGeneration: 1, request };
+    const raw = JSON.stringify({ schema_version: "dmb_play_run_content_journal_v1", identity, accepted: content,
+      draft_markdown: request.markdown, draft_generation: 1, pending });
+    window.localStorage.setItem(key, raw);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const digest = webcrypto.subtle.digest.bind(webcrypto.subtle);
+    vi.stubGlobal("crypto", { randomUUID: webcrypto.randomUUID.bind(webcrypto), subtle: {
+      digest: async (...args: Parameters<typeof digest>) => { await gate; return digest(...args); },
+    } });
+    vi.mocked(getWorldPlayRunContentCommand).mockRejectedValue(new LiveApiError("still unknown", 503));
+    vi.useRealTimers();
+    const hook = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()), { wrapper: StrictMode });
+    expect(hook.result.current.state.saveState).toBe("recovering");
+    act(() => hook.result.current.changeDraft("# Gate\n\nToo early.\n"));
+    expect(window.localStorage.getItem(key)).toBe(raw);
+    expect(hook.result.current.state.draftMarkdown).toBe(content.markdown);
+    expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
+    release();
+    await waitFor(() => expect(hook.result.current.state.saveState).toBe("unknown"));
+    expect(hook.result.current.state.draftMarkdown).toBe(request.markdown);
+    act(() => hook.result.current.changeDraft("# Gate\n\nNewer admitted draft.\n"));
+    const journal = JSON.parse(window.localStorage.getItem(key)!);
+    expect(journal.pending).toEqual(pending);
+    expect(journal.draft_markdown).toContain("Newer admitted draft.");
+    expect(hook.result.current.state.draftMarkdown).toBe(journal.draft_markdown);
+    expect(hook.result.current.state.saveState).toBe("unknown");
+    expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
   });
 
 });
