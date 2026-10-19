@@ -26,7 +26,8 @@ def test_checkpoint_notes_draft_history_replay_and_plan_integrity(application_st
     ended = commit_review(world_id=WORLD, run_id=run_id, command_id=command, request=body)
     assert ended["status"] == "ended"
     assert ended["checkpoint"]["progress"] == progress
-    assert "Party saved a soldier" in ended["draft_markdown"]
+    assert ended["final_thoughts"] == ""
+    assert ended["draft_markdown"] == ""
     assert read(run_id).markdown not in ended["draft_markdown"]
     assert commit_review(world_id=WORLD, run_id=run_id, command_id=command, request=body) == ended
     saved = commit_review(world_id=WORLD, run_id=run_id, command_id=str(uuid4()), request=request(run_id,"save",1,draft_markdown="# Reviewed draft\nThe soldier escaped."))
@@ -72,3 +73,16 @@ def test_later_notes_do_not_rewrite_the_end_checkpoint_and_trash_blocks_review(a
     assert observed["review"]["checkpoint"]==ended["checkpoint"]
     set_world_play_session_trash(world_id=WORLD,run_id=aggregate.run.run_id,expected_revision=2,expected_content_revision=0,restore=False)
     with pytest.raises(ApplicationStateConflictError):read_review(world_id=WORLD,run_id=run_id)
+
+
+def test_final_thoughts_are_optional_authored_and_separate_from_legacy_text(application_state_dsn):
+    _,_,aggregate=create_source_run();run_id=str(aggregate.run.run_id)
+    body=request(run_id,final_thoughts="Remember the players' promise.")
+    ended=commit_review(world_id=WORLD,run_id=run_id,command_id=str(uuid4()),request=body)
+    assert ended["final_thoughts"]=="Remember the players' promise."
+    assert ended["draft_markdown"]==""
+    older_client=commit_review(world_id=WORLD,run_id=run_id,command_id=str(uuid4()),request=request(run_id,"save",1,draft_markdown="Retained older browser text"))
+    assert older_client["final_thoughts"]==ended["final_thoughts"]
+    changed=commit_review(world_id=WORLD,run_id=run_id,command_id=str(uuid4()),request=request(run_id,"save",2,final_thoughts="Next time: the promise."))
+    assert changed["final_thoughts"]=="Next time: the promise."
+    assert changed["draft_markdown"]=="Retained older browser text"

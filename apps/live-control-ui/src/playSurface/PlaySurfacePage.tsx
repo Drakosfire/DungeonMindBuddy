@@ -451,7 +451,7 @@ function PlayChooser({
       <a className={primary ? "play-session-resume" : undefined}
         data-testid={`play-session-${record.run_id}`} href={playHref({ run: record.run_id }) + (endedIds.includes(record.run_id)?"&review=1":"")}
         onClick={event => { if(!endedIds.includes(record.run_id)){event.preventDefault(); navigateToRun(record.run_id);} }}>
-        <strong>{endedIds.includes(record.run_id)?"Review session":primary ? "Resume session" : "Open session"} · {title(record)}</strong>
+        <strong>{endedIds.includes(record.run_id)?"Session reflections":primary ? "Resume session" : "Open session"} · {title(record)}</strong>
         <span className="play-muted">Last played {dateLabel(record.updated_at)} · {noteCount} saved {noteCount === 1 ? "note" : "notes"}</span>
       </a>
       <details className="play-session-details"><summary>Session details</summary>
