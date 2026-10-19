@@ -2052,6 +2052,23 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         assert extension.pins == origin.returned_source_pins
         assert execution_after_graph.policy.source_read_scope.admitted_anchors == []
 
+        # Before opening any source, a complete target still has structural
+        # support, but host-derived citations must honestly remain closed.
+        closed_payload = json.dumps({"input": [
+            {"type": "function_call", "call_id": "closed-graph", "name": "expand_graph_retrieval", "arguments": json.dumps(graph_arguments)},
+            {"type": "function_call_output", "call_id": "closed-graph", "output": graph_reply["resultJson"]}], "tools": []})
+        assert adapter.authorize({"provider": budget["provider"], "model": budget["model"], "apiMode": budget["apiMode"],
+            "payloadJson": closed_payload, "payloadSha256": sha256(closed_payload.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(closed_payload.encode())})
+        assert adapter.record_lifecycle({"transition": "sdk_entered"})
+        assert adapter.record_lifecycle({"transition": "response_received"})
+        closed_answer = json.dumps({"answer_context_status": "graph_grounded_partial", "answer_segments": [{
+            "kind": "graph_claim", "claim_id": "claim:closed", "text": "The gate is described.",
+            "target_kind": "assertion", "target_id": "assertion:discovered"}]})
+        closed, _, _ = service_module._parse_policy_completion(closed_answer, adapter.fence.turn,
+            adapter.producing_provider_attempt_id, build_evidence=adapter.build_claim_evidence[adapter.producing_provider_attempt_id])
+        assert closed.citation_map.entries[0].source_opened is False
+        assert closed.citation_map.entries[0].source_read_ids == []
         assert len(session.source_anchors) == 9
         source_replies = []
         input_items = [
@@ -2149,6 +2166,50 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         completion, bindings, _answer = service_module._parse_policy_completion(
             model_answer, adapter.fence.turn, adapter.producing_provider_attempt_id,
         )
+        target_only = json.loads(model_answer)
+        del target_only["citation_map"]
+        for row in target_only["answer_segments"]:
+            row.pop("graph_revision", None)
+            row.pop("evidence_ref_ids", None)
+        support = adapter.build_claim_evidence[adapter.producing_provider_attempt_id]
+        compact, compact_bindings, _ = service_module._parse_policy_completion(
+            json.dumps(target_only), adapter.fence.turn, adapter.producing_provider_attempt_id, build_evidence=support)
+        assert compact.answer_segments[0].evidence_ref_ids == sorted(pin.evidence_ref_id for pin in pins)
+        assert compact.citation_map.entries[0].source_opened
+        assert len(compact.citation_map.entries[0].source_read_ids) == 9
+        assert compact_bindings == bindings
+        from dataclasses import replace as replace_support
+        for changed_support in (
+            None,
+            replace_support(support, provider_attempt_id=uuid4()),
+            replace_support(support, envelope_sha256="0" * 64),
+            replace_support(support, context_receipt_sha256="0" * 64),
+            replace_support(support, graph_revision="other"),
+            replace_support(support, closures=()),
+            replace_support(support, closures=(*support.closures, ("assertion", "assertion:discovered", ("other",)))),
+        ):
+            with pytest.raises(service_module._AnswerValidationFailure):
+                service_module._parse_policy_completion(json.dumps(target_only), adapter.fence.turn,
+                    adapter.producing_provider_attempt_id, build_evidence=changed_support)
+        for forbidden in ("evidence_ref_ids", "graph_revision", "source_opened", "source_read_ids"):
+            wrong = json.loads(json.dumps(target_only))
+            wrong["answer_segments"][0][forbidden] = "not admitted"
+            with pytest.raises(service_module._AnswerValidationFailure):
+                service_module._parse_policy_completion(json.dumps(wrong), adapter.fence.turn,
+                    adapter.producing_provider_attempt_id, build_evidence=support)
+        for kind, target in (("assertion", "typo:discovered"), ("relationship", "assertion:discovered")):
+            wrong = json.loads(json.dumps(target_only))
+            wrong["answer_segments"][0].update(target_kind=kind, target_id=target)
+            with pytest.raises(service_module._AnswerValidationFailure):
+                service_module._parse_policy_completion(json.dumps(wrong), adapter.fence.turn,
+                    adapter.producing_provider_attempt_id, build_evidence=support)
+        # An explicit legacy ref typo is still rejected, never normalized.
+        wrong_legacy = json.loads(model_answer)
+        wrong_legacy["answer_segments"][0]["evidence_ref_ids"] = [cited_pin.evidence_ref_id + "x"]
+        wrong_legacy["citation_map"]["entries"][0]["evidence_ref_ids"] = [cited_pin.evidence_ref_id + "x"]
+        with pytest.raises(service_module._AnswerValidationFailure):
+            service_module._parse_policy_completion(json.dumps(wrong_legacy), adapter.fence.turn,
+                adapter.producing_provider_attempt_id, build_evidence=support)
         assert completion.citation_map is not None
         citation = completion.citation_map.entries[0]
         assert citation.source_opened is True
@@ -6052,7 +6113,7 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
     )
 
 
-@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support", "bundle", "bundle_build"])
+@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support", "bundle", "bundle_build", "object_target", "bundle_target"])
 def test_mounted_v3_traversal_source_route_real_pg_and_history(
     application_state_dsn,
     tmp_path,
@@ -6060,6 +6121,8 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
 ):
     """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
     is_build = operation == "bundle_build"
+    target_only_wire = operation.endswith("_target")
+    operation = operation.removesuffix("_target")
     use_bundle = operation in {"bundle", "bundle_build"}
     operation = "object" if use_bundle else operation
     import asyncio
@@ -6369,7 +6432,7 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     ]
                 },
             }
-            if is_build:
+            if is_build or target_only_wire:
                 answer = {'answer_context_status':'graph_grounded','answer_segments':[{
                     'kind':'graph_claim','claim_id':'claim:population',
                     'text':'The keeper guards the gate.','target_kind':'assertion','target_id':'asrt:population',

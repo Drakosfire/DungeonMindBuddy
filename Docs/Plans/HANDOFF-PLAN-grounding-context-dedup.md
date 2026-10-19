@@ -1,6 +1,6 @@
 # Grounding context deduplication
 
-Status: ACTIVE. Explicit operator request authorizes serial successor after PR1466. Architecture critiqued exact-envelope literal donor design before activation.
+Status: COMPLETE. Explicit operator request authorizes serial successor after PR1466. Architecture critiqued exact-envelope literal donor design before activation.
 Base0b3c0374f9970bfec00166458931c2487ed15432; branch codex/grounding-context-dedup; existing buddy-context-loop checkout. PRIME owns implementation/merge/localdelivery; exact-head Architecture independent review required. One serial implementation PR.
 
 Invariant: identical pinned source passages appear once in the current provider context, with all graph qualifications/provenance retained. Later packets reference only an earlier exact literal packet; original literal receipt alone supplies body exposure. Historical source reads/attempts/usage remain immutable. No collector/schema migration/global cache.
@@ -16,3 +16,5 @@ Receipt boundary: deduplicate a source-read batch only when every returned body 
 Exact trace reinspection: motivating turn used a complete paged read_graph_source batch followed by an object evidence bundle. Extend the same invariant to complete literal source-tool packets as donors; authorization receives graph and source packet sets from the exact current envelope. The parent broker passes frozen pins after receipt persistence. This is in-scope seam work, not a new IO/cache capability.
 
 Review Cycle1 found first composite read self-reference: internal source acquisition must not register unsent direct-tool donors. Parent-only broker keyword suppresses direct presentation for composite reads; action adapter forwards it unchanged. Add owning first includeSources call through actual broker/provider authorization with no prior donor, alongside reuse cases.
+
+Settlement: PR1467 reviewed Architecture Cycle2 at7492e5635b16655165da0f23060c75f76fc1468a, merged55188056be6083f04f7a9d9d5809d380e5d8bbda. API8000 exact runtime files delivered behind5202,12protectedpayloads/UIindex unchanged. Launch WorkingDirectory corrected to existing candidate source after known-no-dispatch startup probe. Fresh live turn retrieved evidence and complete7536byte output but failed strict answer validation due model mistyping a long evidence identifier. Overall grounding acceptance remains open; successor owns target-only completion binding.
