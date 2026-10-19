@@ -1,6 +1,6 @@
 # PLAY — chat layout and movable scene notes
 
-Status: ACTIVE. Base origin/main94cf0cf3804db1f47fa455c5314770623f3a5949; branch codex/play-pane-alignment in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
+Status: ACTIVE. Base origin/main56583e82a8a16bd0fc94a445d95487f3a2707004; branch codex/play-pane-narrow-fit in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
 
 ## Outcome and invariant
 
@@ -29,3 +29,5 @@ Mounted AppChrome proves header outside workspace geometry. Chrome tests prove o
 ## Rendered alignment correction
 
 #1435 merged94cf0cf38 after independent PASS atd3b4184a1. Normal5202 proves side/bottom switching, full-pane messages and pointer/keyboard notes movement with collapse and current targeting; the wide1778px viewport exposed a182px gap because the workspace uses the centered shared wrap while chat remained viewport-aligned. This serial successor changes only scoped Play chat CSS and this contract. Match the established1440px border-box/20px padding geometry, including the existing40rem full-width fallback, so side chat meets the workspace and bottom chat matches the full navbar. Typecheck/build, exact-head independent review and desktop/wide/narrow rendered verification remain required.
+
+#1436 merged56583e82a after independent PASS at61f6a0572. Visible wide1778px geometry now meets within0.02px and matches navbar bounds. Narrow361px inspection exposes a specificity conflict retaining the bottom pane’s36px left inset, and a wrapped Notes title making the panel10px too tall for the space above chat. This final scoped CSS correction matches the bottom selector’s specificity and constrains the whole Notes panel with a flexible scrolling body. Verify the reviewed candidate on5202 before merging; finalize the runtime receipt with its exact merge revision afterward.

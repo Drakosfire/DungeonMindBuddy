@@ -70,3 +70,8 @@
 
 #root:has(.agent-interaction-shell.open[data-surface-id="play"][data-play-layout="side"]) .floating-scene-notes { max-width: calc(100vw - var(--agent-play-panel-width, 440px) - 2rem); }
 #root:has(.agent-interaction-shell.open[data-surface-id="play"][data-play-layout="bottom"]) .floating-scene-notes__panel { max-height: max(5rem, calc(54dvh - var(--app-chrome-top, 6rem) - 5rem)); }
+
+.floating-scene-notes { display: flex; flex-direction: column; max-height: calc(100dvh - var(--app-chrome-top, 6rem) - 1rem); }
+.floating-scene-notes__header { flex: 0 0 auto; }
+.floating-scene-notes__panel { flex: 1 1 auto; min-height: 0; }
+#root:has(.agent-interaction-shell.open[data-surface-id="play"][data-play-layout="bottom"]) .floating-scene-notes { max-height: max(5rem, calc(54dvh - var(--app-chrome-top, 6rem) - .5rem)); }
