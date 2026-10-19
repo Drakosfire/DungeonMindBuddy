@@ -3,7 +3,7 @@ import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashContr
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
-import { useEffect, useMemo, type Ref } from "react";
+import { useEffect, useMemo, useRef, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -78,7 +78,14 @@ export function BuildSurfaceContext({
   const selectedWorld = useSelectedWorld();
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
-  useEffect(() => { if (trashInventoryVersion > 0) refreshDocuments(); }, [trashInventoryVersion, refreshDocuments]);
+  const consumedTrashInventory = useRef<{worldId:string|null; version:number} | null>(null);
+  useEffect(() => {
+    if (trashInventoryVersion === 0 || (consumedTrashInventory.current?.worldId === trashWorldId
+      && consumedTrashInventory.current.version === trashInventoryVersion)) return;
+    // Mark consumed before refresh: the controller may return a new callback after its list update.
+    consumedTrashInventory.current = {worldId:trashWorldId, version:trashInventoryVersion};
+    refreshDocuments();
+  }, [trashWorldId, trashInventoryVersion, refreshDocuments]);
   useEffect(() => {
     const open = (event: Event) => {
       if ((event as CustomEvent<BuildStudioAction>).detail === "open") {

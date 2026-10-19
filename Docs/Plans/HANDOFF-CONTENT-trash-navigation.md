@@ -18,3 +18,7 @@ PRIME: this handoff and truthful1445 settlement; UI chrome/CompactAppNavigation.
 ## Pre-review evidence
 
 77 focused tests pass across shared Trash transport/UI,12 clean-cache match/refusal cases, World-scoped inventory invalidation, primary navbar, Build and Play. One additional mounted Plan dirty-delete guard passes. Production TypeScript/Vite build passes with existing chunk warning; cumulative whitespace check clean. The cache basis is captured in the clean host render used by confirmed dispatch, not read from later mutable editor refs when the response arrives. No API/schema delta. Actual5202 verification of final placement and Delete-to-empty-Plan follows exact-head Architecture review.
+
+### Architecture Cycle1 correction
+
+Cycle1 held6c7596ea18adf62c7e5ea38ae81f1ce01ef42b64 for Build refresh feedback: its controller supplies a fresh refreshDocuments wrapper per render. The consumer now records the World/version as consumed before invoking refresh. A mounted feedback harness deliberately supplies a new callback after state update, proves one refresh per matching event, ignores a foreign World, and retains the same dirty session without saving/selecting. The new test fails on the held head (4 refreshes vs1) and passes after repair. Build owning11/11 tests and exact-head production build pass.

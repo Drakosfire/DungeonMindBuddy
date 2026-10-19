@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { announceWorkspaceInventoryChange } from "../workspaceLifecycle/workspaceInventoryChange";
+import { act } from "@testing-library/react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -287,5 +290,37 @@ it("keeps Build deletion disabled while the source has unsaved edits", () => {
   selectedWorldMock.managed = true;
   sessionMock.current = makeSession({dirty:true, phase:"ready_dirty"});
   renderBuildContext();
+  expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
+});
+
+it("consumes each Restore inventory event once despite a fresh callback and retains the dirty Build session", () => {
+  selectedWorldMock.managed = true;
+  sessionMock.current = makeSession({dirty:true, phase:"ready_dirty"});
+  const originalSession = sessionMock.current;
+  const refresh = vi.fn(), select = vi.fn();
+  function FeedbackHarness() {
+    const [epoch, setEpoch] = useState(0);
+    return <SurfaceContextProvider><span data-testid="refresh-feedback-epoch">{epoch}</span>
+      <BuildSurfaceContext activeRecord={originalSession.record} activeDocumentId={DOC_A}
+        documents={[originalSession.record!]} listStatus="ready" switching={false} switchError={null}
+        creating={false} createError={null} activationError={null} importError={null} pendingImportDocumentId={null}
+        selectDocument={select} createDocument={vi.fn()} importSourceDocument={vi.fn()} retryImportSource={vi.fn()}
+        retryCreatedDocument={vi.fn()} destinationOptions={[]} suggestedDestinationValue="world:elderwyld"
+        suggestedCreateCampaignId="elderwyld"
+        refreshDocuments={() => {refresh(); if (refresh.mock.calls.length < 4) setEpoch(value => value+1);}} />
+      <SurfaceContextHost /></SurfaceContextProvider>;
+  }
+  render(<FeedbackHarness />);
+  act(() => announceWorkspaceInventoryChange("elderwyld"));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("refresh-feedback-epoch")).toHaveTextContent("1");
+  act(() => announceWorkspaceInventoryChange("other-world"));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  act(() => announceWorkspaceInventoryChange("elderwyld"));
+  expect(refresh).toHaveBeenCalledTimes(2);
+  expect(sessionMock.current).toBe(originalSession);
+  expect(sessionMock.current.dirty).toBe(true);
+  expect(sessionMock.current.saveMarkdown).not.toHaveBeenCalled();
+  expect(select).not.toHaveBeenCalled();
   expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
 });
