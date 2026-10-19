@@ -358,3 +358,97 @@ async def put_world_play_run_reference_manifest_v2(
     except PlayRunReferenceManifestError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return manifest.model_dump(mode="json", exclude_none=True)
+
+
+# Run-local editions deliberately coexist with the original Run/manifest DTOs.
+@router.get("/world-play-runs/v2/{run_id}/content")
+def get_world_run_content(
+    run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]
+):
+    from apps.live_control_server.services.agent_graph_auth import (
+        enforce_native_graph_gm,
+    )
+    from apps.live_control_server.services.play_run_edition import (
+        edition_response,
+        read_content,
+    )
+
+    enforce_native_graph_gm(request)
+    return edition_response(read_content, run_id=run_id, world_id=world_id)
+
+
+@router.get("/world-play-runs/v2/{run_id}/content/revisions/{revision_n}")
+def get_world_run_content_revision(
+    run_id: str,
+    revision_n: int,
+    request: Request,
+    world_id: Annotated[str, Query(min_length=1)],
+):
+    from apps.live_control_server.services.agent_graph_auth import (
+        enforce_native_graph_gm,
+    )
+    from apps.live_control_server.services.play_run_edition import (
+        edition_response,
+        read_content,
+    )
+
+    enforce_native_graph_gm(request)
+    return edition_response(
+        read_content, run_id=run_id, world_id=world_id, revision_n=revision_n
+    )
+
+
+@router.get("/world-play-runs/v2/{run_id}/content/commands/{command_id}")
+def get_world_run_content_command(
+    run_id: str,
+    command_id: str,
+    request: Request,
+    world_id: Annotated[str, Query(min_length=1)],
+):
+    from apps.live_control_server.services.agent_graph_auth import (
+        enforce_native_graph_gm,
+    )
+    from apps.live_control_server.services.play_run_edition import (
+        edition_response,
+        read_command,
+    )
+
+    enforce_native_graph_gm(request)
+    return edition_response(
+        read_command, run_id=run_id, world_id=world_id, command_id=command_id
+    )
+
+
+@router.put("/world-play-runs/v2/{run_id}/content/commands/{command_id}")
+async def put_world_run_content_command(
+    run_id: str,
+    command_id: str,
+    request: Request,
+    world_id: Annotated[str, Query(min_length=1)],
+):
+    from apps.live_control_server.services.agent_graph_auth import (
+        enforce_native_graph_gm,
+    )
+    from apps.live_control_server.services.play_run_edition import (
+        edition_response,
+        parse_commit,
+        commit_content,
+    )
+
+    enforce_native_graph_gm(request)
+    # Bound the streamed request before allocating an unbounded body buffer.
+    raw = bytearray()
+    async for chunk in request.stream():
+        if len(raw) + len(chunk) > 1048576:
+            raise HTTPException(
+                status_code=413, detail="Run content command exceeds 1 MiB UTF8"
+            )
+        raw.extend(chunk)
+    body = parse_commit(bytes(raw))
+    return edition_response(
+        commit_content,
+        run_id=run_id,
+        world_id=world_id,
+        command_id=command_id,
+        request=body,
+    )
