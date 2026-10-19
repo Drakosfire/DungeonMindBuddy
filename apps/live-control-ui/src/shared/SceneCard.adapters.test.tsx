@@ -215,3 +215,29 @@ it("keeps Session29 inspection read-only until Make Current sends the exact Run 
     progress: { ...data.run.progress, current_beat_id: "beat:one", current_scene_id: "scene:two" },
   }]);
 });
+
+it("retains inspected scene and original provenance across effective edition metadata changes", async () => {
+  const data = fixture("Session29");
+  const admission = admitNativeRunbook({ run: data.run, manifest: data.manifest, committed: {
+    schema_version: "dmb_workspace_committed_revision_v2", scope_mode: "world", world_id: data.run.world_id,
+    document_id: documentId, kind: "plan", campaign_id: null, title: data.name, status: "active", object_revision: 9,
+    work_revision_id: data.run.playable_work_revision_id, revision_n: 9, markdown: data.markdown,
+    content_sha256: sha, has_divergent_working_copy: false, target_relpath: null,
+  } });
+  if (admission.status !== "ready" || admission.grammar !== "v2") throw new Error("expected fixture");
+  const edition = { schema_version: "dmb_world_play_run_content_v1" as const, world_id: data.run.world_id, run_id: runId,
+    origin: { playable_artifact_id: documentId, playable_revision: 9, playable_work_revision_id: data.run.playable_work_revision_id, playable_content_sha256: sha },
+    source: "edition" as const, edition_revision: 1, edition_revision_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", markdown: data.markdown,
+    content_sha256: "b".repeat(64), committed_at: "2026-10-18T00:00:00Z", observed_run_revision: 4, structure_sha256: sha };
+  const view = render(<PlayCurrentMomentCockpit deck={{ ...admission, effectiveContent: edition }} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
+  const user = userEvent.setup();
+  await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:two")!);
+  expect(screen.getByTestId("play-make-current")).toBeInTheDocument();
+  view.rerender(<PlayCurrentMomentCockpit deck={{ ...admission, effectiveContent: { ...edition, edition_revision: 2, content_sha256: "c".repeat(64) } }} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
+  expect(screen.getByTestId("play-make-current")).toBeInTheDocument();
+  const card = document.querySelector('[data-scene-card="true"][data-scene-id="scene:two"]');
+  expect(card).toHaveAttribute("data-edition-revision", "2");
+  expect(card).toHaveAttribute("data-work-revision-id", data.run.playable_work_revision_id);
+  expect(card).toHaveAttribute("data-content-sha256", sha);
+  expect(card).toHaveAttribute("data-effective-content-sha256", "c".repeat(64));
+});

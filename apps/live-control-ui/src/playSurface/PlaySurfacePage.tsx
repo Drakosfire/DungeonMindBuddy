@@ -1,3 +1,5 @@
+import { getWorldPlayRunContent } from "../api/playRunContentApi";
+import { admitEffectivePlayRunContent, SESSION_COPY_AGENT_UNAVAILABLE } from "./playRunEffectiveContent";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -260,7 +262,9 @@ function PlaySurfacePublisher({
   admittedRun,
   runQuery,
   currentMoment,
+  sessionCopy = false,
 }: {
+  sessionCopy?: boolean;
   admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
   currentMoment: { beatTitle: string; sceneTitle: string | null } | null;
@@ -271,9 +275,9 @@ function PlaySurfacePublisher({
   );
   const agentContextContribution = useMemo(
     () => buildPlaySurfaceAgentContext(
-      admittedRun,
+      sessionCopy ? null : admittedRun,
     ),
-    [admittedRun],
+    [admittedRun, sessionCopy],
   );
 
   const publication = useMemo<SurfaceInteractionPublication>(() => ({
@@ -286,15 +290,15 @@ function PlaySurfacePublisher({
     canvas: null,
     agentContext: {
       ...agentContextContribution,
-      ambientSummary: authority.ambientSummary,
+      ambientSummary: sessionCopy ? "Live session copy · Agent context unavailable" : authority.ambientSummary,
     },
     tools: [],
     editCommands: [],
     projections: [],
     projectionBindings: [],
-  }), [authority, agentContextContribution]);
+  }), [authority, agentContextContribution, sessionCopy]);
 
-  usePublishWorldPlayConversation(admittedRun?.schema_version === "dmb_world_play_run_record_v2"
+  usePublishWorldPlayConversation(!sessionCopy && admittedRun?.schema_version === "dmb_world_play_run_record_v2"
     ? {
       worldId: admittedRun.world_id,
       runId: admittedRun.run_id,
@@ -302,7 +306,7 @@ function PlaySurfacePublisher({
       surfaceInstanceId: publication.identity.instanceKey,
       beatTitle: currentMoment?.beatTitle ?? null,
       sceneTitle: currentMoment?.sceneTitle ?? null,
-    } : null);
+    } : null, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
 
   const agentContext = useMemo(
     () => ({
@@ -311,10 +315,10 @@ function PlaySurfacePublisher({
       campaignId: agentContextContribution.campaignId,
       documentId: agentContextContribution.documentId,
       sessionNumber: agentContextContribution.sessionNumber,
-      ambientSummary: authority.ambientSummary,
+      ambientSummary: sessionCopy ? "Live session copy · Agent context unavailable" : authority.ambientSummary,
       sourceEnvelope: null,
     }),
-    [agentContextContribution, authority.ambientSummary],
+    [agentContextContribution, authority.ambientSummary, sessionCopy],
   );
 
   usePublishSurfaceInteraction(publication);
@@ -621,10 +625,28 @@ export function PlaySurfacePage() {
         setAdmission(null);
         return;
       }
+      if (loadSerialRef.current !== serial) return;
+      let nextAdmission = admitNativeRunbook({ run: loaded, manifest, committed });
+      if (selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2"
+        && isNativeRunbookReadyV2(nextAdmission)) {
+        try {
+          const content = await getWorldPlayRunContent(loaded.run_id, selectedWorldId);
+          if (loadSerialRef.current !== serial) return;
+          nextAdmission = await admitEffectivePlayRunContent(nextAdmission, content);
+          if (loadSerialRef.current !== serial) return;
+        } catch (error) {
+          if (loadSerialRef.current !== serial) return;
+          setLoadStatus(error instanceof TypeError || error instanceof LiveApiError && [0, 404, 409, 422].includes(error.status)
+            ? "integrity_failure" : classifyLoadError(error));
+          setDetail(error instanceof Error ? error.message : "Effective session content could not be admitted.");
+          return;
+        }
+      }
       if (
         selectedWorldId
         && loaded.schema_version === "dmb_world_play_run_record_v2"
         && committed?.kind === "runbook"
+        && !(isNativeRunbookReadyV2(nextAdmission) && nextAdmission.effectiveContent?.source === "edition")
       ) {
         const current = await getWorldOwnedRunbookCommittedRevision(
           loaded.playable_artifact_id,
@@ -655,11 +677,7 @@ export function PlaySurfacePage() {
         }
       }
       if (loadSerialRef.current !== serial) return;
-      const nextAdmission = admitNativeRunbook({
-        run: loaded,
-        manifest,
-        committed,
-      });
+
       if (loadSerialRef.current !== serial) return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {
@@ -917,6 +935,7 @@ export function PlaySurfacePage() {
   return (
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
+        sessionCopy={v2Deck?.effectiveContent?.source === "edition"}
         currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
@@ -987,7 +1006,7 @@ export function PlaySurfacePage() {
             </button>
           </div>
           <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
-            {pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
+            {v2Deck.effectiveContent?.source === "edition" ? `Session copy · revision ${v2Deck.effectiveContent.edition_revision} · ` : ""}{pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
           </p>
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}

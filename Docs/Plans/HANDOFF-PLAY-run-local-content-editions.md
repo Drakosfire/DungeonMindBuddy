@@ -1,6 +1,6 @@
 # PLAY: durable Run-local content editions
 
-Status: ACTIVE. PRIME adopts Architecture's current-code examination and the operator's decisions: Live edits save to this session's copy; Plan stays unchanged; first release edits within existing scenes. This is a server-only capability, followed by a separately bounded Live editor adapter. No serving migration or runtime adoption is authorized by this implementation lease.
+Status: SETTLED — server PR #1422 merged as `7b73ffb07d21899c9007035a4b93ee9dcd455d18`, Architecture cycle 1 PASS on `6080d1a306aa96a404d19c9f5f108c37e30b81e1`. PRIME completed the separately owned schema/runtime adoption. UI/Agent adoption and Live editing remain successor work.
 
 ## Lane and ownership
 
@@ -64,7 +64,7 @@ PRIME verification clarification: port 54329 is the existing dungeonbuddy-review
 
 ## Implementation / review checkpoint
 
-The implementation is ready for independent review, not merged or adopted.
+The server implementation was independently reviewed and merged; the subsequent PRIME-owned runtime adoption is recorded below.
 The edition transaction locks the Run first, verifies the retained origin and
 sealed v2 manifest, checks every stored chain/content/request hash, then resolves
 command replay before testing the current content CAS. All content writes use
@@ -110,7 +110,31 @@ The compatible existing `buddy-main-a044ac4e/runtime/bin/python` then passed the
 broader tests with explicit assigned-checkout PYTHONPATH and private TMPDIR.
 No dependency/environment changes were made.
 
-No serving schema migration, service restart, real content write, provider/Graph
-or media-asset mutation occurred. The frozen 996b checkout was not changed.
+The implementation worker performed no serving schema migration, service restart, real content write, provider/Graph or media-asset mutation. The frozen 996b checkout was not changed.
 UI and Agent context remain edition-unaware until a later separately bounded
 adoption; no full shared-writing-goal completion is claimed here.
+
+
+## PRIME delivery receipt — 2026-10-18
+
+PRIME reports the reviewed nine Python files adopted in the existing API root,
+APP-STATE schema 0035 on the owned 54331 authority, healthy API behind 5202
+(checkpoint PID 1593413), and restart retention of all edition tables/history/
+receipts. Backup digest begins `9b9b516f`; actual restore and clone-upgrade proof
+preserved prior rows. Authenticated 5202 current/history GET succeeded; absent
+auth returned 401 and wrong World returned 404.
+
+The existing disposable Run `1beaf255-56b1-438f-8062-176bd223ca19` has two
+editions; latest content SHA256 is
+`3d65db8a54b5feaed9bcb1386caced386854d9b8dcca17228861e689a919c9cd`.
+Exact command-1 replay after edition 2 succeeded. Its originating Plan 3aa3
+snapshot and entire fixture Run pin/progress/notes, plus the real Edge Run,
+were unchanged. No provider/Graph or new real content writes occurred.
+The transient unit disappeared on stop and PRIME recreated it using the same
+bootstrap settings; a repeated restart succeeded. This is a dated receipt,
+not a new worker runtime lease.
+
+Evidence in the established private directory: `run-editions-server-adoption.json`,
+`run-editions-adoption-preservation.json`, `run-editions-http-proof.json`.
+The UI still uses the original pin until the separately active effective-content
+projection successor is accepted. The full Live editing goal is not complete.

@@ -18,6 +18,8 @@ Agent context currently reads original pin server-side. For an effective edition
 
 ## Exclusive expected paths
 
+- apps/live-control-ui/src/api/liveApi.ts and liveApi.test.ts (PRIME narrow amendment: only authenticated content/current/history/command path admission through existing credential machinery and owning auth-path tests; no DTO/registry/writer changes).
+- Docs/Roadmaps/ROADMAP-demo.md (PRIME amendment: current server1422 row and next-action settlement only).
 - This handoff; settle Docs/Plans/HANDOFF-PLAY-run-local-content-editions.md with exact merged and later supplied runtime evidence (no invented delivery).
 - NEW apps/live-control-ui/src/api/playRunContentApi.ts and .test.ts
 - NEW apps/live-control-ui/src/playSurface/playRunContentTypes.ts
@@ -30,6 +32,29 @@ Agent context currently reads original pin server-side. For an effective edition
 - apps/live-control-ui/src/agentInteraction/WorldAgentConversation.tsx and WorldAgentConversation.planPlay.integration.test.tsx only if Page-level null registration cannot prove disabled transport; inspect actual existing test filename before using, return if different.
 
 No broad liveApi.ts/types.ts registry, router/chrome/Plan editor, shared media/editor, server/schema/dependency or lockfile changes. Return exact path questions before widening.
+
+
+## Implementation evidence — 2026-10-18
+
+DOGFOOD implemented the bounded read-adoption and provenance guard in the leased
+UI paths. Effective content is strictly validated against the existing Run pin,
+then projected through the native v2 parser/index while preserving the original
+Run and structure. Scene metadata now distinguishes session-copy revision/hash
+from Plan origin. Progress refreshes preserve the admitted edition. Edition-backed
+Play explicitly disables Agent transport and clears its context; tests prove a
+late history result and late reply cannot restore the composer or send. The narrow
+credential-path amendment is covered by the owning auth tests. No server writer,
+service, provider or user-owned document was changed.
+
+Focused owning command covered eight suites: 330 passed; the shared
+`WorldAgentConversation.planPlay.integration` suite reports seven failures. The
+identical seven failures reproduced with the suite and host restored from
+`origin/main` (38 passed, seven failed), so they are inherited Build/conversation
+expectations; both new edition transport-race tests pass. The other seven focused
+suites pass. `npm run typecheck`, production build (existing chunk-size warning),
+and `git diff --check` passed. The full branch→base cumulative review and one
+Architecture cycle are still required before delivery. Rendered desktop/narrow UI
+acceptance is not claimed; it remains part of PRIME's post-review 5202 delivery.
 
 ## Verification and completion
 

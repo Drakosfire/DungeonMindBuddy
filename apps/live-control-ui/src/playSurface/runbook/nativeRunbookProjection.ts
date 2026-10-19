@@ -1,3 +1,4 @@
+import type { PlayRunContent } from "../playRunContentTypes";
 import type { JSONContent } from "@tiptap/core";
 
 import type {
@@ -145,6 +146,7 @@ export type NativeRunbookBeatV2 = {
 };
 
 export type NativeRunbookReadyV2 = {
+  effectiveContent?: PlayRunContent;
   status: "ready";
   grammar: "v2";
   run: AnyPlayRunRecord;
@@ -845,6 +847,22 @@ function admitNativeRunbookV2(input: {
     currentSceneId,
     openingBeatId: preflight.openingBeatId,
     relevanceByTargetId,
+  };
+}
+
+/** Project Play-owned text without constructing a fictitious committed WorkRevision. */
+export function projectEffectiveV2Content(original: NativeRunbookReadyV2, content: PlayRunContent): NativeRunbookReadyV2 | null {
+  if (hasBlockingMarkdownImportDiagnostics(content.markdown)) return null;
+  const imported = markdownToTiptapDoc(content.markdown);
+  const indexed = indexPlayableStructureV2(imported.doc);
+  if (indexed.status !== "ready" || compareV2Membership(indexed.index, original.manifest)
+    || JSON.stringify(indexed.index) !== JSON.stringify(original.structure)) return null;
+  return {
+    ...original,
+    effectiveContent: content,
+    importedDoc: imported.doc,
+    structure: indexed.index,
+    beats: projectV2Beats(indexed.index, slicePlayableBodies(imported.doc), original.relevanceByTargetId),
   };
 }
 

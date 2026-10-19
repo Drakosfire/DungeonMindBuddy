@@ -37,21 +37,22 @@ restart historical assignments merely because they remain in this document.
 | Floating Live scene notes | #1420 merged09b1b3de; actual note save/reload, current-scene target and pin retained | Agent note visibility remains unimplemented |
 | Saved images in Plan Cards/Live | #1421 merged3dfa43f94; actual ready images, distinct occurrences/collapse and unchanged saved bytes | Reader controls are not editable Live media |
 | Understandable Play entry | #1423 merged8dd30d111; readable Edge resume, date/notes, normal5202 Graph Ready, entire real Run unchanged | Does not unify Plan/Live workspace |
-| Run-local content edition server | #1422 head6080d1a306aa96a404d19c9f5f108c37e30b81e1; Architecture Cycle1 PASS; owning realPG/HTTP/recovery proofs | **Open/unmerged; not migrated or served; no UI/Agent adoption** |
+| Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | UI/Agent still use original pin until bounded adoption; Live content editing remains unimplemented |
 
 ### Next execution and ownership
 
-PRIME owns the next action: re-anchor and settle reviewed server PR#1422, then
-perform a guarded existing-runtime/schema adoption with backup/restore parity,
-old content/notes retained and compatible rollback. Its implementation handoff
-is on the PR branch, not yet on main:
-[Run-local edition contract](https://github.com/Drakosfire/DungeonMindBuddy/blob/6080d1a306aa96a404d19c9f5f108c37e30b81e1/Docs/Plans/HANDOFF-PLAY-run-local-content-editions.md).
-Do not copy that migration into a live service before review/adoption gates.
+PRIME completed the reviewed server #1422 adoption with backup/restore parity,
+prior content/notes retained, authenticated read/replay and restart proof. The
+settled [Run-local edition contract](../Plans/HANDOFF-PLAY-run-local-content-editions.md)
+records the exact delivery receipt. The dated audit remains historical evidence.
 
-After adoption, pin bounded serial successors for effective-content projection,
-existing-scene editing/autosave/recovery, edition-aware Agent context, then the
-shared Plan/Live workspace and retained cross-surface acceptance. Each successor
-needs an explicit owner/path lease; these are ordered gaps, not active jobs.
+DOGFOOD now owns the ACTIVE bounded effective-content projection successor
+([contract](../Plans/HANDOFF-PLAY-live-effective-content.md), pinned2bffe312b).
+PRIME owns its reviewed UI delivery. The next required serial slice remains
+existing-scene Markdown/media editing with session-copy autosave/CAS and durable
+pending-command recovery, followed by edition-aware Agent context/notes and the
+shared Plan/Live workspace with retained cross-surface acceptance. Those later
+slices require their own explicit owner/path leases and are not complete.
 Keep original Run identity stable for notes and session progress while content
 edition identity changes. A newer Plan must not force a forbidden rebase of a
 session-edited Run. Do not present edited text as the original pinned Plan.

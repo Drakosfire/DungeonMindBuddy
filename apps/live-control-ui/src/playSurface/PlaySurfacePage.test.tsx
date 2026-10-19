@@ -1,3 +1,7 @@
+import { createHash, webcrypto } from "node:crypto";
+import { getWorldPlayRunContent } from "../api/playRunContentApi";
+import type { PlayRunContent } from "./playRunContentTypes";
+import { usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,6 +28,10 @@ import { LiveApiError } from "../api/liveApi";
 import type { WorldOwnedCommittedRevisionV2, WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
 import { PlaySurfacePage } from "./PlaySurfacePage";
 
+vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn() }));
+vi.mock("../agentInteraction/WorldAgentConversation", async original => ({
+  ...await original<typeof import("../agentInteraction/WorldAgentConversation")>(), usePublishWorldPlayConversation: vi.fn(),
+}));
 const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b" }));
 
 vi.mock("../api/liveApi", async (importOriginal) => ({
@@ -739,5 +747,103 @@ describe("Play selected-World admission", () => {
     expect(getWorldPlayRun).toHaveBeenCalledTimes(2);
     expect(getPlayRun).not.toHaveBeenCalled();
     expect(listPlayRuns).not.toHaveBeenCalled();
+  });
+});
+
+function effectiveFixture(world = "world-b", id = runId) {
+  const markdown = "<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## One\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\nOrigin prose.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:hall -->\n### Hall\n\nHall prose.\n";
+  const hash = (text: string) => createHash("sha256").update(text).digest("hex");
+  const run = worldRun({ run_id: id, world_id: world, playable_content_sha256: hash(markdown),
+    progress: { ...worldRun().progress, current_beat_id: "beat:one", current_scene_id: "scene:gate", notes_by_element_id: { "scene:gate": "Retained note" } } });
+  const committed = { ...worldCommitted({ markdown, content_sha256: hash(markdown) }), world_id: world, kind: "plan" as const };
+  const manifest = { schema_version: "dmb_play_run_reference_manifest_v2" as const, run_id: id, playable_artifact_id: artifactId,
+    playable_revision: 1, playable_content_sha256: hash(markdown), sealed_at: "2026-10-18T00:00:00Z", beats: [{ beat_id: "beat:one" }],
+    scenes: [{ scene_id: "scene:gate", beat_id: "beat:one" }, { scene_id: "scene:hall", beat_id: "beat:one" }], choices: [], options: [], edges: [] };
+  const text = markdown.replace("Origin prose.", 'Session prose.\n\n| Item | Value |\n| --- | --- |\n| Gate | Open |\n\n> [!GM-NOTE]\n> Keep watch.\n\n![Map](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd "dmb-image:v1 width=50 collapsed=false")');
+  const content: PlayRunContent = { schema_version: "dmb_world_play_run_content_v1", world_id: world, run_id: id,
+    origin: { playable_artifact_id: artifactId, playable_revision: 1, playable_work_revision_id: workRevisionId, playable_content_sha256: hash(markdown) },
+    source: "edition", edition_revision: 2, edition_revision_id: newerWorkRevisionId, markdown: text, content_sha256: hash(text),
+    structure_sha256: shaA, committed_at: "2026-10-18T01:00:00Z", observed_run_revision: 1 };
+  return { run, committed, manifest, content, hash };
+}
+function mockEffectiveFixture() {
+  vi.mocked(getWorldPlayRun).mockImplementation(async (id, world) => effectiveFixture(world, id).run);
+  vi.mocked(getWorldPlayRunReferenceManifest).mockImplementation(async (id, world) => effectiveFixture(world, id).manifest);
+  vi.mocked(getWorldOwnedPlanCommittedRevision).mockImplementation(async () => effectiveFixture(selectedWorldHarness.worldId).committed);
+  vi.mocked(getWorldPlayRunContent).mockImplementation(async (id, world) => effectiveFixture(world, id).content);
+}
+describe("World session-copy projection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("crypto", webcrypto);
+    selectedWorldHarness.worldId = "world-b";
+    window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+    mockEffectiveFixture();
+  });
+  it("renders effective native text, tables, callouts and media with explicit provenance and disabled Agent registration", async () => {
+    const data = effectiveFixture();
+    render(<PlaySurfacePage />);
+    await screen.findByTestId("play-surface-ready");
+    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Session copy · revision 2");
+    expect(screen.getByText("Session prose.")).toBeInTheDocument();
+    expect(screen.queryByText("Origin prose.")).not.toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("Gate");
+    expect(screen.getByText("Keep watch.")).toBeInTheDocument();
+    expect(document.querySelector('[data-effective-content-sha256]')).toHaveAttribute("data-effective-content-sha256", data.content.content_sha256);
+    expect(document.querySelector('[data-source-state="run-edition"]')).toHaveAttribute("data-work-revision-id", workRevisionId);
+    expect(screen.getByTestId("scene-card-source-cue")).toHaveTextContent("Session copy · revision 2 · From Plan version 1");
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([null, expect.stringContaining("temporarily unavailable")]);
+    expect(data.committed.markdown).toContain("Origin prose.");
+  });
+  it("retains the session copy after a progress/notes refresh and does not fetch a newer legacy source to demand rebase", async () => {
+    const data = effectiveFixture();
+    vi.mocked(getWorldOwnedPlanCommittedRevision).mockRejectedValue(new LiveApiError("not Plan", 404));
+    vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue({ ...data.committed, kind: "runbook" });
+    vi.mocked(putWorldPlayRunProgress).mockImplementation(async (_id, _world, request) => ({ ...data.run, run_revision: 2, progress: request.progress }));
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+    await screen.findByText("Session prose.");
+    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:hall")!);
+    await user.click(screen.getByTestId("play-make-current"));
+    await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());
+    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Session copy · revision 2");
+    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:gate")!);
+    expect(await screen.findByText("Session prose.")).toBeInTheDocument();
+    expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledTimes(1);
+    expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
+    expect(vi.mocked(putWorldPlayRunProgress).mock.calls[0][2].progress.notes_by_element_id).toEqual(data.run.progress.notes_by_element_id);
+  });
+  it.each(["world", "origin", "hash", "missing"])("fails closed for %s content without rendering the original as fallback", async kind => {
+    const data = effectiveFixture();
+    if (kind === "missing") vi.mocked(getWorldPlayRunContent).mockRejectedValue(new LiveApiError("missing edition", 404));
+    else vi.mocked(getWorldPlayRunContent).mockResolvedValue({ ...data.content,
+      ...(kind === "world" ? { world_id: "foreign" } : kind === "origin" ? { origin: { ...data.content.origin, playable_revision: 99 } } : { markdown: "tampered" }) });
+    render(<PlaySurfacePage />);
+    await screen.findByTestId("play-status-integrity_failure");
+    expect(screen.queryByText("Origin prose.")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+  });
+  it("keeps an unmodified revision zero session on the original projection and Agent path", async () => {
+    const data = effectiveFixture();
+    vi.mocked(getWorldPlayRunContent).mockResolvedValue({ ...data.content, source: "pinned", edition_revision: 0, edition_revision_id: null,
+      markdown: data.committed.markdown, content_sha256: data.run.playable_content_sha256 });
+    render(<PlaySurfacePage />);
+    await screen.findByText("Origin prose.");
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toMatchObject({ runId, runRevision: 1 });
+    expect(screen.queryByText(/Session copy · revision/)).not.toBeInTheDocument();
+  });
+  it("fences late World A→B→A content and failures even when the Run ID repeats", async () => {
+    const old = deferred<PlayRunContent>();
+    vi.mocked(getWorldPlayRunContent).mockReturnValueOnce(old.promise);
+    const view = render(<PlaySurfacePage />);
+    await waitFor(() => expect(getWorldPlayRunContent).toHaveBeenCalledOnce());
+    await act(async () => { selectedWorldHarness.worldId = "world-c"; window.history.pushState({}, "", `/play?world=world-c&run=${runId}`); window.dispatchEvent(new PopStateEvent("popstate")); view.rerender(<PlaySurfacePage />); });
+    await screen.findByText("Session prose.");
+    await act(async () => { selectedWorldHarness.worldId = "world-b"; window.history.pushState({}, "", `/play?world=world-b&run=${runId}`); window.dispatchEvent(new PopStateEvent("popstate")); view.rerender(<PlaySurfacePage />); });
+    await waitFor(() => expect(getWorldPlayRunContent).toHaveBeenCalledTimes(3));
+    await screen.findByText("Session prose.");
+    await act(async () => old.reject(new LiveApiError("Stale A failure", 404)));
+    expect(screen.getByText("Session prose.")).toBeInTheDocument();
+    expect(screen.queryByText("Stale A failure")).not.toBeInTheDocument();
   });
 });
