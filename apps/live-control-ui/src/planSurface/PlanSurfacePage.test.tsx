@@ -4105,3 +4105,32 @@ Second body.
   expect((surface.querySelector(".ProseMirror") as typeof dom).editor).toBe(editor);
   expect(editor.getJSON()).toEqual(safe);
 });
+
+it("keeps Contents beside the same editor and a fixed control set in Document and Cards", async () => {
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,twoScenePlanMarkdown);
+  const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+  const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+  const dom=surface.querySelector(".ProseMirror");
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
+  const contents=screen.getByRole("navigation",{name:"Contents"});
+  const layout=surface.closest(".plan-cards-workspace");
+  expect(layout).toHaveAttribute("data-plan-view","document");
+  expect(contents.parentElement).toBe(layout);
+  expect(screen.queryByRole("navigation",{name:"Plan scene navigation"})).toBeNull();
+  expect(screen.queryByRole("combobox",{name:"Plan scene"})).toBeNull();
+  const controls=screen.getByRole("group",{name:"Plan controls"});
+  const before=Array.from(controls.querySelectorAll("button")).map(button=>button.getAttribute("aria-label")??button.textContent);
+  fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+  expect(surface.closest(".plan-cards-workspace")).toBe(layout);
+  expect(layout).toHaveAttribute("data-plan-view","cards");
+  expect(screen.getByRole("navigation",{name:"Contents"})).toBe(contents);
+  expect(surface.querySelector(".ProseMirror")).toBe(dom);
+  expect(Array.from(controls.querySelectorAll("button")).map(button=>button.getAttribute("aria-label")??button.textContent)).toEqual(before);
+  fireEvent.click(screen.getByRole("button",{name:"Document",exact:true}));
+  expect(layout).toHaveAttribute("data-plan-view","document");
+  expect(screen.getByRole("navigation",{name:"Contents"})).toBe(contents);
+  expect(surface.querySelector(".ProseMirror")).toBe(dom);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(screen.getByRole("button",{name:"Markdown",exact:true})).toHaveAttribute("title","Edit raw Markdown source");
+});

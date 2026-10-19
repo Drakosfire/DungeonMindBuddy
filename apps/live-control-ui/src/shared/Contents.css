@@ -6,7 +6,7 @@
   color: #e8eaef;
   font: .85rem/1.4 ui-sans-serif, system-ui, sans-serif;
 }
-.surface-contents[data-expanded="false"] { width: auto; }
+.surface-contents[data-expanded="false"] { width: 13.5rem; }
 :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle, :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__outline {
   padding: .4rem .55rem;
   border: 1px solid var(--surface-border, #53635d);
@@ -73,3 +73,13 @@
   .surface-contents__list { max-height: 40dvh; }
   .surface-contents__page { height: 6rem; }
 }
+
+/* Contents is a panel header, with one stable footprint whether open or closed. */
+.surface-contents { background: #151c2490; border: 1px solid #53635d55; border-radius: .5rem; padding: .35rem; box-sizing: border-box; }
+:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; margin: 0; padding: .5rem; border: 0; background: transparent;
+  font-weight: 600; text-align: left;
+}
+.surface-contents__contents { border-top: 1px solid #53635d55; padding-top: .35rem; }
+@media (max-width: 700px) { .surface-contents[data-expanded="false"] { width: 100%; } }

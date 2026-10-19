@@ -1611,7 +1611,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const navigationScenes = navigationNodes.filter(node => node.kind === "scene");
   const navigationSceneId = sceneNavigation?.identity === navigationIdentity
     ? sceneNavigation.sceneId : savedBasis.status === "verified" ? navigationScenes[0]?.id ?? null : null;
-  const navigationSceneIndex = navigationScenes.findIndex(scene => scene.id === navigationSceneId);
   const cardScopeEpoch = useRef({ key: "", generation: 0 });
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
@@ -1827,7 +1826,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               aria-pressed={!cardsViewActive && !sourceEditing}
               onClick={() => { setSourceEditing(false); selectPlanView("document"); }}
             >Document</button>
-            <button type="button" aria-pressed={!cardsViewActive && sourceEditing}
+            <button type="button" aria-pressed={!cardsViewActive && sourceEditing} title="Edit raw Markdown source"
               disabled={status !== "ready"}
               onClick={() => { selectPlanView("document"); setSourceEditing(true); setEditorGeneration(value => value + 1); }}>Markdown</button>
             <button
@@ -1837,19 +1836,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
-          {!cardsViewActive && navigationScenes.length > 0 ? <nav className="world-plan-scene-navigation" aria-label="Plan scene navigation">
-            <button type="button" aria-label="Previous scene" title="Previous scene" disabled={navigationSceneIndex <= 0}
-              onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex - 1]?.id ?? null)}>‹</button>
-            <select aria-label="Plan scene" value={navigationSceneId ?? ""} onChange={event => navigatePlanScene(event.target.value || null)}>
-              <option value="">Scene outline</option>
-              {navigationScenes.map(scene => {
-                const beat = navigationNodes.find(node => node.id === scene.parentId && node.kind === "beat");
-                return <option key={scene.id} value={scene.id}>{beat ? `${beat.title} · ` : ""}{scene.title || "Untitled scene"}</option>;
-              })}
-            </select>
-            <button type="button" aria-label="Next scene" title="Next scene" disabled={navigationSceneIndex < 0 || navigationSceneIndex >= navigationScenes.length - 1}
-              onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex + 1]?.id ?? null)}>›</button>
-          </nav> : null}
           <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
             onClick={() => { setSourceEditing(false); setMediaTarget(mediaIdentity); }}>Images</button>
           <WorkspaceTrashControl showTrash={false} worldId={worldId}
@@ -1918,8 +1904,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </section>
         ) : null}
 
-        <div className={cardsViewActive ? "plan-cards-workspace" : "plan-document-workspace"}>
-          {documentId && status === "ready" ? <PlanCardDeck key={navigationIdentity} visible={cardsViewActive} scenes={navigationScenes} nodes={navigationNodes}
+        <div className="plan-cards-workspace" data-plan-view={cardsViewActive ? "cards" : sourceEditing ? "source" : "document"}>
+          {documentId && status === "ready" ? <PlanCardDeck key={navigationIdentity} visible={true} scenes={navigationScenes} nodes={navigationNodes}
             sceneId={navigationSceneId} onSelect={navigatePlanScene} /> : null}
         <div
           className="world-plan-document-view"
