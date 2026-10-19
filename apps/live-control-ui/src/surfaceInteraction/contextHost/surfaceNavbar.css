@@ -47,3 +47,5 @@
   content:attr(title); position:absolute; top:calc(100% + .5rem); right:0; z-index:120; width:max-content; max-width:min(22rem, calc(100vw - 3rem));
   padding:.45rem .65rem; border:1px solid #414d60; border-radius:6px; background:#171d28; color:#e8eaef; font-size:.75rem; line-height:1.4; white-space:normal; box-shadow:0 6px 20px #0005;
 }
+/* Override Build's former New/Import reversal inside the shared rail. */
+.app-chrome-header .surface-context-host .build-document-create--context > .surface-context-popover:last-child { order:40; }
