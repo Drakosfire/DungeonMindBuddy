@@ -576,3 +576,12 @@ it('keeps hard breaks in headings and table-cell paragraphs blocked', () => {
   expect(semanticMarkdownSerializationDiagnostics(heading).some(item=>item.nodeType==='hardBreak')).toBe(true);
   expect(semanticMarkdownSerializationDiagnostics(table).some(item=>item.nodeType==='hardBreak')).toBe(true);
 });
+
+
+it.each([["RULES", "Traveling"], ["READ-ALOUD", "North of Mireward Reach"]])("retains the optional %s title through Markdown round-trip", (kind, label) => {
+  const source = `> [!${kind}] ${label}\n> The complete authored passage.\n`;
+  const parsed = markdownToTiptapDoc(source);
+  expect(parsed.diagnostics).toEqual([]);
+  expect(parsed.doc.content?.[0].attrs?.label).toBe(label);
+  expect(tiptapJsonToSemanticMarkdown(parsed.doc)).toBe(source);
+});

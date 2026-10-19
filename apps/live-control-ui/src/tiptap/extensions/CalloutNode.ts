@@ -1,3 +1,4 @@
+import "./CalloutNode.css";
 import { mergeAttributes, Node } from "@tiptap/core";
 import type { ResolvedPos } from "@tiptap/pm/model";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
@@ -66,10 +67,14 @@ export const CalloutNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: "aside[data-md-callout]",
-        getAttrs: (element) => ({
-          kind: normalizeCalloutKind((element as HTMLElement).getAttribute("data-md-callout")),
-        }),
+        tag: "aside[data-md-callout], details[data-md-callout]",
+        getAttrs: (element) => {
+          const dom = element as HTMLElement;
+          const kind = normalizeCalloutKind(dom.getAttribute("data-md-callout"));
+          const oldLabel = dom.querySelector(".md-callout-label")?.textContent?.trim();
+          return { kind, label: dom.getAttribute("data-md-callout-label")
+            ?? (dom.tagName === "ASIDE" && oldLabel !== defaultCalloutLabel(kind) ? oldLabel : null) };
+        },
         contentElement: ".md-callout-body",
       },
     ];
@@ -77,20 +82,65 @@ export const CalloutNode = Node.create({
 
   renderHTML({ node, HTMLAttributes }) {
     const kind = normalizeCalloutKind(node.attrs.kind);
-    const label =
-      typeof node.attrs.label === "string" && node.attrs.label.trim()
-        ? node.attrs.label.trim()
-        : defaultCalloutLabel(kind);
-
+    const title = typeof node.attrs.label === "string" ? node.attrs.label.trim() : "";
     return [
-      "aside",
+      "details",
       mergeAttributes(HTMLAttributes, {
         class: `md-callout md-callout-${kind}`,
         "data-md-callout": kind,
+        ...(title ? { "data-md-callout-label": title } : {}),
+        open: "",
       }),
-      ["div", { class: "md-callout-label", contenteditable: "false" }, label],
+      ["summary", { class: "md-callout-label", contenteditable: "false" },
+        ["span", { class: "md-callout-kind" }, defaultCalloutLabel(kind)],
+        ...(title ? [["span", { class: "md-callout-title" }, `: ${title}`]] : []),
+      ],
       ["div", { class: "md-callout-body" }, 0],
     ];
+  },
+
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement("details");
+      dom.open = true;
+      const summary = document.createElement("summary");
+      summary.className = "md-callout-label";
+      summary.contentEditable = "false";
+      const contentDOM = document.createElement("div");
+      contentDOM.className = "md-callout-body";
+      dom.append(summary, contentDOM);
+      const updateHeader = (attrs: Record<string, unknown>) => {
+        const kind = normalizeCalloutKind(attrs.kind);
+        const title = typeof attrs.label === "string" ? attrs.label.trim() : "";
+        dom.className = `md-callout md-callout-${kind}`;
+        dom.dataset.mdCallout = kind;
+        if (title) dom.dataset.mdCalloutLabel = title;
+        else delete dom.dataset.mdCalloutLabel;
+        const label = document.createElement("span");
+        label.className = "md-callout-kind";
+        label.textContent = defaultCalloutLabel(kind);
+        summary.replaceChildren(label);
+        if (title) {
+          const caption = document.createElement("span");
+          caption.className = "md-callout-title";
+          caption.textContent = `: ${title}`;
+          summary.append(caption);
+        }
+      };
+      updateHeader(node.attrs);
+      return {
+        dom,
+        contentDOM,
+        update(next) {
+          if (next.type !== node.type) return false;
+          updateHeader(next.attrs);
+          return true;
+        },
+        stopEvent: event => event.target instanceof globalThis.Node && summary.contains(event.target),
+        ignoreMutation: mutation => (mutation.type === "attributes" && mutation.target === dom && mutation.attributeName === "open")
+          || summary.contains(mutation.target),
+      };
+    };
   },
 
   addCommands() {

@@ -18,7 +18,8 @@ export function PlanMarkdownSource({ value, onChange, disabled }: {
           <dt><code>[Label](https://example.com)</code></dt><dd>Source link</dd>
         </dl>
         <h3>Read Aloud block</h3>
-        <pre>{"> [!READ-ALOUD]\n> The road gives way to a maintained boardwalk.\n> Dark water gathers beneath it."}</pre>
+        <pre>{"> [!READ-ALOUD] North of Mireward Reach\n> The road gives way to a maintained boardwalk.\n> Dark water gathers beneath it."}</pre>
+        <p>Add an optional title after a block marker, such as <code>{"> [!RULES] Traveling"}</code>. Click its header to fold or expand it; folding does not edit the document.</p>
         <p>Document metadata is retained automatically. Keep the existing scene markers with their headings when moving cards. Document view marks those card boundaries with horizontal lines.</p>
       </div>
     </details>
