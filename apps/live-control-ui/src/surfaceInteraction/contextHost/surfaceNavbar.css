@@ -49,3 +49,5 @@
 }
 /* Override Build's former New/Import reversal inside the shared rail. */
 .app-chrome-header .surface-context-host .build-document-create--context > .surface-context-popover:last-child { order:40; }
+
+.app-chrome-header .surface-context-host .build-navbar-tool { order:40; }

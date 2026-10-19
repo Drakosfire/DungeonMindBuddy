@@ -7,3 +7,11 @@
 .workspace-conflict-review button { padding:.45rem .7rem; cursor:pointer; }
 .workspace-conflict-review button:disabled { opacity:.5; cursor:wait; }
 .workspace-conflict-review a, .workspace-conflict-recovery a { color:#a5c7ed; }
+
+.workspace-conflict-diff pre { max-height:26rem; }
+.workspace-conflict-diff pre > span { display:block; white-space:pre-wrap; padding:.15rem .35rem; }
+.workspace-conflict-diff__removed { color:#fecaca; background:#7f1d1d55; }
+.workspace-conflict-diff__added { color:#bbf7d0; background:#14532d66; }
+.workspace-conflict-diff__omitted { color:#aab3c1; font-style:italic; }
+.workspace-conflict-review > details { margin:.6rem 0; }
+.workspace-conflict-review summary { cursor:pointer; padding:.3rem 0; }

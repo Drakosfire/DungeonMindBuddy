@@ -1,9 +1,11 @@
+import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
-import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
+import { BUILD_STUDIO_ACTION, requestBuildStudioAction, type BuildStudioAction } from "./buildStudioActions";
 import { useEffect, useMemo, useRef, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
@@ -16,6 +18,7 @@ import { useOptionalMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanv
 import { DurableSaveStatus } from "../components/DurableSaveStatus";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
+  SurfaceContextAction,
   SurfaceContextBadge,
   SurfaceContextModule,
   SurfaceContextStatus,
@@ -76,6 +79,9 @@ export function BuildSurfaceContext({
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const agentInteraction = useOptionalAgentInteraction();
+  const openReferenceTool = agentInteraction?.openTool;
+  const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
@@ -121,6 +127,7 @@ export function BuildSurfaceContext({
     session?.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID;
   const saveBusy = session?.activeCommand?.id === DOCUMENT_SAVE_COMMAND_ID;
   const documentMutationBusy = metadataBusy || saveBusy || switching || creating;
+  const needsRecovery = session?.phase === "conflict" || session?.exportedMarkdownAuthoritative === true;
   const renameAdmitted = Boolean(session?.lookupAdmission("editable").ok);
 
   const content = useMemo(
@@ -158,9 +165,9 @@ export function BuildSurfaceContext({
               {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save"
                 disabled={session.saveDisabled || documentMutationBusy}
                 title={documentMutationBusy ? "Wait for the current document action to finish." : (session.phase === "conflict" ? "Resolve the browser draft conflict before saving." : session.saveDisabledReason) ?? undefined}
-                aria-describedby={session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
+                aria-describedby={needsRecovery && session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
                 onClick={() => void session.saveMarkdown()} /> : null}
-              {session?.dirty || session?.draftRecoveryAvailable || session?.conflictRecovery?.protectedCopies ? <details className="surface-navbar-recovery">
+              {needsRecovery && session ? <details className="surface-navbar-recovery">
                 <summary>Draft recovery</summary><div className="surface-navbar-recovery__panel">
                   {session.saveDisabled && session.dirty && session.saveDisabledReason ? <p id="build-save-reason" role="status">{session.phase === "conflict" ? "The browser draft and saved document differ. Review conflicting copies to compare them and choose a working copy. Both complete copies are protected before anything is replaced." : session.saveDisabledReason}</p> : null}
                   <BuildDraftRecovery session={session} />
@@ -186,6 +193,8 @@ export function BuildSurfaceContext({
             <div className="build-source-actions__menu">
               {campaignBadge ? <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge> : null}
               {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
+              {!needsRecovery && session && (session.dirty || session.draftRecoveryAvailable || session.conflictRecovery?.protectedCopies) ?
+                <details className="build-source-recovery"><summary>Draft and recovery copies</summary><BuildDraftRecovery session={session} /></details> : null}
               {session ? (
                 <BuildDocumentRenameControl
                   currentTitle={displayTitle ?? ""}
@@ -202,6 +211,12 @@ export function BuildSurfaceContext({
               ) : null}
             </div>
           </details>
+          {activeDocumentId ? <>
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
+              onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title="Create or place an image" disabled={!renameAdmitted || documentMutationBusy}
+              onClick={() => requestBuildStudioAction("image")}>Images</SurfaceContextAction>
+          </> : null}
           {trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}
             current={liveRecord && activeDocumentId ? {kind:"document", id:activeDocumentId, title:displayTitle ?? "Build document", surface:"build", revision:liveRecord.revision} : null}
             blocked={documentMutationBusy || !session || session.dirty || buildSaveStateFor(session) !== "saved"}
@@ -239,6 +254,8 @@ export function BuildSurfaceContext({
       </SurfaceContextModule>
     ),
     [
+      openReferenceTool,
+      linkAvailable,
       activationError,
       activeDocumentId,
       authoringStatusLabel,
@@ -258,6 +275,7 @@ export function BuildSurfaceContext({
       listStatus,
       liveRecord,
       metadataBusy,
+      needsRecovery,
       pendingImportDocumentId,
       refreshDocuments,
       renameAdmitted,
