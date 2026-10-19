@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,13 @@ import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRu
 import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
 import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
+
+// Existing writer cases exercise the now-collapsed control through its public toggle.
+function sceneNoteField() {
+  const toggle = screen.getByRole("button", { name: /^Scene notes —/ });
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  return screen.getByLabelText("Scene note");
+}
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_RUN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -772,6 +779,48 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
   });
 
+  it("keeps the note dock collapsed and bound to the current scene while inspecting another", async () => {
+    const user = userEvent.setup();
+    render(<WorldHarness initialRun={currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Current scene note" },
+    })} />);
+    const toggle = screen.getByRole("button", { name: /^Scene notes — North Gate/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByLabelText("Scene note")).not.toBeVisible();
+    await user.click(toggle);
+    expect(screen.getByLabelText("Scene note")).toHaveFocus();
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.click(screen.getByRole("button", { name: /Tunnel Breach/ }));
+    expect(screen.getByTestId("floating-scene-notes")).toHaveTextContent("Scene notes — North Gate");
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Current scene note");
+    await user.keyboard("{Escape}");
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("retains each current-scene draft across A to B to A without using the inspected target", () => {
+    const a = currentWorldRun();
+    const b = currentWorldRun({ current_scene_id: "scene:tunnel" });
+    const props = { mutationStatus: "idle" as const, onMutationStatus: vi.fn(), onAuthoritativeRun: vi.fn() };
+    const view = render(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
+    fireEvent.change(sceneNoteField(), { target: { value: "North draft" } });
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(b)} />);
+    expect(screen.getByRole("button", { name: /^Scene notes — Tunnel Breach/ })).toBeInTheDocument();
+    expect(sceneNoteField()).toHaveValue("");
+    fireEvent.change(sceneNoteField(), { target: { value: "Tunnel draft" } });
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(a)} />);
+    expect(sceneNoteField()).toHaveValue("North draft");
+    view.rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(b)} />);
+    expect(sceneNoteField()).toHaveValue("Tunnel draft");
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
   it("autosaves and acknowledges a World-owned marker-v2 Scene note through the fenced writer", async () => {
     const user = userEvent.setup();
     const updated = worldRunRecord({
@@ -791,7 +840,7 @@ describe("PlayCurrentMomentCockpit", () => {
       notes_by_element_id: { "scene:tunnel": "Keep the other Scene note." },
     })} />);
 
-    await user.type(screen.getByLabelText("Scene note"), "Gate held until dawn.");
+    await user.type(sceneNoteField(), "Gate held until dawn.");
 
     await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
     expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
@@ -806,7 +855,7 @@ describe("PlayCurrentMomentCockpit", () => {
       }),
     });
     expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Gate held until dawn.");
+    expect(sceneNoteField()).toHaveValue("Gate held until dawn.");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(storedSceneNoteCache()).toBeNull();
   });
@@ -816,7 +865,7 @@ describe("PlayCurrentMomentCockpit", () => {
       notes_by_element_id: { "scene:north-gate": "Canonical Run note." },
     })} />);
 
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Canonical Run note.");
+    expect(sceneNoteField()).toHaveValue("Canonical Run note.");
     expect(screen.getByText("Saved in this Run.")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
@@ -833,10 +882,10 @@ describe("PlayCurrentMomentCockpit", () => {
       }),
     }));
     render(<WorldHarness initialRun={currentWorldRun()} />);
-    await user.type(screen.getByLabelText("Scene note"), "Submitted draft");
+    await user.type(sceneNoteField(), "Submitted draft");
 
     await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Submitted draft");
+    expect(sceneNoteField()).toHaveValue("Submitted draft");
     expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
       "Not saved. Another update changed this Run",
     );
@@ -853,7 +902,7 @@ describe("PlayCurrentMomentCockpit", () => {
       pending.push(resolve);
     }));
     render(<WorldHarness initialRun={currentWorldRun()} />);
-    const note = screen.getByLabelText("Scene note");
+    const note = sceneNoteField();
 
     await user.type(note, "First");
     await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
@@ -888,7 +937,7 @@ describe("PlayCurrentMomentCockpit", () => {
       }),
     }));
     expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Scene note")).toHaveValue("First newer edit");
+    expect(sceneNoteField()).toHaveValue("First newer edit");
   });
 
   it("restores a newer draft as unknown when reloaded during an older in-flight save", async () => {
@@ -897,7 +946,7 @@ describe("PlayCurrentMomentCockpit", () => {
       () => new Promise(() => undefined),
     );
     const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
-    const note = screen.getByLabelText("Scene note");
+    const note = sceneNoteField();
     await user.type(note, "First");
     await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
     await user.type(note, " newer edit");
@@ -907,7 +956,7 @@ describe("PlayCurrentMomentCockpit", () => {
     firstMount.unmount();
 
     render(<WorldHarness initialRun={currentWorldRun()} />);
-    expect(screen.getByLabelText("Scene note")).toHaveValue("First newer edit");
+    expect(sceneNoteField()).toHaveValue("First newer edit");
     expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
       "previous save result is unknown",
     );
@@ -931,7 +980,7 @@ describe("PlayCurrentMomentCockpit", () => {
         onAuthoritativeRun={onAuthoritativeRun}
       />,
     );
-    await user.type(screen.getByLabelText("Scene note"), "Bound to old Playable");
+    await user.type(sceneNoteField(), "Bound to old Playable");
     await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
 
     const rebound = worldRunRecord({
@@ -960,7 +1009,7 @@ describe("PlayCurrentMomentCockpit", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onAuthoritativeRun).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(sceneNoteField()).toHaveValue("");
     expect(screen.queryByText("Saved in this Run.")).not.toBeInTheDocument();
   });
 
@@ -968,7 +1017,7 @@ describe("PlayCurrentMomentCockpit", () => {
     const user = userEvent.setup();
     const initial = currentWorldRun();
     const firstMount = render(<WorldHarness initialRun={initial} />);
-    const note = screen.getByLabelText("Scene note");
+    const note = sceneNoteField();
     await user.type(note, "temporary");
     await user.clear(note);
 
@@ -983,7 +1032,7 @@ describe("PlayCurrentMomentCockpit", () => {
     });
     vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(updated);
     render(<WorldHarness initialRun={initial} />);
-    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(sceneNoteField()).toHaveValue("");
     expect(await screen.findByText("Recovered browser draft; unsaved in this Run. Save it when ready.")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
@@ -1013,15 +1062,15 @@ describe("PlayCurrentMomentCockpit", () => {
       vi.mocked(liveApi.getWorldPlayRun).mockRejectedValue(new Error("Run reload failed"));
     }
     const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
-    await user.type(screen.getByLabelText("Scene note"), "Keep this local draft");
+    await user.type(sceneNoteField(), "Keep this local draft");
     await user.click(screen.getByRole("button", { name: "Save note now" }));
     await waitFor(() => expect(storedSceneNoteCache()?.value.failure).toBe(failure));
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this local draft");
+    expect(sceneNoteField()).toHaveValue("Keep this local draft");
     expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
     firstMount.unmount();
 
     render(<WorldHarness initialRun={serverRun} />);
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this local draft");
+    expect(sceneNoteField()).toHaveValue("Keep this local draft");
     expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
       failure === "conflict" || !rereadSucceeds
         ? "Another update changed this Run"
@@ -1037,14 +1086,14 @@ describe("PlayCurrentMomentCockpit", () => {
     const user = userEvent.setup();
     const initial = currentWorldRun();
     const firstMount = render(<WorldHarness initialRun={initial} />);
-    await user.type(screen.getByLabelText("Scene note"), "Old binding draft");
+    await user.type(sceneNoteField(), "Old binding draft");
     const cached = storedSceneNoteCache();
     if (!cached) throw new Error("expected the browser draft cache");
     firstMount.unmount();
     localStorage.setItem(cached.key, JSON.stringify({ ...cached.value, playableRevision: 2 }));
 
     render(<WorldHarness initialRun={initial} />);
-    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(sceneNoteField()).toHaveValue("");
     expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
       "belongs to a different or unreadable Run version and was not restored",
     );
@@ -1071,8 +1120,8 @@ describe("PlayCurrentMomentCockpit", () => {
         onAuthoritativeRun={vi.fn()}
       />,
     );
-    await user.clear(screen.getByLabelText("Scene note"));
-    await user.type(screen.getByLabelText("Scene note"), "Local note draft");
+    await user.clear(sceneNoteField());
+    await user.type(sceneNoteField(), "Local note draft");
 
     view.rerender(
       <PlayCurrentMomentCockpit
@@ -1082,7 +1131,7 @@ describe("PlayCurrentMomentCockpit", () => {
         onAuthoritativeRun={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Local note draft");
+    expect(sceneNoteField()).toHaveValue("Local note draft");
     expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
       "Another update changed this Run",
     );
@@ -1114,15 +1163,15 @@ describe("PlayCurrentMomentCockpit", () => {
       notes_by_element_id: { "scene:north-gate": "Canonical note" },
     });
     const firstMount = render(<WorldHarness initialRun={initial} />);
-    await user.clear(screen.getByLabelText("Scene note"));
-    await user.type(screen.getByLabelText("Scene note"), "Local draft");
+    await user.clear(sceneNoteField());
+    await user.type(sceneNoteField(), "Local draft");
     const cached = storedSceneNoteCache();
     if (!cached) throw new Error("expected the browser draft cache");
     firstMount.unmount();
     localStorage.setItem(cached.key, "{invalid json");
 
     render(<WorldHarness initialRun={initial} />);
-    expect(screen.getByLabelText("Scene note")).toHaveValue("Canonical note");
+    expect(sceneNoteField()).toHaveValue("Canonical note");
     expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
       "A browser note draft could not be read",
     );
@@ -1139,7 +1188,7 @@ describe("PlayCurrentMomentCockpit", () => {
       throw new Error("quota exceeded");
     });
     const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
-    const note = screen.getByLabelText("Scene note");
+    const note = sceneNoteField();
     await user.type(note, "In-memory note");
     expect(note).toHaveValue("In-memory note");
     expect(screen.getByTestId("play-scene-note-storage-warning")).toHaveTextContent(

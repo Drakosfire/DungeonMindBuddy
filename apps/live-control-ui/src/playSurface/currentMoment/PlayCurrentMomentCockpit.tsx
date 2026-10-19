@@ -9,6 +9,7 @@ import {
 } from "../../api/liveApi";
 import type { AnyPlayRunRecord, PlayRunProgress, WorldPlayRunRecordV2 } from "../../api/types";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
+import { FloatingSceneNotes } from "./FloatingSceneNotes";
 import { SceneCard, type SceneCardChoice, type SceneCardChoiceActions, type SceneCardIdentity } from "../../shared/SceneCard";
 import {
   canonicalizePlayRunProgress,
@@ -919,67 +920,7 @@ export function PlayCurrentMomentCockpit({
                 context={<BeatContext beat={currentBeat}
                   resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)} relation="Current Beat" />}
                 choiceActions={choiceActions(decisions, true)}
-                footer={worldOwnedRun && sceneNoteScope && sceneNoteId ? (
-                <section className="play-notes" data-testid="play-scene-note">
-                  <label htmlFor={`play-scene-note-${run.run_id}-${sceneNoteId}`}>Scene note</label>
-                  <textarea
-                    id={`play-scene-note-${run.run_id}-${sceneNoteId}`}
-                    value={sceneNoteValue}
-                    aria-describedby="play-scene-note-status"
-                    onChange={(event) => changeSceneNote(event.target.value)}
-                  />
-                  <p
-                    className="play-muted"
-                    role="status"
-                    aria-live="polite"
-                    data-testid="play-scene-note-status"
-                  >
-                    {activeSceneNoteDraft?.state === "saving"
-                      ? "Saving note to this Run…"
-                      : sceneNoteChangedOnServer || activeSceneNoteDraft?.failure === "conflict"
-                        ? "Not saved. Another update changed this Run; your draft is kept. Review before retrying."
-                        : activeSceneNoteDraft?.failure === "unknown"
-                          ? "Not saved. The previous save result is unknown; your draft is kept and was not resent."
-                          : activeSceneNoteDraft?.failure === "rejected"
-                            ? "Not saved. The Run rejected this note; your draft is kept. Retry is manual."
-                            : activeSceneNoteDraft?.failure === "unconfirmed"
-                              ? "Not saved. The Run did not confirm this note; your draft is kept. Retry is manual."
-                              : activeSceneNoteDraft?.recovered
-                                ? "Recovered browser draft; unsaved in this Run. Save it when ready."
-                                : activeSceneNoteDraft
-                                  ? "Unsaved draft; autosave starts after a pause."
-                                  : sceneNoteSaved
-                                    ? "Saved in this Run."
-                                    : "No saved note."}
-                  </p>
-                  {activeSceneNoteDraft ? (
-                    <button
-                      type="button"
-                      disabled={saving || (mutationStatus !== "idle" && !exactRereadSucceeded)}
-                      onClick={() => saveSceneNote(sceneNoteScope, true)}
-                    >
-                      {activeSceneNoteDraft.state === "saving"
-                        ? "Saving note…"
-                        : sceneNoteChangedOnServer
-                          ? "Save note after review"
-                          : activeSceneNoteDraft.state === "failed"
-                          ? activeSceneNoteDraft.recovered && activeSceneNoteDraft.failure === "recovered"
-                            ? "Save recovered note"
-                            : "Retry note save"
-                            : "Save note now"}
-                    </button>
-                  ) : null}
-                  {activeSceneNoteStorageWarning ? (
-                    <p
-                      className="play-banner"
-                      role="alert"
-                      data-testid="play-scene-note-storage-warning"
-                    >
-                      {activeSceneNoteStorageWarning}
-                    </p>
-                  ) : null}
-                </section>
-                ) : null}
+
               />
             </article>
           ) : null}
@@ -1100,6 +1041,77 @@ export function PlayCurrentMomentCockpit({
           onInspect={openInspect}
         />
       </div>
+
+      {worldOwnedRun ? (
+        <FloatingSceneNotes sceneTitle={currentScene?.title ?? null}
+          available={Boolean(sceneNoteScope && sceneNoteId)} suspended={compactOverlayOpen}
+          status={activeSceneNoteStorageWarning || activeSceneNoteDraft?.failure || sceneNoteChangedOnServer
+            ? "Needs attention" : activeSceneNoteDraft?.state === "saving" ? "Saving…"
+              : activeSceneNoteDraft ? "Unsaved" : sceneNoteSaved ? "Saved" : "No note yet"}>
+          {sceneNoteScope && sceneNoteId ? (
+<section className="play-notes" data-testid="play-scene-note">
+                  <label htmlFor={`play-scene-note-${run.run_id}-${sceneNoteId}`}>Scene note</label>
+                  <textarea
+                    id={`play-scene-note-${run.run_id}-${sceneNoteId}`}
+                    value={sceneNoteValue}
+                    aria-describedby="play-scene-note-status"
+                    onChange={(event) => changeSceneNote(event.target.value)}
+                  />
+                  <p
+                    className="play-muted"
+                    role="status"
+                    aria-live="polite"
+                    id="play-scene-note-status"
+                    data-testid="play-scene-note-status"
+                  >
+                    {activeSceneNoteDraft?.state === "saving"
+                      ? "Saving note to this Run…"
+                      : sceneNoteChangedOnServer || activeSceneNoteDraft?.failure === "conflict"
+                        ? "Not saved. Another update changed this Run; your draft is kept. Review before retrying."
+                        : activeSceneNoteDraft?.failure === "unknown"
+                          ? "Not saved. The previous save result is unknown; your draft is kept and was not resent."
+                          : activeSceneNoteDraft?.failure === "rejected"
+                            ? "Not saved. The Run rejected this note; your draft is kept. Retry is manual."
+                            : activeSceneNoteDraft?.failure === "unconfirmed"
+                              ? "Not saved. The Run did not confirm this note; your draft is kept. Retry is manual."
+                              : activeSceneNoteDraft?.recovered
+                                ? "Recovered browser draft; unsaved in this Run. Save it when ready."
+                                : activeSceneNoteDraft
+                                  ? "Unsaved draft; autosave starts after a pause."
+                                  : sceneNoteSaved
+                                    ? "Saved in this Run."
+                                    : "No saved note."}
+                  </p>
+                  {activeSceneNoteDraft ? (
+                    <button
+                      type="button"
+                      disabled={saving || (mutationStatus !== "idle" && !exactRereadSucceeded)}
+                      onClick={() => saveSceneNote(sceneNoteScope, true)}
+                    >
+                      {activeSceneNoteDraft.state === "saving"
+                        ? "Saving note…"
+                        : sceneNoteChangedOnServer
+                          ? "Save note after review"
+                          : activeSceneNoteDraft.state === "failed"
+                          ? activeSceneNoteDraft.recovered && activeSceneNoteDraft.failure === "recovered"
+                            ? "Save recovered note"
+                            : "Retry note save"
+                            : "Save note now"}
+                    </button>
+                  ) : null}
+                  {activeSceneNoteStorageWarning ? (
+                    <p
+                      className="play-banner"
+                      role="alert"
+                      data-testid="play-scene-note-storage-warning"
+                    >
+                      {activeSceneNoteStorageWarning}
+                    </p>
+                  ) : null}
+                </section>
+          ) : null}
+        </FloatingSceneNotes>
+      ) : null}
     </section>
   );
 }
