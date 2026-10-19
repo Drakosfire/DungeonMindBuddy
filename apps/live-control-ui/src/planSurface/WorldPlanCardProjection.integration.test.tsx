@@ -94,7 +94,7 @@ function returnToCardOutline() {
   if (reader) {
     const sceneSelect = screen.queryByRole("combobox", { name: "Plan scene" });
     if (sceneSelect) fireEvent.change(sceneSelect, { target: { value: "" } });
-    else if (screen.queryByRole("navigation", { name: "Plan card deck" })) fireEvent.click(screen.getByRole("button", { name: "Scene outline", exact: true }));
+    else if (screen.queryByRole("navigation", { name: "Contents" })) fireEvent.click(screen.getByRole("button", { name: "Scene outline", exact: true }));
     else fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   }
   return screen.getByTestId("world-plan-cards");
@@ -1057,7 +1057,7 @@ it("navigates the thumbnail deck across Beats and retains the scene through Docu
   const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(cards).toBeEnabled());
   fireEvent.click(cards);
-  const deck = screen.getByRole("navigation", { name: "Plan card deck" });
+  const deck = screen.getByRole("navigation", { name: "Contents" });
   expect(screen.queryByRole("combobox", { name: "Plan scene" })).toBeNull();
   expect(screen.getByRole("combobox", { name: "Plan document" })).toBeInTheDocument();
   expect(within(deck).getByRole("button", { name: "Show scene: Lantern Gate" })).toHaveAttribute("aria-current", "true");
@@ -1074,7 +1074,7 @@ it("navigates the thumbnail deck across Beats and retains the scene through Docu
   expect(scrollTargets.at(-1)?.getAttribute("data-dmb-playable-id")).toBe("scene:regent");
   expect(screen.getByRole("combobox", { name: "Plan scene" })).toHaveValue("scene:regent");
   fireEvent.click(cards);
-  expect(screen.getByRole("navigation", { name: "Plan card deck" })).toBe(deck);
+  expect(screen.getByRole("navigation", { name: "Contents" })).toBe(deck);
   expect(thumbnailList.scrollTop).toBe(80);
   expect(within(deck).getByRole("button", { name: "Show scene: Glass Regent" })).toHaveAttribute("aria-current", "true");
   fireEvent.click(within(deck).getByRole("button", { name: "Show scene: Lantern Gate" }));

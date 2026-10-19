@@ -1,3 +1,4 @@
+import { Contents } from "../../shared/Contents";
 import type { RefObject } from "react";
 
 import type {
@@ -35,75 +36,20 @@ export function PlaySceneOutline({
   onInspect: (scene: NativeRunbookSceneV2) => void;
   toggleRef: RefObject<HTMLButtonElement | null>;
 }) {
-  return (
-    <aside
-      className={`play-cockpit-rail play-outline${collapsed ? " is-collapsed" : ""}`}
-      data-testid="play-beat-context"
-    >
-      <button
-        type="button"
-        className="play-rail-toggle"
-        data-testid="play-beat-context-toggle"
-        ref={toggleRef}
-        aria-expanded={!collapsed}
-        aria-controls="play-outline-body"
-        aria-label={`${collapsed ? "Expand" : "Collapse"} Scene outline`}
-        onClick={onToggle}
-      >
-        Outline
-      </button>
-      {collapsed ? null : (
-        <div id="play-outline-body" className="play-rail-body" data-testid="play-outline-body">
-          <nav aria-label="Scenes in this Run" className="play-outline-groups">
-            {deck.beats.map((beat) => (
-              <section className="play-outline-group" key={beat.id} data-beat-id={beat.id}>
-                <h2 data-testid={beat.id === deck.currentBeatId ? "play-beat-context-title" : undefined}>
-                  <span>{beat.title}</span>
-                  {beat.id === deck.currentBeatId ? (
-                    <span className="play-outline-beat-state">Current</span>
-                  ) : null}
-                </h2>
-                {beat.scenes.length === 0 ? (
-                  <p className="play-muted">No scenes</p>
-                ) : (
-                  <ul className="play-outline-scenes">
-                    {beat.scenes.map((scene) => {
-                      const isCurrent = scene.id === currentSceneId;
-                      const isInspected = scene.id === inspectedSceneId && !isCurrent;
-                      return (
-                        <li
-                          key={scene.id}
-                          data-testid={isCurrent ? "play-current-scene" : undefined}
-                          data-current={isCurrent ? "true" : "false"}
-                        >
-                          <button
-                            type="button"
-                            className="play-outline-scene"
-                            data-testid="play-outline-scene"
-                            data-scene-id={scene.id}
-                            data-current={isCurrent ? "true" : "false"}
-                            data-inspecting={isInspected ? "true" : "false"}
-                            aria-current={isCurrent ? "location" : undefined}
-                            aria-pressed={isInspected}
-                            onClick={() => onInspect(scene)}
-                          >
-                            <span className="play-outline-scene-title">{scene.title}</span>
-                            <span className="play-outline-scene-state">
-                              {isCurrent ? "Current" : isInspected ? "Viewing" : ""}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
-            ))}
-          </nav>
-        </div>
-      )}
-    </aside>
-  );
+  const entries = deck.beats.flatMap(beat => beat.scenes.map(scene => ({
+    ...scene, groupTitle: beat.title, current: scene.id === currentSceneId,
+  })));
+  return <aside className={`play-cockpit-rail play-outline${collapsed ? " is-collapsed" : ""}`}
+    data-testid="play-beat-context">
+    <button type="button" className="play-rail-toggle" data-testid="play-beat-context-toggle"
+      ref={toggleRef} aria-expanded={!collapsed} aria-controls="play-outline-body"
+      aria-label={`${collapsed ? "Expand" : "Collapse"} Contents`} onClick={onToggle}>Contents</button>
+    <div id="play-outline-body" className="play-rail-body" data-testid="play-outline-body" hidden={collapsed}>
+      <Contents entries={entries} selectedId={inspectedSceneId ?? currentSceneId}
+        visible={!collapsed} expanded={!collapsed} showToggle={false}
+        onSelect={id => { const scene = sceneInAnyBeat(deck, id); if (scene) onInspect(scene); }} />
+    </div>
+  </aside>;
 }
 
 export function PlayRecordedOutcomes({
