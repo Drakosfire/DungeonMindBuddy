@@ -1907,3 +1907,13 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
   });
 });
+
+
+it("clears the note gate when the current moment changes from a scene to a beat only", async () => {
+  const notify = vi.fn();
+  const props = { mutationStatus: "idle" as const, onMutationStatus: vi.fn(), onAuthoritativeRun: vi.fn(), onNoteUnsubmittedChange: notify };
+  const { rerender } = render(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(currentWorldRun())} />);
+  await waitFor(() => expect(notify).toHaveBeenLastCalledWith(false));
+  rerender(<PlayCurrentMomentCockpit {...props} deck={readyWorldDeck(currentWorldRun({ current_scene_id: null }))} />);
+  await waitFor(() => expect(notify).toHaveBeenLastCalledWith(false));
+});

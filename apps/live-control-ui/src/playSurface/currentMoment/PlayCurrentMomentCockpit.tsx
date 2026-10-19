@@ -474,7 +474,7 @@ export function PlayCurrentMomentCockpit({
   const sceneNoteSaved = sceneNoteId != null
     && Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, sceneNoteId);
   useEffect(() => {
-    onNoteUnsubmittedChange?.(sceneNoteScope !== hydratedNoteScope || activeSceneNoteDraft != null);
+    onNoteUnsubmittedChange?.(sceneNoteScope != null && (sceneNoteScope !== hydratedNoteScope || activeSceneNoteDraft != null));
     return () => onNoteUnsubmittedChange?.(false);
   }, [activeSceneNoteDraft, sceneNoteScope, hydratedNoteScope, run.run_revision, onNoteUnsubmittedChange]);
   const sceneNoteChangedOnServer = activeSceneNoteDraft != null
