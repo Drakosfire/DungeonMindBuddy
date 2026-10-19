@@ -12,6 +12,9 @@ import {
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
   listWorldPlayRuns,
+  listWorldOwnedPlans,
+  listWorldOwnedRunbooks,
+  listWorkspaceDocuments,
   listPlayRuns,
   putWorldPlayRunRebase,
   putPlayActiveRun,
@@ -335,17 +338,50 @@ function PlayChooser({
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<AnyPlayRunRecord[]>([]);
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTitles({});
+    setActiveId(null);
+    const sources = selectedWorldId
+      ? [listWorldOwnedPlans(selectedWorldId), listWorldOwnedRunbooks(selectedWorldId)]
+      : [listWorkspaceDocuments()];
+    void Promise.allSettled(sources).then(results => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const result of results) {
+        if (result.status !== "fulfilled" || !result.value) continue;
+        for (const record of result.value.records) {
+          if (selectedWorldId && (!("world_id" in record) || record.world_id !== selectedWorldId)) continue;
+          if (record.title.trim()) next[record.document_id] = record.title;
+        }
+      }
+      setTitles(next);
+    });
+    void Promise.resolve(continuityWarning ? null : selectedWorldId ? getWorldPlayActiveRun(selectedWorldId) : getPlayActiveRun())
+      .then(active => {
+        if (cancelled || !active) return;
+        if (selectedWorldId && !isWorldPlayActiveRunState(active, selectedWorldId)) return;
+        setActiveId(active.run_id);
+      }).catch(() => { /* The list remains usable without Resume metadata. */ });
+    return () => { cancelled = true; };
+  }, [selectedWorldId, continuityWarning]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setStatus("loading");
+      setRecords([]);
       try {
         const listed = selectedWorldId
           ? await listWorldPlayRuns(selectedWorldId)
           : await listPlayRuns();
         if (cancelled) return;
-        setRecords(listed.records);
+        setRecords(listed.records.filter(record => selectedWorldId
+          ? record.schema_version === "dmb_world_play_run_record_v2" && record.world_id === selectedWorldId
+          : record.schema_version === "dmb_play_run_record_v1"));
         setStatus("ready");
       } catch (error) {
         if (cancelled) return;
@@ -368,67 +404,68 @@ function PlayChooser({
     };
   }, [selectedWorldId]);
 
+  const ordered = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const matching = initialPlanId ? ordered.filter(record => record.playable_artifact_id === initialPlanId) : ordered;
+  const other = initialPlanId ? ordered.filter(record => record.playable_artifact_id !== initialPlanId) : [];
+  const recommended = matching.find(record => record.run_id === activeId) ?? matching[0];
+  const remaining = matching.filter(record => record.run_id !== recommended?.run_id);
+  const dateLabel = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleString(undefined, {
+      month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+    });
+  };
+  const title = (record: AnyPlayRunRecord) => titles[record.playable_artifact_id] || "Saved session";
+  const sessionLink = (record: AnyPlayRunRecord, primary = false) => {
+    const noteCount = Object.values(record.progress.notes_by_element_id).filter(note => note.trim()).length;
+    return <li key={record.run_id}>
+      <a className={primary ? "play-session-resume" : undefined}
+        data-testid={`play-session-${record.run_id}`} href={playHref({ run: record.run_id })}
+        onClick={event => { event.preventDefault(); navigateToRun(record.run_id); }}>
+        <strong>{primary ? "Resume session" : "Open session"} · {title(record)}</strong>
+        <span className="play-muted">Last played {dateLabel(record.updated_at)} · {noteCount} saved {noteCount === 1 ? "note" : "notes"}</span>
+      </a>
+      <details className="play-session-details"><summary>Session details</summary>
+        <p>Started {dateLabel(record.created_at)} · Source version {record.playable_revision}</p>
+        <code>{record.run_id}</code>
+      </details>
+    </li>;
+  };
+
   return (
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
       <header>
-        <p className="play-kicker">Play</p>
-        <h1>Choose a Run</h1>
-        <p className="play-muted">
-          {initialPlanId
-            ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
-            : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
-        </p>
-        {continuityWarning ? (
-          <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">
-            {continuityWarning}
-          </p>
-        ) : null}
+        <h1>{initialPlanId && titles[initialPlanId] ? titles[initialPlanId] : "Your sessions"}</h1>
+        <p className="play-muted">Pick up where you left off. Your scene notes and choices stay with the session.</p>
+        {continuityWarning ? <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">{continuityWarning}</p> : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
-      <section data-testid="play-existing-runs">
-        <h2>Existing Runs</h2>
-        {status === "loading" ? <p>Loading Runs…</p> : null}
-        {status === "recovery_pending" ? (
-          <p role="alert">Run recovery is pending. Play cannot list or mutate Runs until that recovery finishes.</p>
-        ) : null}
-        {status === "unavailable" ? (
-          <p role="alert">{detail ?? "Play Runs are unavailable."}</p>
-        ) : null}
-        {status === "ready" && records.length === 0 ? (
-          <p className="play-muted">No durable Runs are available.</p>
-        ) : null}
-        {status === "ready" && records.length > 0 ? (
-          <ul className="play-run-list">
-            {records.map((record) => (
-              <li key={record.run_id}>
-                <a
-                  href={playHref({ run: record.run_id })}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    navigateToRun(record.run_id);
-                  }}
-                >
-                  <strong>{record.run_id}</strong>
-                  <span className="play-muted">
-                    {" "}
-                    · {record.schema_version === "dmb_world_play_run_record_v2"
-                      ? `World ${record.world_id}`
-                      : `campaign ${record.campaign_id}`} · revision {record.playable_revision}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      <section data-testid="play-existing-runs" aria-label="Saved sessions">
+        {status === "loading" ? <p>Loading sessions…</p> : null}
+        {status === "recovery_pending" ? <p role="alert">Your sessions are being recovered. Please try again when recovery finishes.</p> : null}
+        {status === "unavailable" ? <p role="alert">{detail ?? "Saved sessions are unavailable."}</p> : null}
+        {status === "ready" && matching.length === 0 ? <p className="play-muted">
+          {initialPlanId ? "You haven’t played this Plan yet. Start a session below." : "No saved sessions yet. Start your first session below."}
+        </p> : null}
+        {status === "ready" && recommended ? <ul className="play-run-list">{sessionLink(recommended, true)}</ul> : null}
+        {status === "ready" && remaining.length > 0 ? <details className="play-session-group">
+          <summary>Other sessions ({remaining.length})</summary>
+          <ul className="play-run-list">{remaining.map(record => sessionLink(record))}</ul>
+        </details> : null}
+        {status === "ready" && other.length > 0 ? <details className="play-session-group">
+          <summary>Sessions from other Plans ({other.length})</summary>
+          <ul className="play-run-list">{other.map(record => sessionLink(record))}</ul>
+        </details> : null}
       </section>
-      <StartRunPanel
-        key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "runbook-chooser"}`}
-        onStarted={navigateToRun}
-        productCampaignId={productCampaignId}
-        verifiedWorldId={selectedWorldId}
-        initialPlanId={selectedWorldId ? initialPlanId : null}
-        initialPlanRevisionPin={selectedWorldId ? initialPlanRevisionPin : null}
-      />
+      <details className="play-session-group" open={status === "ready" && matching.length === 0}>
+        <summary>Start a new session</summary>
+        <StartRunPanel
+          key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "runbook-chooser"}`}
+          onStarted={navigateToRun} productCampaignId={productCampaignId} verifiedWorldId={selectedWorldId}
+          initialPlanId={selectedWorldId ? initialPlanId : null}
+          initialPlanRevisionPin={selectedWorldId ? initialPlanRevisionPin : null}
+        />
+      </details>
     </main>
   );
 }
@@ -883,6 +920,7 @@ export function PlaySurfacePage() {
         currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
+          key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "all"}`}
           continuityWarning={detail}
           initialPlanId={initialPlanId}
           initialPlanRevisionPin={initialPlanRevisionPin}

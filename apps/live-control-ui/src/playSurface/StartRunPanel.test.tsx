@@ -629,7 +629,8 @@ describe("StartRunPanel", () => {
     render(<StartRunPanel onStarted={onStarted} verifiedWorldId={WORLD_ID} />);
 
     const runbookButton = await screen.findByTestId(`play-start-runbook-${DOC_A}`);
-    expect(runbookButton).toHaveTextContent(`World ${WORLD_ID}`);
+    expect(runbookButton).toHaveTextContent("World North Gate");
+    expect(runbookButton).not.toHaveTextContent(WORLD_ID);
     await user.click(runbookButton);
     await user.click(screen.getByTestId("play-start-run-submit"));
 
@@ -671,8 +672,8 @@ describe("StartRunPanel", () => {
       />,
     );
 
-    expect(await screen.findByTestId("play-start-selected-plan")).toHaveTextContent(DOC_A);
-    expect(screen.getByTestId("play-start-run-submit")).toHaveTextContent("Start Run from Plan");
+    expect(await screen.findByTestId("play-start-selected-plan")).toHaveTextContent("World Plan");
+    expect(screen.getByTestId("play-start-run-submit")).toHaveTextContent("Start session from Plan");
     await user.click(screen.getByTestId("play-start-run-submit"));
 
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));

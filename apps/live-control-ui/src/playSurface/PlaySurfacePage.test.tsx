@@ -13,6 +13,8 @@ import {
   getWorldPlayRunReferenceManifest,
   listPlayRuns,
   listWorldPlayRuns,
+  listWorldOwnedPlans,
+  listWorldOwnedRunbooks,
   putPlayActiveRun,
   putWorldPlayActiveRun,
   putWorldPlayRunProgress,
@@ -37,6 +39,8 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getWorldPlayRun: vi.fn(),
   getWorldPlayRunReferenceManifest: vi.fn(),
   listWorldPlayRuns: vi.fn(),
+  listWorldOwnedPlans: vi.fn(),
+  listWorldOwnedRunbooks: vi.fn(),
   putWorldPlayRunRebase: vi.fn(),
   putPlayActiveRun: vi.fn(),
   putWorldPlayActiveRun: vi.fn(),
@@ -168,6 +172,8 @@ function mockReadyWorldRuns(runIds: string[] = [runId]) {
 describe("Play selected-World admission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [] });
+    vi.mocked(listWorldOwnedRunbooks).mockResolvedValue({ schema_version: "dmb_world_owned_runbooks_list_v2", scope_mode: "world", world_id: "world-b", records: [] });
     selectedWorldHarness.worldId = "world-b";
     vi.mocked(getWorldOwnedPlanCommittedRevision).mockRejectedValue(new LiveApiError("Plan revision not found", 404));
     vi.mocked(listPlayRuns).mockResolvedValue({ records: [] } as Awaited<ReturnType<typeof listPlayRuns>>);
@@ -176,6 +182,57 @@ describe("Play selected-World admission", () => {
       records: [],
     });
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+  });
+
+  it("puts the selected Plan's active session first with its title and notes, without creating anything", async () => {
+    window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${artifactId}`);
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun(runId));
+    const active = worldRun({ progress: { ...worldRun().progress, notes_by_element_id: { "scene:gate": "The gate is sealed", "scene:empty": " " } } });
+    const newer = worldRun({ run_id: secondRunId, updated_at: "2026-10-18T18:10:00Z" });
+    const other = worldRun({ run_id: "ffffffff-ffff-4fff-8fff-ffffffffffff", playable_artifact_id: newerWorkRevisionId, updated_at: "2026-10-19T00:00:00Z" });
+    vi.mocked(listWorldPlayRuns).mockResolvedValue({ schema_version: "dmb_world_play_runs_list_v2", records: [other, newer, active] });
+    vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [{
+      schema_version: "dmb_world_owned_plan_record_v2", scope_mode: "world", document_id: artifactId,
+      title: "Approach to Edge", campaign_id: null, world_id: "world-b", target_session: null,
+      kind: "plan", target_relpath: null, status: "active", content_status: "committed", revision: 1,
+      created_at: active.created_at, updated_at: active.updated_at,
+    }] });
+    render(<PlaySurfacePage />);
+    expect(await screen.findByRole("heading", { name: "Approach to Edge" })).toBeInTheDocument();
+    const resume = await screen.findByRole("link", { name: /Resume session · Approach to Edge/ });
+    expect(resume).toHaveAttribute("href", expect.stringContaining(runId));
+    expect(resume).toHaveTextContent("1 saved note");
+    expect(resume).toHaveTextContent("Last played");
+    expect(resume).not.toHaveTextContent(runId);
+    expect(screen.getByText("Other sessions (1)").parentElement).not.toHaveAttribute("open");
+    expect(screen.getByText("Sessions from other Plans (1)").parentElement).not.toHaveAttribute("open");
+    expect(screen.getByText("Start a new session").parentElement).not.toHaveAttribute("open");
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("link", { name: /Resume session/ })).toHaveLength(1);
+  });
+
+  it("keeps sessions usable when titles and active metadata fail, using the newest matching session", async () => {
+    window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${artifactId}`);
+    vi.mocked(getWorldPlayActiveRun).mockRejectedValue(new Error("metadata unavailable"));
+    vi.mocked(listWorldOwnedPlans).mockRejectedValue(new Error("titles unavailable"));
+    vi.mocked(listWorldOwnedRunbooks).mockRejectedValue(new Error("titles unavailable"));
+    vi.mocked(listWorldPlayRuns).mockResolvedValue({ schema_version: "dmb_world_play_runs_list_v2", records: [worldRun(), worldRun({ run_id: secondRunId, updated_at: "2026-10-18T18:10:00Z" })] });
+    render(<PlaySurfacePage />);
+    const resume = await screen.findByRole("link", { name: /Resume session · Saved session/ });
+    expect(resume).toHaveAttribute("href", expect.stringContaining(secondRunId));
+    expect(resume).not.toHaveTextContent(secondRunId);
+    expect(screen.queryByText("Choose a Run")).not.toBeInTheDocument();
+  });
+
+  it("does not recommend an unrelated session when the selected Plan has never been played", async () => {
+    window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${newerWorkRevisionId}`);
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun(runId));
+    vi.mocked(listWorldPlayRuns).mockResolvedValue({ schema_version: "dmb_world_play_runs_list_v2", records: [worldRun()] });
+    render(<PlaySurfacePage />);
+    expect(await screen.findByText("You haven’t played this Plan yet. Start a session below.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Resume session/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Start a new session").parentElement).toHaveAttribute("open");
   });
 
   it("rejects a foreign World V2 Run without using campaign V1", async () => {
@@ -212,8 +269,9 @@ describe("Play selected-World admission", () => {
     const user = userEvent.setup();
     render(<PlaySurfacePage />);
 
-    const listedRun = await screen.findByRole("link", { name: new RegExp(runId) });
-    expect(listedRun).toHaveTextContent("World world-b");
+    const listedRun = await screen.findByTestId(`play-session-${runId}`);
+    expect(listedRun).toHaveTextContent("Resume session");
+    expect(listedRun).not.toHaveTextContent(runId);
     await user.click(listedRun);
 
     const ready = await screen.findByTestId("play-surface-ready");
@@ -283,7 +341,7 @@ describe("Play selected-World admission", () => {
     expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTestId("play-start-new-run"));
-    const firstRun = await screen.findByRole("link", { name: new RegExp(runId) });
+    const firstRun = await screen.findByTestId(`play-session-${runId}`);
     await user.click(firstRun);
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
 
@@ -305,7 +363,7 @@ describe("Play selected-World admission", () => {
     expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
 
     await user.click(screen.getByTestId("play-start-new-run"));
-    await user.click(await screen.findByRole("link", { name: new RegExp(runId) }));
+    await user.click(await screen.findByTestId(`play-session-${runId}`));
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
 
     await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2));
@@ -355,7 +413,7 @@ describe("Play selected-World admission", () => {
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
     await user.click(screen.getByTestId("play-start-new-run"));
-    await user.click(await screen.findByRole("link", { name: new RegExp(secondRunId) }));
+    await user.click(await screen.findByTestId(`play-session-${secondRunId}`));
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
 
     await act(async () => {
