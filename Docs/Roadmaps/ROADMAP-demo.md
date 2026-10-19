@@ -98,7 +98,13 @@ focused existing-scene editing through each surface's owning writer. The design
 was independently reviewed and merged as #1457. The first bounded navigation/
 continuity slice is now [settled](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md)
 after #1458 review, merge and PRIME's final delivery/preservation checks. Its source
-leases are released. Direct focused-card editing in Plan is the next proposed
+leases are released. The follow-up
+[thumbnail deck](../Plans/HANDOFF-CARDS-plan-thumbnail-deck.md) is also settled:
+#1460 merged `4a6d758b` after Architecture Cycle 2 PASS and PRIME's desktop/narrow,
+14-scene draft/media continuity and protected-state acceptance. Cards uses the
+vertical deck; Plan selection remains in the navbar. One scene is one deck entry;
+this does not deliver direct editing or dense-scene facets. Its leases are released.
+Direct focused-card editing in Plan is the next proposed
 capability, followed by the Play adapter; neither is authorized by this settlement.
 
 ## Other candidates for a later operator decision
