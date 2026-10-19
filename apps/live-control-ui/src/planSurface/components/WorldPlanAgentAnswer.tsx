@@ -7,7 +7,7 @@ import "./WorldPlanAgentAnswer.css";
 type MarkdownNode = Root | RootContent | { type: string; value?: string; children?: MarkdownNode[]; position?: { start: { offset?: number }; end: { offset?: number } } };
 
 /** Conversation is read-only: editor round-trip admission must not flatten replies. */
-function renderMarkdown(root: Root, source: string): ReactNode {
+function renderMarkdown(root: Root, source: string, allowedInternalLinks: ReadonlySet<string>): ReactNode {
   function literal(node: MarkdownNode): string {
     const start = node.position?.start.offset;
     const end = node.position?.end.offset;
@@ -70,7 +70,7 @@ function renderMarkdown(root: Root, source: string): ReactNode {
         if (!("url" in node)) return literal(node);
         if (node.url.startsWith("dmb-node:")) return <span key={key} className="graph-node-reference-pill recap-node-token" data-plan-card-reference="graph">{children(node)}</span>;
         const kind = classifyLinkUrl(node.url);
-        return kind === "safe_external" || kind === "safe_mailto" || kind === "fragment"
+        return kind === "safe_external" || kind === "safe_mailto" || kind === "fragment" || (node.url.startsWith("/play?") && allowedInternalLinks.has(node.url))
           ? <a key={key} href={node.url.trim()} rel="noopener noreferrer">{children(node)}</a>
           : <span key={key}>{literal(node)}</span>;
       }
@@ -81,15 +81,17 @@ function renderMarkdown(root: Root, source: string): ReactNode {
   return render(root, 0);
 }
 
-export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ answer, className }: {
+export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ answer, className, allowedInternalLinks = [] }: {
   answer: string;
   className?: string;
+  /** Exact server-validated session citations; other relative links stay inert. */
+  allowedInternalLinks?: readonly string[];
   /** Evidence boundaries are metadata; parse the whole answer to preserve Markdown blocks. */
   displaySegments?: readonly string[];
 }) {
   const content = useMemo(() => {
-    try { return renderMarkdown(parseMarkdownAst(answer), answer); }
+    try { return renderMarkdown(parseMarkdownAst(answer), answer, new Set(allowedInternalLinks)); }
     catch { return <p style={{ whiteSpace: "pre-wrap" }}>{answer}</p>; }
-  }, [answer]);
+  }, [answer, allowedInternalLinks]);
   return <div className={["world-plan-agent-answer", className].filter(Boolean).join(" ")}>{content}</div>;
-}, (previous, next) => previous.answer === next.answer && previous.className === next.className);
+}, (previous, next) => previous.answer === next.answer && previous.className === next.className && previous.allowedInternalLinks?.join("\n") === next.allowedInternalLinks?.join("\n"));

@@ -9,6 +9,16 @@ afterEach(() => {
 });
 
 describe("WorldPlanAgentAnswer", () => {
+  it("activates only admitted session citations and keeps other local or unsafe links inert", () => {
+    const url="/play?world=one&run=11111111-1111-4111-8111-111111111111&evidence_revision=54";
+    const answer=`[Saved reflections](${url}) [Other page](/build?world=other) [Unsafe](javascript:alert)`;
+    const view=render(<WorldPlanAgentAnswer answer={answer}/>);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    view.rerender(<WorldPlanAgentAnswer answer={answer} allowedInternalLinks={[url,"javascript:alert"]}/>);
+    expect(screen.getByRole("link",{name:"Saved reflections"})).toHaveAttribute("href",url);
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
   it("renders paragraphs, bold emphasis, lists, and embedded reference labels", () => {
     const answer = [
       "**Saved Plan:** The party reaches the warehouse.",
