@@ -58,7 +58,7 @@ export function PlanDocumentSelector({
   const selectProps = {
     id: "plan-document-select",
     "data-testid": "plan-document-select",
-    "aria-label": "Prep document",
+    "aria-label": "Plan document",
     value: activeDocument.documentId,
     onChange: (event: ChangeEvent<HTMLSelectElement>) => onSelect(event.target.value),
     disabled: listStatus !== "ready",
@@ -89,7 +89,7 @@ export function PlanDocumentSelector({
       aria-busy={switching}
     >
       <label className="plan-document-selector__label" htmlFor="plan-document-select">
-        Prep document
+        Plan document
       </label>
       <select {...selectProps}>
         {options.map((option) => (

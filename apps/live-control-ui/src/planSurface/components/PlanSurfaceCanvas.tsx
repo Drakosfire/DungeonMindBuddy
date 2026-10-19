@@ -1,3 +1,4 @@
+import { LegacyPlanNavbarActions } from "./LegacyPlanNavbarActions";
 import {
   useCallback,
   useEffect,
@@ -707,6 +708,7 @@ function PlanDurableSurfaceCanvas({
         </section>
       )}
     >
+      <LegacyPlanNavbarActions authoring={authoring} liveSession={sessionDescriptor.liveSession} memorySession={sessionDescriptor.memorySession} />
       {editorBody}
     </PlanSurfaceCanvasFrame>
   );

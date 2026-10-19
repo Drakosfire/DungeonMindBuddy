@@ -1,3 +1,4 @@
+import { usePublishCampaignTrashScope } from "../../workspaceLifecycle/campaignTrashScope";
 import { SurfaceNavbarIconButton } from "../../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useMemo, type ReactNode } from "react";
 
@@ -5,7 +6,6 @@ import type { WorkspaceDocumentRecord, WorldOwnedPlanRecordV2 } from "../../api/
 import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import {
-  SurfaceContextBadge,
   SurfaceContextModule,
   SurfaceContextSelect,
   SurfaceContextStatus,
@@ -114,11 +114,11 @@ export function PlanSurfaceContext({
   activeDocument,
   switching,
   switchError,
-  saveStatusLabel = null,
   onSelect,
   onRetryList,
   createControlProps,
 }: PlanSurfaceContextProps) {
+  usePublishCampaignTrashScope(campaignId);
   const surfaceIdentity = useMemo(() => {
     if (activeDocument) {
       return buildPlanSurfaceIdentity({
@@ -136,7 +136,7 @@ export function PlanSurfaceContext({
 
   const content = useMemo(
     () => (
-      <SurfaceContextModule label="PREP" className="plan-surface-context">
+      <SurfaceContextModule className="plan-surface-context">
         <div className="plan-surface-context__row">
           {activeDocument ? (
             <>
@@ -154,21 +154,10 @@ export function PlanSurfaceContext({
                 onSelect={onSelect}
                 onRetryList={onRetryList}
               />
-              {activeDocument.targetSession != null ? (
-                <SurfaceContextBadge>S{activeDocument.targetSession}</SurfaceContextBadge>
-              ) : null}
-              {saveStatusLabel ? (
-                <SurfaceContextStatus
-                  data-testid="plan-canvas-save-status"
-                  className="plan-surface-context__save-status"
-                  tone={/unsaved|error|fail/i.test(saveStatusLabel) ? "warning" : "neutral"}
-                >
-                  {saveStatusLabel}
-                </SurfaceContextStatus>
-              ) : null}
+
             </>
           ) : (
-            <SurfaceContextValue>No prep loaded</SurfaceContextValue>
+            <SurfaceContextValue>No Plan loaded</SurfaceContextValue>
           )}
           <PlanDocumentCreateControl
             {...createControlProps}
@@ -187,7 +176,7 @@ export function PlanSurfaceContext({
         {switching ? <SurfaceContextStatus>Switching…</SurfaceContextStatus> : null}
         {switchError ? (
           <SurfaceContextStatus tone="error">
-            {switchError} Try selecting another prep document.
+            {switchError} Try selecting another Plan document.
           </SurfaceContextStatus>
         ) : null}
       </SurfaceContextModule>
@@ -199,7 +188,6 @@ export function PlanSurfaceContext({
       listStatus,
       onRetryList,
       onSelect,
-      saveStatusLabel,
       switchError,
       switching,
     ],

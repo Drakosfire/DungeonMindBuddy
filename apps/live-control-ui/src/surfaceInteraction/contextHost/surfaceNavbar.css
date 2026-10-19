@@ -51,3 +51,7 @@
 .app-chrome-header .surface-context-host .build-document-create--context > .surface-context-popover:last-child { order:40; }
 
 .app-chrome-header .surface-context-host .build-navbar-tool { order:40; }
+
+.app-chrome-header .surface-context-host .plan-document-selector--context { order:10; flex:1 1 10rem; min-width:6rem; max-width:22rem; }
+.app-chrome-header .surface-context-host .plan-document-selector--context select { width:100%; max-width:none; }
+.app-chrome-header .surface-context-host .plan-document-create--context { order:20; }

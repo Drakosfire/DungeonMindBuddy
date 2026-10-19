@@ -1,3 +1,4 @@
+import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { listWorkspaceDocuments } from "../api/liveApi";
@@ -767,6 +768,15 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       selectorRecords,
     ],
   );
+
+  const restoredInventory = useWorkspaceInventoryVersion(`legacy-plan:${planView.campaign_id}`);
+  const consumedRestore = useRef<string | null>(null);
+  useEffect(() => {
+    const stamp = `${planView.campaign_id}:${restoredInventory}`;
+    if (!restoredInventory || consumedRestore.current === stamp) return;
+    consumedRestore.current = stamp;
+    void loadSelectorDocuments();
+  }, [planView.campaign_id, restoredInventory, loadSelectorDocuments]);
 
   const inventoryUnavailable =
     shellState.kind === "load_error" && shellState.inventoryUnavailable === true;

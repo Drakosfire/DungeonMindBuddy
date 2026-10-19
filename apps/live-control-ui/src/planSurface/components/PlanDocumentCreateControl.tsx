@@ -1,7 +1,7 @@
+import { SurfaceNavbarIconButton } from "../../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  SurfaceContextAction,
   SurfaceContextPopover,
 } from "../../surfaceInteraction/contextHost";
 import { defaultSessionPrepTitle } from "../config/planSessionDescriptor";
@@ -238,8 +238,8 @@ export function PlanDocumentCreateControl({
 
   const sameSessionCopy =
     sameSessionActive.length === 1
-      ? `1 other prep is already aimed at Session ${targetSession}.`
-      : `${sameSessionActive.length} other preps are already aimed at Session ${targetSession}.`;
+      ? `1 other Plan is already aimed at Session ${targetSession}.`
+      : `${sameSessionActive.length} other Plans are already aimed at Session ${targetSession}.`;
 
   const createForm = (
     <form
@@ -272,7 +272,7 @@ export function PlanDocumentCreateControl({
         </label>
         <div className="plan-document-create__actions">
           <button type="submit" data-testid="plan-document-create-submit" disabled={!canSubmit}>
-            {creating ? "Creating…" : "Create prep"}
+            {creating ? "Creating…" : "Create Plan"}
           </button>
           {activationError && onRetryOpen ? (
             <button
@@ -309,7 +309,7 @@ export function PlanDocumentCreateControl({
           hidden={!(titleConflicts && conflictingTitle)}
         >
           {titleConflicts && conflictingTitle
-            ? `Another active prep for Session ${targetSession} is already titled "${conflictingTitle}".${
+            ? `Another active Plan for Session ${targetSession} is already titled "${conflictingTitle}".${
                 unusedTitleExample
                   ? ` Choose a different name, such as "${unusedTitleExample}".`
                   : " Choose a different name."
@@ -345,18 +345,16 @@ export function PlanDocumentCreateControl({
         <SurfaceContextPopover
           open={open}
           onOpenChange={setOpen}
-          title="New prep"
+          title="New Plan"
           align="end"
           placement="beside"
           className="surface-context-popover--wide"
           trigger={
-            <SurfaceContextAction
+            <SurfaceNavbarIconButton icon="new" label="New Plan"
               data-testid="plan-document-create-open"
               onClick={handleOpen}
               disabled={disabled || creating}
-            >
-              + New prep
-            </SurfaceContextAction>
+            />
           }
         >
           {createForm}
@@ -375,7 +373,7 @@ export function PlanDocumentCreateControl({
           onClick={handleOpen}
           disabled={disabled || creating}
         >
-          Create New Prep
+          New Plan
         </button>
       ) : (
         createForm
