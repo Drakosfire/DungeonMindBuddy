@@ -1291,3 +1291,16 @@
     flex-wrap: wrap;
   }
 }
+
+/* Keep the next useful action visible; diagnostics stay optional. */
+.play-chooser { max-width: 56rem; margin-inline: auto; }
+.play-chooser > header p { margin: 0.35rem 0; }
+.play-chooser .play-session-resume { padding: 1rem 1.2rem; border-color: var(--play-accent); }
+.play-session-resume strong { font-size: 1.1rem; }
+.play-session-group { border-top: 1px solid var(--play-border); padding-top: 0.8rem; }
+.play-session-group > summary { cursor: pointer; padding-block: 0.3rem; }
+.play-session-group > .play-run-list { margin-top: 0.7rem; }
+.play-session-details { padding: 0.3rem 0.5rem; color: var(--play-muted); font-size: 0.8rem; }
+.play-session-details summary { cursor: pointer; }
+.play-session-details p { margin-block: 0.3rem; }
+.play-session-details code { overflow-wrap: anywhere; }

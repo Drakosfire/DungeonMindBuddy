@@ -509,11 +509,11 @@ export function StartRunPanel({
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
-      <h2>{planMode ? "Start from a saved Plan" : "Start a Run"}</h2>
+      <h2>{planMode ? "Play this Plan" : "Choose your material"}</h2>
       <p className="play-muted">
         {planMode
-          ? "Start an exact World Run from this saved Plan's current committed revision."
-          : "Choose one active Runbook, then start an exact Run from its current committed revision."}
+          ? "Start a fresh session from this saved Plan. Your previous sessions and notes are kept."
+          : "Choose a saved Runbook to begin a fresh session."}
       </p>
       {planMode ? (
         <>
@@ -526,7 +526,6 @@ export function StartRunPanel({
           {planStatus === "ready" && selectedPlan ? (
             <div data-testid="play-start-selected-plan">
               <strong>{selectedPlan.title || "Untitled Plan"}</strong>
-              <span className="play-muted"> · World {selectedPlan.world_id} · {selectedPlan.document_id}</span>
             </div>
           ) : null}
           {planStatus === "ready" && initialPlanRevisionPin == null ? (
@@ -566,12 +565,7 @@ export function StartRunPanel({
                     startedRef.current = null;
                   }}
                 >
-                  <strong>{runbook.title || runbook.document_id}</strong>
-                  <span className="play-muted">
-                    {runbook.schema_version === "dmb_world_owned_runbook_record_v2"
-                      ? ` · World ${runbook.world_id} · ${runbook.document_id}`
-                      : ` · ${runbook.document_id}`}
-                  </span>
+                  <strong>{runbook.title || "Untitled Runbook"}</strong>
                 </button>
               </li>
             );
@@ -667,7 +661,7 @@ export function StartRunPanel({
             void runAttempt("fresh", null);
           }}
         >
-          {planMode ? "Start Run from Plan" : "Start exact Run"}
+          {planMode ? "Start session from Plan" : "Start session"}
         </button>
         {attemptStatus === "replay_create" && attempt ? (
           <button
@@ -677,7 +671,7 @@ export function StartRunPanel({
               void runAttempt("replay_create", attempt);
             }}
           >
-            Retry same UUID
+            Retry starting this session
           </button>
         ) : null}
         {attemptStatus === "incomplete" && attempt ? (
