@@ -564,7 +564,8 @@ export function WorldPlanCardProjection({
           data-edit-target-id={id} aria-pressed={selected} disabled={!editable || !onSelectEditTarget}
           title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
           onClick={(event) => selectEditTargetWithScroll(event.currentTarget, target, onSelectEditTarget)}>
-          {selected ? "Selected for Edit" : "Select for Edit"}
+          {navigation ? (selected ? "Selected for Agent edit" : `Use ${kind} for Agent edit`)
+            : selected ? "Selected for Edit" : "Select for Edit"}
         </button>
       );
     };
@@ -588,12 +589,12 @@ export function WorldPlanCardProjection({
           compactHeader={Boolean(navigation)}
           headingId="world-plan-focused-scene-heading"
           headerRef={focusedSceneHeadingRef}
-          sceneActions={editAction("scene", focusedScene.id)}
+          sceneActions={!navigation ? editAction("scene", focusedScene.id) : null}
           choiceActions={{
             renderChoiceActions: (choice) => editAction("choice", choice.id),
             renderOptionActions: (_choice, option) => editAction("option", option.id),
           }}
-          context={contextBeats.map((beat) => (
+          context={contextBeats.filter(beat => !navigation || beat.bodyContent.length > 0).map((beat) => (
             <section key={beat.id} className="world-plan-scene-reader__context" aria-label="Authored Beat context"
               data-beat-id={beat.id} data-parent-scene-id={model.version === "v1" ? focusedScene.id : undefined}>
               <ReadOnlyBodyContent
@@ -625,6 +626,10 @@ export function WorldPlanCardProjection({
           ))}
           footer={<details className="world-plan-cards__basis"><summary>Plan and Agent details</summary>
           <p>{cardState} · {basisLabel}</p>
+          {navigation ? <>
+            <p>Choose this scene as the target for an Agent edit proposal. This does not open an editor or change the Plan.</p>
+            {editAction("scene", focusedScene.id)}
+          </> : null}
           <p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
               ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."
