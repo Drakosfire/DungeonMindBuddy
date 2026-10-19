@@ -872,6 +872,12 @@ def test_saved_session_turn_admits_exact_edition_and_scene_note_then_reconstruct
     assert "Keep this fenced clue." in rendered
     assert "The eastern lantern is dark." in rendered
     assert receipt.scene_note == "The eastern lantern is dark."
+    provider_context = render_agent_surface_context(context)
+    assert "Who gets through first?" in provider_context
+    assert "Prioritize the cure line" in provider_context
+    assert "Keep families together" in provider_context
+    assert "choice:who-gets-through" in provider_context
+    assert "The line surges against the wagons." not in provider_context
 
     latest = read_content(run_id=run.run_id, world_id=world.world_id)
     revised = commit_content(

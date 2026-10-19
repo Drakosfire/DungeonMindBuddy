@@ -110,7 +110,7 @@ def _is_ordinary_root_heading(line: str) -> bool:
     return _ORDINARY_ROOT_HEADING_RE.fullmatch(line) is not None
 
 
-def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSlice]:
+def extract_v2_play_authored_slices(markdown: str, *, include_nested: bool = False) -> dict[str, _PlayAuthoredSlice]:
     """Deterministic v2 Beat/Scene title+body extraction from pinned Runbook Markdown.
 
     Body ownership mirrors client ``slicePlayableBodies``: each playable Beat/Scene
@@ -171,8 +171,12 @@ def extract_v2_play_authored_slices(markdown: str) -> dict[str, _PlayAuthoredSli
             fence_char, fence_length = opening
             continue
         if MARKER_V2_PROBE in line:
-            flush()
             parsed = _parse_v2_marker(line)
+            if include_nested and parsed is not None and parsed[0] in {"choice", "option"}:
+                if active_kind is not None:
+                    body_markdown_lines.append(line)
+                continue
+            flush()
             if parsed is None:
                 pending = None
                 continue
@@ -799,7 +803,7 @@ def resolve_world_play_session_turn_snapshot(
         raise WorldPlaySurfaceContextError(
             "World Play Run current Scene does not belong to its current Beat"
         )
-    slices = extract_v2_play_authored_slices(content.markdown)
+    slices = extract_v2_play_authored_slices(content.markdown, include_nested=True)
     beat = slices.get(beat_id)
     scene = None if scene_id is None else slices.get(scene_id)
     if beat is None or beat.kind != "beat":
@@ -985,7 +989,7 @@ def _resolve_historical_world_play_session_turn_snapshot(
         raise WorldPlaySurfaceContextError(
             "Historical Play Scene does not belong to its accepted Beat"
         )
-    slices = extract_v2_play_authored_slices(content.markdown)
+    slices = extract_v2_play_authored_slices(content.markdown, include_nested=True)
     beat = slices.get(receipt.beat_id)
     scene = None if receipt.scene_id is None else slices.get(receipt.scene_id)
     if beat is None or beat.kind != "beat" or (
@@ -1056,7 +1060,7 @@ def _resolve_historical_world_play_origin_turn_snapshot(
         raise WorldPlaySurfaceContextError(
             "Historical Play Scene does not belong to its accepted Beat"
         )
-    slices = extract_v2_play_authored_slices(committed.markdown)
+    slices = extract_v2_play_authored_slices(committed.markdown, include_nested=True)
     beat = slices.get(receipt.beat_id)
     scene = None if receipt.scene_id is None else slices.get(receipt.scene_id)
     if beat is None or beat.kind != "beat" or (
