@@ -1,6 +1,7 @@
 # Manual scene editing in Plan Cards
 
-Status: ACTIVE, 2026-10-19. PRIME designs/implements the operator's requested
+Status: COMPLETED / SETTLED, 2026-10-19. No active write lease or successor
+authorization remains. PRIME implemented the operator's requested
 manual Plan Cards editing and media support, removing the metadata footer.
 Serial successor to merged callout PR1462 (95effa264). Callouts passed independent
 Architecture review cycle1 at e51cb51a5 and desktop/narrow reader/editor/Play
@@ -23,7 +24,7 @@ rejection. Media capture version includes monotonic scene/view scope generation,
 including ABA navigation. No broad programmatic bypass. Keep fidelity/recovery/save
 warnings and Agent capability. No new card store or fragment writer.
 
-Exclusive write paths: this handoff; PlanSurfacePage.tsx and its integration tests;
+Historical implementation write paths (released): this handoff; PlanSurfacePage.tsx and its integration tests;
 new planSurface/planCardEditing.ts and tests; components/PlanCardDeck.css;
 components/WorldPlanCardProjection.tsx and tests as needed. Shared media bridge
 changes only if owning-host tests identify a necessary invariant defect. No other
@@ -35,3 +36,28 @@ other-scene bytes; boundary selection/delete/paste/multi-step attacks; history
 across A/B/view scope. Production build, exact-head Architecture review, rendered
 5202 disposable material desktop/narrow; protected real Plan/Run/notes/reflections
 retained. UI-only guarded atomic adoption using prior index above. No API restart.
+
+## Completion evidence
+
+- Buddy PR #1463 merged at `09c841ac043e86bf2c63ea86376961ccaaada44b`.
+  Accepted implementation head: `9a4154f05edb9964833cb959f3246000b7625029`.
+- Two formal Architecture review cycles: Cycle 1 HOLD at `198b44046` for
+  duplicated YAML frontmatter; Cycle 2 source APPROVE at the accepted head.
+  The export helper now owns the single frontmatter envelope. Intermediate
+  trailing-whitespace export rejection was also repaired before acceptance.
+- Architecture independently reran 14 focused plugin/export and owning Plan
+  tests on the clean accepted head; all passed. Bugbot found no remaining
+  concrete defects. PRIME reported 15 focused tests and production build passing.
+  The owning scoped test stops at prepare; durable acceptance is separate below.
+- PRIME reported rendered 5202 acceptance using disposable YAML fixture
+  `1770f158-c5ea-43c0-b54f-e72db26c17af`: actual typing, Saved status,
+  scene/view navigation and reload retained text; existing media presentation
+  changed and a saved-library map was inserted directly from Cards, saved and
+  reopened. At revision 9, exactly one YAML envelope and two media objects were
+  present, with exact untouched-scene and prefix bytes.
+- PRIME reported desktop and 433px narrow acceptance: only the selected scene
+  was visible, with no horizontal overflow. All 11 protected API records and
+  the real Run review remained exact. No API restart occurred.
+- Serving UI index: `a0580a69c2a86dbee4097fd6997e70a9e894020ee3abad0c94ab1bd34bf98877`.
+  PRIME retains fixture cleanup and read-only state checks; this settlement
+  neither performs those operations nor authorizes another capability.
