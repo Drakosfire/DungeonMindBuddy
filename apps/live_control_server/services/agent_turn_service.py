@@ -3095,7 +3095,7 @@ class _PolicyExecutionAdapter:
             _LOG.debug("Related recap offer metadata unavailable: %s", type(exc).__name__)
             return []
 
-    def broker_source_read(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
+    def broker_source_read(self, message: Mapping[str, Any], *, bundle_internal: bool = False) -> Mapping[str, Any]:
         """Authorize, read, then durably validate one admitted source batch."""
         from graph_memory.interaction.expansion_executor import (
             ReadGraphSourceRequest, execute_read_graph_source,
@@ -3280,6 +3280,10 @@ class _PolicyExecutionAdapter:
             )
             result_json = json.dumps(public, ensure_ascii=False, separators=(",", ":"))
             self.source_payloads[event.event_id] = result_json
+            if bundle_internal:
+                # Composite acquisition returns only its final bundle. An
+                # internal source reply is not a provider-visible literal donor.
+                return {"resultJson": result_json, "retrievalSession": session.project_for_hermes()}
             return {"resultJson": self._tool_presentation().present("read_graph_source", dict(message["arguments"]), result_json, event.event_id, source_pins=frozen), "retrievalSession": session.project_for_hermes()}
         except Exception:
             self.failure = AgentTurnServiceError(

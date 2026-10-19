@@ -279,7 +279,8 @@ def acquisition_fixture(*, source_failure=False):
             "retrievalSession": {"synthetic": True},
         }
 
-    def source_read(message):
+    def source_read(message, *, bundle_internal=False):
+        assert bundle_internal is True
         calls.append("source")
         assert message["arguments"]["anchorIds"] == ["a0"]
         if source_failure:
@@ -365,7 +366,7 @@ def test_plan_contract_retains_canonical_refs_while_build_can_factor_them():
 def test_known_read_refusal_remains_visible_and_is_not_repeated():
     acquire, adapter, message, calls = acquisition_fixture()
 
-    def refusal(_message):
+    def refusal(_message, **_kwargs):
         calls.append("source-refused")
         return {
             "resultJson": json.dumps(
@@ -392,7 +393,7 @@ def test_known_read_refusal_remains_visible_and_is_not_repeated():
 def test_source_capture_failure_does_not_deliver_a_successful_bundle():
     acquire, adapter, message, calls = acquisition_fixture()
 
-    def failure(_message):
+    def failure(_message, **_kwargs):
         calls.append("capture-failed")
         return {
             "resultJson": json.dumps(

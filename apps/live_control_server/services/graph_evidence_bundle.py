@@ -246,7 +246,8 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
                     "anchorIds": anchor_ids[offset : offset + 8],
                     "maxChars": 4000,
                 },
-            }
+            },
+            bundle_internal=True,
         )
         if adapter.failure is not None:
             return source_reply

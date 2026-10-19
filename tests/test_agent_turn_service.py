@@ -1757,9 +1757,9 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         clear_sessions()
 
 
-@pytest.mark.parametrize("reviewed_object", [False, True])
+@pytest.mark.parametrize("reviewed_object,bundle_first", [(False, False), (True, False), (True, True)])
 def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
-    monkeypatch: Any, reviewed_object: bool,
+    monkeypatch: Any, reviewed_object: bool, bundle_first: bool,
 ) -> None:
     from types import SimpleNamespace
 
@@ -2011,6 +2011,26 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
     clear_sessions()
     create_session(session)
     try:
+        if bundle_first:
+            args = {"retrievalSessionId": session.id, "operation": "object", "includeSources": True,
+                    "targets": [{"kind": "node", "id": "road"}]}
+            bundle = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": args})
+            packet = json.loads(bundle["resultJson"])
+            assert len(packet["sources"]) == 9
+            assert all(row["content"] and "contentRef" not in row for row in packet["sources"])
+            assert len(adapter.source_payloads) == 2
+            provider_body = json.dumps({"input": [
+                {"type": "function_call", "call_id": "first-bundle", "name": "expand_graph_retrieval", "arguments": json.dumps(args)},
+                {"type": "function_call_output", "call_id": "first-bundle", "output": bundle["resultJson"]}], "tools": []})
+            assert adapter.authorize({"provider": budget["provider"], "model": budget["model"],
+                "apiMode": budget["apiMode"], "payloadJson": provider_body,
+                "payloadSha256": sha256(provider_body.encode()).hexdigest(), "payloadUtf8Bytes": len(provider_body.encode())})
+            assert adapter.record_lifecycle({"transition": "sdk_entered"})
+            assert adapter.record_lifecycle({"transition": "response_received"})
+            authorized = adapter.fence.turn.graph_context_execution.events[-3]
+            assert set(authorized.included_source_read_event_ids) == set(adapter.source_payloads)
+            assert len(authorized.included_graph_event_ids) == 1
+            return
         graph_arguments = {
             "retrievalSessionId": session.id, "operation": "object" if reviewed_object else "search",
             **({"targets": [{"kind": "node", "id": "road"}]} if reviewed_object else {}),
