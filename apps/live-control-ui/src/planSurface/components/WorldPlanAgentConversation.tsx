@@ -2310,7 +2310,9 @@ export function WorldPlanAgentConversation({
   const lastPlanProposalFenceRef = useRef(currentPlanProposalFenceKey);
   if (!isReadOnly && scopeMatches) lastPlanProposalFenceRef.current = currentPlanProposalFenceKey;
   const proposalFenceKey = isReadOnly || !scopeMatches ? lastPlanProposalFenceRef.current : currentPlanProposalFenceKey;
-  const [composerDrafts, setComposerDrafts] = useState<Record<string, string>>({});
+  const [localComposerDrafts, setLocalComposerDrafts] = useState<Record<string, string>>({});
+  const composerDrafts = sharedConversation?.worldId === worldId ? sharedConversation.composerDrafts : localComposerDrafts;
+  const setComposerDrafts = sharedConversation?.worldId === worldId ? sharedConversation.setComposerDrafts : setLocalComposerDrafts;
   const composerDraftKey = isBuild ? `build:${buildMode?.savedSource?.documentId ?? "unavailable"}` : isReadOnly ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
   const composerMessage = composerDrafts[composerDraftKey] ?? "";
   const setComposerMessage = (action: string | ((current: string) => string)) => {
