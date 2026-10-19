@@ -1,6 +1,10 @@
-import { useMemo, type MouseEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { SavedMediaImage } from "../media/SavedMediaImage";
+import { imagePresentation, MEDIA_ASSET_ID } from "../media/mediaReferences";
 import { generateHTML, mergeAttributes, type JSONContent } from "@tiptap/core";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../tiptap/MarkdownEditorCore";
+import { MediaImageNode } from "../tiptap/extensions/MediaImageNode";
 import { GraphNodeReferenceNode } from "../tiptap/extensions/GraphNodeReferenceNode";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
@@ -27,8 +31,18 @@ function graphNodeReferenceExtension(activatable: boolean) {
 
 function readOnlyBodyExtensions(activatable: boolean) {
   const graphReferenceExtension = graphNodeReferenceExtension(activatable);
+  const mediaSlotExtension = MediaImageNode.extend({
+    renderHTML({ node }) {
+      return ["span", { "data-media-asset-id": node.attrs.assetId,
+        "data-media-alt": node.attrs.alt,
+        ...(node.attrs.width != null || node.attrs.collapsed != null
+          ? { "data-media-presentation": `dmb-image:v1 width=${node.attrs.width} collapsed=${node.attrs.collapsed}` } : {}),
+      }];
+    },
+  });
   return DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
-    extension.name === GraphNodeReferenceNode.name ? graphReferenceExtension : extension
+    extension.name === GraphNodeReferenceNode.name ? graphReferenceExtension
+      : extension.name === MediaImageNode.name ? mediaSlotExtension : extension
   ));
 }
 
@@ -55,6 +69,15 @@ function unsupportedBodyContentReason(content: readonly JSONContent[]): string |
         : "embedded media is not supported in read-only content";
     }
     if ("src" in attrs || "href" in attrs) return "unsupported URL-bearing node";
+
+    if (record.type === "mediaImage") {
+      if (typeof attrs.assetId !== "string" || !MEDIA_ASSET_ID.test(attrs.assetId)
+        || typeof attrs.alt !== "string") return "malformed saved media reference";
+      if ((attrs.width != null || attrs.collapsed != null)
+        && !imagePresentation(`dmb-image:v1 width=${attrs.width} collapsed=${attrs.collapsed}`)) {
+        return "malformed saved media presentation";
+      }
+    }
 
     if (record.type === "graphNodeReference") {
       if (typeof attrs.nodeId !== "string" || attrs.nodeId.length === 0
@@ -143,6 +166,14 @@ export function ReadOnlyBodyContent({
     }
   }, [activatable, contentKey]);
 
+  const renderedHtml = useMemo(() => ({ __html: html ?? "" }), [html]);
+  const body = useRef<HTMLDivElement>(null);
+  const [slots, setSlots] = useState<{ html: string; elements: HTMLElement[] } | null>(null);
+  useLayoutEffect(() => {
+    if (!html || !body.current) { setSlots(null); return; }
+    setSlots({ html, elements: Array.from(body.current.querySelectorAll<HTMLElement>("span[data-media-asset-id]")) });
+  }, [html]);
+
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!onActivateGraphNode || !(event.target instanceof Element)) return;
     const reference = event.target.closest<HTMLButtonElement>(
@@ -168,12 +199,20 @@ export function ReadOnlyBodyContent({
     );
   }
   if (html) return (
+    <>
     <div
+      ref={body}
       className={className}
       data-testid={testId}
       onClick={activatable ? handleClick : undefined}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={renderedHtml}
     />
+    {slots?.html === html ? slots.elements.map((element, index) => {
+      const presentation = imagePresentation(element.dataset.mediaPresentation);
+      return createPortal(<SavedMediaImage assetId={element.dataset.mediaAssetId ?? ""}
+        alt={element.dataset.mediaAlt ?? ""} {...(presentation ?? {})} />, element, `${html}:${index}`);
+    }) : null}
+    </>
   );
   if (fallbackText) return <p className={className} data-testid={testId}>{fallbackText}</p>;
   return null;
