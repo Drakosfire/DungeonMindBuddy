@@ -1,6 +1,6 @@
 # PLAY — effective session-copy content projection
 
-Status: ACTIVE under the operator's refreshed Plan/Live goal,2026-10-18.
+Status: MERGED #1425 at e12b59363b7abace631607f4223bfb2b55c3bf3d; Architecture Cycle2 source PASS. Rendered delivery HOLD pending the bounded notice repair below. Original DOGFOOD lease ended.
 Base origin/main7b73ffb07d21899c9007035a4b93ee9dcd455d18; branch codex/live-effective-content.
 Topology serial successor of merged server PR1422. PRIME assigns DOGFOOD exclusive implementation ownership of the existing buddy-context-loop checkout/paths below; PRIME and Architecture read/review only. PRIME separately owns private runtime/schema adoption on8000 behind5202. That operational work does not change this checkout. No new checkout/env/source export or /tmp task directory. Existing dependencies/private evidence directory reused. Architecture independently reviews; PRIME merges/delivers.
 
@@ -61,3 +61,17 @@ acceptance is not claimed; it remains part of PRIME's post-review 5202 delivery.
 Actual API-shaped fixtures plus mounted Play page prove edition text/media/table/callout while origin unchanged; progress/notes refresh retains edition; newer source cannot force forbidden rebase; explicit provenance; wrong World/origin/hash fails; v1 unchanged; edition Agent no-network assertion. Test late World/Run A→B→A and errors. Typecheck/build/cumulative diff; one PR through commit/push/open; no merge by worker. Independent exact-head Architecture review. Existing API runtime adoption is PRIME-owned; actual disposable session edition read/reopen on normal5202 and desktop/narrow rendered evidence follow accepted UI delivery. No provider call, real user document edit, Graph publication or serving service restart by this worker.
 
 Next bounded successor remains existing-scene Markdown/media Live editing with session-copy autosave/CAS, durable pending-command journal and recovery. Preserve this scope and report precise next seam, not another wide redesign.
+
+## Rendered follow-through: visible availability notice
+
+PRIME owns serial branch codex/live-session-copy-notice from e12b59363. Exact
+repair lease: this handoff, PlaySurfacePage.tsx and its owning test only. Actual
+normal5202 rendering showed edition2/media/Plan-origin cues and Graph Ready, but
+the conversation host's temporary-unavailable notice was below the800px viewport
+(top800/bottom823), with the launcher absent. PRIME restored the previous UI index
+while retaining0035/API/session editions. Add an inline status next to the source
+cue before the cockpit, preserve the existing transport guard, and verify visible
+normal5202 desktop/narrow notice, real images/reopen and unchanged Run/Plan/notes.
+Owning tests prove the notice precedes session prose and is absent for unmodified
+sessions; typecheck/build/diff, independent exact-head review, one corrective PR,
+then reversible delivery. No new capability, server or data mutation.
