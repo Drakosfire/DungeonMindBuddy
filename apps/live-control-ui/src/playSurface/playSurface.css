@@ -1352,3 +1352,8 @@
 .play-welcome-plan { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; padding-block:.75rem; }
 .play-welcome-plan a { padding:.55rem .9rem; border:1px solid #d4ae58; border-radius:6px; color:#f1d18d; text-decoration:none; }
 .play-welcome-plan span { color:var(--play-muted); font-size:.9rem; }
+
+.play-session-review { padding:1.25rem; background:var(--play-surface); border:1px solid var(--play-border); border-radius:10px; }
+.play-session-review header,.play-review-actions { display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;justify-content:space-between; }
+.play-session-review textarea { display:block;box-sizing:border-box;width:100%;margin-block:.6rem;background:#10151e;color:var(--play-text);padding:1rem;border:1px solid var(--play-border);border-radius:6px;line-height:1.6; }
+.play-session-review pre { white-space:pre-wrap;overflow-wrap:anywhere; }
