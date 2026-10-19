@@ -948,7 +948,7 @@ it("restores Cards from the matching Plan URL after reopen and keeps the local e
   const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   const document = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
   await waitFor(() => expect(cards).toHaveAttribute("aria-pressed", "true"));
-  expect(screen.getByTestId("world-plan-document-view")).toHaveAttribute("hidden");
+  expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
   const contextIdentity = screen.getByTestId("world-plan-context-identity").textContent;
   expect(contextIdentity).not.toBe("none");
 
@@ -4042,4 +4042,61 @@ it("disables Plan deletion immediately when an authored edit is not saved", asyn
   await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1," Unsaved trash guard witness."); });
   expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
   expect(screen.queryByRole("button",{name:"Trash",exact:true})).not.toBeInTheDocument();
+});
+
+it("manually edits scoped Cards in the same Plan editor and writer, preserves siblings and invalidates media on ABA navigation", async () => {
+  const source = `<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->
+## Road
+Keep watch.
+<!-- dmb-playable-element:v2 kind=scene id=scene:a -->
+### Alpha
+First body.
+<!-- dmb-playable-element:v2 kind=scene id=scene:b -->
+### Beta
+Second body.
+`;
+  const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,source);
+  const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Stop at canonical writer"));
+  const assetId="ac6c15cc-8c68-4732-8ae2-d9f3f051393a";
+  vi.spyOn(liveApi,"authenticatedApiFetch").mockResolvedValue({response:Response.json({asset_id:assetId,state:"ready"}),csrf:null,requestEpoch:0});
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+  const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+  const dom=surface.querySelector(".ProseMirror") as HTMLElement & {editor:import("@tiptap/core").Editor};
+  const editor=dom.editor;
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
+  const before=editor.getJSON();
+  fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+  await waitFor(()=>expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden"));
+  expect(editor.getJSON()).toEqual(before);expect(prepare).not.toHaveBeenCalled();
+  expect(screen.queryByText("Plan and Agent details")).not.toBeInTheDocument();
+  const {planCardRange}=await import("./planCardEditing");
+  fireEvent.click(screen.getByRole("button",{name:"Open Image Studio"}));
+  expect(screen.getByRole("button",{name:"Cards",exact:true})).toHaveAttribute("aria-pressed","true");
+  vi.spyOn(editor.view,"posAtCoords").mockReturnValue({pos:planCardRange(editor.state.doc,"scene:a")!.from+1,inside:0});
+  const placing=mediaWizardCapture.props.onChoose({asset_id:assetId,state:"ready"},{prompt:"Saved map"},{mode:"click",signal:new AbortController().signal});
+  fireEvent.click(screen.getByRole("button",{name:"Show scene: Beta"}));
+  fireEvent.click(screen.getByRole("button",{name:"Show scene: Alpha"}));
+  fireEvent.pointerUp(editor.view.dom,{clientX:10,clientY:10});
+  await act(async()=>{await expect(placing).rejects.toThrow(/changed|again/i);});
+  expect(editor.getJSON()).toEqual(before);
+  const freshPlacement=mediaWizardCapture.props.onChoose({asset_id:assetId,state:"ready"},{prompt:"Saved map"},{mode:"click",signal:new AbortController().signal});
+  fireEvent.pointerUp(editor.view.dom,{clientX:10,clientY:10});
+  await act(async()=>{await freshPlacement;});
+  expect(JSON.stringify(editor.getJSON())).toContain(assetId);
+  expect((surface.querySelector(".ProseMirror") as typeof dom).editor, screen.queryAllByRole("alert").map(e=>e.textContent).join(" | ")).toBe(editor);
+  const a=planCardRange(editor.state.doc,"scene:a")!;
+  let bodyPosition=a.from+1;editor.state.doc.descendants((node,pos)=>{if(node.type.name==="paragraph" && node.textContent==="First body.") bodyPosition=pos+1;});
+  await act(async()=>{editor.commands.insertContentAt(bodyPosition,"Card edit. ");});
+  const safe=editor.getJSON();
+  await act(async()=>{editor.view.dispatch(editor.state.tr.insertText("outside",editor.state.doc.content.size-1));});
+  expect(editor.getJSON()).toEqual(safe);
+  expect(screen.getByText(/This change reaches outside/)).toBeInTheDocument();
+  await waitFor(()=>expect(prepare).toHaveBeenCalledWith(expect.objectContaining({document_id:record.document_id,markdown:expect.stringContaining("Card edit.")})));
+  expect(prepare.mock.calls[0]![0].markdown.split("<!-- dmb-playable-element:v2 kind=scene id=scene:b -->")[1]).toBe(source.split("<!-- dmb-playable-element:v2 kind=scene id=scene:b -->")[1]);
+
+  fireEvent.click(screen.getByRole("button",{name:"Document",exact:true}));
+  expect((surface.querySelector(".ProseMirror") as typeof dom).editor).toBe(editor);
+  fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+  expect((surface.querySelector(".ProseMirror") as typeof dom).editor).toBe(editor);
+  expect(editor.getJSON()).toEqual(safe);
 });

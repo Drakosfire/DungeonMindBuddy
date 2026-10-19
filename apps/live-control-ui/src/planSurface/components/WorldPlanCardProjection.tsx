@@ -624,7 +624,7 @@ export function WorldPlanCardProjection({
               ) : null}
             </section>
           ))}
-          footer={<details className="world-plan-cards__basis"><summary>Plan and Agent details</summary>
+          footer={!navigation ? <details className="world-plan-cards__basis"><summary>Plan and Agent details</summary>
           <p>{cardState} · {basisLabel}</p>
           {navigation ? <>
             <p>Choose this scene as the target for an Agent edit proposal. This does not open an editor or change the Plan.</p>
@@ -636,7 +636,7 @@ export function WorldPlanCardProjection({
               : focusedTargetSelectable
                 ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
-          </p></details>}
+          </p></details> : null}
           onActivateGraphNode={onActivateGraphNode}
           unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
         />

@@ -12,3 +12,9 @@
 @media (max-width: 700px) {
   .plan-cards-workspace { grid-template-columns: minmax(0, 1fr); }
 }
+
+.plan-cards-workspace__reader[hidden], .plan-card-outside { display: none !important; }
+.plan-cards-workspace > .world-plan-document-view { min-width: 0; }
+.plan-cards-workspace .world-owned-plan__canvas { margin: 0; width: 100%; }
+.plan-cards-workspace .plan-surface-kicker:empty { display: none; }
+.plan-card-title { cursor: default; }
