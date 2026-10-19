@@ -262,3 +262,23 @@ describe("Play session-copy autosave controller", () => {
   });
 
 });
+
+it("journals the reviewed Run guard immediately and recovers the exact guarded command after reopen", async () => {
+  const edited = "# Gate\n\nReviewed scene.\n";
+  vi.mocked(putWorldPlayRunContentCommand).mockRejectedValue(new LiveApiError("Lost acknowledgement", 503));
+  const hook = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+  act(() => hook.result.current.applyReviewed(edited, 2));
+  const raw = window.localStorage.getItem(playRunContentJournalKey({ worldId, runId, origin: content.origin }))!;
+  const pending = JSON.parse(raw).pending;
+  expect(pending.request.expected_run_revision).toBe(2);
+  expect(pending.request.markdown).toBe(edited);
+  vi.useRealTimers();
+  await waitFor(() => expect(hook.result.current.state.saveState).toBe("unknown"));
+  hook.unmount();
+  vi.mocked(getWorldPlayRunContentCommand).mockResolvedValue(await receiptFor(pending.commandId, pending.request));
+  vi.mocked(getWorldPlayRunContent).mockRejectedValue(new Error("read unavailable"));
+  const reopened = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+  await waitFor(() => expect(reopened.result.current.state.saveState).toBe("saved"));
+  expect(reopened.result.current.state.accepted.markdown).toBe(edited);
+  expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce();
+});

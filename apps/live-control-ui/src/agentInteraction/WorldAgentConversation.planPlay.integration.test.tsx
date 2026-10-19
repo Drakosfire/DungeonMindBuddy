@@ -1,3 +1,10 @@
+import { listPlaySceneEdits, proposePlaySceneEdit, type PlaySceneEditRecord } from "../api/playSceneEditApi";
+import { getWorldPlayRunContent, getWorldPlayRunContentCommand, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
+import { PlaySessionContentEditor } from "../playSurface/content/PlaySessionContentEditor";
+import type { PlayRunContent } from "../playSurface/playRunContentTypes";
+import { contentSha256 } from "../playSurface/playRunEffectiveContent";
+vi.mock("../api/playSceneEditApi", () => ({ listPlaySceneEdits: vi.fn(async () => []), proposePlaySceneEdit: vi.fn() }));
+vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
 import { SESSION_COPY_AGENT_UNAVAILABLE } from "../playSurface/playRunEffectiveContent";
 import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
@@ -107,13 +114,13 @@ function PlanPublisher({ documentId, editBridge = null }: { documentId: string; 
     surfaceInstanceId="plan-instance" revision={7} editBridge={editBridge} draftGeneration={0} selectionGeneration={0}
     savedDirty={false} pageReady saveInFlight={false} />;
 }
-function PlayPublisher({ admitted, sessionCopy = false }: { admitted: boolean; sessionCopy?: boolean }) {
+function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitted: boolean; sessionCopy?: boolean; editContent?: PlayRunContent }) {
   const context = useMemo(() => ({ surfaceId: "play" as const, label: "Play", campaignId: null,
     documentId: null, sessionNumber: null, ambientSummary: "World Run", sourceEnvelope: null }), []);
-  const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: RUN,
+  const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: editContent?.run_id ?? RUN,
     runRevision: 3, surfaceInstanceId: "play-instance",
-    contentBasis: { edition_revision: 0, edition_revision_id: null, content_sha256: SHA },
-    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy]);
+    contentBasis: { edition_revision: 0, edition_revision_id: null, content_sha256: editContent?.content_sha256 ?? SHA },
+    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy, editContent]);
   usePublishAgentSurfaceContext(context);
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
@@ -155,8 +162,13 @@ function NewerPendingFixture() {
   return <><button type="button" onClick={() => state?.setPendingTurn({ surface: "plan", turnId: "newer-client-request" })}>Seed newer pending request</button>
     <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button></>;
 }
-function Harness({ initial = "plan", admitted = true, editBridge = null }: {
-  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null;
+function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: PlayRunContent; allowed: boolean; onUnsubmitted: (v: boolean) => void }) {
+  const [accepted, setAccepted] = useState(content);
+  return <SurfaceContextProvider><PlaySessionContentEditor content={accepted} currentSceneId="scene:gate" runRevision={3}
+    canPropose={allowed} originLabel="From Plan" onAcceptedContent={setAccepted} onUnsubmittedChange={onUnsubmitted} /></SurfaceContextProvider>;
+}
+function Harness({ initial = "plan", admitted = true, editBridge = null, editContent }: {
+  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
@@ -169,7 +181,8 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
+      {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
     </WorldAgentConversationProvider>
@@ -1206,6 +1219,55 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep my unsent scene question"));
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it("proposes a scene from Play chat, reviews media/table/callout content, and applies only a guarded session save", async () => {
+    const markdown = '<!-- dmb-playable-element:v2 kind=beat id=beat:road -->\n## Road\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\nOriginal scene.\n\n![Gate map](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd "dmb-image:v1 width=30 collapsed=true")\n';
+    const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const origin = { playable_artifact_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", playable_revision: 1,
+      playable_work_revision_id: WORK_REVISION, playable_content_sha256: await contentSha256(markdown) };
+    const content: PlayRunContent = { schema_version: "dmb_world_play_run_content_v1", world_id: WORLD, run_id: runId,
+      origin, source: "pinned", edition_revision: 0, edition_revision_id: null, markdown, content_sha256: origin.playable_content_sha256,
+      committed_at: "2026-10-18T00:00:00Z", structure_sha256: SHA, observed_run_revision: 3 };
+    const before = '\nOriginal scene.\n\n![Gate map](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd "dmb-image:v1 width=30 collapsed=true")\n';
+    const replacement = '\nRevised scene.\n\n| Object | State |\n| --- | --- |\n| Lantern | Lit |\n\n> [!READ-ALOUD]\n> The blue lantern glows.\n\n![Gate map](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd "dmb-image:v1 width=60 collapsed=true")\n';
+    const candidate = markdown.slice(0, markdown.length-before.length)+replacement;
+    const record: PlaySceneEditRecord = { schema_version: "dmb_play_scene_edit_proposal_v1", world_id: WORLD, run_id: runId,
+      proposal_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", instruction: "Revise the scene", status: "ready", failure_code: null,
+      created_at: "2026-10-18T01:00:00Z", updated_at: "2026-10-18T01:00:00Z",
+      basis: { run_revision: 3, scene_id: "scene:gate", content_basis: { edition_revision: 0, edition_revision_id: null, content_sha256: content.content_sha256 }, origin, scene_note_sha256: null },
+      result: { schema_version: "dmb_play_scene_edit_result_v1", before_markdown: before, replacement_markdown: replacement, candidate_markdown: candidate, candidate_sha256: await contentSha256(candidate),
+        body_start_utf8: new TextEncoder().encode(markdown.slice(0, markdown.length-before.length)).length, body_end_utf8: new TextEncoder().encode(markdown).length,
+        summary: "A clearer gate scene.", assumptions: [], model: "test", model_observed: true, model_latency_ms: 1, wall_latency_ms: 2 } };
+    vi.mocked(proposePlaySceneEdit).mockResolvedValue(record);
+    vi.mocked(listPlaySceneEdits).mockResolvedValue([]);
+    vi.mocked(getWorldPlayRunContent).mockResolvedValue({ ...content, source: "edition", edition_revision: 1,
+      edition_revision_id: record.proposal_id, markdown: candidate, content_sha256: record.result!.candidate_sha256 });
+    vi.mocked(putWorldPlayRunContentCommand).mockImplementation(async (_run, _world, commandId, request) => ({
+      schema_version: "dmb_world_play_run_content_receipt_v1", world_id: WORLD, run_id: runId, command_id: commandId,
+      request_sha256: await sha256Hex(canonicalJson({ world_id: WORLD, run_id: runId, command_id: commandId, ...request })), origin,
+      expected_edition_revision: 0, expected_content_sha256: content.content_sha256, accepted_edition_revision: 1,
+      accepted_edition_revision_id: record.proposal_id, accepted_content_sha256: record.result!.candidate_sha256,
+      committed_at: "2026-10-18T01:00:00Z", observed_run_revision: 3 }));
+    render(<Harness initial="play" editContent={content} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Propose scene edit", exact: true }));
+    fireEvent.change(composer, { target: { value: "Revise the scene" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message", exact: true }));
+    expect(await screen.findByText("A clearer gate scene.")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("Lantern");
+    expect(screen.getByText("The blue lantern glows.")).toBeInTheDocument();
+    expect(document.querySelector('[data-media-asset-id="dddddddd-dddd-4ddd-8ddd-dddddddddddd"]')).not.toBeNull();
+    expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply to session copy" }));
+    await waitFor(() => expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce());
+    expect(vi.mocked(putWorldPlayRunContentCommand).mock.calls[0][3]).toMatchObject({ expected_run_revision: 3, markdown: candidate, expected_origin: origin });
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Play conversation unavailable" })).not.toBeInTheDocument());
+    expect(postWorldPlanDocumentEditProposal).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(content.markdown).toBe(markdown);
   });
 
   it("unmounts Play transport for a session copy and ignores a late history result", async () => {

@@ -1,3 +1,5 @@
+import { createPlaySceneEditBridge } from "../agentEdit/playSceneEditBridge";
+import { usePublishPlaySceneEditBridge } from "../../agentInteraction/WorldAgentConversation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { PLAYABLE_ELEMENT_ID_HTML_ATTR, PLAYABLE_ELEMENT_KIND_HTML_ATTR } from "../../tiptap/playable/playableElementIdentity";
@@ -19,8 +21,12 @@ export function PlaySessionContentEditor({
   originLabel,
   onAcceptedContent,
   onUnsubmittedChange,
+  runRevision,
+  canPropose = false,
 }: {
   content: PlayRunContent;
+  runRevision?: number;
+  canPropose?: boolean;
   currentSceneId: string | null;
   originLabel: string;
   onAcceptedContent: (content: PlayRunContent) => void;
@@ -36,6 +42,14 @@ export function PlaySessionContentEditor({
   const split = useMemo(() => splitLeadingYamlFrontmatter(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const imported = useMemo(() => markdownToTiptapDoc(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const identityKey = `${content.world_id}:${content.run_id}:${content.origin.playable_work_revision_id}:${content.origin.playable_content_sha256}`;
+  const sceneEditorState = useRef({ content: controller.state.accepted, runRevision: runRevision ?? content.observed_run_revision,
+    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose,
+    draftMarkdown: controller.state.draftMarkdown, applyReviewed: controller.applyReviewed, remount: () => setEditorEpoch(value => value + 1) });
+  sceneEditorState.current = { content: controller.state.accepted, runRevision: runRevision ?? content.observed_run_revision,
+    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose,
+    draftMarkdown: controller.state.draftMarkdown, applyReviewed: controller.applyReviewed, remount: () => setEditorEpoch(value => value + 1) };
+  const sceneEditBridge = useMemo(() => createPlaySceneEditBridge(() => sceneEditorState.current), [identityKey]);
+  usePublishPlaySceneEditBridge(sceneEditBridge);
   const surfaceIdentity = buildSurfaceInteractionIdentity({ surfaceId: "play", instanceParts: ["play", content.world_id, content.run_id, content.origin.playable_artifact_id, String(content.origin.playable_revision), content.origin.playable_work_revision_id, content.origin.playable_content_sha256] });
 
   const diagnostics = useCallback((doc: unknown): string[] => {

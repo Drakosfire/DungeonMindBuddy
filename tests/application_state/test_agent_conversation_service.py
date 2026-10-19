@@ -1174,8 +1174,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261018_0036",
-        "20261018_0036",
+        "20261018_0037",
+        "20261018_0037",
     )
 
     loaded = AgentConversationService().list_turns(

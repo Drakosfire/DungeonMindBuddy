@@ -43,7 +43,7 @@ def request_digest(world_id, run_id, command_id, request: ContentCommit) -> str:
         "world_id": world_id,
         "run_id": str(run_id),
         "command_id": str(command_id),
-        **request.model_dump(mode="json"),
+        **request.model_dump(mode="json", exclude_none=True),
     }
     return sha(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -127,6 +127,7 @@ def _locked_state(conn, run_id, world_id):
             or row["content_sha256"] != sha(row["markdown"])
             or row["content_sha256"] == previous_sha
             or row["observed_run_revision"] > run.run_revision
+            or (row.get("expected_run_revision") is not None and row["expected_run_revision"] != row["observed_run_revision"])
         ):
             raise ApplicationStateIntegrityError(
                 "Run edition chain or content hash is corrupt"
@@ -135,6 +136,7 @@ def _locked_state(conn, run_id, world_id):
             schema_version="dmb_world_play_run_content_commit_v1",
             expected_origin=_origin(run),
             expected_edition_revision=n - 1,
+            expected_run_revision=row.get("expected_run_revision"),
             expected_content_sha256=previous_sha,
             markdown=row["markdown"],
         )
@@ -263,6 +265,8 @@ def commit_content(
                 )
             return _receipt(run, world_id, replay)
         current = _content(state, world_id)
+        if request.expected_run_revision is not None and request.expected_run_revision != run.run_revision:
+            raise ApplicationStateConflictError("Run progress or notes changed since this scene edit was reviewed")
         if request.expected_origin != current.origin:
             raise ApplicationStateConflictError(
                 "expected origin does not match the Run pin"
@@ -307,6 +311,7 @@ def commit_content(
             expected_revision=current.edition_revision,
             expected_sha256=current.content_sha256,
             observed_run_revision=run.run_revision,
+            expected_run_revision=request.expected_run_revision,
         )
         editions.insert_revision(conn, row)
         editions.advance_head(conn, run_id, n)

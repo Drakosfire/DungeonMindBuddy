@@ -32,6 +32,7 @@ export interface PlayRunContentController {
   state: PlayRunContentControllerState;
   hasUnsubmittedContent: boolean;
   changeDraft: (markdown: string, issues?: string[]) => void;
+  applyReviewed: (markdown: string, expectedRunRevision: number) => void;
   retryRecovery: () => void;
   reviewLatest: () => void;
   useLatestDiscardingDraft: () => void;
@@ -376,6 +377,22 @@ export function usePlayRunContentController(
     publish(next);
   }, [persist, publish]);
 
+  const applyReviewed = useCallback((markdown: string, expectedRunRevision: number) => {
+    const current = stateRef.current;
+    if (initialRawRef.current != null || current.saveState !== "saved" || pendingRef.current || inFlightRef.current
+      || current.draftMarkdown !== current.accepted.markdown || !Number.isSafeInteger(expectedRunRevision) || expectedRunRevision < 1) {
+      throw new Error("The session copy has unsaved changes. Review the proposal again after saving.");
+    }
+    if (markdown === current.accepted.markdown) throw new Error("The proposed scene has no changes.");
+    const pending: PendingPlayRunContentCommand = { commandId: uuid(), draftGeneration: current.draftGeneration + 1,
+      request: { ...requestFor(current.accepted, markdown), expected_run_revision: expectedRunRevision } };
+    const next = { ...current, draftMarkdown: markdown, draftGeneration: pending.draftGeneration,
+      saveState: "saving" as const, serializationIssues: [], message: "Saving the reviewed scene to this session copy…" };
+    if (!persist(next, pending)) throw new Error("The reviewed edit could not be preserved for recovery.");
+    publish(next);
+    void sendPending(pending, current.accepted);
+  }, [persist, publish, sendPending]);
+
   const retryRecovery = useCallback(() => {
     const pending = pendingRef.current;
     if (pending) void reconcilePending(pending, stateRef.current.accepted);
@@ -419,6 +436,7 @@ export function usePlayRunContentController(
     state,
     hasUnsubmittedContent: state.saveState !== "saved" || state.draftMarkdown !== state.accepted.markdown || pendingRef.current !== null,
     changeDraft,
+    applyReviewed,
     retryRecovery,
     reviewLatest,
     useLatestDiscardingDraft: () => chooseLatest(false),

@@ -25,6 +25,7 @@ export interface PlayRunContentCommitRequest {
   expected_origin: PlayRunContentOrigin;
   expected_edition_revision: number;
   expected_content_sha256: string;
+  expected_run_revision?: number;
   markdown: string;
 }
 

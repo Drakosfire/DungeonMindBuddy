@@ -512,3 +512,22 @@ def test_exact_utf8_and_line_endings_survive_readback(application_state_dsn):
     content = read(run.run.run_id, revision_n=1)
     assert content.markdown.encode("utf-8") == exact.encode("utf-8")
     assert content.content_sha256 == receipt.accepted_content_sha256
+
+
+def test_reviewed_scene_commit_checks_run_revision_atomically_but_replay_is_historical(application_state_dsn):
+    _, _, aggregate = create_source_run()
+    run = aggregate.run
+    content = read(run.run_id)
+    request = request_for(content, "Reviewed edit").model_copy(update={"expected_run_revision": run.run_revision})
+    progressed = replace_world_play_run_progress(world_id=WORLD, run_id=run.run_id, expected_run_revision=run.run_revision,
+        progress={**run.progress, "notes_by_element_id": {"scene:gate": "Changed after review"}})
+    with pytest.raises(ApplicationStateConflictError, match="progress or notes"):
+        save(run.run_id, request)
+    assert read(run.run_id).edition_revision == 0
+    fresh = request.model_copy(update={"expected_run_revision": progressed.run.run_revision})
+    command_id = str(uuid4()); receipt = save(run.run_id, fresh, command_id)
+    assert receipt.observed_run_revision == progressed.run.run_revision
+    replace_world_play_run_progress(world_id=WORLD, run_id=run.run_id, expected_run_revision=progressed.run.run_revision,
+        progress={**progressed.run.progress, "notes_by_element_id": {"scene:gate": "Later note"}})
+    assert save(run.run_id, fresh, command_id) == receipt
+    assert read(run.run_id, revision_n=1).markdown.endswith("Reviewed edit\n")

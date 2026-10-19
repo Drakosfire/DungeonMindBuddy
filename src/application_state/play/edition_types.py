@@ -33,6 +33,7 @@ class ContentCommit(StrictModel):
     expected_origin: EditionOrigin
     expected_edition_revision: int = Field(ge=0)
     expected_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_run_revision: int | None = Field(default=None, gt=0)
     markdown: str
 
     @field_validator("markdown")

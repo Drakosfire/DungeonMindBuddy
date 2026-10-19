@@ -1,3 +1,4 @@
+import { usePlaySceneEdits } from "../../playSurface/agentEdit/PlaySceneEditReview";
 import { ActionPromptInspector } from "./ActionPromptInspector";
 import { ActionTerminalDiagnostic } from "./ActionTerminalDiagnostic";
 import { PlayAnswerEvidence } from "./PlayAnswerEvidence";
@@ -104,7 +105,7 @@ export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
   buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null; composeBridge?: import("../../buildSurface/buildComposeBridge").BuildComposeBridge | null } | null;
-  playMode?: { admittedRun: import("../../agentInteraction/WorldAgentConversation").AdmittedWorldPlayConversationContext | null } | null;
+  playMode?: { admittedRun: import("../../agentInteraction/WorldAgentConversation").AdmittedWorldPlayConversationContext | null; sceneEditBridge?: import("../../playSurface/agentEdit/playSceneEditBridge").PlaySceneEditBridge | null } | null;
   presentationHosts?: PlanConversationPresentationHosts;
   worldId: string;
   worldName: string;
@@ -2527,6 +2528,9 @@ export function WorldPlanAgentConversation({
     () => proposalOrderKeyForDisplay ? readLocalProposalOrder(proposalOrderKeyForDisplay) : null,
     [proposalOrderKeyForDisplay, proposalOrderRevision],
   );
+  const [playEditMode, setPlayEditMode] = useState(false);
+  const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
+    bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
     bridge: buildMode?.composeBridge ?? null, enabled: visible,
     onHistory: next => { historySnapshotRef.current = next; setHistory(next); } });
@@ -3692,6 +3696,12 @@ export function WorldPlanAgentConversation({
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
+    if (!isBuild && playMode && playEditMode) {
+      if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message || message.length > 8000
+        || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
+      if (await playCompose.submit(message)) setComposerMessage(current => current === message ? "" : current);
+      return;
+    }
     if (isBuild) {
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || message.length > 8000 || sending
@@ -5093,7 +5103,7 @@ export function WorldPlanAgentConversation({
     : inferredComposerIntent;
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const composerBusy = isReadOnly
-    ? buildCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
+    ? buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || (detectedComposerIntent === "discuss"
@@ -5448,7 +5458,7 @@ export function WorldPlanAgentConversation({
         <dl>
           <dt>Read saved page</dt><dd>{isBuild ? buildMode?.savedSource ? "Connected" : "Save or choose a page first" : isReadOnly ? currentReadOnlyContext ? "Connected" : "Open a Run first" : scopeMatches ? "Connected" : "Open a saved Plan first"}</dd>
           <dt>World Graph and sources</dt><dd>{useWorldGraphForAsk ? "Enabled" : "Off"}</dd>
-          <dt>Propose page changes</dt><dd>{isBuild ? buildMode?.composeBridge ? "Editor connected; insertion is checked when sending. Preview and approval required." : "No editable page connected" : isReadOnly ? "Unavailable in Play" : editBridge ? "Preview and approval required" : "No editable Plan connected"}</dd>
+          <dt>Propose page changes</dt><dd>{isBuild ? buildMode?.composeBridge ? "Editor connected; insertion is checked when sending. Preview and approval required." : "No editable page connected" : isReadOnly ? playMode?.sceneEditBridge ? "Current scene connected; preview and approval required. Changes save to the session copy." : "Open a saved session scene first" : editBridge ? "Preview and approval required" : "No editable Plan connected"}</dd>
           <dt>Generate images</dt><dd>{isBuild ? buildMode?.composeBridge ? "Prepare an image prompt from this page and conversation, then review it in Image Studio. Generate, Save and Insert are explicit." : "Open an editable saved page first." : "Not exposed on this surface."}</dd>
         </dl>
         <p>Enter to send · Shift+Enter for a new line.</p>
@@ -5755,6 +5765,7 @@ export function WorldPlanAgentConversation({
           </button>
         ) : null}
         {latestConversationEvent}
+        {playMode ? playCompose.review : null}
         {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
         {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
@@ -5797,12 +5808,18 @@ export function WorldPlanAgentConversation({
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
-      {sending || composing || buildCompose.busy ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
+      {sending || composing || buildCompose.busy || playCompose.busy ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
         <span className="world-plan-agent-conversation__working-dot" aria-hidden="true" />
         {composing || buildCompose.busy ? "Preparing your edit…" : "Working on your reply…"}
       </div> : null}
 
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
+        {playMode ? <div role="group" aria-label="Play message action">
+          <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
+          <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
+          {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
+        </div> : null}
+
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
           <details className="world-plan-agent-conversation__target-disclosure">
@@ -5857,7 +5874,7 @@ export function WorldPlanAgentConversation({
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
           disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}
-          placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
+          placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         <div className="world-plan-agent-conversation__composer-footer">
@@ -5897,7 +5914,7 @@ export function WorldPlanAgentConversation({
             || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)
             || (!isReadOnly && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
           >
-            {sending || composing || buildCompose.busy ? "Working…" : saveInFlight ? "Saving…" : "Send"}
+            {sending || composing || buildCompose.busy || playCompose.busy ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
         </div>
         {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"

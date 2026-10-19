@@ -1064,6 +1064,8 @@ export function PlaySurfacePage() {
             originLabel={pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
             onAcceptedContent={onAcceptedSessionContent}
             onUnsubmittedChange={onSessionDraftStateChange}
+            runRevision={v2Deck.run.run_revision}
+            canPropose={!sessionCopyBlocked}
           /> : null}
           {sessionCopyBlocked ? (
             <p role="status" aria-label="Session copy Agent availability" className="play-muted"
