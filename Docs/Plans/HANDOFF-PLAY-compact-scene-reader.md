@@ -1,6 +1,6 @@
 # PLAY — compact surface navbar and focused scene reading
 
-Status: ACTIVE. Operator goal and 2026-10-18 screenshots authorize this correction. Base origin/main7c006fc75aef93f1c01f48e48a96637485c4f3f0; branch codex/play-more-context-layout; existing buddy-context-loop checkout. PRIME is the designing steward, sole source writer, merge owner and normal5202 delivery owner. Architecture reviews independently. Topology: serial, one implementation PR; no other source lease or new checkout/environment.
+Status: SETTLED. Operator goal and 2026-10-18 screenshots authorize this correction. Base origin/main7c006fc75aef93f1c01f48e48a96637485c4f3f0; branch codex/play-more-context-layout; existing buddy-context-loop checkout. PRIME is the designing steward, sole source writer, merge owner and normal5202 delivery owner. Architecture reviews independently. Topology: serial, one implementation PR; no other source lease or new checkout/environment.
 
 ## Outcome and invariant
 
@@ -33,3 +33,7 @@ Chat stays below the full navbar, explicit side/bottom switch, full pane-width t
 #1432 merged8906fa5c2 after independent Cycle2 PASS atb0c4c7284; all107 affected tests and build pass. Normal5202 proves compact row and retained read-only inspection, but the visible narrow screenshot exposes More behind scene content and partly beyond the left viewport edge. Acceptance remains pending. This successor serial correction changes only scoped Play navbar/popover CSS plus this contract/roadmap settlement; anchor narrow More to the host and establish host stacking above scene content. Re-run build, exact-head review and visible desktop/narrow screenshot and interaction checks, with retained Plan/Run/edition/notes proof. No other source lease is active.
 
 #1433 merged7c006fc75 after independent PASS at824ffdf70; visible narrow screenshot confirms overlay and horizontal bounds. It also exposed the relocated Beat summary relying on a scene-container query that no longer applies in the host. This serial CSS-only correction stacks the More Beat summary at all panel sizes and matches dark toolbar contrast. The original authored Beat text remains intact.
+
+## Acceptance settlement
+
+#1434 merged9863c5189 after independent PASS at561373939. Normal5202 final visible desktop and narrow screenshots confirm one surface row, no repeated scene-body metadata, readable More above content and within the347px client viewport. Pointer Next and keyboard return preserve visible More focus; current Notes opens/collapses; Load resumes the existing session. API comparisons prove fixture Plan, Run, edition and real Edge Run unchanged.107 affected tests and production build pass. UI-only assets adopted with prior assets retained. No source/runtime lease remains active for this correction; chat geometry and movable Notes follow in the next contract.
