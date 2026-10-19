@@ -1,3 +1,4 @@
+import { CardSceneNavigation } from "../shared/CardSceneNavigation";
 import { PlanCardEditing, exportPlanCardMarkdown, planCardRange, planCardSelectionAllowed, setPlanCardScope } from "./planCardEditing";
 import { PlanCardDeck } from "./components/PlanCardDeck";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
@@ -1915,6 +1916,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           hidden={cardsViewActive && !focusedCardEditable}
           aria-hidden={cardsViewActive && !focusedCardEditable}
         >
+          <CardSceneNavigation scenes={navigationScenes} sceneId={navigationSceneId} onSelect={navigatePlanScene}
+            hidden={!cardsViewActive || !focusedCardEditable} />
           {sourceEditing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
             onChange={body => {
               const next = preserveLeadingYamlFrontmatter(markdownRef.current, body);

@@ -610,6 +610,10 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");
     await user.click(screen.getByRole("button", { name: "Previous scene" }));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByRole("button", { name: "Previous scene" })).toBeDisabled();
+    expect(screen.getByRole("navigation", { name: "Card navigation" }).closest('[data-testid="play-central-workspace"]')).not.toBeNull();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "More Play controls" }));
     await user.click(screen.getByRole("button", { name: "Run record" }));
     expect(screen.getByTestId("play-recorded-outcomes-body")).toBeInTheDocument();

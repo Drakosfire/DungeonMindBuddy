@@ -4134,3 +4134,27 @@ it("keeps Contents beside the same editor and a fixed control set in Document an
   expect(prepare).not.toHaveBeenCalled();
   expect(screen.getByRole("button",{name:"Markdown",exact:true})).toHaveAttribute("title","Edit raw Markdown source");
 });
+
+it("browses Cards with reader arrows while retaining the mounted editor and local draft",async()=>{
+ mockSavedPlanForAgent(savedAgentPlanId,7,7,twoScenePlanMarkdown);
+ const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
+ render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+ const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
+ expect(screen.queryByRole("navigation",{name:"Card navigation"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+ const dom=surface.querySelector(".ProseMirror") as HTMLElement & {editor:import("@tiptap/core").Editor};const editor=dom.editor;
+ vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
+ await act(async()=>{editor.commands.insertContent("Local card draft. ");});
+ const draft=editor.getJSON();
+ expect(screen.getByRole("button",{name:"Previous scene",exact:true})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"Next scene",exact:true}));
+ expect(screen.getByRole("button",{name:"Show scene: Warehouse"})).toHaveAttribute("aria-current","true");
+ expect(screen.getByRole("button",{name:"Next scene",exact:true})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"Previous scene",exact:true}));
+ expect(screen.getByRole("button",{name:"Show scene: Arrival"})).toHaveAttribute("aria-current","true");
+ expect((surface.querySelector(".ProseMirror") as typeof dom).editor).toBe(editor);
+ expect(editor.getJSON()).toEqual(draft);
+ expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)??"null").markdown).toContain("Local card draft.");
+ expect(prepare).not.toHaveBeenCalled();
+});
