@@ -50,49 +50,24 @@ Document drafts, accepted graph knowledge and mutable Run state retain their
 actual ownership. A fresh blank World must be usable before campaign, corpus or
 published graph-head existence.
 
-## Current card adoption mandate — 2026-10-03
+## Current execution pickup — reconciled 2026-10-19
 
-The operator adopted connected cards, scene lenses, choices, map/location
-navigation and contextual writing as the production Plan/Play direction.
-[The roadmap's card adoption section](../Roadmaps/ROADMAP-demo.md#card-adoption-direction--operator-decision-2026-10-03)
-is the current delivery order and supersedes any unstarted ordering in the
-historical transfer section below. Completed work and existing holds remain.
+Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for the delivered
+baseline, remaining acceptance and candidates under operator discussion.
+Shared authoring, session-copy editing, session-aware Buddy, media authoring,
+compact navbars, Trash and session closing/evidence consumers have delivered
+bounded capabilities through #1455. This does not award full J1–J6 acceptance.
 
-Finish the active single-composer Agent panel slice, then design/pin one bounded
-production card projection over an existing saved World Plan. Bring J5's
-presentation forward alongside J2; do not wait for the full ingestion program.
-Use Session 29 for operator acceptance and preserved DOGFOOD #887 behavior as
-reference. Preserve accepted document/controllers, revisions, save fidelity,
-shared surface context and Run ownership. Prove Save/reopen, not browser-local
-prototype persistence. Card-targeted Agent edits, durable Play notes/outcomes,
-Graph enrichment, media and COMPOSITOR package admission follow in separately
-bounded slices where their contracts require it.
-
-Coordinate contract critique with ARCHITECTURE and state changes with APP-STATE;
-use DOGFOOD evidence and RAKE's forward reconnaissance. No prototype source is
-accepted automatically as production code or frozen gold. This mandate permits
-DEMO to design and deliver the named Buddy slices under repository policy;
-it does not grant another owner's schema/write lease or waive PRIME review.
-
-## Immediate delivery order and sequencing
-
-The operator ended broad Buddy PR [#793](https://github.com/Drakosfire/DungeonMindBuddy/pull/793) unmerged on 2026-09-29. Its exact source head `e122c7073ba8c79dcd428b608da5c8e92bc53abb` remains on `codex/demo-j2-plan-canvas-visual-impl`; it is reference material, not an active write lease or merge candidate. The previous DEMO task froze edits. Its local untracked Of Conks corpus remains with that checkout and must not be copied into a PR.
-
-The operator approved three smaller serial implementation slices. Refresh remote `main` and open PRs before each branch; the takeover snapshot was `main@ebfc22ad8c5797d033029c4e0ee2ca098595632c`. Preserve a recoverable source snapshot and extract only the intended hunks from #793. Each slice gets its own bounded ACTIVE handoff, path/runtime lease, owning-boundary tests, cumulative review, and PR. Do not reopen #793 or carry its long evidence/history documents wholesale.
-
-1. **Plan document-switch safety:** prevent the outgoing editor from accepting/persisting input while a different saved Plan loads. A delayed-snapshot mounted regression must prove the old draft and incoming document stay intact. This bug exists on accepted `main`; it is independent of #793's shell work.
-2. **Exact World Plan identity:** publish one saved-document or uniquely identified World-scoped local-draft work object through the existing surface/context seam. Prove old local-draft migration, reload stability, World/document replacement and local-to-saved promotion with mocked API/mounted tests. Keep server document identity, local token, revision and editor generation distinct. Shared publisher/host contracts stay read-only.
-3. **EditHost controls:** consume the identity from slice 2 to put title, Save, formatting and insertion in the established AppChrome/EditHost, removing duplicate inline controls. Prove one matching inventory, current-at-click targeting and inert held callbacks after document/World/draft replacement, save promotion and unmount. Include a mobile close/reopen click witness with mocked APIs; an unavailable database is not a prerequisite for this bounded UI behavior.
-
-Slice 3 depends on slice 2. The switch-safety fix is independent and should land first to avoid overlapping edits to `PlanSurfacePage.tsx`. Keep the existing editor theme and visual styling from #793 parked on its preserved branch. A separate visual PR needs a fresh appearance decision and operator acceptance; it does not block the three functional slices.
-
-After these bounded repairs, adopt the shared conversational Agent UI with truthful per-turn context on Index, Plan, Play, Build, Ingest and Combat, then resume the full connected fresh-World rehearsal. The rehearsal's isolated database pair is separate from the persistent `54330`/`54331` targets; the prior #793 live witness remained blocked on unavailable services and mismatched target configuration. Coordinate any runtime start or target change with PRIME and the designated runtime owner. Do not point an isolated witness at the persistent targets.
-
-These priorities authorize the fresh DEMO steward to prepare and deliver the named bounded PRs under repository policy; they do not assert that a PR, test, live witness or product acceptance already exists. PRIME owns review and merge. Prefer product progress over repeated process updates; update the single roadmap only for material facts.
+The old #793 transfer and three-slice immediate delivery order are historical,
+not current assignments. Their evidence remains in Git. Do not reopen an old
+welcome, shell or migration PR because this mandate previously called it next.
+Cards' purpose and information capacity need the requested design examination;
+no new implementation is activated by the current roadmap audit. Preserve the
+existing mutation, ownership and review boundaries when a next slice is selected.
 
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved the three-slice split above. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved a three-slice split, now historical transfer evidence in Git. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
 
 The former DEMO task `01a0885e-375c-7501-9f6e-a58528b39894` was archived. Its successor `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` was told to stop and preserve its checkout after #793 closed. Neither may resume #793 implementation or use the shared runtime without a new PRIME lease. Before implementation, verify their exact refs, drafts/untracked material and runtime/process leases; do not disturb the untracked licensed corpus. The fresh task starts from current remote authority and assumes no service is safe to start merely because a port appears free.
 
