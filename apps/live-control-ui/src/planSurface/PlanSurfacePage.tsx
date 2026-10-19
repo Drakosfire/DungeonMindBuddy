@@ -1,3 +1,4 @@
+import { PlanCardEditing, exportPlanCardMarkdown, planCardRange, planCardSelectionAllowed, setPlanCardScope } from "./planCardEditing";
 import { PlanCardDeck } from "./components/PlanCardDeck";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
@@ -1473,6 +1474,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     ],
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
+  const [cardEditNotice, setCardEditNotice] = useState<string | null>(null);
+  const cardEditingExtensions = useMemo(() => [SemanticMarkdownPaste, PlanCardEditing.configure({ onBlocked: () => setCardEditNotice("This change reaches outside the selected scene or changes its structure. Use Document to make it.") })], []);
   const cardsViewActive = Boolean(documentId) && status === "ready"
     && (selectedCardViewIdentity === navigationIdentity
       || (routeCardsViewRequested && documentId === initialDocumentId));
@@ -1609,6 +1612,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const navigationSceneId = sceneNavigation?.identity === navigationIdentity
     ? sceneNavigation.sceneId : savedBasis.status === "verified" ? navigationScenes[0]?.id ?? null : null;
   const navigationSceneIndex = navigationScenes.findIndex(scene => scene.id === navigationSceneId);
+  const cardScopeEpoch = useRef({ key: "", generation: 0 });
+  const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
+  if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
+  const focusedCardEditable = Boolean(cardsViewActive && editor && planCardRange(editor.state.doc, navigationSceneId));
+  useLayoutEffect(() => {
+    if (editor && !editor.isDestroyed) setPlanCardScope(editor, { active: cardsViewActive, sceneId: navigationSceneId });
+    setCardEditNotice(null);
+  }, [editor, cardsViewActive, navigationSceneId, navigationIdentity]);
+
   const navigatePlanScene = (sceneId: string | null) => {
     if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
     setSceneNavigation({ identity: navigationIdentity, sceneId });
@@ -1779,8 +1791,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [mediaTarget, setMediaTarget] = useState<string | null>(null);
   const mediaState = useRef<DocumentMediaState | null>(null);
   mediaState.current = editor ? { editor, identity: mediaIdentity,
-    version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}`,
-    canEdit: Boolean(documentId) && !sourceEditing && !cardsViewActive && !fidelityBlocked && !recoveryConflict
+    version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}:${cardScopeEpoch.current.generation}`,
+    canEdit: Boolean(documentId) && !sourceEditing && (!cardsViewActive || focusedCardEditable) && planCardSelectionAllowed(editor) && !fidelityBlocked && !recoveryConflict
       && pendingWriteRef.current === null && isCurrentEditTarget(),
   } : null;
   const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
@@ -1839,7 +1851,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => navigatePlanScene(navigationScenes[navigationSceneIndex + 1]?.id ?? null)}>›</button>
           </nav> : null}
           <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
-            onClick={() => { setSourceEditing(false); selectPlanView("document"); setMediaTarget(mediaIdentity); }}>Images</button>
+            onClick={() => { setSourceEditing(false); setMediaTarget(mediaIdentity); }}>Images</button>
           <WorkspaceTrashControl showTrash={false} worldId={worldId}
             current={documentId && revisionRef.current ? {kind:"document", id:documentId, title, surface:"plan", revision:revisionRef.current} : null}
             blocked={durableSaveState !== "saved" || startingPlay || pendingWriteRef.current !== null}
@@ -1906,11 +1918,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </section>
         ) : null}
 
+        <div className={cardsViewActive ? "plan-cards-workspace" : "plan-document-workspace"}>
+          {documentId && status === "ready" ? <PlanCardDeck key={navigationIdentity} visible={cardsViewActive} scenes={navigationScenes} nodes={navigationNodes}
+            sceneId={navigationSceneId} onSelect={navigatePlanScene} /> : null}
         <div
           className="world-plan-document-view"
           data-testid="world-plan-document-view"
-          hidden={cardsViewActive}
-          aria-hidden={cardsViewActive}
+          role={cardsViewActive && focusedCardEditable ? "region" : undefined}
+          aria-label={cardsViewActive && focusedCardEditable ? "Focused Plan scene" : undefined}
+          hidden={cardsViewActive && !focusedCardEditable}
+          aria-hidden={cardsViewActive && !focusedCardEditable}
         >
           {sourceEditing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
             onChange={body => {
@@ -1926,18 +1943,18 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               if (!pendingRecovery) setError(null);
               setMessage(null);
             }} /> : null}
-          <div className="world-plan-visual-editor" hidden={sourceEditing}>
+          <div className="world-plan-visual-editor" hidden={sourceEditing && !cardsViewActive}>
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
             testId="world-owned-plan-editor"
-            identityLabel={documentId ? "Plan editor" : "Unsaved Plan draft"}
+            identityLabel={cardsViewActive ? "" : documentId ? "Plan editor" : "Unsaved Plan draft"}
             themeId="mireward-runbook"
           >
             <MarkdownEditorCore
               content={editorContent}
               documentKey={editorIdentity}
               editable={status === "ready" && !fidelityBlocked}
-              extensions={[SemanticMarkdownPaste]}
+              extensions={cardEditingExtensions}
               onEditorChange={setCurrentEditor}
               dataTestId="world-owned-plan-markdown-editor"
               onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
@@ -1950,7 +1967,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                     setEditorGeneration((value) => value + 1);
                     return;
                   }
-                  const next = preserveLeadingYamlFrontmatter(markdownRef.current, defaultMarkdownDocumentAdapter.exportMarkdown(json));
+                  let next: string;
+                  try {
+                    const canonical = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                    next = exportPlanCardMarkdown(updatedEditor, markdownRef.current, canonical);
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Could not preserve the scene edit.");
+                    setEditorGeneration(value => value + 1);
+                    return;
+                  }
                   const nextImport = markdownToTiptapDoc(next);
                   const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
                   if (nextFidelityIssues.length) {
@@ -1974,11 +1999,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </PlanSurfaceCanvasFrame>
           </div>
         </div>
-        {documentId && status === "ready" ? <div className="plan-cards-workspace" hidden={!cardsViewActive}>
-          <PlanCardDeck key={navigationIdentity} visible={cardsViewActive} scenes={navigationScenes} nodes={navigationNodes}
-            sceneId={navigationSceneId} onSelect={navigatePlanScene} />
-          <div className="plan-cards-workspace__reader">
-          {cardsViewActive ? <WorldPlanCardProjection
+        <div className="plan-cards-workspace__reader" hidden={!cardsViewActive || focusedCardEditable}>
+          {documentId && cardsViewActive && !focusedCardEditable ? <WorldPlanCardProjection
             key={editorIdentity}
             navigation={{ sceneId: navigationSceneId, onChange: navigatePlanScene }}
             worldId={worldId}
@@ -1999,7 +2021,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             onActivateGraphNode={activateNode}
           /> : null}
           </div>
-        </div> : null}
+        </div>
+        {cardEditNotice ? <p role="status">{cardEditNotice} <button type="button" onClick={() => selectPlanView("document")}>Open Document</button></p> : null}
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}
