@@ -13,6 +13,8 @@ import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfac
 import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
 import { usePlayRunContentController } from "./usePlayRunContentController";
 import type { PlayRunContent } from "../playRunContentTypes";
+import { DocumentImageStudio } from "../../media/DocumentImageStudio";
+import { createDocumentMediaBridge, type DocumentMediaState } from "../../media/documentMediaBridge";
 import "./playSessionContentEditor.css";
 
 export function PlaySessionContentEditor({
@@ -39,6 +41,8 @@ export function PlaySessionContentEditor({
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [jumpCount, setJumpCount] = useState(0);
   const editorRef = useRef<Editor | null>(null);
+  const [visualEditor, setVisualEditor] = useState<Editor | null>(null);
+  const bindEditor = useCallback((editor: Editor | null) => { editorRef.current = editor; setVisualEditor(editor); }, []);
   const split = useMemo(() => splitLeadingYamlFrontmatter(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const imported = useMemo(() => markdownToTiptapDoc(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const identityKey = `${content.world_id}:${content.run_id}:${content.origin.playable_work_revision_id}:${content.origin.playable_content_sha256}`;
@@ -100,6 +104,17 @@ export function PlaySessionContentEditor({
     setOpen(value => !value);
     setHasOpened(true);
   };
+  const mediaIdentity = `${identityKey}:${currentSceneId ?? "none"}`;
+  const [mediaTarget, setMediaTarget] = useState<string | null>(null);
+  const mediaState = useRef<DocumentMediaState | null>(null);
+  mediaState.current = visualEditor ? { editor: visualEditor, identity: mediaIdentity,
+    version: `${controller.state.accepted.edition_revision_id ?? "pinned"}:${controller.state.draftGeneration}:${controller.state.editorRevision}:${runRevision ?? content.observed_run_revision}`,
+    canEdit: open && mode === "visual" && ["saved", "dirty"].includes(controller.state.saveState)
+      && !imported.diagnostics.some(item => item.level === "warning"),
+  } : null;
+  const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
+  useEffect(() => { setMediaTarget(null); }, [mediaIdentity]);
+
   const discardDraftForLatest = () => {
     controller.useLatestDiscardingDraft();
   };
@@ -119,8 +134,11 @@ export function PlaySessionContentEditor({
     <>
     <PlaySurfaceContext id="play-editor-context" order={30} identity={surfaceIdentity}>
       <SurfaceContextAction type="button" aria-label={open ? "Close editor" : "Edit session"} title={open ? "Close editor" : "Edit session"} aria-expanded={open} onClick={openEditor}>{open ? "Close" : "Edit"}</SurfaceContextAction>
+      <SurfaceContextAction type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={["recovering", "unknown", "conflict", "storage-error"].includes(controller.state.saveState)}
+        onClick={() => { setOpen(true); setHasOpened(true); setMode("visual"); setJumpCount(value => value + 1); setMediaTarget(mediaIdentity); }}>Images</SurfaceContextAction>
       <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}>{savedLabel}</SurfaceContextStatus>
     </PlaySurfaceContext>
+    {mediaTarget === mediaIdentity ? <DocumentImageStudio key={mediaIdentity} bridge={mediaBridge} targetLabel="session copy" onClose={() => setMediaTarget(null)} /> : null}
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">
 
       {controller.state.message ? <p className="play-session-content__message" role={controller.state.saveState === "invalid" || controller.state.saveState === "rejected" || controller.state.saveState === "storage-error" ? "alert" : "status"}>{controller.state.message}</p> : null}
@@ -167,7 +185,7 @@ export function PlaySessionContentEditor({
                 editable={controller.state.saveState !== "recovering"}
                 documentKey={`${identityKey}:${controller.state.editorRevision}:${editorEpoch}:visual`}
                 onUpdate={updateFromVisual}
-                onEditorChange={editor => { editorRef.current = editor; }}
+                onEditorChange={bindEditor}
                 className="play-session-content__visual"
                 dataTestId="play-session-copy-visual"
               />

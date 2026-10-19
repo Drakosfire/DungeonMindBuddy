@@ -1,6 +1,6 @@
 # PLAN: reuse the fidelity-validated import
 
-Status: ACTIVE. PRIME authorizes one serial measured optimization under the existing authoring-to-play goal. Base1d853915c869f5b18afb68fa7e3457cdbd980928; branch codex/plan-validated-import-reuse; reuse buddy-context-loop checkout. PRIME owns implementation/integration/5202; independent exact-head review required. No other open PR in the current inventory leases these Plan paths. No new checkout, environment, provider call or campaign content write.
+Status: DELIVERED. Historical contract follows. PRIME authorizes one serial measured optimization under the existing authoring-to-play goal. Base1d853915c869f5b18afb68fa7e3457cdbd980928; branch codex/plan-validated-import-reuse; reuse buddy-context-loop checkout. PRIME owns implementation/integration/5202; independent exact-head review required. No other open PR in the current inventory leases these Plan paths. No new checkout, environment, provider call or campaign content write.
 
 ## Evidence and invariant critique
 
@@ -20,3 +20,8 @@ Use mounted real editor in StrictMode with983/4903/14703-word fixtures and20 con
 ## Pre-review evidence
 
 Mounted StrictMode before/after count:60 ->20 full imports for20 accepted edits in each983/4903/14703 body-word fixture (one warmup edit excluded). Eleven focused checks pass, including new fidelity rejection/rollback and retired callback/identity tests plus existing source-mode recovery, World/document fences and autosave. Broader Plan/reviewed-edit baseline35 passed/67 failed (three new intentional count failures); optimized38 passed/64 failed with no newly failing names. The64 inherited tests are not claimed green. Production TypeScript/Vite build passes, existing bundle warning only. Private evidence plan-parse-reuse-measurement.json and owning/focused logs in established JEV location. Browser latency gain not measured. Independent review/merge and normal5202 acceptance remain pending.
+
+
+## Delivered settlement — 2026-10-19
+
+PR1442 merged8032438596e0c1bc669aca47292b0b3f3b6383e8 after independent exact-head PASS. Normal5202 visual typing/autosave/reopen and Document/Markdown media+callout/marker continuity passed; disposable Plan restored exact Markdown at revision19; both Play sessions, Edge, notes/progress unchanged. Private plan-parse-reuse-acceptance.json and ui-rollout evidence recorded. Parse-count measurement60->20/20 edits under StrictMode remains the measured claim; browser latency gain not measured. Exclusive Plan page/test lease released to serial HANDOFF-MEDIA-plan-play-authoring.md.

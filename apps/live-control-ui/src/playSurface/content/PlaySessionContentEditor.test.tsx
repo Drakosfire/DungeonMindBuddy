@@ -1,9 +1,9 @@
 import { webcrypto } from "node:crypto";
-import { fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from "@testing-library/react";
+import { act, fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { contentSha256 } from "../playRunEffectiveContent";
 import type { PlayRunContent } from "../playRunContentTypes";
 import { writePlayRunContentJournal } from "./playRunContentJournal";
@@ -12,6 +12,11 @@ import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInterac
 import { SurfaceContextAction } from "../../surfaceInteraction/contextHost";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
+import * as liveApi from "../../api/liveApi";
+
+const mediaWizardCapture = vi.hoisted(() => ({ props: null as any }));
+vi.mock("../../media/MediaImageWizard", () => ({ MediaImageWizard: (props: any) => { mediaWizardCapture.props = props; return <div aria-label="Synthetic Image Studio" />; } }));
+afterEach(() => vi.restoreAllMocks());
 
 function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
   return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
@@ -142,4 +147,36 @@ describe("Play session-copy editor", () => {
     expect(screen.queryByRole("button", { name: "Go to current scene" })).not.toBeInTheDocument();
   });
 
+});
+
+
+it("places a library image from the Play navbar only through its session-copy writer", async () => {
+  const assetId = "ac6c15cc-8c68-4732-8ae2-d9f3f051393a";
+  vi.spyOn(liveApi, "authenticatedApiFetch").mockResolvedValue({ response: Response.json({ asset_id: assetId, state: "ready" }), csrf: null, requestEpoch: 0 });
+  const planWriter = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const { putWorldPlayRunContentCommand } = await import("../../api/playRunContentApi");
+  vi.mocked(putWorldPlayRunContentCommand).mockClear().mockImplementation(() => new Promise(() => undefined));
+  const mounted = render(<PlaySessionContentEditor content={content} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));
+  const surface = await screen.findByTestId("play-session-copy-visual");
+  expect(screen.getByLabelText("Image Studio · session copy")).toBeInTheDocument();
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: editor.state.doc.content.size - 1, inside: 0 });
+  const placing = mediaWizardCapture.props.onChoose({ asset_id: assetId, state: "ready" }, { prompt: "Saved map" }, { mode: "click", signal: new AbortController().signal });
+  fireEvent.pointerUp(editor.view.dom, { clientX: 10, clientY: 10 });
+  await act(async () => { await placing; });
+  expect(screen.queryByLabelText("Image Studio · session copy")).not.toBeInTheDocument();
+  await waitFor(() => expect(putWorldPlayRunContentCommand).toHaveBeenCalledWith(identity.runId, identity.worldId, expect.any(String), expect.objectContaining({ expected_origin: identity.origin, markdown: expect.stringContaining(`dmb-media:${assetId}`) })));
+  expect(planWriter).not.toHaveBeenCalled();expect(content.markdown).not.toContain('dmb-media:');
+  mounted.unmount();
+});
+
+it("closes Image Studio when the Play scene target changes", async () => {
+  const props = { content, currentSceneId: "scene:gate", originLabel: "Saved Plan", onAcceptedContent: vi.fn(), onUnsubmittedChange: vi.fn() };
+  const mounted = render(<PlaySessionContentEditor {...props} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));expect(screen.getByLabelText("Image Studio · session copy")).toBeInTheDocument();
+  mounted.rerender(<PlaySessionContentEditor {...props} currentSceneId="scene:other" />);
+  expect(screen.queryByLabelText("Image Studio · session copy")).not.toBeInTheDocument();
 });
