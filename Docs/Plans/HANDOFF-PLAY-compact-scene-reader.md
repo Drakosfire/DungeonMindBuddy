@@ -1,6 +1,6 @@
 # PLAY — compact surface navbar and focused scene reading
 
-Status: ACTIVE. Operator goal and 2026-10-18 screenshots authorize this correction. Base origin/main6e9437546108579fdd0ffcab82b0a89df2f5ecdc; branch codex/play-navbar-compact; existing buddy-context-loop checkout. PRIME is the designing steward, sole source writer, merge owner and normal5202 delivery owner. Architecture reviews independently. Topology: serial, one implementation PR; no other source lease or new checkout/environment.
+Status: ACTIVE. Operator goal and 2026-10-18 screenshots authorize this correction. Base origin/main8906fa5c207293597168ff2dc50523c70a324ef9; branch codex/play-compact-menu-fix; existing buddy-context-loop checkout. PRIME is the designing steward, sole source writer, merge owner and normal5202 delivery owner. Architecture reviews independently. Topology: serial, one implementation PR; no other source lease or new checkout/environment.
 
 ## Outcome and invariant
 
@@ -27,3 +27,7 @@ Normal5202 rendered acceptance must prove one surface-control line at the operat
 ## Successors retained by the full goal
 
 Chat stays below the full navbar, explicit side/bottom switch, full pane-width transcript; expanded Notes movable and collapsed in navbar. Then edition-aware Buddy context/proposed edits and shared Plan/Play continuity with Markdown/media must be completed and exercised on5202. These remain separate bounded slices; this handoff does not claim or implement them.
+
+## Rendered correction after first delivery
+
+#1432 merged8906fa5c2 after independent Cycle2 PASS atb0c4c7284; all107 affected tests and build pass. Normal5202 proves compact row and retained read-only inspection, but the visible narrow screenshot exposes More behind scene content and partly beyond the left viewport edge. Acceptance remains pending. This successor serial correction changes only scoped Play navbar/popover CSS plus this contract/roadmap settlement; anchor narrow More to the host and establish host stacking above scene content. Re-run build, exact-head review and visible desktop/narrow screenshot and interaction checks, with retained Plan/Run/edition/notes proof. No other source lease is active.

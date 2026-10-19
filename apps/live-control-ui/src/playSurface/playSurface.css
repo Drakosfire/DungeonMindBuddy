@@ -549,7 +549,7 @@
 .play-cockpit-shell[data-glance-collapsed="true"] .play-recorded-outcomes { display: none; }
 
 /* Play's owner-local contributions share one compact surface row. */
-.surface-context-host:has(.play-surface-context) { flex-wrap: nowrap; gap: .25rem; }
+.surface-context-host:has(.play-surface-context) { position: relative; z-index: 30; flex-wrap: nowrap; gap: .25rem; }
 .surface-context-host__slot:has(.play-surface-context),
 .play-surface-context,
 .play-surface-context .surface-context-module__body,
@@ -567,6 +567,8 @@
   .surface-context-host:has(.play-surface-context) .surface-context-action { padding-inline: .25rem; font-size: .72rem; }
   .surface-context-host:has(.play-surface-context) .surface-context-status { max-width: 5rem; font-size: .68rem; }
   .surface-context-host:has(.play-surface-context) :is(.play-surface-context__outline, .play-surface-context__previous, .play-surface-context__next, .play-surface-context__return) { display: none; }
+  .play-surface-context__more > .surface-context-popover { position: static; }
+  .play-surface-context__more .surface-context-popover__panel { left: .5rem; right: .5rem; top: calc(100% + .35rem); min-width: 0; max-width: none; }
   .play-surface-context__compact-navigation { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; }
 }
 
