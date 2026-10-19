@@ -1,3 +1,4 @@
+import { SurfaceNavbarIconButton } from "../../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useMemo, type ReactNode } from "react";
 
 import type { WorkspaceDocumentRecord, WorldOwnedPlanRecordV2 } from "../../api/types";
@@ -5,7 +6,6 @@ import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfa
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextBadge,
-  SurfaceContextAction,
   SurfaceContextModule,
   SurfaceContextSelect,
   SurfaceContextStatus,
@@ -88,9 +88,7 @@ export function WorldPlanSurfaceContext({
           ))}
         </SurfaceContextSelect>
         {documentId ? (
-          <SurfaceContextAction type="button" onClick={onNewPlan} disabled={disabled}>
-            New Plan
-          </SurfaceContextAction>
+          <SurfaceNavbarIconButton icon="new" label="New Plan" onClick={onNewPlan} disabled={disabled} />
         ) : null}
         {toolbar}
       </div>

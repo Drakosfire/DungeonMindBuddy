@@ -195,7 +195,8 @@ describe("BuildSurfaceContext", () => {
     expect(saveStatus.querySelector('[data-save-state="saved"]')).not.toBeNull();
     expect(saveStatus.querySelector("time")).toHaveAttribute("dateTime", COMMITTED_AT);
     expect(within(host).getByTestId("build-document-rename-open")).toHaveTextContent("Rename");
-    expect(within(host).getByTestId("build-document-create-open")).toHaveTextContent("+ New page");
+    expect(within(host).getByTestId("build-document-create-open")).toHaveAccessibleName("New page");
+    expect(within(host).getByTestId("build-navbar-save")).toHaveAccessibleName("Save");
   });
 
   it("saves through the existing document command from the navbar", async () => {

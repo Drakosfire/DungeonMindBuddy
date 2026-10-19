@@ -1,3 +1,4 @@
+import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
@@ -154,13 +155,17 @@ export function BuildSurfaceContext({
                   </span>
                 </>
               ) : null}
-              {session ? <button type="button" className="build-navbar-save" data-testid="build-navbar-save"
+              {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save"
                 disabled={session.saveDisabled || documentMutationBusy}
                 title={documentMutationBusy ? "Wait for the current document action to finish." : session.saveDisabledReason ?? undefined}
                 aria-describedby={session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
-                onClick={() => void session.saveMarkdown()}>{saveBusy ? "Saving…" : "Save"}</button> : null}
-              {session?.saveDisabled && session.dirty && session.saveDisabledReason ? <span id="build-save-reason" role="status">{session.saveDisabledReason}</span> : null}
-              {session?.dirty || session?.draftRecoveryAvailable ? <BuildDraftRecovery session={session!} /> : null}
+                onClick={() => void session.saveMarkdown()} /> : null}
+              {session?.dirty || session?.draftRecoveryAvailable ? <details className="surface-navbar-recovery">
+                <summary>Draft recovery</summary><div className="surface-navbar-recovery__panel">
+                  {session.saveDisabled && session.dirty && session.saveDisabledReason ? <p id="build-save-reason" role="status">{session.saveDisabledReason}</p> : null}
+                  <BuildDraftRecovery session={session} />
+                </div>
+              </details> : null}
             </>
           ) : (
             <>

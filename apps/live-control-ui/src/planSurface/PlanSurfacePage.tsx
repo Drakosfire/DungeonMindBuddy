@@ -1,3 +1,4 @@
+import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
@@ -1791,10 +1792,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>
           {autoSavePaused && !createUncertain && !recoveryConflict && !fidelityBlocked ? (
-            <button type="button" className="world-plan-context-toolbar__retry"
-              onClick={() => { setAutoSavePaused(false); void saveRef.current(); }}>
-              Retry save
-            </button>
+            <SurfaceNavbarIconButton icon="save" label="Retry save" className="world-plan-context-toolbar__retry"
+              onClick={() => { setAutoSavePaused(false); void saveRef.current(); }} />
           ) : null}
           <button type="button" className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
             aria-label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
