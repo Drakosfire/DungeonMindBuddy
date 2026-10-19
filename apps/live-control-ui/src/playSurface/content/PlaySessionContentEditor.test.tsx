@@ -1,5 +1,5 @@
 import { webcrypto } from "node:crypto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { contentSha256 } from "../playRunEffectiveContent";
@@ -63,4 +63,27 @@ describe("Play session-copy editor", () => {
     expect(await screen.findByText("Latest remote version.")).toBeInTheDocument();
     expect(screen.queryByText("My reviewed local draft.")).not.toBeInTheDocument();
   });
+  it("opens without writing and preserves YAML, table, callout and distinct media descriptors in source edits", async () => {
+    const { putWorldPlayRunContentCommand } = await import("../../api/playRunContentApi");
+    vi.mocked(putWorldPlayRunContentCommand).mockReset();
+    const yaml = "---\r\ntitle: Session\r\n---\r\n";
+    const media = "![First](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd \"dmb-image:v1 width=35 collapsed=true\")\n\n![Second](dmb-media:dddddddd-dddd-4ddd-8ddd-dddddddddddd \"dmb-image:v1 width=80 collapsed=false\")";
+    const body = "# Gate\n\nOriginal prose.\n\n| Die | Result |\n| --- | --- |\n| 1 | Rain |\n\n> [!NOTE] Reminder\n> Keep the gate.\n\n" + media + "\n";
+    const rich = { ...content, markdown: yaml + body, content_sha256: await contentSha256(yaml + body) };
+    const user = userEvent.setup();
+    const mounted = render(<PlaySessionContentEditor content={rich} currentSceneId={null} originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Session copy Markdown" }), { target: { value: body.replace("Original prose.", "Edited prose.") } });
+    const raw = window.localStorage.getItem((await import("./playRunContentJournal")).playRunContentJournalKey(identity))!;
+    const saved = JSON.parse(raw).draft_markdown;
+    expect(saved.startsWith(yaml)).toBe(true);
+    expect(saved).toContain(media);
+    expect(saved).toContain("| 1 | Rain |");
+    expect(saved).toContain("> [!NOTE] Reminder");
+    expect(saved).toContain("Edited prose.");
+    mounted.unmount();
+  });
+
 });

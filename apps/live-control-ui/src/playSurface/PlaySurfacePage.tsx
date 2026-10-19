@@ -934,7 +934,7 @@ export function PlaySurfacePage() {
       : null;
   const admittedRun = v1Deck?.run ?? v2Deck?.run ?? null;
   const sessionCopyIdentity = v2Deck?.effectiveContent
-    ? `${v2Deck.effectiveContent.world_id}:${v2Deck.effectiveContent.run_id}:${v2Deck.effectiveContent.origin.playable_work_revision_id}:${v2Deck.effectiveContent.origin.playable_content_sha256}`
+    ? JSON.stringify([v2Deck.effectiveContent.world_id, v2Deck.effectiveContent.run_id, v2Deck.effectiveContent.origin])
     : null;
   const sessionCopyBlocked = Boolean(v2Deck?.effectiveContent && (
     v2Deck.effectiveContent.source === "edition"

@@ -22,6 +22,7 @@ export interface PlayRunContentJournal {
   draft_markdown: string;
   draft_generation: number;
   pending: PendingPlayRunContentCommand | null;
+  held_state?: "conflict" | "invalid" | "rejected";
 }
 
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -72,7 +73,8 @@ export async function validatePlayRunContentJournal(raw: string, expected: PlayR
   let parsed: unknown;
   try { parsed = JSON.parse(raw); }
   catch { throw new TypeError("Saved session-copy recovery data is not valid JSON."); }
-  if (!object(parsed) || !exactKeys(parsed, ["schema_version", "identity", "accepted", "draft_markdown", "draft_generation", "pending"])
+  if (!object(parsed) || !exactKeys(parsed, ["schema_version", "identity", "accepted", "draft_markdown", "draft_generation", "pending", ...(parsed.held_state === undefined ? [] : ["held_state"])])
+    || (parsed.held_state !== undefined && !["conflict", "invalid", "rejected"].includes(parsed.held_state as string))
     || parsed.schema_version !== "dmb_play_run_content_journal_v1" || !object(parsed.identity)
     || !exactKeys(parsed.identity, ["worldId", "runId", "origin"]) || typeof parsed.identity.worldId !== "string"
     || typeof parsed.identity.runId !== "string" || !object(parsed.identity.origin)

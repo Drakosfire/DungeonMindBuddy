@@ -131,6 +131,8 @@ export function usePlayRunContentController(
     draft_markdown: next.draftMarkdown,
     draft_generation: next.draftGeneration,
     pending,
+    ...(["conflict", "invalid", "rejected"].includes(next.saveState)
+      ? { held_state: next.saveState as "conflict" | "invalid" | "rejected" } : {}),
   }), [identity]);
 
   const persist = useCallback((next: PlayRunContentControllerState, pending: PendingPlayRunContentCommand | null): boolean => {
@@ -299,6 +301,8 @@ export function usePlayRunContentController(
       try {
         const journal = await validatePlayRunContentJournal(raw, identity);
         if (cancelled || !activeRef.current) return;
+        // Consume after validation survives cleanup, before host receipt feedback.
+        initialRawRef.current = null;
         if (journal.pending) {
           const recovered = { ...stateRef.current, accepted: journal.accepted, draftMarkdown: journal.draft_markdown, draftGeneration: journal.draft_generation,
             editorRevision: journal.draft_markdown === stateRef.current.draftMarkdown ? stateRef.current.editorRevision : stateRef.current.editorRevision + 1,
@@ -317,10 +321,14 @@ export function usePlayRunContentController(
         }
         const recovered = { ...stateRef.current, accepted: journal.accepted, draftMarkdown: journal.draft_markdown, draftGeneration: journal.draft_generation,
           editorRevision: journal.draft_markdown === stateRef.current.draftMarkdown ? stateRef.current.editorRevision : stateRef.current.editorRevision + 1,
-          saveState: journal.draft_markdown === journal.accepted.markdown ? "saved" as const : "dirty" as const,
-          message: journal.draft_markdown === journal.accepted.markdown ? null : "Unsaved session-copy draft restored." };
+          saveState: journal.held_state ?? (journal.draft_markdown === journal.accepted.markdown ? "saved" as const : "dirty" as const),
+          message: journal.held_state ? "An unsaved draft with a previous save rejection was restored. Review it before continuing."
+            : journal.draft_markdown === journal.accepted.markdown ? null : "Unsaved session-copy draft restored." };
         journalRawRef.current = raw;
-        if (recovered.saveState === "saved") removePlayRunContentJournalIfUnchanged(identity, raw);
+        if (recovered.saveState === "saved") {
+          removePlayRunContentJournalIfUnchanged(identity, raw);
+          journalRawRef.current = null;
+        }
         publish(recovered);
       } catch (error) {
         if (!cancelled && activeRef.current) publish({ ...stateRef.current, saveState: "storage-error", message: error instanceof Error ? error.message : "Saved session-copy recovery could not be validated." });
@@ -357,9 +365,8 @@ export function usePlayRunContentController(
     const current = stateRef.current;
     if (markdown === current.draftMarkdown && JSON.stringify(issues) === JSON.stringify(current.serializationIssues)) return;
     const next = { ...current, draftMarkdown: markdown, draftGeneration: current.draftGeneration + 1,
-      saveState: issues.length ? "invalid" as const
-        : pendingRef.current ? current.saveState
-          : current.saveState === "conflict" || current.saveState === "unknown" ? current.saveState : "dirty" as const,
+      saveState: pendingRef.current || current.saveState === "conflict" || current.saveState === "unknown"
+        ? current.saveState : issues.length ? "invalid" as const : "dirty" as const,
       serializationIssues: issues,
       message: issues.length ? "This edit cannot be represented safely as Markdown." : null };
     if (!persist(next, pendingRef.current)) return;

@@ -37,7 +37,9 @@ restart historical assignments merely because they remain in this document.
 | Floating Play scene notes | #1420 merged09b1b3de; actual note save/reload, current-scene target and pin retained | Agent note visibility remains unimplemented |
 | Saved images in Plan Cards/Play | #1421 merged3dfa43f94; actual ready images, distinct occurrences/collapse and unchanged saved bytes | Reader controls are not editable Play media |
 | Understandable Play entry | #1423 merged8dd30d111; readable Edge resume, date/notes, normal5202 Graph Ready, entire real Run unchanged | Does not unify Plan/Play workspace |
-| Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | UI/Agent still use original pin until bounded adoption; Play content editing remains unimplemented |
+| Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | Play content editing is the active bounded successor; edition-aware Agent remains later |
+
+| Effective Play session reader | #1425/#1426 merged and delivered5202; PRIME reader gate PASS on edition3 prose/table/callout/images, desktop+narrow, original Plan/Run/notes unchanged | Read adoption only; editing acceptance remains outstanding |
 
 ### Next execution and ownership
 
@@ -46,13 +48,13 @@ prior content/notes retained, authenticated read/replay and restart proof. The
 settled [Run-local edition contract](../Plans/HANDOFF-PLAY-run-local-content-editions.md)
 records the exact delivery receipt. The dated audit remains historical evidence.
 
-DOGFOOD now owns the ACTIVE bounded effective-content projection successor
-([contract](../Plans/HANDOFF-PLAY-live-effective-content.md), pinned2bffe312b).
-PRIME owns its reviewed UI delivery. The next required serial slice remains
-existing-scene Markdown/media editing with session-copy autosave/CAS and durable
-pending-command recovery, followed by edition-aware Agent context/notes and the
-shared Plan/Play workspace with retained cross-surface acceptance. Those later
-slices require their own explicit owner/path leases and are not complete.
+The effective-content reader and notice repair are merged and delivered (#1425/#1426).
+The ACTIVE serial [editing contract](../Plans/HANDOFF-PLAY-session-copy-editing.md)
+transfers the preserved implementation to play_editing_finish for existing-scene
+Markdown/media session-copy autosave/CAS and durable pending-command recovery.
+Architecture independently reviews; PRIME owns merge and normal5202 editing
+save/reopen and actual media manipulation acceptance. Edition-aware Agent
+context/notes and the shared Plan/Play workspace remain later bounded slices.
 Keep original Run identity stable for notes and session progress while content
 edition identity changes. A newer Plan must not force a forbidden rebase of a
 session-edited Run. Do not present edited text as the original pinned Plan.

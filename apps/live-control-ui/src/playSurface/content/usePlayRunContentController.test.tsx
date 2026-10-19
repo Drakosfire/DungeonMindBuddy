@@ -1,3 +1,4 @@
+import { StrictMode, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +31,8 @@ async function receiptFor(commandId: string, request: PlayRunContentCommitReques
 }
 
 beforeEach(async () => {
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.resetAllMocks();
   vi.useFakeTimers();
   vi.stubGlobal("crypto", webcrypto);
   window.localStorage.clear();
@@ -139,4 +141,84 @@ describe("Play session-copy autosave controller", () => {
     expect(hook.result.current.state.message).toMatch(/storage/i);
     expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
   });
+  it.each([false, true])("recovers once under StrictMode and host feedback, pending=%s", async pending => {
+    const identity = { worldId, runId, origin: content.origin };
+    const markdown = "# Gate\n\nRecovered.\n";
+    const request: PlayRunContentCommitRequest = { schema_version: "dmb_world_play_run_content_commit_v1", expected_origin: content.origin,
+      expected_edition_revision: 0, expected_content_sha256: content.content_sha256, markdown };
+    const command = { commandId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", draftGeneration: 1, request };
+    window.localStorage.setItem(playRunContentJournalKey(identity), JSON.stringify({ schema_version: "dmb_play_run_content_journal_v1",
+      identity, accepted: content, draft_markdown: markdown, draft_generation: 1, pending: pending ? command : null }));
+    vi.mocked(getWorldPlayRunContentCommand).mockImplementation(async () => receiptFor(command.commandId, request));
+    vi.mocked(putWorldPlayRunContentCommand).mockImplementation(async (_r, _w, id, body) => receiptFor(id, body));
+    vi.mocked(getWorldPlayRunContent).mockRejectedValue(new Error("offline read"));
+    vi.useRealTimers();
+    const hook = renderHook(() => {
+      const [host, setHost] = useState(content);
+      return usePlayRunContentController(host, setHost, () => {});
+    }, { wrapper: StrictMode });
+    await waitFor(() => expect(hook.result.current.state.saveState).toBe("saved"));
+    expect(hook.result.current.state.accepted.edition_revision).toBe(1);
+    expect(hook.result.current.state.draftMarkdown).toBe(markdown);
+    expect(getWorldPlayRunContentCommand).toHaveBeenCalledTimes(pending ? 1 : 0);
+    expect(putWorldPlayRunContentCommand).toHaveBeenCalledTimes(pending ? 0 : 1);
+    expect(window.localStorage.getItem(playRunContentJournalKey(identity))).toBeNull();
+    act(() => hook.result.current.changeDraft("# Gate\n\nNext.\n"));
+    expect(hook.result.current.state.saveState).toBe("dirty");
+    hook.unmount();
+  });
+
+  it.each([409, 413, 422])("GET404 retries identical uncertain PUT and handles definitive %s", async status => {
+    vi.mocked(putWorldPlayRunContentCommand).mockRejectedValueOnce(new LiveApiError("uncertain", 503))
+      .mockRejectedValueOnce(new LiveApiError("definitive rejection", status));
+    vi.mocked(getWorldPlayRunContentCommand).mockRejectedValue(new LiveApiError("not found yet", 404));
+    vi.mocked(getWorldPlayRunContent).mockResolvedValue(content);
+    const hook = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+    act(() => hook.result.current.changeDraft("# Gate\n\nDraft.\n"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(651); });
+    expect(hook.result.current.state.saveState).toBe("unknown");
+    const original = vi.mocked(putWorldPlayRunContentCommand).mock.calls[0];
+    await act(async () => hook.result.current.retryRecovery());
+    expect(vi.mocked(putWorldPlayRunContentCommand).mock.calls[1]).toEqual(original);
+    expect(hook.result.current.state.saveState).toBe(status === 409 ? "conflict" : status === 413 ? "rejected" : "invalid");
+    expect(hook.result.current.state.draftMarkdown).toContain("Draft.");
+    if (status === 409) {
+      act(() => hook.result.current.changeDraft("# Gate\n\nGated.\n", ["diagnostic"]));
+      expect(hook.result.current.state.saveState).toBe("conflict");
+      act(() => hook.result.current.changeDraft("# Gate\n\nGated valid.\n"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(hook.result.current.state.saveState).toBe("conflict");
+      expect(putWorldPlayRunContentCommand).toHaveBeenCalledTimes(2);
+    }
+    hook.unmount();
+    vi.useRealTimers();
+    const reopened = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+    await waitFor(() => expect(reopened.result.current.state.saveState).toBe(status === 409 ? "conflict" : status === 413 ? "rejected" : "invalid"));
+    expect(putWorldPlayRunContentCommand).toHaveBeenCalledTimes(2);
+    reopened.unmount();
+  });
+
+  it("retains an unmounted A command across B and a returning A controller", async () => {
+    let finishOld!: (value: PlayRunContentReceipt) => void;
+    vi.mocked(putWorldPlayRunContentCommand).mockImplementation(() => new Promise(resolve => { finishOld = resolve; }));
+    const oldAccepted = vi.fn();
+    const firstA = renderHook(() => usePlayRunContentController(content, oldAccepted, vi.fn()));
+    act(() => firstA.result.current.changeDraft("# Gate\n\nPending A.\n"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(651); });
+    const call = vi.mocked(putWorldPlayRunContentCommand).mock.calls[0];
+    firstA.unmount();
+    const b = renderHook(() => usePlayRunContentController({ ...content, world_id: "other-world" }, vi.fn(), vi.fn()));
+    await act(async () => finishOld(await receiptFor(call[2], call[3])));
+    expect(b.result.current.state.accepted.world_id).toBe("other-world");
+    expect(oldAccepted).not.toHaveBeenCalled();
+    b.unmount();
+    vi.mocked(getWorldPlayRunContentCommand).mockImplementation(async () => receiptFor(call[2], call[3]));
+    vi.mocked(getWorldPlayRunContent).mockRejectedValue(new Error("offline read"));
+    vi.useRealTimers();
+    const returningA = renderHook(() => usePlayRunContentController(content, vi.fn(), vi.fn()));
+    await waitFor(() => expect(returningA.result.current.state.saveState).toBe("saved"));
+    expect(returningA.result.current.state.accepted.markdown).toBe(call[3].markdown);
+    expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce();
+  });
+
 });
