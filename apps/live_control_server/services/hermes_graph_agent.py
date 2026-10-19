@@ -439,7 +439,8 @@ def _build_ephemeral_system_prompt(
         retrieval_session_id=request.retrieval_session_id,
         retrieval_session=retrieval_session_packet,
     )
-    parts = [_GRAPH_SYSTEM_POLICY, scope_part]
+    from apps.live_control_server.services.agent_graph_policy import graph_read_profile_policy
+    parts = [_GRAPH_SYSTEM_POLICY, graph_read_profile_policy(request.graph_read_profile), scope_part]
     if "prepare_build_image" in policy.enabled_tool_names:
         parts.append("Use prepare_build_image when asked for artwork, an image or a map of this document. "
             "Set its purpose to map for cartographic requests, otherwise illustration. "
@@ -2348,7 +2349,16 @@ def run_hermes_graph_agent_turn(
                             *prior_warnings,
                             "terminal_failure_diagnostic_invalid",
                         ]
-                    if failure_code == "provider_lifecycle_unavailable":
+                    if (terminal_failure is not None
+                        and terminal_failure.get("reason") == "provider_response_incomplete"
+                        and terminal_failure.get("responseStatus") == "incomplete"
+                        and terminal_failure.get("incompleteReason") == "max_output_tokens"):
+                        failure_code = "provider_output_limit_exceeded"
+                        failure_message = (
+                            "The provider returned an incomplete response at its output limit. "
+                            "No partial answer or proposal was accepted; this turn was not retried."
+                        )
+                    elif failure_code == "provider_lifecycle_unavailable":
                         failure_message = (
                             "The provider lifecycle could not be completed; "
                             "any dispatched attempt retains its observed or unknown outcome."
