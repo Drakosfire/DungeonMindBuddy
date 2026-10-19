@@ -1,0 +1,9 @@
+.workspace-conflict-recovery { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; }
+.workspace-conflict-review { position:fixed; inset:0; margin:auto; width:min(64rem,calc(100vw - 2rem)); max-height:85dvh; overflow:auto; padding:1.25rem; background:#171d28; color:#e8eaef; border:1px solid #687891; border-radius:10px; box-shadow:0 16px 60px #0008; }
+.workspace-conflict-review::backdrop { background:#0008; }
+.workspace-conflict-review h2 { margin-top:0; }
+.workspace-conflict-review pre { padding:.75rem; max-height:14rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:#e8eaef; background:#10151e; border:1px solid #414d60; border-radius:6px; }
+.workspace-conflict-review footer { position:sticky; bottom:-1.25rem; padding:.75rem 0; background:#171d28; display:flex; flex-wrap:wrap; gap:.5rem; }
+.workspace-conflict-review button { padding:.45rem .7rem; cursor:pointer; }
+.workspace-conflict-review button:disabled { opacity:.5; cursor:wait; }
+.workspace-conflict-review a, .workspace-conflict-recovery a { color:#a5c7ed; }

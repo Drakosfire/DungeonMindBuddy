@@ -1,3 +1,4 @@
+import type { WorkspaceConflictRecovery } from "../workspaceDocument/workspaceConflictRecovery";
 import type { WorkspaceDraftRecoveryReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import type { ReactNode } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
@@ -112,6 +113,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   exportedMarkdownAuthoritative: boolean;
   saveDisabled: boolean;
   saveDisabledReason: string | null;
+  conflictRecovery?: WorkspaceConflictRecovery;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
   confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => void;

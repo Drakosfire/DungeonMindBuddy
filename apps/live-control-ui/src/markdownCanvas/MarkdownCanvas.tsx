@@ -1,3 +1,4 @@
+import { WorkspaceConflictRecovery } from "../workspaceDocument/WorkspaceConflictRecovery";
 import type { ReactNode } from "react";
 import type { Content } from "@tiptap/react";
 
@@ -94,9 +95,7 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
         <button type="button" onClick={() => void session.reloadFromSnapshot()}>
           Reload from server
         </button>
-        <button type="button" onClick={() => void session.discardLocalDraft()}>
-          Discard local draft
-        </button>
+        <WorkspaceConflictRecovery key={session.documentKey} recovery={session.conflictRecovery} />
       </main>
     );
   }

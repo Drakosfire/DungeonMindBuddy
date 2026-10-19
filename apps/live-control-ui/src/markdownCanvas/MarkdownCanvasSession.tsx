@@ -292,6 +292,17 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       documentKey: authoring.documentKey,
       saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
       saveDisabledReason: saveBlockedByCommand ? "Wait for the current document action to finish." : authoring.saveDisabledReason,
+      conflictRecovery: authoring.conflictRecovery ? {
+        ...authoring.conflictRecovery,
+        prepare: () => {
+          if (activeCommand) throw new Error("Wait for the current document action to finish.");
+          return authoring.conflictRecovery!.prepare();
+        },
+        resolve: async (review, choice) => {
+          if (activeCommand) throw new Error("Wait for the current document action to finish.");
+          await authoring.conflictRecovery!.resolve(review, choice);
+        },
+      } : undefined,
       draftRecoveryAvailable: authoring.draftRecoveryAvailable,
       prepareDraftRecovery: () => {
         if (activeCommand) throw new Error("Wait for the current document action to finish.");

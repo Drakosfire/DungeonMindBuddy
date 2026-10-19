@@ -1,3 +1,4 @@
+import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 
@@ -79,6 +80,7 @@ export interface WorkspaceDocumentAuthoringValue {
   statusLabel: string;
   saveDisabled: boolean;
   saveDisabledReason: string | null;
+  conflictRecovery?: WorkspaceConflictRecovery;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
   confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => void;
@@ -178,9 +180,13 @@ export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
   const storage = args.storage ?? window.localStorage;
+  const requestedDocument = useRef(args.documentId);
+  requestedDocument.current = args.documentId;
   const [machine, setMachine] = useState<WorkspaceDocumentAuthoringMachineState>(
     initialAuthoringMachineState,
   );
+  const phaseRef = useRef(machine.phase);
+  phaseRef.current = machine.phase;
   const [snapshot, setSnapshot] = useState<WorkspaceDocumentSnapshot | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconcileLocalDraftResult | null>(null);
   const [localState, setLocalState] = useState<WorkspaceDocumentLocalState | null>(null);
@@ -189,6 +195,11 @@ export function useWorkspaceDocumentAuthoring(
   const [documentKey, setDocumentKey] = useState(args.documentId);
   const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
+  const recoveryMounted = useRef(true);
+  useEffect(() => {
+    recoveryMounted.current = true;
+    return () => { recoveryMounted.current = false; };
+  }, []);
   /** Monotonic generation so stale verification completions cannot clobber newer saves. */
   const verificationGenerationRef = useRef(0);
   /** Monotonic generation so a newer save supersedes an older save's prepare/commit/apply path. */
@@ -248,6 +259,8 @@ export function useWorkspaceDocumentAuthoring(
       if (opened.status === "conflict") {
         expectedRevisionRef.current = nextSnapshot.loaded_revision;
         setSnapshot(nextSnapshot);
+        snapshotRef.current = nextSnapshot;
+        localStateRef.current = stored;
         setLocalState(stored);
         setDocumentKey(`${args.documentId}:conflict:${nextSnapshot.loaded_revision}`);
         dispatch({
@@ -412,6 +425,55 @@ export function useWorkspaceDocumentAuthoring(
     );
     dispatch({ type: "OPEN_READY", dirty: next.dirty });
   }, [dispatch, storage]);
+
+  const conflictFence = useCallback(() => {
+    const current = localStateRef.current;
+    const saved = snapshotRef.current;
+    if (!recoveryMounted.current || requestedDocument.current !== args.documentId || phaseRef.current !== "conflict" || !current || !saved
+      || current.document_id !== args.documentId || saved.record.document_id !== args.documentId
+      || current.surface !== args.surface || current.kind !== args.kind) {
+      throw new Error("The document changed. Reopen the comparison before choosing a copy.");
+    }
+    assertPersistedDraft(storage, current);
+    return JSON.stringify([current, saved]);
+  }, [args.documentId, args.surface, args.kind, storage]);
+
+  const prepareConflictRecovery = useCallback((): WorkspaceConflictReview => {
+    const fence = conflictFence();
+    return JSON.parse(JSON.stringify({ documentId: args.documentId, fence, local: localStateRef.current, saved: snapshotRef.current }));
+  }, [args.documentId, conflictFence]);
+
+  const resolveConflictRecovery = useCallback(async (review: WorkspaceConflictReview, choice: "local" | "saved") => {
+    if (review.documentId !== args.documentId || review.fence !== conflictFence()) throw new Error("The copies changed. Reopen the comparison.");
+    const generation = openGenerationRef.current;
+    const fresh = await getWorkspaceDocumentSnapshot(args.documentId);
+    if (generation !== openGenerationRef.current || review.fence !== conflictFence()
+      || JSON.stringify(fresh) !== JSON.stringify(snapshotRef.current)) {
+      throw new Error("The saved version or browser draft changed. Check the saved version again and reopen the comparison.");
+    }
+    const current = localStateRef.current!;
+    const opened = openWorkspaceDocumentAuthoringState({ documentId: args.documentId, snapshot: fresh,
+      stored: null, surface: args.surface, kind: args.kind, emptyMarkdownFallback });
+    if (opened.status !== "ready" || !opened.localState) throw new Error("The saved document is no longer editable here. Both copies were kept.");
+    // Preserve exact local JSON and sealed-source authority; existing save gates still apply.
+    const replacement = choice === "saved" ? opened.localState : { ...current,
+      base_revision: fresh.loaded_revision, base_content_sha256: fresh.content_sha256,
+      dirty: true, updated_at: new Date().toISOString() };
+    const protectedReview = { ...review, local: current, saved: fresh };
+    preserveConflictCopies(storage, protectedReview);
+    if (review.fence !== conflictFence()) throw new Error("The browser draft changed. Both copies were kept; reopen the comparison.");
+    writeVerifiedLocalState(storage, replacement);
+    expectedRevisionRef.current = fresh.loaded_revision;
+    localStateRef.current = replacement; localDirtyRef.current = replacement.dirty;
+    setLocalState(replacement); setReconciliation(null); setRecoveryVersion(value => value + 1);
+    setDocumentKey(`${args.documentId}:${fresh.loaded_revision}:conflict-resolved:${Date.now()}`);
+    phaseRef.current = replacement.dirty ? "ready_dirty" : "ready_clean";
+    dispatch({ type: "OPEN_READY", dirty: replacement.dirty });
+  }, [args.documentId, args.surface, args.kind, conflictFence, dispatch, emptyMarkdownFallback, storage]);
+
+  const protectedConflictCopies = useMemo(() => {
+    try { return storage.getItem(conflictCopiesKey(args.documentId)); } catch { return null; }
+  }, [args.documentId, storage, recoveryVersion]);
 
   const recoveryFence = useCallback(() => {
     const current = localStateRef.current;
@@ -823,9 +885,10 @@ export function useWorkspaceDocumentAuthoring(
     return snapshot.record;
   }, [localState, phase, snapshot]);
 
-  const saveDisabledReason = !editor ? "The editor is still loading."
+  const saveDisabledReason = phase === "conflict" ? "The browser draft and saved version differ. Review conflicting copies before saving."
+    : !editor ? "The editor is still loading."
     : !isEditorInteractive(phase) || isSaveDisabled(phase)
-      ? (phase === "conflict" ? "The source changed elsewhere. Resolve the conflict before saving." : "The document is not ready to save.")
+      ? "The document is not ready to save."
     : localState?.exported_markdown_authoritative
       ? (hasBlockingMarkdownImportDiagnostics(localState.exported_markdown)
         ? "The preserved source uses Markdown this editor cannot save yet. Review the protected copies for details."
@@ -854,6 +917,7 @@ export function useWorkspaceDocumentAuthoring(
       || (requireDirtyToSave && !dirty)
       || Boolean(localState?.exported_markdown_authoritative)
       || (canSave ? !canSave() : false),
+    conflictRecovery: { prepare: prepareConflictRecovery, resolve: resolveConflictRecovery, protectedCopies: protectedConflictCopies },
     saveDisabledReason, draftRecoveryAvailable, prepareDraftRecovery, confirmDraftRecovery, restoreDraftRecovery,
     lastCommitReceipt,
     editor,

@@ -1,3 +1,4 @@
+import { WorkspaceConflictRecovery } from "../workspaceDocument/WorkspaceConflictRecovery";
 import type { WorkspaceDraftRecoveryReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -137,5 +138,8 @@ export const BUILD_MARKDOWN_CANVAS = {
 /** Keep recovery in the document navigation, outside authored paper. */
 export function BuildDraftRecovery({ session }: { session: MarkdownCanvasSessionValue }) {
   const slots = useBuildSlotsForSession(session, { hideFooterSave: true });
-  return <div className="build-draft-recovery">{slots.tools}</div>;
+  return <div className="build-draft-recovery">
+    <WorkspaceConflictRecovery key={session.documentKey} recovery={session.conflictRecovery} allowReview={session.phase === "conflict"} />
+    {session.phase !== "conflict" ? slots.tools : null}
+  </div>;
 }
