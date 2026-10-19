@@ -1181,7 +1181,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "Use session copy" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("temporarily unavailable");
+    expect(await screen.findByRole("status", { name: "Play conversation unavailable" })).toHaveTextContent("temporarily unavailable");
     await act(async () => resolve(history([turn("play", 2, "Late original-pin reply")])));
     expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
     expect(screen.queryByText("Late original-pin reply")).not.toBeInTheDocument();

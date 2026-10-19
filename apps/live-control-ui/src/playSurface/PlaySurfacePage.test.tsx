@@ -1,8 +1,8 @@
 import { createHash, webcrypto } from "node:crypto";
-import { getWorldPlayRunContent } from "../api/playRunContentApi";
+import { getWorldPlayRunContent, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
 import type { PlayRunContent } from "./playRunContentTypes";
 import { usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,7 @@ import { LiveApiError } from "../api/liveApi";
 import type { WorldOwnedCommittedRevisionV2, WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
 import { PlaySurfacePage } from "./PlaySurfacePage";
 
-vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn() }));
+vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
 vi.mock("../agentInteraction/WorldAgentConversation", async original => ({
   ...await original<typeof import("../agentInteraction/WorldAgentConversation")>(), usePublishWorldPlayConversation: vi.fn(),
 }));
@@ -776,6 +776,7 @@ describe("World session-copy projection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("crypto", webcrypto);
+    window.localStorage.clear();
     selectedWorldHarness.worldId = "world-b";
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
     mockEffectiveFixture();
@@ -835,6 +836,62 @@ describe("World session-copy projection", () => {
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toMatchObject({ runId, runRevision: 1 });
     expect(screen.queryByText(/Session copy · revision/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-session-copy-agent-notice")).not.toBeInTheDocument();
+  });
+  it("shows the Agent limitation and gates sends as soon as an unsaved first session-copy draft exists", async () => {
+    const data = effectiveFixture();
+    vi.mocked(getWorldPlayRunContent).mockResolvedValue({ ...data.content, source: "pinned", edition_revision: 0, edition_revision_id: null,
+      markdown: data.committed.markdown, content_sha256: data.run.playable_content_sha256 });
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+    await screen.findByText("Origin prose.");
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    await user.type(screen.getByRole("textbox", { name: "Session copy Markdown" }), "\nFirst unsaved edit.");
+    expect(await screen.findByRole("status", { name: "Session copy Agent availability" }))
+      .toHaveTextContent("Buddy is temporarily unavailable for this session copy.");
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1))
+      .toEqual([null, expect.stringContaining("temporarily unavailable")]);
+    expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+  it("keeps the current scene and its note when an edited session copy is accepted", async () => {
+    const data = effectiveFixture();
+    const edited = data.content.markdown.replace("Session prose.", "Revised session prose.");
+    const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
+      : typeof value === "object" && value !== null ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(",")}}`
+        : JSON.stringify(value) ?? "null";
+    vi.mocked(getWorldPlayRun).mockResolvedValue({ ...data.run, progress: { ...data.run.progress,
+      notes_by_element_id: { ...data.run.progress.notes_by_element_id, "scene:hall": "Keep this scene note." } } });
+    vi.mocked(putWorldPlayRunProgress).mockImplementation(async (_id, _world, request) => ({ ...data.run, run_revision: 2, progress: request.progress }));
+    vi.mocked(putWorldPlayRunContentCommand).mockImplementation(async (_run, _world, commandId, request) => ({
+      schema_version: "dmb_world_play_run_content_receipt_v1", world_id: data.content.world_id, run_id: data.content.run_id,
+      command_id: commandId, request_sha256: data.hash(canonical({ world_id: data.content.world_id, run_id: data.content.run_id, command_id: commandId, ...request })),
+      origin: data.content.origin, expected_edition_revision: request.expected_edition_revision,
+      expected_content_sha256: request.expected_content_sha256, accepted_edition_revision: request.expected_edition_revision + 1,
+      accepted_edition_revision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", accepted_content_sha256: data.hash(request.markdown),
+      committed_at: "2026-10-18T02:00:00Z", observed_run_revision: 2,
+    }));
+    vi.mocked(getWorldPlayRunContent).mockImplementation(async () => putWorldPlayRunContentCommand.mock.calls.length
+      ? { ...data.content, source: "edition", edition_revision: 3, edition_revision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        markdown: edited, content_sha256: data.hash(edited), committed_at: "2026-10-18T02:00:00Z" }
+      : data.content);
+
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+    await screen.findByText("Session prose.");
+    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:hall")!);
+    await user.click(screen.getByTestId("play-make-current"));
+    await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    const editor = screen.getByRole("textbox", { name: "Session copy Markdown" });
+    fireEvent.change(editor, { target: { value: edited } });
+    await waitFor(() => expect(putWorldPlayRunContentCommand).toHaveBeenCalledOnce(), { timeout: 5000 });
+    expect(screen.getByRole("textbox", { name: "Session copy Markdown" })).toHaveValue(edited);
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:hall");
+    expect(screen.getByRole("button", { name: /Scene notes — Hall/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Scene notes — Hall/ }));
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this scene note.");
+    expect(putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
   });
   it("fences late World A→B→A content and failures even when the Run ID repeats", async () => {
     const old = deferred<PlayRunContent>();

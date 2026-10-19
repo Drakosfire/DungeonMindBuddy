@@ -19,3 +19,27 @@ export interface PlayRunContent {
   observed_run_revision: number;
   structure_sha256: string;
 }
+
+export interface PlayRunContentCommitRequest {
+  schema_version: "dmb_world_play_run_content_commit_v1";
+  expected_origin: PlayRunContentOrigin;
+  expected_edition_revision: number;
+  expected_content_sha256: string;
+  markdown: string;
+}
+
+export interface PlayRunContentReceipt {
+  schema_version: "dmb_world_play_run_content_receipt_v1";
+  world_id: string;
+  run_id: string;
+  command_id: string;
+  request_sha256: string;
+  origin: PlayRunContentOrigin;
+  expected_edition_revision: number;
+  expected_content_sha256: string;
+  accepted_edition_revision: number;
+  accepted_edition_revision_id: string;
+  accepted_content_sha256: string;
+  committed_at: string;
+  observed_run_revision: number;
+}
