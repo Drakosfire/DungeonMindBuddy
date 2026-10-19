@@ -360,7 +360,15 @@ function PlayChooser({
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [endedIds,setEndedIds]=useState<string[]>([]);
-  useEffect(()=>{let cancelled=false;setEndedIds([]);if(selectedWorldId)void Promise.all(records.map(async record=>{try{return (await readSessionReview(record.run_id,selectedWorldId)).review?.status==="ended"?record.run_id:null}catch{return null}})).then(ids=>{if(!cancelled)setEndedIds(ids.filter((id):id is string=>id!==null))});return()=>{cancelled=true}},[records,selectedWorldId]);
+  useEffect(()=>{
+    let cancelled=false;setEndedIds([]);
+    if(selectedWorldId){
+      const queue=[...records],ended:string[]=[];
+      const worker=async()=>{while(!cancelled&&queue.length){const record=queue.shift()!;try{if((await readSessionReview(record.run_id,selectedWorldId)).review?.status==="ended")ended.push(record.run_id)}catch{/* Session itself remains openable if review metadata is unavailable. */}}};
+      void Promise.all(Array.from({length:Math.min(3,records.length)},worker)).then(()=>{if(!cancelled)setEndedIds(ended)});
+    }
+    return()=>{cancelled=true};
+  },[records,selectedWorldId]);
 
   useEffect(() => {
     let cancelled = false;

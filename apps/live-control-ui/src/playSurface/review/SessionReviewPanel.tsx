@@ -12,7 +12,10 @@ export function SessionReviewPanel({runId,worldId,runRevision,content,blocked,sc
  const pending=useRef<{id:string;body:ReviewCommand}|null>(null);
  const key=`dmb.session-review.${worldId}.${runId}`;
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
- useEffect(()=>{let cancelled=false;void readSessionReview(runId,worldId).then(value=>{
+ useEffect(()=>{let cancelled=false;
+  // Recover before any network dependency: an initial failed GET must not hide a browser draft.
+  try{const local=JSON.parse(localStorage.getItem(key)??"null");if(local&&typeof local.text==="string")setText(local.text)}catch{setError("Browser draft could not be read. The saved review is still available.")}
+  void readSessionReview(runId,worldId).then(value=>{
   if(cancelled)return;setReview(value.review);setChanged(value.source_changed);
   let draft=value.review?.draft_markdown??"";
   try{const local=JSON.parse(localStorage.getItem(key)??"null");if(local&&typeof local.text==="string"){

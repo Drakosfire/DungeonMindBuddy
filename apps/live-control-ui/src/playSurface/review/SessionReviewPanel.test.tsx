@@ -28,3 +28,14 @@ it("retains browser text on conflicting saved review and requires deliberate res
  mount();expect(await screen.findByLabelText("Recap draft")).toHaveValue("My unsaved recollection");
  expect(screen.getByRole("alert")).toHaveTextContent("Your text is retained");expect(saveSessionReview).not.toHaveBeenCalled();
 });
+it("recovers browser text even when the first server GET fails",async()=>{
+ localStorage.setItem("dmb.session-review.elderwyld.run-a",JSON.stringify({revision:0,text:"Fresh memory, never overwrite"}));
+ vi.mocked(readSessionReview).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({world_id:"elderwyld",run_id:"run-a",review:ended,source_changed:false});
+ mount();fireEvent.click(screen.getByRole("button",{name:"End session",exact:true}));
+ expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+ fireEvent.click(screen.getByRole("button",{name:"Reload saved review, keep my text"}));
+ expect(await screen.findByLabelText("Recap draft")).toHaveValue("Fresh memory, never overwrite");
+ fireEvent.click(screen.getByRole("button",{name:"Keep my draft"}));
+ expect(JSON.parse(localStorage.getItem("dmb.session-review.elderwyld.run-a")!).text).toBe("Fresh memory, never overwrite");
+ expect(screen.getByLabelText("Recap draft")).toHaveValue("Fresh memory, never overwrite");
+});
