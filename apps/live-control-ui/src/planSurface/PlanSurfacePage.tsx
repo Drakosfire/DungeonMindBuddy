@@ -17,6 +17,8 @@ import {
 } from "../api/liveApi";
 import type { PlanViewProjection, WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
 import { DurableSaveStatus, type DurableSaveState } from "../components/DurableSaveStatus";
+import { DocumentImageStudio } from "../media/DocumentImageStudio";
+import { createDocumentMediaBridge, type DocumentMediaState } from "../media/documentMediaBridge";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { PlanMarkdownSource } from "./components/PlanMarkdownSource";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
@@ -1711,6 +1713,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setSelectedPlayableEditTarget(null);
   }, []);
 
+  const mediaIdentity = `${worldId}:${documentId ?? localDraftId}`;
+  const [mediaTarget, setMediaTarget] = useState<string | null>(null);
+  const mediaState = useRef<DocumentMediaState | null>(null);
+  mediaState.current = editor ? { editor, identity: mediaIdentity,
+    version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}`,
+    canEdit: Boolean(documentId) && !sourceEditing && !cardsViewActive && !fidelityBlocked && !recoveryConflict
+      && pendingWriteRef.current === null && isCurrentEditTarget(),
+  } : null;
+  const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
+  useEffect(() => { setMediaTarget(null); }, [mediaIdentity]);
+
   const focusTitle = (() => {
     if (!selectedPlayableTarget || savedCardProjection?.status !== "ready") return null;
     const find = (nodes: WorldPlanCardNode[]): string | null => {
@@ -1750,6 +1763,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
+          <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
+            onClick={() => { setSourceEditing(false); selectPlanView("document"); setMediaTarget(mediaIdentity); }}>Images</button>
           <span className="world-plan-context-toolbar__save">
             <DurableSaveStatus state={durableSaveState} savedAt={lastSavedAt} />
           </span>
@@ -1773,6 +1788,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           ) : null}
         </div>}
       />
+      {mediaTarget === mediaIdentity ? <DocumentImageStudio key={mediaIdentity} bridge={mediaBridge} targetLabel="Plan" onClose={() => setMediaTarget(null)} /> : null}
       <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main
         className="app-status world-owned-plan"

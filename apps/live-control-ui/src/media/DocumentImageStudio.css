@@ -1,0 +1,2 @@
+.document-image-studio { position: fixed; z-index: 120; right: 1rem; top: 5rem; }
+@media (max-width: 600px) { .document-image-studio { right: .5rem; top: .5rem; } }

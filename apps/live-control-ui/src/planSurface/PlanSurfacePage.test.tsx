@@ -25,6 +25,9 @@ import {
   threadStorageKey,
 } from "../agentInteraction/agentInteractionStorage";
 
+const mediaWizardCapture = vi.hoisted(() => ({ props: null as any }));
+vi.mock("../media/MediaImageWizard", () => ({ MediaImageWizard: (props: any) => { mediaWizardCapture.props = props; return <div aria-label="Synthetic Image Studio" />; } }));
+
 const chromeCapture = vi.hoisted(() => ({ editorTools: null as unknown }));
 
 vi.mock("../chrome/AppChrome", async () => {
@@ -4000,4 +4003,31 @@ it("imports the new Plan after switching identity and refuses the previous valid
   expect(localStorage.getItem(key)).toBe(savedB);
   expect(imports).not.toHaveBeenCalled();
   expect(JSON.parse(savedB ?? "null").document_id).toBe(b.document_id);
+});
+
+
+it("places a library image from the Plan navbar through the current Plan autosave", async () => {
+  const record = mockSavedPlanForAgent();
+  const assetId = "ac6c15cc-8c68-4732-8ae2-d9f3f051393a";
+  vi.spyOn(liveApi, "authenticatedApiFetch").mockResolvedValue({ response: Response.json({ asset_id: assetId, state: "ready" }), csrf: null, requestEpoch: 0 });
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Synthetic verification stops at the owning Plan writer"));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));
+  expect(screen.getByLabelText("Image Studio · Plan")).toBeInTheDocument();
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: editor.state.doc.content.size - 1, inside: 0 });
+  const abort = new AbortController();
+  const placing = mediaWizardCapture.props.onChoose({ asset_id: assetId, state: "ready" }, { prompt: "Saved map" }, { mode: "click", signal: abort.signal });
+  fireEvent.pointerUp(editor.view.dom, { clientX: 10, clientY: 10 });
+  await act(async () => { await placing; });
+  expect(screen.queryByLabelText("Image Studio · Plan")).not.toBeInTheDocument();
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const draft = JSON.parse(localStorage.getItem(key) ?? "null");
+  expect(draft.document_id).toBe(record.document_id);expect(draft.markdown).toContain(`dmb-media:${assetId}`);
+  expect(draft.markdown).toContain("The keeper waits beneath the black arch.");
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldId, document_id: record.document_id, markdown: expect.stringContaining(`dmb-media:${assetId}`) })));
+  expect(commit).not.toHaveBeenCalled();
 });
