@@ -1,39 +1,39 @@
 /* Shared authoring rail: identity/new, tools, persistence, deletion. */
-.surface-context-host:has(:is(.build-surface-context, .plan-surface-context, .play-surface-context)) { display:flex; flex-wrap:wrap; align-items:center; gap:.3rem; padding:.45rem .65rem; }
-.surface-context-host :where(.surface-context-host__slot, .build-surface-context, .plan-surface-context, .play-surface-context,
+.app-chrome-header .surface-context-host:has(:is(.build-surface-context, .plan-surface-context, .play-surface-context)) { display:flex; flex-wrap:wrap; align-items:center; gap:.3rem; padding:.45rem .65rem; }
+.app-chrome-header .surface-context-host :where(.surface-context-host__slot, .build-surface-context, .plan-surface-context, .play-surface-context,
 .build-surface-context > .surface-context-module__body, .plan-surface-context > .surface-context-module__body,
 .build-surface-context__row, .plan-surface-context__row, .world-plan-context-toolbar, .build-document-create--context) { display:contents; }
-.surface-context-host :where(button, summary, select) { font-size:.78rem; }
-.surface-context-host :where(.surface-context-action, .world-plan-context-toolbar > button, .build-source-actions > summary, .surface-navbar-recovery > summary) { min-height:2rem; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:.3rem .45rem; border-radius:6px; white-space:nowrap; }
-.surface-context-host button.surface-navbar-icon { display:inline-flex; flex:0 0 2rem; align-items:center; justify-content:center; width:2rem; min-width:2rem; height:2rem; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; cursor:pointer; }
-.surface-context-host button.surface-navbar-icon--save { color:#86d7a3; border-color:#86d7a333; background:#86d7a30a; }
-.surface-context-host button.surface-navbar-icon--new { color:#ebc473; border-color:#ebc47333; background:#ebc4730a; }
-.surface-context-host button.surface-navbar-icon:hover:not(:disabled) { border-color:currentColor; background:#ffffff0d; }
-.surface-context-host button.surface-navbar-icon:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
-.surface-context-host button.surface-navbar-icon:disabled { opacity:.45; cursor:not-allowed; }
-.surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { order:10; flex:1 1 8rem; min-width:6rem; max-width:22rem; }
-.surface-context-host .build-document-selector--context .surface-context-select { width:100%; min-width:0; max-width:none; }
-.surface-context-host .surface-navbar-icon--new, .surface-context-host .build-document-create--context > .surface-context-popover:first-child { order:20; }
-.surface-context-host :where(.build-source-actions, .build-extraction-slot, .world-plan-view-switch, .play-surface-context__outline, .play-surface-context__previous, .play-surface-context__next, .play-surface-context__return, .play-surface-context__notes, .play-surface-context__more, .world-plan-context-toolbar > button, .build-document-create--context > .surface-context-popover:last-child) { order:40; }
-.surface-context-host :where(.build-surface-context__save-status, .world-plan-context-toolbar__save, [data-testid="play-canvas-save-status"]) { order:80; margin-left:auto; flex:0 1 auto; min-width:0; max-width:13rem; }
-.surface-context-host .durable-save-status { display:flex; flex-direction:column; align-items:flex-start; gap:0; font-size:.68rem; line-height:1.3; }
-.surface-context-host button.surface-navbar-icon--save { order:85; }
-.surface-context-host button.workspace-trash-delete { order:90; }
+.app-chrome-header .surface-context-host :where(button, summary, select) { font-size:.78rem; }
+.app-chrome-header .surface-context-host :where(.surface-context-action, .world-plan-context-toolbar > button, .build-source-actions > summary, .surface-navbar-recovery > summary) { min-height:2rem; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:.3rem .45rem; border-radius:6px; white-space:nowrap; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon { display:inline-flex; flex:0 0 2rem; align-items:center; justify-content:center; width:2rem; min-width:2rem; height:2rem; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; cursor:pointer; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon--save { color:#86d7a3; border-color:#86d7a333; background:#86d7a30a; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon--new { color:#ebc473; border-color:#ebc47333; background:#ebc4730a; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon:hover:not(:disabled) { border-color:currentColor; background:#ffffff0d; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon:disabled { opacity:.45; cursor:not-allowed; }
+.app-chrome-header .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { order:10; flex:1 1 8rem; min-width:6rem; max-width:22rem; }
+.app-chrome-header .surface-context-host .build-document-selector--context .surface-context-select { width:100%; min-width:0; max-width:none; }
+.app-chrome-header .surface-context-host .surface-navbar-icon--new, .app-chrome-header .surface-context-host .build-document-create--context > .surface-context-popover:first-child { order:20; }
+.app-chrome-header .surface-context-host :where(.build-source-actions, .build-extraction-slot, .world-plan-view-switch, .play-surface-context__outline, .play-surface-context__previous, .play-surface-context__next, .play-surface-context__return, .play-surface-context__notes, .play-surface-context__more, .world-plan-context-toolbar > button, .build-document-create--context > .surface-context-popover:last-child) { order:40; }
+.app-chrome-header .surface-context-host :where(.build-surface-context__save-status, .world-plan-context-toolbar__save, [data-testid="play-canvas-save-status"]) { order:80; margin-left:auto; flex:0 1 auto; min-width:0; max-width:13rem; }
+.app-chrome-header .surface-context-host .durable-save-status { display:flex; flex-direction:column; align-items:flex-start; gap:0; font-size:.68rem; line-height:1.3; }
+.app-chrome-header .surface-context-host button.surface-navbar-icon--save { order:85; }
+.app-chrome-header .surface-context-host button.workspace-trash-delete { order:90; }
 .surface-navbar-recovery { order:60; position:relative; }
 .surface-navbar-recovery > summary { color:#efb27e; cursor:pointer; border:1px solid #efb27e44; }
 .surface-navbar-recovery__panel { position:absolute; z-index:110; top:calc(100% + .35rem); right:0; width:min(25rem, calc(100vw - 3rem)); padding:.75rem; border:1px solid #5c4e3e; border-radius:8px; background:#171d28; box-shadow:0 12px 28px #0005; }
 .surface-navbar-recovery__panel p { margin:0 0 .65rem; line-height:1.4; white-space:normal; }
 .surface-navbar-recovery__panel .build-draft-recovery { display:flex; flex-wrap:wrap; gap:.35rem; }
 .surface-navbar-recovery:not([open]) > .surface-navbar-recovery__panel { display:none; }
-.surface-context-host .world-plan-context-toolbar__save { white-space:normal; }
-.surface-context-host .world-plan-view-switch { display:inline-flex; flex-wrap:nowrap; gap:2px; margin:0; }
-.surface-context-host .world-plan-view-switch button { min-height:2rem; padding:.3rem .4rem; }
-.surface-context-host .build-extraction-slot > details > summary { min-height:2rem; display:flex; align-items:center; padding:.3rem .45rem; box-sizing:border-box; }
+.app-chrome-header .surface-context-host .world-plan-context-toolbar__save { white-space:normal; }
+.app-chrome-header .surface-context-host .world-plan-view-switch { display:inline-flex; flex-wrap:nowrap; gap:2px; margin:0; }
+.app-chrome-header .surface-context-host .world-plan-view-switch button { min-height:2rem; padding:.3rem .4rem; }
+.app-chrome-header .surface-context-host .build-extraction-slot > details > summary { min-height:2rem; display:flex; align-items:center; padding:.3rem .45rem; box-sizing:border-box; }
 @media (max-width:900px) {
-  .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { max-width:15rem; }
-  .surface-context-host :where(.build-surface-context__save-status, .world-plan-context-toolbar__save) { max-width:11rem; }
+  .app-chrome-header .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { max-width:15rem; }
+  .app-chrome-header .surface-context-host :where(.build-surface-context__save-status, .world-plan-context-toolbar__save) { max-width:11rem; }
 }
 @media (max-width:600px) {
-  .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { max-width:none; flex-basis:calc(100% - 3rem); }
+  .app-chrome-header .surface-context-host :where(.build-document-selector--context, #world-plan-document-select) { max-width:none; flex-basis:calc(100% - 3rem); }
   .surface-navbar-recovery__panel { position:fixed; top:auto; right:1rem; left:1rem; width:auto; }
 }
