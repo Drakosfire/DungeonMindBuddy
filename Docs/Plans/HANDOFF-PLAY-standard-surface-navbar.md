@@ -1,6 +1,6 @@
 # PLAY — use the established surface navbar
 
-Status: ACTIVE. Operator explicitly requests Play's surface-specific navbar using the existing standardized design, 2026-10-18. Base origin/main9c1f34b479a520d23186f32df5dd3d1dc15cf158; branch codex/play-surface-navbar; serial topology, one implementation PR.
+Status: SUPERSEDED by [the compact-reader correction](HANDOFF-PLAY-compact-scene-reader.md). PR1431 merged6e9437546108579fdd0ffcab82b0a89df2f5ecdc and its UI is served on5202. Operator screenshots prove the shared projection but show excessive wrapping and repeated scene metadata; compact-layout acceptance is not complete. Original authority follows: Operator explicitly requests Play's surface-specific navbar using the existing standardized design, 2026-10-18. Base origin/main9c1f34b479a520d23186f32df5dd3d1dc15cf158; branch codex/play-surface-navbar; serial topology, one implementation PR.
 
 PRIME adopts this contract. Fresh play_navbar agent owns the expected source paths in the existing buddy-context-loop checkout after this contract is pinned. Previous editing/contrast/settlement lanes are complete and their consumers released. Reuse this checkout and dependencies; no new checkout/environment/source export/tmp task directory. Architecture independently reviews; PRIME merges and owns normal5202 delivery and disposable browser acceptance. No worker runtime/data/provider/Graph writes.
 

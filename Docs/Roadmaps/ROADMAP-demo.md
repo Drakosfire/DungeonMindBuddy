@@ -40,7 +40,8 @@ restart historical assignments merely because they remain in this document.
 | Run-local content edition server | #1422 merged7b73ffb07; Architecture Cycle1 PASS at6080d1a30; PRIME adopted0035/existing API behind5202, real restore/parity, authenticated current/history/command replay and restart retention | Edition-aware Agent context remains later |
 | Effective Play session reader | #1425/#1426 merged and delivered5202; PRIME reader gate PASS on edition3 prose/table/callout/images, desktop+narrow, original Plan/Run/notes unchanged | Read adoption only; editing evidence is separate below |
 | Play Markdown/existing-media editing | #1428 merged d7d5eedd7, Architecture Cycle2 PASS; #1429 contrast0858ac568; normal5202 pointer resize/move/collapse and prose autosave→reload/history verified; Plan/Run/progress/notes unchanged; desktop/narrow | Existing scenes only; edited-session Agent context remains unavailable |
-| Play surface navbar | Implementation active on `codex/play-surface-navbar`; owner-local contributions use the shared SurfaceContextHost and retain existing Load, scene inspection, Notes and session-copy controllers | Architecture review and normal5202 desktop/narrow acceptance remain pending |
+| Play surface navbar | #1431 merged6e9437546; independent exact-head PASS at5d2e42bbc; 104 affected tests and build pass; UI served5202 and operator screenshots confirm the shared host | Screenshots show multi-row wrapping and redundant body metadata; compact acceptance failed and is corrected next |
+| Compact Play reader correction | Active `codex/play-navbar-compact`, [bounded contract](../Plans/HANDOFF-PLAY-compact-scene-reader.md) | Independent review, one-line rendered acceptance and retained-state proof pending |
 
 ### Next execution and ownership
 
@@ -53,19 +54,22 @@ The effective-content reader and notice repair are merged and delivered (#1425/#
 The [editing contract](../Plans/HANDOFF-PLAY-session-copy-editing.md) is SETTLED:
 #1428/#1429 are merged and delivered, with normal5202 prose/media mutation,
 autosave/reopen/history and unchanged Plan/Run/notes evidence. Implementation and
-review leases are released. Next required capability is edition-aware Agent
-context including saved scene notes, followed by the shared Plan/Play workspace
-and cross-surface continuity. These successors need their own bounded contracts;
-none is activated by this settlement. Existing-scene editing does not complete
-the broader shared-authoring goal.
+review leases are released. Operator screenshots after #1431 prioritize compact
+Play navigation and scene reading, followed by chat placement/layout switching
+and movable Notes. Edition-aware Agent context including saved scene notes,
+shared Plan/Play workspace and cross-surface continuity remain required by the
+active goal; each proceeds through its bounded owner contract. Existing-scene
+editing and shared-navbar projection do not complete that goal.
 Keep original Run identity stable for notes and session progress while content
 edition identity changes. A newer Plan must not force a forbidden rebase of a
 session-edited Run. Do not present edited text as the original pinned Plan.
 
-At audit time DOGFOOD and ARCHITECTURE are idle, their prior leases released.
-No external blocker was established for the next PRIME coordination action.
-The Codex goal object nevertheless reports blocked and still says Prep; that
-UI goal metadata is stale and cannot serve as product completion evidence.
+The current Codex goal is active and uses Plan/Play terminology. Its requirements
+include compact presentation, chat layout, movable Notes, shared authoring and
+session-aware Buddy support; completion remains unproven. The earlier audit's
+blocked Prep/Live goal wording is historical, not current execution authority.
+Automatic approval-review capacity failures delayed delivery commands; operator
+execution delivered #1431, and source work resumes when command access permits.
 
 ## Product contract
 
