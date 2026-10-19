@@ -240,4 +240,5 @@ it("retains inspected scene and original provenance across effective edition met
   expect(card).toHaveAttribute("data-work-revision-id", data.run.playable_work_revision_id);
   expect(card).toHaveAttribute("data-content-sha256", sha);
   expect(card).toHaveAttribute("data-effective-content-sha256", "c".repeat(64));
+  expect(screen.getByTestId("scene-card-source-cue")).toHaveTextContent("Session copy · revision 2 · From Plan version 9");
 });

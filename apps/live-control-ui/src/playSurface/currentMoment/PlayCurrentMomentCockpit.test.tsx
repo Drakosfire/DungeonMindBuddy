@@ -262,6 +262,37 @@ describe("PlayCurrentMomentCockpit", () => {
     vi.restoreAllMocks();
   });
 
+  it("labels an edited Runbook-origin session copy with its actual source", () => {
+    const admission = readyWorldDeck(worldRunRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const deck = {
+      ...admission,
+      effectiveContent: {
+        schema_version: "dmb_world_play_run_content_v1" as const,
+        world_id: admission.run.world_id,
+        run_id: admission.run.run_id,
+        origin: {
+          playable_artifact_id: admission.run.playable_artifact_id,
+          playable_revision: admission.run.playable_revision,
+          playable_work_revision_id: admission.run.playable_work_revision_id,
+          playable_content_sha256: admission.run.playable_content_sha256,
+        },
+        source: "edition" as const,
+        edition_revision: 1,
+        edition_revision_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        markdown: MARKDOWN,
+        content_sha256: "b".repeat(64),
+        committed_at: "2026-10-18T00:00:00Z",
+        observed_run_revision: admission.run.run_revision,
+        structure_sha256: "a".repeat(64),
+      },
+    };
+    render(<PlayCurrentMomentCockpit deck={deck} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
+
+    expect(screen.getByTestId("scene-card-source-cue")).toHaveTextContent("Session copy · revision 1 · From Runbook version 3");
+  });
+
   it("renders the persisted Scene as the central workspace", () => {
     render(
       <Harness

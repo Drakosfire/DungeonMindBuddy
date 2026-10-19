@@ -775,6 +775,14 @@ export function PlayCurrentMomentCockpit({
   const inspectedDecisions = inspectedBeat && inspectedScene
     ? operableDecisions(inspectedBeat, inspectedScene.id)
     : [];
+  const originKind = "kind" in deck.snapshot
+    ? deck.snapshot.kind
+    : "record" in deck.snapshot ? deck.snapshot.record.kind : null;
+  const editionOriginLabel = originKind === "plan"
+    ? `From Plan version ${run.playable_revision}`
+    : originKind === "runbook"
+      ? `From Runbook version ${run.playable_revision}`
+      : `From saved source version ${run.playable_revision}`;
   const sceneCardIdentity = (sceneId: string): SceneCardIdentity => ({
     worldId: worldOwnedRun ? run.world_id : null,
     campaignId: worldOwnedRun ? null : run.campaign_id,
@@ -786,7 +794,7 @@ export function PlayCurrentMomentCockpit({
     sourceState: deck.effectiveContent?.source === "edition" ? "run-edition" : "run-pin",
     ...(deck.effectiveContent?.source === "edition" ? {
       edition: { revision: deck.effectiveContent.edition_revision, revisionId: deck.effectiveContent.edition_revision_id!, contentSha256: deck.effectiveContent.content_sha256 },
-      originLabel: `From Plan version ${run.playable_revision}`,
+      originLabel: editionOriginLabel,
     } : {}),
   });
   const choiceActions = (source: readonly NativeRunbookChoiceV2[], writable: boolean): SceneCardChoiceActions => ({
