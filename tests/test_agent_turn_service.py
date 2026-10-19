@@ -6775,3 +6775,50 @@ def test_known_output_limit_failure_preserves_ledger_and_specific_failure():
     assert recorded[0][0].failure_code == "provider_output_limit_exceeded"
     assert recorded[0][1] == {"interrupted": True}
     assert turn.graph_context_execution == original
+
+
+def test_plan_target_only_prompt_preserves_legacy_execution_wire():
+    from types import SimpleNamespace
+    from apps.live_control_server.services import agent_turn_service as svc
+    assert svc._plan_graph_answer_instructions(None) == svc._PLAN_GRAPH_ANSWER_INSTRUCTIONS
+    legacy = _policy_turn(status="running", completion_present=False)
+    assert svc._plan_graph_answer_instructions(legacy) == svc._LEGACY_PLAN_GRAPH_ANSWER_INSTRUCTIONS
+    assert "answer_segments, citation_map" in svc._LEGACY_PLAN_GRAPH_ANSWER_INSTRUCTIONS
+    assert "No citation_map" in svc._PLAN_GRAPH_ANSWER_INSTRUCTIONS
+
+
+def test_frozen_v2_reclaim_retains_explicit_wire_and_rejects_target_only(monkeypatch):
+    from apps.live_control_server.services import agent_turn_service as svc
+    from application_state.agent_conversation import types as graph_types
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    turn = fixture.adapter.fence.turn
+    execution = turn.graph_context_execution
+    assert isinstance(execution, graph_types.PlanWorldGraphExecutionV2)
+    reclaimed = turn.model_copy(update={"graph_context_execution": execution.model_copy(update={"events": []})})
+    restored = svc._restore_v2_retry_bootstrap(fixture.adapter.bootstrap, reclaimed)
+    assert restored.retrieval_session.id == execution.policy.source_read_scope.retrieval_session_id
+    assert svc._plan_graph_answer_instructions(reclaimed) == svc._LEGACY_PLAN_GRAPH_ANSWER_INSTRUCTIONS
+    adapter = fixture.adapter
+    adapter.fence.turn = reclaimed
+    adapter._ensure_claimed = lambda _view: (adapter.fence.turn, ["assertion-internal-test"], [], ["evidence-internal-test"])
+    payload = json.dumps({"input": [{"role": "user", "content": svc._plan_graph_answer_instructions(reclaimed)}], "tools": []})
+    assert adapter.authorize({"provider": adapter.budget["provider"], "model": adapter.budget["model"],
+        "apiMode": adapter.budget["apiMode"], "payloadJson": payload,
+        "payloadSha256": sha256(payload.encode()).hexdigest(), "payloadUtf8Bytes": len(payload.encode())})
+    assert adapter.record_lifecycle({"transition": "sdk_entered"})
+    assert adapter.record_lifecycle({"transition": "response_received"})
+    turn = adapter.fence.turn
+    attempt = adapter.producing_provider_attempt_id
+    claim = {"kind": "graph_claim", "claim_id": "claim:legacy", "text": "The gate is guarded.",
+        "target_kind": "assertion", "target_id": "assertion-internal-test",
+        "graph_revision": fixture.receipt.graph_authority.graph_revision,
+        "evidence_ref_ids": ["evidence-internal-test"]}
+    answer = {"answer_context_status": "graph_grounded", "answer_segments": [claim],
+        "citation_map": {"entries": [{**{k: v for k, v in claim.items() if k not in {"kind", "text"}}, "source_opened": False}]}}
+    completion, _, _ = svc._parse_policy_completion(json.dumps(answer), turn, attempt)
+    assert completion.citation_map.entries[0].source_opened is False
+    del answer["citation_map"]
+    claim.pop("evidence_ref_ids"); claim.pop("graph_revision")
+    with pytest.raises(svc._AnswerValidationFailure) as rejected:
+        svc._parse_policy_completion(json.dumps(answer), turn, attempt)
+    assert rejected.value.reason == "top_level_shape"
