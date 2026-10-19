@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -22,6 +22,7 @@ class PlayRun(BaseModel):
     rebased_from_run_revision: int | None = None
     created_at: datetime
     updated_at: datetime
+    lifecycle_status: Literal["active", "trashed"] = "active"
 
 
 class PlayRunManifest(BaseModel):

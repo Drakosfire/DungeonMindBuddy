@@ -796,6 +796,15 @@ describe("World session-copy projection", () => {
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
     mockEffectiveFixture();
   });
+  it("keeps a trashed session deep link out of the active workspace and offers recovery", async () => {
+    const data=effectiveFixture();vi.mocked(getWorldPlayRun).mockResolvedValue({...data.run,lifecycle_status:"trashed"});
+    render(<PlaySurfacePage />);
+    expect(await screen.findByTestId("play-status-trashed")).toHaveTextContent("Session in Trash");
+    expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+    expect(screen.queryByRole("button",{name:"Edit session"})).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(getWorldPlayRunContent).not.toHaveBeenCalled();
+  });
   it("renders effective native text, tables, callouts and media with explicit provenance and exact saved-edition Agent registration", async () => {
     const data = effectiveFixture();
     render(<PlaySurfacePage />);
@@ -824,6 +833,7 @@ describe("World session-copy projection", () => {
     await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toBeNull());
     await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalled());
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toBeNull();
+    expect(screen.getByRole("button", {name:"Delete",exact:true})).toBeDisabled();
     await act(async () => pending.resolve({ ...data.run, run_revision: data.run.run_revision + 1,
       progress: { ...data.run.progress, notes_by_element_id: { "scene:gate": "A new saved scene note." } } }));
     await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([
@@ -896,6 +906,8 @@ describe("World session-copy projection", () => {
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1))
       .toEqual([null, expect.stringContaining("Save your session changes")]);
     expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", {name:"Delete",exact:true})).toBeDisabled();
+    expect(screen.getByRole("button", {name:"Trash",exact:true})).toBeEnabled();
   });
   it("keeps the current scene and its note when an edited session copy is accepted", async () => {
     const data = effectiveFixture();

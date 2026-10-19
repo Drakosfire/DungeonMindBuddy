@@ -227,6 +227,7 @@ class WorldPlayRunRecord(BaseModel):
     playable_work_revision_id: str
     playable_content_sha256: str
     run_revision: int = Field(default=1, gt=0)
+    lifecycle_status: Literal["active", "trashed"] = "active"
     created_at: str
     updated_at: str
     progress: PlayRunProgress = Field(default_factory=empty_play_run_progress)
@@ -304,6 +305,7 @@ def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
         playable_work_revision_id=str(run.playable_work_revision_id),
         playable_content_sha256=str(run.playable_content_sha256),
         run_revision=int(run.run_revision),
+        lifecycle_status=getattr(run, "lifecycle_status", "active"),
         created_at=_iso_z(run.created_at),
         updated_at=_iso_z(run.updated_at),
         progress=PlayRunProgress.model_validate(run.progress),

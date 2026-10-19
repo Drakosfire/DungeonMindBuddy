@@ -4031,3 +4031,15 @@ it("places a library image from the Plan navbar through the current Plan autosav
   await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldId, document_id: record.document_id, markdown: expect.stringContaining(`dmb-media:${assetId}`) })));
   expect(commit).not.toHaveBeenCalled();
 });
+
+it("disables Plan deletion immediately when an authored edit is not saved", async () => {
+  const record = mockSavedPlanForAgent();
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeEnabled());
+  const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
+  vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
+  await act(async () => { editor.commands.insertContentAt(editor.state.doc.content.size - 1," Unsaved trash guard witness."); });
+  expect(screen.getByRole("button",{name:"Delete",exact:true})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"Trash",exact:true})).toBeEnabled();
+});

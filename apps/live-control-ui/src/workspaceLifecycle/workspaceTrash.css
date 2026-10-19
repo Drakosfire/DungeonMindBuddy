@@ -1,0 +1,11 @@
+.workspace-trash { position:fixed; inset:0; margin:auto; width:min(34rem,calc(100vw - 2rem)); max-height:80vh; overflow:auto; padding:1.25rem; border:1px solid var(--border-color,#687891); border-radius:12px; background:var(--surface-raised,#192231); color:var(--text-primary,#e5e7eb); box-shadow:0 16px 60px #0008; }
+.workspace-trash::backdrop { background:#0008; }
+.workspace-trash header { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.workspace-trash h2 { margin:0; font-size:1.2rem; }
+.workspace-trash p { white-space:normal; line-height:1.5; }
+.workspace-trash ul { list-style:none; padding:0; }
+.workspace-trash li { display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid #68789166; padding:.75rem 0; }
+.workspace-trash li div { min-width:0; overflow-wrap:anywhere; }
+.workspace-trash small { display:block; opacity:.75; }
+.workspace-trash button { cursor:pointer; padding:.4rem .65rem; margin:.15rem; }
+.workspace-trash__sr { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }

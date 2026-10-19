@@ -726,6 +726,7 @@ def resolve_world_play_session_turn_snapshot(
         )
     if (
         str(run.run_id) != run_id
+        or run.lifecycle_status != "active"
         or run.run_revision != run_revision
         or record.run_revision != run.run_revision
         or str(run.playable_work_object_id) != record.playable_artifact_id

@@ -9,7 +9,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.errors import ApplicationStateIntegrityError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from application_state.play.types import PlayActiveRun, PlayRun, PlayRunManifest
 
 LOCAL_ACTIVE_RUN_SCOPE = "local"
@@ -19,7 +19,7 @@ _ACTIVE_RUN_COLUMNS = "run_id, selected_at"
 _RUN_COLUMNS = """
     run_id, campaign_id, world_id, playable_work_object_id, playable_revision_n,
     playable_work_revision_id, playable_content_sha256, run_revision, progress,
-    rebased_from_run_revision, created_at, updated_at
+    rebased_from_run_revision, created_at, updated_at, lifecycle_status
 """
 
 _MANIFEST_COLUMNS = """
@@ -48,7 +48,8 @@ def insert_run(conn: psycopg.Connection, run: PlayRun) -> PlayRun:
             %(run_id)s, %(campaign_id)s, %(world_id)s, %(playable_work_object_id)s,
             %(playable_revision_n)s, %(playable_work_revision_id)s,
             %(playable_content_sha256)s, %(run_revision)s, %(progress)s,
-            %(rebased_from_run_revision)s, %(created_at)s, %(updated_at)s
+            %(rebased_from_run_revision)s, %(created_at)s, %(updated_at)s,
+            %(lifecycle_status)s
         )
         """,
         {**run.model_dump(), "progress": Jsonb(run.progress)},
@@ -69,7 +70,9 @@ def get_run(conn: psycopg.Connection, run_id: UUID) -> PlayRun | None:
     return None if row is None else _run_from_row(row)
 
 
-def lock_run(conn: psycopg.Connection, run_id: UUID) -> PlayRun | None:
+def lock_run(
+    conn: psycopg.Connection, run_id: UUID, *, allow_trashed: bool = False
+) -> PlayRun | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -81,7 +84,12 @@ def lock_run(conn: psycopg.Connection, run_id: UUID) -> PlayRun | None:
             (run_id,),
         )
         row = cur.fetchone()
-    return None if row is None else _run_from_row(row)
+    if row is None:
+        return None
+    run = _run_from_row(row)
+    if not allow_trashed and run.lifecycle_status != "active":
+        raise ApplicationStateConflictError("Play session is in Trash")
+    return run
 
 
 def list_runs(
@@ -111,6 +119,7 @@ def list_runs(
     if playable_work_object_id is not None:
         clauses.append("playable_work_object_id = %s")
         params.append(playable_work_object_id)
+    clauses.append("lifecycle_status = 'active'")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
         SELECT {_RUN_COLUMNS}

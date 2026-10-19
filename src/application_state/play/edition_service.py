@@ -76,8 +76,8 @@ def _structure(origin, candidate, manifest, *, persisted=False):
         raise error(str(exc)) from exc
 
 
-def _locked_state(conn, run_id, world_id):
-    run = runs.lock_run(conn, run_id)
+def _locked_state(conn, run_id, world_id, *, allow_trashed=False):
+    run = runs.lock_run(conn, run_id, allow_trashed=allow_trashed)
     if run is None:
         raise ApplicationStateNotFoundError("Play Run not found")
     _resolve_world_run_owner(conn, run, world_id=world_id)
@@ -210,7 +210,7 @@ def read_content(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        return _content(_locked_state(conn, run_id, world_id), world_id, revision_n)
+        return _content(_locked_state(conn, run_id, world_id, allow_trashed=True), world_id, revision_n)
 
 
 def read_context_snapshot(*, run_id: str, world_id: str) -> tuple[PlayRun, RunContent]:
@@ -235,7 +235,7 @@ def read_command(*, run_id: str, world_id: str, command_id: str) -> ContentRecei
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        state = _locked_state(conn, run_id, world_id)
+        state = _locked_state(conn, run_id, world_id, allow_trashed=True)
         row = next((row for row in state[-1] if row["command_id"] == command_id), None)
         if row is None:
             raise ApplicationStateNotFoundError(
@@ -255,7 +255,7 @@ def commit_content(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        state = _locked_state(conn, run_id, world_id)
+        state = _locked_state(conn, run_id, world_id, allow_trashed=True)
         run, manifest, pin, structure, edition, history = state
         replay = next((row for row in history if row["command_id"] == command_id), None)
         if replay is not None:
@@ -264,6 +264,8 @@ def commit_content(
                     "command_id already accepted a different request"
                 )
             return _receipt(run, world_id, replay)
+        if run.lifecycle_status != "active":
+            raise ApplicationStateConflictError("Play session is in Trash")
         current = _content(state, world_id)
         if request.expected_run_revision is not None and request.expected_run_revision != run.run_revision:
             raise ApplicationStateConflictError("Run progress or notes changed since this scene edit was reviewed")

@@ -2533,6 +2533,7 @@ export interface WorldPlayRunRecordV2 {
   updated_at: string;
   progress: PlayRunProgress;
   rebased_from_run_revision?: number;
+  lifecycle_status?: "active" | "trashed";
 }
 
 export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
