@@ -279,7 +279,8 @@ def acquisition_fixture(*, source_failure=False):
             "retrievalSession": {"synthetic": True},
         }
 
-    def source_read(message):
+    def source_read(message, *, bundle_internal=False):
+        assert bundle_internal is True
         calls.append("source")
         assert message["arguments"]["anchorIds"] == ["a0"]
         if source_failure:
@@ -365,7 +366,7 @@ def test_plan_contract_retains_canonical_refs_while_build_can_factor_them():
 def test_known_read_refusal_remains_visible_and_is_not_repeated():
     acquire, adapter, message, calls = acquisition_fixture()
 
-    def refusal(_message):
+    def refusal(_message, **_kwargs):
         calls.append("source-refused")
         return {
             "resultJson": json.dumps(
@@ -392,7 +393,7 @@ def test_known_read_refusal_remains_visible_and_is_not_repeated():
 def test_source_capture_failure_does_not_deliver_a_successful_bundle():
     acquire, adapter, message, calls = acquisition_fixture()
 
-    def failure(_message):
+    def failure(_message, **_kwargs):
         calls.append("capture-failed")
         return {
             "resultJson": json.dumps(
@@ -460,10 +461,13 @@ def test_actual_harness_responses_builder_preserves_exact_bundle_bytes(
     home = tmp_path / "harness-home"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
-    graph, source = fixture_packet()
+    graph, source, pins = dedup_source()
     parent = GraphToolPresentation(SCOPE)
     raw = parent.present_bundle(
-        json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], compact_refs=True
+        json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], compact_refs=True, source_pins=pins
+    )
+    repeated = parent.present_bundle(
+        json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], compact_refs=True, source_pins=pins
     )
     definitions = hermes_graph_interaction_tool_definitions()
     schema = next(
@@ -515,6 +519,12 @@ def test_actual_harness_responses_builder_preserves_exact_bundle_bytes(
             },
             {"role": "tool", "tool_call_id": "bundle-call", "content": raw},
         ]
+        messages.extend([
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "bundle-repeat", "type": "function",
+                "function": {"name": "expand_graph_retrieval", "arguments": json.dumps({
+                    "retrievalSessionId": "session", "operation": "object", "includeSources": True})}}]},
+            {"role": "tool", "tool_call_id": "bundle-repeat", "content": repeated},
+        ])
         request = agent._build_api_kwargs(messages)
         budget = importlib.import_module("agent.api_request_budget")
         view = budget.build_api_request_budget_view(
@@ -530,7 +540,9 @@ def test_actual_harness_responses_builder_preserves_exact_bundle_bytes(
         for item in payload["input"]
         if item.get("type") == "function_call_output"
     ]
-    assert included == [raw]
+    assert included == [raw, repeated]
+    assert sum(body.count(source["content"]) for body in included) == 1
+    assert len(parent.bundled_source_inclusion(included)) == 1
     assert hashlib.sha256(view.payload_json.encode()).hexdigest() == view.payload_sha256
     assert parent.inclusion("expand_graph_retrieval", included)[0].assertion_ids == {
         "assertion:stance"
@@ -598,3 +610,111 @@ def test_bundle_repair_advice_matches_actual_parent_read_profile(build, argument
     assert exc.value.code==code
     assert ('observations' in exc.value.message) is build
     assert 'object' in exc.value.message
+
+
+def dedup_source():
+    graph, source = fixture_packet()
+    source["sourceArtifactId"] = "artifact:fixture"
+    pins = {"anchor": {"source_artifact_id": "artifact:fixture", "source_revision_id": "source:r1",
+                       "evidence_ref_id": "evidence:long-canonical"}}
+    return graph, source, pins
+
+
+def test_duplicate_bodies_reference_only_current_literal_packet_and_original_receipt():
+    graph, source, pins = dedup_source()
+    parent = GraphToolPresentation(SCOPE)
+    first_read, second_read = uuid4(), uuid4()
+    first = parent.present_bundle(json.dumps(graph), uuid4(), [(first_read, json.dumps(source))], source_pins=pins)
+    second = parent.present_bundle(json.dumps(graph), uuid4(), [(second_read, json.dumps(source))], source_pins=pins)
+    import hashlib
+    body = json.loads(second)["sources"][0]
+    assert body["content"] is None and source["content"] not in second
+    assert body["contentRef"] == {"bundleId": json.loads(first)["bundleId"], "anchorId": "anchor",
+                                 "packetSha256": hashlib.sha256(first.encode()).hexdigest()}
+    assert json.loads(second)["records"] == json.loads(first)["records"]
+    assert {row.event_id for row in parent.bundled_source_inclusion([first, second])} == {first_read}
+    assert len(parent.inclusion("expand_graph_retrieval", [first, second])) == 2
+    # Removing/compacting/changing the donor fails before provider dispatch.
+    for visible in ([second], [first.replace(source["content"], "changed"), second]):
+        with pytest.raises(ValueError, match="literal donor"):
+            parent.inclusion("expand_graph_retrieval", visible)
+        with pytest.raises(ValueError):
+            parent.bundled_source_inclusion(visible)
+    with pytest.raises(ValueError):
+        GraphToolPresentation(SCOPE).inclusion("expand_graph_retrieval", [first, second])
+    # A fresh presenter never borrows a prior turn/conversation's donor.
+    fresh = GraphToolPresentation(SCOPE).present_bundle(json.dumps(graph), uuid4(),
+        [(uuid4(), json.dumps(source))], source_pins=pins)
+    assert json.loads(fresh)["sources"][0]["content"] == source["content"]
+
+
+@pytest.mark.parametrize("change", ["artifact", "revision", "anchor", "evidence", "span", "content", "partial", "truncated", "missing_pin"])
+def test_equal_text_does_not_merge_different_source_authority(change):
+    graph, source, pins = dedup_source()
+    parent = GraphToolPresentation(SCOPE)
+    parent.present_bundle(json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], source_pins=pins)
+    if change == "artifact":
+        source["sourceArtifactId"] = pins["anchor"]["source_artifact_id"] = "artifact:other"
+    elif change == "revision": pins["anchor"]["source_revision_id"] = "source:r2"
+    elif change == "anchor":
+        graph["sourceAnchors"][0]["anchorId"] = source["anchorId"] = "other"
+        pins["other"] = pins.pop("anchor")
+    elif change == "evidence":
+        graph["sourceAnchors"][0]["evidenceRefId"] = source["evidenceRefId"] = pins["anchor"]["evidence_ref_id"] = "other"
+        graph["reviewedSourceObservations"][0]["evidenceRefIds"] = ["other"]
+    elif change == "span": source["lineStart"] = source["lineEnd"] = 4
+    elif change == "content": source["content"] += " Different."
+    elif change == "partial": source["outcome"] = "partial"
+    elif change == "truncated": source["truncated"] = True
+    else: pins = {}
+    second = parent.present_bundle(json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], source_pins=pins)
+    assert json.loads(second)["sources"][0]["content"] == source["content"]
+    assert "contentRef" not in second
+    assert len(parent.bundled_source_inclusion([second])) == 1
+
+
+def test_mixed_new_and_duplicate_batch_keeps_whole_literal_receipt():
+    graph, source, pins = dedup_source()
+    parent = GraphToolPresentation(SCOPE)
+    first = parent.present_bundle(json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], source_pins=pins)
+    graph["sourceAnchors"].append({**graph["sourceAnchors"][0], "anchorId": "second", "evidenceRefId": "evidence:second"})
+    second_source = {**source, "anchorId": "second", "evidenceRefId": "evidence:second", "content": "A new passage."}
+    pins["second"] = {**pins["anchor"], "evidence_ref_id": "evidence:second"}
+    event_id = uuid4()
+    second = parent.present_bundle(json.dumps(graph), uuid4(), [(event_id, json.dumps({"reads": [source, second_source]}))], source_pins=pins)
+    assert "contentRef" not in second
+    assert all(row["content"] for row in json.loads(second)["sources"])
+    assert {row.event_id for row in parent.bundled_source_inclusion([second])} == {event_id}
+
+
+def test_complete_paged_direct_source_donates_to_later_object_bundle():
+    graph, source, pins = dedup_source()
+    source["content"] *= 300
+    parent = GraphToolPresentation(SCOPE, cache=GraphToolPageCache(page_bytes=32000))
+    source_id, later_id = uuid4(), uuid4()
+    donor = parent.present("read_graph_source", {"anchorIds": ["anchor"]}, json.dumps({
+        "schema": "dmb_read_graph_source_batch_v1", "retrievalSessionId": "session", "reads": [source]}),
+        source_id, source_pins=pins)
+    assert json.loads(donor)["schema"] == "dmb_graph_tool_page_v1"
+    assert parent.inclusion("read_graph_source", [donor])[0].complete
+    later = parent.present_bundle(json.dumps(graph), uuid4(), [(later_id, json.dumps(source))], source_pins=pins)
+    assert json.loads(later)["sources"][0]["content"] is None
+    assert json.loads(later)["sources"][0]["contentRef"]["packetSha256"]
+    assert len(parent.inclusion("expand_graph_retrieval", [later], source_payloads=[donor])) == 1
+    assert parent.bundled_source_inclusion([later], source_payloads=[donor]) == []
+    assert parent.inclusion("read_graph_source", [donor])[0].event_id == source_id
+    with pytest.raises(ValueError, match="literal donor"):
+        parent.inclusion("expand_graph_retrieval", [later])
+
+
+def test_partial_source_page_cannot_donate_hidden_bodies():
+    graph, source, pins = dedup_source()
+    source["content"] *= 500
+    parent = GraphToolPresentation(SCOPE, cache=GraphToolPageCache(page_bytes=8000))
+    parent.present("read_graph_source", {"anchorIds": ["anchor"]}, json.dumps(source), uuid4(), source_pins=pins)
+    # The first page never contained a complete source body. Allow a full
+    # subsequent packet without changing its source identity.
+    assert parent._source_donors == {}
+    parent.cache = GraphToolPageCache(page_bytes=32000)
+    later = parent.present_bundle(json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], source_pins=pins)
+    assert json.loads(later)["sources"][0]["content"] == source["content"]

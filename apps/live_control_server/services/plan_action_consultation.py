@@ -335,8 +335,8 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._track_required_read(super().broker_graph_operation(message))
 
-    def broker_source_read(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
-        return self._track_required_read(super().broker_source_read(message))
+    def broker_source_read(self, message: Mapping[str, Any], *, bundle_internal: bool = False) -> Mapping[str, Any]:
+        return self._track_required_read(super().broker_source_read(message, bundle_internal=bundle_internal))
 
     def broker_related_recap_context(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._track_required_read(super().broker_related_recap_context(message))

@@ -45,6 +45,9 @@ class GraphToolPresentation:
         self.scope = scope
         self.cache = cache if cache is not None else GraphToolPageCache()
         self._bundles: dict[str, tuple[Exposure, tuple[Exposure, ...]]] = {}
+        # Only exact literal packets in this turn can donate source bodies.
+        self._source_donors: dict[tuple, tuple[str, str]] = {}
+        self._bundle_dependencies: dict[str, frozenset[str]] = {}
         self._results: dict[str, _Result] = {}
         self._delivered: dict[tuple[str, str], list[_Result]] = {}
 
@@ -54,7 +57,8 @@ class GraphToolPresentation:
             entries.append(result)
         return payload
 
-    def present(self, tool: str, arguments: dict, raw: str, event_id: UUID) -> str:
+    def present(self, tool: str, arguments: dict, raw: str, event_id: UUID, *,
+                source_pins: dict[str, Any] | None = None) -> str:
         result = _Result(tool, event_id, raw, json.loads(raw))
         payload = self.cache.present(tool, arguments, self.scope, raw)
         value = json.loads(payload)
@@ -100,10 +104,21 @@ class GraphToolPresentation:
             self._results[value["resultId"]] = result
         elif payload != raw:
             raise ValueError("Parent presentation did not preserve the result")
+        if tool == "read_graph_source" and self._exposure(result, [payload]).complete:
+            rows = result.value.get("reads", [result.value])
+            keys = [self._source_identity(row, source_pins or {}) for row in rows]
+            if rows and all(key is not None for key in keys):
+                # Identical literal bytes and exact pins retain their original
+                # receipt binding; a repeated read must not make it ambiguous.
+                if all(key in self._source_donors and self._source_donors[key][0] == payload for key in keys):
+                    return payload
+                for row, key in zip(rows, keys, strict=True):
+                    self._source_donors.setdefault(key, (payload, row["anchorId"]))
         return self._remember(tool, payload, result)
 
     def present_bundle(self, graph_raw: str, event_id: UUID,
-                       sources: list[tuple[UUID, str]], *, compact_refs: bool = False, source_read_stop_code: str | None = None) -> str:
+                       sources: list[tuple[UUID, str]], *, compact_refs: bool = False, source_read_stop_code: str | None = None,
+                       source_pins: dict[str, Any] | None = None) -> str:
         from .graph_evidence_bundle import build_evidence_packet
         graph = json.loads(graph_raw)
         snapshot = graph.get("snapshot", {})
@@ -112,23 +127,83 @@ class GraphToolPresentation:
             raise ValueError("bundle Graph scope differs from parent")
         source_results = []
         source_exposures = []
+        read_groups = []
         for sid, raw in sources:
             value = json.loads(raw)
-            source_results.extend(value.get("reads", [value]))
-            source_exposures.append(self._exposure(_Result("read_graph_source", sid, raw, value), [raw]))
+            rows = value.get("reads", [value])
+            source_results.extend(rows)
+            read_groups.append((self._exposure(_Result("read_graph_source", sid, raw, value), [raw]), rows))
         packet = build_evidence_packet(graph, source_results, bundle_id=event_id,
             session_id=self.scope.retrieval_session_id, world_id=self.scope.world_id,
             revision_id=self.scope.revision_id, compact_refs=compact_refs,
             source_read_stop_code=source_read_stop_code)
+        by_anchor = {row["anchorId"]: row for row in packet["sources"]}
+        dependencies = set()
+        literal_keys = []
+        for exposure, rows in read_groups:
+            keys = [self._source_identity(row, source_pins or {}) for row in rows]
+            # An execution receipt covers its whole batch. Never expose a later
+            # batch receipt for just a subset whose body survived presentation.
+            if keys and all(key is not None and key in self._source_donors for key in keys):
+                for row, key in zip(rows, keys, strict=True):
+                    donor, anchor = self._source_donors[key]
+                    dependencies.add(donor)
+                    presented = by_anchor[row["anchorId"]]
+                    presented["content"] = None
+                    donor_value = json.loads(donor)
+                    presented["contentRef"] = {
+                        **{key: donor_value[key] for key in ("bundleId", "resultId") if key in donor_value},
+                        "packetSha256": hashlib.sha256(donor.encode()).hexdigest(),
+                        "anchorId": anchor,
+                    }
+            else:
+                source_exposures.append(exposure)
+                literal_keys.extend((key, row["anchorId"]) for row, key in zip(rows, keys, strict=True)
+                                    if key is not None)
+        if dependencies:
+            packet["interpretation"] += (
+                " A contentRef refers to the identical source body in an earlier literal tool packet "
+                "present in this request. Resolve packetSha256 and anchorId there; it grants no new authority."
+            )
         payload = json.dumps(packet, ensure_ascii=False, separators=(",", ":"))
         if len(payload.encode()) > self.cache.page_bytes:
             raise ValueError("evidence_bundle_overflow")
         graph_exposure = self._exposure(_Result("expand_graph_retrieval", event_id, graph_raw, graph), [graph_raw])
         self._bundles[payload] = (graph_exposure, tuple(source_exposures))
+        self._bundle_dependencies[payload] = frozenset(dependencies)
+        if not dependencies and all(row.get("content") and row.get("outcome") == "enough"
+                                    and not row.get("truncated") for row in packet["sources"]):
+            for key, anchor in literal_keys:
+                self._source_donors.setdefault(key, (payload, anchor))
         return payload
 
-    def bundled_source_inclusion(self, payloads: list[str]) -> list[Exposure]:
+    def _source_identity(self, row: dict, pins: dict[str, Any]) -> tuple | None:
+        content = row.get("content")
+        pin = pins.get(row.get("anchorId"))
+        if (pin is None or not isinstance(content, str) or not content
+                or row.get("outcome") != "enough" or row.get("truncated", False)):
+            return None
+        def field(name):
+            return pin.get(name) if isinstance(pin, dict) else getattr(pin, name, None)
+        artifact, revision, evidence = (field(name) for name in (
+            "source_artifact_id", "source_revision_id", "evidence_ref_id"))
+        if (not all(isinstance(value, str) and value for value in (artifact, revision, evidence))
+                or row.get("sourceArtifactId") != artifact or row.get("evidenceRefId") != evidence
+                or not isinstance(row.get("lineStart"), int) or not isinstance(row.get("lineEnd"), int)):
+            return None
+        return (self.scope.retrieval_session_id, self.scope.world_id, self.scope.revision_id,
+                row["anchorId"], evidence, artifact, revision, row["lineStart"], row["lineEnd"],
+                row["outcome"], bool(row.get("truncated", False)), hashlib.sha256(content.encode()).hexdigest())
+
+    def _validate_bundle_donors(self, payloads: list[str], source_payloads: list[str]) -> None:
+        current = set(payloads) | set(source_payloads)
+        if any(not self._bundle_dependencies.get(payload, frozenset()).issubset(current)
+               for payload in current):
+            raise ValueError("Source body reference lacks its exact current-envelope literal donor")
+
+    def bundled_source_inclusion(self, payloads: list[str], *, source_payloads: list[str] = ()) -> list[Exposure]:
         # Whole exact packets only: no substring/handle or old-envelope union.
+        self._validate_bundle_donors(payloads, source_payloads)
         by_id = {}
         for payload in set(payloads):
             if payload in self._bundles:
@@ -226,7 +301,9 @@ class GraphToolPresentation:
             raise ValueError(value.get("code", "unknown_graph_result_page"))
         return self._remember(tool, payload, result)
 
-    def inclusion(self, tool: str, payloads: list[str]) -> list[Exposure]:
+    def inclusion(self, tool: str, payloads: list[str], *, source_payloads: list[str] = ()) -> list[Exposure]:
+        if tool == "expand_graph_retrieval":
+            self._validate_bundle_donors(payloads, source_payloads)
         groups: dict[UUID, tuple[_Result, list[str]]] = {}
         bundles = []
         for payload in set(payloads):
