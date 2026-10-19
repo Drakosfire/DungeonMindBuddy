@@ -1,6 +1,6 @@
 # PLAY — chat layout and movable scene notes
 
-Status: ACTIVE. Base origin/main9863c5189e7c75a4b634f9d0c484a9238bdc9780; branch codex/play-pane-layout in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
+Status: ACTIVE. Base origin/main94cf0cf3804db1f47fa455c5314770623f3a5949; branch codex/play-pane-alignment in existing buddy-context-loop checkout. PRIME designs, writes, merges and adopts UI5202; independent Architecture review required. Topology serial, one implementation PR. Operator explicitly authorized this successor. API8000/data remain unchanged.
 
 ## Outcome and invariant
 
@@ -25,3 +25,7 @@ Provider/DTO/API/save controllers, shared context registry, dependencies, author
 ## Verification
 
 Mounted AppChrome proves header outside workspace geometry. Chrome tests prove orientation preserves host/thread/context and other surfaces; notes tests exercise pointer/touch cancellation, keyboard movement, clamping, collapse retention and no writer changes. Run affected suites and build, inspect cumulative diff, commit/push/PR and independent exact-head review. Normal5202 visible desktop/narrow screenshots and actual side/bottom switching, movable Notes, current target while inspecting, edit/draft retention and API before/after parity complete acceptance. Real Edge remains read-only; disposable existing fixture used for any needed drafts. Do not mark successor Agent/session-context work complete.
+
+## Rendered alignment correction
+
+#1435 merged94cf0cf38 after independent PASS atd3b4184a1. Normal5202 proves side/bottom switching, full-pane messages and pointer/keyboard notes movement with collapse and current targeting; the wide1778px viewport exposed a182px gap because the workspace uses the centered shared wrap while chat remained viewport-aligned. This serial successor changes only scoped Play chat CSS and this contract. Match the established1440px border-box/20px padding geometry, including the existing40rem full-width fallback, so side chat meets the workspace and bottom chat matches the full navbar. Typecheck/build, exact-head independent review and desktop/wide/narrow rendered verification remain required.
