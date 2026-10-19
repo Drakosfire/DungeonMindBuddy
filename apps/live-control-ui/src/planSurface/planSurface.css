@@ -8188,5 +8188,5 @@ body.surface-projection-open .plan-agent-shell {
   width: auto;
 }
 @media (max-width: 40rem) {
-  .plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"] { left: 0; right: 0; width: auto; }
+  .plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] { left: 0; right: 0; width: auto; }
 }
