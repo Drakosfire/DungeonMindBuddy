@@ -1,5 +1,5 @@
 """Explicit saved-session scene edit input; the model never chooses its target."""
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from application_state.agent_conversation.types import PlayContentBasis
 
 
@@ -10,6 +10,14 @@ class PlaySceneEditProposalRequest(BaseModel):
     content_basis: PlayContentBasis
     scene_id: str = Field(pattern=r"^scene:[a-z0-9][a-z0-9._-]{0,127}$")
     instruction: str = Field(min_length=1, max_length=8000)
+
+
+    @field_validator("instruction")
+    @classmethod
+    def valid_instruction(cls, value: str) -> str:
+        if not value.strip() or any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+            raise ValueError("instruction must contain valid, non-empty Unicode text")
+        return value
 
 
 class GeneratedPlaySceneEdit(BaseModel):

@@ -196,4 +196,3 @@ def test_reservation_rejects_edition_advanced_after_context_snapshot(application
             world_id=WORLD, run_id=RUN_ID, proposal_id=uuid4(),
             request=request, context_receipt=receipt,
         )
-
