@@ -157,12 +157,12 @@ export function BuildSurfaceContext({
               ) : null}
               {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save"
                 disabled={session.saveDisabled || documentMutationBusy}
-                title={documentMutationBusy ? "Wait for the current document action to finish." : session.saveDisabledReason ?? undefined}
+                title={documentMutationBusy ? "Wait for the current document action to finish." : (session.phase === "conflict" ? "Resolve the browser draft conflict before saving." : session.saveDisabledReason) ?? undefined}
                 aria-describedby={session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
                 onClick={() => void session.saveMarkdown()} /> : null}
               {session?.dirty || session?.draftRecoveryAvailable ? <details className="surface-navbar-recovery">
                 <summary>Draft recovery</summary><div className="surface-navbar-recovery__panel">
-                  {session.saveDisabled && session.dirty && session.saveDisabledReason ? <p id="build-save-reason" role="status">{session.saveDisabledReason}</p> : null}
+                  {session.saveDisabled && session.dirty && session.saveDisabledReason ? <p id="build-save-reason" role="status">{session.phase === "conflict" ? "The browser draft and saved document differ. Reload checks the server again without clearing the draft. Discard local draft opens the saved version and removes the browser draft." : session.saveDisabledReason}</p> : null}
                   <BuildDraftRecovery session={session} />
                 </div>
               </details> : null}
