@@ -96,6 +96,7 @@ class NativeReplyCapture:
         self.failure = None
         self._hooks = None
         self._seen = set()
+        self._dispatched = set()
         self._bindings = 0
         self._closed = False
 
@@ -144,6 +145,7 @@ class NativeReplyCapture:
                 digest,
             )
             self.last = None  # Retire the prior body; only metadata IDs survive.
+            self._dispatched.clear()
             return True
         except (ValueError, TypeError, AttributeError):
             self.failure = "capture_binding_failed"
@@ -253,6 +255,53 @@ class NativeReplyCapture:
             self.last = None
             return False
 
+    def authorize_tool_call(
+        self,
+        *,
+        api_request_id: str,
+        tool_call_id: str,
+        tool_name: str,
+        arguments: object,
+    ) -> bool:
+        """Match each SDK dispatch to one captured tool witness exactly once."""
+        if (
+            self.failure is not None
+            or self.last is None
+            or self.last.status != "tool_calls"
+        ):
+            return False
+        if api_request_id != self.last.api_request_id:
+            return False
+        try:
+            canonical = json.dumps(
+                arguments,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            digest = sha256(canonical).hexdigest()
+        except (TypeError, ValueError, UnicodeEncodeError):
+            return False
+        for tool in self.last.tool_calls:
+            if tool.call_id != tool_call_id or tool.name != tool_name:
+                continue
+            if digest != tool.arguments_sha256 or tool.call_id in self._dispatched:
+                return False
+            self._dispatched.add(tool.call_id)
+            return True
+        return False
+
+    def ensure_final_answer(self) -> bool:
+        """Require the latest captured SDK output to be a complete final answer."""
+        if self.failure is not None or self.pending is not None or self.last is None:
+            self.failure = self.failure or "provider_output_incomplete"
+            return False
+        if self.last.status != "answered":
+            self.failure = "provider_output_incomplete"
+            return False
+        return True
+
     def close(self):
         if self._hooks is not None:
             callbacks = self._hooks.get("post_api_request", [])
@@ -355,6 +404,8 @@ def decode_native_reply_wire(
     provider = _identity(data["provider"])
     model = _identity(data["model"])
     mode = _identity(data["apiMode"])
+    if provider != "openai-api" or mode not in {"chat_completions", "codex_responses"}:
+        raise ValueError("Unsupported native provider transport")
     digest = data["requestSha256"]
     if (
         not isinstance(digest, str)
@@ -412,6 +463,17 @@ def decode_native_reply_wire(
         if item["argumentsSha256"] != sha256(canonical).hexdigest():
             raise ValueError("Invalid captured arguments digest")
         tools.append(NativeToolReply(call_id, name, arguments, item["argumentsSha256"]))
+    if status == "answered" and not (
+        finish == "stop" and not tools and body is not None and body.strip()
+    ):
+        raise ValueError("Answered status does not match captured output")
+    if status == "tool_calls" and not (finish == "tool_calls" and tools):
+        raise ValueError("Tool-call status does not match captured output")
+    if status == "failed" and (
+        (finish == "stop" and not tools and body is not None and body.strip())
+        or (finish == "tool_calls" and tools)
+    ):
+        raise ValueError("Failed status contradicts captured output")
     return NativeProviderReply(
         authorization,
         request,

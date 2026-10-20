@@ -32,8 +32,11 @@ def _budget() -> dict[str, object]:
 
 
 def _request(
-    *, request_budget=None, provider_authorization_required=False,
-    parent_graph_broker_required=False, retrieval_session_id=None,
+    *,
+    request_budget=None,
+    provider_authorization_required=False,
+    parent_graph_broker_required=False,
+    retrieval_session_id=None,
     retrieval_session=None,
 ) -> HermesGraphAgentTurnRequest:
     return HermesGraphAgentTurnRequest(
@@ -61,13 +64,19 @@ def test_request_budget_policy_round_trips_strictly():
 
 def test_explicit_zero_model_call_count_survives_result_wire_round_trip():
     result = HermesGraphAgentTurnResult(
-        status="error", final_response=None, messages=[], hermes_session_id="session-1",
-        tool_events=[], error_code="request_budget_exceeded",
+        status="error",
+        final_response=None,
+        messages=[],
+        hermes_session_id="session-1",
+        tool_events=[],
+        error_code="request_budget_exceeded",
         observed_model_call_count=0,
     )
     wire = serialize_hermes_graph_agent_turn_result(result)
     assert wire["observedModelCallCount"] == 0
-    assert deserialize_hermes_graph_agent_turn_result(wire).observed_model_call_count == 0
+    assert (
+        deserialize_hermes_graph_agent_turn_result(wire).observed_model_call_count == 0
+    )
 
     unknown = serialize_hermes_graph_agent_turn_result(
         replace(result, observed_model_call_count=None)
@@ -84,8 +93,12 @@ def test_terminal_provider_lifecycle_failure_round_trips_only_safe_fields():
         "transportExceptionClass": "ConnectError",
     }
     result = HermesGraphAgentTurnResult(
-        status="error", final_response=None, messages=[], hermes_session_id="session-1",
-        tool_events=[], error_code="provider_lifecycle_unavailable",
+        status="error",
+        final_response=None,
+        messages=[],
+        hermes_session_id="session-1",
+        tool_events=[],
+        error_code="provider_lifecycle_unavailable",
         terminal_failure=diagnostic,
     )
 
@@ -98,14 +111,16 @@ def test_terminal_provider_lifecycle_failure_round_trips_only_safe_fields():
         sanitize_terminal_failure_diagnostic,
     )
 
-    projected = sanitize_terminal_failure_diagnostic({
-        "reason": "provider_transport_ambiguous",
-        "transition": "outcome_unknown",
-        "acknowledged": True,
-        "transport_exception_class": "ConnectError",
-        "exception_text": "PRIVATE_STREAM_BODY api_key=secret",
-        "response_body": "PRIVATE_RESPONSE",
-    })
+    projected = sanitize_terminal_failure_diagnostic(
+        {
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "transport_exception_class": "ConnectError",
+            "exception_text": "PRIVATE_STREAM_BODY api_key=secret",
+            "response_body": "PRIVATE_RESPONSE",
+        }
+    )
     assert projected == diagnostic
     assert "PRIVATE_STREAM_BODY" not in repr(projected)
     assert "PRIVATE_RESPONSE" not in repr(projected)
@@ -115,29 +130,41 @@ def test_terminal_provider_lifecycle_failure_round_trips_only_safe_fields():
     "diagnostic",
     [
         {
-            "phase": "provider_lifecycle", "reason": "provider_transport_ambiguous",
-            "transition": "outcome_unknown", "acknowledged": True,
+            "phase": "provider_lifecycle",
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
             "transportExceptionClass": "PrivateException",
         },
         {
-            "phase": "host_result_decode", "reason": "lifecycle_ack_denied",
-            "transition": "sdk_entered", "acknowledged": False,
+            "phase": "host_result_decode",
+            "reason": "lifecycle_ack_denied",
+            "transition": "sdk_entered",
+            "acknowledged": False,
         },
         {
-            "phase": "provider_lifecycle", "reason": "lifecycle_ack_denied",
-            "transition": "sdk_entered", "acknowledged": True,
+            "phase": "provider_lifecycle",
+            "reason": "lifecycle_ack_denied",
+            "transition": "sdk_entered",
+            "acknowledged": True,
         },
         {
-            "phase": "provider_lifecycle", "reason": "provider_response_incomplete",
-            "transition": "outcome_unknown", "acknowledged": True,
+            "phase": "provider_lifecycle",
+            "reason": "provider_response_incomplete",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
             "responseStatus": "PRIVATE_STATUS",
         },
     ],
 )
 def test_terminal_failure_wire_rejects_unbounded_or_inconsistent_values(diagnostic):
     result = HermesGraphAgentTurnResult(
-        status="error", final_response=None, messages=[], hermes_session_id="session-1",
-        tool_events=[], terminal_failure=diagnostic,
+        status="error",
+        final_response=None,
+        messages=[],
+        hermes_session_id="session-1",
+        tool_events=[],
+        terminal_failure=diagnostic,
     )
     with pytest.raises(ValueError, match="terminalFailure"):
         serialize_hermes_graph_agent_turn_result(result)
@@ -162,7 +189,9 @@ def test_exact_committed_plan_message_survives_host_round_trip() -> None:
     payload = serialize_hermes_graph_agent_turn_request(request)
     assert payload["question"] == message
     assert deserialize_hermes_graph_agent_turn_request(payload).question == message
-    assert decode_turn_request_wire(encode_turn_request_wire(request)).question == message
+    assert (
+        decode_turn_request_wire(encode_turn_request_wire(request)).question == message
+    )
 
     with pytest.raises(ValueError, match="question"):
         serialize_hermes_graph_agent_turn_request(
@@ -176,19 +205,25 @@ def test_exact_committed_plan_message_survives_host_round_trip() -> None:
 
 def test_parent_graph_source_policy_is_additive_to_legacy_expansion_only() -> None:
     from graph_memory.hermes_graph_plugin import (
-        HermesGraphScope, parent_brokered_graph_expansion_policy,
+        HermesGraphScope,
+        parent_brokered_graph_expansion_policy,
         parent_brokered_graph_source_policy,
     )
 
     scope = HermesGraphScope(
-        world_id="world:one", campaign_id="", focus={"kind": "none"},
-        admissibility="gm", revision_pin="revision:one", scope_mode="world",
+        world_id="world:one",
+        campaign_id="",
+        focus={"kind": "none"},
+        admissibility="gm",
+        revision_pin="revision:one",
+        scope_mode="world",
     )
     assert parent_brokered_graph_expansion_policy(scope).enabled_tool_names == (
         "expand_graph_retrieval",
     )
     assert parent_brokered_graph_source_policy(scope).enabled_tool_names == (
-        "expand_graph_retrieval", "read_graph_source",
+        "expand_graph_retrieval",
+        "read_graph_source",
     )
 
 
@@ -258,7 +293,9 @@ def test_large_plan_reaches_offline_real_worker_provider_gate(
         assert "x" * 50_000 in view["payloadJson"]
         body = json.loads(view["payloadJson"])
         upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
-        assert upper_bound + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+        assert (
+            upper_bound + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+        )
         return True
 
     def broker(_operation):
@@ -341,41 +378,59 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
     monkeypatch.setattr(socket, "create_connection", deny_network)
     monkeypatch.setattr(socket.socket, "connect", deny_network)
     scope = HermesGraphScope(
-        world_id="world:eldyrwild", campaign_id="",
-        focus={"kind": "none", "sessionId": None}, admissibility="gm",
-        revision_pin="revision:test", scope_mode="world",
+        world_id="world:eldyrwild",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
     )
     budget = _policy_request_budget()
     markdown = ('# Committed Plan\nA quoted "name".\n' * 1700)[:50_000]
     request = HermesGraphAgentTurnRequest(
         question=_plan_message("Where is Tripod?", markdown),
-        world_id=scope.world_id, campaign_id="", scope_mode="world",
-        focus=dict(scope.focus), admissibility="gm",
-        revision_pin=scope.revision_pin, root=tmp_path / "graph",
+        world_id=scope.world_id,
+        campaign_id="",
+        scope_mode="world",
+        focus=dict(scope.focus),
+        admissibility="gm",
+        revision_pin=scope.revision_pin,
+        root=tmp_path / "graph",
         capability_policy=parent_brokered_graph_expansion_policy(scope),
         retrieval_session_id="sess:SPOOF",
         retrieval_session={
-            "retrieval_session_id": "sess:SPOOF", "candidates": [],
-            "claim_ledger": [], "intent_hint": None,
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [],
+            "claim_ledger": [],
+            "intent_hint": None,
             "available_expansions": ["search"],
         },
-        request_budget=budget, provider_authorization_required=True,
-        parent_graph_broker_required=True, plan_continuity_turn=True,
+        request_budget=budget,
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+        plan_continuity_turn=True,
     )
     observed = []
 
     def reject(view):
         body = json.loads(view.payload_json)
         upper_bound = view.payload_utf8_bytes + 64 * (1 + _json_node_count(body))
-        observed.append((
-            view.payload_sha256, view.payload_utf8_bytes, upper_bound,
-            "committed_plan_markdown" in view.payload_json,
-        ))
+        observed.append(
+            (
+                view.payload_sha256,
+                view.payload_utf8_bytes,
+                upper_bound,
+                "committed_plan_markdown" in view.payload_json,
+            )
+        )
         return False
 
     result = run_hermes_graph_agent_turn(
-        request, on_provider_authorization=reject,
-        on_parent_graph_operation=lambda *_args: pytest.fail("provider gate not reached"),
+        request,
+        on_provider_authorization=reject,
+        on_parent_graph_operation=lambda *_args: pytest.fail(
+            "provider gate not reached"
+        ),
     )
     assert result.status == "error"
     assert result.error_code == "provider_authorization_denied"
@@ -386,7 +441,9 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
     restored_result = deserialize_hermes_graph_agent_turn_result(wire_result)
     assert restored_result.error_code == "provider_authorization_denied"
     assert len(observed) == 1, (result.error_code, result.error_message)
-    assert observed[0][2] + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+    assert (
+        observed[0][2] + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+    )
     assert observed[0][3] is True
     assert network_attempts == []
 
@@ -396,7 +453,9 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
     result = run_hermes_graph_agent_turn(
         replace(request, request_budget={**budget, "contextLimitTokens": 65_536}),
         on_provider_authorization=reject,
-        on_parent_graph_operation=lambda *_args: pytest.fail("provider gate not reached"),
+        on_parent_graph_operation=lambda *_args: pytest.fail(
+            "provider gate not reached"
+        ),
     )
     assert result.status == "error"
     assert result.error_code == "request_budget_exceeded"
@@ -409,9 +468,7 @@ def test_provider_authorization_gate_is_opt_in_and_round_trips():
     legacy = serialize_hermes_graph_agent_turn_request(_request())
     assert "providerAuthorizationRequired" not in legacy
 
-    request = _request(
-        request_budget=_budget(), provider_authorization_required=True
-    )
+    request = _request(request_budget=_budget(), provider_authorization_required=True)
     payload = serialize_hermes_graph_agent_turn_request(request)
     assert payload["providerAuthorizationRequired"] is True
     restored = deserialize_hermes_graph_agent_turn_request(payload)
@@ -473,8 +530,14 @@ def test_invalid_request_budget_policy_is_rejected(mutate):
 def test_parent_broker_requires_final_answer_reservation_limits():
     request = _request(
         request_budget={
-            key: value for key, value in _budget().items()
-            if key not in {"maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations"}
+            key: value
+            for key, value in _budget().items()
+            if key
+            not in {
+                "maxProviderAttempts",
+                "maxToolCapableAttempts",
+                "maxGraphOperations",
+            }
         },
         provider_authorization_required=True,
         parent_graph_broker_required=True,
@@ -486,43 +549,123 @@ def test_parent_broker_requires_final_answer_reservation_limits():
 
 
 def test_explicit_uncapped_budget_ipc_requires_all_null_counts():
-    budget = _budget() | {"schema": "dmb_agent_request_budget_uncapped_v1", **dict.fromkeys((
-        "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
-    ))}
-    request = _request(request_budget=budget, provider_authorization_required=True, parent_graph_broker_required=True, retrieval_session_id="session-1", retrieval_session={"id": "session-1"})
+    budget = _budget() | {
+        "schema": "dmb_agent_request_budget_uncapped_v1",
+        **dict.fromkeys(
+            (
+                "maxProviderAttempts",
+                "maxToolCapableAttempts",
+                "maxGraphOperations",
+            )
+        ),
+    }
+    request = _request(
+        request_budget=budget,
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+        retrieval_session_id="session-1",
+        retrieval_session={"id": "session-1"},
+    )
     encoded = serialize_hermes_graph_agent_turn_request(request)
     assert deserialize_hermes_graph_agent_turn_request(encoded).request_budget == budget
     for key in ("maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations"):
         for value in (True, "4", 4):
             with pytest.raises(ValueError, match="explicit null"):
-                serialize_hermes_graph_agent_turn_request(replace(request, request_budget=budget | {key: value}))
+                serialize_hermes_graph_agent_turn_request(
+                    replace(request, request_budget=budget | {key: value})
+                )
         with pytest.raises(ValueError, match="explicit null"):
-            serialize_hermes_graph_agent_turn_request(replace(request, request_budget={k: v for k, v in budget.items() if k != key}))
+            serialize_hermes_graph_agent_turn_request(
+                replace(
+                    request,
+                    request_budget={k: v for k, v in budget.items() if k != key},
+                )
+            )
     with pytest.raises(ValueError):
-        serialize_hermes_graph_agent_turn_request(replace(request, request_budget=budget | {"schema": "dmb_hermes_request_budget_policy_v1"}))
+        serialize_hermes_graph_agent_turn_request(
+            replace(
+                request,
+                request_budget=budget
+                | {"schema": "dmb_hermes_request_budget_policy_v1"},
+            )
+        )
 
 
-@pytest.mark.parametrize("reason", ["max_output_tokens", "length", "content_filter", "unspecified", "other"])
+@pytest.mark.parametrize(
+    "reason", ["max_output_tokens", "length", "content_filter", "unspecified", "other"]
+)
 def test_incomplete_reason_safe_projection_and_result_roundtrip(reason):
-    from apps.live_control_server.services.hermes_graph_agent_contract import sanitize_terminal_failure_diagnostic
-    diagnostic = sanitize_terminal_failure_diagnostic({
-        "reason": "provider_response_incomplete", "transition": "outcome_unknown",
-        "acknowledged": True, "response_status": "incomplete", "incomplete_reason": reason,
-        "response_body": "PRIVATE_RESPONSE", "details": "PRIVATE_DETAILS",
-    })
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        sanitize_terminal_failure_diagnostic,
+    )
+
+    diagnostic = sanitize_terminal_failure_diagnostic(
+        {
+            "reason": "provider_response_incomplete",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "response_status": "incomplete",
+            "incomplete_reason": reason,
+            "response_body": "PRIVATE_RESPONSE",
+            "details": "PRIVATE_DETAILS",
+        }
+    )
     assert diagnostic["incompleteReason"] == reason
     assert "PRIVATE" not in str(diagnostic)
     result = HermesGraphAgentTurnResult(
-        status="error", final_response=None, messages=[], hermes_session_id="session-1",
-        tool_events=[], error_code="provider_lifecycle_unavailable", terminal_failure=diagnostic,
+        status="error",
+        final_response=None,
+        messages=[],
+        hermes_session_id="session-1",
+        tool_events=[],
+        error_code="provider_lifecycle_unavailable",
+        terminal_failure=diagnostic,
     )
-    assert deserialize_hermes_graph_agent_turn_result(serialize_hermes_graph_agent_turn_result(result)).terminal_failure == diagnostic
+    assert (
+        deserialize_hermes_graph_agent_turn_result(
+            serialize_hermes_graph_agent_turn_result(result)
+        ).terminal_failure
+        == diagnostic
+    )
 
 
-@pytest.mark.parametrize("status, reason", [("incomplete", "PRIVATE_REASON"), ("failed", "max_output_tokens"), ("other", "content_filter")])
+@pytest.mark.parametrize(
+    "status, reason",
+    [
+        ("incomplete", "PRIVATE_REASON"),
+        ("failed", "max_output_tokens"),
+        ("other", "content_filter"),
+    ],
+)
 def test_incomplete_reason_rejects_unbounded_or_wrong_status(status, reason):
-    from apps.live_control_server.services.hermes_graph_agent_contract import sanitize_terminal_failure_diagnostic
-    assert sanitize_terminal_failure_diagnostic({
-        "reason": "provider_response_incomplete", "transition": "outcome_unknown",
-        "acknowledged": True, "response_status": status, "incomplete_reason": reason,
-    }) is None
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        sanitize_terminal_failure_diagnostic,
+    )
+
+    assert (
+        sanitize_terminal_failure_diagnostic(
+            {
+                "reason": "provider_response_incomplete",
+                "transition": "outcome_unknown",
+                "acknowledged": True,
+                "response_status": status,
+                "incomplete_reason": reason,
+            }
+        )
+        is None
+    )
+
+
+def test_native_rules_capture_flag_requires_explicit_rules_and_parent_authority():
+    request = replace(_request(), native_rules_capture_required=True)
+    with pytest.raises(
+        ValueError, match="native Rules capture requires Rules capability"
+    ):
+        serialize_hermes_graph_agent_turn_request(request)
+
+    payload = serialize_hermes_graph_agent_turn_request(_request())
+    payload["nativeRulesCaptureRequired"] = True
+    with pytest.raises(
+        ValueError, match="native Rules capture requires Rules capability"
+    ):
+        deserialize_hermes_graph_agent_turn_request(payload)

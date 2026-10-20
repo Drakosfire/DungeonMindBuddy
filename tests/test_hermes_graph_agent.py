@@ -1198,71 +1198,105 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
 @pytest.mark.parametrize("uncertain", [False, True])
 @pytest.mark.parametrize("uncapped", [False, True])
 def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain: bool, uncapped: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uncertain: bool,
+    uncapped: bool,
 ) -> None:
     from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
 
     monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-6-luna")
     monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
     monkeypatch.setenv(
-        "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT", str(tmp_path / "profiles"),
+        "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT",
+        str(tmp_path / "profiles"),
     )
     AIAgent = hermes_graph_agent_mod.import_hermes_aiagent()
     scope = HermesGraphScope(
-        world_id="world:one", campaign_id="", focus={"kind": "none", "sessionId": None},
-        admissibility="gm", revision_pin="revision:test", scope_mode="world",
+        world_id="world:one",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
     )
     session = {
-        "retrieval_session_id": "sess:third-tool", "candidates": [],
-        "claim_ledger": [], "intent_hint": None, "available_expansions": ["search"],
+        "retrieval_session_id": "sess:third-tool",
+        "candidates": [],
+        "claim_ledger": [],
+        "intent_hint": None,
+        "available_expansions": ["search"],
     }
     budget = {
         "schema": "dmb_hermes_request_budget_policy_v1",
-        "provider": "openai-api", "model": "gpt-6-luna", "apiMode": "codex_responses",
+        "provider": "openai-api",
+        "model": "gpt-6-luna",
+        "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
-        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "contextLimitTokens": 1_050_000,
+        "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
         "maxGraphOperations": 8,
     }
     if uncapped:
-        budget.update(schema="dmb_agent_request_budget_uncapped_v1", maxProviderAttempts=None,
-            maxToolCapableAttempts=None, maxGraphOperations=None)
+        budget.update(
+            schema="dmb_agent_request_budget_uncapped_v1",
+            maxProviderAttempts=None,
+            maxToolCapableAttempts=None,
+            maxGraphOperations=None,
+        )
     expected_requests = 10 if uncapped else 4
-    tool_args = json.dumps({
-        "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
-        "retrievalSessionId": "sess:third-tool", "operation": "search",
-        "queryText": "Tripod",
-    })
+    tool_args = json.dumps(
+        {
+            "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+            "retrievalSessionId": "sess:third-tool",
+            "operation": "search",
+            "queryText": "Tripod",
+        }
+    )
     streams = []
     for number in range(1, 2 if uncertain else expected_requests):
-        streams.append([
-            SimpleNamespace(
-                type="response.output_item.done",
-                item=SimpleNamespace(
-                    type="function_call", id=f"fc_{number}",
-                    call_id=f"call-graph-{number}", name="expand_graph_retrieval",
-                    arguments=tool_args, status="completed",
+        streams.append(
+            [
+                SimpleNamespace(
+                    type="response.output_item.done",
+                    item=SimpleNamespace(
+                        type="function_call",
+                        id=f"fc_{number}",
+                        call_id=f"call-graph-{number}",
+                        name="expand_graph_retrieval",
+                        arguments=tool_args,
+                        status="completed",
+                    ),
                 ),
-            ),
-            SimpleNamespace(
-                type="response.completed",
-                response=SimpleNamespace(
-                    id=f"resp-tool-{number}", status="completed",
-                    usage=SimpleNamespace(input_tokens=10, output_tokens=2),
+                SimpleNamespace(
+                    type="response.completed",
+                    response=SimpleNamespace(
+                        id=f"resp-tool-{number}",
+                        status="completed",
+                        usage=SimpleNamespace(input_tokens=10, output_tokens=2),
+                    ),
                 ),
-            ),
-        ])
+            ]
+        )
     if not uncertain:
-        streams.append([
-            SimpleNamespace(type="response.output_text.delta", delta="Final from Graph evidence."),
-            SimpleNamespace(
-                type="response.completed",
-                response=SimpleNamespace(
-                    id="resp-final", status="completed",
-                    usage=SimpleNamespace(input_tokens=12, output_tokens=7),
+        streams.append(
+            [
+                SimpleNamespace(
+                    type="response.output_text.delta",
+                    delta="Final from Graph evidence.",
                 ),
-            ),
-        ])
+                SimpleNamespace(
+                    type="response.completed",
+                    response=SimpleNamespace(
+                        id="resp-final",
+                        status="completed",
+                        usage=SimpleNamespace(input_tokens=12, output_tokens=7),
+                    ),
+                ),
+            ]
+        )
     broker_calls: list[str] = []
     provider_bodies: list[dict[str, Any]] = []
     authorizations: list[Any] = []
@@ -1270,20 +1304,27 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
     def broker(name: str, _arguments: Any) -> tuple[str, dict[str, Any]]:
         broker_calls.append(name)
         if uncertain:
-            return json.dumps({
-                "schema": "dmb_world_graph_retrieval_error_v1",
-                "code": "graph_operation_unavailable",
-                "message": "Parent Graph expansion could not be admitted.",
-                "statusCode": 503, "diagnostics": [],
-            }), session
+            return json.dumps(
+                {
+                    "schema": "dmb_world_graph_retrieval_error_v1",
+                    "code": "graph_operation_unavailable",
+                    "message": "Parent Graph expansion could not be admitted.",
+                    "statusCode": 503,
+                    "diagnostics": [],
+                }
+            ), session
         return WorldGraphRetrievalResult(
-            operation="search", outcome="enough", matched_node_ids=[],
+            operation="search",
+            outcome="enough",
+            matched_node_ids=[],
         ).model_dump_json(by_alias=True), session
 
     def create_stream(**kwargs: Any) -> Any:
         provider_bodies.append(kwargs)
         if uncertain:
-            assert len(provider_bodies) == 1, "uncertain Graph admission reached another SDK request"
+            assert len(provider_bodies) == 1, (
+                "uncertain Graph admission reached another SDK request"
+            )
         elif len(provider_bodies) == expected_requests:
             assert broker_calls == ["expand_graph_retrieval"] * (expected_requests - 1)
             if uncapped:
@@ -1318,13 +1359,20 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
 
     result = run_hermes_graph_agent_turn(
         HermesGraphAgentTurnRequest(
-            question="Where is Tripod?", world_id=scope.world_id,
-            campaign_id="", scope_mode="world", focus=dict(scope.focus),
-            admissibility="gm", revision_pin=scope.revision_pin,
-            root=tmp_path / "graph", session_id="sess:third-tool",
+            question="Where is Tripod?",
+            world_id=scope.world_id,
+            campaign_id="",
+            scope_mode="world",
+            focus=dict(scope.focus),
+            admissibility="gm",
+            revision_pin=scope.revision_pin,
+            root=tmp_path / "graph",
+            session_id="sess:third-tool",
             capability_policy=parent_brokered_graph_expansion_policy(scope),
-            retrieval_session_id="sess:third-tool", retrieval_session=session,
-            request_budget=budget, provider_authorization_required=True,
+            retrieval_session_id="sess:third-tool",
+            retrieval_session=session,
+            request_budget=budget,
+            provider_authorization_required=True,
             parent_graph_broker_required=True,
         ),
         agent_factory=factory,
@@ -1341,7 +1389,9 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
         assert result.final_response == "Final from Graph evidence."
         assert len(provider_bodies) == len(authorizations) == expected_requests
         assert broker_calls == ["expand_graph_retrieval"] * (expected_requests - 1)
-        assert [event.state for event in result.tool_events].count("completion") == expected_requests - 1
+        assert [event.state for event in result.tool_events].count(
+            "completion"
+        ) == expected_requests - 1
 
 
 def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
@@ -1824,7 +1874,9 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
 
     monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
 
-    graph_names = default_graph_only_capability_policy(_default_scope()).enabled_tool_names
+    graph_names = default_graph_only_capability_policy(
+        _default_scope()
+    ).enabled_tool_names
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
         enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
@@ -2498,13 +2550,18 @@ def test_request_budget_guard_bounds_full_openai_request_and_output_reserve():
                 "type": "function",
                 "function": {
                     "name": "expand_graph",
-                    "parameters": {"type": "object", "properties": {"depth": {"type": "integer"}}},
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"depth": {"type": "integer"}},
+                    },
                 },
             }
         ],
         "max_completion_tokens": 2048,
     }
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
 
     def count_nodes(value: Any) -> int:
         if isinstance(value, dict):
@@ -2569,12 +2626,239 @@ def test_request_budget_guard_requires_parent_authorization_after_budget_check()
     assert authorized == [view]
 
     policy["contextLimitTokens"] = input_upper + 15
-    assert _request_budget_guard(
-        policy,
-        on_provider_authorization=lambda _actual: pytest.fail(
-            "over-budget request reached parent authorization"
+    assert (
+        _request_budget_guard(
+            policy,
+            on_provider_authorization=lambda _actual: pytest.fail(
+                "over-budget request reached parent authorization"
+            ),
+        )(view)
+        is False
+    )
+
+
+def test_native_capture_hooks_accept_only_parent_acknowledged_sdk_message(
+    tmp_path: Path,
+):
+    from application_state.agent_conversation.rules_authority_policy import (
+        rules_capability,
+    )
+    from graph_memory.hermes_graph_plugin import rules_capability_policy
+
+    captured = []
+    authorized = []
+    text = "The exact SDK answer."
+    payload = {
+        "model": "synthetic-model",
+        "messages": [{"role": "user", "content": "question"}],
+        "max_completion_tokens": 128,
+        "tools": [],
+        "tool_choice": "none",
+    }
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    request_digest = __import__("hashlib").sha256(encoded.encode()).hexdigest()
+
+    class NativeCaptureAgent:
+        def __init__(self, **kwargs):
+            self.session_id = kwargs.get("session_id")
+            self.api_mode = "chat_completions"
+            self._current_api_request_id = "turn:api:1"
+            self.guard = None
+
+        def run_conversation(self, user_message, conversation_history=None, **_kwargs):
+            del user_message, conversation_history
+            from hermes_cli import plugins as hermes_plugins
+
+            view = SimpleNamespace(
+                provider="openai-api",
+                model="synthetic-model",
+                api_mode="chat_completions",
+                payload_json=encoded,
+                payload_sha256=request_digest,
+                payload_utf8_bytes=len(encoded.encode()),
+            )
+            assert self.api_request_budget_guard(view) is True
+            hermes_plugins.invoke_hook(
+                "post_api_request",
+                api_request_id="turn:api:1",
+                model="synthetic-model",
+                api_mode="chat_completions",
+                finish_reason="stop",
+                assistant_message=SimpleNamespace(
+                    role="assistant", content=text, tool_calls=None
+                ),
+                response={"choices": [{"message": {"content": "clipped"}}]},
+            )
+            return {
+                "status": "ok",
+                "final_response": text,
+                "messages": [{"role": "assistant", "content": text}],
+                "session_id": self.session_id,
+            }
+
+    def authorize(view):
+        authorized.append(view)
+        return True
+
+    authorize.last_authorization_id = "turn:1"
+    request = HermesGraphAgentTurnRequest(
+        question="question",
+        world_id=None,
+        campaign_id=None,
+        scope_mode=None,
+        session_id="native-capture-turn",
+        root=tmp_path,
+        capability_policy=rules_capability_policy(rules_capability(graph=False)),
+        request_budget={
+            "schema": "dmb_hermes_request_budget_policy_v1",
+            "provider": "openai-api",
+            "model": "synthetic-model",
+            "apiMode": "chat_completions",
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "contextLimitTokens": 32768,
+            "outputReserveTokens": 2048,
+            "maxProviderAttempts": 4,
+            "maxToolCapableAttempts": 3,
+            "maxGraphOperations": 8,
+        },
+        provider_authorization_required=True,
+        native_rules_capture_required=True,
+        parent_graph_broker_required=True,
+    )
+    result = run_hermes_graph_agent_turn(
+        request,
+        agent_factory=NativeCaptureAgent,
+        on_provider_authorization=authorize,
+        on_parent_graph_operation=lambda _name, _args: ("{}", None),
+        on_native_provider_reply=lambda reply: captured.append(reply) or True,
+    )
+
+    assert result.status == "ok"
+    assert result.final_response == text
+    assert len(authorized) == len(captured) == 1
+    assert captured[0].authorization_id == "turn:1"
+    assert captured[0].api_request_id == "turn:api:1"
+    assert captured[0].request_sha256 == request_digest
+    assert captured[0].text == text
+
+
+def test_native_capture_binds_authorized_request_before_sdk_dispatch():
+    from apps.live_control_server.services.native_rules_capture import (
+        NativeReplyCapture,
+    )
+
+    payload = {
+        "model": "synthetic-model",
+        "messages": [{"role": "user", "content": "question"}],
+        "max_completion_tokens": 16,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = __import__("hashlib").sha256(encoded.encode()).hexdigest()
+    view = SimpleNamespace(
+        provider="openai-api",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode()),
+        payload_sha256=digest,
+    )
+    input_upper = len(encoded.encode()) + 64 * 4
+    policy = {
+        "provider": "openai-api",
+        "model": "synthetic-model",
+        "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": input_upper + 16,
+        "outputReserveTokens": 16,
+    }
+    capture = NativeReplyCapture(lambda _reply: True)
+    assert capture.register(SimpleNamespace(_hooks={}))
+
+    def authorize(_view):
+        return True
+
+    authorize.last_authorization_id = "turn:1"
+    agent = SimpleNamespace(_current_api_request_id="turn:api:1")
+    guard = _request_budget_guard(
+        policy, on_provider_authorization=authorize, native_capture=capture
+    )
+    guard.bind_agent.append(agent)
+
+    assert guard(view) is True
+    assert capture.pending == (
+        "turn:1",
+        "turn:api:1",
+        "openai-api",
+        "synthetic-model",
+        "chat_completions",
+        digest,
+    )
+
+    capture.close()
+
+
+def test_native_capture_failure_vetoes_followup_provider_request():
+    from apps.live_control_server.services.native_rules_capture import (
+        NativeReplyCapture,
+    )
+
+    capture = NativeReplyCapture(lambda _reply: True)
+    assert capture.register(SimpleNamespace(_hooks={}))
+    assert capture.bind(
+        SimpleNamespace(
+            provider="openai-api",
+            model="synthetic-model",
+            api_mode="chat_completions",
+            payload_sha256="a" * 64,
         ),
-    )(view) is False
+        authorization_id="turn:1",
+        api_request_id="turn:api:1",
+    )
+    assert capture.on_post_api_request(
+        api_request_id="turn:api:1",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        finish_reason="length",
+        assistant_message=SimpleNamespace(
+            role="assistant", content="partial", tool_calls=None
+        ),
+    )
+    assert capture.failure == "provider_output_incomplete"
+    payload = {
+        "model": "synthetic-model",
+        "messages": [{"role": "user", "content": "question"}],
+        "max_completion_tokens": 16,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    input_upper = len(encoded.encode()) + 64 * 4
+    policy = {
+        "provider": "openai-api",
+        "model": "synthetic-model",
+        "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": input_upper + 16,
+        "outputReserveTokens": 16,
+    }
+    view = SimpleNamespace(
+        provider="openai-api",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode()),
+        payload_sha256="b" * 64,
+    )
+    guard = _request_budget_guard(
+        policy,
+        on_provider_authorization=lambda _view: pytest.fail(
+            "failed capture reached parent"
+        ),
+        native_capture=capture,
+    )
+    assert guard(view) is False
+    assert guard.guard_state["last_rejection_reason"] == "native_reply_capture_failed"
+    capture.close()
 
 
 def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
@@ -2604,7 +2888,9 @@ def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
     monkeypatch.setattr(
         graph_plugin,
         "execute_hermes_graph_interaction_tool_json",
-        lambda *_args, **_kwargs: pytest.fail("parent-required mode used child-local Graph"),
+        lambda *_args, **_kwargs: pytest.fail(
+            "parent-required mode used child-local Graph"
+        ),
     )
     try:
         expand = graph_plugin._handler_for("expand_graph_retrieval")
@@ -2625,36 +2911,47 @@ def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
 def test_related_recap_tool_is_registered_only_with_parent_read_policy() -> None:
     definitions = hermes_model_visible_tool_definitions()
     recap = next(
-        item for item in definitions
+        item
+        for item in definitions
         if item["function"]["name"] == "read_related_recap_context"
     )
     assert set(recap["function"]["parameters"]["required"]) >= {
-        "targetKind", "targetId", "evidenceRefIds",
+        "targetKind",
+        "targetId",
+        "evidenceRefIds",
     }
     base = default_graph_only_capability_policy(_default_scope())
     assert "read_related_recap_context" not in base.enabled_tool_names
     rule = HermesToolCapabilityRule(
-        tool_name="read_related_recap_context", toolset=TOOLSET_NAME,
-        require_graph_scope=False, allowed_effects=frozenset({"read"}),
+        tool_name="read_related_recap_context",
+        toolset=TOOLSET_NAME,
+        require_graph_scope=False,
+        allowed_effects=frozenset({"read"}),
     )
-    parent = replace(base,
+    parent = replace(
+        base,
         enabled_tool_names=(*base.enabled_tool_names, "read_related_recap_context"),
         tool_rules=(*base.tool_rules, rule),
     )
     called: list[tuple[str, dict[str, Any]]] = []
     broker_token = graph_plugin.set_parent_graph_broker(
         lambda name, args: (
-            called.append((name, dict(args))) or
-            '{"schema":"dmb_related_recap_context_read_v2"}', None
-        ), required=True,
+            called.append((name, dict(args)))
+            or '{"schema":"dmb_related_recap_context_read_v2"}',
+            None,
+        ),
+        required=True,
     )
     policy_token = set_active_capability_policy(parent)
     session_token = set_active_retrieval_session_id("session:one")
     try:
-        response = graph_plugin._handler_for("read_related_recap_context")({
-            "targetKind": "assertion", "targetId": "assertion:one",
-            "evidenceRefIds": ["evidence:one"],
-        })
+        response = graph_plugin._handler_for("read_related_recap_context")(
+            {
+                "targetKind": "assertion",
+                "targetId": "assertion:one",
+                "evidenceRefIds": ["evidence:one"],
+            }
+        )
         assert json.loads(response)["schema"] == "dmb_related_recap_context_read_v2"
         assert called[0][0] == "read_related_recap_context"
         assert called[0][1]["retrievalSessionId"] == "session:one"
@@ -2668,11 +2965,25 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
     payload = {
         "model": "synthetic-model",
         "instructions": "Use the available graph tools.",
-        "input": [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": "question"}]}],
-        "tools": [{"type": "function", "name": "expand_graph", "parameters": {"type": "object"}}],
+        "input": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "question"}],
+            }
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "name": "expand_graph",
+                "parameters": {"type": "object"},
+            }
+        ],
         "max_output_tokens": 100,
     }
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     view = SimpleNamespace(
         provider="openai-api",
         model="synthetic-model",
@@ -2693,23 +3004,36 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
 
 def test_request_budget_guard_reserves_fourth_attempt_for_toolless_final():
     policy = {
-        "provider": "openai-api", "model": "synthetic-model",
+        "provider": "openai-api",
+        "model": "synthetic-model",
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 32768, "outputReserveTokens": 100,
-        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "contextLimitTokens": 32768,
+        "outputReserveTokens": 100,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
         "maxGraphOperations": 8,
     }
-    tool = {"type": "function", "name": "expand_graph", "parameters": {"type": "object"}}
+    tool = {
+        "type": "function",
+        "name": "expand_graph",
+        "parameters": {"type": "object"},
+    }
+
     def view(tools: list[dict[str, Any]]) -> Any:
         payload = {
-            "model": "synthetic-model", "input": [{"role": "user", "content": "question"}],
-            "tools": tools, "max_output_tokens": 100,
+            "model": "synthetic-model",
+            "input": [{"role": "user", "content": "question"}],
+            "tools": tools,
+            "max_output_tokens": 100,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return SimpleNamespace(
-            provider="openai-api", model="synthetic-model", api_mode="codex_responses",
-            payload_json=encoded, payload_utf8_bytes=len(encoded.encode()),
+            provider="openai-api",
+            model="synthetic-model",
+            api_mode="codex_responses",
+            payload_json=encoded,
+            payload_utf8_bytes=len(encoded.encode()),
         )
 
     authorized: list[Any] = []
@@ -2725,11 +3049,15 @@ def test_request_budget_guard_reserves_fourth_attempt_for_toolless_final():
         assert guard.provider_lifecycle({"transition": "response_received"}) is True
         assert agent.tools == ([] if sequence == 3 else [tool])
     assert guard(view([tool])) is False
-    assert guard.guard_state["last_rejection_reason"] == "final_answer_requires_no_tools"
+    assert (
+        guard.guard_state["last_rejection_reason"] == "final_answer_requires_no_tools"
+    )
     assert len(authorized) == 3
     assert guard(view([])) is True
     assert guard(view([])) is False
-    assert guard.guard_state["last_rejection_reason"] == "provider_attempt_limit_exhausted"
+    assert (
+        guard.guard_state["last_rejection_reason"] == "provider_attempt_limit_exhausted"
+    )
     assert len(authorized) == 4
 
 
@@ -2737,40 +3065,54 @@ def test_full_saved_plan_and_source_excerpt_fit_reserved_final_envelope() -> Non
     from apps.live_control_server.services.agent_turn_service import _json_node_count
 
     policy = {
-        "provider": "openai-api", "model": "gpt-6-luna",
+        "provider": "openai-api",
+        "model": "gpt-6-luna",
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
-        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "contextLimitTokens": 1_050_000,
+        "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
         "maxGraphOperations": 8,
     }
     plan = "# Committed Plan\n" + "P" * 50_000
     source_excerpt = "S" * 12_000
     read_tool = {
-        "type": "function", "name": "read_graph_source",
+        "type": "function",
+        "name": "read_graph_source",
         "parameters": {"type": "object"},
     }
     input_items = [
         {"role": "user", "content": plan},
-        {"type": "function_call", "call_id": "read-1", "name": "read_graph_source",
-         "arguments": '{"anchorIds":["anchor:one"]}'},
+        {
+            "type": "function_call",
+            "call_id": "read-1",
+            "name": "read_graph_source",
+            "arguments": '{"anchorIds":["anchor:one"]}',
+        },
         {"type": "function_call_output", "call_id": "read-1", "output": source_excerpt},
     ]
 
     def view(tools: list[dict[str, Any]]) -> Any:
         payload = {
-            "model": "gpt-6-luna", "input": input_items,
-            "tools": tools, "max_output_tokens": 2048,
+            "model": "gpt-6-luna",
+            "input": input_items,
+            "tools": tools,
+            "max_output_tokens": 2048,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return SimpleNamespace(
-            provider="openai-api", model="gpt-6-luna", api_mode="codex_responses",
-            payload_json=encoded, payload_utf8_bytes=len(encoded.encode()),
+            provider="openai-api",
+            model="gpt-6-luna",
+            api_mode="codex_responses",
+            payload_json=encoded,
+            payload_utf8_bytes=len(encoded.encode()),
         )
 
     authorized: list[Any] = []
     guard = _request_budget_guard(
-        policy, on_provider_authorization=lambda item: authorized.append(item) or True,
+        policy,
+        on_provider_authorization=lambda item: authorized.append(item) or True,
         on_provider_lifecycle=lambda _event: True,
     )
     agent = SimpleNamespace(tools=[read_tool])
@@ -2782,8 +3124,10 @@ def test_full_saved_plan_and_source_excerpt_fit_reserved_final_envelope() -> Non
     assert guard(view([])) is True
     assert len(authorized) == 4
     assert all(
-        item.payload_utf8_bytes + 64 * (1 + _json_node_count(json.loads(item.payload_json)))
-        + policy["outputReserveTokens"] <= policy["contextLimitTokens"]
+        item.payload_utf8_bytes
+        + 64 * (1 + _json_node_count(json.loads(item.payload_json)))
+        + policy["outputReserveTokens"]
+        <= policy["contextLimitTokens"]
         for item in authorized
     )
 
@@ -2796,7 +3140,8 @@ def test_graph_operation_reservation_preflights_remaining_budget():
         if len(broker_calls) == 1:
             return (
                 '{"schema":"dmb_world_graph_retrieval_error_v1",'
-                '"code":"graph_revision_conflict","statusCode":409}', None,
+                '"code":"graph_revision_conflict","statusCode":409}',
+                None,
             )
         return '{"schema":"dmb_world_graph_retrieval_result_v1"}', None
 
@@ -2827,7 +3172,8 @@ def test_graph_operation_reservation_preflights_remaining_budget():
             '{"schema":"dmb_world_graph_retrieval_error_v1",'
             '"code":"graph_operation_unavailable",'
             '"message":"Parent Graph expansion could not be admitted.",'
-            '"statusCode":503,"diagnostics":[]}', None,
+            '"statusCode":503,"diagnostics":[]}',
+            None,
         )
 
     normalized = _GraphOperationReservation(8, normalized_uncertainty)
@@ -2842,8 +3188,8 @@ def test_graph_operation_reservation_preflights_remaining_budget():
     context = _GraphOperationReservation(
         1,
         lambda name, _arguments: (
-            context_calls.append(name) or
-            '{"schema":"dmb_related_recap_context_read_v2","outcome":"enough"}',
+            context_calls.append(name)
+            or '{"schema":"dmb_related_recap_context_read_v2","outcome":"enough"}',
             None,
         ),
         context_limit=1,
@@ -2856,24 +3202,32 @@ def test_graph_operation_reservation_preflights_remaining_budget():
     authorized: list[Any] = []
     guard = _request_budget_guard(
         {
-            "provider": "openai-api", "model": "synthetic-model",
+            "provider": "openai-api",
+            "model": "synthetic-model",
             "apiMode": "chat_completions",
             "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-            "contextLimitTokens": 32768, "outputReserveTokens": 100,
-            "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+            "contextLimitTokens": 32768,
+            "outputReserveTokens": 100,
+            "maxProviderAttempts": 4,
+            "maxToolCapableAttempts": 3,
             "maxGraphOperations": 8,
         },
         on_provider_authorization=lambda view: authorized.append(view) or True,
         graph_outcome_indeterminate=lambda: normalized.indeterminate,
     )
-    payload = json.dumps({
-        "model": "synthetic-model",
-        "messages": [{"role": "user", "content": "final answer"}],
-        "max_completion_tokens": 100,
-    })
+    payload = json.dumps(
+        {
+            "model": "synthetic-model",
+            "messages": [{"role": "user", "content": "final answer"}],
+            "max_completion_tokens": 100,
+        }
+    )
     view = SimpleNamespace(
-        provider="openai-api", model="synthetic-model", api_mode="chat_completions",
-        payload_json=payload, payload_utf8_bytes=len(payload.encode()),
+        provider="openai-api",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=payload,
+        payload_utf8_bytes=len(payload.encode()),
     )
     assert guard(view) is False
     assert guard.guard_state["last_rejection_reason"] == "graph_operation_indeterminate"
@@ -2903,11 +3257,57 @@ def test_graph_operation_reservation_preflights_remaining_budget():
     [
         {"include": ["reasoning.encrypted_content"]},
         {"input": [{"type": "reasoning", "encrypted_content": "opaque"}]},
-        {"input": [{"type": "message", "role": "assistant", "status": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
-        {"input": [{"type": "message", "role": "assistant", "id": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
-        {"input": [{"type": "message", "role": "assistant", "phase": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
-        {"input": [{"type": "message", "role": "assistant", "phase": "notification", "content": [{"type": "output_text", "text": "answer"}]}]},
-        {"input": [{"type": "function_call", "call_id": "call-1", "name": "expand_graph", "arguments": "{}", "status": {"unknown": "value"}}]},
+        {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "status": {"unknown": "value"},
+                    "content": [{"type": "output_text", "text": "answer"}],
+                }
+            ]
+        },
+        {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "id": {"unknown": "value"},
+                    "content": [{"type": "output_text", "text": "answer"}],
+                }
+            ]
+        },
+        {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "phase": {"unknown": "value"},
+                    "content": [{"type": "output_text", "text": "answer"}],
+                }
+            ]
+        },
+        {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "phase": "notification",
+                    "content": [{"type": "output_text", "text": "answer"}],
+                }
+            ]
+        },
+        {
+            "input": [
+                {
+                    "type": "function_call",
+                    "call_id": "call-1",
+                    "name": "expand_graph",
+                    "arguments": "{}",
+                    "status": {"unknown": "value"},
+                }
+            ]
+        },
         {"reasoning": {"effort": {"unknown": "value"}}},
         {"reasoning": {"summary": {"unknown": "value"}}},
     ],
@@ -2932,7 +3332,9 @@ def test_request_budget_guard_rejects_opaque_reasoning_and_malformed_responses_f
         "max_output_tokens": 100,
     }
     payload.update(change)
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     view = SimpleNamespace(
         provider="openai-api",
         model="synthetic-model",
@@ -2940,16 +3342,19 @@ def test_request_budget_guard_rejects_opaque_reasoning_and_malformed_responses_f
         payload_json=encoded,
         payload_utf8_bytes=len(encoded.encode("utf-8")),
     )
-    assert _request_budget_guard(
-        {
-            "provider": "openai-api",
-            "model": "synthetic-model",
-            "apiMode": "codex_responses",
-            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-            "contextLimitTokens": 100_000,
-            "outputReserveTokens": 100,
-        }
-    )(view) is False
+    assert (
+        _request_budget_guard(
+            {
+                "provider": "openai-api",
+                "model": "synthetic-model",
+                "apiMode": "codex_responses",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 100_000,
+                "outputReserveTokens": 100,
+            }
+        )(view)
+        is False
+    )
 
 
 @pytest.mark.parametrize(
@@ -2957,17 +3362,74 @@ def test_request_budget_guard_rejects_opaque_reasoning_and_malformed_responses_f
     [
         ({"provider": "other"}, {}),
         ({"apiMode": "unknown"}, {}),
-        ({}, {"messages": [{"role": "user", "content": [{"type": "input_image", "image_url": "x"}]}]}),
-        ({}, {"messages": [{"role": "user", "content": [{"type": "input_file", "file_id": "file-x"}]}]}),
-        ({}, {"messages": [{"role": "user", "content": [{"type": "text_blob", "text": "x"}]}]}),
+        (
+            {},
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_image", "image_url": "x"}],
+                    }
+                ]
+            },
+        ),
+        (
+            {},
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_file", "file_id": "file-x"}],
+                    }
+                ]
+            },
+        ),
+        (
+            {},
+            {
+                "messages": [
+                    {"role": "user", "content": [{"type": "text_blob", "text": "x"}]}
+                ]
+            },
+        ),
         ({}, {"previous_response_id": "resp_remote"}),
         ({}, {"tools": [{"type": "web_search_preview"}]}),
         ({}, {"unknown_extension": True}),
         ({}, {"max_completion_tokens": True}),
-        ({}, {"messages": [{"role": "user", "name": {"unknown": "value"}, "content": "question"}]}),
-        ({}, {"messages": [{"role": "assistant", "refusal": {"unknown": "value"}, "content": "answer"}]}),
+        (
+            {},
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "name": {"unknown": "value"},
+                        "content": "question",
+                    }
+                ]
+            },
+        ),
+        (
+            {},
+            {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "refusal": {"unknown": "value"},
+                        "content": "answer",
+                    }
+                ]
+            },
+        ),
         ({}, {"reasoning_effort": {"unknown": "value"}}),
-        ({}, {"tool_choice": {"type": "function", "function": {"name": {"unknown": "value"}}}}),
+        (
+            {},
+            {
+                "tool_choice": {
+                    "type": "function",
+                    "function": {"name": {"unknown": "value"}},
+                }
+            },
+        ),
     ],
 )
 def test_request_budget_guard_fails_closed_for_unknown_accounting(
@@ -2980,7 +3442,9 @@ def test_request_budget_guard_fails_closed_for_unknown_accounting(
         "max_completion_tokens": 100,
     }
     payload.update(payload_change)
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     view = SimpleNamespace(
         provider="openai-api",
         model="synthetic-model",
@@ -3048,7 +3512,12 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
             body = {
                 "model": agent.model,
                 "instructions": "Answer from the admitted Graph packet.",
-                "input": [{"role": "user", "content": [{"type": "input_text", "text": "question"}]}],
+                "input": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "question"}],
+                    }
+                ],
                 "max_output_tokens": agent.max_tokens,
                 "tools": [],
             }
@@ -3070,6 +3539,7 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
             "outputReserveTokens": 100,
         }
     )(view)
+
 
 @pytest.mark.parametrize("assistant_phase", ["final_answer", "final"])
 def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_tool_continuation(
@@ -3113,7 +3583,9 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
                         "phase": assistant_phase,
                         "role": "assistant",
                         "status": "completed",
-                        "content": [{"type": "output_text", "text": "Inspecting graph."}],
+                        "content": [
+                            {"type": "output_text", "text": "Inspecting graph."}
+                        ],
                     }
                 ],
                 "tool_calls": [
@@ -3124,7 +3596,11 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
                     }
                 ],
             },
-            {"role": "tool", "tool_call_id": "call_graph_1", "content": "Node A found."},
+            {
+                "role": "tool",
+                "tool_call_id": "call_graph_1",
+                "content": "Node A found.",
+            },
             {"role": "user", "content": "Continue."},
         ]
         request = agent._build_api_kwargs(messages)
@@ -3147,7 +3623,8 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
     )
     assert any(item.get("type") == "function_call" for item in built_payload["input"])
     assert any(
-        item.get("type") == "function_call_output" and item.get("output") == "Node A found."
+        item.get("type") == "function_call_output"
+        and item.get("output") == "Node A found."
         for item in built_payload["input"]
     )
     assert _request_budget_guard(
@@ -3164,19 +3641,26 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
     # The pinned Hermes Responses builder reads agent.tools for each request.
     # After the third acknowledged attempt it emits a tool-free final envelope.
     with hermes_import_namespace():
-        agent.tools = [{
-            "type": "function", "function": {
-                "name": "expand_graph", "description": "Read Graph evidence",
-                "parameters": {"type": "object", "properties": {}},
-            },
-        }]
+        agent.tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "expand_graph",
+                    "description": "Read Graph evidence",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+        ]
         final_guard = _request_budget_guard(
             {
-                "provider": "openai-api", "model": "gpt-6-luna",
+                "provider": "openai-api",
+                "model": "gpt-6-luna",
                 "apiMode": "codex_responses",
                 "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-                "contextLimitTokens": 100_000, "outputReserveTokens": 100,
-                "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+                "contextLimitTokens": 100_000,
+                "outputReserveTokens": 100,
+                "maxProviderAttempts": 4,
+                "maxToolCapableAttempts": 3,
                 "maxGraphOperations": 8,
             },
             on_provider_authorization=lambda _view: True,
@@ -3187,18 +3671,25 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
             tool_request = agent._build_api_kwargs(messages)
             assert tool_request["tools"]
             tool_view = budget_module.build_api_request_budget_view(
-                provider=agent.provider, model=agent.model,
-                api_mode=agent.api_mode, base_url=agent.base_url,
+                provider=agent.provider,
+                model=agent.model,
+                api_mode=agent.api_mode,
+                base_url=agent.base_url,
                 request=tool_request,
             )
             assert final_guard(tool_view) is True
-            assert final_guard.provider_lifecycle({"transition": "response_received"}) is True
+            assert (
+                final_guard.provider_lifecycle({"transition": "response_received"})
+                is True
+            )
         final_request = agent._build_api_kwargs(messages)
         assert "tools" not in final_request
         assert "tool_choice" not in final_request
         final_view = budget_module.build_api_request_budget_view(
-            provider=agent.provider, model=agent.model,
-            api_mode=agent.api_mode, base_url=agent.base_url,
+            provider=agent.provider,
+            model=agent.model,
+            api_mode=agent.api_mode,
+            base_url=agent.base_url,
             request=final_request,
         )
         assert final_guard(final_view) is True
@@ -3232,10 +3723,14 @@ def test_budget_veto_family_maps_at_public_result_and_preserves_prior_attempt(
 
     def register_with_prior_attempt(self, plugin_manager):
         original_register(self, plugin_manager)
-        pre = _observer_payload(api_request_id=request_id, turn_id="turn-budget", kind="pre")
+        pre = _observer_payload(
+            api_request_id=request_id, turn_id="turn-budget", kind="pre"
+        )
         self.on_pre_api_request(**pre)
         self.on_api_request_error(
-            **_observer_payload(api_request_id=request_id, turn_id="turn-budget", kind="error")
+            **_observer_payload(
+                api_request_id=request_id, turn_id="turn-budget", kind="error"
+            )
         )
         # Hermes reuses api_request_id for an internal retry. The later attempt
         # has a new pre-hook, which the terminal veto must discard.
@@ -3427,125 +3922,274 @@ def test_lifecycle_failure_retains_uncertain_pending_attempt(
     if uncertain:
         assert result.model_calls[-1]["runtime_api_request_id"] == "tail"
         assert result.model_calls[-1]["usage"]["status"] == "unavailable"
-        output_limited = isinstance(diagnostic, dict) and diagnostic.get("incomplete_reason") == "max_output_tokens"
-        assert result.error_code == ("provider_output_limit_exceeded" if output_limited else "provider_lifecycle_unavailable")
+        output_limited = (
+            isinstance(diagnostic, dict)
+            and diagnostic.get("incomplete_reason") == "max_output_tokens"
+        )
+        assert result.error_code == (
+            "provider_output_limit_exceeded"
+            if output_limited
+            else "provider_lifecycle_unavailable"
+        )
         assert result.final_response is None
         assert "denied before dispatch" not in result.error_message
     else:
         assert result.error_code == failure_code
 
 
-def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(tmp_path, monkeypatch):
+def test_graph_read_profile_projects_actual_host_tools_and_pinned_sdk_envelopes(
+    tmp_path, monkeypatch
+):
     """Plugin discovery and agent construction must not overwrite the projected profile."""
     from copy import deepcopy
     from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
     from apps.live_control_server.services.hermes_graph_agent_contract import (
-        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+        serialize_hermes_graph_agent_turn_request,
+        deserialize_hermes_graph_agent_turn_request,
     )
+
     monkeypatch.delenv(hermes_graph_agent_mod._SESSION_PROFILES_ENV, raising=False)
     original = deepcopy(hermes_model_visible_tool_definitions())
-    scope = HermesGraphScope(world_id="world", campaign_id="", scope_mode="world",
-        focus={"kind": "none"}, admissibility="gm", revision_pin="revision")
+    scope = HermesGraphScope(
+        world_id="world",
+        campaign_id="",
+        scope_mode="world",
+        focus={"kind": "none"},
+        admissibility="gm",
+        revision_pin="revision",
+    )
     policy = parent_brokered_graph_expansion_policy(scope)
-    budget = {"schema":"dmb_hermes_request_budget_policy_v1", "provider":"openai-api", "model":"gpt-6-luna", "apiMode":"codex_responses",
-        "estimator":"utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens":100000,
-        "outputReserveTokens":8192, "maxProviderAttempts":4, "maxToolCapableAttempts":3,
-        "maxGraphOperations":8}
+    budget = {
+        "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api",
+        "model": "gpt-6-luna",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 100000,
+        "outputReserveTokens": 8192,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
     observed = []
     authorizations = []
+
     class ProbeAgent(_FakeAgent):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             assert kwargs["max_tokens"] == budget["outputReserveTokens"] == 8192
             # AIAgent rediscovers definitions: intentionally give it the broad catalog.
             self.tools = deepcopy(original)
+
         def run_conversation(self, user_message, **kwargs):
             with hermes_import_namespace():
                 module = importlib.import_module("run_agent")
                 with patch("run_agent.OpenAI"):
-                    sdk = module.AIAgent(api_key="synthetic-test-key", base_url="https://api.openai.com/v1",
-                        provider="openai-api", model="gpt-6-luna", max_tokens=budget["outputReserveTokens"], max_iterations=1,
-                        enabled_toolsets=[], quiet_mode=True, skip_context_files=True, skip_memory=True)
+                    sdk = module.AIAgent(
+                        api_key="synthetic-test-key",
+                        base_url="https://api.openai.com/v1",
+                        provider="openai-api",
+                        model="gpt-6-luna",
+                        max_tokens=budget["outputReserveTokens"],
+                        max_iterations=1,
+                        enabled_toolsets=[],
+                        quiet_mode=True,
+                        skip_context_files=True,
+                        skip_memory=True,
+                    )
                 sdk.api_request_budget_guard = lambda _view: True
                 sdk.tools = self.tools
-                messages = [{"role":"user", "content":user_message}]
+                messages = [{"role": "user", "content": user_message}]
                 initial = sdk._build_api_kwargs(messages)
-                continuation = sdk._build_api_kwargs(messages + [{"role":"assistant", "content":"Continue from admitted evidence."}, {"role":"user", "content":"Continue."}])
+                continuation = sdk._build_api_kwargs(
+                    messages
+                    + [
+                        {
+                            "role": "assistant",
+                            "content": "Continue from admitted evidence.",
+                        },
+                        {"role": "user", "content": "Continue."},
+                    ]
+                )
                 budget_module = importlib.import_module("agent.api_request_budget")
                 for payload in (initial, continuation):
                     assert payload["max_output_tokens"] == budget["outputReserveTokens"]
-                    view = budget_module.build_api_request_budget_view(provider=sdk.provider, model=sdk.model,
-                        api_mode=sdk.api_mode, base_url=sdk.base_url, request=payload)
+                    view = budget_module.build_api_request_budget_view(
+                        provider=sdk.provider,
+                        model=sdk.model,
+                        api_mode=sdk.api_mode,
+                        base_url=sdk.base_url,
+                        request=payload,
+                    )
                     assert self.api_request_budget_guard(view) is True
-                    assert self.api_request_budget_guard.provider_lifecycle({'transition':'sdk_entered'}) is True
-                    assert self.api_request_budget_guard.provider_lifecycle({'transition':'response_received'}) is True
+                    assert (
+                        self.api_request_budget_guard.provider_lifecycle(
+                            {"transition": "sdk_entered"}
+                        )
+                        is True
+                    )
+                    assert (
+                        self.api_request_budget_guard.provider_lifecycle(
+                            {"transition": "response_received"}
+                        )
+                        is True
+                    )
             observed.append((deepcopy(self.tools), initial, continuation))
-            return {"final_response":"No new facts asserted.", "messages":[{"role":"user","content":user_message},{"role":"assistant","content":"No new facts asserted."}], "session_id":self.session_id}
-    for sequence, profile in enumerate(("world_graph", "governed_build", "world_graph")):
-        request = HermesGraphAgentTurnRequest(question="Build is mentioned in quoted Plan text.",
-            world_id="world", campaign_id="", scope_mode="world", revision_pin="revision", root=tmp_path,
-            session_id=f"profile-{sequence}", capability_policy=policy, retrieval_session_id="session",
-            retrieval_session={"retrieval_session_id":"session", "candidates":[]},
-            provider_authorization_required=True, parent_graph_broker_required=True,
-            request_budget=budget, graph_read_profile=profile, plan_continuity_turn=True)
-        request = deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(request))
-        result = run_hermes_graph_agent_turn(request, agent_factory=ProbeAgent,
-            on_provider_authorization=lambda view: authorizations.append({"payloadJson":view.payload_json,"payloadSha256":view.payload_sha256}) or True,
-            on_provider_lifecycle=lambda event: True, on_parent_graph_operation=lambda message: {})
+            return {
+                "final_response": "No new facts asserted.",
+                "messages": [
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": "No new facts asserted."},
+                ],
+                "session_id": self.session_id,
+            }
+
+    for sequence, profile in enumerate(
+        ("world_graph", "governed_build", "world_graph")
+    ):
+        request = HermesGraphAgentTurnRequest(
+            question="Build is mentioned in quoted Plan text.",
+            world_id="world",
+            campaign_id="",
+            scope_mode="world",
+            revision_pin="revision",
+            root=tmp_path,
+            session_id=f"profile-{sequence}",
+            capability_policy=policy,
+            retrieval_session_id="session",
+            retrieval_session={"retrieval_session_id": "session", "candidates": []},
+            provider_authorization_required=True,
+            parent_graph_broker_required=True,
+            request_budget=budget,
+            graph_read_profile=profile,
+            plan_continuity_turn=True,
+        )
+        request = deserialize_hermes_graph_agent_turn_request(
+            serialize_hermes_graph_agent_turn_request(request)
+        )
+        result = run_hermes_graph_agent_turn(
+            request,
+            agent_factory=ProbeAgent,
+            on_provider_authorization=lambda view: (
+                authorizations.append(
+                    {
+                        "payloadJson": view.payload_json,
+                        "payloadSha256": view.payload_sha256,
+                    }
+                )
+                or True
+            ),
+            on_provider_lifecycle=lambda event: True,
+            on_parent_graph_operation=lambda message: {},
+        )
         assert result.status == "ok", result.error_code
         tools, initial, continuation = observed[-1]
-        prompt = hermes_graph_agent_mod._build_ephemeral_system_prompt(policy, request, retrieval_session_packet=None)
-        assert ("Governed Build read capabilities:" in prompt) == (profile == "governed_build")
-        assert ("Do not request observations or observationIds" in prompt) == (profile == "world_graph")
+        prompt = hermes_graph_agent_mod._build_ephemeral_system_prompt(
+            policy, request, retrieval_session_packet=None
+        )
+        assert ("Governed Build read capabilities:" in prompt) == (
+            profile == "governed_build"
+        )
+        assert ("Do not request observations or observationIds" in prompt) == (
+            profile == "world_graph"
+        )
         assert "In governed Build" not in prompt
-        expected = next(t['function'] for t in original if t['function']['name']=='expand_graph_retrieval')
-        actual = next(t['function'] for t in tools if t['function']['name']=='expand_graph_retrieval')
-        if profile == 'governed_build':
+        expected = next(
+            t["function"]
+            for t in original
+            if t["function"]["name"] == "expand_graph_retrieval"
+        )
+        actual = next(
+            t["function"]
+            for t in tools
+            if t["function"]["name"] == "expand_graph_retrieval"
+        )
+        if profile == "governed_build":
             assert actual == expected
         else:
-            assert actual['parameters']['properties']['operation']['enum'] == ['object','neighborhood','search','support']
-            assert 'observationIds' not in json.dumps(actual)
-            assert 'observations' not in json.dumps(actual)
-            assert 'includeSources' in actual['parameters']['properties']
+            assert actual["parameters"]["properties"]["operation"]["enum"] == [
+                "object",
+                "neighborhood",
+                "search",
+                "support",
+            ]
+            assert "observationIds" not in json.dumps(actual)
+            assert "observations" not in json.dumps(actual)
+            assert "includeSources" in actual["parameters"]["properties"]
         for payload in (initial, continuation):
-            expand = next(t.get('function', t) for t in payload['tools'] if t.get('function',t).get('name')=='expand_graph_retrieval')
-            assert expand['parameters'] == actual['parameters']
-            assert expand['description'] == actual['description']
+            expand = next(
+                t.get("function", t)
+                for t in payload["tools"]
+                if t.get("function", t).get("name") == "expand_graph_retrieval"
+            )
+            assert expand["parameters"] == actual["parameters"]
+            assert expand["description"] == actual["description"]
         assert hermes_model_visible_tool_definitions() == original
         assert len(authorizations) == (sequence + 1) * 2
         from hashlib import sha256
+
         for authorized in authorizations[-2:]:
-            assert sha256(authorized['payloadJson'].encode()).hexdigest() == authorized['payloadSha256']
-            frozen = json.loads(authorized['payloadJson'])
-            expand = next(t.get('function',t) for t in frozen['tools'] if t.get('function',t).get('name') == 'expand_graph_retrieval')
-            assert expand['parameters'] == actual['parameters']
+            assert (
+                sha256(authorized["payloadJson"].encode()).hexdigest()
+                == authorized["payloadSha256"]
+            )
+            frozen = json.loads(authorized["payloadJson"])
+            expand = next(
+                t.get("function", t)
+                for t in frozen["tools"]
+                if t.get("function", t).get("name") == "expand_graph_retrieval"
+            )
+            assert expand["parameters"] == actual["parameters"]
 
 
-@pytest.mark.parametrize('value', [None, False, 1, {}, [], 'build', ' governed_build'])
+@pytest.mark.parametrize("value", [None, False, 1, {}, [], "build", " governed_build"])
 def test_graph_read_profile_rejects_invalid_internal_and_ipc_values(value):
     from apps.live_control_server.services.hermes_graph_agent_contract import (
-        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+        serialize_hermes_graph_agent_turn_request,
+        deserialize_hermes_graph_agent_turn_request,
     )
+
     with pytest.raises(ValueError):
-        HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c',graph_read_profile=value)
-    request=HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c')
-    wire=serialize_hermes_graph_agent_turn_request(request)
+        HermesGraphAgentTurnRequest(
+            question="Hello",
+            world_id="world",
+            campaign_id="c",
+            graph_read_profile=value,
+        )
+    request = HermesGraphAgentTurnRequest(
+        question="Hello", world_id="world", campaign_id="c"
+    )
+    wire = serialize_hermes_graph_agent_turn_request(request)
     with pytest.raises(ValueError):
-        deserialize_hermes_graph_agent_turn_request({**wire,'graphReadProfile':value})
+        deserialize_hermes_graph_agent_turn_request({**wire, "graphReadProfile": value})
 
 
 def test_graph_read_profile_default_wire_and_direct_host_admission(tmp_path):
     from apps.live_control_server.services.hermes_graph_agent_contract import (
-        serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request,
+        serialize_hermes_graph_agent_turn_request,
+        deserialize_hermes_graph_agent_turn_request,
     )
-    request=HermesGraphAgentTurnRequest(question='Hello',world_id='world',campaign_id='c',root=tmp_path)
-    wire=serialize_hermes_graph_agent_turn_request(request)
-    assert 'graphReadProfile' not in wire
-    explicit=deserialize_hermes_graph_agent_turn_request({**wire,'graphReadProfile':'world_graph'})
-    assert json.dumps(serialize_hermes_graph_agent_turn_request(explicit),sort_keys=True,separators=(',',':')) == json.dumps(wire,sort_keys=True,separators=(',',':'))
-    build=replace(request,graph_read_profile='governed_build')
-    with pytest.raises(ValueError): serialize_hermes_graph_agent_turn_request(build)
+
+    request = HermesGraphAgentTurnRequest(
+        question="Hello", world_id="world", campaign_id="c", root=tmp_path
+    )
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    assert "graphReadProfile" not in wire
+    explicit = deserialize_hermes_graph_agent_turn_request(
+        {**wire, "graphReadProfile": "world_graph"}
+    )
+    assert json.dumps(
+        serialize_hermes_graph_agent_turn_request(explicit),
+        sort_keys=True,
+        separators=(",", ":"),
+    ) == json.dumps(wire, sort_keys=True, separators=(",", ":"))
+    build = replace(request, graph_read_profile="governed_build")
+    with pytest.raises(ValueError):
+        serialize_hermes_graph_agent_turn_request(build)
+
     class NeverConstruct:
-        def __init__(self,**kwargs): pytest.fail('unguarded Build profile reached agent construction')
-    result=run_hermes_graph_agent_turn(build,agent_factory=NeverConstruct)
-    assert result.error_code=='invalid_graph_read_profile'
+        def __init__(self, **kwargs):
+            pytest.fail("unguarded Build profile reached agent construction")
+
+    result = run_hermes_graph_agent_turn(build, agent_factory=NeverConstruct)
+    assert result.error_code == "invalid_graph_read_profile"

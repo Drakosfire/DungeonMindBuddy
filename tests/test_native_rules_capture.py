@@ -260,3 +260,51 @@ def test_native_reply_wire_rejects_digest_tampering_and_unknown_fields():
     payload["extra"] = True
     with pytest.raises(ValueError):
         decode_native_reply_wire(json.dumps(payload))
+
+
+def test_each_tool_dispatch_must_match_captured_api_call_and_arguments_once():
+    collector, _, _ = capture()
+    actual = tool()
+    assert post(collector, None, [actual], "tool_calls")
+    args = json.loads(actual.function.arguments)
+    assert not collector.authorize_tool_call(
+        api_request_id="foreign-api",
+        tool_call_id=actual.id,
+        tool_name="lookup_rules",
+        arguments=args,
+    )
+    assert not collector.authorize_tool_call(
+        api_request_id="api:1",
+        tool_call_id="wrong-id",
+        tool_name="lookup_rules",
+        arguments=args,
+    )
+    assert not collector.authorize_tool_call(
+        api_request_id="api:1",
+        tool_call_id=actual.id,
+        tool_name="lookup_rules",
+        arguments={"question": "tampered"},
+    )
+    assert collector.authorize_tool_call(
+        api_request_id="api:1",
+        tool_call_id=actual.id,
+        tool_name="lookup_rules",
+        arguments=args,
+    )
+    assert not collector.authorize_tool_call(
+        api_request_id="api:1",
+        tool_call_id=actual.id,
+        tool_name="lookup_rules",
+        arguments=args,
+    )
+
+
+def test_final_acceptance_requires_a_captured_complete_text_answer():
+    collector, _, _ = capture()
+    assert not collector.ensure_final_answer()
+    collector, _, _ = capture()
+    assert post(collector, "final")
+    assert collector.ensure_final_answer()
+    collector, _, _ = capture()
+    assert post(collector, None, [tool()], "tool_calls")
+    assert not collector.ensure_final_answer()

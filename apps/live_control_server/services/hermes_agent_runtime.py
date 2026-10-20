@@ -15,7 +15,8 @@ from typing import Any
 
 from apps.live_control_server.services.agent_runtime import (
     CONVERSATION_ONLY_POLICY_ID,
-    RULES_READ_POLICY_ID, WORLD_GRAPH_RULES_READ_POLICY_ID,
+    RULES_READ_POLICY_ID,
+    WORLD_GRAPH_RULES_READ_POLICY_ID,
     SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS,
     HERMES_RUNTIME_DESCRIPTOR,
     UNSUPPORTED_CAPABILITY_POLICY,
@@ -116,11 +117,19 @@ def map_invocation_to_hermes_request(
     world_scope = invocation.context_packet.world_scope
     rules = invocation.context_packet.rules_capability
     if rules is not None:
-        from application_state.agent_conversation.rules_authority_policy import RulesCapabilityV1
+        from application_state.agent_conversation.rules_authority_policy import (
+            RulesCapabilityV1,
+        )
+
         rules = RulesCapabilityV1.model_validate(rules)
     if world_scope is None:
         if (
-            invocation.capability_policy.policy_id != (RULES_READ_POLICY_ID if rules is not None else CONVERSATION_ONLY_POLICY_ID)
+            invocation.capability_policy.policy_id
+            != (
+                RULES_READ_POLICY_ID
+                if rules is not None
+                else CONVERSATION_ONLY_POLICY_ID
+            )
             or invocation.context_packet.retrieval_session is not None
         ):
             raise ValueError(
@@ -130,7 +139,11 @@ def map_invocation_to_hermes_request(
         capability_policy = default_conversation_only_capability_policy()
         world_id = campaign_id = scope_mode = admissibility = revision_pin = None
     else:
-        if invocation.capability_policy.policy_id != (WORLD_GRAPH_RULES_READ_POLICY_ID if rules is not None else WORLD_GRAPH_READ_POLICY_ID):
+        if invocation.capability_policy.policy_id != (
+            WORLD_GRAPH_RULES_READ_POLICY_ID
+            if rules is not None
+            else WORLD_GRAPH_READ_POLICY_ID
+        ):
             raise ValueError("graph scope requires the graph-read capability policy")
         host_focus = _api_focus_to_host_focus(world_scope.focus)
         graph_scope = HermesGraphScope(
@@ -149,9 +162,12 @@ def map_invocation_to_hermes_request(
         revision_pin = world_scope.revision_id
     if rules is not None:
         if rules.policy_id != invocation.capability_policy.policy_id:
-            raise ValueError("Rules metadata differs from the selected capability policy")
-        capability_policy = rules_capability_policy(rules,
-            graph_policy=capability_policy if world_scope is not None else None)
+            raise ValueError(
+                "Rules metadata differs from the selected capability policy"
+            )
+        capability_policy = rules_capability_policy(
+            rules, graph_policy=capability_policy if world_scope is not None else None
+        )
     retrieval = invocation.context_packet.retrieval_session
     history = (
         [
@@ -171,7 +187,9 @@ def map_invocation_to_hermes_request(
     question = invocation.message
     selection = invocation.context_packet.selected_knowledge_context
     if selection is not None:
-        selected_json = json.dumps(selection, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        selected_json = json.dumps(
+            selection, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
         if len(selected_json) > SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS:
             raise ValueError("selected knowledge context exceeds its bound")
         selected_block = (
@@ -187,9 +205,15 @@ def map_invocation_to_hermes_request(
             raise ValueError("selected knowledge requires trusted saved-work assembly")
         question = selected_block + "\n\nUser question:\n" + invocation.message
     if invocation.context_packet.session_evidence is not None:
-        from apps.live_control_server.services.session_evidence import render_session_evidence
-        evidence_block=render_session_evidence(invocation.context_packet.session_evidence)
-        if evidence_block:question=evidence_block+"\n\n"+question
+        from apps.live_control_server.services.session_evidence import (
+            render_session_evidence,
+        )
+
+        evidence_block = render_session_evidence(
+            invocation.context_packet.session_evidence
+        )
+        if evidence_block:
+            question = evidence_block + "\n\n" + question
     return HermesGraphAgentTurnRequest(
         question=question,
         world_id=world_id,
@@ -265,6 +289,8 @@ class HermesAgentRuntimeAdapter:
         request_budget: Mapping[str, Any],
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+        on_native_provider_reply: Callable[[Any], bool] | None = None,
+        native_rules_capture_required: bool = False,
         source_read_enabled: bool = False,
         context_read_enabled: bool = False,
     ) -> AgentRuntimeResult:
@@ -275,6 +301,8 @@ class HermesAgentRuntimeAdapter:
             request_budget=request_budget,
             on_graph_operation=on_graph_operation,
             on_provider_lifecycle=on_provider_lifecycle,
+            on_native_provider_reply=on_native_provider_reply,
+            native_rules_capture_required=native_rules_capture_required,
             require_authorization=True,
             source_read_enabled=source_read_enabled,
             context_read_enabled=context_read_enabled,
@@ -286,8 +314,11 @@ class HermesAgentRuntimeAdapter:
         *,
         authorize: Callable[[Mapping[str, Any]], bool] | None = None,
         request_budget: Mapping[str, Any] | None = None,
-        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]]
+        | None = None,
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+        on_native_provider_reply: Callable[[Any], bool] | None = None,
+        native_rules_capture_required: bool = False,
         require_authorization: bool = False,
         source_read_enabled: bool = False,
         context_read_enabled: bool = False,
@@ -295,28 +326,56 @@ class HermesAgentRuntimeAdapter:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
         rules = invocation.context_packet.rules_capability
+        if native_rules_capture_required and (
+            rules is None or on_native_provider_reply is None
+        ):
+            return AgentRuntimeResult(
+                status="error",
+                error_code="native_reply_capture_unavailable",
+                error_message="Native Rules output requires its bounded parent capture owner.",
+                runtime_metadata={"process_isolation": "process_exclusive"},
+            )
         expected_policy = (
             (RULES_READ_POLICY_ID if rules is not None else CONVERSATION_ONLY_POLICY_ID)
-            if world_scope is None else
-            (WORLD_GRAPH_RULES_READ_POLICY_ID if rules is not None else WORLD_GRAPH_READ_POLICY_ID)
+            if world_scope is None
+            else (
+                WORLD_GRAPH_RULES_READ_POLICY_ID
+                if rules is not None
+                else WORLD_GRAPH_READ_POLICY_ID
+            )
         )
         if policy_id != expected_policy:
             return _unsupported_policy_result(policy_id)
         if rules is not None and not require_authorization:
-            return AgentRuntimeResult(status="error", error_code="rules_parent_authorization_required",
-                error_message="Rules lookup requires the authorized parent execution path.")
+            return AgentRuntimeResult(
+                status="error",
+                error_code="rules_parent_authorization_required",
+                error_message="Rules lookup requires the authorized parent execution path.",
+            )
         request = map_invocation_to_hermes_request(invocation)
         if require_authorization:
-            if request.capability_policy is None or (request.capability_policy.graph_scope is None and rules is None):
-                raise ValueError("Authorization requires an admitted Graph or Rules capability")
+            if request.capability_policy is None or (
+                request.capability_policy.graph_scope is None and rules is None
+            ):
+                raise ValueError(
+                    "Authorization requires an admitted Graph or Rules capability"
+                )
             if on_graph_operation is None:
                 raise ValueError("Plan Graph authorization requires a parent broker")
             graph_scope = request.capability_policy.graph_scope
             if graph_scope is None and (source_read_enabled or context_read_enabled):
-                raise ValueError("Rules-only capability cannot acquire Graph source/context tools")
-            parent_policy = None if graph_scope is None else (
-                parent_brokered_graph_source_policy(graph_scope) if source_read_enabled
-                else parent_brokered_graph_expansion_policy(graph_scope))
+                raise ValueError(
+                    "Rules-only capability cannot acquire Graph source/context tools"
+                )
+            parent_policy = (
+                None
+                if graph_scope is None
+                else (
+                    parent_brokered_graph_source_policy(graph_scope)
+                    if source_read_enabled
+                    else parent_brokered_graph_expansion_policy(graph_scope)
+                )
+            )
             if context_read_enabled:
                 parent_policy = replace(
                     parent_policy,
@@ -336,26 +395,52 @@ class HermesAgentRuntimeAdapter:
                 )
             if invocation.capability_policy.surface_actions:
                 if graph_scope is None:
-                    raise ValueError("Surface authoring requires its independent Graph policy")
+                    raise ValueError(
+                        "Surface authoring requires its independent Graph policy"
+                    )
                 surface = invocation.context_packet.surface_context
-                if surface is None or surface.surface_id != "build" or surface.current_work is None or surface.current_work.kind != "build":
-                    raise ValueError("Build insertion requires the current Build surface")
+                if (
+                    surface is None
+                    or surface.surface_id != "build"
+                    or surface.current_work is None
+                    or surface.current_work.kind != "build"
+                ):
+                    raise ValueError(
+                        "Build insertion requires the current Build surface"
+                    )
                 from .hermes_graph_interaction_tools import PROPOSE_BUILD_INSERTION
+
                 actions = invocation.capability_policy.surface_actions
-                if not actions or not set(actions).issubset({PROPOSE_BUILD_INSERTION, "prepare_build_image"}):
+                if not actions or not set(actions).issubset(
+                    {PROPOSE_BUILD_INSERTION, "prepare_build_image"}
+                ):
                     raise ValueError("Unsupported surface action")
-                parent_policy = replace(parent_policy,
+                parent_policy = replace(
+                    parent_policy,
                     enabled_tool_names=(*parent_policy.enabled_tool_names, *actions),
-                    tool_rules=(*parent_policy.tool_rules, *(HermesToolCapabilityRule(
-                        tool_name=name, toolset=TOOLSET_NAME, require_graph_scope=False,
-                        allowed_effects=frozenset({"write"})) for name in actions)))
+                    tool_rules=(
+                        *parent_policy.tool_rules,
+                        *(
+                            HermesToolCapabilityRule(
+                                tool_name=name,
+                                toolset=TOOLSET_NAME,
+                                require_graph_scope=False,
+                                allowed_effects=frozenset({"write"}),
+                            )
+                            for name in actions
+                        ),
+                    ),
+                )
             if rules is not None:
-                parent_policy = rules_capability_policy(rules, graph_policy=parent_policy)
+                parent_policy = rules_capability_policy(
+                    rules, graph_policy=parent_policy
+                )
             request = replace(
                 request,
                 provider_authorization_required=True,
                 request_budget=request_budget,
                 parent_graph_broker_required=True,
+                native_rules_capture_required=native_rules_capture_required,
                 capability_policy=parent_policy,
             )
         host = self._host_factory()
@@ -372,6 +457,8 @@ class HermesAgentRuntimeAdapter:
             host_options["on_graph_operation"] = on_graph_operation
         if on_provider_lifecycle is not None:
             host_options["on_provider_lifecycle"] = on_provider_lifecycle
+        if on_native_provider_reply is not None:
+            host_options["on_native_provider_reply"] = on_native_provider_reply
         result = host.execute(request, **host_options)
         runtime_result = map_hermes_result_to_runtime_result(
             result,
