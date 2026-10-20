@@ -72,8 +72,12 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    the full content-first workflow remain open. The navigation slice does not prove
    Plan Cards' entire workflow.
 3. **Connected knowledge:** ordinary Plan access to the published Session 29 recap,
-   the exact Edge revision link and the song callback remain specific open
-   witnesses unless demonstrated. #1455 proves session-note use, not these recap
+   authored-source revision navigation and the song callback remain specific open
+   witnesses unless demonstrated. Shared read-only document inspection is bounded by
+   the [surface reference contract](../Plans/HANDOFF-SURFACE-document-references.md):
+   Build/Plan links share one peek interaction across Build, Plan and Play. Exact
+   historical Build reads without an admitted owner API remain unavailable; the
+   former Edge revision-8 href is absent from the current saved Plan. #1455 proves session-note use, not these recap
    and authored-source journeys.
 4. **Session-to-memory loop:** exercise a real externally authored recap with
    explicit notes/reflections attached; review discrepancies and publish through
