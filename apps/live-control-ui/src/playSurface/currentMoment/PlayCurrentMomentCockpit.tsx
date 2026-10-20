@@ -1,3 +1,4 @@
+import { SurfaceCardLayout } from "../../shared/SurfaceCardLayout";
 import { ContentsToggle } from "../../shared/Contents";
 import { CardSceneNavigation } from "../../shared/CardSceneNavigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -972,7 +973,7 @@ export function PlayCurrentMomentCockpit({
         data-beat-collapsed={beatCollapsed ? "true" : "false"}
         data-glance-collapsed={glanceCollapsed ? "true" : "false"}
       >
-        <div
+        <SurfaceCardLayout
           className="play-cockpit-center"
           data-testid="play-central-workspace"
           data-workspace={workspaceKind}
@@ -1088,7 +1089,7 @@ export function PlayCurrentMomentCockpit({
               />
             </article>
           ) : null}
-        </div>
+        </SurfaceCardLayout>
 
         <PlaySceneOutline
           deck={deck}

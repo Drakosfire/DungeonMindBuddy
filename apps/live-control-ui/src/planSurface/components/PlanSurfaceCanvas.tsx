@@ -1,3 +1,4 @@
+import { SurfaceCardLayout } from "../../shared/SurfaceCardLayout";
 import { LegacyPlanNavbarActions } from "./LegacyPlanNavbarActions";
 import {
   useCallback,
@@ -79,6 +80,7 @@ const TBD_PLAN_PATH = "TBD durable planning path";
  */
 export function PlanSurfaceCanvasFrame({
   identityLabel,
+  cardLayout = false,
   themeId,
   className,
   testId,
@@ -89,6 +91,7 @@ export function PlanSurfaceCanvasFrame({
   children,
 }: {
   identityLabel: string;
+  cardLayout?: boolean;
   themeId: string;
   className?: string;
   testId?: string;
@@ -99,7 +102,7 @@ export function PlanSurfaceCanvasFrame({
   children: ReactNode;
 }) {
   return (
-    <section
+    <SurfaceCardLayout as="section" active={cardLayout}
       className={`plan-surface-canvas${className ? ` ${className}` : ""}`}
       aria-label="Plan content"
       data-testid={testId ?? "plan-surface-canvas-frame"}
@@ -117,7 +120,7 @@ export function PlanSurfaceCanvasFrame({
         {children}
       </div>
       {afterEditor}
-    </section>
+    </SurfaceCardLayout>
   );
 }
 

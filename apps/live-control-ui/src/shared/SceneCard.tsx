@@ -1,3 +1,4 @@
+import { SurfaceCardLayout } from "./SurfaceCardLayout";
 import type { JSONContent } from "@tiptap/core";
 import type { ReactNode, Ref } from "react";
 
@@ -191,7 +192,7 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
 }) {
   const plan = variant === "plan";
   return (
-    <article className={`shared-scene-card shared-scene-card--${variant}${className ? ` ${className}` : ""}`}
+    <SurfaceCardLayout as="article" active={plan} className={`shared-scene-card shared-scene-card--${variant}${className ? ` ${className}` : ""}`}
       data-testid={testId} data-scene-card="true" data-element-id={scene.id} data-element-kind="scene"
       data-world-id={identity.worldId ?? ""} data-campaign-id={identity.campaignId ?? ""}
       data-document-id={identity.documentId} data-scene-id={identity.sceneId}
@@ -223,6 +224,6 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
           onActivateGraphNode={onActivateGraphNode} unsupportedMessage={unsupportedMessage} />
         {footer}
       </div>
-    </article>
+    </SurfaceCardLayout>
   );
 }
