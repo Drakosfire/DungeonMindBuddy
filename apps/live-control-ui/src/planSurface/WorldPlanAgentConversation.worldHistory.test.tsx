@@ -1313,7 +1313,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
   let currentBasis = committedRevision();
   let olderPage: WorldAgentConversationHistoryResponse | null = null;
   let olderHandler: (() => Promise<WorldAgentConversationHistoryResponse>) | null = null;
-  const historyCalls: Array<{ limit?: number; beforeSequence?: number }> = [];
+  const historyCalls: Array<{ limit?: number; beforeSequence?: number; signal?: AbortSignal }> = [];
   const getHistory = vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (_world, options = {}) => {
     historyCalls.push(options);
     if (options.beforeSequence !== undefined) {
@@ -2549,7 +2549,7 @@ describe("World Plan conversation consumer", () => {
     const evidenceDetails = evidenceSummary.closest("details")!;
     fireEvent.click(evidenceSummary);
     expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
-    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50, includeTurnCorrelation: true });
+    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50, includeTurnCorrelation: true, signal: expect.any(AbortSignal) });
   });
 
   it("renders SERVER answer prose as readable rich text while preserving its evidence details", async () => {
@@ -4364,6 +4364,16 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
+  it("reconciles an unconfirmed saved Plan Ask with the pane closed without resending", async () => {
+    const {api,mounted,postAsk}=await leavePendingGraphAsk({kind:"scene",id:"scene:gate"});
+    const key=pendingAskKeys()[0];const bytes=localStorage.getItem(key);
+    mounted.unmount();harness.agent.paneState.isOpen=false;
+    const calls=api.historyCalls.length;render(conversationElement());
+    await waitFor(()=>expect(api.historyCalls.length).toBeGreaterThan(calls));
+    expect(localStorage.getItem(key)).toBe(bytes);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
   it("settles an accepted Ask across SPA unmount and remount", async () => {
     const api = setupApi(history("conversation-a", 10, []));
     const response = deferred<ReturnType<typeof agentResponse>>();
@@ -4903,8 +4913,8 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText("Oldest question")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Middle question")).toHaveLength(1));
     expect(api.historyCalls).toEqual([
-      { limit: 50, includeTurnCorrelation: true },
-      { limit: 50, beforeSequence: 2, includeTurnCorrelation: true },
+      { limit: 50, includeTurnCorrelation: true, signal: expect.any(AbortSignal) },
+      { limit: 50, beforeSequence: 2, includeTurnCorrelation: true, signal: expect.any(AbortSignal) },
     ]);
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     const renderedTurns = Array.from(transcript.querySelectorAll("article"))
@@ -5019,9 +5029,11 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     await waitFor(() => expect(api.historyCalls.some((call) => call.beforeSequence === 3)).toBe(true));
 
+    const abandonedPage = api.historyCalls.find(call => call.beforeSequence === 3)?.signal;
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(await screen.findByText("Fresh B turn")).toBeInTheDocument();
-    expect(api.historyCalls).toContainEqual({ limit: 50, includeTurnCorrelation: true });
+    expect(abandonedPage?.aborted).toBe(true);
+    expect(api.historyCalls).toContainEqual({ limit: 50, includeTurnCorrelation: true, signal: expect.any(AbortSignal) });
 
     await act(async () => {
       releaseStalePage(history("conversation-a", 5, [
@@ -5037,7 +5049,7 @@ describe("World Plan conversation consumer", () => {
     ], null));
     fireEvent.click(olderButton);
     expect(await screen.findByText("Fresh older B turn")).toBeInTheDocument();
-    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true });
+    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true, signal: expect.any(AbortSignal) });
   });
 
   it("loads the persisted execution trace only when the turn Debug is expanded", async () => {

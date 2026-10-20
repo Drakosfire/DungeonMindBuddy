@@ -450,6 +450,58 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+  it.each(["plan", "play", "build"] as const)("loads %s history only on opening Buddy and refreshes on reopening", async initial => {
+    render(<Harness initial={initial} />);
+    const open = await screen.findByRole("button", { name: "Open", exact: true });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    fireEvent.click(open);
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
+    await screen.findByText("Original Plan answer");
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep my draft" } });
+    fireEvent.click(screen.getByRole("button", { name: initial === "plan" ? "Close chat" : "Close conversation", exact: true }));
+    const count = vi.mocked(getWorldAgentConversationHistory).mock.calls.length;
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(count);
+    fireEvent.click(screen.getByRole("button", { name: "Open", exact: true }));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(count + 1));
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep my draft");
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it.each(["plan", "play", "build"] as const)("continues %s pending-turn reconciliation with Buddy closed", async initial => {
+    render(<Harness initial={initial} />);
+    await screen.findByRole("button", { name: "Open", exact:true });
+    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", {name:"Seed newer pending request"}));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name:"Open", exact:true })).toBeInTheDocument();
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it("cancels a closed-pane history subscription and ignores its late result after reopening", async () => {
+    const releases:Array<(value:ReturnType<typeof history>)=>void>=[];
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(() => new Promise(resolve=>{releases.push(resolve);}));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", {name:"Open",exact:true}));
+    await waitFor(()=>expect(releases).toHaveLength(1));
+    const signal=vi.mocked(getWorldAgentConversationHistory).mock.calls[0][1]?.signal;
+    expect(signal?.aborted).toBe(false);
+    fireEvent.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
+    expect(signal?.aborted).toBe(true);
+    fireEvent.click(screen.getByRole("button",{name:"Open",exact:true}));
+    await waitFor(()=>expect(releases).toHaveLength(2));
+    await act(async()=>{releases[1](history([turn("play",2,"Fresh current answer")]));});
+    await screen.findByText("Fresh current answer");
+    await act(async()=>{releases[0](history([turn("play",1,"Stale closed-pane answer")]));});
+    expect(screen.queryByText("Stale closed-pane answer")).not.toBeInTheDocument();
+    expect(screen.getByText("Fresh current answer")).toBeInTheDocument();
+  });
+
   it.each([false, true])("validates session evidence history and its pinned World citation (foreign=%s)", async foreign => {
     const context = await planGraphContext("plan_only_graph_unused");
     const url = `/play?world=${foreign ? "other-world" : WORLD}&run=11111111-1111-4111-8111-111111111111&evidence_revision=54`;

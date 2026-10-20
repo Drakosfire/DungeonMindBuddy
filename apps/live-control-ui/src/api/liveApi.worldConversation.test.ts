@@ -72,6 +72,21 @@ describe("World Agent conversation transport", () => {
     expect(fetchSpy.mock.calls[0]?.[1]?.body).toBeUndefined();
   });
 
+  it("passes cancellation only as transport control for the exact history query", async () => {
+    setNativeGraphAccessToken("test-token");
+    const controller = new AbortController();
+    let owned: AbortSignal | null | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      owned = init?.signal;
+      return new Promise((_resolve, reject) => owned?.addEventListener("abort", () => reject(owned?.reason), {once:true}));
+    });
+    const read = getWorldAgentConversationHistory("world/a", {limit:50,includeTurnCorrelation:true,signal:controller.signal});
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(String(fetchSpy.mock.calls[0][0])).toBe("/api/live/agent/worlds/world%2Fa/conversation?limit=50&include_turn_correlation=true");
+    const rejected = expect(read).rejects.toMatchObject({name:"AbortError"});
+    controller.abort(); await rejected; expect(owned?.aborted).toBe(true);
+  });
+
   it("posts the exact New Conversation CAS envelope", async () => {
     setNativeGraphAccessToken("test-token");
     const request = {
