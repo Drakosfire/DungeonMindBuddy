@@ -51,6 +51,7 @@ back into the active roadmap. The pre-pruning document is available at the
 | Explicit session-evidence supplements for external recap ingestion | #1455; same-World/ref/digest checks, sealed lineage and unchanged recap bytes | Production adapter verified synthetically; real external-recap use remains open |
 | Ingest exact candidate/source navigation and correction safeguards | #1315, #1375, #1391, #1395/#1396, #1399–#1407 | Extraction quality and complete chronology still need source-based evaluation |
 | Ordinary Build Jev retrieval and one evidence-bound writer | #1325 and subsequent accounting/coverage fixes through #1369 | Generality, coverage, latency and cost are separate from one successful answer |
+| Agent service regression baseline | `tests/test_agent_turn_service.py`: 164 passed on 2026-10-19 after repairing seven inherited fixture failures; [bounded handoff](../Plans/HANDOFF-TEST-agent-baseline.md) | Specific suite baseline; not repository-wide test or J1–J6 acceptance |
 
 The operator ran a real session: Play helped improvisation and scene note-taking.
 They identified media access and navigation as major weaknesses. This is useful
@@ -86,7 +87,8 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    rules text and a standalone statblock do not prove those tools.
 7. **Full local acceptance:** first-World preparation and J1–J6 twice without
    console repair remain unaccepted. Existing selected-World use is not full
-   corpus or fresh-World proof. Keep inherited failing tests explicit.
+   corpus or fresh-World proof. The Agent service suite baseline is now green;
+   keep failures in other suites and repository-wide coverage limits explicit.
 
 ## Current chosen design focus
 

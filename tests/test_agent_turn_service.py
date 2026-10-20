@@ -3069,6 +3069,8 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
 
         accept_turn = claim_turn = authorize_provider_attempt = no_dispatch
         record_provider_outcome = append_validated_graph_operation = no_dispatch
+        extend_source_scope = authorize_source_read = no_dispatch
+        record_validated_source_read = authorize_provider_attempt_v2 = no_dispatch
         complete_turn = fail_turn = renew_turn_claim = no_dispatch
 
     class InspectingRuntime:
@@ -3334,7 +3336,16 @@ def test_parent_related_recap_eight_call_and_total_character_quota(monkeypatch: 
         output = fixture.adapter.broker_graph_operation(_related_recap_request(
             fixture, maxChars=12000,
         ))
-        assert json.loads(output["resultJson"])["content"] == page
+        presented = json.loads(output["resultJson"])
+        assert presented["schema"] == "dmb_graph_tool_page_v1"
+        assert presented["resultSchema"] == "dmb_related_recap_context_read_v2"
+        assert presented["nextPageToken"] is None
+        assert [row["value"] for row in presented["records"]
+                if row["path"] == ["content"]] == [page]
+        exposure, = fixture.adapter._tool_presentation().inclusion(
+            "read_related_recap_context", [output["resultJson"]],
+        )
+        assert exposure.complete is True
     events = fixture.adapter.fence.turn.graph_context_execution.events
     assert sum(
         event.max_chars for event in events
@@ -3853,7 +3864,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "evidence", "producing_attempt_missing",
     )
 
-    duplicate_payload = '{"schema":"dmb_world_graph_retrieval_result_v1","claim":"same"}'
+    # Model-visible results must be registered by the owning presenter, and
+    # carry the exact relationship/source records asserted by the ledger event.
+    duplicate_payload = json.dumps({
+        "schema": "dmb_world_graph_retrieval_result_v1",
+        "relationships": [{"edgeId": "rel:one", "evidenceRefIds": ["ev:one"]}],
+        "sourceAnchors": [{"anchorId": "anchor:one", "evidenceRefId": "ev:one"}],
+    }, separators=(",", ":"))
     operation_event = graph_types.ValidatedGraphOperationEventV1(
         event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
         kind="validated_graph_operation", operation_id=uuid4(),
@@ -3871,6 +3888,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     )
     assert fresh is True
     adapter.operation_payloads[operation_event.event_id] = duplicate_payload
+    assert adapter._tool_presentation().present(
+        "expand_graph_retrieval", {}, duplicate_payload, operation_event.event_id,
+    ) == duplicate_payload
     limited_execution = turn.graph_context_execution.model_copy(update={
         "policy": turn.graph_context_execution.policy.model_copy(update={
             "max_graph_operations": 1,
@@ -3887,11 +3907,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     with adapter.fence.renewer._lock:
         adapter.fence.renewer._turn = turn
     repeated_body = json.loads(payload_json)
+    # Repeated exact parent bytes are deduplicated. A syntactically equivalent
+    # but unregistered byte string must still fail before provider dispatch.
     repeated_body["input"].extend([
         {"type": "function_call", "call_id": "call-a", "name": "expand_graph_retrieval", "arguments": "{}"},
         {"type": "function_call_output", "call_id": "call-a", "output": duplicate_payload},
         {"type": "function_call", "call_id": "call-b", "name": "expand_graph_retrieval", "arguments": "{}"},
-        {"type": "function_call_output", "call_id": "call-b", "output": duplicate_payload},
+        {"type": "function_call_output", "call_id": "call-b", "output": duplicate_payload + " "},
     ])
     repeated_json = json.dumps(repeated_body, sort_keys=True, separators=(",", ":"))
     repeated_view = {
@@ -3923,6 +3945,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     )
     assert fresh is True
     adapter.operation_payloads[operation_event.event_id] = duplicate_payload
+    assert adapter._tool_presentation().present(
+        "expand_graph_retrieval", {}, duplicate_payload, operation_event.event_id,
+    ) == duplicate_payload
     graph_claim = {
         "kind": "graph_claim", "claim_id": "claim:one", "text": "The keeper waits nearby.",
         "target_kind": "relationship", "target_id": "rel:one",
@@ -3948,6 +3973,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     followup_body["input"].extend([
         {"type": "function_call", "call_id": "call-a", "name": "expand_graph_retrieval", "arguments": "{}"},
         {"type": "function_call_output", "call_id": "call-a", "output": duplicate_payload},
+        {"type": "function_call", "call_id": "call-b", "name": "expand_graph_retrieval", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call-b", "output": duplicate_payload},
     ])
     followup_json = json.dumps(followup_body, sort_keys=True, separators=(",", ":"))
     followup_view = {
@@ -4474,6 +4501,12 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             return turn, error
 
         with monkeypatch.context() as moving_fence:
+            # Ordinary turns are now uncapped. Exercise retained finite-policy
+            # exhaustion explicitly, without changing the default-budget tests.
+            moving_fence.setattr(service_module, "_policy_request_budget", lambda: {
+                **budget, "maxProviderAttempts": 4,
+                "maxToolCapableAttempts": 4, "maxGraphOperations": 8,
+            })
             moving_fence.setattr(service_module._ClaimFence, "stop", stop_after_renewal)
             with pytest.raises(AgentTurnServiceError) as exhausted:
                 execute_agent_turn(
