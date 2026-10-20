@@ -28,6 +28,11 @@ it('reads nothing while closed, shows the exact Unicode excerpt and releases it 
   fireEvent.click(screen.getByRole('button', { name: /Inspect Rules source/ }));
   expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(text);
   expect(screen.getByText('Exact cited excerpt saved with this answer.')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Source identity'));
+  expect(screen.getByText(`Codepoint range: 5–${support.excerpt_end} (end exclusive)`)).toBeInTheDocument();
+  expect(screen.getByText('Cited excerpt only; full-unit coverage is unknown.')).toBeInTheDocument();
+  expect(screen.getByText(`Full unit SHA-256: ${support.full_text_sha256}`)).toBeInTheDocument();
+  expect(screen.getByText(`Excerpt SHA-256: ${support.excerpt_sha256}`)).toBeInTheDocument();
   expect(api.getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Close cited passage' }));
   expect(screen.queryByRole('region', { name: 'Cited rules passage' })).not.toBeInTheDocument();

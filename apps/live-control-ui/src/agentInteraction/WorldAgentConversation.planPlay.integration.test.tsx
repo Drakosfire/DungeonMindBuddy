@@ -1,3 +1,5 @@
+import { rulesAnswerFixture, fixtureHash } from '../test/rulesAnswerFixture';
+import { rulesCanonical } from '../rulesLookup/rulesEvidence';
 import { listPlaySceneEdits, proposePlaySceneEdit, type PlaySceneEditRecord } from "../api/playSceneEditApi";
 import { getWorldPlayRunContent, getWorldPlayRunContentCommand, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
 import { PlaySessionContentEditor } from "../playSurface/content/PlaySessionContentEditor";
@@ -10,7 +12,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -39,6 +41,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   listWorkspaceDocuments: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
+  getHistoricalRulesPassage: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
   })),
@@ -1372,6 +1375,119 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: /retry.*request/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['plan','play','build'] as const)('renders sealed Rules history and source controls on %s without losing the composer', async initial => {
+    const { context, answer, capsule } = rulesAnswerFixture();
+    const b = context.accepted_binding;
+    const row = { ...turn('play', 1, answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context };
+    const page = { ...history(), schema: 'dmb_agent_conversation_history_v4' as const,
+      conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(page);
+    vi.mocked(getHistoricalRulesPassage).mockResolvedValue(capsule);
+    render(<Harness initial={initial} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await screen.findAllByText(answer);
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(composer, { target: { value: 'Keep this unsent draft' } });
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: /Inspect Rules source/ }));
+    expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(capsule.support.excerpt_text);
+    expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
+    expect(composer).toHaveValue('Keep this unsent draft');
+    fireEvent.click(screen.getByRole('button', { name: /^(Close conversation|Close chat|Collapse)$/ }));
+    expect(screen.queryByRole('region', { name: 'Cited rules passage' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent draft');
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it('keeps Rules text alongside an independently approved Build base answer', async () => {
+    const base = await buildGraphContext();
+    const { context, answer, ruleText } = rulesAnswerFixture(base), b = context.accepted_binding;
+    const authority = base.receipt.graph_authority;
+    const ref = (kind: string, object_id: string, revision: string) => ({ resolution: 'resolved' as const, kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
+    const original = turn('plan', 1, answer);
+    const row = { ...original, schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context,
+      provenance: { ...original.provenance, surface_id: 'build', surface_instance_id: 'build-instance',
+        supporting_work: [ref('dmb_build_source_visibility_v1', base.receipt.source_basis.visibility, '1'),
+          ref('dmb_build_graph_binding_v1', authority.native_world_id, String(authority.binding_version)),
+          ref('world_graph_revision', authority.native_world_id, authority.graph_revision)],
+        primary_work: { resolution: 'resolved' as const, kind: 'build', object_id: 'source-one', revision: '2', content_sha256: SHA,
+          object_revision: null, work_revision_id: null, revision_n: null } } };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+      conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
+    render(<Harness initial='plan' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await screen.findAllByText(ruleText);
+    expect(screen.getAllByText(base.completion!.answer_segments[0].text).length).toBeGreaterThan(0);
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['text','world','conversation','seal'] as const)('rejects mismatched mixed history %s before displaying source controls', async kind => {
+    const { context, answer } = rulesAnswerFixture(), b = context.accepted_binding;
+    const row = { ...turn('play', 1, answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context };
+    if (kind === 'text') row.assistant_text += ' changed';
+    if (kind === 'world') b.world_id = 'other-world';
+    if (kind === 'conversation') b.conversation_id = b.turn_id;
+    if (kind === 'seal') context.accepted_binding_sha256 = '0'.repeat(64);
+    else context.accepted_binding_sha256 = fixtureHash(rulesCanonical(b));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+      conversation_id: '11111111-1111-4111-8111-111111111111', active_conversation_id: '11111111-1111-4111-8111-111111111111', turns: [row] });
+    render(<Harness initial='play' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText(/history.*(invalid|match|verified)|could not.*history|history.*unavailable/i)).toBeInTheDocument());
+    expect(screen.queryByText('Rules references')).not.toBeInTheDocument();
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['approved','unclaimed','bad_seal','bad_owner'] as const)('validates a live mixed Build reply before settling recovery: %s', async mode => {
+    const base = mode === 'approved' ? await buildGraphContext() : null;
+    const fixture = rulesAnswerFixture(base), context = fixture.context, b = context.accepted_binding;
+    if (mode !== 'approved') {
+      b.base_disposition = 'unclaimed';
+      context.accepted_binding_sha256 = fixtureHash(rulesCanonical(b));
+    }
+    const current: WorldAgentConversationHistoryResponse = history();
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request => {
+      const reply = playResponse(request as unknown as WorldPlayAgentTurnRequestV1);
+      const contextForReply = structuredClone(context);
+      if (mode === 'bad_seal') contextForReply.accepted_binding_sha256 = '0'.repeat(64);
+      const conversation = { ...reply.conversation, conversation_id: mode === 'bad_owner' ? b.turn_id : b.conversation_id };
+      return { ...reply, schema: 'dmb_agent_rules_turn_response_v1', surface: { ...reply.surface, surface_id: 'build', instance_id: 'build-instance' },
+        primary_work: { ...reply.primary_work, kind: 'build', object_id: 'source-one', revision_used: 2, expected_revision: 2 },
+        client_work_state_reported: request.client_work_state, conversation,
+        graph: base ? { ...reply.graph, world_id: base.receipt.graph_authority.native_world_id, revision_id: base.receipt.graph_authority.graph_revision } : reply.graph,
+        answer: { ...reply.answer, text: fixture.answer, graph_grounded: b.graph_used }, rules_context: contextForReply };
+    });
+    render(<Harness initial='build' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: 'Discuss the source and occupied space.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const storageKey = 'dmb:world-play-pending-turn:v1:' + WORLD;
+    if (mode === 'bad_seal' || mode === 'bad_owner') {
+      await screen.findByText('The Rules reply did not match its accepted answer and sources. Check World history or explicitly retry the saved request with its original IDs.');
+      expect(localStorage.getItem(storageKey)).not.toBeNull();
+    } else {
+      await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
+      expect(screen.queryByText(/Rules reply did not match/)).not.toBeInTheDocument();
+    }
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
 });

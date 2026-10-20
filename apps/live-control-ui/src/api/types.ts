@@ -1218,9 +1218,14 @@ export interface WorldPlanAgentTurnResponseV2 extends Omit<WorldPlanAgentTurnRes
   plan_context: WorldPlanAgentPlanContextV2;
 }
 
+export interface WorldRulesAgentTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, 'schema' | 'knowledge_context'> {
+  schema: 'dmb_agent_rules_turn_response_v1';
+  rules_context: import('./rulesLookupTypes').RulesAnswerContext;
+}
 export type WorldPlanAgentTurnResponse =
   | WorldPlanAgentTurnResponseV1
-  | WorldPlanAgentTurnResponseV2;
+  | WorldPlanAgentTurnResponseV2
+  | WorldRulesAgentTurnResponseV1;
 
 export interface AgentConversationHistoryReferenceV1 {
   resolution: "resolved" | "absent" | "unresolved" | "unavailable";
@@ -1299,16 +1304,28 @@ export interface WorldAgentConversationHistoryResponseV3 extends Omit<WorldAgent
   turns: (WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3)[];
 }
 
+export interface WorldAgentConversationHistoryMixedTurnV1 extends WorldAgentConversationHistoryTurnV3 {
+  schema: 'dmb_agent_conversation_history_mixed_turn_v1';
+  lifecycle_status: 'completed'; assistant_text: string;
+  rules_context: import('./rulesLookupTypes').RulesAnswerContext;
+}
+export interface WorldAgentConversationHistoryResponseV4 extends Omit<WorldAgentConversationHistoryResponseV1, 'schema' | 'turns'> {
+  schema: 'dmb_agent_conversation_history_v4';
+  turns: (WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
+}
+
 export type WorldAgentConversationHistoryTurn =
   | WorldAgentConversationHistoryTurnV1
   | WorldAgentConversationHistoryTurnV2
   | WorldAgentConversationHistoryTurnV3
-  | WorldAgentConversationHistoryPlanTurnV3;
+  | WorldAgentConversationHistoryPlanTurnV3
+  | WorldAgentConversationHistoryMixedTurnV1;
 
 export type WorldAgentConversationHistoryResponse =
   | WorldAgentConversationHistoryResponseV1
   | WorldAgentConversationHistoryResponseV2
-  | WorldAgentConversationHistoryResponseV3;
+  | WorldAgentConversationHistoryResponseV3
+  | WorldAgentConversationHistoryResponseV4;
 
 export interface WorldAgentNewConversationRequestV1 {
   schema: "dmb_agent_new_conversation_v1";

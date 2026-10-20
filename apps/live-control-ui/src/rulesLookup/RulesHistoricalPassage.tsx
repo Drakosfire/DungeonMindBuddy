@@ -38,5 +38,5 @@ export default function RulesHistoricalPassageReader({ target, onClose }: { targ
   const page = support.printed_page === null ? `PDF page ${support.pdf_page_index + 1}` : `Page ${support.printed_page}`;
   return <RulesPassageView section={support.section} title={support.source_title} page={page}
     text={support.excerpt_text} attribution="Historical Rules evidence; separate from World facts and played events."
-    sourceUri={support.source_uri} corpus={support.corpus_sha256} textSha256={support.excerpt_sha256} onClose={onClose} excerpt />;
+    sourceUri={support.source_uri} corpus={support.corpus_sha256} textSha256={support.excerpt_sha256} onClose={onClose} excerpt excerptIdentity={{ start: support.excerpt_start, end: support.excerpt_end, fullTextSha256: support.full_text_sha256 }} />;
 }

@@ -1,17 +1,11 @@
+import { rulesCanonical, rulesDigest } from './rulesCanonical';
+export { rulesCanonical, rulesDigest } from './rulesCanonical';
 import type { RulesHistoricalPassage, RulesPassageTarget } from '../api/rulesLookupTypes';
 const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value);
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 function keys(value: unknown, expected: string[]): value is Record<string, unknown> {
   return record(value) && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
-}
-export function rulesCanonical(value: unknown): string {
-  if (Array.isArray(value)) return '[' + value.map(rulesCanonical).join(',') + ']';
-  if (record(value)) return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + rulesCanonical(value[key])).join(',') + '}';
-  return JSON.stringify(value);
-}
-export async function rulesDigest(value: string): Promise<string> {
-  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 export async function verifyHistoricalRulesPassage(value: unknown, target: RulesPassageTarget): Promise<RulesHistoricalPassage> {
   const invalid = () => new Error('This exact saved Rules excerpt could not be verified.');

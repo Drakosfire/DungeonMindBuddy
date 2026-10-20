@@ -1,3 +1,6 @@
+import { RulesAnswerEvidence } from '../../rulesLookup/RulesAnswerEvidence';
+import { isRulesAnswerContext, rulesAnswerDigestsBound, rulesAnswerDisplaySegments } from '../../rulesLookup/rulesAnswerProtocol';
+import type { RulesAnswerContext } from '../../api/rulesLookupTypes';
 import { usePlaySceneEdits } from "../../playSurface/agentEdit/PlaySceneEditReview";
 import { ActionPromptInspector } from "./ActionPromptInspector";
 import { ActionTerminalDiagnostic } from "./ActionTerminalDiagnostic";
@@ -1363,7 +1366,11 @@ function isWorldPlanContextProjection(
   return true;
 }
 
+function rulesContextForTurn(turn: WorldAgentConversationHistoryTurn): RulesAnswerContext | undefined {
+  return 'schema' in turn && turn.schema === 'dmb_agent_conversation_history_mixed_turn_v1' ? turn.rules_context : undefined;
+}
 function graphContextForTurn(turn: WorldAgentConversationHistoryTurn) {
+  if (rulesContextForTurn(turn)) return rulesContextForTurn(turn)!.base_context ?? undefined;
   return turn.knowledge_context ?? ("plan_context" in turn ? turn.plan_context : undefined);
 }
 
@@ -1479,10 +1486,27 @@ function isHistoryReference(value: unknown): boolean {
 
 function isHistoryTurn(
   value: unknown,
-  schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v2" | "dmb_agent_conversation_history_v3",
+  schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v2" | "dmb_agent_conversation_history_v3" | "dmb_agent_conversation_history_v4",
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
+  if (schema === 'dmb_agent_conversation_history_v4') {
+    if (value.schema === 'dmb_agent_conversation_history_mixed_turn_v1') {
+      if (!hasExactKeys(value, ['schema','turn_id','sequence','lifecycle_status','user_text','assistant_text','provenance','idempotency_key','rules_context'])
+        || value.lifecycle_status !== 'completed') return false;
+      // Reuse only envelope field/provenance validation, never reinterpret mixed answer authority.
+      const { schema: _schema, rules_context: _rules, ...envelope } = value;
+      if (!isHistoryTurn(envelope, 'dmb_agent_conversation_history_v3', worldId)) return false;
+      return isRulesAnswerContext(value.rules_context, value.assistant_text, worldId, base =>
+        isRecord(base) && (base.schema === 'dmb_build_graph_context_response_v1'
+          ? isBuildKnowledgeContext(base, worldId) && isHistoryBuildContextBound(base, value.provenance as Record<string, unknown>, worldId)
+          : isWorldPlanContextProjection(base, undefined, true) && isHistoryPlanContextBound(base, value.provenance, worldId)),
+        { turnId: value.turn_id as string });
+    }
+    if (Object.hasOwn(value, 'schema')) return false;
+    return isHistoryTurn(value, Object.hasOwn(value, 'idempotency_key') ? 'dmb_agent_conversation_history_v3'
+      : Object.hasOwn(value, 'plan_context') || Object.hasOwn(value, 'knowledge_context') ? 'dmb_agent_conversation_history_v2' : 'dmb_agent_conversation_history_v1', worldId);
+  }
   const hasPlanContext = Object.prototype.hasOwnProperty.call(value, "plan_context");
   const hasBuildContext = Object.prototype.hasOwnProperty.call(value, "knowledge_context");
   if (hasPlanContext && hasBuildContext) return false;
@@ -1576,7 +1600,8 @@ function isWorldConversationHistory(value: unknown): value is WorldAgentConversa
   const schema = value.schema;
   if (schema !== "dmb_agent_conversation_history_v1"
     && schema !== "dmb_agent_conversation_history_v2"
-    && schema !== "dmb_agent_conversation_history_v3") return false;
+    && schema !== "dmb_agent_conversation_history_v3"
+    && schema !== "dmb_agent_conversation_history_v4") return false;
   if (!hasExactKeys(value, [
     "schema", "world_id", "conversation_state", "conversation_id", "active_conversation_id", "pointer_revision", "turns", "next_before_sequence",
   ])
@@ -1600,6 +1625,9 @@ function isWorldConversationHistory(value: unknown): value is WorldAgentConversa
       if (sequenceDirection !== null && currentDirection !== sequenceDirection) return false;
       sequenceDirection = currentDirection;
     }
+    if (turn.schema === 'dmb_agent_conversation_history_mixed_turn_v1'
+      && (!isRecord(turn.rules_context) || !isRecord(turn.rules_context.accepted_binding)
+        || turn.rules_context.accepted_binding.conversation_id !== value.conversation_id)) return false;
     previousSequence = turn.sequence;
     seenIds.add(turn.turn_id);
   }
@@ -1722,6 +1750,11 @@ async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1 | Wo
 
 async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
   if (!isRecord(turn)) return true;
+  if (turn.schema === 'dmb_agent_conversation_history_mixed_turn_v1') {
+    const context = turn.rules_context as RulesAnswerContext;
+    if (typeof turn.assistant_text !== 'string' || !await rulesAnswerDigestsBound(context, turn.assistant_text)) return false;
+    return context.base_context === null || await isReceiptDigestBound(context.base_context.receipt);
+  }
   if (Object.prototype.hasOwnProperty.call(turn, "knowledge_context")) {
     const context = turn.knowledge_context;
     return isRecord(context) && isRecord(context.receipt) && isRecord(context.receipt.source_basis)
@@ -1817,7 +1850,7 @@ function completedHistoryTurnMatchesPendingGraphAsk(
   const envelope = stored.envelope;
   if (!envelope) return false;
   const { request, origin } = envelope;
-  if (page.schema !== "dmb_agent_conversation_history_v3"
+  if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")
     || !("idempotency_key" in turn)
     || turn.idempotency_key !== idempotencyKey
     || !request.plan_context_policy
@@ -1833,8 +1866,8 @@ function completedHistoryTurnMatchesPendingGraphAsk(
     || typeof request.surface.instance_id !== "string"
     || turn.provenance.surface_instance_id !== request.surface.instance_id) return false;
 
-  const context = "plan_context" in turn ? turn.plan_context : undefined;
-  if (!context
+  const context = graphContextForTurn(turn);
+  if (!context || context.schema !== 'dmb_agent_plan_world_graph_context_response_v2'
     || !isWorldPlanContextProjection(context, request, true)
     || context.completion === null
     || (context.execution !== null && context.execution.claimability !== "completed")
@@ -1849,7 +1882,7 @@ function completedHistoryTurnMatchesPendingGraphAsk(
     || basis.content_sha256 !== origin.contentSha256) return false;
 
   const completedText = context.completion.answer_segments.map((segment) => segment.text).join("\n");
-  return turn.assistant_text === completedText;
+  return rulesContextForTurn(turn) !== undefined || turn.assistant_text === completedText;
 }
 
 async function confirmedAskHistoryMatches(
@@ -1898,7 +1931,7 @@ function failedHistoryTurnMatchesPendingGraphAsk(
   const envelope = stored.envelope;
   if (!envelope) return false;
   const { request, origin } = envelope;
-  if (page.schema !== "dmb_agent_conversation_history_v3"
+  if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")
     || !("idempotency_key" in turn)
     || turn.idempotency_key !== idempotencyKey
     || !request.plan_context_policy
@@ -1935,7 +1968,7 @@ async function classifyTerminalFailedGraphPendingAsks(
   documentId: string,
   isCurrent: () => boolean,
 ): Promise<ConfirmedTerminalFailureAsk[]> {
-  if (page.schema !== "dmb_agent_conversation_history_v3") return [];
+  if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")) return [];
   const pending = readPendingAsks(worldId, documentId)
     .filter((stored) => stored.envelope?.request.plan_context_policy);
   const correlated = await Promise.all(pending.map(async (stored) => ({
@@ -1971,7 +2004,7 @@ function reconcileCompletedGraphPendingAsks(
   documentId: string,
   isCurrent: () => boolean,
 ): Promise<{ refreshPendingList: boolean; storageError: string | null; confirmedTurnIds: string[] }> {
-  if (page.schema !== "dmb_agent_conversation_history_v3") {
+  if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")) {
     return Promise.resolve({ refreshPendingList: false, storageError: null, confirmedTurnIds: [] });
   }
   const pending = readPendingAsks(worldId, documentId)
@@ -2030,16 +2063,25 @@ async function validateWorldPlanResponse(
     "conversation",
     "answer",
   ];
-  const topKeys = hasPolicy ? [...baseKeys, "plan_context"] : baseKeys;
+  const mixed = isRecord(value) && value.schema === 'dmb_agent_rules_turn_response_v1';
+  const topKeys = mixed ? [...baseKeys, 'rules_context'] : hasPolicy ? [...baseKeys, "plan_context"] : baseKeys;
   if (!hasExactKeys(value, topKeys)
-    || value.schema !== (hasPolicy ? "dmb_agent_turn_response_v2" : "dmb_agent_turn_response_v1")
+    || value.schema !== (mixed ? 'dmb_agent_rules_turn_response_v1' : hasPolicy ? "dmb_agent_turn_response_v2" : "dmb_agent_turn_response_v1")
     || value.client_thread_id !== request.client_thread_id
     || value.turn_id !== request.turn_id) {
     return { ok: false, message: RESPONSE_MISMATCH };
   }
 
+  if (mixed && (!isRecord(value.answer) || !isRecord(value.conversation)
+    || typeof value.conversation.conversation_id !== 'string'
+    || !isRulesAnswerContext(value.rules_context, value.answer.text, request.owner_scope.world_id,
+      base => isWorldPlanContextProjection(base, request),
+      typeof value.conversation.conversation_id === 'string' ? { conversationId: value.conversation.conversation_id } : undefined)
+    || !await rulesAnswerDigestsBound(value.rules_context, value.answer.text as string))) return { ok: false, message: RESPONSE_MISMATCH };
+  const mixedContext = mixed ? value.rules_context as RulesAnswerContext : undefined;
+  const candidateContext = mixed ? mixedContext?.base_context : value.plan_context;
   const planContext = hasPolicy
-    ? isWorldPlanContextProjection(value.plan_context, request) ? value.plan_context : null
+    ? isWorldPlanContextProjection(candidateContext, request) ? candidateContext : null
     : null;
   if (hasPolicy && !planContext) return { ok: false, message: RESPONSE_MISMATCH };
   if (planContext && !await isReceiptDigestBound(planContext.receipt)) {
@@ -2134,7 +2176,7 @@ async function validateWorldPlanResponse(
   }
 
   const answer = value.answer;
-  const expectedGraphGrounded = planContext?.completion
+  const expectedGraphGrounded = mixedContext ? mixedContext.accepted_binding.graph_used : planContext?.completion
     ? ["graph_grounded", "graph_grounded_partial"].includes(planContext.completion.answer_context_status)
     : false;
   if (!hasExactKeys(answer, ["status", "text", "code", "message", "graph_grounded", "trace"])
@@ -3645,7 +3687,17 @@ export function WorldPlanAgentConversation({
         ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1)
         : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
-      if (!["dmb_agent_turn_response_v1", "dmb_agent_turn_response_v2"].includes(response.schema)
+      const mixed = response.schema === 'dmb_agent_rules_turn_response_v1';
+      if (mixed && (typeof response.conversation.conversation_id !== 'string'
+        || !isRulesAnswerContext(response.rules_context, response.answer.text, request.owner_scope.world_id,
+        base => request.primary_work.kind === 'build' && isBuildKnowledgeContext(base, request.owner_scope.world_id),
+        typeof response.conversation.conversation_id === 'string' ? { conversationId: response.conversation.conversation_id } : undefined)
+        || !await rulesAnswerDigestsBound(response.rules_context, response.answer.text ?? '')
+        || response.answer.graph_grounded !== response.rules_context.accepted_binding.graph_used
+        || response.answer.status !== 'ok' || response.answer.code !== null || response.answer.message !== null)) {
+        throw new Error('The Rules reply did not match its accepted answer and sources.');
+      }
+      if (!["dmb_agent_turn_response_v1", "dmb_agent_turn_response_v2", 'dmb_agent_rules_turn_response_v1'].includes(response.schema)
         || response.client_thread_id !== request.client_thread_id || response.turn_id !== request.turn_id
         || response.surface.surface_id !== request.surface.surface_id || response.surface.instance_id !== request.surface.instance_id
         || response.owner_scope.status !== "resolved"
@@ -3659,8 +3711,10 @@ export function WorldPlanAgentConversation({
         throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
       if (request.primary_work.kind === "build" && request.graph_request.mode === "world") {
-        const context = response.knowledge_context;
-        if (!isBuildKnowledgeContext(context, request.owner_scope.world_id)
+        const context = mixed ? response.rules_context.base_context : response.knowledge_context;
+        if (mixed && response.rules_context.accepted_binding.base_disposition === 'unclaimed') {
+          // Accepted mixed storage carries the genuine unused Graph receipt; no base claims are shown.
+        } else if (!isBuildKnowledgeContext(context, request.owner_scope.world_id)
           || !await isReceiptDigestBound(context.receipt)
           || context.receipt.source_basis.document_id !== request.primary_work.object_id
           || context.receipt.source_basis.registry_revision !== request.primary_work.expected_revision
@@ -3670,6 +3724,7 @@ export function WorldPlanAgentConversation({
           throw new Error("The reply did not match the saved Build source and World Graph. Check World history before continuing.");
         }
       }
+      if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
@@ -5318,14 +5373,18 @@ export function WorldPlanAgentConversation({
                   {graphContextForTurn(turn)!.completion!.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
                 </span>
               ) : null}
+              {rulesContextForTurn(turn) && <span className="world-plan-agent-conversation__answer-basis" aria-label="Rules answer sources">
+                {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
+              </span>}
             </div>
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
-              displaySegments={graphContextForTurn(turn)?.completion
+              displaySegments={rulesContextForTurn(turn) ? rulesAnswerDisplaySegments(rulesContextForTurn(turn)!, turn.assistant_text ?? '') : graphContextForTurn(turn)?.completion
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />
+            {rulesContextForTurn(turn) && <RulesAnswerEvidence active={visible && agent.paneState.isOpen} context={rulesContextForTurn(turn)!} answer={turn.assistant_text ?? ''} />}
             {renderSourceActions(turn)}
           </div>
         ) : failed || interrupted ? (
