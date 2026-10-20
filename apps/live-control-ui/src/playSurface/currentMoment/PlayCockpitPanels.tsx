@@ -43,7 +43,7 @@ export function PlaySceneOutline({
     data-testid="play-beat-context">
     <button type="button" className="play-rail-toggle" data-testid="play-beat-context-toggle"
       ref={toggleRef} aria-expanded={!collapsed} aria-controls="play-outline-body"
-      aria-label={`${collapsed ? "Expand" : "Collapse"} Contents`} onClick={onToggle}>Contents</button>
+      aria-label={`${collapsed ? "Expand" : "Collapse"} Contents`} title={`${collapsed ? "Expand" : "Collapse"} Contents`} onClick={onToggle}><span aria-hidden="true">📖</span></button>
     <div id="play-outline-body" className="play-rail-body" data-testid="play-outline-body" hidden={collapsed}>
       <Contents entries={entries} selectedId={inspectedSceneId ?? currentSceneId}
         visible={!collapsed} expanded={!collapsed} showToggle={false}
