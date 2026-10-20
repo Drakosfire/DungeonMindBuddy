@@ -3096,6 +3096,7 @@ describe("World Play V2 API transport", () => {
       manifest,
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => mockJsonResponse(responses.shift()));
+    const playInventoryController = new AbortController();
 
     await listWorldOwnedRunbooks(worldId);
     await createWorldOwnedRunbook({ world_id: worldId, title: "North Gate" });
@@ -3104,7 +3105,7 @@ describe("World Play V2 API transport", () => {
     await getWorldOwnedRunbookCommittedRevision(documentId, worldId, 7, sha);
     await prepareWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", expected_revision: 7 });
     await commitWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", writer_confirm_token: "token", expected_revision: 7 });
-    await listWorldPlayRuns(worldId);
+    await listWorldPlayRuns(worldId, playInventoryController.signal);
     await getWorldPlayRun(runId, worldId);
     await putWorldPlayRun(runId, worldId, { playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_content_sha256: sha });
     const progress = { expected_run_revision: 4, progress: run.progress };
@@ -3130,6 +3131,7 @@ describe("World Play V2 API transport", () => {
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
     ]);
+    expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBe(playInventoryController.signal);
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[5]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[10]?.[1]?.body))).toEqual(progress);
