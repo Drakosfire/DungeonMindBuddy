@@ -3,7 +3,7 @@ import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDispl
 import { useAskPluginSlot } from "./AskPluginSlot";
 import { createPortal } from "react-dom";
 import { useAgentInteraction } from "./useAgentInteraction";
-import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent.png";
+import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent-launcher.webp";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type KeyboardEvent } from "react";
 
 /**
