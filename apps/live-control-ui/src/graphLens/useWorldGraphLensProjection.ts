@@ -201,7 +201,11 @@ export function WorldGraphLensProjectionProvider({
   const [revisionEventBump, setRevisionEventBump] = useState(0);
   const currentScope = useRef<ProjectionDemandScope | null>(null);
   const revisionGeneration = useRef(0);
+  const projectionAbort = useRef<AbortController | null>(null);
   const retry = useCallback(() => {
+    // Stop this subscriber before successful transport recovery can replay it
+    // alongside the newly owned generation. Other transport subscribers survive.
+    projectionAbort.current?.abort();
     revisionGeneration.current += 1;
     setRevisionEventBump(previous => previous + 1);
   }, []);
@@ -303,12 +307,14 @@ export function WorldGraphLensProjectionProvider({
 
   useEffect(() => {
     const controller = new AbortController();
+    projectionAbort.current = controller;
     const loadScope = demandScope;
     const loadRevision = revisionGeneration.current;
     const loadAccess = getNativeGraphAccessGeneration();
-    const stillOwned = () => !controller.signal.aborted
+    const scopeStillOwned = () => !controller.signal.aborted
       && wanted.current.active && wanted.current.scope === loadScope
-      && loadRevision === revisionGeneration.current
+      && loadRevision === revisionGeneration.current;
+    const stillOwned = () => scopeStillOwned()
       && loadAccess === getNativeGraphAccessGeneration();
 
     async function loadProjection() {
@@ -419,9 +425,12 @@ export function WorldGraphLensProjectionProvider({
           lastProjectionLoadOutcome: "ready",
         });
       } catch (error) {
-        if (!stillOwned()) return;
+        // Recovery may advance the transport epoch and then fail before emitting
+        // its access event. Publish the current scope's terminal error (no graph
+        // bytes); explicit access/revision changes still retire this scope.
+        if (!scopeStillOwned()) return;
         commitObservation(null, error);
-        if (!stillOwned()) return;
+        if (!scopeStillOwned()) return;
         if (isWorldGraphUnavailable(error)) {
           setStored({
             scope: loadScope,
@@ -454,6 +463,7 @@ export function WorldGraphLensProjectionProvider({
 
     return () => {
       controller.abort();
+      if (projectionAbort.current === controller) projectionAbort.current = null;
     };
   }, [
     active,

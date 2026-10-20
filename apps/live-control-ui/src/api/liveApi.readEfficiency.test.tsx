@@ -6,6 +6,7 @@ import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { WorldGraphLensProvider, WorldGraphLensProjectionProvider, useWorldGraphLensProjectionDemand, useWorldGraphLensProjection } from "../graphLens";
 function deferred<T>() { let resolve!: (value:T)=>void; let reject!:(error:unknown)=>void; const promise=new Promise<T>((r,j)=>{resolve=r;reject=j;}); return {promise,resolve,reject}; }
 afterEach(()=>{cleanup();vi.restoreAllMocks();api.setNativeGraphAccessToken(null);});
+function managedPacket(revision:string){return {schema:"dmb_managed_world_graph_projection_v1",managedWorldId:"elderwyld",nativeWorldId:"native-world",bindingVersion:1,projection:{schema:"dmb_world_graph_projection_v1",snapshot:{worldId:"native-world",campaignId:"",revisionId:revision,headRevisionId:revision,isHead:true,focus:{kind:"none",sessionId:null},admissibility:"gm",scopeMode:"world"},summary:{nodeCount:0,relationshipCount:0,attributeCount:0,evidenceCount:0,sourceArtifactCount:0,projectionTruncated:false},nodes:[],relationships:[],attributes:[],evidence:[],sourceArtifacts:[],diagnostics:[]}}}
 const historyPath="/api/live/agent/worlds/elderwyld/conversation?limit=40";
 describe("protected read acquisition",()=>{
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
@@ -21,6 +22,62 @@ describe("protected read acquisition",()=>{
   expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(1);
   gate.resolve(Response.json({schema:"dmb_managed_world_graph_projection_v1",managedWorldId:"elderwyld",nativeWorldId:"native-world",bindingVersion:1,projection:{schema:"dmb_world_graph_projection_v1",snapshot:{worldId:"native-world",campaignId:"",revisionId:"rev-1",headRevisionId:"rev-1",isHead:true,focus:{kind:"none",sessionId:null},admissibility:"gm",scopeMode:"world"},summary:{nodeCount:0,relationshipCount:0,attributeCount:0,evidenceCount:0,sourceArtifactCount:0,projectionTruncated:false},nodes:[],relationships:[],attributes:[],evidence:[],sourceArtifacts:[],diagnostics:[]}}));
   await waitFor(()=>expect(result.current.projectionState).toBe("ready"));
+ });
+ it.each([false,true])("exposes failed local-session recovery as a terminal graph error; explicit retry=%s",async retry=>{
+  api.setNativeGraphAccessToken('reset-session');api.setNativeGraphAccessToken(null);
+  window.history.replaceState({},"","/?world=elderwyld");
+  vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
+  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  let sessions=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
+    if(String(url).endsWith("local-session")) return ++sessions===1
+      ? Response.json({status:"active",csrf_token:"old-csrf"})
+      : Response.json({detail:"session service unavailable"},{status:503});
+    return Response.json({detail:{code:"graph_auth_required"}},{status:401});
+  });
+  const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
+  const view=renderHook(()=>{const retry=useWorldGraphLensProjectionDemand(true);return{retry,value:useWorldGraphLensProjection()}},{wrapper});
+  await waitFor(()=>expect(view.result.current.value.projectionState).toBe("error"));
+  expect(view.result.current.value.projectionError).toContain("local_graph_session_recovery_failed");
+  expect(view.result.current.value.projection).toBeNull();expect(sessions).toBe(2);
+  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(1);
+  view.rerender();expect(sessions).toBe(2);
+  if(retry){act(()=>view.result.current.retry!());await waitFor(()=>expect(sessions).toBe(3));
+    await waitFor(()=>expect(view.result.current.value.projectionState).toBe("error"));}
+ });
+ it("recovers the actual projection API into a newly owned access generation",async()=>{
+  api.setNativeGraphAccessToken('reset-recovery');api.setNativeGraphAccessToken(null);
+  window.history.replaceState({},"","/?world=elderwyld");
+  vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
+  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  let sessions=0,projections=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
+    if(String(url).endsWith("local-session")) return Response.json({status:"active",csrf_token:++sessions===1?'old-csrf':'fresh-csrf'});
+    return ++projections===1 ? Response.json({detail:{code:"graph_auth_required"}},{status:401}) : Response.json(managedPacket('fresh'));
+  });
+  const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
+  const view=renderHook(()=>{useWorldGraphLensProjectionDemand(true);return useWorldGraphLensProjection()},{wrapper});
+  await waitFor(()=>expect(view.result.current.projectionState).toBe('ready'));
+  expect(view.result.current.projection?.snapshot.revisionId).toBe('fresh');expect(sessions).toBe(2);expect(projections).toBe(2);
+  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith('managed-projection'))).toHaveLength(2);
+ });
+ it.each(['rotation','release'] as const)("rejects late projection JSON body after %s with the real API transport",async transition=>{
+  api.setNativeGraphAccessToken('body-old');window.history.replaceState({},"","/?world=elderwyld");
+  vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
+  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  let body!:ReadableStreamDefaultController<Uint8Array>;let projections=0;
+  const stream=new ReadableStream<Uint8Array>({start(controller){body=controller}});
+  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>++projections===1 ? new Response(stream,{headers:{'Content-Type':'application/json'}}) : Response.json(managedPacket('current')));
+  const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
+  const view=renderHook(({enabled})=>{useWorldGraphLensProjectionDemand(enabled);return useWorldGraphLensProjection()},{wrapper,initialProps:{enabled:true}});
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));await act(async()=>{});
+  if(transition==='rotation'){
+    act(()=>api.setNativeGraphAccessToken('body-current'));
+    await waitFor(()=>expect(view.result.current.projectionState).toBe('ready'));
+  }else view.rerender({enabled:false});
+  await act(async()=>{body.enqueue(new TextEncoder().encode(JSON.stringify(managedPacket('old'))));body.close()});
+  if(transition==='rotation')expect(view.result.current.projection?.snapshot.revisionId).toBe('current');
+  else expect(view.result.current).toMatchObject({projectionState:'idle',projection:null});
  });
  it.each([historyPath,"/api/live/world-session-evidence?world_id=elderwyld","/api/live/graph-preview/extraction-runs/run-a/candidate-projection?managed_world_id=elderwyld","/api/live/media/images/asset-a/metadata"])("shares pending %s with independently readable bodies, then refreshes",async path=>{
   api.setNativeGraphAccessToken("test-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
