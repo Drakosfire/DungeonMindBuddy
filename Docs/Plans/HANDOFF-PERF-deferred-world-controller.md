@@ -1,6 +1,6 @@
 # Defer unused World conversation code; retain activated owners
 
-**Status:** ACTIVE; prerequisite1498 is accepted. Rebased implementation requires its own exact-head review and delivery.
+**Status:** COMPLETE. PR1497 merged as 76e370c79accb00410e6577e8cb1d786863dbc4b and accepted on 5202.
 **Base:**f65e201efe9a22bfdc635c1afef99ffd7c5fd9ef (accepted1498); originalheldbase60cb4b4e44d0e86cbf71bbbac081c985154b61db. Existing checkout branch codex/defer-world-conversation-controller. Serial after1496. UI-only5202, no backend/data/dependency change.
 
 ## Capability and ownership
@@ -36,3 +36,7 @@ RootPR1498 reviewed in2cycles, mergedf65e201efe9a22bfdc635c1afef99ffd7c5fd9ef an
 ## Rebased author verification
 
 On acceptedf65 root,7filecombined owner54/54PASS: loader/presence/helper21 and actualApp/selection/currentmanagedGraph/navigation33. Realcurrentconversation+history261pass/15sameknownbaseline failures; no newfailure. ActualappTypeScript/productionbuildpass. Sourceonlyscopehostimport/activation; acceptedrootedit/save/clear gating preserved; registry APIs/heavycontroller/transportsourceunchanged. Rebasedentryindex-C5WRhiOK.js1,010,642raw; controllerchunk254,020raw. Gzip/compressedcounts mustlabelcompressor or use nativeencoded receipt; previousgzip9manualcount is not networktransfer. Cumulativef65→head inspected/diffcheckclean. No defaultadoption yet; formal exactheadreview next, nativefullApp continuity/protected17 follow.
+
+## Accepted settlement
+
+Architecture Cycle 1 source APPROVE at 5e2528d76b8aef5cc8145604bb052b4256f71c70; independently 54/54 selected tests, Bugbot no findings. Exact accepted entry index-C5WRhiOK.js: 1,010,642 raw bytes, 295,557 native encoded bytes on cold Index. No World controller chunk on unselected Index; zero inference requests. Real Plan → Play → Plan retains exact temporary unsent draft; original restored, one registry read, zero inference. Existing recovery markers untouched. All 17 protected responses unchanged, API health OK. Prior UI assets retained; owned QA tabs and temporary trace HTML removed. Source maps/audit still identify editor dependencies through the eager reference renderer, addressed in a separate slice.

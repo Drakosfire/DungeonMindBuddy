@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type MouseEvent, type KeyboardEvent } from 'react';
 import { PeekClaim } from '../surfaceInteraction/peekHost';
-import { MarkdownDocumentReader } from '../markdownReader/MarkdownDocumentReader';
-import { ReadOnlyBodyContent } from '../markdownReader/ReadOnlyBodyContent';
-import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
+import { deferredComponent } from '../ui/deferredComponent';
 import { owningDocumentHref, parseDocumentReference, type ReferenceParse } from './documentReference';
 import { resolveDocumentReference, type DocumentInspection } from './resolveDocumentReference';
 import './documentReference.css';
+
+const DeferredReferenceBody = deferredComponent(() => import('./DocumentReferenceBody'), 'saved document content');
 
 type Entry = Exclude<ReferenceParse, { kind: 'other' }> & { scroll: number };
 export function DocumentReferenceProvider({ children, worldId, sourceIdentity, enabled = true, load = resolveDocumentReference }: {
@@ -84,7 +84,9 @@ export function DocumentReferenceProvider({ children, worldId, sourceIdentity, e
   };
   const data = outcome && outcome.entry === active ? outcome.data : undefined;
   const error = outcome && outcome.entry === active ? outcome.error : undefined;
-  const imported = useMemo(() => data ? markdownToTiptapDoc(data.markdown) : null, [data]);
+  const restoreBodyScroll = useCallback(() => {
+    if (pane.current && outcome?.entry === active) pane.current.scrollTop = active?.scroll ?? 0;
+  }, [outcome, active]);
   return <div className="document-reference-capability" onClickCapture={activate} onKeyDownCapture={activate}>
     {children}
     <PeekClaim kind="document-reference" active={!!active} label="Document reference" onDismiss={close}>
@@ -96,9 +98,7 @@ export function DocumentReferenceProvider({ children, worldId, sourceIdentity, e
         {error ? <p role="alert">{error}</p> : data ? <>
           <h2>{data.title}</h2><p>{data.revisionLabel}. Read only; local drafts are not shown.</p>
           {active?.kind === 'document' && active.target.heading && <p role="status">Showing the saved document. The link’s section hint is not resolved.</p>}
-          {imported && imported.diagnostics.length === 0
-            ? <ReadOnlyBodyContent content={imported.doc.content} />
-            : <><p role="status">Some content uses source rendering.</p><MarkdownDocumentReader markdown={data.markdown} /></>}
+          <DeferredReferenceBody markdown={data.markdown} onReady={restoreBodyScroll} />
           <details><summary>Source details</summary><p>SHA-256: {data.digest}</p></details>
           {active?.kind === 'document' && active.target.registryRevision === undefined && active.target.revisionN === undefined && !active.target.digest
             && <a href={owningDocumentHref(active.target)} target="_blank" rel="noopener noreferrer">Open owning surface in a new tab</a>}
