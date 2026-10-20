@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from apps.live_control_server.routes.rules_lookup import router as rules_lookup_router
 
 from apps.live_control_server.routes.media_images import router as media_images_router
 
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     application.include_router(extract_promote_router)
     application.include_router(world_graph_projection_router)
     application.include_router(world_graph_retrieval_router)
+    application.include_router(rules_lookup_router)
     application.include_router(workspace_documents_router)
     application.include_router(workspace_lifecycle_router)
     application.include_router(world_containers_router)

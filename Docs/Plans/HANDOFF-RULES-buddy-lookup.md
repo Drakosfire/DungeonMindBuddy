@@ -1,6 +1,6 @@
 # Cited rules lookup for users and Buddy
 
-**Status:** PROPOSED bounded execution contract for independent architecture review. Operator authorized implementation in the active frontend-foundation goal and clarified RulesLawyer means an Agent-queryable lookup tool, using prior RulesLawyer / RulesIngestion work as design inputs. Base Buddy c3603df9a3196a15ebaffdf200c0b6efb7d80980; current DungeonMind dependency 632468ac43d8b321bf5379589a737aede9d7327c remains pinned.
+**Status:** ACTIVE overarching contract. Design PR1500 reviewed at bd53eac395663f9cec9e737dc79d6c1638cfd5eb and merged 2e089d3c63652d939267befb533a57102aab86b6. Operator authorized implementation in the active frontend-foundation goal and clarified RulesLawyer means an Agent-queryable lookup tool, using prior RulesLawyer / RulesIngestion work as design inputs. Base Buddy c3603df9a3196a15ebaffdf200c0b6efb7d80980; current DungeonMind dependency 632468ac43d8b321bf5379589a737aede9d7327c remains pinned.
 
 ## Product and ownership
 

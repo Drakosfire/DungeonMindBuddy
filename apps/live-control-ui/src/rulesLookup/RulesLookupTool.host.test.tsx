@@ -1,0 +1,21 @@
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {expect,it,vi} from 'vitest';
+import {AgentInteractionProjectionTestHost} from '../planSurface/projection/projectionTestHost';
+import {createPlanSurfaceConfig} from '../planSurface/config/planSurfaceConfig';
+import {fixturePlanDocumentDescriptor} from '../planSurface/config/planSessionDescriptor';
+import {mockPlanView} from '../test/fixtures';
+import {ToolHost} from '../surfaceInteraction/toolHost/ToolHost';
+import {LegacyProjectionHostAdapter} from '../planSurface/projection/LegacyProjectionHostAdapter';
+import * as api from '../api/liveApi';
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),getRulesCatalog:vi.fn(async()=>({schema:'dmb_rules_catalog_v1',sources:[{corpus:'a'.repeat(64),available:true,title:'SRD',coverage:'One section only',ruleset_id:'dnd_2024',unit_count:1}]}))}));
+it('opens the actual deferred Rules Lookup catalog through Plan ToolHost with no closed-tool reads',async()=>{
+ const config=createPlanSurfaceConfig(mockPlanView,fixturePlanDocumentDescriptor());
+ render(<AgentInteractionProjectionTestHost config={config}><input aria-label="Plan draft" defaultValue="retain"/><ToolHost/><LegacyProjectionHostAdapter/></AgentInteractionProjectionTestHost>);
+ const draft=screen.getByRole('textbox',{name:'Plan draft'});
+ expect(api.getRulesCatalog).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Tools',exact:true}));
+ fireEvent.click(await screen.findByRole('button',{name:'Rules Lookup',exact:true}));
+ expect(await screen.findByRole('region',{name:'Rules lookup',exact:true})).toBeInTheDocument();
+ await screen.findByRole('combobox');expect(api.getRulesCatalog).toHaveBeenCalledTimes(1);
+ expect(screen.getByRole('textbox',{name:'Plan draft'})).toBe(draft);expect(draft).toHaveValue('retain');
+});
