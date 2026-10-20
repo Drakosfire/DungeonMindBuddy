@@ -1,6 +1,6 @@
 # Preserve the World owner through same-World navigation
 
-**Status:** ACTIVE; PRIME authorizes a serialized prerequisite for held draftPR1497.
+**Status:** COMPLETE; reviewed in two cycles, merged and accepted on5202; source lease released.
 **Base:**60cb4b4e44d0e86cbf71bbbac081c985154b61db. Existing checkout branch codex/same-world-navigation-owner. Deferredcontrollerd370e0ca3 remains durable in draftPR1497, no overlapping edits or delivery. UI-only5202, no backend/data/dependency changes.
 
 ## Reproduced invariant failure
@@ -38,3 +38,7 @@ Pre-review native currentrootbuildindex-CtbEXc6W.js Plan→Play→Plan retains E
 Architecture initially approvede287379e573a561e917b40154071eb144cf2f388, then superseded that SAME Cycle1 judgment withHOLD after author audit and independent in-memory probe: Averified→Bpending→A reused A's old registry receipt (2registrycalls instead of a freshthird), although Aprivatecontroller had already ended. This is receipt-lifetime/admissionfreshness, not a proven auth/data exposure. Heldhead not merged/adopted.
 
 Repair retires the previous managed receipt in a COMMITTED layout boundary when the requestedWorld changes/clears or new unresolvedinference begins. No speculative-render ref mutation. Continuous sameA/newdoc retains memory; currentserververifiedinferredA→incomingexplicitA stayseligible. New3selectionwitnesses require changedregistry lookup/rejection after A→Bpending→A, A→clear→A and A→unresolvedinference→A; oldlatecompletion cannot restoreadmission. Final4file33/33 passes, actualappTypeScript/build pass, candidateindex-8x-DYYYC.js. Cycle2 distincthead review required before merge/default adoption/nativefinalrepeat.
+
+## Reviewed merge and accepted delivery
+
+Cycle1e287 approval was corrected toHOLD on the same head; Cycle2 Architecture/Bugbot APPROVE exact984baedec45b34d898d802e2c8874e884b39d318, independently33/33owner tests and originalreceiptprobePASS. PR1498 mergef65e201efe9a22bfdc635c1afef99ffd7c5fd9ef. Default5202index-8x-DYYYC.js/indexSHA1be408b195a3719a7ef537ed5edc286afc800ef48261e52e6989ae4bffef5fa9; exactmergedUI/sourceverified, priorassetsretained, APIunchanged/healthy. NativeacceptedPlan→Play→Plan exactQAunsentdraftretained; originalcomposerrestored,registry1GET versusbaseline4,0inference.17protectedresponsesunchangedafterbrowser; defaultentryverified. Ownedtab/temporaryHTMLremoved. NativeDOM/metadata is PRIME evidence, independent source/owner tests attributed separately. No screenshot/fullrepogreen/hardwareRAMclaim. Held1497 now rebases/reviews against this real accepted prerequisite.
