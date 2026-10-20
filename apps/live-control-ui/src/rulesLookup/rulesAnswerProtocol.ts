@@ -90,4 +90,3 @@ export async function rulesAnswerDigestsBound(context: RulesAnswerContext, text:
     return seal === context.accepted_binding_sha256 && body === b.assistant_text_sha256 && baseHash === b.base_text_sha256;
   } catch { return false; }
 }
-
