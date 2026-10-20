@@ -4460,17 +4460,21 @@ def _receipt_target_matches_intent(
 
 
 def validate_turn_lifecycle_fields(
-    *, world_id: str, provenance: TurnProvenance,
-    play_context_receipt: PlayRunTurnContextReceiptV2 | None, status: TurnStatus,
-    claim_expires_at: datetime | None, submitted_intent_fingerprint_v1: str | None,
+    *,
+    world_id: str,
+    provenance: TurnProvenance,
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None,
+    status: TurnStatus,
+    claim_expires_at: datetime | None,
+    submitted_intent_fingerprint_v1: str | None,
     submitted_intent_fingerprint_v2: str | None,
 ) -> None:
     try:
-        validate_play_context_receipt(
-            play_context_receipt, world_id, provenance
-        )
+        validate_play_context_receipt(play_context_receipt, world_id, provenance)
     except (TypeError, ValueError) as exc:
-        raise ValueError("stored Play context receipt differs from its provenance") from exc
+        raise ValueError(
+            "stored Play context receipt differs from its provenance"
+        ) from exc
     if status != "running" and claim_expires_at is not None:
         raise ValueError("only a running turn can carry an active claim expiry")
     if (
@@ -4481,17 +4485,17 @@ def validate_turn_lifecycle_fields(
 
 
 def validate_turn_graph_fields(
-    *, provenance: TurnProvenance, submitted_intent_fingerprint_v2: str | None,
+    *,
+    provenance: TurnProvenance,
+    submitted_intent_fingerprint_v2: str | None,
     graph_context_receipt: GraphContextReceipt | None,
     graph_context_execution: PlanWorldGraphExecution | None,
-    completion: GraphTurnCompletion | None, assistant_text: str | None,
+    completion: GraphTurnCompletion | None,
+    assistant_text: str | None,
 ) -> None:
     if completion is not None:
-        validate_session_evidence_claims(completion.answer_segments,provenance)
-    if (
-        graph_context_receipt is not None
-        and submitted_intent_fingerprint_v2 is None
-    ):
+        validate_session_evidence_claims(completion.answer_segments, provenance)
+    if graph_context_receipt is not None and submitted_intent_fingerprint_v2 is None:
         raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
     if graph_context_receipt is not None:
         validate_selected_source_binding(graph_context_receipt, graph_context_execution)
@@ -4502,41 +4506,72 @@ def validate_turn_graph_fields(
         if graph_context_receipt is None:
             raise ValueError("Graph execution requires its frozen context receipt")
         if submitted_intent_fingerprint_v2 is None:
-            raise ValueError("Graph execution requires a v2 submitted-intent fingerprint")
-        if graph_context_execution.context_receipt_sha256 != graph_context_receipt.context_receipt_sha256:
+            raise ValueError(
+                "Graph execution requires a v2 submitted-intent fingerprint"
+            )
+        if (
+            graph_context_execution.context_receipt_sha256
+            != graph_context_receipt.context_receipt_sha256
+        ):
             raise ValueError("Graph execution must bind the exact stored receipt")
         has_completion_binding = any(
             isinstance(event, CompletionBindingEventV1)
             for event in graph_context_execution.events
         )
         if has_completion_binding != (completion is not None):
-            raise ValueError("completion binding must be present exactly when completion is stored")
+            raise ValueError(
+                "completion binding must be present exactly when completion is stored"
+            )
     if isinstance(graph_context_receipt, BuildGraphContextReceiptV1) and (
         not isinstance(graph_context_execution, PlanWorldGraphExecutionV2)
         or provenance.surface_id != "build"
         or provenance.primary_work.kind != "build"
     ):
-        raise ValueError("Build Graph receipt requires governed Build execution and provenance")
+        raise ValueError(
+            "Build Graph receipt requires governed Build execution and provenance"
+        )
     if isinstance(graph_context_receipt, BuildGraphContextReceiptV1):
         _validate_build_receipt_provenance(graph_context_receipt, provenance)
-        if isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and assistant_text != "\n".join(s.text for s in completion.answer_segments):
-            raise ValueError("Build answer text must match its validated completion segments")
-    if (completion is None and graph_context_execution is not None
-            and any(isinstance(event, BuildSectionAnswerBindingV1) for event in graph_context_execution.events)):
+        if isinstance(
+            completion,
+            (
+                BuildGraphCompletionV1,
+                BuildGraphCompletionV2,
+                BuildAuthoringCompletionV1,
+                BuildImagePreparationCompletionV1,
+            ),
+        ) and assistant_text != "\n".join(s.text for s in completion.answer_segments):
+            raise ValueError(
+                "Build answer text must match its validated completion segments"
+            )
+    if (
+        completion is None
+        and graph_context_execution is not None
+        and any(
+            isinstance(event, BuildSectionAnswerBindingV1)
+            for event in graph_context_execution.events
+        )
+    ):
         raise ValueError("Saved answer bindings require a completed answer")
     if completion is not None:
         if graph_context_receipt is None:
             raise ValueError("Graph completion requires its frozen context receipt")
         if graph_context_execution is None:
-            validate_completion_against_receipt(
-                completion, graph_context_receipt
-            )
+            validate_completion_against_receipt(completion, graph_context_receipt)
         else:
-            bindings = [e for e in graph_context_execution.events if isinstance(e, CompletionBindingEventV1)]
+            bindings = [
+                e
+                for e in graph_context_execution.events
+                if isinstance(e, CompletionBindingEventV1)
+            ]
             if len(bindings) != 1:
-                raise ValueError("execution completion requires exactly one completion binding")
+                raise ValueError(
+                    "execution completion requires exactly one completion binding"
+                )
             binding = bindings[0]
-            if binding.completion_sha256 != _canonical_sha256(completion.model_dump(mode="json", by_alias=True)):
+            if binding.completion_sha256 != _canonical_sha256(
+                completion.model_dump(mode="json", by_alias=True)
+            ):
                 raise ValueError("completion binding digest does not match completion")
             validate_execution_completion(
                 completion,

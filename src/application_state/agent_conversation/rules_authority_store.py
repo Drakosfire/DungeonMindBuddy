@@ -66,13 +66,13 @@ def _lock_current_claim(
         )
 
 
-def _locked_record(conn, scope):
+def _read_record_locked(conn, turn_id, product_attempt):
     with conn.cursor(row_factory=dict_row) as cur:
         # Do not transfer an oversized/corrupt payload before checking its cap.
         cur.execute(
             """SELECT revision,CASE WHEN octet_length(payload::text)<=327680 THEN payload ELSE NULL END AS payload
             FROM agent.turn_rules_execution WHERE turn_id=%s AND product_attempt=%s FOR UPDATE""",
-            (scope.turn_id, scope.product_attempt),
+            (turn_id, product_attempt),
         )
         row = cur.fetchone()
     if row is None:
@@ -89,11 +89,77 @@ def _locked_record(conn, scope):
         raise ApplicationStateIntegrityError(
             "Stored Rules ledger failed strict validation"
         ) from exc
-    if execution.scope != scope:
+    return RulesLedgerRecordV1(revision=row["revision"], execution=execution)
+
+
+def _locked_record(conn, scope):
+    record = _read_record_locked(conn, scope.turn_id, scope.product_attempt)
+    if record is not None and record.execution.scope != scope:
         raise ApplicationStateConflictError(
             "Rules scope differs from its frozen attempt authority"
         )
-    return RulesLedgerRecordV1(revision=row["revision"], execution=execution)
+    return record
+
+
+def load_turn_rules_locked(conn, turn):
+    """Caller holds the exact owning Turn lock; read one current-attempt ledger."""
+    record = _read_record_locked(conn, turn.turn_id, turn.attempt)
+    if record is not None:
+        scope = record.execution.scope
+        if (
+            scope.world_id,
+            scope.conversation_id,
+            scope.turn_id,
+            scope.product_attempt,
+        ) != (turn.world_id, turn.conversation_id, turn.turn_id, turn.attempt):
+            raise ApplicationStateIntegrityError(
+                "Rules ledger differs from its owning turn"
+            )
+    return record
+
+
+def close_unused_locked(conn, turn):
+    record = load_turn_rules_locked(conn, turn)
+    if record is None or record.execution.state == "unused":
+        return
+    if (
+        record.execution.state != "active"
+        or record.execution.budget_use.calls
+        or record.execution.supports
+    ):
+        raise ApplicationStateValidationError(
+            "Used Rules capability requires mixed finalization or failure"
+        )
+    _write_closed_state_locked(conn, turn, record, "unused")
+
+
+def fail_execution_locked(conn, turn):
+    record = load_turn_rules_locked(conn, turn)
+    if record is None or record.execution.state == "failed":
+        return
+    if record.execution.state != "active":
+        raise ApplicationStateConflictError("Rules execution already closed")
+    _write_closed_state_locked(conn, turn, record, "failed")
+
+
+def _write_closed_state_locked(conn, turn, record, state):
+    data = record.execution.model_dump(mode="json", by_alias=True)
+    data["state"] = state
+    execution = RulesExecutionV1.model_validate_json(
+        json.dumps(data, ensure_ascii=False)
+    )
+    result = conn.execute(
+        """UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s
+        WHERE turn_id=%s AND product_attempt=%s AND revision=%s AND accepted_binding IS NULL""",
+        (
+            Jsonb(execution.model_dump(mode="json", by_alias=True)),
+            turn.turn_id,
+            turn.attempt,
+            record.revision,
+        ),
+    )
+    if result.rowcount != 1:
+        raise ApplicationStateConflictError("Rules closure CAS failed")
 
 
 def open_execution_locked(
@@ -271,3 +337,69 @@ def append_provider_event_locked(
     if result.rowcount != 1:
         raise ApplicationStateConflictError("Rules provider ledger CAS failed")
     return RulesLedgerRecordV1(revision=current.revision + 1, execution=updated), True
+
+
+def persist_accepted_locked(
+    conn, current: RulesLedgerRecordV1, accepted: RulesExecutionV1, binding
+):
+    """Only mixed finalization may call this after locking/validating both owners."""
+    from .rules_authority_types import canonical_sha256
+
+    scope = current.execution.scope
+    if (
+        current.execution.state != "active"
+        or accepted.state != "accepted"
+        or accepted.scope != scope
+        or accepted.events[:-1] != current.execution.events
+        or accepted.events[-1].accepted_binding_sha256 != canonical_sha256(binding)
+    ):
+        raise ApplicationStateValidationError(
+            "Accepted Rules value differs from its locked execution"
+        )
+    if (
+        binding.world_id,
+        binding.conversation_id,
+        binding.turn_id,
+        binding.product_attempt,
+        binding.execution_id,
+        binding.corpus_sha256,
+        binding.ruleset_id,
+    ) != (
+        scope.world_id,
+        scope.conversation_id,
+        scope.turn_id,
+        scope.product_attempt,
+        scope.execution_id,
+        scope.corpus_sha256,
+        scope.ruleset_id,
+    ):
+        raise ApplicationStateValidationError(
+            "Accepted Rules binding differs from frozen scope"
+        )
+    if (
+        binding.composition_sha256 != canonical_sha256(accepted.composition)
+        or binding.assistant_text_sha256 != accepted.composition.assistant_text_sha256
+        or binding.accepted_turn_revision != accepted.events[-1].accepted_turn_revision
+        or binding.producing_provider_attempt_id
+        != accepted.rules_completion.producing_provider_attempt_id
+        or binding.request_envelope_sha256
+        != accepted.rules_completion.request_envelope_sha256
+    ):
+        raise ApplicationStateValidationError(
+            "Accepted Rules binding differs from completion seal"
+        )
+    result = conn.execute(
+        """UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s,accepted_binding=%s,accepted_binding_sha256=%s
+        WHERE turn_id=%s AND product_attempt=%s AND revision=%s AND payload->>'state'='active'
+            AND accepted_binding IS NULL AND accepted_binding_sha256 IS NULL""",
+        (
+            Jsonb(accepted.model_dump(mode="json", by_alias=True)),
+            Jsonb(binding.model_dump(mode="json", by_alias=True)),
+            canonical_sha256(binding),
+            scope.turn_id,
+            scope.product_attempt,
+            current.revision,
+        ),
+    )
+    if result.rowcount != 1:
+        raise ApplicationStateConflictError("Rules acceptance CAS failed")

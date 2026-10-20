@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from uuid import UUID
+from typing import Annotated, Literal
+from pydantic import Field, model_validator
+from .types import TurnResult
 
 from .rules_authority_events import (
     RulesCompletionBoundV1,
@@ -12,6 +15,8 @@ from .rules_authority_events import (
 )
 from .rules_authority_types import (
     AnswerCompositionV1,
+    ClosedRulesModel,
+    RulesScopeV1,
     RulesAcceptedBindingV1,
     RulesClaimV1,
     RulesSupportRefV1,
@@ -163,3 +168,55 @@ def prepare_rules_acceptance(
     return RulesExecutionV1.model_validate_json(
         json.dumps(data, ensure_ascii=False)
     ), binding
+
+
+class MixedTurnResultV1(ClosedRulesModel):
+    """Internal mixed result; base proof remains its existing typed result."""
+
+    schema_: Literal["dmb_mixed_turn_result_v1"] = Field(alias="schema")
+    scope: RulesScopeV1
+    expected_turn_revision: Annotated[int, Field(ge=1)]
+    expected_rules_revision: Annotated[int, Field(ge=1)]
+    assistant_text: Annotated[str, Field(min_length=1, max_length=32000)]
+    composition: AnswerCompositionV1
+    producing_provider_attempt_id: UUID
+    base_result: TurnResult | None
+
+    @model_validator(mode="after")
+    def exact_partitions(self):
+        base = self.base_result
+        scope = self.scope
+        if (self.composition.base_disposition == "approved") != (base is not None):
+            raise ValueError(
+                "Mixed base result differs from its composition disposition"
+            )
+        segments = ()
+        if base is not None:
+            if (
+                base.world_id,
+                base.conversation_id,
+                base.turn_id,
+                base.expected_revision,
+            ) != (
+                scope.world_id,
+                scope.conversation_id,
+                scope.turn_id,
+                self.expected_turn_revision,
+            ):
+                raise ValueError("Mixed base result differs from its owner or revision")
+            if (
+                base.completion is None
+                or base.producing_provider_attempt_id
+                != self.producing_provider_attempt_id
+            ):
+                raise ValueError(
+                    "Mixed approved base needs its same producing completion"
+                )
+            segments = tuple(item.text for item in base.completion.answer_segments)
+            if base.assistant_text != "\n".join(segments):
+                raise ValueError(
+                    "Mixed base text differs from exact base completion segments"
+                )
+        if self.composition.render(segments) != self.assistant_text:
+            raise ValueError("Mixed text differs from its ordered composition")
+        return self

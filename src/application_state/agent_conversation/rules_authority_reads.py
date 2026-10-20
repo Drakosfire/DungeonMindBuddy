@@ -94,7 +94,7 @@ RulesBaseProjectionV1 = Annotated[
 
 
 def validate_unclaimed_receipt_owner(
-    envelope: CompletedTurnEnvelopeV1, receipt: GraphContextReceipt
+    envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
     if isinstance(receipt, BuildGraphContextReceiptV1):
         # The shared Graph validator checks Build source/provenance exactly.
@@ -221,6 +221,19 @@ class MixedCompletedTurnV1(ClosedRulesModel):
                     "Approved base text differs from its completion subsequence"
                 )
             if turn.graph_context_execution is not None:
+                graph_bindings = [
+                    item
+                    for item in turn.graph_context_execution.events
+                    if isinstance(item, CompletionBindingEventV1)
+                ]
+                if (
+                    len(graph_bindings) != 1
+                    or graph_bindings[0].provider_attempt_id
+                    != binding.producing_provider_attempt_id
+                ):
+                    raise ValueError(
+                        "Approved Graph completion has a different Rules producer"
+                    )
                 validate_graph_producer_join(turn.graph_context_execution, binding)
         elif isinstance(base, RulesUnclaimedBaseV1):
             validate_turn_graph_fields(
