@@ -181,7 +181,8 @@ import type {
   ThreatQueryHydrationResponseV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
-import { withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
+import { clearProjectionRequestCache, withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
+import { shareInFlightRead, startReadWave } from "./inFlightReads";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 let nativeGraphAccessToken: string | null = null;
@@ -250,6 +251,8 @@ export async function connectNativeGraphSession(): Promise<string> {
   if (nativeGraphRevocationRequest) await nativeGraphRevocationRequest.catch(() => undefined);
   if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
   nativeGraphSessionEpoch += 1;
+  clearProjectionRequestCache();
+  startReadWave();
   nativeGraphCsrf = null;
   nativeGraphSessionRevoked = false;
   return ensureNativeGraphSession();
@@ -259,6 +262,8 @@ export function revokeNativeGraphSession(): Promise<void> {
   if (!nativeGraphRevocationRequest) {
     const cachedCsrf = nativeGraphCsrf;
     nativeGraphSessionEpoch += 1;
+    clearProjectionRequestCache();
+    startReadWave();
     nativeGraphSessionRevoked = true;
     nativeGraphCsrf = null;
     const request = (async () => {
@@ -289,6 +294,8 @@ export function revokeNativeGraphSession(): Promise<void> {
 function blockStaleNativeGraphSession(status: number, usedCsrf: string | null, requestEpoch: number): void {
   if (!usedCsrf || requestEpoch !== nativeGraphSessionEpoch || (status !== 401 && status !== 403)) return;
   nativeGraphSessionEpoch += 1;
+  clearProjectionRequestCache();
+  startReadWave();
   nativeGraphCsrf = null;
   nativeGraphSessionRevoked = true;
   if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
@@ -299,6 +306,11 @@ export function setNativeGraphAccessToken(token: string | null): void {
   const normalized = token?.trim() ?? "";
   const changed = normalized !== (nativeGraphAccessToken ?? "");
   nativeGraphAccessToken = normalized || null;
+  if (changed) {
+    nativeGraphSessionEpoch += 1;
+    clearProjectionRequestCache();
+    startReadWave();
+  }
   if (!nativeGraphAccessToken) nativeGraphCsrf = null;
   if (changed && typeof window !== "undefined") {
     window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
@@ -587,7 +599,7 @@ async function trustedLocalSessionRejection(response: Response): Promise<boolean
 }
 
 /** @internal Shared transport for API wrappers and transport-boundary verification. */
-export async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
+async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Promise<{
   response: Response; csrf: string | null; requestEpoch: number;
 }> {
   const target = apiRequestTarget(path, init?.body);
@@ -632,6 +644,8 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
         throw new LiveApiError("Local session changed during recovery.", 401, { code: "local_graph_session_changed" });
       }
       nativeGraphSessionEpoch += 1;
+      clearProjectionRequestCache();
+      startReadWave();
       nativeGraphCsrf = null;
       owned.connectedEpoch = nativeGraphSessionEpoch;
       // Reuse the existing GET → bootstrap POST. Never clear explicit revocation.
@@ -648,6 +662,82 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   if (!canRetryLocalSessionRequest(path, frozenInit) || nativeGraphSessionRevoked || nativeGraphAccessToken
     || recovery.connectedEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) return first;
   return dispatch(recovery.connectedEpoch ?? undefined);
+}
+
+/** Exact allowlist of passive reads; commands/provider dispatch never share transport. */
+function isShareableRead(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const pathname = path.split("?", 1)[0];
+  if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
+    || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
+    || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname);
+  return method === "POST" && typeof init?.body === "string"
+    && ["/api/live/world-graph/projection", "/api/live/world-graph/managed-projection", "/api/live/world-graph/recap-projection"].includes(pathname);
+}
+
+/** These allowlisted endpoints return JSON; keep admission valid through body consumption. */
+function admittedReadResponse(response: Response, assertCurrent: () => void): Response {
+  return new Proxy(response, {
+    get(target, property) {
+      if (property === "clone") return () => admittedReadResponse(target.clone(), assertCurrent);
+      const value = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      if (["json", "text", "arrayBuffer", "blob", "formData", "bytes"].includes(String(property))) {
+        return async (...args: unknown[]) => {
+          assertCurrent();
+          const body: unknown = await Reflect.apply(value, target, args);
+          assertCurrent();
+          return body;
+        };
+      }
+      return value.bind(target);
+    },
+  });
+}
+
+/** @internal Shared transport with access-scoped pending-read acquisition. */
+export async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
+  response: Response; csrf: string | null; requestEpoch: number;
+}> {
+  // Validate the destination before touching a shared acquisition.
+  apiRequestTarget(path, init?.body);
+  if (!isShareableRead(path, init)) {
+    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
+    startReadWave();
+    try {
+      return await authenticatedApiFetchOnce(path, init);
+    } finally {
+      // Reads begun during a write may observe its predecessor, even when they
+      // resolve after it. Post-write refreshes need their own acquisition wave.
+      // Also invalidate on an uncertain transport failure; never infer no write.
+      startReadWave();
+    }
+  }
+  const { signal, ...callerOptions } = init ?? {};
+  const options = { ...callerOptions, headers: headerRecord(callerOptions.headers) };
+  const headers = Array.from(new Headers(options.headers).entries()).sort(([a], [b]) => a.localeCompare(b));
+  const acquisitionEpoch = nativeGraphSessionEpoch;
+  const requestOptions = Object.entries({ ...options, method: (options.method ?? "GET").toUpperCase(), headers })
+    .sort(([a], [b]) => a.localeCompare(b));
+  const key = JSON.stringify([baseUrl, acquisitionEpoch, path, requestOptions]);
+  const result = await shareInFlightRead(key, ownedSignal => {
+    if (acquisitionEpoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+      throw new LiveApiError("Local session changed before this read. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+    return authenticatedApiFetchOnce(path, { ...options, signal: ownedSignal });
+  }, signal);
+  const assertCurrent = () => {
+    if (signal?.aborted) throw signal.reason ?? new DOMException("Read cancelled", "AbortError");
+    if (result.requestEpoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+      throw new LiveApiError("Local session changed during this read. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+  };
+  assertCurrent();
+  const response = result.response.clone();
+  return { ...result, response: response.ok ? admittedReadResponse(response, assertCurrent) : response };
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

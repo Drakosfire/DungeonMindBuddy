@@ -2367,25 +2367,13 @@ describe("liveApi World Graph error preservation", () => {
   it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
     setNativeGraphAccessToken("test-only-local-operator-credential-value");
     clearProjectionRequestCache();
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 409,
-      statusText: "Conflict",
-      text: async () =>
-        JSON.stringify({
-          schema: "dmb_world_graph_projection_error_v1",
-          code: "projection_integrity_error",
-          message: "Projection integrity check failed.",
-          statusCode: 409,
-          diagnostics: [
-            {
-              code: "missing_node",
-              message: "Node npc-glowkindle is missing.",
-              severity: "error",
-            },
-          ],
-        }),
-    } as Response);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+      schema: "dmb_world_graph_projection_error_v1",
+      code: "projection_integrity_error",
+      message: "Projection integrity check failed.",
+      statusCode: 409,
+      diagnostics: [{ code: "missing_node", message: "Node npc-glowkindle is missing.", severity: "error" }],
+    }, { status: 409, statusText: "Conflict" }));
 
     await expect(
       postWorldGraphProjection({
