@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getExtractionRun, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
@@ -123,6 +123,15 @@ export function SelectedWorldProvider({
     && loaded.value.worldId === selection.worldId
     ? { ...loaded.value, documentId: null }
     : admission, [admission, loaded, selection.explicit, selection.worldId]);
+
+  useLayoutEffect(() => {
+    if (loaded?.value.kind === "managed" && loaded.scope !== selectionScope
+      && (!selection.explicit || selection.worldId !== loaded.value.worldId)) {
+      // A committed World boundary ends eligibility of the previous receipt.
+      // It cannot be reused if navigation returns before the new read settles.
+      setLoaded(null);
+    }
+  }, [loaded, selectionScope, selection.explicit, selection.worldId]);
 
   // Retained World identity conveys no admission for incoming document selectors.
   currentVerifiedManagedWorld = state.kind === "managed" ? state : null;

@@ -318,3 +318,32 @@ it('rejects late inferred A→B→A responses and canonicalizes only the current
  await waitFor(()=>expect(screen.getByTestId('admission')).toHaveTextContent('managed'));
  expect(new URLSearchParams(window.location.search).get('world')).toBe(world.world_id);expect(window.location.hash).toBe('#current');expect(getPlayRun).toHaveBeenCalledTimes(3);expect(listWorldContainers).toHaveBeenCalledTimes(1);
 });
+
+it('retires an old World receipt at A→B-pending→A and requires the changed registry',async()=>{
+ const middle=deferred<Awaited<ReturnType<typeof listWorldContainers>>>();
+ vi.mocked(listWorldContainers).mockResolvedValueOnce({schema_version:'dmb_world_container_registry_v1',records:[world]}).mockReturnValueOnce(middle.promise).mockResolvedValueOnce({schema_version:'dmb_world_container_registry_v1',records:[]});
+ const view=render(<SelectedWorldProvider locationSnapshot={`/play?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
+ await waitFor(()=>expect(screen.getByTestId('identity')).toHaveTextContent('managed'));
+ view.rerender(<SelectedWorldProvider locationSnapshot="/play?world=B"><AdmissionProbe/></SelectedWorldProvider>);
+ expect(screen.getByTestId('identity')).toHaveTextContent('loading');
+ view.rerender(<SelectedWorldProvider locationSnapshot={`/play?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
+ expect(screen.getByTestId('identity')).toHaveTextContent('loading');
+ await waitFor(()=>expect(screen.getByTestId('identity')).toHaveTextContent('error'));
+ expect(listWorldContainers).toHaveBeenCalledTimes(3);
+ await act(async()=>middle.resolve({schema_version:'dmb_world_container_registry_v1',records:[world]}));
+ expect(screen.getByTestId('identity')).toHaveTextContent('error');expect(getWorldIdForCampaign(world.world_id)).toBeNull();
+});
+it.each(['clear','inference'] as const)('retires a receipt when leaving its explicit World for %s',async boundary=>{
+ vi.mocked(listWorldContainers).mockResolvedValueOnce({schema_version:'dmb_world_container_registry_v1',records:[world]}).mockResolvedValueOnce({schema_version:'dmb_world_container_registry_v1',records:[]});
+ const pending=deferred<Awaited<ReturnType<typeof getPlayRun>>>();vi.mocked(getPlayRun).mockReturnValueOnce(pending.promise);
+ const view=render(<SelectedWorldProvider locationSnapshot={`/play?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
+ await waitFor(()=>expect(screen.getByTestId('identity')).toHaveTextContent('managed'));
+ view.rerender(<SelectedWorldProvider locationSnapshot={boundary==='clear'?'/':'/play?run=unverified'}><AdmissionProbe/></SelectedWorldProvider>);
+ expect(screen.getByTestId('identity')).not.toHaveTextContent('managed');
+ view.rerender(<SelectedWorldProvider locationSnapshot={`/play?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
+ expect(screen.getByTestId('identity')).toHaveTextContent('loading');
+ await waitFor(()=>expect(screen.getByTestId('identity')).toHaveTextContent('error'));
+ expect(listWorldContainers).toHaveBeenCalledTimes(2);
+ await act(async()=>pending.resolve({run_id:'unverified',campaign_id:world.world_id} as never));
+ expect(screen.getByTestId('identity')).toHaveTextContent('error');
+});
