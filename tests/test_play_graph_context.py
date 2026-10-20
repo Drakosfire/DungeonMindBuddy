@@ -240,3 +240,17 @@ def test_execution_cannot_rebind_a_valid_ledger_to_another_receipt_hash():
         policy=execution.policy, events=[])
     with pytest.raises(ValueError, match="frozen receipt Graph scope"):
         validate_play_graph_execution_binding(receipt, execution)
+
+
+@pytest.mark.parametrize("pin", ["graph-one", "foreign-graph-revision", ""])
+def test_native_current_world_policy_rejects_explicit_graph_pins_before_receipt_admission(pin):
+    receipt, _, _ = fixture()
+    wire = intent_wire()
+    wire["graph_request"]["revision_pin"] = pin
+    # Existing Play API also forbids explicit pins: the resolver freezes the
+    # current owner World snapshot. Matching a receipt does not add a capability.
+    with pytest.raises(ValueError, match="current World-only intent"):
+        intent = PlayGraphIntentV1.model_validate_json(json.dumps(wire))
+        validate_play_graph_intent_receipt(intent, receipt)
+    wire["graph_request"]["revision_pin"] = None
+    validate_play_graph_intent_receipt(PlayGraphIntentV1.model_validate_json(json.dumps(wire)), receipt)

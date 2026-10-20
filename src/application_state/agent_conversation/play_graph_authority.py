@@ -54,9 +54,9 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
     def exact_native_play_intent(self):
         ref, graph = self.primary_work, self.graph_request
         if (ref.kind != "run" or ref.play_content_basis is None
-                or graph.mode != "world" or graph.campaign_id is not None
+                or graph.mode != "world" or graph.campaign_id is not None or graph.revision_pin is not None
                 or graph.focus is None or graph.focus.kind != "none"):
-            raise ValueError("Native Play Graph requires exact Run edition and World-only intent")
+            raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
         return self
 
 
