@@ -50,7 +50,10 @@ def intent_wire():
 def test_native_play_intent_is_explicit_and_fingerprints_only_original_submission():
     first = PlayGraphIntentV1.model_validate_json(json.dumps(intent_wire()))
     assert PlayGraphIntentV1.model_validate_json(first.model_dump_json(by_alias=True)) == first
-    assert play_graph_intent_fingerprint(first) == canonical_sha256(first)
+    assert play_graph_intent_fingerprint(first) == canonical_sha256(first.model_dump(mode="json", by_alias=True, exclude={"client_thread_id"}))
+    routed = intent_wire()
+    routed["client_thread_id"] = "resolved-or-renewed-thread"
+    assert play_graph_intent_fingerprint(PlayGraphIntentV1.model_validate_json(json.dumps(routed))) == play_graph_intent_fingerprint(first)
     changed = intent_wire()
     changed["play_target"]["scene_id"] = "scene:other"
     second = PlayGraphIntentV1.model_validate_json(json.dumps(changed))

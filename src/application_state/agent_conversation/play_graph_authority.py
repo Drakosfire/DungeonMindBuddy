@@ -57,7 +57,7 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
 def play_graph_intent_fingerprint(intent: PlayGraphIntentV1) -> str:
     """New explicit protocol; never reinterprets a historical intent algorithm."""
     checked = PlayGraphIntentV1.model_validate_json(intent.model_dump_json(by_alias=True))
-    return canonical_sha256(checked)
+    return canonical_sha256(checked.model_dump(mode="json", by_alias=True, exclude={"client_thread_id"}))
 
 
 class PlaySourceLocatorV1(ClosedRulesModel):

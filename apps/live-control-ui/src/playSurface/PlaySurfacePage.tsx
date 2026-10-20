@@ -1,3 +1,4 @@
+import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION, useRulesLookupProjection } from "../rulesLookup/rulesLookupProjection";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { getWorldPlayRunContent } from "../api/playRunContentApi";
@@ -301,9 +302,9 @@ function PlaySurfacePublisher({
       ...agentContextContribution,
       ambientSummary: sessionCopy ? "Play session copy · Agent context unavailable" : authority.ambientSummary,
     },
-    tools: [],
+    tools: [RULES_LOOKUP_TOOL],
     editCommands: [],
-    projections: [],
+    projections: [RULES_LOOKUP_PROJECTION],
     projectionBindings: [],
   }), [authority, agentContextContribution, sessionCopy]);
 
@@ -332,6 +333,7 @@ function PlaySurfacePublisher({
   );
 
   usePublishSurfaceInteraction(publication);
+  useRulesLookupProjection("play", true);
   usePublishAgentSurfaceContext(agentContext);
   return null;
 }
