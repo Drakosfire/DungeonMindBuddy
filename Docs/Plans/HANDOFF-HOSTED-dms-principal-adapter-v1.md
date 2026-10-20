@@ -1,6 +1,6 @@
 # HANDOFF — HOSTED: DMS principal adapter
 
-**Status:** ACTIVE
+**Status:** SETTLED — PR #1508 merged at `4ba6de08c33d9f8870d6c2857b585ce72f97d903`.
 
 **Steward:** Hosted Buddy v1 implementation task
 
@@ -50,4 +50,4 @@ Inspect the project test configuration first. Run the focused test file with the
 
 ## Completion boundary
 
-The lane remains active and `hosted_owner` remains disabled after PR publication and review. Do not mark this handoff complete or claim hosted identity/launch readiness until a separately authorized merge and state settlement occur. Cookie delivery, full route authorization, CSRF, persistence, operator configuration, and launch rehearsal remain later gates.
+PR #1508 was merged from exact reviewed head `a43004aef8afecf6241c3584c1e4948a80dffc30` on 2026-10-20; GitHub confirms merge commit `4ba6de08c33d9f8870d6c2857b585ce72f97d903`, now the Buddy `origin/main` anchor. The adapter and tests are part of main, but the resolver remains unmounted, `hosted_owner` remains disabled, and no deployment or live configuration change occurred. This handoff is settled as implementation authority. Cookie delivery, route authorization, CSRF, persistence, operator configuration, and launch rehearsal remain later gates.
