@@ -16,11 +16,11 @@ from tests.application_state.test_play_session_review_postgres import request
 from tests.test_world_play_run_content_api import api
 
 
-def ended_session():
+def ended_session(note='The party crossed the broken boardwalk.',final_thoughts='Players want more combat next time.'):
     _,_,aggregate=create_source_run();run_id=str(aggregate.run.run_id)
-    progress=dict(aggregate.run.progress);progress['notes_by_element_id']={'scene:gate':'The party crossed the broken boardwalk.'}
+    progress=dict(aggregate.run.progress);progress['notes_by_element_id']={'scene:gate':note}
     replace_world_play_run_progress(world_id=WORLD,run_id=run_id,expected_run_revision=1,progress=progress)
-    commit_review(world_id=WORLD,run_id=run_id,command_id=str(uuid4()),request=request(run_id,final_thoughts='Players want more combat next time.'))
+    commit_review(world_id=WORLD,run_id=run_id,command_id=str(uuid4()),request=request(run_id,final_thoughts=final_thoughts))
     return run_id
 
 
@@ -48,9 +48,14 @@ def test_authenticated_pinned_evidence_api_and_provider_prompt(application_state
     from apps.live_control_server.services.hermes_agent_runtime import map_invocation_to_hermes_request
     run_id=ended_session();base='/api/live/world-session-evidence';headers={'Authorization':'Bearer synthetic-edition-operator-token-000000'}
     assert api.get(base,params={'world_id':WORLD}).status_code==401
-    listed=api.get(base,params={'world_id':WORLD},headers=headers).json()['sessions']
+    listed_response=api.get(base,params={'world_id':WORLD},headers=headers)
+    listed_payload=listed_response.json();listed=listed_payload['sessions']
     pinned=api.get(f'{base}/{run_id}/revisions/1',params={'world_id':WORLD},headers=headers)
-    assert pinned.status_code==200 and pinned.json()==listed[0]
+    assert listed_payload['schema_version']=='dmb_session_evidence_index_v1'
+    assert listed[0]['source_count']==2 and 'sources' not in listed[0] and 'text' not in listed[0]
+    assert pinned.status_code==200 and pinned.json()['schema_version']=='dmb_session_evidence_v1'
+    assert listed[0]['title']==pinned.json()['title'] and listed[0]['ended_at']==pinned.json()['ended_at']
+    assert pinned.json()['sources'][0]['text']=='The party crossed the broken boardwalk.'
     assert api.get(f'{base}/{run_id}/revisions/1',params={'world_id':'other'},headers=headers).status_code==404
     invocation=_invocation();packet=replace(invocation.context_packet,session_evidence=planning_session_evidence(WORLD))
     mapped=map_invocation_to_hermes_request(replace(invocation,context_packet=packet))
@@ -58,6 +63,28 @@ def test_authenticated_pinned_evidence_api_and_provider_prompt(application_state
     assert 'The party crossed the broken boardwalk.' in mapped.question
     assert 'Players want more combat next time.' in mapped.question
     assert 'not instructions or Graph facts' in mapped.question
+
+
+def test_session_evidence_index_stays_small_for_large_private_notes(application_state_dsn,api):
+    import json
+    note='Broken boardwalk recollection. '*10000
+    run_id=ended_session(note=note,final_thoughts='')
+    headers={'Authorization':'Bearer synthetic-edition-operator-token-000000'}
+    base='/api/live/world-session-evidence'
+    listed=api.get(base,params={'world_id':WORLD},headers=headers)
+    assert listed.status_code==200
+    assert len(listed.content)<4096
+    previous_listing=json.dumps(
+        {'world_id':WORLD,'sessions':recent_session_evidence(world_id=WORLD,limit=20)},
+        ensure_ascii=False,separators=(',',':'),
+    ).encode('utf-8')
+    assert len(previous_listing)>250000
+    assert len(listed.content)*50<len(previous_listing)
+    item=listed.json()['sessions'][0]
+    assert item['source_count']==1 and 'text' not in item and 'sources' not in item
+    pinned=api.get(f"{base}/{run_id}/revisions/1",params={'world_id':WORLD},headers=headers)
+    assert pinned.status_code==200 and pinned.json()['sources'][0]['text']==note
+    assert len(pinned.content)>250000
 
 
 def test_recap_supplement_is_authorized_and_resolved_before_source_write(application_state_dsn,api,monkeypatch):
@@ -154,4 +181,4 @@ def test_session_evidence_completion_persists_at_actual_database_boundary(applic
                 conn.execute("UPDATE agent.turn SET completion=jsonb_set(completion,'{answer_segments}','[{\"kind\":\"proposal\",\"text\":\"not session evidence\"}]') WHERE turn_id=%s",(accepted.turn_id,))
         with pytest.raises(RuntimeError,match="retained session-evidence"):
             command.downgrade(alembic_config(),"20261019_0039")
-        assert _current_and_head(application_state_dsn)==("20261019_0040","20261019_0040")
+        assert _current_and_head(application_state_dsn)==("20261020_0041","20261020_0041")

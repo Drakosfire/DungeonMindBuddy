@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import Response
 
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.play_active_run import (
@@ -548,13 +550,31 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
 
 
 @router.get("/world-session-evidence")
-def list_session_evidence_route(request: Request,world_id: Annotated[str,Query(min_length=1)],limit: Annotated[int,Query(ge=1,le=20)]=20):
+def list_session_evidence_route(
+    request: Request,
+    world_id: Annotated[str, Query(min_length=1, max_length=128)],
+    limit: Annotated[int, Query(ge=1, le=20)] = 20,
+):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    from application_state.play.session_evidence import recent_session_evidence
+    from application_state.play.session_evidence import (
+        MAX_SESSION_EVIDENCE_INDEX_BYTES,
+        recent_session_evidence_index,
+    )
     from application_state.errors import ApplicationStateError
+
     enforce_native_graph_gm(request)
-    try:return {"world_id":world_id,"sessions":recent_session_evidence(world_id=world_id,limit=limit)}
-    except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
+    try:
+        result = recent_session_evidence_index(world_id=world_id, limit=limit)
+        payload = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(payload) > MAX_SESSION_EVIDENCE_INDEX_BYTES:
+            raise HTTPException(status_code=422, detail={"code": "session_evidence_index_too_large"})
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Cache-Control": "no-store", "Pragma": "no-cache"},
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("/world-session-evidence/{run_id}/revisions/{revision}")

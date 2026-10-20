@@ -10,6 +10,8 @@ from application_state.errors import ApplicationStateNotFoundError, ApplicationS
 from application_state.play.service import _as_uuid, _require_world_id
 from application_state.unit_of_work import unit_of_work
 
+MAX_SESSION_EVIDENCE_INDEX_BYTES = 24 * 1024
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",", ":"),ensure_ascii=False).encode()).hexdigest()
@@ -55,3 +57,52 @@ def recent_session_evidence(*,world_id,limit=3):
               WHERE r.world_id=%s AND r.lifecycle_status='active' ORDER BY e.run_id,e.revision_n DESC
             ) heads WHERE payload->>'status'='ended' ORDER BY payload->'checkpoint'->>'captured_at' DESC,run_id LIMIT %s""",(world_id,limit))
             return [evidence(row["payload"],world_id,row["run_id"],row["revision_n"]) for row in cur.fetchall()]
+
+
+def recent_session_evidence_index(*,world_id,limit=20):
+    """Return bounded session metadata without reading note/reflection bodies into Python."""
+    world_id = _require_world_id(world_id)
+    if type(limit) is not int or not 1 <= limit <= 20:
+        raise ApplicationStateValidationError("Evidence limit must be 1 to20")
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(r"""SELECT heads.run_id,heads.revision_n,
+              COALESCE(NULLIF(btrim(substring(heads.payload->'checkpoint'->'content'->>'markdown' FROM '(?m)^# (.+)')),''),'Played session') AS title,
+              heads.payload->'checkpoint'->>'captured_at' AS ended_at,
+              COALESCE((SELECT count(*) FROM jsonb_each_text(
+                COALESCE(heads.payload->'checkpoint'->'progress'->'notes_by_element_id','{}'::jsonb)
+              ) AS note(element_id,note_text) WHERE btrim(note.note_text)<>''),0)
+              + CASE WHEN btrim(COALESCE(heads.payload->>'final_thoughts',''))<>'' THEN 1 ELSE 0 END AS source_count
+              FROM (
+                SELECT DISTINCT ON (e.run_id) e.run_id,e.revision_n,e.payload
+                FROM play.session_review_revision e JOIN play.run r USING(run_id)
+                WHERE r.world_id=%s AND r.lifecycle_status='active'
+                ORDER BY e.run_id,e.revision_n DESC
+              ) heads
+              WHERE heads.payload->>'status'='ended'
+              ORDER BY heads.payload->'checkpoint'->>'captured_at' DESC,heads.run_id LIMIT %s""",
+              (world_id, limit))
+            rows = cur.fetchall()
+    result = []
+    for row in rows:
+        run_id = str(row["run_id"])
+        revision = row["revision_n"]
+        result.append({
+            "run_id": run_id,
+            "review_revision": revision,
+            "title": str(row["title"] or "Played session").strip()[:240] or "Played session",
+            "ended_at": row["ended_at"],
+            "source_count": row["source_count"],
+            "citation_url": "/play?" + urlencode({
+                "world": world_id,
+                "run": run_id,
+                "evidence_revision": revision,
+            }),
+        })
+    return {
+        "schema_version": "dmb_session_evidence_index_v1",
+        "world_id": world_id,
+        "sessions": result,
+    }
