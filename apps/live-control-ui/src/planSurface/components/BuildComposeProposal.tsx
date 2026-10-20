@@ -7,7 +7,7 @@ import type { WorldAgentConversationHistoryResponse } from '../../api/types';
 import type { BuildComposeBridge, CapturedBuildInsertion } from '../../buildSurface/buildComposeBridge';
 import { admitMarkdownInsertion } from '../../documentEditing/markdownInsertion';
 import { WorldPlanAgentAnswer } from './WorldPlanAgentAnswer';
-import { ResponseEvidenceTabs } from './BuddyPromptInspector';
+import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
 import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';

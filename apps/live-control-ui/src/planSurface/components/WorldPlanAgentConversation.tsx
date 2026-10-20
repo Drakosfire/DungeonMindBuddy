@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
-import { ResponseEvidenceTabs } from "./BuddyPromptInspector";
+import { ResponseEvidenceTabs } from "./ResponseEvidenceTabs";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 
 import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
@@ -55,7 +55,8 @@ import type {
   WorldPlanContextPolicyV1,
   WorldPlanSelectedPlayableTargetV1,
 } from "../../api/types";
-import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
+import { deferredComponent } from "../../ui/deferredComponent";
+
 import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "../../agentInteraction/usePublishAgentSurfaceContext";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
@@ -100,6 +101,8 @@ function openBuildSourceActions(): void {
 function buildSourceRequiredMessage(): string {
   return "Buddy needs a saved source before you can ask about your lore. Choose one, or create/import a source in Build and save it there.";
 }
+
+const AgentTraceInspector = deferredComponent(() => import("../../agentInteraction/trace/AgentTraceInspector").then(module => ({ default: module.AgentTraceInspector })), "execution details");
 
 export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */

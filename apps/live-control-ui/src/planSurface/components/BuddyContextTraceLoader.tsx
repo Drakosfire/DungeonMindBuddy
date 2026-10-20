@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { getWorldAgentTurnContextTrace } from '../../api/liveApi'
 import type { WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
-import { BuddyContextTrace } from './BuddyContextTrace'
-import { BuddyPromptInspector } from './BuddyPromptInspector'
+import { deferredComponent } from '../../ui/deferredComponent'
+
+const BuddyContextTrace = deferredComponent(() => import('./BuddyContextTrace').then(module => ({default: module.BuddyContextTrace})), 'execution trace')
+const BuddyPromptInspector = deferredComponent(() => import('./BuddyPromptInspector').then(module => ({default: module.BuddyPromptInspector})), 'captured request')
 
 interface Props {
   promptOnly?: boolean

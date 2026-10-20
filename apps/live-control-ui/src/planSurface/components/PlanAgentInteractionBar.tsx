@@ -49,7 +49,8 @@ import { buildHermesConversationHistory } from "../../agentInteraction/hermesCon
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
 import { buildPacketReview } from "./contextSufficiencyLadder";
-import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
+import { deferredComponent } from "../../ui/deferredComponent";
+
 import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
 import { WorldGraphQueryContextPanel } from "./WorldGraphQueryContextPanel";
@@ -71,6 +72,8 @@ import {
   UNGROUNDED_ANSWER_WARNING,
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
+
+const AgentTraceInspector = deferredComponent(() => import("../../agentInteraction/trace/AgentTraceInspector").then(module => ({ default: module.AgentTraceInspector })), "execution details");
 
 interface PlanAgentInteractionBarProps {
   planView: PlanViewProjection;

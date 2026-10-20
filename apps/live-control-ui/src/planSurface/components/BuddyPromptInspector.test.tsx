@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { BuddyPromptInspector, ResponseEvidenceTabs } from './BuddyPromptInspector'
+import { BuddyPromptInspector } from './BuddyPromptInspector'
+import { ResponseEvidenceTabs } from './ResponseEvidenceTabs'
 import type { BuddyPromptEvidence, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { getWorldAgentTurnPrompt } from '../../api/liveApi'
 import { PreparedRequestInspector } from './PreparedRequestInspector'
