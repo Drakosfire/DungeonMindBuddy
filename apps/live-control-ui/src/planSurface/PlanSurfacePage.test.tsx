@@ -9,6 +9,9 @@ import * as markdownImporter from "../tiptap/markdown/markdownToTiptap";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV3 } from "../api/types";
+import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
+import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
+import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import { WorldGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { WorldGraphLensProjectionProvider } from "../graphLens/useWorldGraphLensProjection";
@@ -4157,4 +4160,42 @@ it("browses Cards with reader arrows while retaining the mounted editor and loca
  expect(editor.getJSON()).toEqual(draft);
  expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)??"null").markdown).toContain("Local card draft.");
  expect(prepare).not.toHaveBeenCalled();
+});
+
+it("publishes Rules Lookup from the actual native managed Plan and preserves writer draft, selection and undo", async () => {
+  mockSavedPlanForAgent();
+  const catalog = vi.spyOn(liveApi, "getRulesCatalog").mockResolvedValue({ schema: "dmb_rules_catalog_v1", sources: [{ corpus: "a".repeat(64), available: true, ruleset_id: "dnd_2024", title: "SRD", coverage: "One section only.", unit_count: 1 }] });
+  const rulesText = "A creature cannot willingly end a move in occupied space.";
+  const hit = { corpus: "a".repeat(64), citation_id: "b".repeat(64), ruleset_id: "dnd_2024", unit_id: "c".repeat(64), text_sha256: createHash("sha256").update(rulesText).digest("hex"), section: "Occupancy", source_title: "SRD", source_uri: "https://example.invalid/srd.pdf", source_sha256: "d".repeat(64), page_fingerprint: "e".repeat(64), pdf_page_index: 13, printed_page: 14, excerpt: rulesText, excerpt_start: 0, excerpt_end: rulesText.length, excerpt_complete: true };
+  const query = vi.spyOn(liveApi, "queryRulesEvidence").mockResolvedValue({ schema: "dmb_rules_lookup_packet_v1", corpus: hit.corpus, ruleset_id: hit.ruleset_id, query_id: "f".repeat(64), normalized_query: "prone", status: "evidence", coverage: "One section only.", coverage_status: "limited", hits: [hit], additional_matches: false });
+  const inspect = vi.spyOn(liveApi, "getRulesPassage").mockResolvedValue({ ...hit, schema: "dmb_rules_passage_v1", text: rulesText, attribution: "Public source attribution" });
+  const save = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  function NativeComposition() {
+    const selected = useSelectedWorld();
+    return selected.kind === "managed" ? <AgentInteractionProvider><AskPluginSlotProvider><PeekRegionProvider>
+      <PlanSurfacePage /><ToolHost /><LegacyProjectionHostAdapter /><PeekRegionSlot />
+    </PeekRegionProvider></AskPluginSlotProvider></AgentInteractionProvider> : null;
+  }
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><NativeComposition /></SelectedWorldProvider>);
+  const writer = await screen.findByTestId("world-owned-plan-markdown-editor");
+  const editor = (writer.querySelector(".ProseMirror") as any).editor;
+  const original = editor.getJSON();
+  act(() => { editor.commands.setTextSelection(2); editor.commands.insertContent("unsaved native Rules draft "); });
+  const before = editor.getJSON(), selection = editor.state.selection.toJSON();
+  expect(catalog).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Tools", exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Rules Lookup", exact: true }));
+  await screen.findByRole("region", { name: "Rules lookup", exact: true });
+  await screen.findByRole("combobox", { name: "Rules source" });
+  expect(catalog).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByRole("textbox", { name: "Rules question" }), { target: { value: "prone" } });
+  fireEvent.click(screen.getByRole("button", { name: "Look up rules" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Inspect cited passage" }));
+  expect(await screen.findByRole("region", { name: "Cited rules passage" })).toHaveTextContent(rulesText);
+  expect(query).toHaveBeenCalledTimes(1); expect(inspect).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBe(writer);
+  expect(editor.getJSON()).toEqual(before); expect(editor.state.selection.toJSON()).toEqual(selection);
+  fireEvent.click(screen.getByRole("button", { name: "Close toolbox", exact: true }));
+  expect(editor.getJSON()).toEqual(before); expect(save).not.toHaveBeenCalled();
+  act(() => editor.commands.undo()); expect(editor.getJSON()).toEqual(original);
 });

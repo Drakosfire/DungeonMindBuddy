@@ -65,6 +65,7 @@ import {
 import { toAppChromeToolsGeneration, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
 import { CALLOUT_KINDS, defaultCalloutLabel } from "../tiptap/markdown/calloutMarkdown";
 import { SemanticMarkdownPaste } from "../tiptap/extensions/SemanticMarkdownPaste";
+import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION, useRulesLookupProjection } from '../rulesLookup/rulesLookupProjection';
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import { buildWorldPlanSurfaceIdentity, createWorldPlanLocalDraftId, worldPlanWorkObject } from "./worldPlanIdentity";
@@ -484,12 +485,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       workObject,
     },
     agentContext: null,
-    tools: [],
+    tools: [RULES_LOOKUP_TOOL],
     editCommands: [],
-    projections: [],
+    projections: [RULES_LOOKUP_PROJECTION],
     projectionBindings: [],
   } : null, [status, surfaceIdentity, workObject]);
   usePublishSurfaceInteraction(activePublication);
+  useRulesLookupProjection("plan", activePublication !== null);
 
   useEffect(() => {
     mountedRef.current = true;
