@@ -3131,7 +3131,8 @@ describe("World Play V2 API transport", () => {
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
     ]);
-    expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBe(playInventoryController.signal);
+    expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(fetchSpy.mock.calls[7]?.[1]?.signal).not.toBe(playInventoryController.signal);
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[5]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
     expect(JSON.parse(String(fetchSpy.mock.calls[10]?.[1]?.body))).toEqual(progress);

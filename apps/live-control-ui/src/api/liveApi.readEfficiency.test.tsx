@@ -97,11 +97,40 @@ describe("protected read acquisition",()=>{
   if(transition==='rotation')expect(view.result.current.projection?.snapshot.revisionId).toBe('current');
   else expect(view.result.current).toMatchObject({projectionState:'idle',projection:null});
  });
- it.each([historyPath,"/api/live/world-session-evidence?world_id=elderwyld","/api/live/graph-preview/extraction-runs/run-a/candidate-projection?managed_world_id=elderwyld","/api/live/media/images/asset-a/metadata"])("shares pending %s with independently readable bodies, then refreshes",async path=>{
+ it.each([historyPath,"/api/live/world-session-evidence?world_id=elderwyld","/api/live/graph-preview/extraction-runs/run-a/candidate-projection?managed_world_id=elderwyld","/api/live/media/images/asset-a/metadata","/api/live/play-runs?campaign_id=longmont-c2","/api/live/play-active-run","/api/live/world-play-runs/v2?world_id=elderwyld","/api/live/world-play-runs/v2/active?world_id=elderwyld"])("shares pending %s with independently readable bodies, then refreshes",async path=>{
   api.setNativeGraphAccessToken("test-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const reads=[api.authenticatedApiFetch(path),api.authenticatedApiFetch(path)];await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));gate.resolve(Response.json({version:1}));
   const responses=await Promise.all(reads);expect(await Promise.all(responses.map(r=>r.response.json()))).toEqual([{version:1},{version:1}]);
   fetch.mockResolvedValueOnce(Response.json({version:2}));expect(await(await api.authenticatedApiFetch(path)).response.json()).toEqual({version:2});expect(fetch).toHaveBeenCalledTimes(2);
+ });
+ it("isolates World Play inventory reads by World and starts a fresh read after a mutation",async()=>{
+  api.setNativeGraphAccessToken("play-inventory-scope");
+  const reads=[deferred<Response>(),deferred<Response>(),deferred<Response>()];let readCount=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation((url,init)=>{
+   if(init?.method==="PUT")return Promise.resolve(Response.json({updated:true}));
+   return reads[readCount++].promise;
+  });
+  const elderwyld="/api/live/world-play-runs/v2?world_id=elderwyld";
+  const anotherWorld="/api/live/world-play-runs/v2?world_id=another-world";
+  const firstController=new AbortController();
+  const first=api.authenticatedApiFetch(elderwyld,{signal:firstController.signal}).then(() => "accepted",error=>error.name);
+  const same=api.authenticatedApiFetch(elderwyld);
+  const other=api.authenticatedApiFetch(anotherWorld);
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
+  expect(fetch.mock.calls.map(([url])=>String(url))).toEqual([elderwyld,anotherWorld]);
+  firstController.abort();
+  expect(await first).toBe("AbortError");
+  expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
+  const mutation=api.authenticatedApiFetch("/api/live/world-play-runs/v2/run-a/progress?world_id=elderwyld",{method:"PUT",body:"{}"});
+  await mutation;
+  const refreshed=api.authenticatedApiFetch(elderwyld);
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(4));
+  expect(fetch.mock.calls.filter(([url,init])=>String(url)===elderwyld&&init?.method!=="PUT")).toHaveLength(2);
+  reads[0].resolve(Response.json({version:"before"}));
+  reads[1].resolve(Response.json({version:"other-world"}));
+  reads[2].resolve(Response.json({version:"after"}));
+  const bodies=await Promise.all([same,other,refreshed].map(async request=>(await request).response.json()));
+  expect(bodies).toEqual([{version:"before"},{version:"other-world"},{version:"after"}]);
  });
  it.each(["/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace","/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace/trace-1/prompt/attempt-1"])("shares exact pending trace evidence request %s",async path=>{
   api.setNativeGraphAccessToken("trace-evidence");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
