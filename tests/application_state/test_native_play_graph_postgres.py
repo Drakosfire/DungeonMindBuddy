@@ -224,3 +224,31 @@ def test_native_admission_does_not_materialize_other_scene_notes(application_sta
     # than the session's entire notes collection or full Run progress.
     accepted=service.accept_turn(sub)
     assert accepted.play_context_receipt.scene_note==sub.play_context_receipt.scene_note
+
+
+@pytest.mark.parametrize('field',['object','revision','sha'])
+def test_native_admission_binds_revision_to_its_exact_source_object(application_state_dsn,field):
+    service,sub,_=make_submission()
+    from application_state.content.service import create_world_plan
+    other=create_world_plan(title='Other source owner',world_id=sub.world_id)
+    # Deliberately inconsistent immutable metadata in this disposable database:
+    # the Run and receipt still agree, and both source records own this World.
+    # Admission must additionally join the actual revision's object/number/hash.
+    with psycopg.connect(application_state_dsn) as conn:
+        if field=='object':
+            conn.execute('UPDATE content.work_revision SET work_object_id=%s WHERE work_revision_id=%s',
+                (other.work_object_id,sub.play_context_receipt.runbook_work_revision_id))
+        if field=='revision':
+            conn.execute('UPDATE content.work_revision SET revision_n=revision_n+1 WHERE work_revision_id=%s',
+                (sub.play_context_receipt.runbook_work_revision_id,))
+        if field=='sha':
+            conn.execute('UPDATE content.work_revision SET content_sha256=%s WHERE work_revision_id=%s',
+                ('f'*64,sub.play_context_receipt.runbook_work_revision_id))
+        before=conn.execute('SELECT revision,next_turn_sequence FROM agent.conversation WHERE conversation_id=%s',
+            (sub.conversation_id,)).fetchone()
+    with pytest.raises(ApplicationStateConflictError,match='revision/origin changed'):
+        service.accept_turn(sub)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT revision,next_turn_sequence FROM agent.conversation WHERE conversation_id=%s',
+            (sub.conversation_id,)).fetchone()==before
+        assert conn.execute('SELECT count(*) FROM agent.turn WHERE conversation_id=%s',(sub.conversation_id,)).fetchone()==(0,)

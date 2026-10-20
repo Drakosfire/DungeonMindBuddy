@@ -14,7 +14,9 @@ def lock_and_validate_native_play_basis(conn, receipt: PlayRunTurnContextReceipt
             CASE WHEN octet_length(r.progress->'notes_by_element_id'->>%s::text)<=32768
                 THEN r.progress->'notes_by_element_id'->%s::text END AS selected_note,
             r.playable_work_object_id,r.playable_work_revision_id,r.playable_revision_n,r.playable_content_sha256,
-            w.world_id AS source_revision_world,o.world_id AS source_object_world
+            w.world_id AS source_revision_world,o.world_id AS source_object_world,
+            w.work_object_id AS revision_object_id,w.revision_n AS revision_number,
+            w.content_sha256 AS revision_content_sha256
             FROM play.run r JOIN content.work_revision w ON w.work_revision_id=r.playable_work_revision_id
             JOIN content.work_object o ON o.work_object_id=r.playable_work_object_id
             WHERE r.run_id=%s FOR UPDATE OF r""",(receipt.scene_id,receipt.scene_id,receipt.scene_id,receipt.run_id))
@@ -24,6 +26,9 @@ def lock_and_validate_native_play_basis(conn, receipt: PlayRunTurnContextReceipt
         if run['lifecycle_status']!='active':
             raise ApplicationStateConflictError('Play session is in Trash')
         if (run['source_revision_world']!=receipt.world_id or run['source_object_world']!=receipt.world_id
+                or run['revision_object_id']!=run['playable_work_object_id']
+                or run['revision_number']!=run['playable_revision_n']
+                or run['revision_content_sha256']!=run['playable_content_sha256']
                 or run['run_revision']!=receipt.run_revision
                 or str(run['playable_work_object_id'])!=receipt.runbook_object_id
                 or run['playable_work_revision_id']!=receipt.runbook_work_revision_id
