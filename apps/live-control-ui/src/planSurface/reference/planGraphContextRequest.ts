@@ -7,7 +7,7 @@ import {
   resolvePlanGraphScopeMode,
   type PlanGraphLens,
   type PlanGraphScopeMode,
-} from "../sessionCampaignContext";
+} from "../../graphLens/sessionCampaignContext";
 
 export interface PlanWorldGraphContext {
   worldId: string;

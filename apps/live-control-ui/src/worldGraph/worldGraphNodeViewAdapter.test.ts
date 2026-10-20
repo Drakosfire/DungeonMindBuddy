@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { WorldGraphProjectionNodeView } from "../api/types";
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard/buildGraphObjectCardFromNodeView";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
-import { adaptWorldGraphNodeForPlanCard } from "../planSurface/reference/worldGraphProjectionAdapter";
 import { adaptWorldGraphNodeView } from "./worldGraphNodeViewAdapter";
 
 const provenanceNode: WorldGraphProjectionNodeView = {
@@ -70,8 +69,8 @@ describe("worldGraphNodeViewAdapter", () => {
     expect(adaptWorldGraphNodeView(nodeViews.loc_mirathorn).anchored_to_focus_session).toBe(false);
   });
 
-  it("Plan compatibility alias delegates to the neutral adapter", () => {
-    const adapted = adaptWorldGraphNodeForPlanCard(session23WorldGraphRecapFixture.nodeViews.pc_caelynn);
+  it("preserves node identity at the neutral adapter boundary", () => {
+    const adapted = adaptWorldGraphNodeView(session23WorldGraphRecapFixture.nodeViews.pc_caelynn);
     expect(adapted.node_id).toBe("pc_caelynn");
     expect(adapted.anchored_to_focus_session).toBe(true);
   });

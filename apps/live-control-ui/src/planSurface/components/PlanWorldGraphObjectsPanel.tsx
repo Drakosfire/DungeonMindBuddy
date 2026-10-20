@@ -18,8 +18,8 @@ import type {
   SurfaceInformationState,
 } from "../../surfaceInformation";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import { formatReviewCampaignLabel } from "../sessionCampaignContext";
-import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
+import { formatReviewCampaignLabel } from "../../graphLens/sessionCampaignContext";
+import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 
 export interface PlanWorldGraphObjectsPanelProps {
   insertEnabled: boolean;
@@ -41,7 +41,7 @@ function searchItemsFromProjection(
   projection: WorldGraphProjection,
 ): GraphReferenceSearchItem[] {
   return projection.nodes.map((node) => {
-    const adapted = adaptWorldGraphNodeForPlanCard(node);
+    const adapted = adaptWorldGraphNodeView(node);
     return {
       nodeId: adapted.node_id,
       label: adapted.label,
@@ -128,7 +128,7 @@ function viewFromLiveChannel(
   const projection = state.value;
   const selected = projection.nodes.find((node) => node.nodeId === item.nodeId);
   if (!selected) return;
-  const nodeView = adaptWorldGraphNodeForPlanCard(selected);
+  const nodeView = adaptWorldGraphNodeView(selected);
   const reference = referenceFromGraphNode(nodeView);
   const graphScope = extractExactGraphReferenceScope(projection);
   if (!openGraphReference) return;
@@ -172,7 +172,7 @@ function insertFromLiveChannel(
   if (state.status !== "ready") return;
   const selected = state.value.nodes.find((node) => node.nodeId === item.nodeId);
   if (!selected) return;
-  onInsertReference(referenceFromGraphNode(adaptWorldGraphNodeForPlanCard(selected)));
+  onInsertReference(referenceFromGraphNode(adaptWorldGraphNodeView(selected)));
 }
 
 function PlanWorldGraphObjectsChannelPanel({

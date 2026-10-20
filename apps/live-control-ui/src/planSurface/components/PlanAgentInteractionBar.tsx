@@ -58,9 +58,9 @@ import {
   buildPlanAgentWorldGraphQueryContextRequest,
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
-import { usePlanGraphLens } from "../PlanGraphLensContext";
+import { usePlanGraphLens } from "../../graphLens/WorldGraphLensContext";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
-import { isFocusValidationBlocking } from "../planGraphFocusOptions";
+import { isFocusValidationBlocking } from "../../graphLens/planGraphFocusOptions";
 import {
   hasGrounding,
   isConversationContext,

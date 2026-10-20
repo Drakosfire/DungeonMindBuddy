@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import type { WorldGraphProjectionNodeView } from "../../api/types";
-import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
+import type { WorldGraphProjectionNodeView } from "../api/types";
+import { adaptWorldGraphNodeView } from "./worldGraphNodeViewAdapter";
 
 const node: WorldGraphProjectionNodeView = {
   nodeId: "npc-glowkindle",
@@ -48,9 +45,9 @@ const node: WorldGraphProjectionNodeView = {
   sourceArtifactIds: ["artifact-1"],
 };
 
-describe("adaptWorldGraphNodeForPlanCard", () => {
+describe("adaptWorldGraphNodeView", () => {
   it("adapts camelCase World Graph fields at the Plan card boundary", () => {
-    expect(adaptWorldGraphNodeForPlanCard(node)).toMatchObject({
+    expect(adaptWorldGraphNodeView(node)).toMatchObject({
       node_id: "npc-glowkindle",
       campaign_scope: "longmont-c1",
       source_domains: ["recap"],
@@ -66,7 +63,7 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
   });
 
   it("passes normalized outgoing direction through unchanged", () => {
-    const adapted = adaptWorldGraphNodeForPlanCard(node);
+    const adapted = adaptWorldGraphNodeView(node);
     expect(adapted.adjacency[0]?.direction).toBe("outgoing");
   });
 
@@ -78,7 +75,7 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
         direction: "incoming",
       }],
     };
-    expect(adaptWorldGraphNodeForPlanCard(inboundNode).adjacency[0]?.direction).toBe("incoming");
+    expect(adaptWorldGraphNodeView(inboundNode).adjacency[0]?.direction).toBe("incoming");
   });
 
   it("passes related direction through unchanged", () => {
@@ -89,23 +86,6 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
         direction: "related",
       }],
     };
-    expect(adaptWorldGraphNodeForPlanCard(relatedNode).adjacency[0]?.direction).toBe("related");
-  });
-});
-
-describe("worldGraphProjectionAdapter PR380B hoist compatibility", () => {
-  it("currently owns adaptWorldGraphNodeForPlanCard locally (pre-hoist)", () => {
-    expect(adaptWorldGraphNodeForPlanCard).toBeTypeOf("function");
-  });
-
-  it("delegates adaptWorldGraphNodeForPlanCard to the neutral adapter module", () => {
-    expect(
-      existsSync(
-        path.join(
-          path.dirname(fileURLToPath(import.meta.url)),
-          "../../worldGraph/worldGraphNodeViewAdapter.ts",
-        ),
-      ),
-    ).toBe(true);
+    expect(adaptWorldGraphNodeView(relatedNode).adjacency[0]?.direction).toBe("related");
   });
 });

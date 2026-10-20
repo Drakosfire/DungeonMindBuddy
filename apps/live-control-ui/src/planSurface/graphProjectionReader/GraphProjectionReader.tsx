@@ -11,7 +11,6 @@ import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorC
 import { analyzeMarkdownBody } from "../../tiptap/markdown/markdownAdmission";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
-import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import {
   graphAuthoringSelectionsEqual,
   type GraphAuthoringAction,
@@ -40,7 +39,7 @@ export interface GraphProjectionReaderProps {
   documentLabel?: string;
   documentScroll?: "contained" | "page";
   resetKey?: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
@@ -75,7 +74,7 @@ function ReadOnlyTiptapRecap({
   onSelectNode: (nodeId: string) => void;
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   authoringEnabled?: boolean;
   authoringContext?: GraphAuthoringContext;

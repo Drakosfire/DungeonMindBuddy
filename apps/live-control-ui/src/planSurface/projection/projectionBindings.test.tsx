@@ -9,7 +9,7 @@ import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { PlanReferenceProjectionBinding } from "../reference/PlanReferenceProjectionBinding";
-import { PlanGraphLensProvider } from "../PlanGraphLensContext";
+import { PlanGraphLensProvider } from "../../graphLens/WorldGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import {

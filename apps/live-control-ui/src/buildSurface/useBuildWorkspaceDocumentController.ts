@@ -292,8 +292,6 @@ export interface BuildWorkspaceDocumentController {
   /** Existing campaign + managed-world destinations for New Source / Import. */
   destinationOptions: BuildSourceDestinationOption[];
   suggestedDestinationValue: string | null;
-  /** @deprecated Prefer destinationOptions; retained for transitional callers. */
-  creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
   /** Retained empty source from a failed import lifecycle, if any. */
   pendingImportDocumentId: string | null;
@@ -1096,7 +1094,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     refreshDocuments: () => void refreshDocuments(),
     destinationOptions,
     suggestedDestinationValue,
-    creatableCampaignIds,
     suggestedCreateCampaignId,
     pendingImportDocumentId,
   };

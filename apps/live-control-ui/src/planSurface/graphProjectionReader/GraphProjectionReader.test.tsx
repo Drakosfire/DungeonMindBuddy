@@ -28,7 +28,7 @@ describe("GraphProjectionReader", () => {
   it("renders admitted read-aloud callouts and surrounding prose", async () => {
     render(<GraphProjectionReader markdown={"Before the gate.\n\n> [!READ-ALOUD]\n> Wet timber creaks underfoot.\n\nAfter the gate."} nodeViews={{}} sourceSpans={[]} />);
     await waitFor(() => expect(screen.getByText("Wet timber creaks underfoot.")).toBeInTheDocument());
-    expect(screen.getByText("Wet timber creaks underfoot.").closest("aside[data-md-callout]")).not.toBeNull();
+    expect(screen.getByText("Wet timber creaks underfoot.").closest("details[data-md-callout=read-aloud]")).not.toBeNull();
     expect(screen.getByText("Before the gate.")).toBeInTheDocument();
     expect(screen.getByText("After the gate.")).toBeInTheDocument();
   });

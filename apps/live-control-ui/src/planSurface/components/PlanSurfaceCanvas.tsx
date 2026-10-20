@@ -55,7 +55,7 @@ import { extractExactGraphReferenceScope } from "../../graphReference/resolveGra
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
-import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
+import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
@@ -488,7 +488,7 @@ function PlanDurableSurfaceCanvas({
   const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
     const nodeViews: Record<string, GraphProjectionNodeView> = {};
     for (const node of projection?.nodes ?? []) {
-      nodeViews[node.nodeId] = adaptWorldGraphNodeForPlanCard(node);
+      nodeViews[node.nodeId] = adaptWorldGraphNodeView(node);
     }
     return {
       nodeViews,

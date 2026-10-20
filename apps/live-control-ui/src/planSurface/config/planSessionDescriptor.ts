@@ -7,7 +7,7 @@ import {
 import type { PlanViewProjection, WorkspaceDocumentRecord } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { workspaceDocumentSelectionSearch } from "../../workspaceDocument/workspaceDocumentNavigation";
-import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../sessionCampaignContext";
+import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../../graphLens/sessionCampaignContext";
 import type {
   PlanContextDescriptor,
   PlanDocumentDescriptor,

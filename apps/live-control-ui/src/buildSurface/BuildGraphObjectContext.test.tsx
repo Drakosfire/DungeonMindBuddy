@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { BuildGraphObjectContext } from "./BuildGraphObjectContext";
@@ -140,12 +141,12 @@ describe("BuildGraphObjectContext", () => {
     vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue(completeObjectFixture());
     render(
       <AgentInteractionProvider>
-        <SurfaceContextProvider>
+        <PeekRegionProvider><SurfaceContextProvider>
           <BuildSurfacePage />
-        </SurfaceContextProvider>
+        </SurfaceContextProvider></PeekRegionProvider>
       </AgentInteractionProvider>,
     );
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });

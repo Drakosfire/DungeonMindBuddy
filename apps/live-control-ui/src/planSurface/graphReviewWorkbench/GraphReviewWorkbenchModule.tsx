@@ -35,7 +35,7 @@ import { buildIngestSurfaceIdentity } from "../../agentInteraction/projectionSur
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import type { SelectedWorldState } from "../../selectedWorld/SelectedWorldContext";
 import type { PlanContextDescriptor } from "../types";
-import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
+import { resolveInitialReviewCampaignId } from "../../graphLens/sessionCampaignContext";
 import type { SurfaceInformationChannel } from "../../surfaceInformation";
 import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";

@@ -14,8 +14,8 @@ import type { WorldGraphProjection } from "../../api/types";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
-import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
-import { isFocusValidationBlocking } from "../planGraphFocusOptions";
+import { useOptionalPlanGraphLens } from "../../graphLens/WorldGraphLensContext";
+import { isFocusValidationBlocking } from "../../graphLens/planGraphFocusOptions";
 import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import {
   extractExactGraphReferenceScope,
