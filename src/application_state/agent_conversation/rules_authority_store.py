@@ -22,6 +22,9 @@ from application_state.errors import (
 )
 from .rules_authority_events import (
     RulesExecutionV1,
+    RulesProviderAuthorizedV1,
+    RulesProviderIncludedV1,
+    RulesProviderOutcomeV1,
     RulesQueryObservedV1,
     RulesToolAuthorizedV1,
     empty_execution,
@@ -189,4 +192,82 @@ def append_lookup_event_locked(
     )
     if result.rowcount != 1:
         raise ApplicationStateConflictError("Rules ledger CAS failed")
+    return RulesLedgerRecordV1(revision=current.revision + 1, execution=updated), True
+
+
+def append_provider_event_locked(
+    conn: psycopg.Connection,
+    scope: RulesScopeV1,
+    *,
+    expected_turn_revision: int,
+    expected_ledger_revision: int,
+    event: RulesProviderAuthorizedV1 | RulesProviderIncludedV1 | RulesProviderOutcomeV1,
+    prepared_request_json: str | None = None,
+) -> tuple[RulesLedgerRecordV1, bool]:
+    """Seal an actual parent-observed request/outcome under the current claim.
+
+    Completion is deliberately not an admitted event here; it is created only
+    together with the accepted answer/binding in mixed finalization.
+    """
+    from .rules_authority_input import verify_prepared_input
+
+    if not isinstance(
+        event,
+        (RulesProviderAuthorizedV1, RulesProviderIncludedV1, RulesProviderOutcomeV1),
+    ):
+        raise ApplicationStateValidationError("Not a Rules provider lifecycle event")
+    _lock_current_claim(conn, scope, expected_turn_revision)
+    current = _locked_record(conn, scope)
+    if current is None:
+        raise ApplicationStateNotFoundError("Rules attempt has no admitted execution")
+    prior = next(
+        (item for item in current.execution.events if item.event_id == event.event_id),
+        None,
+    )
+    if prior is None and current.revision != expected_ledger_revision:
+        raise ApplicationStateConflictError(
+            "Rules ledger revision changed before provider append"
+        )
+    try:
+        if current.execution.state != "active":
+            raise ValueError("Rules execution no longer accepts provider events")
+        if isinstance(event, (RulesProviderAuthorizedV1, RulesProviderIncludedV1)):
+            if prepared_request_json is None:
+                raise ValueError(
+                    "Rules provider authorization/inclusion requires actual prepared input"
+                )
+            verify_prepared_input(current.execution, event, prepared_request_json)
+        elif prepared_request_json is not None:
+            raise ValueError(
+                "Rules provider outcome cannot change the authorized input"
+            )
+        if prior is not None:
+            if prior != event:
+                raise ValueError(
+                    "Rules provider event ID was reused with changed content"
+                )
+            return current, False
+        data = current.execution.model_dump(mode="json", by_alias=True)
+        data["events"].append(event.model_dump(mode="json", by_alias=True))
+        if isinstance(event, RulesProviderAuthorizedV1):
+            data["budget_use"]["provider_requests"] += 1
+        updated = RulesExecutionV1.model_validate_json(
+            json.dumps(data, ensure_ascii=False)
+        )
+    except (ValueError, ValidationError) as exc:
+        raise ApplicationStateValidationError(
+            "Rules provider event or actual input proof is invalid"
+        ) from exc
+    result = conn.execute(
+        """UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s
+        WHERE turn_id=%s AND product_attempt=%s AND revision=%s""",
+        (
+            Jsonb(updated.model_dump(mode="json", by_alias=True)),
+            scope.turn_id,
+            scope.product_attempt,
+            current.revision,
+        ),
+    )
+    if result.rowcount != 1:
+        raise ApplicationStateConflictError("Rules provider ledger CAS failed")
     return RulesLedgerRecordV1(revision=current.revision + 1, execution=updated), True

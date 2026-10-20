@@ -9,10 +9,14 @@ from pydantic import ValidationError
 
 from application_state.agent_conversation.rules_authority_events import (
     RulesExecutionV1,
+    RulesProviderAuthorizedV1,
     RulesQueryObservedV1,
     empty_execution,
     normalized_question,
     query_identity,
+)
+from application_state.agent_conversation.rules_authority_input import (
+    verify_prepared_input,
 )
 from application_state.agent_conversation.rules_authority_packet import (
     verify_output_proof,
@@ -563,3 +567,135 @@ def test_seventh_call_is_not_admitted_even_when_questions_repeat():
     ledger["budget_use"].update(calls=6, presentation_utf8=7 * len(raw.encode()))
     with pytest.raises(ValidationError, match="exhausted"):
         parse(ledger)
+
+
+def prepared(mode="responses"):
+    owner, unit, raw, ledger, ref = fixture()
+    execution = parse(ledger)
+    args = json.dumps(dict(question="Occupied space?", ruleset_id=owner.ruleset_id))
+    if mode == "responses":
+        body = dict(
+            model="test",
+            input=[
+                dict(
+                    type="function_call",
+                    call_id="call:1",
+                    name="lookup_rules",
+                    arguments=args,
+                ),
+                dict(type="function_call_output", call_id="call:1", output=raw),
+            ],
+        )
+    else:
+        body = dict(
+            model="test",
+            messages=[
+                dict(
+                    role="assistant",
+                    tool_calls=[
+                        dict(
+                            id="call:1",
+                            type="function",
+                            function=dict(name="lookup_rules", arguments=args),
+                        )
+                    ],
+                ),
+                dict(role="tool", tool_call_id="call:1", content=raw),
+            ],
+        )
+    return owner, execution, body, raw, ref
+
+
+def proof(owner, body, raw, ref):
+    encoded = json.dumps(body, ensure_ascii=False, indent=2)
+    auth = RulesProviderAuthorizedV1.model_validate_json(
+        json.dumps(
+            event(
+                owner,
+                2,
+                "provider_authorized",
+                provider_attempt_id=str(uuid4()),
+                request_envelope_sha256=sha256(encoded.encode()).hexdigest(),
+                matched_outputs=[
+                    dict(
+                        call_id="call:1", packet_sha256=sha256(raw.encode()).hexdigest()
+                    )
+                ],
+                declared_support_refs=[ref],
+            )
+        )
+    )
+    return encoded, auth
+
+
+@pytest.mark.parametrize("mode", ["responses", "chat"])
+def test_both_actual_input_formats_bind_exact_parent_output_and_capsules(mode):
+    owner, execution, body, raw, ref = prepared(mode)
+    encoded, auth = proof(owner, body, raw, ref)
+    verify_prepared_input(execution, auth, encoded)
+    with pytest.raises(ValueError, match="serialized request"):
+        verify_prepared_input(execution, auth, encoded + " ")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda b: b["input"][0].update(name="another_tool"),
+        lambda b: b["input"][0].update(
+            arguments=json.dumps(dict(question="Different?", ruleset_id="srd_2024"))
+        ),
+        lambda b: b["input"][1].update(output="forged"),
+        lambda b: b["input"][1].update(call_id="unknown"),
+        lambda b: b["input"].append(dict(b["input"][0])),
+        lambda b: b["input"].append(dict(b["input"][1])),
+        lambda b: b.update(messages=[]),
+        lambda b: b.update(input=[dict(role="user", content=b["input"][1]["output"])]),
+    ],
+)
+def test_unknown_unmatched_forged_or_merely_quoted_results_cannot_authorize_sources(
+    change,
+):
+    owner, execution, body, raw, ref = prepared()
+    change(body)
+    encoded, auth = proof(owner, body, raw, ref)
+    with pytest.raises(ValueError):
+        verify_prepared_input(execution, auth, encoded)
+
+
+def test_fabricated_declared_sources_and_omitted_actual_sources_are_rejected():
+    owner, execution, body, raw, ref = prepared()
+    encoded, auth = proof(owner, body, raw, ref)
+    fields = auth.model_dump(mode="python", by_alias=True)
+    fields["declared_support_refs"] = ()
+    with pytest.raises(ValueError, match="actual exposed"):
+        verify_prepared_input(execution, RulesProviderAuthorizedV1(**fields), encoded)
+
+
+def test_cached_query_can_retire_with_one_reserved_budget_diagnostic():
+    owner, unit, raw, ledger, ref = fixture()
+    raw = json.dumps(
+        dict(
+            schema="dmb_rules_budget_diagnostic_v1",
+            execution_id=str(owner.execution_id),
+            call_id="last",
+            code="rules_budget_exhausted",
+        )
+    )
+    ledger["events"] += [
+        dict(ledger["events"][0], event_id=str(uuid4()), sequence=2, call_id="last"),
+        event(
+            owner,
+            3,
+            "query_observed",
+            call_id="last",
+            query_id=ledger["events"][0]["query_id"],
+            packet_sha256=hashed(raw),
+            presentation_utf8=len(raw.encode()),
+            status="over_budget",
+            support_refs=[],
+            emitted_support_ids=[],
+        ),
+    ]
+    ledger["budget_use"]["calls"] = 2
+    ledger["budget_use"]["presentation_utf8"] += len(raw.encode())
+    assert parse(ledger).budget_use.calls == 2

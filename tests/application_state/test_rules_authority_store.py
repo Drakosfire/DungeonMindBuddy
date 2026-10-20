@@ -288,3 +288,140 @@ def test_invalid_output_rolls_back_all_writes_in_the_callers_transaction(
         assert conn.execute(
             "SELECT status,revision FROM agent.turn WHERE turn_id=%s", (turn.turn_id,)
         ).fetchone() == ("running", turn.revision)
+
+
+def test_provider_exposure_is_fenced_and_persisted_from_actual_input(
+    application_state_dsn,
+):
+    from application_state.agent_conversation.rules_authority_events import (
+        RulesProviderAuthorizedV1,
+        RulesProviderIncludedV1,
+        RulesProviderOutcomeV1,
+    )
+    from application_state.agent_conversation.rules_authority_store import (
+        append_provider_event_locked,
+    )
+
+    turn, scope = admitted()
+    auth = authorization(scope)
+    observed, raw = observation(scope, auth)
+    request = json.dumps(
+        dict(
+            input=[
+                dict(
+                    type="function_call",
+                    call_id=auth.call_id,
+                    name="lookup_rules",
+                    arguments=json.dumps(
+                        dict(question="Travel", ruleset_id=scope.ruleset_id)
+                    ),
+                ),
+                dict(type="function_call_output", call_id=auth.call_id, output=raw),
+            ]
+        )
+    )
+    producer = uuid4()
+    envelope = sha256(request.encode()).hexdigest()
+    fields = dict(
+        execution_id=scope.execution_id,
+        provider_attempt_id=producer,
+        request_envelope_sha256=envelope,
+    )
+    from application_state.agent_conversation.rules_authority_events import (
+        RulesOutputRefV1,
+    )
+
+    outputs = (
+        RulesOutputRefV1(call_id=auth.call_id, packet_sha256=observed.packet_sha256),
+    )
+    provider = RulesProviderAuthorizedV1(
+        event_id=uuid4(),
+        sequence=2,
+        kind="provider_authorized",
+        matched_outputs=outputs,
+        declared_support_refs=(),
+        **fields,
+    )
+    included = RulesProviderIncludedV1(
+        event_id=uuid4(),
+        sequence=3,
+        kind="provider_included",
+        matched_outputs=outputs,
+        support_refs=(),
+        **fields,
+    )
+    outcome = RulesProviderOutcomeV1(
+        event_id=uuid4(),
+        sequence=4,
+        kind="provider_outcome",
+        status="answered",
+        **fields,
+    )
+    with psycopg.connect(application_state_dsn) as conn:
+        open_execution_locked(conn, scope, expected_turn_revision=turn.revision)
+        append_lookup_event_locked(
+            conn,
+            scope,
+            expected_turn_revision=turn.revision,
+            expected_ledger_revision=1,
+            event=auth,
+        )
+        append_lookup_event_locked(
+            conn,
+            scope,
+            expected_turn_revision=turn.revision,
+            expected_ledger_revision=2,
+            event=observed,
+            raw_output=raw,
+        )
+    with pytest.raises(ApplicationStateValidationError):
+        with psycopg.connect(application_state_dsn) as conn:
+            append_provider_event_locked(
+                conn,
+                scope,
+                expected_turn_revision=turn.revision,
+                expected_ledger_revision=3,
+                event=provider,
+                prepared_request_json=request + " ",
+            )
+    with psycopg.connect(application_state_dsn) as conn:
+        assert (
+            open_execution_locked(
+                conn, scope, expected_turn_revision=turn.revision
+            ).revision
+            == 3
+        )
+        for expected_revision, item in [(3, provider), (4, included), (5, outcome)]:
+            record, changed = append_provider_event_locked(
+                conn,
+                scope,
+                expected_turn_revision=turn.revision,
+                expected_ledger_revision=expected_revision,
+                event=item,
+                prepared_request_json=None if item is outcome else request,
+            )
+            assert changed and record.revision == expected_revision + 1
+        assert record.execution.budget_use.provider_requests == 1
+        assert record.execution.events[-1].status == "answered"
+        replay, changed = append_provider_event_locked(
+            conn,
+            scope,
+            expected_turn_revision=turn.revision,
+            expected_ledger_revision=5,
+            event=outcome,
+        )
+        assert not changed and replay == record
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",
+            (turn.turn_id,),
+        )
+    with pytest.raises(ApplicationStateConflictError):
+        with psycopg.connect(application_state_dsn) as conn:
+            append_provider_event_locked(
+                conn,
+                scope,
+                expected_turn_revision=turn.revision,
+                expected_ledger_revision=5,
+                event=outcome,
+            )

@@ -265,9 +265,14 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError("Rules result has no unique prior authorization")
                 refs = ref_map(event.support_refs)
                 previous_success = successful_queries.get(event.query_id)
-                if previous_success is not None and previous_success != (
-                    event.status,
-                    refs,
+                if (
+                    previous_success is not None
+                    and event.status != "over_budget"
+                    and previous_success
+                    != (
+                        event.status,
+                        refs,
+                    )
                 ):
                     raise ValueError(
                         "Successful Rules query must reuse its frozen result"
