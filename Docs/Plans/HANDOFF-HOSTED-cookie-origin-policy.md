@@ -1,6 +1,6 @@
 # HANDOFF — HOSTED: cookie-authenticated Origin policy
 
-**Status:** ACTIVE; code dispatch is gated on ARCHITECTURE review of this exact handoff revision.
+**Status:** ACTIVE — ARCHITECTURE approved the initial handoff revision `7fda8f44e8110d26057a60043c855975ead5b505` against base `4ba6de08c33d9f8870d6c2857b585ce72f97d903` on 2026-10-20. The reviewer confirmed branch/PR is a valid durable authority location, no more-specific HOSTED main-only gate exists, and the two-file unmounted helper is clear to dispatch.
 
 **Steward:** Hosted Buddy v1 implementation task
 
@@ -12,7 +12,7 @@
 
 **Authorization:** Alan authorized activation/review and the bounded offline helper implementation, focused tests, and publication of its PR after review. No merge, route wiring, audience or hostname selection, live configuration, DMS calls, production write, or deployment is authorized.
 
-**Pinned authority ref:** This file at the exact commit recorded in the ARCHITECTURE review request for its initial design gate. Do not dispatch code until that exact revision is approved. Subsequent implementation updates must remain within this handoff's exclusive write lease.
+**Pinned authority ref:** This file at approved initial commit `7fda8f44e8110d26057a60043c855975ead5b505`; that revision is an ancestor of subsequent implementation commits on this same branch/PR. Subsequent implementation updates must remain within this handoff's exclusive write lease.
 
 **Lane:** `codex/hosted-cookie-origin-csrf-v1` at `/home/drakosfire/Projects/DungeonOverMind/task-workspaces/hosted-origin-csrf-20261020/worktrees/buddy-origin-csrf-v1`.
 
@@ -29,6 +29,8 @@ This is an unmounted primitive. It does not authenticate or resolve identity, se
 ## 2. Re-anchoring and predecessor settlement
 
 - Current Buddy `origin/main` is `4ba6de08c33d9f8870d6c2857b585ce72f97d903`, the confirmed merge of PR #1508 (reviewed head `a43004aef8afecf6241c3584c1e4948a80dffc30`). The DMS principal adapter remains unmounted; no launch readiness is implied.
+- ARCHITECTURE approved this ACTIVE handoff at exact head `7fda8f44e8110d26057a60043c855975ead5b505`, then withdrew its initial main-landing HOLD after reconciling current Buddy policy. It found no specific HOSTED main-only rule.
+- PRIME independently confirmed the branch/PR is durable handoff authority and no merge of #1509 is needed before dispatch. The user explicitly prohibited treating the authority assessment as permission to merge #1509; it remains open and unchanged.
 - The prior adapter handoff is included in this lane's write set for truthful settlement to `SETTLED` with that exact merge evidence.
 - GitHub's open-PR search at activation found no open `HOSTED` PR. PR #1506 is open but owns Rules lookup/UI/application-state files and unrelated handoffs; its changed-file list does not overlap this lane. The existing active local-session profile-isolation handoff writes different service/route/test paths. No shared state, port, database, service, provider, or runtime is used here.
 - URL topology and audience remain unselected. The real browser cookie-delivery and route-wiring gates remain later work.
@@ -69,6 +71,7 @@ Use synthetic Starlette/ASGI requests and a fake mutation counter. No live serve
 - Empty configuration and configuration containing any invalid entry reject all unsafe requests, including otherwise-allowed requests. Invalid entries are not silently discarded.
 - `GET`, `HEAD`, and `OPTIONS` do not require Origin under this helper.
 - Static diff/import inspection confirms no route imports or calls the helper and no existing auth route, middleware, local-session, or service-auth module changed. This slice makes no bearer/service runtime test claim; that belongs to a future route-wiring integration.
+- Execution on the implementation worktree: focused offline command `PYTHONDONTWRITEBYTECODE=1 TMPDIR=<task scratch> PYTHONPATH=<existing Buddy .venv site-packages> <Python 3.13.12> -B -m pytest -q -p no:cacheprovider tests/test_trusted_cookie_origin.py` passed **56 tests**; Ruff 0.15.7 on the helper and test passed; `git diff --check` passed. Static `git grep` and recursive source search found no helper reference under `apps/live_control_server`, so it remains unmounted. No live services, database, DMS, browser, or provider calls were made.
 - Inspect pytest/Ruff configuration and the pinned Python/test environment before running anything. Run the focused test file, lint touched Python files, and `git diff --check`. All tests remain offline and deterministic; do not run tests that touch PostgreSQL, DMS, a live provider, or production data.
 
 ## 6. Exclusive expected write lease
