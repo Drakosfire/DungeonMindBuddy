@@ -38,14 +38,12 @@ import {
   WorldGraphLensProvider,
   WorldGraphLensProjectionProvider,
 } from "./graphLens";
-import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
-import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
-import { SurfaceShell } from "./surface/SurfaceShell";
+
+import type { InspectorPaneState } from "./surface/InspectorPane";
+import { deferredComponent } from "./ui/deferredComponent";
+
 import type { PaneTarget } from "./surface/targetTypes";
-import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
-import { PlaySurfacePage } from "./playSurface/PlaySurfacePage";
-import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
-import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
+
 import {
   SELECTED_WORLD_LOCATION_CHANGED_EVENT,
   SelectedWorldProvider,
@@ -54,6 +52,14 @@ import {
 } from "./selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
 import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
+
+const SurfaceShell = deferredComponent(() => import("./surface/SurfaceShell").then(module => ({ default: module.SurfaceShell })), "surface");
+const PlanSurfacePage = deferredComponent(() => import("./planSurface/PlanSurfacePage").then(module => ({ default: module.PlanSurfacePage })), "Plan");
+const PlaySurfacePage = deferredComponent(() => import("./playSurface/PlaySurfacePage").then(module => ({ default: module.PlaySurfacePage })), "Play");
+const BuildSurfacePage = deferredComponent(() => import("./buildSurface/BuildSurfacePage").then(module => ({ default: module.BuildSurfacePage })), "Build");
+const MemoryIngestPage = deferredComponent(() => import("./ingestSurface/MemoryIngestPage").then(module => ({ default: module.MemoryIngestPage })), "Ingest");
+const TiptapCalloutBridgeSpike = deferredComponent(() => import("./tiptap/TiptapCalloutBridgeSpike").then(module => ({ default: module.TiptapCalloutBridgeSpike })), "editor");
+const InspectorPane = deferredComponent(() => import("./surface/InspectorPane").then(module => ({ default: module.InspectorPane })), "inspector");
 
 type LoadStatus = "loading" | "ready" | "error";
 

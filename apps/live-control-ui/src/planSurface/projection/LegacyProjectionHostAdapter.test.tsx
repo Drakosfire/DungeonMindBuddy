@@ -405,7 +405,7 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     const drawer = document.querySelector("#surface-projection-drawer");
     expect(drawer).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Reference" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
   });
 
   it("renders content with a registered binding and does not crash", async () => {
@@ -561,6 +561,8 @@ describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
     act(() => {
       hostApi!.openTool("recap");
     });
+
+    await waitFor(() => expect(getRecapArtifacts).toHaveBeenCalled());
 
     rerender(
       <AgentInteractionProjectionTestHost config={campaignConfig("other-campaign")}>
