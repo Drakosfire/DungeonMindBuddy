@@ -220,3 +220,54 @@ def verify_build_output(execution, *, producing_provider_attempt_id: UUID,
                 UUID(key) not in supplied for key in segment.support_ids):
             raise ValueError("Rules output cites a support absent from its producing input")
     return answer
+
+
+class BuildRulesOutputProofV1(ClosedRulesModel):
+    policy: Literal["exact_producer_composition_v1"]
+    prepared_request_json: Annotated[str, Field(min_length=1, max_length=512000)]
+    raw_output_json: Annotated[str, Field(min_length=1, max_length=MAX_OUTPUT_BYTES)]
+
+    @model_validator(mode="after")
+    def byte_bounds(self):
+        if len(self.prepared_request_json.encode()) > MAX_REQUEST_BYTES or len(self.raw_output_json.encode()) > MAX_OUTPUT_BYTES:
+            raise ValueError("Mixed output proof exceeds its UTF8 byte bounds")
+        return self
+
+
+def validate_build_base_completion(result, turn, *, rules_execution, output_proof,
+                                   answer: RulesWriterAnswerV1) -> None:
+    """Reconstruct actual mixed base output without fabricating a response capture.
+
+    Caller already verified the actual outer request and raw captured response.
+    Existing Graph completion/receipt validation still runs after this comparison.
+    """
+    from . import types as t
+    from .rules_authority_completion import RulesCitedSourceTurnResultV1
+
+    if (not isinstance(result, RulesCitedSourceTurnResultV1)
+            or result.rules_execution_id != rules_execution.scope.execution_id
+            or result.writer_request_json != output_proof.prepared_request_json
+            or result.raw_provider_output_json != output_proof.raw_output_json
+            or answer.base_output is None):
+        raise ValueError("Mixed base proof differs from its actual outer producer")
+    graph = turn.graph_context_execution
+    if not isinstance(getattr(graph, "policy", None), t.BuildCitedSourceActionControllerWriterPolicyV1):
+        raise ValueError("Mixed cited base requires the current Build source policy")
+    authorizations = [e for e in graph.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+        and e.provider_attempt_id == result.producing_provider_attempt_id]
+    if len(authorizations) != 1:
+        raise ValueError("Mixed base has no unique same producing Graph request")
+    auth = authorizations[0]
+    if ((auth.provider, auth.model, auth.api_mode) != graph.policy.provider_roles.writer.identity()
+            or auth.envelope_sha256 != sha256(output_proof.prepared_request_json.encode()).hexdigest()):
+        raise ValueError("Mixed base differs from its actual Graph writer request")
+    packet = base_writer.strict_json(base_writer.strict_json(output_proof.prepared_request_json)["input"])
+    expected, bindings = base_writer.reconstruct(json.dumps(answer.base_output, ensure_ascii=False), packet, turn, auth)
+    def citations(completion):
+        return sorted(json.dumps(c.model_dump(mode="json"), sort_keys=True)
+            for c in getattr(completion, "source_citations", ()))
+    actual = result.completion
+    if (type(actual) is not type(expected)
+            or actual.model_dump(exclude={"source_citations"}) != expected.model_dump(exclude={"source_citations"})
+            or citations(actual) != citations(expected) or result.build_section_bindings != bindings):
+        raise ValueError("Mixed base completion differs from exact outer writer normalization")

@@ -6,6 +6,7 @@ from uuid import UUID
 from typing import Annotated, Literal
 from pydantic import Field, model_validator
 from .types import TurnResult, CitedSourceTurnResult
+from .rules_authority_output import BuildRulesOutputProofV1
 
 from .rules_authority_events import (
     RulesCompletionBoundV1,
@@ -170,6 +171,12 @@ def prepare_rules_acceptance(
     ), binding
 
 
+class RulesCitedSourceTurnResultV1(CitedSourceTurnResult):
+    """Actual mixed outer producer proof, usable only in mixed acceptance."""
+    rules_execution_id: UUID
+    rules_output_policy: Literal["exact_producer_composition_v1"]
+
+
 class MixedTurnResultV1(ClosedRulesModel):
     """Internal mixed result; base proof remains its existing typed result."""
 
@@ -180,7 +187,7 @@ class MixedTurnResultV1(ClosedRulesModel):
     assistant_text: Annotated[str, Field(min_length=1, max_length=32000)]
     composition: AnswerCompositionV1
     producing_provider_attempt_id: UUID
-    base_result: CitedSourceTurnResult | TurnResult | None
+    base_result: RulesCitedSourceTurnResultV1 | CitedSourceTurnResult | TurnResult | None
 
     @model_validator(mode="after")
     def exact_partitions(self):
@@ -219,4 +226,20 @@ class MixedTurnResultV1(ClosedRulesModel):
                 )
         if self.composition.render(segments) != self.assistant_text:
             raise ValueError("Mixed text differs from its ordered composition")
+        return self
+
+
+class BuildRulesMixedTurnResultV1(MixedTurnResultV1):
+    """The current runtime Build result requires actual request and raw output."""
+    schema_: Literal["dmb_build_rules_mixed_turn_result_v1"] = Field(alias="schema")
+    output_proof: BuildRulesOutputProofV1
+
+    @model_validator(mode="after")
+    def exact_outer_base_proof(self):
+        base = self.base_result
+        if base is not None and (not isinstance(base, RulesCitedSourceTurnResultV1)
+                or base.rules_execution_id != self.scope.execution_id
+                or base.writer_request_json != self.output_proof.prepared_request_json
+                or base.raw_provider_output_json != self.output_proof.raw_output_json):
+            raise ValueError("Mixed runtime base must carry its same actual outer proof")
         return self

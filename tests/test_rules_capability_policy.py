@@ -115,6 +115,8 @@ def test_conversation_only_stays_empty_and_cannot_carry_rules_metadata():
     lambda wire: wire.update(rulesCapability=None),
     lambda wire: wire["rulesCapability"].update(corpus_sha256="a" * 64),
     lambda wire: wire["rulesCapability"].update(input_proof_policies=["opaque_json"]),
+    lambda wire: wire["rulesCapability"].pop("output_proof_policy"),
+    lambda wire: wire["rulesCapability"].update(output_proof_policy="plaintext"),
     lambda wire: wire["toolRules"][0].update(requireRulesAuthority=False),
     lambda wire: wire["toolRules"][0].update(requireRulesAuthority="yes"),
     lambda wire: wire["toolRules"][0].update(requireGraphScope=True),

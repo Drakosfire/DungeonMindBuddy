@@ -85,7 +85,9 @@ from application_state.agent_conversation.types import (
     validate_graph_provider_envelope,
 )
 from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
-from .rules_authority_completion import MixedTurnResultV1
+from .rules_authority_completion import (
+    MixedTurnResultV1, BuildRulesMixedTurnResultV1, RulesCitedSourceTurnResultV1,
+)
 from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -268,16 +270,22 @@ def _ordinary_mutation_turn(turn: TurnReadModel | None, conversation_id: UUID) -
 
 
 def _validated_base_execution_locked(
-    conn, turn: Turn, result: TurnResult, *, prepared_recovery: bool = False
+    conn, turn: Turn, result: TurnResult, *, prepared_recovery: bool = False,
+    mixed_output_context=None,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
     from .types import (
         BuildAuthoringCompletionV1,
         BuildImagePreparationCompletionV1,
         BuildActionControllerWriterPolicyV1,
+        BuildCitedSourceActionControllerWriterPolicyV1,
     )
 
     execution = turn.graph_context_execution
+    if isinstance(result, RulesCitedSourceTurnResultV1) and (
+            mixed_output_context is None or not isinstance(getattr(execution, "policy", None),
+                BuildCitedSourceActionControllerWriterPolicyV1)):
+        raise ApplicationStateValidationError("Mixed base output proof requires atomic mixed acceptance and current Build source policy")
     if prepared_recovery and not isinstance(
         getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1
     ):
@@ -293,22 +301,26 @@ def _validated_base_execution_locked(
             raise ApplicationStateValidationError(
                 "execution completion requires a producing attempt and claim evidence binding"
             )
-        from .types import BuildCitedSourceActionControllerWriterPolicyV1
-
         if isinstance(
             execution.policy, BuildCitedSourceActionControllerWriterPolicyV1
-        ) and not isinstance(
+        ) and (isinstance(result, RulesCitedSourceTurnResultV1) or not isinstance(
             result.completion,
             (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1),
-        ):
+        )):
             from .source_writer_output import validate_completion_proof
 
-            captured = conn.execute(
-                "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
-                (turn.turn_id, turn.attempt),
-            ).fetchone()
             try:
-                validate_completion_proof(result, turn, captured[0] if captured else {})
+                if isinstance(result, RulesCitedSourceTurnResultV1):
+                    from .rules_authority_output import validate_build_base_completion
+                    rules_execution, output_proof, answer = mixed_output_context
+                    validate_build_base_completion(result, turn, rules_execution=rules_execution,
+                        output_proof=output_proof, answer=answer)
+                else:
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    validate_completion_proof(result, turn, captured[0] if captured else {})
             except (ValueError, KeyError, TypeError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
         payload = result.completion.model_dump(mode="json", by_alias=True)
@@ -1655,8 +1667,15 @@ class AgentConversationService:
         )
         from .rules_authority_types import RulesScopeV1, canonical_sha256
 
+        from .rules_authority_policy import capability_for_policy_sha256
+        from .rules_authority_output import verify_build_output, parse_answer
+        from .rules_authority_types import RulesSupportRefV1
+
         scope = result.scope
         world_id = _world_id(scope.world_id)
+        if (capability_for_policy_sha256(scope.capability_policy_sha256) is not None
+                and not isinstance(result, BuildRulesMixedTurnResultV1)):
+            raise ApplicationStateValidationError("Current runtime Rules completion requires actual outer output proof")
         with unit_of_work(_ready_dsn()) as conn:
             turn = repo.lock_turn(conn, world_id, scope.turn_id)
             if isinstance(turn, MixedCompletedTurnV1):
@@ -1739,6 +1758,20 @@ class AgentConversationService:
                         and graph_binding.claim_graph_event_ids
                         == result.base_result.claim_graph_event_ids
                     )
+                if isinstance(result, BuildRulesMixedTurnResultV1):
+                    try:
+                        proof = result.output_proof
+                        base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
+                            if result.base_result is not None else ())
+                        derived = parse_answer(proof.raw_output_json).composition(
+                            supplied_refs=tuple(RulesSupportRefV1(support_id=item.support_id,
+                                support_sha256=item.support_sha256) for item in binding.support_table),
+                            base_segments=base_segments, base_disposition=result.composition.base_disposition)
+                        if (hashlib.sha256(proof.prepared_request_json.encode()).hexdigest() != binding.request_envelope_sha256
+                                or derived != result.composition):
+                            raise ValueError("Replayed output differs from accepted producing request/composition")
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 if (
                     exact_scope == scope
                     and frozen[0] == result.expected_rules_revision + 1
@@ -1779,6 +1812,21 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "mixed completion differs from its frozen Rules execution"
                 )
+            output_context = None
+            if isinstance(result, BuildRulesMixedTurnResultV1):
+                captured = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt),
+                ).fetchone()
+                try:
+                    proof = result.output_proof
+                    answer = verify_build_output(current.execution,
+                        producing_provider_attempt_id=result.producing_provider_attempt_id,
+                        prepared_request_json=proof.prepared_request_json, raw_output_json=proof.raw_output_json,
+                        trace=captured[0] if captured else {})
+                    output_context = (current.execution, proof, answer)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             disposition = result.composition.base_disposition
             base_result = result.base_result
             execution = turn.graph_context_execution
@@ -1786,7 +1834,7 @@ class AgentConversationService:
             segments = ()
             graph_used = False
             if disposition == "approved":
-                execution = _validated_base_execution_locked(conn, turn, base_result)
+                execution = _validated_base_execution_locked(conn, turn, base_result, mixed_output_context=output_context)
                 completion = base_result.completion
                 segments = tuple(item.text for item in completion.answer_segments)
                 graph_used = "world_graph" in completion.answer_basis
@@ -1800,6 +1848,13 @@ class AgentConversationService:
                     "unclaimed base requires genuine Graph receipt and execution"
                 )
             try:
+                if output_context is not None:
+                    derived = output_context[2].composition(supplied_refs=next(
+                        e.support_refs for e in current.execution.events
+                        if e.kind == "build_provider_included" and e.provider_attempt_id == result.producing_provider_attempt_id),
+                        base_segments=segments, base_disposition=disposition)
+                    if derived != result.composition or derived.render(segments) != result.assistant_text:
+                        raise ValueError("Mixed result differs from its actual outer output normalization")
                 accepted, binding = prepare_rules_acceptance(
                     current.execution,
                     result.composition,

@@ -44,6 +44,7 @@ class RulesCapabilityV1(ClosedRulesModel):
     ruleset_id: Literal["dnd_2024_srd_5_2_1"]
     corpus_sha256: Literal["ce1e7319873eab278c305a102c91f1691006b63bc636fe5cabd3fe37d3cf5493"]
     input_proof_policies: tuple[Literal["matched_lookup_outputs_v1"], Literal["build_rules_projection_v1"]]
+    output_proof_policy: Literal["exact_producer_composition_v1"]
     tool_contract_sha256: Digest
     budget: RulesBudgetV1
 
@@ -66,6 +67,7 @@ def rules_capability(*, graph: bool) -> RulesCapabilityV1:
         policy_id=WORLD_GRAPH_RULES_READ_POLICY_ID if graph else RULES_READ_POLICY_ID,
         ruleset_id=RULESET, corpus_sha256=CORPUS,
         input_proof_policies=("matched_lookup_outputs_v1", "build_rules_projection_v1"),
+        output_proof_policy="exact_producer_composition_v1",
         tool_contract_sha256=canonical_sha256(rules_tool_definition()), budget=RULES_BUDGET_V1)
 
 
