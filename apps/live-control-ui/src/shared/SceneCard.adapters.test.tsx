@@ -10,7 +10,7 @@ import type { PlayRunReferenceManifestV2, WorldPlayRunRecordV2 } from "../api/ty
 import { WorldPlanCardProjection } from "../planSurface/components/WorldPlanCardProjection";
 import { PlayCurrentMomentCockpit } from "../playSurface/currentMoment/PlayCurrentMomentCockpit";
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../playSurface/runbook/nativeRunbookProjection";
-import type { RunbookMutationStatus } from "../playSurface/runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "../playSurface/currentMoment/playRunMutation";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 
 function render(ui: ReactElement) {

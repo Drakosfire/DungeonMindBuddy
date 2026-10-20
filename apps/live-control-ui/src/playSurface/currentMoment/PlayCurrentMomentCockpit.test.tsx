@@ -13,7 +13,7 @@ import type {
   WorldPlayRunRecordV2,
 } from "../../api/types";
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRunbookProjection";
-import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "./playRunMutation";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
 import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
 import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";

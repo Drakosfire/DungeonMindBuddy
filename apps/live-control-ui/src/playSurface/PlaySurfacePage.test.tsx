@@ -91,7 +91,14 @@ const secondRunId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const artifactId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const workRevisionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const newerWorkRevisionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-const shaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const worldPlayableMarkdown = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:approach -->",
+  "## Approach", "", "The wardens wait.", "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+  "### Gate", "", "A held north gate.", "",
+].join("\n");
+
+const shaA = createHash("sha256").update(worldPlayableMarkdown).digest("hex");
 const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 function worldActiveRun(run: string | null = runId, worldId = "world-b") {
@@ -126,8 +133,8 @@ function worldRun(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRe
     created_at: "2026-09-30T00:00:00Z",
     updated_at: "2026-09-30T00:00:00Z",
     progress: {
-      current_scene_id: null,
-      current_beat_id: null,
+      current_scene_id: "scene:gate",
+      current_beat_id: "beat:approach",
       resolved_beat_ids: [],
       selections: {},
       notes_by_element_id: {},
@@ -151,26 +158,13 @@ function worldCommitted(
     object_revision: 1,
     work_revision_id: workRevisionId,
     revision_n: 1,
-    markdown: "# Gate\n",
+    markdown: worldPlayableMarkdown,
     content_sha256: shaA,
     has_divergent_working_copy: false,
     target_relpath: null,
     ...overrides,
   };
 }
-
-const worldPlayableMarkdown = [
-  "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
-  "## Gate",
-  "",
-  "A held north gate.",
-  "",
-  "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
-  "### Approach",
-  "",
-  "The wardens wait.",
-  "",
-].join("\n");
 
 function mockReadyWorldRuns(runIds: string[] = [runId]) {
   vi.mocked(listWorldPlayRuns).mockResolvedValue({
@@ -179,15 +173,14 @@ function mockReadyWorldRuns(runIds: string[] = [runId]) {
   });
   vi.mocked(getWorldPlayRun).mockImplementation(async (selectedRunId) => worldRun({ run_id: selectedRunId }));
   vi.mocked(getWorldPlayRunReferenceManifest).mockImplementation(async (selectedRunId) => ({
-    schema_version: "dmb_play_run_reference_manifest_v1",
+    schema_version: "dmb_play_run_reference_manifest_v2",
     run_id: selectedRunId,
     playable_artifact_id: artifactId,
     playable_revision: 1,
     playable_content_sha256: shaA,
-    elements: [
-      { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-      { kind: "scene", element_id: "scene:gate" },
-    ],
+    beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     sealed_at: "2026-09-30T00:00:00Z",
   }));
   vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(
@@ -198,6 +191,18 @@ function mockReadyWorldRuns(runIds: string[] = [runId]) {
 describe("Play selected-World admission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
+    vi.stubGlobal("crypto", webcrypto);
+    vi.mocked(getWorldPlayRunContent).mockImplementation(async (id, world) => {
+      const result = vi.mocked(getWorldPlayRun).mock.results.at(-1);
+      const run = result?.type === "return" ? await result.value : worldRun({ run_id: id, world_id: world });
+      return { schema_version: "dmb_world_play_run_content_v1", world_id: world, run_id: id,
+        origin: { playable_artifact_id: run.playable_artifact_id, playable_revision: run.playable_revision,
+          playable_work_revision_id: run.playable_work_revision_id, playable_content_sha256: run.playable_content_sha256 },
+        source: "pinned", edition_revision: 0, edition_revision_id: null, markdown: worldPlayableMarkdown,
+        content_sha256: run.playable_content_sha256, structure_sha256: shaA,
+        committed_at: "2026-10-18T00:00:00Z", observed_run_revision: run.run_revision };
+    });
     vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [] });
     vi.mocked(listWorldOwnedRunbooks).mockResolvedValue({ schema_version: "dmb_world_owned_runbooks_list_v2", scope_mode: "world", world_id: "world-b", records: [] });
     selectedWorldHarness.worldId = "world-b";
@@ -209,6 +214,25 @@ describe("Play selected-World admission", () => {
       records: [],
     });
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+  });
+
+  it.each(["<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\n\n<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->\n### Approach\nLegacy scene.\n", "# Unmarked old source\n"])("rejects v1 manifest before content, active-pointer, rebase, progress or Agent publication (%#)", async markdown => {
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
+    vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(worldCommitted({ markdown }));
+    vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1", run_id: runId, playable_artifact_id: artifactId,
+      playable_revision: 1, playable_content_sha256: shaA, sealed_at: "2026-09-30T00:00:00Z",
+      elements: [{ kind: "scene", element_id: "scene:gate" }, { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" }],
+    });
+    render(<PlaySurfacePage />);
+    expect(await screen.findByTestId("play-status-unsupported_playable")).toHaveTextContent("Play requires v2 markers");
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(getWorldPlayRunContent).not.toHaveBeenCalled();
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+    expect(putPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
+    expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.every(([value]) => value == null)).toBe(true);
   });
 
   it("explains Play at the exact root chooser without an inert Load or campaign creation form", async () => {
@@ -299,15 +323,14 @@ describe("Play selected-World admission", () => {
     });
     vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 1,
       playable_content_sha256: shaA,
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(committed);
@@ -341,15 +364,14 @@ describe("Play selected-World admission", () => {
     vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun());
     vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 1,
       playable_content_sha256: shaA,
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(committed);
@@ -430,7 +452,9 @@ describe("Play selected-World admission", () => {
 
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
-    await user.click(screen.getByRole("button", { name: "Set current Scene" }));
+    await user.click(screen.getByRole("button", { name: /Notes · Gate/ }));
+    fireEvent.change(screen.getByLabelText("Scene note"), { target: { value: "Trigger exact Run re-admission." } });
+    await user.click(screen.getByRole("button", { name: "Save note now", exact: true }));
 
     await waitFor(() => expect(getWorldPlayRun).toHaveBeenCalledTimes(2));
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
@@ -468,7 +492,9 @@ describe("Play selected-World admission", () => {
     await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2));
     expect(putWorldPlayActiveRun).toHaveBeenLastCalledWith("world-b", secondRunId);
 
-    await user.click(screen.getByRole("button", { name: "Set current Scene" }));
+    await user.click(screen.getByRole("button", { name: /Notes · Gate/ }));
+    fireEvent.change(screen.getByLabelText("Scene note"), { target: { value: "Trigger exact Run re-admission." } });
+    await user.click(screen.getByRole("button", { name: "Save note now", exact: true }));
     await waitFor(() => expect(getWorldPlayRun).toHaveBeenCalledTimes(3));
     expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2);
   });
@@ -494,15 +520,14 @@ describe("Play selected-World admission", () => {
     };
     vi.mocked(getWorldPlayRun).mockResolvedValue(planRun);
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 3,
       playable_content_sha256: shaA,
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     const currentPlan = {
@@ -624,12 +649,12 @@ describe("Play selected-World admission", () => {
     });
     vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 1,
       playable_content_sha256: shaA,
-      elements: [],
+      beats: [{ beat_id: "beat:approach" }], scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }], choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     vi.mocked(getWorldOwnedRunbookCommittedRevision)
@@ -668,12 +693,12 @@ describe("Play selected-World admission", () => {
     const pendingRebase = deferred<WorldPlayRunRecordV2>();
     vi.mocked(getWorldPlayRun).mockResolvedValueOnce(worldRun());
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 1,
       playable_content_sha256: shaA,
-      elements: [],
+      beats: [{ beat_id: "beat:approach" }], scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }], choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     vi.mocked(getWorldOwnedRunbookCommittedRevision)
@@ -733,12 +758,12 @@ describe("Play selected-World admission", () => {
       .mockResolvedValueOnce(worldRun())
       .mockReturnValueOnce(pendingReconciliation.promise);
     vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: artifactId,
       playable_revision: 1,
       playable_content_sha256: shaA,
-      elements: [],
+      beats: [{ beat_id: "beat:approach" }], scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }], choices: [], options: [], edges: [],
       sealed_at: "2026-09-30T00:00:00Z",
     });
     vi.mocked(getWorldOwnedRunbookCommittedRevision)
@@ -885,11 +910,11 @@ describe("World session-copy projection", () => {
     const user = userEvent.setup();
     render(<PlaySurfacePage />);
     await screen.findByText("Session prose.");
-    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:hall")!);
+    await user.click(screen.getByRole("button", { name: "Show scene: Hall", exact: true }));
     await user.click(screen.getByTestId("play-make-current"));
     await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());
     expect(playDetails("play-source-cue")).toHaveTextContent("Session copy · revision 2");
-    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:gate")!);
+    await user.click(screen.getByRole("button", { name: "Show scene: Gate", exact: true }));
     expect(await screen.findByText("Session prose.")).toBeInTheDocument();
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledTimes(1);
     expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
@@ -910,7 +935,7 @@ describe("World session-copy projection", () => {
     vi.mocked(getWorldPlayRunContent).mockResolvedValue({ ...data.content, source: "pinned", edition_revision: 0, edition_revision_id: null,
       markdown: data.committed.markdown, content_sha256: data.run.playable_content_sha256 });
     render(<PlaySurfacePage />);
-    await screen.findByText("Origin prose.");
+    expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Origin prose.");
     expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toMatchObject({ runId, runRevision: 1 });
     expect(screen.queryByText(/Session copy · revision/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-session-copy-agent-notice")).not.toBeInTheDocument();
@@ -921,7 +946,7 @@ describe("World session-copy projection", () => {
       markdown: data.committed.markdown, content_sha256: data.run.playable_content_sha256 });
     const user = userEvent.setup();
     render(<PlaySurfacePage />);
-    await screen.findByText("Origin prose.");
+    expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Origin prose.");
     await user.click(screen.getByRole("button", { name: "Edit session" }));
     await user.click(screen.getByRole("button", { name: "Markdown" }));
     await user.type(screen.getByRole("textbox", { name: "Session copy Markdown" }), "\nFirst unsaved edit.");
@@ -958,7 +983,7 @@ describe("World session-copy projection", () => {
     const user = userEvent.setup();
     render(<PlaySurfacePage />);
     await screen.findByText("Session prose.");
-    await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:hall")!);
+    await user.click(screen.getByRole("button", { name: "Show scene: Hall", exact: true }));
     await user.click(screen.getByTestId("play-make-current"));
     await waitFor(() => expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: "Edit session" }));

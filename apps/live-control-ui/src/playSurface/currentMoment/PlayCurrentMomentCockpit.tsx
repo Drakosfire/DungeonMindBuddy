@@ -21,7 +21,7 @@ import {
   type NativeRunbookReadyV2,
   type NativeRunbookSceneV2,
 } from "../runbook/nativeRunbookProjection";
-import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "./playRunMutation";
 import {
   resolveCurrentMoment,
   type PlayWorkspace,

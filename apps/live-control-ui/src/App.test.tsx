@@ -18,6 +18,13 @@ import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/co
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
+const playShellHarness = vi.hoisted(() => ({ active: false }));
+vi.mock("./selectedWorld/SelectedWorldContext", async importOriginal => {
+  const actual = await importOriginal<typeof import("./selectedWorld/SelectedWorldContext")>();
+  return { ...actual, SelectedWorldProvider: (props: { children: React.ReactNode; locationSnapshot: string }) =>
+    playShellHarness.active ? <>{props.children}</> : <actual.SelectedWorldProvider {...props} /> };
+});
+
 const stableTiptapAction = () => undefined;
 const stableTiptapEditorTools: AppChromeTools = {
   pinnedActions: [
@@ -172,6 +179,7 @@ function matchingWorldGraphProjection(
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    playShellHarness.active = false;
     window.history.pushState({}, "", "/");
     localStorage.clear();
     vi.mocked(liveApi.getSurface).mockResolvedValue({
@@ -643,31 +651,30 @@ describe("App inspector integration", () => {
     expect(editToggle).toHaveAttribute("aria-expanded", "false");
   });
 
+  describe("current Play shell", () => {
+  // World route admission has its own real-provider suite. This shell cohort keeps
+  // the campaign API scope fixed while exercising App routing and current-v2 cards.
+  beforeEach(() => { playShellHarness.active = true; });
+
+  function nativeReadyCalls() {
+    return vi.mocked(liveApi.getPlayRun).mock.calls.filter(([, options]) => options?.ensureNativeReady === true);
+  }
   const PLAY_RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const PLAY_ARTIFACT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const PLAY_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
   const PLAY_MARKDOWN = [
-    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
-    "## Gate",
-    "",
-    "Scene intro.",
-    "",
-    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
-    "### Approach",
-    "",
-    "Approach body.",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:approach -->",
+    "## Approach", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+    "### Gate", "", "Approach body.",
     "",
   ].join("\n");
   const PLAY_SHA_R4 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const PLAY_MARKDOWN_R4 = [
-    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
-    "## Gate",
-    "",
-    "R4 replacement scene.",
-    "",
-    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
-    "### Approach",
-    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:approach -->",
+    "## Approach", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+    "### Gate", "",
     "R4 replacement beat that must not mix with R3 Approach body.",
     "",
   ].join("\n");
@@ -760,8 +767,8 @@ describe("App inspector integration", () => {
       created_at: "2026-08-17T00:00:00Z",
       updated_at: "2026-08-17T00:00:00Z",
       progress: {
-        current_scene_id: null,
-        current_beat_id: null,
+        current_scene_id: "scene:gate",
+        current_beat_id: "beat:approach",
         resolved_beat_ids: [] as string[],
         selections: {} as Record<string, string>,
         notes_by_element_id: {} as Record<string, string>,
@@ -773,16 +780,15 @@ describe("App inspector integration", () => {
     const record = playRunRecord();
     vi.mocked(liveApi.getPlayRun).mockResolvedValue(record);
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 3,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       fixtureSnapshot({
@@ -804,6 +810,29 @@ describe("App inspector integration", () => {
     return record;
   }
 
+  it("rejects old card grammar in the real App without publishing or writing session authority", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.getCommittedWorkspaceRevision).mockResolvedValue(playCommittedRevision({
+      markdown: "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\nOld card source.\n",
+    }));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1", run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID, playable_revision: 3, playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z", elements: [{kind:"scene",element_id:"scene:gate"}],
+    });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+    const blocked = await screen.findByTestId("play-status-unsupported_playable");
+    expect(blocked).toHaveTextContent("Play requires v2 markers");
+    expect(blocked).toHaveAttribute("data-play-campaign-id", "");
+    expect(blocked).toHaveAttribute("data-play-document-id", "");
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
+  });
+
   it("mounts /play through shared AppChrome without auto-selecting a Run", async () => {
     vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
       schema_version: "dmb_play_runs_list_v1",
@@ -815,19 +844,19 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Play", hidden: true })).toHaveClass("active");
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Existing Runs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
-    expect(liveApi.getPlayActiveRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Earlier campaign sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
+    expect(liveApi.getPlayActiveRun).toHaveBeenCalledTimes(2);
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
-    expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(screen.queryByTestId("play-start-run-submit")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
   });
 
@@ -841,7 +870,7 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/play");
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/play");
     expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
@@ -870,7 +899,7 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
@@ -891,14 +920,9 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent(
       /Resume state is unavailable/i,
     );
-    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
-      /Local Play setup is incomplete/i,
-    );
-    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent(
-      /uv run python scripts\/bootstrap_local_play.py check/,
-    );
+    expect(screen.getByTestId("play-local-setup-hint")).toHaveTextContent("Local Play setup is incomplete");
     await waitFor(() => {
-      expect(screen.getByTestId("play-existing-runs")).toHaveTextContent(
+      expect(screen.getByTestId("play-run-chooser")).toHaveTextContent(
         /DungeonBuddy application state is unavailable/i,
       );
     });
@@ -917,7 +941,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toBeInTheDocument();
     expect(screen.queryByTestId("play-local-setup-hint")).not.toBeInTheDocument();
     expect(screen.queryByText(/Local Play setup is incomplete/i)).not.toBeInTheDocument();
   });
@@ -933,12 +957,12 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/play");
     render(<App />);
 
-    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /Resume session/ })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
-    expect(await screen.findByTestId("play-start-run-unavailable")).toBeInTheDocument();
-    expect(screen.getByTestId("play-existing-runs")).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name:"Bring your next session to life"})).toBeInTheDocument();
+    expect(screen.getByRole("link", {name:/Resume session/})).toBeInTheDocument();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
@@ -947,13 +971,13 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
-    await userEvent.setup().click(screen.getByTestId("play-start-new-run"));
+    await userEvent.setup().click(screen.getByTestId("play-load-run"));
 
     expect(window.location.search).toBe("?choose=1");
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bring your next session to life" })).toBeInTheDocument();
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
@@ -965,7 +989,7 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(await screen.findByTestId("play-active-run-save-warning")).toHaveTextContent(
       /Run is open, but Resume state could not be saved/i,
     );
@@ -983,16 +1007,15 @@ describe("App inspector integration", () => {
       selected_at: "2026-08-17T00:00:00Z",
     });
     const manifestFor = (run: typeof firstRun) => ({
-      schema_version: "dmb_play_run_reference_manifest_v1" as const,
+      schema_version: "dmb_play_run_reference_manifest_v2" as const,
       run_id: run.run_id,
       playable_artifact_id: run.playable_artifact_id,
       playable_revision: run.playable_revision,
       playable_content_sha256: run.playable_content_sha256,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat" as const, element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene" as const, element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     let releaseFirst: (value: ReturnType<typeof activeState>) => void = () => undefined;
     const delayedFirst = new Promise<ReturnType<typeof activeState>>((resolve) => {
@@ -1028,12 +1051,12 @@ describe("App inspector integration", () => {
 
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
-    expect(await screen.findByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
     await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
 
     window.history.pushState({}, "", `/play?run=${otherRunId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId));
     expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
 
     releaseFirst(activeState(PLAY_RUN_ID));
@@ -1045,56 +1068,15 @@ describe("App inspector integration", () => {
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
   });
 
-  it("navigates to the exact new Run only after create and seal are confirmed", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(PLAY_RUN_ID);
-    mockReadyPlayRun();
-    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
-      schema_version: "dmb_play_runs_list_v1",
-      records: [],
-    });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [
-        fixtureWorkspaceDocumentRecord({
-          document_id: PLAY_ARTIFACT_ID,
-          title: "North Gate Runbook",
-          kind: "runbook",
-          revision: 3,
-          content_status: "committed",
-        }),
-      ],
-    });
-    vi.mocked(liveApi.putPlayRun).mockResolvedValue(playRunRecord());
-    vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
-      run_id: PLAY_RUN_ID,
-      playable_artifact_id: PLAY_ARTIFACT_ID,
-      playable_revision: 3,
-      playable_content_sha256: PLAY_SHA,
-      sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
-    });
-    window.history.pushState({}, "", "/play");
+  it("requires a World before offering session creation from the root chooser", async () => {
+    window.history.pushState({}, "", "/play?choose=1");
     render(<App />);
-
-    await user.click(await screen.findByTestId(`play-start-runbook-${PLAY_ARTIFACT_ID}`));
-    await user.click(screen.getByTestId("play-start-run-submit"));
-
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(liveApi.putPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, {
-      playable_artifact_id: PLAY_ARTIFACT_ID,
-      expected_playable_revision: 3,
-      expected_playable_content_sha256: PLAY_SHA,
-    });
-    expect(liveApi.putPlayRunReferenceManifest).toHaveBeenCalledWith(PLAY_RUN_ID);
-    await waitFor(() => expect(liveApi.putPlayActiveRun).toHaveBeenCalledWith(PLAY_RUN_ID));
-    expect(liveApi.putPlayActiveRun).toHaveBeenCalledTimes(1);
-    expect(window.location.pathname).toBe("/play");
-    expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("play-start-run-submit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
+    expect(liveApi.putPlayActiveRun).not.toHaveBeenCalled();
   });
 
   it("loads only the exact Run UUID from /play?run=", async () => {
@@ -1102,14 +1084,13 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
+    expect(nativeReadyCalls()).toHaveLength(1);
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
+    expect(screen.getByRole("heading", { name: "Gate", exact: true })).toBeInTheDocument();
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-campaign-id", "longmont-c2");
     expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-document-id", PLAY_ARTIFACT_ID);
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
     expect(screen.queryByTestId("play-run-chooser")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".surface-projection-host").length).toBeLessThanOrEqual(1);
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
@@ -1125,7 +1106,7 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
   });
 
   it("blocks recovery-pending Runs before presenting mutation controls", async () => {
@@ -1136,8 +1117,8 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-status-recovery_pending")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Make .+ current$/ })).not.toBeInTheDocument();
   });
 
   it("blocks a newer committed Runbook without overlaying Runtime", async () => {
@@ -1153,39 +1134,33 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.queryByText(/Newer prose that must not render/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Make .+ current$/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
 
   it("does not publish unadmitted campaign or document authority after integrity failure", async () => {
     mockReadyPlayRun();
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 99,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     });
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
     expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
     expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent("longmont-c2");
-    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
 
   it("discards a stale exact-Run load after the route changes", async () => {
@@ -1199,16 +1174,15 @@ describe("App inspector integration", () => {
       return { ...playRunRecord(), run_id: otherRunId };
     });
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async (runId) => ({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: runId,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: 3,
       playable_content_sha256: PLAY_SHA,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     }));
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       fixtureSnapshot({
@@ -1235,18 +1209,18 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${otherRunId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
 
-    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId));
     resolveFirst(playRunRecord());
     await waitFor(() => {
-      expect(screen.queryByText(`Run ${PLAY_RUN_ID}`)).not.toBeInTheDocument();
+      expect(screen.getByTestId("play-current-moment-cockpit")).not.toHaveAttribute("data-play-run-id", PLAY_RUN_ID);
     });
-    expect(screen.getByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-play-run-id", otherRunId);
   });
 
   it("does not keep R3 authored content READY after a concurrent rebase 409 reconciliation", async () => {
     const user = userEvent.setup();
     mockReadyPlayRun();
-    const r3Run = playRunRecord();
+    const r3Run = { ...playRunRecord(), progress: { ...playRunRecord().progress, current_scene_id: null } };
     const r4Run = {
       ...playRunRecord(),
       playable_revision: 4,
@@ -1265,16 +1239,15 @@ describe("App inspector integration", () => {
     });
     vi.mocked(liveApi.getPlayRun).mockImplementation(async () => (boundRevision === 3 ? r3Run : r4Run));
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async () => ({
-      schema_version: "dmb_play_run_reference_manifest_v1",
+      schema_version: "dmb_play_run_reference_manifest_v2",
       run_id: PLAY_RUN_ID,
       playable_artifact_id: PLAY_ARTIFACT_ID,
       playable_revision: boundRevision,
       playable_content_sha256: boundRevision === 3 ? PLAY_SHA : PLAY_SHA_R4,
       sealed_at: "2026-08-17T00:00:00Z",
-      elements: [
-        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
-        { kind: "scene", element_id: "scene:gate" },
-      ],
+      beats: [{ beat_id: "beat:approach" }],
+      scenes: [{ scene_id: "scene:gate", beat_id: "beat:approach" }],
+      choices: [], options: [], edges: [],
     }));
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async () =>
       fixtureSnapshot({
@@ -1304,19 +1277,20 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
     render(<App />);
 
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(screen.getByText("Approach body.")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name:"Show scene: Gate", exact:true}));
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("Approach body.");
     expect(screen.queryByText(/R4 replacement beat/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("checkbox", { name: "Resolved" }));
+    await user.click(screen.getByTestId("play-make-current"));
 
     await waitFor(() => {
-      expect(screen.queryByText("Approach body.")).not.toBeInTheDocument();
+      expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("R4 replacement beat that must not mix with R3 Approach body.");
     });
     expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
-    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
-    expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
-    expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("R4 replacement beat that must not mix with R3 Approach body.");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:gate");
   });
 
   it("loads a v2 Run through native-ready GET and does not PUT seed progress", async () => {
@@ -1326,9 +1300,9 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
     expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:one");
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("No Scene is current");
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(seeded.progress.current_beat_id).toBe("beat:one");
@@ -1340,10 +1314,10 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 2");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:two");
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("does not PUT seed progress when native-ready GET already returns a current Beat", async () => {
@@ -1352,11 +1326,11 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Beat 1");
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:one");
+    expect(nativeReadyCalls()).toHaveLength(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("does not seed when native-ready GET refuses a mismatched v2 authority set", async () => {
@@ -1373,7 +1347,7 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(screen.queryByTestId("play-current-moment-cockpit")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-surface-ready")).not.toBeInTheDocument();
   });
 
   it("admits the Run returned by native-ready GET after a rebase, without a seed PUT", async () => {
@@ -1417,14 +1391,14 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-current-moment-cockpit")).toBeInTheDocument();
-    expect(screen.getByTestId("play-current-beat")).toHaveTextContent("Rebased");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-beat-id", "beat:rebased");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
-    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(nativeReadyCalls()).toHaveLength(1);
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, { ensureNativeReady: true });
     expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledTimes(1);
     expect(liveApi.getCommittedWorkspaceRevision).toHaveBeenCalledTimes(1);
     expect(vi.mocked(liveApi.getCommittedWorkspaceRevision).mock.calls[0]?.[1]).toBe(4);
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
   it("reflects Make Current from the returned authoritative v2 Run", async () => {
@@ -1447,7 +1421,7 @@ describe("App inspector integration", () => {
     expect(screen.queryByText("v2 Run READY")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Make Scene A current" }));
     expect(await screen.findByTestId("play-workspace-current")).toHaveTextContent("Scene A unique body.");
-    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Scene A");
+    expect(screen.getByTestId("play-current-moment-cockpit")).toHaveAttribute("data-current-scene-id", "scene:a");
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
     expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
       expected_run_revision: seeded.run_revision,
@@ -1456,7 +1430,8 @@ describe("App inspector integration", () => {
         current_scene_id: "scene:a",
       }),
     });
-    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-grammar", "v2");
   });
 
+  });
 });
