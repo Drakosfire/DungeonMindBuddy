@@ -16,4 +16,3 @@ export {
   type NativeRunbookReadyV2,
   type V2AuthorityPreflight,
 } from "./nativeRunbookProjection";
-export { RunbookTableDeck } from "./RunbookTableDeck";

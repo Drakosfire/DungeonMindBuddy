@@ -40,10 +40,7 @@ import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurf
 import { AppChrome } from "../chrome/AppChrome";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
-import {
-  RunbookTableDeck,
-  type RunbookMutationStatus,
-} from "./runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "./currentMoment/playRunMutation";
 import { PlayCurrentMomentCockpit } from "./currentMoment/PlayCurrentMomentCockpit";
 import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
@@ -59,12 +56,9 @@ import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import {
   admitNativeRunbook,
   isCanonicalUuid,
-  isNativeRunbookReadyV1,
   isNativeRunbookReadyV2,
-  overlayRuntimeOnDeck,
   overlayRuntimeOnV2Ready,
   type NativeRunbookAdmission,
-  type NativeRunbookReadyDeck,
   type NativeRunbookReadyV2,
 } from "./runbook/nativeRunbookProjection";
 import "./playSurface.css";
@@ -78,7 +72,8 @@ type PlayLoadStatus =
   | "unavailable"
   | "recovery_pending"
   | "rebase_required"
-  | "integrity_failure";
+  | "integrity_failure"
+  | "unsupported_playable";
 
 function subscribeLocation(onStoreChange: () => void): () => void {
   window.addEventListener("popstate", onStoreChange);
@@ -260,7 +255,7 @@ function playPublicationAuthority(input: {
 
 function pinnedSourceCue(
   run: AnyPlayRunRecord,
-  snapshot: NativeRunbookReadyDeck["snapshot"] | NativeRunbookReadyV2["snapshot"],
+  snapshot: NativeRunbookReadyV2["snapshot"],
 ): string {
   const sourceKind = "kind" in snapshot ? snapshot.kind : "record" in snapshot ? snapshot.record.kind : null;
   const version = run.playable_revision;
@@ -523,6 +518,8 @@ function statusCopy(status: PlayLoadStatus, detail: string | null): { title: str
         title: "Rebase required",
         body: detail ?? "The committed Runbook no longer matches this Run binding. Play will not overlay the old Runtime on newer prose.",
       };
+    case "unsupported_playable":
+      return { title: "Unsupported Playable format", body: detail ?? "Play requires v2 Playable markers. Open the source in Plan to author current cards." };
     case "integrity_failure":
       return {
         title: "Playable integrity failure",
@@ -673,6 +670,13 @@ function PlayRuntimePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
+      if (manifest.schema_version === "dmb_play_run_reference_manifest_v1") {
+        setLoadStatus("unsupported_playable");
+        setDetail("This session uses an unsupported Playable format. Play requires v2 markers; open its source in Plan to author current cards. The saved session and notes have not been changed.");
+        setAdmission(null);
+        setMutationStatus("idle");
+        return;
+      }
       let nextAdmission = admitNativeRunbook({ run: loaded, manifest, committed });
       if (selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2"
         && isNativeRunbookReadyV2(nextAdmission)) {
@@ -693,7 +697,8 @@ function PlayRuntimePage() {
         selectedWorldId
         && loaded.schema_version === "dmb_world_play_run_record_v2"
         && committed?.kind === "runbook"
-        && !(isNativeRunbookReadyV2(nextAdmission) && nextAdmission.effectiveContent?.source === "edition")
+        && isNativeRunbookReadyV2(nextAdmission)
+        && nextAdmission.effectiveContent?.source !== "edition"
       ) {
         const current = await getWorldOwnedRunbookCommittedRevision(
           loaded.playable_artifact_id,
@@ -965,15 +970,11 @@ function PlayRuntimePage() {
     };
   }, [chooserQuery, locationSearch, runQuery, loadExactRun, selectedWorldId]);
 
-  const v1Deck: NativeRunbookReadyDeck | null =
-    loadStatus === "ready" && admission != null && isNativeRunbookReadyV1(admission)
-      ? admission
-      : null;
   const v2Deck: NativeRunbookReadyV2 | null =
     loadStatus === "ready" && admission != null && isNativeRunbookReadyV2(admission)
       ? admission
       : null;
-  const admittedRun = v1Deck?.run ?? v2Deck?.run ?? null;
+  const admittedRun = v2Deck?.run ?? null;
   const sessionCopyIdentity = v2Deck?.effectiveContent
     ? JSON.stringify([v2Deck.effectiveContent.world_id, v2Deck.effectiveContent.run_id, v2Deck.effectiveContent.origin])
     : null;
@@ -1022,7 +1023,7 @@ function PlayRuntimePage() {
   const currentWorldBeat = v2Deck?.beats.find((beat) => beat.id === v2Deck.currentBeatId) ?? null;
   const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
-  const blocked = v1Deck == null && v2Deck == null;
+  const blocked = v2Deck == null;
 
   return (
     <AppChrome activeRoute="play">
@@ -1056,38 +1057,6 @@ function PlayRuntimePage() {
           data-play-document-id=""
         >
           <p>Loading exact Run…</p>
-        </main>
-      ) : null}
-      {v1Deck ? (
-        <main
-          className="play-surface"
-          data-testid="play-surface-ready"
-          data-play-campaign-id={publication.campaignId ?? ""}
-          data-play-document-id={publication.documentId ?? ""}
-        >
-          <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
-            {pinnedSourceCue(v1Deck.run, v1Deck.snapshot)}
-          </p>
-          <RunbookTableDeck
-            key={v1Deck.run.run_id}
-            deck={v1Deck}
-            mutationStatus={mutationStatus}
-            onMutationStatus={setMutationStatus}
-            onAuthoritativeRun={(nextRun) => {
-              if (nextRun.run_id !== v1Deck.run.run_id) return;
-              const overlaid = overlayRuntimeOnDeck(v1Deck, nextRun);
-              if (!overlaid) {
-                void loadExactRun(nextRun.run_id);
-                return;
-              }
-              setAdmission(overlaid);
-            }}
-          />
-          {detail ? (
-            <p role="alert" className="play-continuity-warning" data-testid="play-active-run-save-warning">
-              {detail}
-            </p>
-          ) : null}
         </main>
       ) : null}
       {v2Deck ? (

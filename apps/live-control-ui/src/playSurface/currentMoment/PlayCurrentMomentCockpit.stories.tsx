@@ -6,7 +6,7 @@ import type {
   WorldPlayRunRecordV2,
 } from "../../api/types";
 import { admitNativeRunbook } from "../runbook/nativeRunbookProjection";
-import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
+import type { RunbookMutationStatus } from "./playRunMutation";
 import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN } from "./breachDogfoodFixture";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
 import appStyles from "../../styles.css?inline";
