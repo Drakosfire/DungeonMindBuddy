@@ -91,8 +91,3 @@ export async function rulesAnswerDigestsBound(context: RulesAnswerContext, text:
   } catch { return false; }
 }
 
-
-export function rulesAnswerDisplaySegments(context: RulesAnswerContext, text: string): string[] {
-  const chars = Array.from(text);
-  return context.accepted_binding.segment_map.map(segment => chars.slice(segment.text_start, segment.text_end).join(''));
-}

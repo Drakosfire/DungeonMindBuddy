@@ -1427,8 +1427,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
       conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
     render(<Harness initial='plan' />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
-    await screen.findAllByText(ruleText);
-    expect(screen.getAllByText(base.completion!.answer_segments[0].text).length).toBeGreaterThan(0);
+    await waitFor(() => expect(document.querySelector('.world-plan-agent-conversation__message--assistant .world-plan-agent-answer')).toHaveTextContent(ruleText));
+    const visibleAnswer = document.querySelector('.world-plan-agent-conversation__message--assistant .world-plan-agent-answer');
+    expect(visibleAnswer).toBeVisible();
+    expect(visibleAnswer).toHaveTextContent(base.completion!.answer_segments[0].text);
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
   });
 

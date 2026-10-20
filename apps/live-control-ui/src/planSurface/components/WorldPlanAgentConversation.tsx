@@ -1,5 +1,5 @@
 import { RulesAnswerEvidence } from '../../rulesLookup/RulesAnswerEvidence';
-import { isRulesAnswerContext, rulesAnswerDigestsBound, rulesAnswerDisplaySegments } from '../../rulesLookup/rulesAnswerProtocol';
+import { isRulesAnswerContext, rulesAnswerDigestsBound } from '../../rulesLookup/rulesAnswerProtocol';
 import type { RulesAnswerContext } from '../../api/rulesLookupTypes';
 import { usePlaySceneEdits } from "../../playSurface/agentEdit/PlaySceneEditReview";
 import { ActionPromptInspector } from "./ActionPromptInspector";
@@ -5380,7 +5380,7 @@ export function WorldPlanAgentConversation({
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
-              displaySegments={rulesContextForTurn(turn) ? rulesAnswerDisplaySegments(rulesContextForTurn(turn)!, turn.assistant_text ?? '') : graphContextForTurn(turn)?.completion
+              displaySegments={rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />
