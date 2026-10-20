@@ -285,5 +285,27 @@ def test_oversized_response_fails_closed() -> None:
     assert asyncio.run(run()) is None
 
 
+def test_deeply_nested_response_fails_closed() -> None:
+    body = b'{"sub":"google-sub","nested":' + b"[" * 10_000 + b"0" + b"]" * 10_000 + b"}"
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            content=body,
+        )
+
+    async def run() -> DmsPrincipal | None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resolver = DmsPrincipalResolver(
+                api_origin="https://dms.example.test",
+                http_client=client,
+            )
+            return await resolver(_request(cookie_value="synthetic-cookie"))
+
+    assert len(body) <= dms_principal.MAX_DMS_RESPONSE_BODY_BYTES
+    assert asyncio.run(run()) is None
+
+
 def test_timeout_is_finite_and_matches_reviewed_contract() -> None:
     assert DMS_REQUEST_TIMEOUT_SECONDS == 5.0

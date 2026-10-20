@@ -134,7 +134,7 @@ class DmsPrincipalResolver:
                     payload = json.loads(body)
                 finally:
                     await response.aclose()
-        except (httpx.HTTPError, TimeoutError, ValueError):
+        except (httpx.HTTPError, TimeoutError, ValueError, RecursionError):
             return None
 
         if not isinstance(payload, dict):
