@@ -13,6 +13,7 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
 )
 from application_state.ingest.service import create_extraction_run
+from apps.live_control_server.services.ingest_run_catalog import list_canonical_extraction_runs, IngestRunCatalogError
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
@@ -85,9 +86,7 @@ def test_w1_list_reads_app_state_only_when_legacy_registry_explodes(
         _boom,
     )
 
-    response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 200
-    body = response.json()
+    body = list_canonical_extraction_runs()
     assert body["schema_version"] == "dmb_extraction_run_catalog_v1"
     assert [row["run_id"] for row in body["runs"]] == [created.run_id]
     assert body["runs"][0]["status"] == "reviewable"
@@ -188,9 +187,7 @@ def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
         _boom,
     )
 
-    response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 200
-    assert any(row["run_id"] == created.run_id for row in response.json()["runs"])
+    assert any(row["run_id"] == created.run_id for row in list_canonical_extraction_runs()["runs"])
     exact = client.get(f"/api/live/graph-preview/extraction-runs/{created.run_id}")
     assert exact.status_code == 200
     assert exact.json()["run_id"] == created.run_id
@@ -209,16 +206,13 @@ def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
     assert "manifest" not in message.lower() or "fallback" not in message.lower()
     assert not payload.get("fallback_run_id")
 
-    again = client.get("/api/live/graph-preview/extraction-runs")
-    assert any(row["run_id"] == created.run_id for row in again.json()["runs"])
+    assert any(row["run_id"] == created.run_id for row in list_canonical_extraction_runs()["runs"])
 
 
 def test_w11_zero_rows_is_empty_success(
     client: TestClient, application_state_dsn: str
 ) -> None:
-    response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 200
-    assert response.json() == {
+    assert list_canonical_extraction_runs() == {
         "schema_version": "dmb_extraction_run_catalog_v1",
         "runs": [],
     }
@@ -234,9 +228,10 @@ def test_w12_unavailable_maps_typed_code(
         "apps.live_control_server.services.ingest_run_catalog.list_extraction_runs",
         _raise,
     )
-    response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "ingest_run_catalog_unavailable"
+    with pytest.raises(IngestRunCatalogError) as error:
+        list_canonical_extraction_runs()
+    assert error.value.status_code == 503
+    assert error.value.code == "ingest_run_catalog_unavailable"
 
 
 def test_w12_schema_unavailable_maps_typed_code(
@@ -249,9 +244,10 @@ def test_w12_schema_unavailable_maps_typed_code(
         "apps.live_control_server.services.ingest_run_catalog.list_extraction_runs",
         _raise,
     )
-    response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 503
-    assert response.json()["detail"]["code"] == "ingest_run_catalog_schema_unavailable"
+    with pytest.raises(IngestRunCatalogError) as error:
+        list_canonical_extraction_runs()
+    assert error.value.status_code == 503
+    assert error.value.code == "ingest_run_catalog_schema_unavailable"
 
 
 def test_w13_integrity_maps_typed_code(
@@ -264,6 +260,16 @@ def test_w13_integrity_maps_typed_code(
         "apps.live_control_server.services.ingest_run_catalog.list_extraction_runs",
         _raise,
     )
+    with pytest.raises(IngestRunCatalogError) as error:
+        list_canonical_extraction_runs()
+    assert error.value.status_code == 500
+    assert error.value.code == "ingest_run_catalog_integrity_error"
+
+
+def test_retired_catalog_get_is_not_a_product_read_and_launch_exact_routes_remain(client):
     response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 500
-    assert response.json()["detail"]["code"] == "ingest_run_catalog_integrity_error"
+    assert response.status_code == 405
+    assert response.headers['content-type'].startswith('application/json')
+    routes = client.app.routes
+    assert any(route.path == '/api/live/graph-preview/extraction-runs' and 'POST' in route.methods for route in routes)
+    assert any(route.path == '/api/live/graph-preview/extraction-runs/{run_id}' and 'GET' in route.methods for route in routes)

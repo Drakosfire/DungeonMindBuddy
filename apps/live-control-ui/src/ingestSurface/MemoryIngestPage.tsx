@@ -10,7 +10,6 @@ import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/
 import { parseGraphReviewRunHandoff } from "../planSurface/graphReviewWorkbench/graphReviewRunSelection";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
-import { useIngestRunCatalogInformation } from "./useIngestRunCatalogInformation";
 import "../planSurface/planSurface.css";
 import "./MemoryIngestPage.css";
 
@@ -73,7 +72,6 @@ export function MemoryIngestPage() {
 function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId }: { managedWorldId: string }) {
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  const catalog = useIngestRunCatalogInformation();
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
@@ -292,8 +290,6 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
         ) : null}
         <GraphReviewWorkbenchModule
           context={context}
-          catalogChannel={catalog.channel}
-          onCatalogRefresh={catalog.refresh}
           sourceReviewOnly={sourceReview !== null}
           sourceReviewRunId={sourceReview?.run_id ?? null}
           locationSearch={locationSearch}

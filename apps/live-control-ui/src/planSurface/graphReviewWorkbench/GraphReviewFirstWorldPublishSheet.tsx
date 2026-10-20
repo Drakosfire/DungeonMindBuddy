@@ -13,12 +13,10 @@ import type {
   FirstWorldGraphConfirmReceipt,
   FirstWorldGraphPlan,
 } from "../../api/types";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 
 export interface GraphReviewFirstWorldPublishSheetProps {
   review: ExactRunReviewPackage;
   onConfirmInFlightChange?: (inFlight: boolean) => void;
-  onCatalogRefresh?: () => void | Promise<void>;
 }
 
 type PublishPhase =
@@ -138,18 +136,12 @@ function publishErrorMessage(error: unknown): string {
   return "Failed to create World Graph.";
 }
 
-async function defaultCatalogRefresh(): Promise<void> {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
-}
-
 /**
  * First-world keep/reject review for exact worldbuilding runs (CR02A).
  */
 export function GraphReviewFirstWorldPublishSheet({
   review,
   onConfirmInFlightChange,
-  onCatalogRefresh = defaultCatalogRefresh,
 }: GraphReviewFirstWorldPublishSheetProps) {
   if (review.firstWorldPublishEligible !== true) {
     return null;
@@ -227,14 +219,8 @@ export function GraphReviewFirstWorldPublishSheet({
 
       setReceipt(nextReceipt);
       setPublishPhase("receipt");
-
-      try {
-        await onCatalogRefresh();
-      } catch {
-        // Catalog refresh failure must not erase receipt.
-      }
     },
-    [onCatalogRefresh],
+    [],
   );
 
   const runPrepareAndConfirm = useCallback(async () => {

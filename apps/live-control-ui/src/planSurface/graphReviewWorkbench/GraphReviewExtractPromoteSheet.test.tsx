@@ -513,16 +513,14 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
   });
 
-  it("preserves receipt when catalog refresh fails", async () => {
+  it("records terminal receipt without a catalog refresh dependency", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
-    const onCatalogRefresh = vi.fn().mockRejectedValue(new Error("catalog refresh failed"));
 
-    renderSheet(prepareResponse(), { onCatalogRefresh });
+    renderSheet(prepareResponse());
 
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
     await waitFor(() => {
-      expect(onCatalogRefresh).toHaveBeenCalled();
       expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
     });
   });
@@ -569,13 +567,8 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
   });
 
-  it("adopts committed authority before catalog refresh", async () => {
+  it("adopts committed authority and retains the terminal receipt", async () => {
     const order: string[] = [];
-    let resolveRefresh!: () => void;
-    const refreshGate = new Promise<void>((resolve) => {
-      resolveRefresh = resolve;
-    });
-
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({ affectedObjectIds: ["object-1"] }),
     );
@@ -623,25 +616,17 @@ describe("GraphReviewExtractPromoteSheet", () => {
         diagnostics: [],
       };
     });
-    const onCatalogRefresh = vi.fn(async () => {
-      order.push("refresh");
-      await refreshGate;
-    });
-
-    renderSheet(prepareResponse(), { onCatalogRefresh });
+    renderSheet(prepareResponse());
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
     await waitFor(() => {
       expect(order).toContain("adopt");
-      expect(order).toContain("refresh");
     });
-    expect(order.indexOf("adopt")).toBeLessThan(order.indexOf("refresh"));
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
-    // Adoption already completed while refresh is still gated.
+    // Committed projection is adopted as part of terminal receipt handling.
     expect(postWorldGraphProjection).toHaveBeenCalled();
 
-    resolveRefresh();
-    await waitFor(() => expect(onCatalogRefresh).toHaveBeenCalledTimes(1));
+    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
   });
 
   it("clears confirmInFlight when the sheet unmounts during terminal adoption", async () => {

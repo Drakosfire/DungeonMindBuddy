@@ -8,13 +8,7 @@ import * as liveApi from "../../api/liveApi";
 import * as worldbuildingApi from "../../api/worldbuildingPublicationApi";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
-import { createSurfaceInformationChannel } from "../../surfaceInformation";
-import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
 import type { ExactRunReviewPackage, RecapEvidenceCorrectionResponse, ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
-import {
-  INGEST_RUN_CATALOG_DESCRIPTOR,
-  mapIngestRunCatalogObservation,
-} from "../../ingestSurface/ingestRunCatalogSurfaceInformation";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 
@@ -115,22 +109,6 @@ const reviewPackage = {
     + "prepare/confirm until an approved authority-elevation contract lands.",
 };
 
-function readyCatalogChannel(runs: ExtractionRunRecord[] = []) {
-  const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
-    INGEST_RUN_CATALOG_DESCRIPTOR,
-  );
-  const ticket = channel.beginObservation();
-  if (ticket) {
-    channel.commit(
-      ticket,
-      mapIngestRunCatalogObservation({
-        response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
-      }),
-    );
-  }
-  return channel;
-}
-
 function mockCatalogApis() {
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
@@ -162,8 +140,6 @@ function renderModule(
     <AgentInteractionProvider>
       <GraphReviewWorkbenchModule
         context={context}
-        catalogChannel={readyCatalogChannel(runs)}
-        onCatalogRefresh={() => undefined}
       />
     </AgentInteractionProvider>
   );
@@ -613,8 +589,6 @@ describe("GraphReviewGenericRun", () => {
             <AgentInteractionProvider>
               <GraphReviewWorkbenchModule
                 context={context}
-                catalogChannel={readyCatalogChannel([])}
-                onCatalogRefresh={() => undefined}
               />
             </AgentInteractionProvider>
           </SelectedWorldProvider>
@@ -773,7 +747,7 @@ function setupRecap() {
 }
 function recapWorkbench(search = "?world=managed-world-a&extractionRunId=recap-parent", changed = vi.fn()) {
   return <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a"><AgentInteractionProvider>
-    <GraphReviewWorkbenchModule context={context} catalogChannel={readyCatalogChannel()} onCatalogRefresh={() => undefined}
+    <GraphReviewWorkbenchModule context={context}
       sourceReviewOnly sourceReviewRunId="recap-parent" locationSearch={search} onLocationSearchChange={changed} />
   </AgentInteractionProvider></SelectedWorldProvider>;
 }

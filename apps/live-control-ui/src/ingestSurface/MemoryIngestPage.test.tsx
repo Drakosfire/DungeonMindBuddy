@@ -16,9 +16,6 @@ const selection = vi.hoisted(() => ({ current: { kind: "managed", worldId: "worl
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => selection.current }));
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
-vi.mock("./useIngestRunCatalogInformation", () => ({
-  useIngestRunCatalogInformation: () => ({ channel: {}, refresh: () => undefined }),
-}));
 vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => ({
   GraphReviewWorkbenchModule: ({
     sourceReviewOnly,

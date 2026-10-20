@@ -60,7 +60,7 @@ describe("existing World worldbuilding publication", () => {
     expect(api.prepareWorldbuilding).not.toHaveBeenCalled(); expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
   });
   it("posts exact explicit identities/omissions once, then separately confirms the unchanged sealed plan", async () => {
-    const refresh = vi.fn(); render(<GraphReviewWorldbuildingPublication review={review} onCatalogRefresh={refresh} />); await ready(); choose();
+    render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
     fireEvent.click(screen.getByRole("button", {name: "Prepare proposed changes"}));
     await screen.findByRole("button", {name: "Confirm publication"});
     expect(api.prepareWorldbuilding).toHaveBeenCalledExactlyOnceWith({runId: "run-a", expectedParentRevisionId: "rev:1",
@@ -68,7 +68,7 @@ describe("existing World worldbuilding publication", () => {
     expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", {name: "Confirm publication"}));
     await screen.findByText(/Publication recorded/);
-    expect(api.confirmWorldbuilding).toHaveBeenCalledExactlyOnceWith(plan); expect(refresh).toHaveBeenCalledOnce();
+    expect(api.confirmWorldbuilding).toHaveBeenCalledExactlyOnceWith(plan);
   });
   it("requires a binding target and invalidates a prepared plan when choices change", async () => {
     render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();

@@ -10,7 +10,6 @@ import type { HistoricalRecapWorldProjectionResponse, RecapIngestStatus } from "
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
 import { SurfaceShell } from "../surface/SurfaceShell";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { IngestionModule } from "./IngestionModule";
 
 vi.mock("../playSurface/review/SessionEvidencePicker",()=>({SessionEvidencePicker:({onChange}:{onChange:(refs:unknown[])=>void})=><button onClick={()=>onChange([{run_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",review_revision:54,sha256:"a".repeat(64)}])}>Attach saved session evidence</button>}));
@@ -2086,9 +2085,7 @@ describe("IngestionModule", () => {
       managedWorldId: managedWorldId ?? "elderwyld",
     }));
     const onPopState = vi.fn();
-    const onRunsChanged = vi.fn();
     window.addEventListener("popstate", onPopState);
-    window.addEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
 
     render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
     await fillRecapInputs(
@@ -2110,10 +2107,8 @@ describe("IngestionModule", () => {
     expect(params.get("extractionRunId")).toBe("run-session-22");
     expect(params.get("sourceArtifactId")).toBe("artifact:recap:longmont-c2:session-22");
     expect(onPopState).toHaveBeenCalledTimes(1);
-    expect(onRunsChanged).toHaveBeenCalledTimes(1);
 
     window.removeEventListener("popstate", onPopState);
-    window.removeEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
   });
 
   it("keeps Graph Review unavailable when the current result has no exact run ID", async () => {
