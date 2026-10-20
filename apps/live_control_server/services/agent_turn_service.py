@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommand,
@@ -1565,6 +1566,7 @@ class _PolicyExecutionAdapter:
         admission_span_id: str | None = None,
         expected_conversation_id: UUID | None = None,
     ) -> None:
+        self.rules_runtime = None
         self.expected_conversation_id = expected_conversation_id
         self.service = service
         self.request = request
@@ -1605,6 +1607,13 @@ class _PolicyExecutionAdapter:
 
     def _is_build_turn(self) -> bool:
         return _governed_build_turn(self.request)
+
+    def enable_rules_lookup(self, capability):
+        """Trusted harness capability injection, never an HTTP/model argument."""
+        from .rules_build_runtime import RulesBuildRuntime
+        if self.rules_runtime is not None:
+            raise ValueError("Rules capability is already frozen")
+        self.rules_runtime = RulesBuildRuntime(self, capability)
 
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
@@ -2131,6 +2140,8 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
+            if self.rules_runtime is not None:
+                self.rules_runtime.authorize(view)
             if os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1":
                 try:
                     self._capture_prepared_prompt(view, event)
@@ -2336,6 +2347,8 @@ class _PolicyExecutionAdapter:
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
             staged = writer.with_cited_output(staged)
+        if self.rules_runtime is not None:
+            staged = self.rules_runtime.stage_writer(staged)
         self._build_writer_projection = staged
         return staged
 
@@ -2393,6 +2406,8 @@ class _PolicyExecutionAdapter:
         final_text = result.text
         if self.context_capture is None:
             raise ValueError("Build writer requires raw answer capture")
+        if self.rules_runtime is not None and self.rules_runtime.record is not None and self.rules_runtime.record.execution.budget_use.calls:
+            return self.rules_runtime.complete(final_text)
         self.context_capture.answer_draft(final_text, producing_provider_attempt_id=self.producing_provider_attempt_id)
         draft_id = f"unvalidated-provider-answer:{self.producing_provider_attempt_id}:{self.fence.turn.graph_context_receipt.context_receipt_sha256}"
         captured = [m.text for observation in self.context_capture.trace.observations
@@ -2528,6 +2543,8 @@ class _PolicyExecutionAdapter:
                 self.fence.append("record_provider_outcome", "outcome", event)
             )
             self.turn = updated
+            if self.rules_runtime is not None:
+                self.rules_runtime.outcome(transition)
             execution = self._broker_execution()
             auth = next(item for item in execution.events if _is_provider_authorization(item)
                 and item.provider_attempt_id == self.last_provider_attempt_id)
@@ -3788,11 +3805,11 @@ class _PolicyExecutionAdapter:
             )
             return denied("related_recap_context_unavailable", 503)
 
-    def stop(self) -> Turn | None:
+    def stop(self) -> Turn | MixedCompletedTurnV1 | None:
         if self.fence is None:
             return self.turn
         turn, error = self.fence.stop()
-        completed = self.turn if self.turn is not None and self.turn.status == "completed" else None
+        completed = self.turn if isinstance(self.turn, MixedCompletedTurnV1) or (self.turn is not None and self.turn.status == "completed") else None
         self.turn = completed or turn
         if error is not None:
             raise AgentTurnServiceError(

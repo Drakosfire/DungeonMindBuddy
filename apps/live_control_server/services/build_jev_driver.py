@@ -302,7 +302,14 @@ class BuildJevDriver:
 
     @property
     def step(self):
-        return self._selection_intent.model_copy(deep=True) if self._selection_intent else self._machine.step
+        intent = self._selection_intent.model_copy(deep=True) if self._selection_intent else self._machine.step
+        rules = getattr(self._adapter, "rules_runtime", None)
+        if self._selection_intent is not None and rules is not None and rules.active:
+            from .rules_build_runtime import QUERY_CHOICE
+            intent = intent.model_copy(update={"questions": (*intent.questions, DecisionQuestion(
+                name=QUERY_CHOICE, kind="choice", question="For answer_from_sources, which offered exact question needs public Rules lookup? Choose none for other operations or when Rules are not needed. Coverage is one occupancy section; missing rules are explicit.",
+                options=("none", *(f"query:{i}" for i in range(len(rules.offers))))))})
+        return intent
 
     def action_arguments(self, action_id: str) -> dict:
         """Host executable selectors; the model receives hints, never path authority."""
@@ -696,6 +703,9 @@ class BuildJevDriver:
             if codec != ASSESSMENT_CODEC:
                 raise ValueError("unsupported assessment codec")
             state = encode_assessment(state)
+        rules = getattr(a, "rules_runtime", None)
+        if rules is not None:
+            state = rules.controller_state(state, intent.request_id)
         projection = DriverDecisionProjection(
             canonical(state),
             canonical(wire_questions(intent)),
@@ -724,6 +734,8 @@ class BuildJevDriver:
         ):
             return False
         try:
+            if canonical(plan.questions()) != canonical(wire_questions(self.step)):
+                return False
             expected_acquisition = self._machine._acquisition_policy
             if (a.budget.get("buildJevActions") or {}).get("acquisition_policy") != expected_acquisition:
                 return False
@@ -790,7 +802,7 @@ class BuildJevDriver:
             self._attempt = prepared.attempt_id
         return accepted
 
-    def accept_decision(self, model: str, answers: dict):
+    def accept_decision(self, model: str, answers: dict, *, actual_response=None):
         a, plan = self._adapter, self._pending
         if plan is None or plan.request_id not in self._used or a.fence is None:
             raise ValueError("No authorized driver response")
@@ -810,6 +822,22 @@ class BuildJevDriver:
             raise ValueError("Driver response is unresolved; do not replay")
         if self._selection_intent is not None:
             import math
+            rules = getattr(a, "rules_runtime", None)
+            rules_vote = None
+            if rules is not None and rules.active:
+                from .rules_build_runtime import QUERY_CHOICE
+                from generationengine.types import DecisionResult
+                if (not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response) != answers
+                        or actual_response.observation.provider != "typesafe"
+                        or actual_response.observation.resolved_model != "jev-1.14.0"
+                        or actual_response.observation.response_model != "jev-1.14.0"):
+                    raise ValueError("Rules query choice requires the actual matching typed SDK response")
+                a.context_capture.controller_decision_response(canonical(actual_response.model_dump(mode="json")),
+                    producing_provider_attempt_id=a.last_provider_attempt_id)
+                answers = dict(answers)
+                rules_vote = answers.pop(QUERY_CHOICE, None)
+                if not isinstance(rules_vote, dict):
+                    raise ValueError("Missing actual Rules query selection")
             question = self._selection_intent.questions[0]
             answer = answers.get("operation", {})
             selected, scores = answer.get("selected"), answer.get("probabilities")
@@ -835,6 +863,8 @@ class BuildJevDriver:
             from .agent_turn_service import _require_fresh_execution_append
             a.turn = _require_fresh_execution_append(a.fence.append("record_build_jev_action_selection", "selection", event))
             self.operation, self.selection = selected, event
+            if rules_vote is not None:
+                rules.select(request_id=plan.request_id, vote=rules_vote, operation=selected)
             self._selection_intent = None
             result = self.step
         else:

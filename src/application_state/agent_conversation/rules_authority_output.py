@@ -155,8 +155,14 @@ def build_output_format(packet: dict, supplied_refs: tuple[RulesSupportRefV1, ..
     schema = RulesWriterAnswerV1.model_json_schema(by_alias=True)
     base_schema, defs = _namespace_base_schema(base_writer.finite_output_schema(
         packet, requested_detail_gaps=True))
-    schema["properties"]["base_output"] = {"anyOf": [base_schema, {"type": "null"}]}
+    # Use the SDK-stable nullable-ref representation. The configured provider
+    # rewrites nullable inline objects/integers before dispatch; freeze its actual
+    # wire shape here rather than weakening exact prepared-request comparison.
     schema["$defs"].update(defs)
+    schema["$defs"]["Base_Output"] = base_schema
+    schema["properties"]["base_output"] = {"anyOf": [{"$ref": "#/$defs/Base_Output"}, {"type": "null"}]}
+    schema["$defs"]["WriterOrderRefV1"]["properties"]["segment_index"] = {
+        "type": ["integer", "null"], "minimum": 0, "maximum": 31}
     # Avoid discriminator/OpenAPI mappings in a strict JSON-schema request.
     variants = [{"$ref": "#/$defs/WriterRulesContextV1"}]
     if supports:

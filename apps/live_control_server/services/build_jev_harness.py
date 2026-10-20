@@ -52,8 +52,9 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None):
         self.accounting = accounting
+        self.rules_capability = rules_capability
         self.decision_transport, self.writer_transport = (
             decision_transport,
             writer_transport,
@@ -155,6 +156,8 @@ class BuildJevHarness:
         self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
+        if self.rules_capability is not None:
+            adapter.enable_rules_lookup(self.rules_capability)
         driver = adapter.create_build_jev_driver(with_actions=True)
         adapter.build_frozen_history = driver._interaction["history"]
         adapter.build_history_for_inclusion = tuple(
@@ -163,6 +166,8 @@ class BuildJevHarness:
         )
         try:
             asyncio.run(self._decide(adapter, driver))
+            if adapter.rules_runtime is not None:
+                adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":
                 from .build_image_writer import prepare_image
                 return prepare_image(self, adapter, driver)
@@ -218,6 +223,8 @@ class BuildJevHarness:
                     or (isinstance(terminal, FrontierDisposition)
                         and terminal.coverage_status != "catalog_exhausted")):
                 candidate = json.loads(result.text)
+                if candidate.get("schema") == "dmb_rules_mixed_answer_v1":
+                    candidate = candidate.get("base_output") or {}
                 if candidate.get("answer_context_status") in {
                     "source_grounded",
                     "graph_grounded",
@@ -333,7 +340,7 @@ class BuildJevHarness:
             if isinstance(driver, WriterSelectionDriver):
                 driver.accept_response(result)
             else:
-                driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
+                driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
         except Exception as exc:
             self._failed(exc, started, "controller")
             raise
