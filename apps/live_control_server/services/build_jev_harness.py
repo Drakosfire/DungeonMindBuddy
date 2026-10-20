@@ -116,15 +116,16 @@ class BuildJevHarness:
             _interrupt_policy_delivery,
         )
         from apps.live_control_server.models.agent_turn import (
-            AgentBuildGraphTurnResponseV1,
+            AgentBuildGraphTurnResponseV1, AgentRulesTurnResponseV1,
         )
+        from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 
         span = trace.start_phase("runtime_dispatch")
         try:
             completed = self.execute(adapter)
         except Exception as exc:
             trace.complete_phase(span, status="error")
-            if adapter.turn is not None and adapter.turn.status == "running":
+            if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
                 _interrupt_policy_delivery(adapter.service, adapter.turn)
             trace.finalize_and_log(
                 status="error",
@@ -149,6 +150,11 @@ class BuildJevHarness:
         payload = response.model_dump(mode="json", by_alias=True)
         payload["primary_work"]["revision_used"] = adapter.work.build_source.revision
         payload["answer"]["trace"] = final_trace
+        if isinstance(response, AgentRulesTurnResponseV1):
+            base_context = payload["rules_context"]["base_context"]
+            if base_context is not None:
+                base_context["delivery_replay"] = False
+            return AgentRulesTurnResponseV1.model_validate_json(json.dumps(payload))
         payload["knowledge_context"]["delivery_replay"] = False
         return AgentBuildGraphTurnResponseV1.model_validate(payload)
 

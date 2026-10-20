@@ -714,6 +714,23 @@ class AgentRulesAnswerContextV1(BaseModel):
         self.accepted_binding.validate_text(text, segments)
 
 
+class AgentRulesTurnResponseV1(AgentTurnResponse):
+    schema_: Literal["dmb_agent_rules_turn_response_v1"] = Field(
+        default="dmb_agent_rules_turn_response_v1", alias="schema")
+    rules_context: AgentRulesAnswerContextV1
+
+    @model_validator(mode="after")
+    def validate_accepted_answer(self):
+        binding = self.rules_context.accepted_binding
+        if (self.owner_scope.kind != "world" or self.owner_scope.owner_id != binding.world_id
+            or self.conversation.conversation_id != binding.conversation_id
+            or self.answer.status != "ok" or self.answer.text is None
+            or self.answer.graph_grounded != binding.graph_used):
+            raise ValueError("Rules response differs from accepted owner or answer grounding")
+        self.rules_context.validate_answer(self.answer.text)
+        return self
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -1,6 +1,6 @@
 """Real Build parent/SDK dispatch/APP; mocked transports and synthetic World IO.
 
-These witnesses deliberately stop before the still-unimplemented mixed API DTO.
+Includes internal completion and the actual mixed API response/replay projection.
 """
 import json
 from hashlib import sha256
@@ -78,7 +78,7 @@ class RulesWriterWire(httpx.AsyncBaseTransport):
             "usage": {"input_tokens": 700, "output_tokens": 150, "total_tokens": 850}})
 
 
-def run_parent(build_case, tmp_path, monkeypatch, *, base=True, question=None, query=True, decision=None, writer=None, prepare=None, dsn=None):
+def run_parent(build_case, tmp_path, monkeypatch, *, base=True, question=None, query=True, decision=None, writer=None, prepare=None, dsn=None, api_response=False):
     case, reads = ordinary_case(build_case, monkeypatch)
     source, request, bootstrap = case
     request = request.model_copy(update={"message": question or "What do we know about Frank, and can I end my move in an occupied space?"})
@@ -87,6 +87,7 @@ def run_parent(build_case, tmp_path, monkeypatch, *, base=True, question=None, q
     harness = BuildJevHarness(decision_transport=decision, writer_transport=writer,
         accounting=counter(), rules_capability=rules_capability(graph=True))
     holder = {}
+    original_response = harness.execute_response
     def internal_response(adapter, **kwargs):
         holder["adapter"] = adapter
         if prepare:
@@ -100,7 +101,7 @@ def run_parent(build_case, tmp_path, monkeypatch, *, base=True, question=None, q
             assert allowed, f"writer gate: {adapter.failure!r}"
             return allowed
         adapter.authorize_prepared_build_writer = checked
-        return harness.execute(adapter)
+        return original_response(adapter, **kwargs) if api_response else harness.execute(adapter)
     harness.execute_response = internal_response
     from apps.live_control_server.routes import agent
     completed = execute((source, request, bootstrap), tmp_path, harness, historical_work_resolver=agent._historical_work_resolver)
@@ -278,3 +279,74 @@ def test_next_real_build_turn_uses_full_mixed_history_as_reference_only(
     with psycopg.connect(application_state_dsn) as conn:
         payload = conn.execute("SELECT payload FROM agent.turn_rules_execution WHERE turn_id=%s", (second.turn_id,)).fetchone()[0]
     assert payload["state"] == "unused" and payload["supports"] == {}
+
+
+@pytest.mark.parametrize("base", [False, True])
+def test_real_build_mixed_api_response_and_replay_without_current_reads(
+    application_state_dsn, build_case, tmp_path, monkeypatch, base,
+):
+    from apps.live_control_server.models.agent_turn import AgentRulesTurnResponseV1
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn, AgentTurnServiceError
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    response, adapter, decisions, writer, _ = run_parent(
+        build_case, tmp_path, monkeypatch, base=base, api_response=True)
+    assert isinstance(response, AgentRulesTurnResponseV1)
+    binding = response.rules_context.accepted_binding
+    stored = AgentConversationService().inspect_turn(world_id=binding.world_id, turn_id=binding.turn_id)
+    assert response.answer.text == stored.assistant_text
+    assert response.answer.graph_grounded == binding.graph_used
+    assert (response.rules_context.base_context is not None) == base
+    if base:
+        assert not response.rules_context.base_context.delivery_replay
+    initial_calls = len(decisions.calls), len(writer.calls)
+    def forbidden(*args, **kwargs):
+        pytest.fail("A completed mixed replay must not resolve current work, graph, corpus or runtime")
+    from apps.live_control_server.services import rules_lookup
+    monkeypatch.setattr(rules_lookup, "admitted_bundle", forbidden)
+    replay = execute_agent_turn(adapter.request, root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "mixed-replay"),
+        owner_resolver=lambda _: {"kind": "world", "id": binding.world_id},
+        work_resolver=forbidden, graph_resolver=forbidden, runtime_factory=forbidden,
+        conversation_service=AgentConversationService())
+    assert isinstance(replay, AgentRulesTurnResponseV1)
+    assert replay.answer.text == response.answer.text
+    assert replay.rules_context.accepted_binding == binding
+    assert replay.answer.trace["usage"]["model_call_count"] == 0
+    if base:
+        assert replay.rules_context.base_context.delivery_replay
+    assert (len(decisions.calls), len(writer.calls)) == initial_calls
+    # Exercise the mounted native route's JSON serialization and auth boundary.
+    import asyncio
+    from fastapi import FastAPI
+    from apps.live_control_server.routes import agent
+    token = "mixed-replay-operator-" * 2
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    monkeypatch.setattr(agent, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(agent, "session_dir", lambda: tmp_path / "mixed-route")
+    monkeypatch.setattr(agent, "_owner_resolver", lambda _: {"kind": "world", "id": binding.world_id})
+    monkeypatch.setattr(agent, "_work_resolver", forbidden)
+    monkeypatch.setattr(agent, "_graph_resolver", forbidden)
+    app = FastAPI()
+    app.state.agent_conversation_service = AgentConversationService()
+    app.include_router(agent.router, prefix="/api/live")
+    async def post():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 1234)), base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=adapter.request.model_dump(mode="json", by_alias=True),
+                headers={"Authorization": f"Bearer {token}"})
+    mounted = asyncio.run(post())
+    assert mounted.status_code == 200, mounted.text
+    projected = AgentRulesTurnResponseV1.model_validate_json(mounted.content)
+    assert projected.answer.text == response.answer.text
+    assert projected.rules_context.accepted_binding == binding
+    assert projected.answer.trace["usage"]["model_call_count"] == 0
+    assert AgentConversationService().inspect_turn(world_id=binding.world_id, turn_id=binding.turn_id) == stored
+    changed = adapter.request.model_copy(update={"message": adapter.request.message + " changed"})
+    with pytest.raises(AgentTurnServiceError) as denied:
+        execute_agent_turn(changed, root=tmp_path, pointer_store=HermesSessionPointerStore(tmp_path / "mixed-replay"),
+            owner_resolver=lambda _: {"kind": "world", "id": binding.world_id},
+            work_resolver=forbidden, graph_resolver=forbidden, runtime_factory=forbidden,
+            conversation_service=AgentConversationService())
+    assert denied.value.code == "turn_idempotency_conflict"

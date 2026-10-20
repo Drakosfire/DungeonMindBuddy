@@ -4635,15 +4635,23 @@ def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
     owner: Mapping[str, Any],
-    turn: Turn,
+    turn: Turn | MixedCompletedTurnV1,
     trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
-    _require_playable_target_receipt_matches_request(request, turn.provenance)
-    _require_play_run_receipt_matches_request(request, turn.provenance, turn.play_context_receipt)
-    play_graph_binding = _stored_play_graph_binding(request, turn.provenance)
+    mixed = isinstance(turn, MixedCompletedTurnV1)
+    if mixed:
+        try:
+            turn = MixedCompletedTurnV1.model_validate_json(turn.model_dump_json(by_alias=True))
+        except ValueError as exc:
+            raise AgentTurnServiceError("The stored mixed answer is invalid.",
+                code="turn_receipt_unverifiable", status_code=409) from exc
+    turn_meta = turn.envelope if mixed else turn
+    _require_playable_target_receipt_matches_request(request, turn_meta.provenance)
+    _require_play_run_receipt_matches_request(request, turn_meta.provenance, turn_meta.play_context_receipt)
+    play_graph_binding = _stored_play_graph_binding(request, turn_meta.provenance)
     segment_thread_id = _provider_segment_thread_id(
-        turn.provenance, conversation_id=turn.conversation_id
+        turn_meta.provenance, conversation_id=turn_meta.conversation_id
     )
     trace = trace_builder or AgentTurnTraceBuilder(
         agent_thread_id=segment_thread_id,
@@ -4656,7 +4664,7 @@ def _completed_turn_replay(
     trace.runtime = "durable_receipt"
     trace.backend = "application_state"
     trace.mode = "replay"
-    trace.bind_durable_turn(turn)
+    trace.bind_durable_turn(turn_meta)
     final_trace = trace.finalize_and_log(
         status="ok",
         model_calls=0,
@@ -4664,9 +4672,9 @@ def _completed_turn_replay(
         hermes_fields={"conversation_context": "durable_replay"},
         observed_model_call_count=0,
     )
-    primary = turn.provenance.primary_work
-    graph_reference = _stored_graph_reference(turn.provenance)
-    selected_reference = turn.provenance.selected_object
+    primary = turn_meta.provenance.primary_work
+    graph_reference = _stored_graph_reference(turn_meta.provenance)
+    selected_reference = turn_meta.provenance.selected_object
     graph_requested = request.graph_request.mode != "none"
     if not graph_requested and graph_reference is not None:
         raise AgentTurnServiceError(
@@ -4727,13 +4735,13 @@ def _completed_turn_replay(
         if primary.kind == "plan" and primary.object_revision is not None
         else primary.revision
     )
-    completion = turn.completion
+    completion = None if mixed else turn.completion
     answer_text = turn.assistant_text
     graph_grounded = False
     plan_context = None
-    if _governed_graph_turn(request):
+    if _governed_graph_turn(request) and not mixed:
         plan_context = project_plan_turn_context(turn, delivery_replay=True)
-        if turn.status != "completed":
+        if turn_meta.status != "completed":
             raise AgentTurnServiceError(
                 "Only a completed Plan Graph turn can be delivered as a replay.",
                 code="turn_receipt_unverifiable",
@@ -4805,7 +4813,7 @@ def _completed_turn_replay(
         conversation={
             "client_thread_id": request.client_thread_id,
             "turn_id": request.turn_id,
-            "conversation_id": turn.conversation_id,
+            "conversation_id": turn_meta.conversation_id,
             "pointer_status": "reused",
             "pointer_id": None,
         },
@@ -4818,6 +4826,16 @@ def _completed_turn_replay(
             "trace": final_trace,
         },
     )
+    if mixed:
+        from .rules_answer_presentation import project_rules_answer_context
+        from apps.live_control_server.models.agent_turn import AgentRulesTurnResponseV1
+        return AgentRulesTurnResponseV1.model_validate({
+            **response.model_dump(mode="python", by_alias=True),
+            "schema": "dmb_agent_rules_turn_response_v1",
+            "answer": {**response.answer.model_dump(mode="python"),
+                "graph_grounded": turn.accepted_binding.graph_used},
+            "rules_context": project_rules_answer_context(turn, delivery_replay=True).model_dump(mode="python", by_alias=True),
+        })
     if _governed_build_turn(request):
         return AgentBuildGraphTurnResponseV1.model_validate({
             **response.model_dump(mode="json", by_alias=True),
@@ -5613,7 +5631,7 @@ def execute_agent_turn(
             status_code=503,
         )
 
-    durable_turn: Turn | None = None
+    durable_turn: Turn | MixedCompletedTurnV1 | None = None
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1 | None = None
     canonical_world_id: str | None = None
     if request.owner_scope is not None and request.owner_scope.kind == "world":
@@ -5657,6 +5675,9 @@ def execute_agent_turn(
                         code="conversation_unavailable",
                         status_code=503,
                     ) from exc
+            if isinstance(durable_turn, MixedCompletedTurnV1):
+                return _completed_turn_replay(
+                    request, owner=owner, turn=durable_turn, trace_builder=trace)
             if durable_turn is not None:
                 trace.bind_durable_turn(durable_turn)
             if (durable_turn is not None and request.build_write_capability is not None
