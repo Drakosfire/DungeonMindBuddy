@@ -53,6 +53,16 @@ it("keeps the recent-session index when clear interrupts saved-ref hydration",as
  await act(async()=>{resolveIndex([indexItem]);await pendingIndex});
  expect(await screen.findByText(/Played session · ended/)).toBeInTheDocument();expect(change).toHaveBeenLastCalledWith([]);
 });
+it("surfaces an index failure that arrives after clear",async()=>{
+ const refs=[{run_id:"run-a",review_revision:54,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
+ let rejectIndex!:(cause:Error)=>void;const pendingIndex=new Promise<SessionEvidenceIndexItem[]>((_resolve,reject)=>{rejectIndex=reject});
+ vi.mocked(listSessionEvidence).mockReturnValue(pendingIndex);
+ const change=vi.fn();render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
+ fireEvent.click(screen.getByText(/Supplemental session evidence/));
+ fireEvent.click(await screen.findByRole("button",{name:"Clear selected session evidence"}));
+ await act(async()=>{rejectIndex(new Error("Index offline"));await Promise.resolve()});
+ expect(await screen.findByRole("alert")).toHaveTextContent("Index offline");expect(screen.queryByText(/No ended sessions/)).not.toBeInTheDocument();
+});
 it("renders pinned sources read-only without a reflections editor",async()=>{
  render(<SessionEvidenceViewer worldId="elderwyld" runId="run-a" revision={54}/>);
  expect(await screen.findByText("Players want combat next time.")).toBeInTheDocument();expect(readSessionEvidence).toHaveBeenCalledWith("elderwyld","run-a",54);
