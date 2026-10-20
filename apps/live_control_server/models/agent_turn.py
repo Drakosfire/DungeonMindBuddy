@@ -32,6 +32,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphContextReceiptV1,
     PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
+    SubmittedPlayTargetV1,
     TurnProvenance,
     CommandResolutionRecordV1,
 )
@@ -235,6 +236,7 @@ class AgentTurnRequest(BaseModel):
     owner_scope: AgentTurnOwner | None
     primary_work: AgentTurnPrimaryWork | None
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
+    play_target: SubmittedPlayTargetV1 | None = None
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
@@ -350,6 +352,19 @@ class AgentTurnRequest(BaseModel):
                 raise ValueError("Play Run Graph requires the current owner World without narrative focus")
             if self.graph_request.mode not in {"none", "world"}:
                 raise ValueError("Play Run Graph requires World scope")
+            if self.graph_request.mode == "world" and (
+                self.primary_work.play_content_basis is None or self.play_target is None
+            ):
+                raise ValueError("Native Play Graph turns require an exact saved edition and Beat/Scene target")
+        if self.play_target is not None and (
+            self.surface.surface_id != "play"
+            or self.primary_work is None
+            or self.primary_work.kind != "run"
+            or self.client_work_state != "saved_clean"
+            or self.graph_request.mode != "world"
+            or self.graph_selection is not None
+        ):
+            raise ValueError("Play target requires an exact saved Run with current World Graph scope")
         if (
             self.surface.surface_id == "play"
             and self.graph_request.mode != "none"

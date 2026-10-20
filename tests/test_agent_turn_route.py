@@ -126,9 +126,20 @@ def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
         "revision_pin": None,
         "focus": {"kind": "none", "session_id": None, "campaign_id": None},
     }
+    native_play = {
+        **payload,
+        "graph_request": world_graph,
+        "play_target": {
+            "beat_id": "beat:hold-the-gate",
+            "scene_id": "scene:gate-line",
+            "marker_grammar_version": "v2",
+        },
+    }
     assert AgentTurnRequest.model_validate({
-        **payload, "graph_request": world_graph,
+        **native_play,
     }).graph_request.mode == "world"
+    with pytest.raises(ValueError, match="exact saved edition and Beat/Scene target"):
+        AgentTurnRequest.model_validate({**payload, "graph_request": world_graph})
     for change in (
         {"owner_scope": None},
         {"surface": {"surface_id": "plan", "instance_id": "plan-main"}},
@@ -142,7 +153,7 @@ def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
         {"graph_request": world_graph, "graph_selection": {"node_id": "node-a"}},
     ):
         with pytest.raises(ValueError):
-            AgentTurnRequest.model_validate({**payload, **change})
+            AgentTurnRequest.model_validate({**native_play, **change})
 
 
 @pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
@@ -465,6 +476,11 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             "mode": "world", "world_id": managed.world_id,
             "campaign_id": None, "revision_pin": None,
             "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "play_target": {
+            "beat_id": "beat:hold-the-gate",
+            "scene_id": "scene:gate-line",
+            "marker_grammar_version": "v2",
         },
         "message": "Where is the tavern?",
     }

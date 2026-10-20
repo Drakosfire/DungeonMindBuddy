@@ -812,6 +812,12 @@ export interface WorldPlayContentBasis {
   content_sha256: string;
 }
 
+export interface WorldPlayTarget {
+  beat_id: string;
+  scene_id: string | null;
+  marker_grammar_version: "v2";
+}
+
 /** Play submits an admitted World Run. The server resolves its Graph binding and revision. */
 export interface WorldPlayAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";
@@ -820,6 +826,7 @@ export interface WorldPlayAgentTurnRequestV1 {
   surface: { surface_id: "play"; instance_id: string };
   owner_scope: { kind: "world"; world_id: string };
   primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis?: WorldPlayContentBasis };
+  play_target?: WorldPlayTarget;
   client_work_state: "saved_clean";
   /** The graphless variant is retained for exact recovery of older saved requests. */
   graph_request: { mode: "none" } | {

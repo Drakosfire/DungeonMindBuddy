@@ -3029,6 +3029,7 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
     monkeypatch: Any, tmp_path: Path, frozen_v1: bool,
 ) -> None:
     fixture = _related_recap_broker_fixture(monkeypatch)
+    monkeypatch.setattr(fixture.service_module, "_native_rules_enabled", lambda _request: False)
     accepted = _policy_turn(status="accepted", completion_present=False)
     receipt = accepted.graph_context_receipt
     assert receipt is not None and accepted.graph_context_execution is None
@@ -3420,6 +3421,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "enable_native_rules_lookup",
         lambda _adapter, _capability: None,
     )
+    monkeypatch.setattr(service_module, "_native_rules_enabled", lambda _request: False)
     from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
     monkeypatch.setattr(
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
@@ -6910,3 +6912,66 @@ def test_plan_graph_output_instructions_name_exact_identifier_fields():
     assert "initial claimLedger" in prompt
     assert "target_ref" not in prompt
     assert "No citation_map" in prompt
+
+
+def test_native_play_retry_reuses_only_the_frozen_play_receipt_and_source_scope():
+    from tests.test_play_graph_context import fixture as play_fixture
+    from tests.test_play_graph_authority import native_events, native_provider
+    from apps.live_control_server.services import agent_turn_service as service_module
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
+
+    receipt, execution, _frame = play_fixture()
+    pins = tuple(pin.model_dump(mode="python") for pin in execution.policy.source_read_scope.admitted_anchors)
+    session = GraphRetrievalSession(
+        id=receipt.retrieval_session_id,
+        snapshot=SessionSnapshot(
+            world_id=receipt.graph_authority.native_world_id,
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id=receipt.graph_authority.graph_revision,
+            scope_mode="world",
+        ),
+        question="Discuss the current scene",
+    )
+    bootstrap = service_module.AgentPlanWorldGraphBootstrap(
+        graph_envelope={},
+        world_scope=AgentWorldScope(
+            world_id=receipt.graph_authority.native_world_id,
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id=receipt.graph_authority.graph_revision,
+            scope_mode="world",
+        ),
+        retrieval_session=session,
+        binding_version=receipt.graph_authority.binding_version,
+        source_root_relpath="corpus",
+        candidate_assertion_ids=tuple(receipt.graph_packet.candidate_assertion_ids),
+        candidate_relationship_ids=tuple(receipt.graph_packet.candidate_relationship_ids),
+        candidate_evidence_ref_ids=tuple(receipt.graph_packet.candidate_evidence_ref_ids),
+        evidence_by_anchor_id={},
+        source_scope_anchors=pins,
+    )
+    turn = _policy_turn(status="running", completion_present=False).model_copy(update={
+        "graph_context_receipt": receipt,
+        "graph_context_execution": execution,
+    })
+
+    restored = service_module._restore_v2_retry_bootstrap(bootstrap, turn)
+    assert restored.retrieval_session.id == receipt.retrieval_session_id
+    assert tuple(dict(pin) for pin in restored.source_scope_anchors) == pins
+
+    changed_pin = dict(pins[0]) | {"source_revision_id": "source-revision:foreign"}
+    with pytest.raises(AgentTurnServiceError) as changed_scope:
+        service_module._restore_v2_retry_bootstrap(
+            replace(bootstrap, source_scope_anchors=(changed_pin, *pins[1:])), turn,
+        )
+    assert changed_scope.value.code == "turn_receipt_unverifiable"
+
+    authorized = native_events(execution, [native_provider(sequence=0)])
+    already_sent = turn.model_copy(update={"graph_context_execution": authorized})
+    with pytest.raises(AgentTurnServiceError) as no_redispatch:
+        service_module._restore_v2_retry_bootstrap(bootstrap, already_sent)
+    assert no_redispatch.value.code == "turn_receipt_unverifiable"

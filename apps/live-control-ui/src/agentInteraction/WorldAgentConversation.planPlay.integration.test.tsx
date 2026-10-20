@@ -123,7 +123,7 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: editContent?.run_id ?? RUN,
     runRevision: 3, surfaceInstanceId: "play-instance",
     contentBasis: { edition_revision: 0, edition_revision_id: null, content_sha256: editContent?.content_sha256 ?? SHA },
-    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy, editContent]);
+    beatId: "beat:crossing", sceneId: "scene:west-gate", beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy, editContent]);
   usePublishAgentSurfaceContext(context);
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
@@ -941,6 +941,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const frozen = window.localStorage.getItem(storageKey);
     expect(JSON.parse(frozen ?? "null").request.graph_request).toEqual({ mode: "world", world_id: WORLD,
       campaign_id: null, revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } });
+    expect(JSON.parse(frozen ?? "null").request.play_target).toEqual({ beat_id: "beat:crossing",
+      scene_id: "scene:west-gate", marker_grammar_version: "v2" });
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -1006,6 +1008,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       surface: { surface_id: "play", instance_id: "play-instance" },
       owner_scope: { kind: "world", world_id: WORLD },
       primary_work: { kind: "run", object_id: RUN, expected_revision: 3 },
+      play_target: { beat_id: "beat:one", scene_id: "scene:gate", marker_grammar_version: "v2" },
       client_work_state: "saved_clean",
       graph_request: { mode: "world", world_id: WORLD, campaign_id: null,
         revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },

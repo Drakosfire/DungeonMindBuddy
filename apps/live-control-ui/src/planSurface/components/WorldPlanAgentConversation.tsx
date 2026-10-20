@@ -310,6 +310,7 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
   if (!hasExactKeys(value, ["schema", "request"]) || value.schema !== "dmb_world_play_pending_turn_v1"
     || !hasExactKeys(value.request, ["schema", "client_thread_id", "turn_id", "surface", "owner_scope",
       "primary_work", "client_work_state", "graph_request", "graph_selection", "message",
+      ...(isRecord(value.request) && isRecord(value.request.surface) && value.request.surface.surface_id === "play" && isRecord(value.request.graph_request) && value.request.graph_request.mode === "world" ? ["play_target"] : []),
       ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
@@ -327,6 +328,10 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       || typeof value.request.primary_work.expected_content_sha256 !== "string"
       || !/^[0-9a-f]{64}$/.test(value.request.primary_work.expected_content_sha256)))
     || (value.request.surface.surface_id === "play" && "play_content_basis" in value.request.primary_work && !isSavedPlayContentBasis(value.request.primary_work.play_content_basis))
+    || (value.request.surface.surface_id === "play" && isRecord(value.request.graph_request) && value.request.graph_request.mode === "world" && (!hasExactKeys(value.request.play_target, ["beat_id", "scene_id", "marker_grammar_version"])
+      || typeof value.request.play_target.beat_id !== "string" || !/^beat:[a-z0-9][a-z0-9._-]{0,127}$/.test(value.request.play_target.beat_id)
+      || !(value.request.play_target.scene_id === null || typeof value.request.play_target.scene_id === "string" && /^scene:[a-z0-9][a-z0-9._-]{0,127}$/.test(value.request.play_target.scene_id))
+      || value.request.play_target.marker_grammar_version !== "v2"))
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim() || value.request.message.length > 8000) {
@@ -3831,9 +3836,13 @@ export function WorldPlanAgentConversation({
       owner_scope: { kind: "world", world_id: admittedRun.worldId },
       primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision,
         ...(admittedRun.contentBasis ? { play_content_basis: admittedRun.contentBasis } : {}) },
+      ...(admittedRun.beatId ? { play_target: { beat_id: admittedRun.beatId, scene_id: admittedRun.sceneId,
+        marker_grammar_version: "v2" as const } } : {}),
       client_work_state: "saved_clean",
-      graph_request: { mode: "world", world_id: admittedRun.worldId, campaign_id: null,
-        revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },
+      graph_request: admittedRun.beatId && admittedRun.contentBasis
+        ? { mode: "world", world_id: admittedRun.worldId, campaign_id: null,
+          revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } }
+        : { mode: "none" },
       graph_selection: null,
       message,
     };

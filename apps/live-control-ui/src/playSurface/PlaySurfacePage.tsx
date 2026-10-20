@@ -277,7 +277,7 @@ function PlaySurfacePublisher({
   contentBasis?: import("../api/types").WorldPlayContentBasis | null;
   admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
-  currentMoment: { beatTitle: string; sceneTitle: string | null } | null;
+  currentMoment: { beatId: string; beatTitle: string; sceneId: string | null; sceneTitle: string | null } | null;
 }) {
   const authority = useMemo(
     () => playPublicationAuthority({ admittedRun, runQuery }),
@@ -317,6 +317,8 @@ function PlaySurfacePublisher({
       surfaceInstanceId: publication.identity.instanceKey,
       beatTitle: currentMoment?.beatTitle ?? null,
       sceneTitle: currentMoment?.sceneTitle ?? null,
+      beatId: currentMoment?.beatId ?? null,
+      sceneId: currentMoment?.sceneId ?? null,
     } : null, sessionCopy ? "Save your session changes before asking Buddy. Buddy will use the saved session copy and current-scene notes." : null);
 
   const agentContext = useMemo(
@@ -1044,7 +1046,8 @@ function PlayRuntimePage() {
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
         sessionCopy={sessionCopyBlocked}
         contentBasis={v2Deck?.effectiveContent ? { edition_revision: v2Deck.effectiveContent.edition_revision, edition_revision_id: v2Deck.effectiveContent.edition_revision_id, content_sha256: v2Deck.effectiveContent.content_sha256 } : null}
-        currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
+        currentMoment={currentWorldBeat ? { beatId: currentWorldBeat.id, beatTitle: currentWorldBeat.title,
+          sceneId: currentWorldScene?.id ?? null, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
           key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "all"}`}

@@ -21,6 +21,8 @@ export interface AdmittedWorldPlayConversationContext {
   surfaceInstanceId: string;
   beatTitle?: string | null;
   sceneTitle?: string | null;
+  beatId: string | null;
+  sceneId: string | null;
 }
 
 export interface SavedWorldBuildConversationContext {

@@ -768,12 +768,17 @@ def _plan_context_resolver(
         or owner.get("kind") != "world"
         or not managed_world_id
         or work is None
-        or work.kind not in {"plan", "build"}
+        or work.kind not in {"plan", "build", "run"}
         or (work.kind == "build" and work.build_source is None)
+        or (work.kind == "run" and (
+            body.surface.surface_id != "play"
+            or body.play_target is None
+            or work.play_context_receipt is None
+        ))
         or work.world_id != managed_world_id
     ):
         raise AgentTurnServiceError(
-            "auto_plan_world requires a saved Plan owned by the verified World.",
+            "The governed Graph turn requires saved work owned by the verified World.",
             code="plan_context_scope_rejected",
             status_code=403,
         )
@@ -832,8 +837,12 @@ def _plan_context_resolver(
                 "plan_graph_seed_selection", parent_span_id=parent_span_id,
             ) if trace else nullcontext()
         ):
-            candidates = selected_plan_graph_seed_candidates(
-                body.playable_target, work.plan_markdown or ""
+            candidates = (
+                ()
+                if work.kind == "run"
+                else selected_plan_graph_seed_candidates(
+                    body.playable_target, work.plan_markdown or ""
+                )
             )
     except AgentPlanPlayableTargetError as exc:
         raise AgentTurnServiceError(
@@ -1101,14 +1110,19 @@ def _plan_context_resolver(
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
     request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
-    if use_bounded_index or use_selected_index:
-        request_identity += b"\x00" + (work.plan_markdown or "").encode("utf-8")
+    native_play = body.surface.surface_id == "play" and body.play_target is not None
+    if use_bounded_index or use_selected_index or native_play:
+        request_identity += b"\x00" + (
+            (work.plan_markdown or "").encode("utf-8")
+            if work.kind != "run"
+            else work.play_context_receipt.model_dump_json(by_alias=True).encode("utf-8")
+        )
     source_session_id, initial_operation_id = (
         _source_session_handles(
             managed_world_id, body.turn_id, revision_id,
             sha256(request_identity).hexdigest(),
         )
-        if source_scope_anchors else (None, f"op:{uuid4().hex[:12]}")
+        if source_scope_anchors or native_play else (None, f"op:{uuid4().hex[:12]}")
     )
     session = GraphRetrievalSession(
         **({"id": source_session_id} if source_session_id is not None else {}),
