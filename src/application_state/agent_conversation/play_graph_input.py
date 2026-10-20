@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Callable
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -65,7 +65,8 @@ def prove_play_source_input(
     execution: t.PlayWorldGraphExecutionV1,
     authorization: t.ProviderAttemptAuthorizedEventV3,
     *, prepared_request_json: str, submission_id: UUID, original_message: str,
-    event_id: UUID, owner_resolved_current_moment_text: str | None,
+    event_id: UUID, owner_resolved_current_moment_text: str | None = None,
+    owner_resolver: Callable[[t.PlaySourceFrameV1], str | None] | None = None,
 ) -> t.PlaySourceProviderInclusionV1:
     """Derive a witness only from the exact current producing request body.
 
@@ -93,7 +94,14 @@ def prove_play_source_input(
             carriers.append(carrier)
     if len(carriers) != 1 or carriers[0].message != original_message:
         raise ValueError("Native Play request lacks one exact current-submission source carrier")
-    included = prepare_play_source_provider_inclusion(receipt, execution, carriers[0].source_frame,
+    frame = carriers[0].source_frame
+    if frame.manifest != receipt.play_sources or t.canonical_sha256(frame) != receipt.play_source_frame_sha256:
+        raise ValueError("Native Play source frame differs from its frozen receipt")
+    if owner_resolver is not None:
+        if owner_resolved_current_moment_text is not None:
+            raise ValueError("Native Play source proof requires one independent owner resolver")
+        owner_resolved_current_moment_text = owner_resolver(frame)
+    included = prepare_play_source_provider_inclusion(receipt, execution, frame,
         event_id=event_id, provider_attempt_id=authorization.provider_attempt_id,
         envelope_sha256=authorization.envelope_sha256,
         owner_resolved_current_moment_text=owner_resolved_current_moment_text)

@@ -1209,6 +1209,7 @@ class AgentConversationService:
         source_passages: list[TraceSourcePassage] | None = None,
         build_source_markdown: str | None = None,
         writer_selection_proof: dict | None = None,
+        native_play_prepared_request_json: str | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1241,6 +1242,16 @@ class AgentConversationService:
                         raise ApplicationStateValidationError("Saved passage is not the exact immutable source slice")
             if isinstance(event, PlaySourceProviderInclusionV1):
                 raise ApplicationStateValidationError("Native Play source inclusion requires its actual prepared-input proof owner")
+            if native_play_prepared_request_json is not None:
+                from .types import PlayWorldGraphContextReceiptV1
+                from .play_graph_input import MAX_REQUEST_BYTES
+                if (not isinstance(execution, PlayWorldGraphExecutionV1)
+                        or not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                        or not isinstance(event, ProviderAttemptAuthorizedEventV3)
+                        or not isinstance(native_play_prepared_request_json, str)
+                        or len(native_play_prepared_request_json.encode("utf-8")) > MAX_REQUEST_BYTES
+                        or hashlib.sha256(native_play_prepared_request_json.encode("utf-8")).hexdigest() != event.envelope_sha256):
+                    raise ApplicationStateValidationError("Native Play input snapshot differs from its owning provider")
             trace_row = conn.execute(
                 "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
                 "WHERE turn_id=%s AND attempt=%s",
@@ -1288,7 +1299,23 @@ class AgentConversationService:
                     if prior == event:
                         return turn, False
                     raise ApplicationStateConflictError("Graph execution event ID was reused with changed content")
-            if event.sequence != len(execution.events):
+            native_inclusion = None
+            if native_play_prepared_request_json is not None:
+                from .types import PlayWorldGraphContextReceiptV1
+                from .play_graph_input import prove_play_source_input
+                from .play_graph_source_owner import resolve_native_play_source_owner
+                if (not isinstance(execution, PlayWorldGraphExecutionV1)
+                        or not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                        or not isinstance(event, ProviderAttemptAuthorizedEventV3)):
+                    raise ApplicationStateValidationError("Native Play input proof requires its own provider/receipt/ledger")
+                try:
+                    native_inclusion = prove_play_source_input(turn.graph_context_receipt, execution, event,
+                        prepared_request_json=native_play_prepared_request_json,
+                        submission_id=turn.idempotency_key, original_message=turn.user_text, event_id=uuid4(),
+                        owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame))
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            if event.sequence != len(execution.events) + (1 if native_inclusion is not None else 0):
                 raise ApplicationStateConflictError("Graph execution event sequence is stale")
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 receipt = turn.graph_context_receipt
@@ -1334,7 +1361,7 @@ class AgentConversationService:
                     validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
-            events = [*execution.events, event]
+            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), event]
             try:
                 execution_type = type(execution)
                 updated_execution = execution_type.model_validate(
@@ -1563,6 +1590,25 @@ class AgentConversationService:
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
+        )
+
+    def authorize_native_play_provider(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        provider_attempt_event: ProviderAttemptAuthorizedEventV3,
+        prepared_request_json: str,
+    ) -> tuple[Turn, bool]:
+        """Atomically commit exact Play source inclusion + provider authorization.
+
+        A fresh=False replay is not another SDK send permission. The caller also
+        owns the general actual-envelope validation and Rules-domain fence.
+        """
+        if not isinstance(prepared_request_json, str):
+            raise ApplicationStateValidationError("Native Play requires its actual prepared input snapshot")
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=provider_attempt_event,
+            duplicate_key="provider_attempt_id", native_play_prepared_request_json=prepared_request_json,
         )
 
     def renew_turn_claim(

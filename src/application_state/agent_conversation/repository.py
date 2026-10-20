@@ -23,6 +23,7 @@ from application_state.agent_conversation.types import (
     PlanAskHistoryAttributionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
+    GraphTurnExecution,
     PlanWorldGraphExecution,
     Turn,
     TurnProvenance,
@@ -1110,7 +1111,7 @@ def complete_claimed_turn(
     expected_attempt: int,
     assistant_text: str,
     completion: GraphTurnCompletion | None,
-    graph_context_execution: PlanWorldGraphExecution | None = None,
+    graph_context_execution: GraphTurnExecution | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -1216,7 +1217,7 @@ def update_graph_execution(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
-    execution: PlanWorldGraphExecution,
+    execution: GraphTurnExecution,
 ) -> Turn | None:
     """Persist one validated execution append under the caller's locked row."""
     with conn.cursor(row_factory=dict_row) as cur:
@@ -1247,7 +1248,7 @@ def interrupt_expired_graph_execution(
     turn_id: UUID,
     expected_revision: int,
     expected_attempt: int,
-    execution: PlanWorldGraphExecution,
+    execution: GraphTurnExecution,
     failure_code: str,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
