@@ -18,14 +18,29 @@ from application_state.agent_conversation.rules_authority_events import (
     RulesProviderOutcomeV1,
 )
 from application_state.agent_conversation.types import ProviderOutcomeEventV1
-from tests.test_rules_build_input import append, read_after_controller
+from tests.test_rules_build_input import append, execution as native_rules_execution
+from tests.test_rules_lookup_broker import args, lookup as rules_lookup
 from tests.test_play_graph_authority import native_provider
 
 
 def native_case():
-    owner, lookup, _ = read_after_controller()
+    owner, lookup = rules_lookup(native_rules_execution())
     attempt = uuid4()
-    prepared_request_json = json.dumps({"input": "actual native prepared envelope"})
+    prepared_request_json = json.dumps({"messages": [
+        {"role": "assistant", "tool_calls": [{
+            "id": lookup.observation.call_id,
+            "type": "function",
+            "function": {
+                "name": "lookup_rules",
+                "arguments": json.dumps({
+                    "question": args().question,
+                    "ruleset_id": owner.scope.ruleset_id,
+                }),
+            },
+        }]},
+        {"role": "tool", "tool_call_id": lookup.observation.call_id,
+         "content": lookup.raw_output},
+    ]})
     request_sha = sha256(prepared_request_json.encode("utf-8")).hexdigest()
     refs = lookup.observation.support_refs
     outputs = (
@@ -137,6 +152,28 @@ def test_native_output_joins_actual_final_request_and_rules_supports():
     assert answer.rules_segments[0].support_ids == tuple(
         str(item.support_id) for item in rules.events[-2].support_refs
     )
+
+
+def test_native_output_rechecks_actual_rules_call_and_result_bytes():
+    graph, rules, proof, capture, _ = native_case()
+    body = json.loads(proof.prepared_request_json)
+    body["messages"][1]["content"] += " forged"
+    prepared = json.dumps(body)
+    digest = sha256(prepared.encode("utf-8")).hexdigest()
+    proof = proof.model_copy(update={
+        "prepared_request_json": prepared,
+        "request_envelope_sha256": digest,
+    })
+    graph.events[0] = graph.events[0].model_copy(update={"envelope_sha256": digest})
+    events = list(rules.events)
+    for index, event in enumerate(events):
+        if isinstance(event, (RulesProviderAuthorizedV1, RulesProviderIncludedV1,
+                              RulesProviderOutcomeV1)):
+            events[index] = event.model_copy(update={"request_envelope_sha256": digest})
+    rules = rules.model_copy(update={"events": tuple(events)})
+    capture = changed(capture, request_sha256=digest)
+    with pytest.raises(ValueError, match="prepared input differs"):
+        verify_native_output(graph, rules, proof, capture)
 
 
 @pytest.mark.parametrize(

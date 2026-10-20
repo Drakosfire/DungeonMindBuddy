@@ -29,6 +29,7 @@ from .rules_authority_output import (
     RulesWriterAnswerV1,
     parse_answer,
 )
+from .rules_authority_input import verify_prepared_input
 from .rules_authority_types import ClosedRulesModel
 from .source_writer_output import strict_json
 from .types import (
@@ -248,6 +249,11 @@ def verify_native_output(
         raise ValueError(
             "Native Rules output differs from its exact included Rules evidence"
         )
+    try:
+        verify_prepared_input(rules_execution, rules_auth, proof.prepared_request_json)
+        verify_prepared_input(rules_execution, included, proof.prepared_request_json)
+    except (ValueError, TypeError, KeyError, RecursionError) as exc:
+        raise ValueError("Native Rules prepared input differs from its recorded evidence") from exc
     latest = [
         event
         for event in rules_execution.events
