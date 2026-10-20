@@ -1,6 +1,6 @@
 # PERF — coalesce protected read acquisition
 
-**Status:** ACTIVE. PRIME owns design, implementation and delivery under the operator's frontend-foundation goal.
+**Status:** COMPLETE for the first pending-read transport slice; source/runtime leases released. The full frontend-foundation goal remains ACTIVE.
 **Base:** Buddy main5696490647c0e1ac1d1c4083ba22481ab2a64639.
 **Lane:** serial, codex/bounded-protected-reads in existing buddy-context-loop checkout; one implementation PR.
 **Authority:** OverMind assessment51 at03024f34bf3be8343a01edb0d9cc797eb1bdae82 and operator implementation goal.
@@ -34,3 +34,24 @@ Prove cold bootstrap mounted graph acquisition, concurrent history/evidence/cand
 Cold bootstrap reproduced two managed network requests at the base and one after the fix. Final transport/provider/cache/recovery cohort259/259 passes; TypeScript and production build pass. Supplemental conversation/Plan Cards/review/evidence cohort236pass/8fail. All8 are in the unchanged conversation-history suite and reproduce with the exact base liveApi source substituted in-memory via a temporary Vite transform (207pass/8fail in that suite); no checkout switch/export or other production source change was used for that baseline proof. The incomplete Response fixture correction preserves its original diagnostics assertions.
 
 Architecture Cycle1 held775ea76314a22f66cbf60f499c0b9da8597902d2 for a new during-write→post-write freshness race. The candidate now invalidates at settlement as well as dispatch, with success, failure, unknown outcome and overlapping-write coverage. Independent re-review and5202 adoption remain required. The broader goal remains active.
+
+
+## Merge and rendered acceptance
+
+PR1482 merged at726732b93ec34a4ab98a93ba60b37036d6ff1161. Architecture Cycle2 approved exactfe36e0098b7d56fe549a06bf27d7dae44cf61e30 after independently reproducing the fixed post-write freshness case;243 owner tests and the additional original probe passed independently. Author259-test/typecheck/build evidence is separate. Review was returned in the authorized Architecture chat; no GitHub review post is claimed. No required remote check runs were configured on this PR.
+
+The accepted UI runs on established5202 under unchanged PID17085/API8000. Old hashed assets remain for open clients; index SHA2569d8a8bb9ad956907dc4ef00c65d0f5b6a8f50cfe2468468205dbc2d0c47f1773. Five-screen native-browser acceptance used the same six-second, warm/uncontrolled-cache method as assessment51. Observed API body bytes and managed graph counts:
+
+| Screen | Before bytes | After bytes | Before/after managed graph requests |
+| --- | ---: | ---: | --- |
+| Index | 4,304,576 | 2,152,494 | 2→1 |
+| Plan Cards | 4,463,792 | 2,377,201 | 2→1 |
+| Play review | 4,514,622 | 2,362,540 | 2→1 |
+| Build | 6,564,462 | 2,260,298 | 3→1 |
+| Ingest | 5,892,126 | 5,434,977 | 2→2 |
+
+Ingest session evidence3,288-byte and candidate453,861-byte acquisitions each reduced2→1. Plan history had3 sampled reads, Play2 and Build1; this is not acceptance of all history-request cleanup. Samples include existing scope/reconciliation behavior and are not equivalent-load latency/CPU benchmarks. Ingest's remaining two graph producers serialize optional fields differently: the app provider supplies null revision/query defaults, while GraphReviewWorldbuildingPublication omits them. Canonical current-contract serialization and demand-driven production are successor work, with regression proof required. Play admission's active-pointer intent also conservatively starts new shared-read waves; any refinement must preserve mutation freshness.
+
+Plan Cards→Document→Cards returned to JourneyNorth with one mounted editor and unchanged Saved timestamp. Build source/media, Ingest review and ended Play reflections rendered. All17 protected JSON responses matched the fresh before baseline after both five-screen and Document/Cards/conversation-open-close checks. No provider request was submitted, source edit/extraction/publication performed, or API restarted. Temporary probes/tabs were removed. Browser screenshot APIs were unavailable; rendered acceptance uses native DOM plus captured resource timing, not a screenshot claim. Exact browser measurements/test logs/state snapshots are private protected-reads-* evidence in the established experiment directory.
+
+Successors remain: diagnose and remove unnecessary history/evidence/graph production, bound lists/payloads and propagate cancellation, demand-load surface/tool code and media, user+Agent Rules lookup, native Combat. No rule-graph experiment is activated.
