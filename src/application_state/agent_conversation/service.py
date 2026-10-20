@@ -83,6 +83,9 @@ from application_state.agent_conversation.types import (
     _ask_graph_validation_inputs,
     validate_graph_provider_envelope,
 )
+from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
+from .rules_authority_completion import MixedTurnResultV1
+from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
@@ -244,6 +247,131 @@ def _ready_dsn() -> str:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     return dsn
+
+
+def _ordinary_mutation_turn(turn: TurnReadModel | None, conversation_id: UUID) -> Turn | None:
+    if isinstance(turn, MixedCompletedTurnV1):
+        if turn.envelope.conversation_id != conversation_id:
+            raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+        raise ApplicationStateConflictError("completed mixed Rules answer cannot accept an ordinary mutation")
+    return turn
+
+
+def _validated_base_execution_locked(
+    conn, turn: Turn, result: TurnResult, *, prepared_recovery: bool = False
+):
+    """Validate the unchanged base-domain completion without committing a Turn."""
+    from .types import (
+        BuildAuthoringCompletionV1,
+        BuildImagePreparationCompletionV1,
+        BuildActionControllerWriterPolicyV1,
+    )
+
+    execution = turn.graph_context_execution
+    if prepared_recovery and not isinstance(
+        getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1
+    ):
+        raise ApplicationStateValidationError(
+            "Recovery requires the controller-selected Build action policy"
+        )
+    if execution is not None:
+        if (
+            result.completion is None
+            or result.producing_provider_attempt_id is None
+            or result.claim_graph_event_ids is None
+        ):
+            raise ApplicationStateValidationError(
+                "execution completion requires a producing attempt and claim evidence binding"
+            )
+        from .types import BuildCitedSourceActionControllerWriterPolicyV1
+
+        if isinstance(
+            execution.policy, BuildCitedSourceActionControllerWriterPolicyV1
+        ) and not isinstance(
+            result.completion,
+            (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1),
+        ):
+            from .source_writer_output import validate_completion_proof
+
+            captured = conn.execute(
+                "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                (turn.turn_id, turn.attempt),
+            ).fetchone()
+            try:
+                validate_completion_proof(result, turn, captured[0] if captured else {})
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+        payload = result.completion.model_dump(mode="json", by_alias=True)
+        digest = hashlib.sha256(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        try:
+            execution = project_build_section_answer_bindings(
+                execution,
+                result.completion,
+                result.producing_provider_attempt_id,
+                result.build_section_bindings,
+            )
+        except ValueError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        binding = CompletionBindingEventV1(
+            event_id=uuid4(),
+            sequence=len(execution.events),
+            kind="completion_binding",
+            provider_attempt_id=result.producing_provider_attempt_id,
+            completion_sha256=digest,
+            claim_graph_event_ids=result.claim_graph_event_ids,
+        )
+        try:
+            execution_type = type(execution)
+            execution = execution_type.model_validate(
+                execution.model_dump(mode="json", by_alias=True)
+                | {
+                    "events": [
+                        *[
+                            e.model_dump(mode="json", by_alias=True)
+                            for e in execution.events
+                        ],
+                        binding.model_dump(mode="json", by_alias=True),
+                    ]
+                }
+            )
+            validate_execution_completion(
+                result.completion,
+                turn.graph_context_receipt,
+                execution,
+                result.producing_provider_attempt_id,
+                result.claim_graph_event_ids,
+            )
+        except ValueError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+    if turn.graph_context_receipt is None:
+        if result.completion is not None:
+            raise ApplicationStateValidationError(
+                "Graph completion requires a frozen context receipt"
+            )
+    else:
+        if result.completion is None:
+            raise ApplicationStateValidationError(
+                "Graph receipt turn requires a completion envelope"
+            )
+        if execution is None:
+            try:
+                validate_completion_against_receipt(
+                    result.completion, turn.graph_context_receipt
+                )
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+    from .build_authoring import validate_stored_proposal
+
+    validate_stored_proposal(conn, turn, result.completion)
+    return execution
 
 
 class AgentConversationService:
@@ -503,7 +631,7 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def accept_turn(self, submission: TurnSubmission) -> Turn:
+    def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
@@ -532,7 +660,7 @@ class AgentConversationService:
             else submitted_turn_intent_fingerprint_v2(submitted_intent_v2)
         )
 
-        def matching_receipt(existing) -> Turn:
+        def matching_receipt(existing) -> TurnReadModel:
             (
                 turn,
                 _old_request_fingerprint,
@@ -540,9 +668,25 @@ class AgentConversationService:
                 old_submitted_intent_fingerprint,
                 old_submitted_intent_fingerprint_v2,
             ) = existing
+            if isinstance(turn, MixedCompletedTurnV1):
+                turn_meta = turn.envelope
+                projection = turn.base_projection
+                if projection.kind == "approved":
+                    graph_receipt = projection.turn.graph_context_receipt
+                    graph_execution = projection.turn.graph_context_execution
+                elif projection.kind == "unclaimed":
+                    graph_receipt = projection.graph_context_receipt
+                    graph_execution = projection.graph_context_execution
+                else:
+                    graph_receipt = None
+                    graph_execution = None
+            else:
+                turn_meta = turn
+                graph_receipt = turn.graph_context_receipt
+                graph_execution = turn.graph_context_execution
             if (
-                turn.play_context_receipt is not None
-                and turn.play_context_receipt != submission.play_context_receipt
+                turn_meta.play_context_receipt is not None
+                and turn_meta.play_context_receipt != submission.play_context_receipt
             ):
                 raise ApplicationStateConflictError(
                     "turn idempotency key was already used with a different Play context receipt"
@@ -568,18 +712,18 @@ class AgentConversationService:
             if submitted_intent_fingerprint_v2 is not None and (
                 old_submitted_intent_fingerprint_v2 != submitted_intent_fingerprint_v2
                 or old_submitted_intent_fingerprint is not None
-                or turn.graph_context_receipt != submission.graph_context_receipt
+                or graph_receipt != submission.graph_context_receipt
                 or (
-                    (turn.graph_context_execution is None)
+                    (graph_execution is None)
                     != (submission.graph_context_execution is None)
                 )
                 or (
-                    turn.graph_context_execution is not None
+                    graph_execution is not None
                     and submission.graph_context_execution is not None
                     and (
-                        turn.graph_context_execution.context_receipt_sha256
+                        graph_execution.context_receipt_sha256
                         != submission.graph_context_execution.context_receipt_sha256
-                        or turn.graph_context_execution.policy
+                        or graph_execution.policy
                         != submission.graph_context_execution.policy
                     )
                 )
@@ -655,7 +799,7 @@ class AgentConversationService:
         world_id: str,
         idempotency_key: UUID,
         submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1,
-    ) -> Turn | None:
+    ) -> TurnReadModel | None:
         """Find an exact World receipt before resolving mutable current context.
 
         A legacy receipt has no lossless submitted-intent identity and therefore
@@ -693,7 +837,7 @@ class AgentConversationService:
             )
         return turn
 
-    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> Turn:
+    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> TurnReadModel:
         """Load one historical turn in its verified World; no pointer/head lookup."""
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
@@ -702,6 +846,19 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("turn not found in verified World")
             return turn
 
+    def inspect_rules_passage(
+        self, request: RulesHistoricalPassageRequestV1
+    ) -> RulesHistoricalPassageV1:
+        """Caller verifies current World/operator admission; inspect one cited capsule."""
+        from .rules_authority_passages import read_historical_rules_passage
+
+        if _world_id(request.world_id) != request.world_id:
+            raise ApplicationStateValidationError(
+                "Rules passage World must be canonical"
+            )
+        with unit_of_work(_ready_dsn()) as conn:
+            return read_historical_rules_passage(conn, request)
+
     def list_turns(
         self,
         world_id: str,
@@ -709,7 +866,7 @@ class AgentConversationService:
         *,
         limit: int = 50,
         before_sequence: int | None = None,
-    ) -> list[Turn]:
+    ) -> list[TurnReadModel]:
         world_id = _world_id(world_id)
         if not 1 <= limit <= 100:
             raise ApplicationStateValidationError("turn page limit must be between 1 and 100")
@@ -777,8 +934,15 @@ class AgentConversationService:
         _validate_turn_claim_lease(lease_seconds)
         dsn = _ready_dsn()
         interrupted_after_dispatch = False
+        interrupted_domain = "Graph"
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            if isinstance(turn, MixedCompletedTurnV1):
+                if turn.envelope.conversation_id != conversation_id:
+                    raise ApplicationStateNotFoundError(
+                        "turn not found in verified World conversation"
+                    )
+                return TurnClaimReceipt(disposition="completed", turn=turn)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
@@ -800,37 +964,128 @@ class AgentConversationService:
                 isinstance(event, ProviderAttemptAuthorizedEventV1)
                 for event in turn.graph_context_execution.events
             ):
-                if turn.status == "running" and (turn.claim_expires_at is None or turn.claim_expires_at <= now):
+                if turn.status == "running" and (
+                    turn.claim_expires_at is None or turn.claim_expires_at <= now
+                ):
                     execution = turn.graph_context_execution
-                    auths = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+                    auths = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderAttemptAuthorizedEventV1)
+                    ]
                     latest = auths[-1]
-                    outcomes = [e for e in execution.events if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == latest.provider_attempt_id]
+                    outcomes = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderOutcomeEventV1)
+                        and e.provider_attempt_id == latest.provider_attempt_id
+                    ]
                     outcome_unknown = False
-                    if not outcomes or outcomes[-1].outcome not in {"response_received", "known_not_sent", "outcome_unknown"}:
+                    if not outcomes or outcomes[-1].outcome not in {
+                        "response_received",
+                        "known_not_sent",
+                        "outcome_unknown",
+                    }:
                         outcome_unknown = True
                         unknown = ProviderOutcomeEventV1(
-                            event_id=uuid4(), sequence=len(execution.events),
-                            kind="provider_outcome", provider_attempt_id=latest.provider_attempt_id,
+                            event_id=uuid4(),
+                            sequence=len(execution.events),
+                            kind="provider_outcome",
+                            provider_attempt_id=latest.provider_attempt_id,
                             outcome="outcome_unknown",
                         )
                         execution_type = type(execution)
                         execution = execution_type.model_validate(
                             execution.model_dump(mode="json", by_alias=True)
-                            | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], unknown.model_dump(mode="json", by_alias=True)]}
+                            | {
+                                "events": [
+                                    *[
+                                        e.model_dump(mode="json", by_alias=True)
+                                        for e in execution.events
+                                    ],
+                                    unknown.model_dump(mode="json", by_alias=True),
+                                ]
+                            }
                         )
                     interrupted = repo.interrupt_expired_graph_execution(
-                        conn, world_id=world_id, turn_id=turn_id,
-                        expected_revision=expected_revision, expected_attempt=turn.attempt,
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
                         execution=execution,
-                        failure_code=("provider_outcome_unknown" if outcome_unknown else "provider_authorized_nonreclaimable"),
+                        failure_code=(
+                            "provider_outcome_unknown"
+                            if outcome_unknown
+                            else "provider_authorized_nonreclaimable"
+                        ),
                     )
                     if interrupted is None:
-                        raise ApplicationStateConflictError("expired Graph provider claim could not be fenced")
+                        raise ApplicationStateConflictError(
+                            "expired Graph provider claim could not be fenced"
+                        )
+                    from .rules_authority_store import fail_execution_locked
+
+                    fail_execution_locked(conn, turn)
                     interrupted_after_dispatch = True
                 else:
                     raise ApplicationStateConflictError(
                         "Graph execution with a prior provider authorization cannot be reclaimed"
                     )
+            if not interrupted_after_dispatch:
+                from .rules_authority_store import (
+                    load_turn_rules_locked,
+                    fail_execution_locked,
+                )
+                from .rules_authority_events import (
+                    RulesProviderAuthorizedV1,
+                    RulesProviderOutcomeV1,
+                )
+
+                rules = load_turn_rules_locked(conn, turn)
+                dispatches = (
+                    [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderAuthorizedV1)
+                    ]
+                    if rules is not None
+                    else []
+                )
+                if dispatches:
+                    if turn.status != "running":
+                        raise ApplicationStateConflictError(
+                            "Rules execution with a prior provider authorization cannot be reclaimed"
+                        )
+                    latest = dispatches[-1]
+                    outcomes = [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderOutcomeV1)
+                        and event.provider_attempt_id == latest.provider_attempt_id
+                    ]
+                    unknown = not outcomes or outcomes[-1].status == "unknown"
+                    fail_execution_locked(conn, turn)
+                    interrupted = repo.interrupt_expired_rules_claim(
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
+                        failure_code="rules_provider_outcome_unknown"
+                        if unknown
+                        else "rules_provider_authorized_nonreclaimable",
+                    )
+                    if interrupted is None:
+                        raise ApplicationStateConflictError(
+                            "expired Rules provider claim could not be fenced"
+                        )
+                    interrupted_after_dispatch = True
+                    interrupted_domain = "Rules"
+                elif rules is not None and rules.execution.state == "active":
+                    # A new product attempt must never inherit old source cache or
+                    # pending output authority, even when nothing was dispatched.
+                    fail_execution_locked(conn, turn)
             if not interrupted_after_dispatch:
                 if turn.status not in {"accepted", "failed", "interrupted", "running"}:
                     raise ApplicationStateConflictError(
@@ -840,8 +1095,12 @@ class AgentConversationService:
                     turn.claim_expires_at is None or turn.claim_expires_at <= now
                 ):
                     close_context_trace_locked(
-                        conn, world_id=world_id, turn_id=turn_id,
-                        attempt=turn.attempt, status="interrupted", closed_at=now,
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        attempt=turn.attempt,
+                        status="interrupted",
+                        closed_at=now,
                     )
                 claimed = repo.claim_turn(
                     conn,
@@ -857,7 +1116,7 @@ class AgentConversationService:
                 return TurnClaimReceipt(disposition="claimed", turn=claimed)
         if interrupted_after_dispatch:
             raise ApplicationStateConflictError(
-                "expired Graph provider claim was recorded as potentially sent and cannot be reclaimed"
+                f"expired {interrupted_domain} provider claim was recorded as potentially sent and cannot be reclaimed"
             )
 
     def _append_graph_execution_event(
@@ -878,6 +1137,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             execution = turn.graph_context_execution
@@ -1240,6 +1500,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
@@ -1272,6 +1533,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, result.turn_id)
+            turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == "completed":
@@ -1307,67 +1569,9 @@ class AgentConversationService:
             allowed_status = {"running", "interrupted"} if prepared_recovery else {"running"}
             if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
-            execution = turn.graph_context_execution
-            if prepared_recovery and not isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
-                raise ApplicationStateValidationError("Recovery requires the controller-selected Build action policy")
-            if execution is not None:
-                if result.completion is None or result.producing_provider_attempt_id is None or result.claim_graph_event_ids is None:
-                    raise ApplicationStateValidationError("execution completion requires a producing attempt and claim evidence binding")
-                from .types import BuildCitedSourceActionControllerWriterPolicyV1
-                if isinstance(execution.policy, BuildCitedSourceActionControllerWriterPolicyV1) and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
-                    from .source_writer_output import validate_completion_proof
-                    captured = conn.execute(
-                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
-                        (turn.turn_id, turn.attempt),
-                    ).fetchone()
-                    try:
-                        validate_completion_proof(result, turn, captured[0] if captured else {})
-                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
-                        raise ApplicationStateValidationError(str(exc)) from exc
-                payload = result.completion.model_dump(mode="json", by_alias=True)
-                digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
-                try:
-                    execution = project_build_section_answer_bindings(execution, result.completion,
-                        result.producing_provider_attempt_id, result.build_section_bindings)
-                except ValueError as exc:
-                    raise ApplicationStateValidationError(str(exc)) from exc
-                binding = CompletionBindingEventV1(
-                    event_id=uuid4(), sequence=len(execution.events), kind="completion_binding",
-                    provider_attempt_id=result.producing_provider_attempt_id,
-                    completion_sha256=digest,
-                    claim_graph_event_ids=result.claim_graph_event_ids,
-                )
-                try:
-                    execution_type = type(execution)
-                    execution = execution_type.model_validate(
-                        execution.model_dump(mode="json", by_alias=True)
-                        | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], binding.model_dump(mode="json", by_alias=True)]}
-                    )
-                    validate_execution_completion(
-                        result.completion, turn.graph_context_receipt, execution,
-                        result.producing_provider_attempt_id, result.claim_graph_event_ids,
-                    )
-                except ValueError as exc:
-                    raise ApplicationStateValidationError(str(exc)) from exc
-            if turn.graph_context_receipt is None:
-                if result.completion is not None:
-                    raise ApplicationStateValidationError(
-                        "Graph completion requires a frozen context receipt"
-                    )
-            else:
-                if result.completion is None:
-                    raise ApplicationStateValidationError(
-                        "Graph receipt turn requires a completion envelope"
-                    )
-                if execution is None:
-                    try:
-                        validate_completion_against_receipt(
-                            result.completion, turn.graph_context_receipt
-                        )
-                    except ValueError as exc:
-                        raise ApplicationStateValidationError(str(exc)) from exc
-            from .build_authoring import validate_stored_proposal
-            validate_stored_proposal(conn, turn, result.completion)
+            execution = _validated_base_execution_locked(conn, turn, result, prepared_recovery=prepared_recovery)
+            from .rules_authority_store import close_unused_locked
+            close_unused_locked(conn, turn)
             completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
             updated = completion_update(
                 conn,
@@ -1379,11 +1583,211 @@ class AgentConversationService:
                 completion=result.completion,
                 graph_context_execution=execution,
             )
-        if updated is None:
-            raise ApplicationStateConflictError(
-                "turn claim expired or was fenced before completion"
-            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "turn claim expired or was fenced before completion"
+                )
         return updated
+
+    def complete_mixed_turn(self, result: MixedTurnResultV1) -> MixedCompletedTurnV1:
+        """Accept both domains in one transaction; replay before live-claim gates."""
+        from .rules_authority_completion import prepare_rules_acceptance
+        from .rules_authority_store import (
+            load_turn_rules_locked,
+            persist_accepted_locked,
+        )
+        from .rules_authority_types import RulesScopeV1, canonical_sha256
+
+        scope = result.scope
+        world_id = _world_id(scope.world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.lock_turn(conn, world_id, scope.turn_id)
+            if isinstance(turn, MixedCompletedTurnV1):
+                if turn.envelope.conversation_id != scope.conversation_id:
+                    raise ApplicationStateNotFoundError(
+                        "turn not found in verified World conversation"
+                    )
+                # Read only frozen scope metadata, never source bodies on replay.
+                frozen = conn.execute(
+                    """SELECT revision,CASE WHEN octet_length((payload->'scope')::text)<=4096
+                    THEN payload->'scope' ELSE NULL END FROM agent.turn_rules_execution
+                    WHERE turn_id=%s AND product_attempt=%s""",
+                    (scope.turn_id, scope.product_attempt),
+                ).fetchone()
+                try:
+                    exact_scope = (
+                        RulesScopeV1.model_validate_json(json.dumps(frozen[1]))
+                        if frozen and frozen[1] is not None
+                        else None
+                    )
+                except ValueError as exc:
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope is malformed"
+                    ) from exc
+                if exact_scope is None:
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope is missing or oversized"
+                    )
+                binding = turn.accepted_binding
+                if (
+                    exact_scope.world_id,
+                    exact_scope.conversation_id,
+                    exact_scope.turn_id,
+                    exact_scope.product_attempt,
+                    exact_scope.execution_id,
+                    exact_scope.corpus_sha256,
+                    exact_scope.ruleset_id,
+                ) != (
+                    binding.world_id,
+                    binding.conversation_id,
+                    binding.turn_id,
+                    binding.product_attempt,
+                    binding.execution_id,
+                    binding.corpus_sha256,
+                    binding.ruleset_id,
+                ):
+                    raise ApplicationStateIntegrityError(
+                        "accepted Rules scope differs from its sealed binding"
+                    )
+                base = turn.base_projection
+                base_matches = (
+                    result.base_result is None
+                    if base.kind != "approved"
+                    else result.base_result is not None
+                    and base.turn.completion == result.base_result.completion
+                    and base.turn.assistant_text == result.base_result.assistant_text
+                    and [
+                        item
+                        for event in (
+                            base.turn.graph_context_execution.events
+                            if base.turn.graph_context_execution
+                            else []
+                        )
+                        if isinstance(event, BuildSectionAnswerBindingV1)
+                        for item in event.bindings
+                    ]
+                    == result.base_result.build_section_bindings
+                )
+                if (
+                    base.kind == "approved"
+                    and base.turn.graph_context_execution is not None
+                ):
+                    graph_binding = next(
+                        item
+                        for item in base.turn.graph_context_execution.events
+                        if isinstance(item, CompletionBindingEventV1)
+                    )
+                    base_matches = (
+                        base_matches
+                        and graph_binding.claim_graph_event_ids
+                        == result.base_result.claim_graph_event_ids
+                    )
+                if (
+                    exact_scope == scope
+                    and frozen[0] == result.expected_rules_revision + 1
+                    and turn.envelope.revision == result.expected_turn_revision + 1
+                    and turn.envelope.attempt == scope.product_attempt
+                    and turn.assistant_text == result.assistant_text
+                    and binding.composition_sha256
+                    == canonical_sha256(result.composition)
+                    and binding.producing_provider_attempt_id
+                    == result.producing_provider_attempt_id
+                    and base_matches
+                ):
+                    return turn
+                raise ApplicationStateConflictError(
+                    "completed mixed turn has a different result or acceptance fence"
+                )
+            if turn is None or turn.conversation_id != scope.conversation_id:
+                raise ApplicationStateNotFoundError(
+                    "turn not found in verified World conversation"
+                )
+            now = repo.database_clock(conn)
+            if (
+                turn.status != "running"
+                or turn.revision != result.expected_turn_revision
+                or turn.attempt != scope.product_attempt
+                or turn.claim_expires_at is None
+                or turn.claim_expires_at <= now
+            ):
+                raise ApplicationStateConflictError(
+                    "mixed completion is fenced by a stale or expired claim"
+                )
+            current = load_turn_rules_locked(conn, turn)
+            if (
+                current is None
+                or current.execution.scope != scope
+                or current.revision != result.expected_rules_revision
+            ):
+                raise ApplicationStateConflictError(
+                    "mixed completion differs from its frozen Rules execution"
+                )
+            disposition = result.composition.base_disposition
+            base_result = result.base_result
+            execution = turn.graph_context_execution
+            completion = None
+            segments = ()
+            graph_used = False
+            if disposition == "approved":
+                execution = _validated_base_execution_locked(conn, turn, base_result)
+                completion = base_result.completion
+                segments = tuple(item.text for item in completion.answer_segments)
+                graph_used = "world_graph" in completion.answer_basis
+            elif disposition == "absent":
+                if turn.graph_context_receipt is not None or execution is not None:
+                    raise ApplicationStateValidationError(
+                        "absent base cannot retain Graph authority"
+                    )
+            elif turn.graph_context_receipt is None or execution is None:
+                raise ApplicationStateValidationError(
+                    "unclaimed base requires genuine Graph receipt and execution"
+                )
+            try:
+                accepted, binding = prepare_rules_acceptance(
+                    current.execution,
+                    result.composition,
+                    producing_provider_attempt_id=result.producing_provider_attempt_id,
+                    accepted_turn_revision=turn.revision + 1,
+                    event_id=uuid4(),
+                    base_segments=segments,
+                    graph_used=graph_used,
+                )
+            except ValueError as exc:
+                raise ApplicationStateValidationError(
+                    "Rules completion lacks exact producing evidence or composition"
+                ) from exc
+            if execution is not None:
+                from .rules_authority_reads import (
+                    validate_graph_producer_join,
+                    validate_unclaimed_receipt_owner,
+                )
+
+                try:
+                    validate_graph_producer_join(execution, binding)
+                    if disposition == "unclaimed":
+                        validate_unclaimed_receipt_owner(
+                            turn, turn.graph_context_receipt
+                        )
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(
+                        "Rules/base producing request or provenance differs"
+                    ) from exc
+            persist_accepted_locked(conn, current, accepted, binding)
+            updated = repo.complete_mixed_claimed_turn(
+                conn,
+                world_id=world_id,
+                turn_id=turn.turn_id,
+                expected_revision=turn.revision,
+                expected_attempt=turn.attempt,
+                assistant_text=result.assistant_text,
+                completion=completion,
+                graph_context_execution=execution,
+            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "mixed completion lost its turn claim fence"
+                )
+            return updated
 
     def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn:
         world_id = _world_id(failure.world_id)
@@ -1391,6 +1795,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, failure.turn_id)
+            turn = _ordinary_mutation_turn(turn, failure.conversation_id)
             if turn is None or turn.conversation_id != failure.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == status:
@@ -1404,6 +1809,8 @@ class AgentConversationService:
                 )
             if turn.revision != failure.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
+            from .rules_authority_store import fail_execution_locked
+            fail_execution_locked(conn, turn)
             updated = repo.fail_claimed_turn(
                 conn,
                 world_id=world_id,
@@ -1413,10 +1820,10 @@ class AgentConversationService:
                 status=status,
                 failure_code=failure.failure_code,
             )
-        if updated is None:
-            raise ApplicationStateConflictError(
-                "turn claim expired or was fenced before failure was recorded"
-            )
+            if updated is None:
+                raise ApplicationStateConflictError(
+                    "turn claim expired or was fenced before failure was recorded"
+                )
         return updated
 
     def get_draft(self, world_id: str, conversation_id: UUID, draft_id: UUID) -> Draft:

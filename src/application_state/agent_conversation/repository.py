@@ -36,6 +36,7 @@ from application_state.agent_conversation.context_trace_store import close_conte
 from application_state.agent_conversation.types import (
     request_fingerprint as model_fingerprint,
 )
+from .rules_authority_reads import MixedCompletedTurnV1, MixedHistoryAttributionV1, TurnReadModel
 from application_state.errors import ApplicationStateIntegrityError
 
 _CONVERSATION_COLS = """
@@ -43,7 +44,7 @@ _CONVERSATION_COLS = """
     created_at, updated_at, archived_at
 """
 _WORLD_COLS = "world_id, active_conversation_id, pointer_revision AS revision"
-_TURN_COLS = """
+_TURN_BASE_COLS = """
     turn_id, conversation_id, world_id, idempotency_key, sequence, revision,
     status, user_text, assistant_text, failure_code, surface_resolution,
     surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
@@ -51,7 +52,28 @@ _TURN_COLS = """
     graph_context_execution, play_context_receipt,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
-_TURN_COLS_T = ", ".join(f"t.{column.strip()}" for column in _TURN_COLS.split(","))
+def _rules_summary_select(owner: str) -> str:
+    # The correlated PK lookup shares the turn statement snapshot. SQL byte CASE
+    # happens before any summary transfer; no ledger/source body is selected.
+    return f"""(SELECT jsonb_build_object(
+        'state', x.payload->>'state', 'revision', x.revision,
+        'oversized', x.accepted_binding IS NOT NULL AND octet_length(x.accepted_binding::text)>40960,
+        'binding', CASE WHEN octet_length(x.accepted_binding::text)<=40960 THEN x.accepted_binding ELSE NULL END,
+        'seal', x.accepted_binding_sha256)
+        FROM agent.turn_rules_execution x
+        WHERE x.turn_id={owner}.turn_id AND x.product_attempt={owner}.attempt) AS rules_summary"""
+
+
+_TURN_COLS = (
+    _TURN_BASE_COLS
+    + ", answer_composition_kind, "
+    + _rules_summary_select("agent.turn")
+)
+_TURN_COLS_T = (
+    ", ".join(f"t.{column.strip()}" for column in _TURN_BASE_COLS.split(","))
+    + ", t.answer_composition_kind, "
+    + _rules_summary_select("t")
+)
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
     surface_resolution, surface_id, surface_instance_id,
@@ -102,10 +124,19 @@ def _turn_references(
             WHERE turn_id = %s
             ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,
                      ordinal
+            LIMIT 35
             """,
             (turn_id,),
         )
         rows = cur.fetchall()
+    return _references_from_rows(rows)
+
+
+def _references_from_rows(rows):
+    # One primary + up to32 supporting + one selected. The SQL sentinel row
+    # detects excess rather than silently truncating a corrupt provenance set.
+    if len(rows)>34:
+        raise ApplicationStateIntegrityError("turn provenance exceeds its transfer bound")
     primary = next((r for r in rows if r["reference_role"] == "primary"), None)
     selected = next((r for r in rows if r["reference_role"] == "selected"), None)
     if primary is None or selected is None:
@@ -119,8 +150,51 @@ def _turn_references(
     )
 
 
-def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
-    primary, supporting, selected = _turn_references(conn, row["turn_id"])
+def _turn_reference_page(conn: psycopg.Connection, rows: list[dict[str, Any]]):
+    """Batch only IDs admitted by the bounded owning turn query, never caller IDs."""
+    if not rows:
+        return {}
+    if len(rows) > 100:
+        raise ApplicationStateIntegrityError(
+            "turn reference page exceeds its read bound"
+        )
+    admitted = {row["turn_id"]: [] for row in rows}
+    if len(admitted) != len(rows):
+        raise ApplicationStateIntegrityError("turn page contains duplicate identities")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """SELECT admitted.turn_id,r.*
+            FROM unnest(%s::uuid[]) AS admitted(turn_id)
+            CROSS JOIN LATERAL (
+                SELECT reference_role,ordinal,resolution,kind,object_id,revision,
+                    content_sha256,object_revision,work_revision_id,revision_n
+                FROM agent.turn_reference WHERE turn_id=admitted.turn_id
+                ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,ordinal
+                LIMIT 35
+            ) r
+            ORDER BY admitted.turn_id,CASE r.reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,r.ordinal""",
+            (list(admitted),),
+        )
+        for reference in cur.fetchall():
+            admitted[reference["turn_id"]].append(reference)
+    return {
+        identity: _references_from_rows(references)
+        for identity, references in admitted.items()
+    }
+
+
+def _turn_from_row(
+    conn: psycopg.Connection, row: dict[str, Any], *, references=None
+) -> TurnReadModel:
+    from .rules_authority_reads import (
+        CompletedTurnEnvelopeV1,
+        MixedCompletedTurnV1,
+    )
+    from .rules_authority_types import RulesAcceptedBindingV1
+
+    primary, supporting, selected = (
+        references if references is not None else _turn_references(conn, row["turn_id"])
+    )
     provenance = TurnProvenance(
         world_id=row["world_id"],
         surface_resolution=row["surface_resolution"],
@@ -130,18 +204,99 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         supporting_work=supporting,
         selected_object=selected,
     )
-    turn = Turn(
-        **{
-            key: row[key]
-            for key in row
-            if key not in {"surface_resolution", "surface_id", "surface_instance_id"}
-        },
-        provenance=provenance,
-    )
+    fields = {
+        key: row[key]
+        for key in row
+        if key
+        not in {
+            "surface_resolution",
+            "surface_id",
+            "surface_instance_id",
+            "answer_composition_kind",
+            "rules_summary",
+        }
+    } | {"provenance": provenance}
+    marker = row["answer_composition_kind"]
+    summary = row["rules_summary"]
+    # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
+    if marker == "base":
+        if summary is not None and (
+            summary["state"] not in {"active", "unused", "failed"}
+            or summary["oversized"]
+            or summary["binding"] is not None
+            or summary["seal"] is not None
+        ):
+            raise ApplicationStateIntegrityError(
+                "accepted Rules authority has no mixed turn marker"
+            )
+        turn = Turn(**fields)
+        from .build_authoring import validate_stored_proposal
 
-    from .build_authoring import validate_stored_proposal
-    validate_stored_proposal(conn, turn, turn.completion)
-    return turn
+        validate_stored_proposal(conn, turn, turn.completion)
+        return turn
+    if (
+        marker != "rules_mixed_v1"
+        or summary is None
+        or summary["state"] != "accepted"
+        or summary["oversized"]
+        or summary["binding"] is None
+        or summary["seal"] is None
+    ):
+        raise ApplicationStateIntegrityError(
+            "mixed turn has missing or invalid accepted Rules summary"
+        )
+    try:
+        import json
+
+        binding = RulesAcceptedBindingV1.model_validate_json(
+            json.dumps(summary["binding"], ensure_ascii=False)
+        )
+        body = fields["assistant_text"]
+        envelope = CompletedTurnEnvelopeV1(
+            **{key: fields[key] for key in CompletedTurnEnvelopeV1.model_fields}
+        )
+        if binding.base_disposition == "approved":
+            base_text = "\n".join(
+                body[item.text_start : item.text_end]
+                for item in binding.segment_map
+                if item.domain == "base"
+            )
+            base_turn = Turn(**(fields | {"assistant_text": base_text}))
+            from .build_authoring import validate_stored_proposal
+
+            validate_stored_proposal(conn, base_turn, base_turn.completion)
+            projection = {"kind": "approved", "turn": base_turn}
+        elif binding.base_disposition == "absent":
+            if any(
+                fields[key] is not None
+                for key in (
+                    "graph_context_receipt",
+                    "graph_context_execution",
+                    "completion",
+                )
+            ):
+                raise ValueError("absent base carries Graph authority")
+            projection = {"kind": "absent"}
+        else:
+            if fields["completion"] is not None:
+                raise ValueError("unclaimed base carries a completion")
+            projection = {
+                "kind": "unclaimed",
+                "graph_context_receipt": fields["graph_context_receipt"],
+                "graph_context_execution": fields["graph_context_execution"],
+            }
+        return MixedCompletedTurnV1(
+            schema="dmb_mixed_completed_turn_v1",
+            envelope=envelope,
+            assistant_text=body,
+            accepted_binding=binding,
+            accepted_binding_sha256=summary["seal"],
+            base_projection=projection,
+        )
+    except (ValueError, TypeError, KeyError, ValidationError) as exc:
+        raise ApplicationStateIntegrityError(
+            "stored mixed turn failed Rules/base integrity validation"
+        ) from exc
 
 
 def _draft_references(
@@ -495,7 +650,7 @@ def get_active_conversation(
 
 def get_turn_by_world_key(
     conn: psycopg.Connection, world_id: str, idempotency_key: UUID
-) -> tuple[Turn, str, str, str | None, str | None] | None:
+) -> tuple[TurnReadModel, str, str, str | None, str | None] | None:
     """Find the durable turn receipt in a World, regardless of its conversation."""
 
     with conn.cursor(row_factory=dict_row) as cur:
@@ -520,7 +675,7 @@ def get_turn_by_world_key(
     )
 
 
-def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
+def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
@@ -530,7 +685,7 @@ def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | N
     return None if row is None else _turn_from_row(conn, row)
 
 
-def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
+def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
@@ -547,7 +702,7 @@ def list_turns(
     *,
     limit: int,
     before_sequence: int | None,
-) -> list[Turn]:
+) -> list[TurnReadModel]:
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
     if before_sequence is not None:
@@ -563,7 +718,8 @@ def list_turns(
             params,
         )
         rows = cur.fetchall()
-    return [_turn_from_row(conn, row) for row in reversed(rows)]
+    references = _turn_reference_page(conn, rows)
+    return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
 
 
 def list_completed_plan_ask_context(
@@ -620,10 +776,12 @@ def list_completed_plan_ask_context(
         )
         rows = cur.fetchall()
     pairs: list[CompletedPlanAskPair] = []
+    references = _turn_reference_page(conn, rows)
     for row in reversed(rows):
         try:
-            turn = _turn_from_row(conn, row)
+            turn = _turn_from_row(conn, row, references=references[row["turn_id"]])
             history_attribution = _plan_ask_history_attribution(turn)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
         except ApplicationStateIntegrityError:
             raise
         except (KeyError, TypeError, ValueError, ValidationError) as exc:
@@ -632,10 +790,10 @@ def list_completed_plan_ask_context(
             ) from exc
         pairs.append(
             CompletedPlanAskPair(
-                source_sequence=turn.sequence,
-                source_record_id=turn.turn_id,
-                accepted_at=turn.accepted_at,
-                question=turn.user_text,
+                source_sequence=envelope.sequence,
+                source_record_id=envelope.turn_id,
+                accepted_at=envelope.accepted_at,
+                question=envelope.user_text,
                 answer=turn.assistant_text or "",
                 history_attribution=history_attribution,
             )
@@ -644,9 +802,15 @@ def list_completed_plan_ask_context(
 
 
 def _plan_ask_history_attribution(
-    turn: Turn,
-) -> PlanAskHistoryAttributionV1 | None:
+    turn: TurnReadModel,
+) -> PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None:
     """Project validated receipt/completion metadata without inferring legacy provenance."""
+    if isinstance(turn, MixedCompletedTurnV1):
+        base = (_plan_ask_history_attribution(turn.base_projection.turn)
+            if turn.base_projection.kind == "approved" else None)
+        return MixedHistoryAttributionV1(schema="dmb_mixed_history_attribution_v1",
+            source_sequence=turn.envelope.sequence, accepted_binding=turn.accepted_binding,
+            base_attribution=base)
     receipt = turn.graph_context_receipt
     completion = turn.completion
     if receipt is None and completion is None:
@@ -1481,3 +1645,77 @@ def insert_command_resolution(conn: psycopg.Connection, record: CommandResolutio
     if result is None:
         raise ApplicationStateIntegrityError("command resolution did not persist")
     return result
+
+
+def complete_mixed_claimed_turn(
+    conn,
+    *,
+    world_id,
+    turn_id,
+    expected_revision,
+    expected_attempt,
+    assistant_text,
+    completion,
+    graph_context_execution,
+):
+    """Same UOW as accepted Rules storage; never commit a base-only intermediate."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE agent.turn SET status='completed',revision=revision+1,assistant_text=%s,failure_code=NULL,
+            completion=%s,graph_context_execution=%s,answer_composition_kind='rules_mixed_v1',claim_expires_at=NULL,
+            completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp()
+            RETURNING {_TURN_COLS}""",
+            (
+                assistant_text,
+                Jsonb(completion.model_dump(mode="json", by_alias=True))
+                if completion is not None
+                else None,
+                Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                if graph_context_execution is not None
+                else None,
+                world_id,
+                turn_id,
+                expected_revision,
+                expected_attempt,
+            ),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    completed = _turn_from_row(conn, row)
+    close_context_trace_locked(
+        conn,
+        world_id=world_id,
+        turn_id=turn_id,
+        attempt=expected_attempt,
+        status="completed",
+        closed_at=row["completed_at"],
+    )
+    return completed
+
+
+def interrupt_expired_rules_claim(
+    conn, *, world_id, turn_id, expected_revision, expected_attempt, failure_code
+):
+    """Fence an expired Rules dispatch without inventing Graph execution data."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE agent.turn SET status='interrupted',revision=revision+1,failure_code=%s,
+            claim_expires_at=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s
+                AND (claim_expires_at IS NULL OR claim_expires_at<=clock_timestamp()) RETURNING {_TURN_COLS}""",
+            (failure_code, world_id, turn_id, expected_revision, expected_attempt),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    close_context_trace_locked(
+        conn,
+        world_id=world_id,
+        turn_id=turn_id,
+        attempt=expected_attempt,
+        status="interrupted",
+        closed_at=row["completed_at"],
+    )
+    return _turn_from_row(conn,row)
