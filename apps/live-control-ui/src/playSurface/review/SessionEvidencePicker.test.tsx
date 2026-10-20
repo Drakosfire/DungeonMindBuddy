@@ -33,6 +33,16 @@ it("does not restore cleared refs when a new detail read settles late",async()=>
  await act(async()=>{resolvePending({...item,run_id:"run-b",citation_url:indexItemB.citation_url});await pending});
  expect(change).toHaveBeenLastCalledWith([]);expect(localStorage.getItem("dmb.ingestion.session-evidence.elderwyld.c2:30")).toBeNull();
 });
+it("does not restore saved refs when initial hydration settles after clear",async()=>{
+ const refs=[{run_id:"run-a",review_revision:54,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
+ let resolvePending!:(value:SessionEvidence)=>void;const pending=new Promise<SessionEvidence>(resolve=>{resolvePending=resolve});
+ vi.mocked(readSessionEvidence).mockReturnValue(pending);
+ const change=vi.fn();render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
+ fireEvent.click(screen.getByText(/Supplemental session evidence/));
+ fireEvent.click(await screen.findByRole("button",{name:"Clear selected session evidence"}));expect(change).toHaveBeenLastCalledWith([]);
+ await act(async()=>{resolvePending(item);await pending});
+ expect(change).toHaveBeenLastCalledWith([]);expect(localStorage.getItem("dmb.ingestion.session-evidence.elderwyld.c2:30")).toBeNull();
+});
 it("renders pinned sources read-only without a reflections editor",async()=>{
  render(<SessionEvidenceViewer worldId="elderwyld" runId="run-a" revision={54}/>);
  expect(await screen.findByText("Players want combat next time.")).toBeInTheDocument();expect(readSessionEvidence).toHaveBeenCalledWith("elderwyld","run-a",54);
