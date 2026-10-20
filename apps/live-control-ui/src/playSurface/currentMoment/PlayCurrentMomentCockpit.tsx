@@ -1,3 +1,4 @@
+import { ContentsToggle } from "../../shared/Contents";
 import { CardSceneNavigation } from "../../shared/CardSceneNavigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
@@ -922,7 +923,7 @@ export function PlayCurrentMomentCockpit({
       ) : null}
 
       <PlaySurfaceContext id="play-cockpit-context" order={20} identity={surfaceIdentity}>
-        <button ref={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" type="button" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onClick={toggleOutline} aria-expanded={!beatCollapsed}>Contents</button>
+        <ContentsToggle buttonRef={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" label="Contents" controls="play-outline-body" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onToggle={toggleOutline} expanded={!beatCollapsed} />
         <SurfaceContextSelect className="play-surface-context__scene" aria-label="Inspect scene" value={inspectedScene?.id ?? currentScene?.id ?? ""}
           onChange={event => { const scene = sceneInAnyBeat(deck, event.target.value); if (scene) openInspect(scene); }}>
           {!currentScene ? <option value="">Choose scene</option> : null}
@@ -1094,6 +1095,8 @@ export function PlayCurrentMomentCockpit({
           currentSceneId={currentScene?.id ?? null}
           inspectedSceneId={workspaceKind === "scene-inspect" ? inspectedScene?.id ?? null : null}
           collapsed={beatCollapsed}
+          compact={compactLayoutRef.current}
+          returnFocusRef={scenesNavbarToggleRef}
           onToggle={toggleOutline}
           onInspect={openInspect}
           toggleRef={outlineToggleRef}

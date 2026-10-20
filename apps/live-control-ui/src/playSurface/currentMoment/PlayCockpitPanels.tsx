@@ -27,6 +27,8 @@ export function PlaySceneOutline({
   onToggle,
   onInspect,
   toggleRef,
+  compact,
+  returnFocusRef,
 }: {
   deck: NativeRunbookReadyV2;
   currentSceneId: string | null;
@@ -35,20 +37,20 @@ export function PlaySceneOutline({
   onToggle: () => void;
   onInspect: (scene: NativeRunbookSceneV2) => void;
   toggleRef: RefObject<HTMLButtonElement | null>;
+  compact: boolean;
+  returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
   const entries = deck.beats.flatMap(beat => beat.scenes.map(scene => ({
     ...scene, groupTitle: beat.title, current: scene.id === currentSceneId,
   })));
   return <aside className={`play-cockpit-rail play-outline${collapsed ? " is-collapsed" : ""}`}
     data-testid="play-beat-context">
-    <button type="button" className="play-rail-toggle" data-testid="play-beat-context-toggle"
-      ref={toggleRef} aria-expanded={!collapsed} aria-controls="play-outline-body"
-      aria-label={`${collapsed ? "Expand" : "Collapse"} Contents`} title={`${collapsed ? "Expand" : "Collapse"} Contents`} onClick={onToggle}><span aria-hidden="true">📖</span></button>
-    <div id="play-outline-body" className="play-rail-body" data-testid="play-outline-body" hidden={collapsed}>
-      <Contents entries={entries} selectedId={inspectedSceneId ?? currentSceneId}
-        visible={!collapsed} expanded={!collapsed} showToggle={false}
-        onSelect={id => { const scene = sceneInAnyBeat(deck, id); if (scene) onInspect(scene); }} />
-    </div>
+    <Contents entries={entries} selectedId={inspectedSceneId ?? currentSceneId}
+      visible={!collapsed} expanded={!collapsed} onExpandedChange={() => onToggle()}
+      toggleRef={toggleRef} toggleTestId="play-beat-context-toggle"
+      bodyId="play-outline-body" bodyTestId="play-outline-body" compact={compact}
+      dismissFocusRef={compact ? returnFocusRef : toggleRef}
+      onSelect={id => { const scene = sceneInAnyBeat(deck, id); if (scene) onInspect(scene); }} />
   </aside>;
 }
 

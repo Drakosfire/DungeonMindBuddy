@@ -34,7 +34,7 @@ it("starts collapsed on narrow screens and returns focus to its toggle after sel
   const select = vi.fn();
   render(<PlanCardDeck scenes={[scene]} nodes={[scene]} sceneId={null} onSelect={select} visible />);
   const deck = screen.getByRole("navigation", { name: "Contents" });
-  const toggle = within(deck).getByRole("button", { name: /Contents · 1/ });
+  const toggle = within(deck).getByRole("button", { name: "Expand Contents" });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   expect(within(deck).queryByRole("button", { name: "Show scene: Harbor" })).toBeNull();
   fireEvent.click(toggle);
