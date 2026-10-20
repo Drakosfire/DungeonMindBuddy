@@ -38,3 +38,18 @@ shared-scene body width alone does not cover Play beat/decision/option/consequen
 play-body readers. Extend the shared paper body contract to those readers, retaining
 outside-rail and media sizing. Add rendered-reader CSS cascade regression evidence
 before the second exact-head review; no merge/adoption of held head.
+
+## Current-contract cleanup — operator steering
+The operator explicitly states there is no backwards compatibility support. Shared
+layout #1477 merged a60b8dc99e7158837f88c3d3bcfb12d5fd47ad0e, source approved Cycle2
+955a7227f4aa98b7c14a26cda88c733fa306a072. Real desktop/narrow Plan/Play and synthetic
+actual-component beat/decision readers with production CSS passed; Document's
+reading width/padding/text stayed unchanged. Before completion, a serial bounded
+cleanup PR updates stale adapter harnesses to the current surface/Contents contract,
+removes its v1 compatibility case and obsolete Plan-only padding override. No new
+compatibility shim or runtime fallback. Existing content parsers are outside this
+card-layout slice; this instruction does not authorize deleting stored documents.
+Additional exclusive path: apps/live-control-ui/src/shared/SceneCard.adapters.test.tsx.
+The shared sceneCard.css and this handoff remain in lease. Reused checkout branch
+codex/current-card-layout-tests from1477 merge. Independent review and regression
+verification remain required. No additional runtime changes/deployment inferred.

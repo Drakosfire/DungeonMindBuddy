@@ -1,6 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
+import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -11,6 +13,9 @@ import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../playSurface/runb
 import type { RunbookMutationStatus } from "../playSurface/runbook/RunbookTableDeck";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 
+function render(ui: ReactElement) {
+  return rtlRender(ui, { wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+}
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...await importOriginal<typeof import("../api/liveApi")>(),
   putWorldPlayRunProgress: vi.fn(),
@@ -104,13 +109,12 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   const plan = render(<div style={{ width: 320 }}><WorldPlanCardProjection
     worldId={data.run.world_id} documentId={documentId} document={imported.doc}
     markdown={data.markdown} sourceWarnings={[]} basis={{ status: "verified", revision: 9, contentSha256: sha }}
-    isDirty={false} onReturnToDocument={() => {}} /></div>);
+    isDirty={false} navigation={{ sceneId: "scene:one", onChange: () => {} }} onReturnToDocument={() => {}} /></div>);
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: `Open scene: ${data.longTitle}` }));
   const planCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(planCard).toHaveAttribute("data-scene-id", "scene:one");
   expect(planCard).toHaveAttribute("data-content-sha256", sha);
-  expect(within(planCard!).getByTestId("scene-card-source-cue")).toHaveTextContent("Saved Plan");
+  expect(within(planCard!).queryByTestId("scene-card-source-cue")).toBeNull();
   expect(planCard).toHaveAttribute("aria-labelledby", "world-plan-focused-scene-heading");
   expect(document.getElementById("world-plan-focused-scene-heading")).toHaveTextContent(data.longTitle);
   expect(planCard).toHaveTextContent(data.longTitle);
@@ -120,12 +124,12 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   plan.rerender(<div style={{ width: 320 }}><WorldPlanCardProjection
     worldId={data.run.world_id} documentId={documentId} document={imported.doc}
     markdown={data.markdown} sourceWarnings={[]} basis={{ status: "verified", revision: 9, contentSha256: sha }}
-    isDirty onReturnToDocument={() => {}} /></div>);
+    isDirty navigation={{ sceneId: "scene:one", onChange: () => {} }} onReturnToDocument={() => {}} /></div>);
   const draftCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(draftCard).toHaveAttribute("data-source-state", "draft");
   expect(draftCard).toHaveAttribute("data-source-revision", "");
   expect(draftCard).toHaveAttribute("data-content-sha256", "");
-  expect(within(draftCard!).getByTestId("scene-card-source-cue")).toHaveTextContent("Draft Plan · Ask uses the saved Plan until Save");
+  expect(within(draftCard!).queryByTestId("scene-card-source-cue")).toBeNull();
   plan.unmount();
 
   render(<div style={{ width: 320 }}><PlayFixture data={data} /></div>);
@@ -147,53 +151,18 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   expect(selectedPreview).toHaveTextContent("Enter the next chamber.");
   expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
 
-  const secondOutlineScene = screen.getAllByTestId("play-outline-scene")
-    .find((button) => button.getAttribute("data-scene-id") === "scene:two");
-  expect(secondOutlineScene).toBeDefined();
-  await user.click(secondOutlineScene!);
+  await user.click(screen.getByRole("button", { name: `Show scene: ${data.name} second scene` }));
   const inspected = screen.getByTestId("play-workspace-inspect");
   expect(inspected.querySelector("[data-scene-card]")).toHaveAttribute("data-scene-id", "scene:two");
   expect(inspected).toHaveTextContent(`${name} second decision?`);
   expect(inspected).toHaveTextContent("Leave now");
-  expect(inspected).toHaveTextContent("Second scene note");
+  expect(screen.getByRole("button", { name: new RegExp(`Notes.*current scene.*${data.longTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) })).toBeInTheDocument();
   const inspectedPreview = inspected.querySelector<HTMLElement>('[data-option-id="option:leave"] details');
   expect(inspectedPreview).toHaveTextContent("Walk out.");
   await user.click(within(inspectedPreview!).getByText("Read option details"));
   expect(inspectedPreview).toHaveAttribute("open");
   expect(within(inspected).queryByRole("textbox")).not.toBeInTheDocument();
   expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
-});
-
-it("preserves authored v1 Beat context attached to its focused Plan Scene", async () => {
-  const markdown = [
-    "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
-    "## Arrival",
-    "The party reaches the gate.",
-    "<!-- dmb-playable-element:v1 kind=beat id=beat:guard -->",
-    "### The guard",
-    "The guard is waiting beside the gate.",
-    "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->",
-    "### Choose a route",
-    "Two paths are open.",
-    "<!-- dmb-playable-element:v1 kind=option id=option:run -->",
-    "#### Run through the gate",
-    "Move quickly.",
-  ].join("\n") + "\n";
-  const imported = markdownToTiptapDoc(markdown);
-  expect(imported.diagnostics).toEqual([]);
-  render(<WorldPlanCardProjection worldId="fixture-world" documentId={documentId}
-    document={imported.doc} markdown={markdown} sourceWarnings={[]}
-    basis={{ status: "verified", revision: 9, contentSha256: sha }}
-    isDirty={false} onReturnToDocument={() => {}} />);
-  await userEvent.setup().click(screen.getByRole("button", { name: "Open scene: Arrival" }));
-  const card = screen.getByTestId("world-plan-scene-reader");
-  const context = within(card).getByRole("region", { name: "Authored Beat context" });
-  expect(context).toHaveAttribute("data-beat-id", "beat:guard");
-  expect(context).toHaveAttribute("data-parent-scene-id", "scene:arrival");
-  expect(context).toHaveTextContent("The guard");
-  expect(context).toHaveTextContent("The guard is waiting beside the gate.");
-  expect(card).toHaveTextContent("Choose a route");
-  expect(card).toHaveTextContent("Run through the gate");
 });
 
 it("keeps Session29 inspection read-only until Make Current sends the exact Run CAS", async () => {
@@ -204,9 +173,7 @@ it("keeps Session29 inspection read-only until Make Current sends the exact Run 
   });
   const user = userEvent.setup();
   render(<PlayFixture data={data} />);
-  const secondOutlineScene = screen.getAllByTestId("play-outline-scene")
-    .find((button) => button.getAttribute("data-scene-id") === "scene:two");
-  await user.click(secondOutlineScene!);
+  await user.click(screen.getByRole("button", { name: `Show scene: ${data.name} second scene` }));
   expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
   await user.click(screen.getByTestId("play-make-current"));
   await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
@@ -231,7 +198,7 @@ it("retains inspected scene and original provenance across effective edition met
     content_sha256: "b".repeat(64), committed_at: "2026-10-18T00:00:00Z", observed_run_revision: 4, structure_sha256: sha };
   const view = render(<PlayCurrentMomentCockpit deck={{ ...admission, effectiveContent: edition }} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
   const user = userEvent.setup();
-  await user.click(screen.getAllByTestId("play-outline-scene").find(node => node.getAttribute("data-scene-id") === "scene:two")!);
+  await user.click(screen.getByRole("button", { name: "Show scene: Session29 second scene" }));
   expect(screen.getByTestId("play-make-current")).toBeInTheDocument();
   view.rerender(<PlayCurrentMomentCockpit deck={{ ...admission, effectiveContent: { ...edition, edition_revision: 2, content_sha256: "c".repeat(64) } }} mutationStatus="idle" onMutationStatus={() => {}} onAuthoritativeRun={() => {}} />);
   expect(screen.getByTestId("play-make-current")).toBeInTheDocument();
