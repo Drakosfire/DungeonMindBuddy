@@ -48,6 +48,7 @@ import {
   SELECTED_WORLD_LOCATION_CHANGED_EVENT,
   SelectedWorldProvider,
   useRetrySelectedWorld,
+  useSelectedWorldAdmission,
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
@@ -307,6 +308,7 @@ function LiveControlApp() {
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
+  const admission = useSelectedWorldAdmission();
   if (selectedWorld.kind === "loading") {
     return <main className="app-status" role="status">Verifying World selection…</main>;
   }
@@ -321,8 +323,11 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
     );
   }
   const route = appRouteFromLocationSnapshot(locationSnapshot);
+  const pageAdmitted = admission.kind !== "loading";
   let content;
-  if (route === "index") {
+  if (!pageAdmitted) {
+    content = <main className="app-status" role="status">Verifying page selection…</main>;
+  } else if (route === "index") {
     content = (
       <AppChrome activeRoute="index">
         <MirewardIndex />
@@ -362,12 +367,14 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
             <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
-                  <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={route}>
+                  <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={pageAdmitted ? route : "pending"}>
                   {content}
-                  <ToolHost />
-                  <LegacyProjectionHostAdapter />
-                  <AgentInteractionChrome />
-                  <WorldAgentConversation surface={route === "plan" || route === "play" || route === "build" ? route : "other"}
+                  {pageAdmitted ? <>
+                    <ToolHost />
+                    <LegacyProjectionHostAdapter />
+                    <AgentInteractionChrome />
+                  </> : null}
+                  <WorldAgentConversation surface={pageAdmitted && (route === "plan" || route === "play" || route === "build") ? route : "other"}
                     worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
                     worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />
                   </DocumentReferenceSurfaceHost>

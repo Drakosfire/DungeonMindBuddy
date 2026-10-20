@@ -1,6 +1,6 @@
 # Demand-owned World projection lifetime
 
-**Status:** ACTIVE design and implementation authorized by PRIME under the foundation goal.
+**Status:** COMPLETE; reviewed in two cycles, merged and accepted on5202. Source lease released.
 **Base:**4574abf82ef176fbcf870628107d5c9e46a7f83b. Existing checkout, branch codex/demand-owned-world-projection. Serial after1495, no new environment. UI-only5202 delivery; API/data/dependencies unchanged.
 
 ## One capability
@@ -39,3 +39,9 @@ Architecture independently heldc17c3a377ab6a3ce7aec57164a753f2d38df52d8: actual 
 Repair separates scope/controller/revision ownership for zero-byte terminal errors from strict access-generation graph-success admission. Explicit access/revision transitions still invalidate old scope errors. On actual access refresh, synchronously abort only this provider subscriber before transport recovery can replay it alongside a replacement generation. Other protected-read subscribers retain their own transport ownership. No automatic reconnect loop or relaxed graph-byte check.
 
 Added actualAPI/provider witnesses: initialwarmCSRF→trusted401→recovery503 reaches terminalerror and explicitretry remains bounded; successfulrecovery yields oneinitial401 plus onecurrent200 (initially exposed an extra successfulread, now removed); responseheaders→streamedJSON with rotation or lastrelease never admits obsolete graph. Final14filecohort316/316, actualappTypeScript/build pass; existing warnings unchanged. Cycle2 exact-head independent review required.
+
+## Reviewed merge and accepted delivery
+
+Cycle1 heldc17c3a377; Cycle2 Architecture/Bugbot APPROVE exactde39dee78d3ab58a88d2a7d1ee08bf0640bc2396, independently310selectedtests plus original failedrecoveryprobePASS (author316selection differs; no inflatedsum). PR1496 merge60cb4b4e44d0e86cbf71bbbac081c985154b61db. UI-only default5202 index-BQBQggex.js/indexSHA31790024fe3639e0a41674895c4657e42c9a111268a97cca474178ed1ef288ab; exactmergedsourceverified, priorassetsretained, APIunchanged/healthy. Adoptionguardinitiallyrefused localdist from a separate module-loading buildestimate beforechangingdefault; exact reviewed source rebuilt toBQB, thenadopted. No liveoutage or heldheaddelivery.
+
+Postmerge nativeIndex/Play/candidateIngest0fullprojectionPOST; Indexopen595nodes/Ready1POST200, closeNotloaded/reopenfreshsecond200. Playendedreflectionsretained. Defaultentry andNotloadedDOMverified.17protectedresponsesunchangedafterbrowser. Ownedtab/temporaryHTMLremoved. Screenshotsunavailable; evidence DOM/requestmetadata ownedbyPRIME. No fullrepogreen/8GBhardwareRAMclaim.

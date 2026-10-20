@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getExtractionRun, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
@@ -19,6 +19,8 @@ export type SelectedWorldState =
   | VerifiedManagedWorld;
 
 const SelectedWorldContext = createContext<SelectedWorldState>({ kind: "legacy" });
+// Route/work admission is separate from the lifetime of an already verified World.
+const SelectedWorldAdmissionContext = createContext<SelectedWorldState>({ kind: "legacy" });
 const SelectedWorldRetryContext = createContext<() => void>(() => undefined);
 export const SELECTED_WORLD_LOCATION_CHANGED_EVENT = "dmb:selected-world-location-changed";
 
@@ -57,6 +59,11 @@ export function requestedWorldSelection(locationSnapshot: string): {
   return { worldId, documentId, runId, extractionRunId, explicit };
 }
 
+function selectionIdentity(selection: ReturnType<typeof requestedWorldSelection>): string {
+  return JSON.stringify([selection.explicit, selection.worldId, selection.documentId,
+    selection.runId, selection.extractionRunId]);
+}
+
 export function verifyManagedWorldSelection(input: {
   requestedWorldId: string | null;
   document: WorkspaceDocumentRecordAny | null;
@@ -91,59 +98,90 @@ export function SelectedWorldProvider({
   children: ReactNode;
 }) {
   const selection = requestedWorldSelection(locationSnapshot);
-  const selectionKey = `${selection.explicit ? "explicit" : "inferred"}::${selection.worldId ?? ""}::${selection.documentId ?? ""}::${selection.runId ?? ""}::${selection.extractionRunId ?? ""}`;
+  const selectionKey = selectionIdentity(selection);
   const [retryGeneration, setRetryGeneration] = useState(0);
-  const [loaded, setLoaded] = useState<{ key: string; value: SelectedWorldState } | null>(null);
+  // Each selector transition owns fresh page admission, including A→B→A.
+  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration]);
+  const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState } | null>(null);
   const retry = useCallback(() => {
     setLoaded(null);
     setRetryGeneration((current) => current + 1);
   }, []);
-  const state: SelectedWorldState = !selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId
+  const continuedWorldOnly = selection.explicit && Boolean(selection.worldId)
+    && !selection.documentId && !selection.runId && !selection.extractionRunId
+    && loaded?.value.kind === "managed" && loaded.value.worldId === selection.worldId;
+  const admission = useMemo<SelectedWorldState>(() => continuedWorldOnly && loaded?.value.kind === "managed"
+    ? { ...loaded.value, documentId: null }
+    : !selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId
     ? { kind: "legacy" }
-    : loaded?.key === selectionKey
+    : loaded?.scope === selectionScope
       ? loaded.value
-      : { kind: "loading", requestedWorldId: selection.worldId };
+      : { kind: "loading", requestedWorldId: selection.worldId },
+    [continuedWorldOnly, loaded, selectionScope]);
+  const state = useMemo<SelectedWorldState>(() => admission.kind === "loading"
+    && selection.explicit && selection.worldId && loaded?.value.kind === "managed"
+    && loaded.value.worldId === selection.worldId
+    ? { ...loaded.value, documentId: null }
+    : admission, [admission, loaded, selection.explicit, selection.worldId]);
 
-  // Never retain a previously verified world while a new route is resolving.
+  useLayoutEffect(() => {
+    if (loaded?.value.kind === "managed" && loaded.scope !== selectionScope
+      && (!selection.explicit || selection.worldId !== loaded.value.worldId)) {
+      // A committed World boundary ends eligibility of the previous receipt.
+      // It cannot be reused if navigation returns before the new read settles.
+      setLoaded(null);
+    }
+  }, [loaded, selectionScope, selection.explicit, selection.worldId]);
+
+  // Retained World identity conveys no admission for incoming document selectors.
   currentVerifiedManagedWorld = state.kind === "managed" ? state : null;
 
   useEffect(() => () => { currentVerifiedManagedWorld = null; }, []);
 
   useEffect(() => {
+    if (continuedWorldOnly && loaded?.value.kind === "managed") {
+      if (loaded.scope !== selectionScope || loaded.value.documentId !== null) {
+        setLoaded({ scope: selectionScope, value: { ...loaded.value, documentId: null } });
+      }
+      return;
+    }
     if (!selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId) return;
     let cancelled = false;
     void (async () => {
       try {
         if (selection.explicit && !selection.worldId) {
-          setLoaded({ key: selectionKey, value: { kind: "error", message: "World selection is empty." } });
+          setLoaded({ scope: selectionScope, value: { kind: "error", message: "World selection is empty." } });
           return;
         }
         const document = selection.documentId
           ? await getWorkspaceDocumentAny(selection.documentId)
           : null;
+        if (cancelled) return;
         const worldOwnedPlan = document?.schema_version === "dmb_world_owned_plan_record_v2";
         // An exact Play link can arrive without a World query. Resolve the
         // server-owned Run before mounting Play, so its campaign cannot be
         // hydrated under the legacy C1/C2 shell by default.
         const run = selection.runId ? await getPlayRun(selection.runId) : null;
+        if (cancelled) return;
         const extractionRun = selection.extractionRunId
           ? await getExtractionRun(selection.extractionRunId)
           : null;
+        if (cancelled) return;
         const extractionCampaignId = extractionRun?.campaign_id?.trim() || null;
         if (extractionRun && !extractionCampaignId) {
           throw new Error(`Extraction Run ${selection.extractionRunId} has no campaign binding.`);
         }
         if (!selection.explicit && document && !worldOwnedPlan && /^longmont-c[12]$/.test(document.campaign_id)
           && (!document.world_id || document.world_id === "eldyrwild")) {
-          if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
+          if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
         if (!selection.explicit && run && /^longmont-c[12]$/.test(run.campaign_id)) {
-          if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
+          if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
         if (!selection.explicit && extractionCampaignId && /^longmont-c[12]$/.test(extractionCampaignId)) {
-          if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
+          if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
         const worldResponse = await listWorldContainers();
@@ -154,11 +192,11 @@ export function SelectedWorldProvider({
             worlds: worldResponse.records,
           });
           setLoaded({
-            key: selectionKey,
+            scope: selectionScope,
             value: verified,
           });
           if (verified.kind === "managed" && (selection.runId || selection.extractionRunId)
-            && `${window.location.pathname}${window.location.search}${window.location.hash}` === locationSnapshot) {
+            && selectionIdentity(requestedWorldSelection(window.location.href)) === selectionKey) {
             // Run-only deep links need a stable World query before a chooser
             // transition removes the Run ID. Replace, never create a second
             // history entry for the same exact object.
@@ -171,7 +209,7 @@ export function SelectedWorldProvider({
       } catch (error) {
         if (!cancelled) {
           setLoaded({
-            key: selectionKey,
+            scope: selectionScope,
             value: {
               kind: "error",
               message: error instanceof Error ? error.message : "World selection could not be verified.",
@@ -181,17 +219,24 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; };
-  }, [selectionKey, retryGeneration, locationSnapshot]);
+  }, [selectionScope, continuedWorldOnly]);
 
   return (
     <SelectedWorldRetryContext.Provider value={retry}>
-      <SelectedWorldContext.Provider value={state}>{children}</SelectedWorldContext.Provider>
+      <SelectedWorldContext.Provider value={state}>
+        <SelectedWorldAdmissionContext.Provider value={admission}>{children}</SelectedWorldAdmissionContext.Provider>
+      </SelectedWorldContext.Provider>
     </SelectedWorldRetryContext.Provider>
   );
 }
 
 export function useSelectedWorld(): SelectedWorldState {
   return useContext(SelectedWorldContext);
+}
+
+/** Incoming page/selector admission. Persistent World owners must not be keyed by this status. */
+export function useSelectedWorldAdmission(): SelectedWorldState {
+  return useContext(SelectedWorldAdmissionContext);
 }
 
 export function useRetrySelectedWorld(): () => void {
