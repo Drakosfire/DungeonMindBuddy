@@ -35,6 +35,7 @@ from apps.live_control_server.services.agent_runtime import (
 )
 from apps.live_control_server.services.agent_turn_service import (
     _ClaimFence,
+    _native_rules_enabled,
     _accept_world_turn,
     _completed_turn_replay,
     _submitted_turn_intent,
@@ -65,6 +66,22 @@ def _request(**updates: Any) -> AgentTurnRequest:
     }
     payload.update(updates)
     return AgentTurnRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("surface_id", ["plan", "play"])
+def test_native_rules_are_enabled_on_plan_and_play(surface_id: str) -> None:
+    request = _request(
+        surface={"surface_id": surface_id, "instance_id": f"{surface_id}-main"},
+    )
+    assert _native_rules_enabled(request)
+
+
+def test_native_rules_are_not_enabled_on_other_surfaces() -> None:
+    request = _request(
+        surface={"surface_id": "build", "instance_id": "build-main"},
+        graph_request={"mode": "none"},
+    )
+    assert not _native_rules_enabled(request)
 
 
 def test_graph_operation_membership_requires_exact_typed_function_output() -> None:
@@ -3081,6 +3098,8 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
             self, invocation: Any, _authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
+            on_native_provider_reply: Any = None,
+            native_rules_capture_required: bool = False,
         ) -> AgentRuntimeResult:
             assert invocation.run_options.runtime_session_id == "canonical-session"
             observed.append(context_read_enabled)
@@ -3394,6 +3413,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with pinned APP-STATE candidate")
     from apps.live_control_server.services import agent_turn_service as service_module
+    # This fixture isolates Graph budgeting and lifecycle from the dedicated
+    # transactional Plan/Play Rules integration owners.
+    monkeypatch.setattr(
+        service_module._PolicyExecutionAdapter,
+        "enable_native_rules_lookup",
+        lambda _adapter, _capability: None,
+    )
     from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
     monkeypatch.setattr(
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
@@ -3659,6 +3685,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         def renew_turn_claim(self, *_args: Any, **_kwargs: Any) -> Turn:
             assert self.turn is not None
             return self.turn
+
 
     fake = FakeExecutionPort()
 
@@ -4096,6 +4123,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             self, invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
+            on_native_provider_reply: Any = None,
+            native_rules_capture_required: bool = False,
         ) -> AgentRuntimeResult:
             assert invocation.run_options.runtime_session_id is None
             assert context_read_enabled is True
@@ -4128,6 +4157,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
+            on_native_provider_reply: Any = None,
+            native_rules_capture_required: bool = False,
         ) -> AgentRuntimeResult:
             assert context_read_enabled is True
             assert request_budget["contextLimitTokens"] == 1_050_000
@@ -4479,6 +4510,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 self, _invocation: Any, authorize: Any, *, request_budget: Any,
                 on_graph_operation: Any, on_provider_lifecycle: Any,
                 context_read_enabled: bool = False,
+                on_native_provider_reply: Any = None,
+                native_rules_capture_required: bool = False,
             ) -> AgentRuntimeResult:
                 assert context_read_enabled is True
                 adjusted = {**view, "model": request_budget["model"]}
@@ -5873,9 +5906,19 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
             on_graph_operation,
             on_provider_lifecycle,
             context_read_enabled=False,
+            on_native_provider_reply=None,
+            native_rules_capture_required=False,
         ):
             assert context_read_enabled
             assert invocation.graph_read_profile == "world_graph"
+            assert native_rules_capture_required is True
+            assert callable(on_native_provider_reply)
+            from application_state.agent_conversation.rules_authority_policy import (
+                rules_capability,
+            )
+
+            assert invocation.context_packet.rules_capability == rules_capability(graph=True)
+            assert invocation.capability_policy.policy_id == "world_graph_rules_read_v1"
             payload = {
                 "input": [
                     {
@@ -6337,6 +6380,8 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
             on_graph_operation,
             on_provider_lifecycle,
             context_read_enabled=False,
+            on_native_provider_reply=None,
+            native_rules_capture_required=False,
         ):
             assert context_read_enabled
             frozen_packet = authorize.__self__.initial_session_projection

@@ -74,25 +74,26 @@ class NativeRulesRuntime:
     """Durable lookup, exact provider inclusion, capture and atomic acceptance."""
 
     def __init__(self, adapter, capability: RulesCapabilityV1):
-        from .agent_turn_service import _active_or_create_conversation, _turn_idempotency_key
+        from .agent_turn_service import _turn_idempotency_key
         from . import rules_lookup as reader
 
         cap = RulesCapabilityV1.model_validate(capability)
         if cap != rules_capability(graph=True) or adapter._is_build_turn():
             raise ValueError("Native Rules requires the exact Plan/Play Graph capability")
-        if adapter.fence is not None or adapter.rules_runtime is not None:
-            raise ValueError("Native Rules must be frozen before provider preparation")
+        if adapter.rules_runtime is not None or adapter.fence is None:
+            raise ValueError("Native Rules requires one current claimed provider attempt")
         reader.admitted_bundle(cap.corpus_sha256)
-        active = _active_or_create_conversation(
-            adapter.service, world_id=adapter.world_id, turn_id=adapter.request.turn_id
-        )
-        if adapter.expected_conversation_id not in (None, active.conversation_id):
+        # Provider authorization has already admitted and claimed this logical
+        # turn. Its persisted conversation is the authoritative parent scope;
+        # do not perform a second lookup/create race while binding the tool.
+        turn = adapter.turn
+        if turn is None or turn.world_id != adapter.world_id:
+            raise ValueError("Native Rules requires the current admitted World turn")
+        if adapter.expected_conversation_id not in (None, turn.conversation_id):
             raise ValueError("Rules conversation changed before provider preparation")
-        if adapter.turn is not None and adapter.turn.conversation_id != active.conversation_id:
-            raise ValueError("Rules retry differs from the current conversation")
-        adapter.expected_conversation_id = active.conversation_id
+        adapter.expected_conversation_id = turn.conversation_id
         self.adapter, self.capability = adapter, cap
-        self.conversation_id = active.conversation_id
+        self.conversation_id = turn.conversation_id
         self.intent_sha = submitted_turn_intent_fingerprint_v2(adapter.submitted_intent)
         self.idempotency_key = _turn_idempotency_key(adapter.world_id, adapter.request.turn_id)
         self.authorization_id = rules_submission_authorization_id(
@@ -216,7 +217,9 @@ class NativeRulesRuntime:
             body = json.loads(view["payloadJson"])
             outputs, refs = self._actual_lookup_material(body)
             execution = self.record.execution
-            attempt = UUID(view["providerAttemptId"])
+            attempt = a.last_provider_attempt_id
+            if not isinstance(attempt, UUID):
+                raise ValueError("Native Rules has no parent-authorized provider attempt")
             event = RulesProviderAuthorizedV1(
                 kind="provider_authorized", event_id=uuid4(), sequence=len(execution.events),
                 execution_id=execution.scope.execution_id, provider_attempt_id=attempt,
@@ -239,7 +242,7 @@ class NativeRulesRuntime:
                 expected_ledger_revision=self.record.revision, event=included,
                 prepared_request_json=view["payloadJson"],
             )
-            self.last_provider = view
+            self.last_provider = {**view, "providerAttemptId": str(attempt)}
             self.last_prepared_json = view["payloadJson"]
             self.last_reply = None
         return True
@@ -262,14 +265,14 @@ class NativeRulesRuntime:
                 event = RulesNativeProviderOutcomeV1.from_capture(
                     reply, event_id=uuid4(), sequence=sequence,
                     execution_id=execution.scope.execution_id,
-                    provider_attempt_id=UUID(view["providerAttemptId"]),
+                    provider_attempt_id=a.last_provider_attempt_id,
                     request_envelope_sha256=view["payloadSha256"],
                 )
             else:
                 event = RulesProviderOutcomeV1(
                     kind="provider_outcome", event_id=uuid4(), sequence=sequence,
                     execution_id=execution.scope.execution_id,
-                    provider_attempt_id=UUID(view["providerAttemptId"]),
+                    provider_attempt_id=a.last_provider_attempt_id,
                     request_envelope_sha256=view["payloadSha256"], status=reply.status,
                 )
             self.record = a.service.append_rules_provider_event(
@@ -281,6 +284,47 @@ class NativeRulesRuntime:
             return reply.status != "failed"
         except Exception:
             return False
+
+    def outcome(self, transition):
+        """Persist lifecycle outcomes the native SDK could not capture directly."""
+        if self.record is None or transition == "sdk_entered":
+            return
+        a = self.adapter
+        with a.fence.renewer._lock:
+            events = self.record.execution.events
+            authorizations = [
+                event for event in events
+                if isinstance(event, RulesProviderAuthorizedV1)
+            ]
+            if not authorizations or authorizations[-1].provider_attempt_id != a.last_provider_attempt_id:
+                return
+            auth = authorizations[-1]
+            if any(
+                isinstance(event, RulesProviderOutcomeV1)
+                and event.provider_attempt_id == auth.provider_attempt_id
+                for event in events
+            ):
+                return
+            status = {
+                "response_received": "answered",
+                "known_not_sent": "failed",
+                "outcome_unknown": "unknown",
+            }.get(transition)
+            if status is None:
+                return
+            event = RulesProviderOutcomeV1(
+                kind="provider_outcome", event_id=uuid4(),
+                sequence=len(events), execution_id=self.record.execution.scope.execution_id,
+                provider_attempt_id=auth.provider_attempt_id,
+                request_envelope_sha256=auth.request_envelope_sha256,
+                status=status,
+            )
+            self.record = a.service.append_rules_provider_event(
+                self.record.execution.scope,
+                expected_turn_revision=a.fence.renewer._turn.revision,
+                expected_ledger_revision=self.record.revision,
+                event=event,
+            )
 
     def lookup(self, message):
         """Persist tool authorization, perform the bounded local read, then reply."""
