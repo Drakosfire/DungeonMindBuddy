@@ -5,9 +5,16 @@ from uuid import UUID
 
 import pytest
 
+from application_state.agent_conversation.types import (
+    PlayGraphIntentV1,
+    PlaySourceFrameV1,
+    PlaySourceLocatorV1,
+    PlaySourcePayloadV1,
+    source_entry,
+)
 from application_state.agent_conversation.play_graph_authority import (
-    PlayGraphIntentV1, PlaySourceFrameV1, PlaySourceLocatorV1, PlaySourcePayloadV1,
-    play_graph_intent_fingerprint, play_source_frame, source_entry,
+    play_graph_intent_fingerprint,
+    play_source_frame,
     validate_play_source_owner_join,
 )
 from application_state.agent_conversation.rules_authority_types import canonical_bytes, canonical_sha256
@@ -165,8 +172,13 @@ def test_combined_frame_utf8_budget_is_independent_of_individual_payload_budgets
 # new wire identity exercises the same source/provider invariants as Plan.
 def native_execution(**policy_changes):
     from tests.test_settled_source_read_accounting import fixture_execution
+    from application_state.agent_conversation.types import (
+        NativePlayGraphPolicyV1,
+        PlayWorldGraphExecutionV1,
+    )
     from application_state.agent_conversation.play_graph_authority import (
-        NativePlayGraphPolicyV1, PlayWorldGraphExecutionV1, play_graph_execution_policy_digest)
+        play_graph_execution_policy_digest,
+    )
     original = fixture_execution()
     values = original.policy.model_dump(mode="json", by_alias=True)
     values.update(dict(policy_version="play_world_graph_execution_v1", max_provider_attempts=4,
@@ -322,7 +334,9 @@ def test_native_play_dynamic_extensions_require_their_exact_prior_graph_origin(c
 
 @pytest.mark.parametrize("change", ["campaign", "count", "accounting"])
 def test_native_play_policy_cannot_change_scope_or_budget_mode(change):
-    from application_state.agent_conversation.play_graph_authority import NativePlayGraphPolicyV1
+    from application_state.agent_conversation.types import (
+        NativePlayGraphPolicyV1,
+    )
     wire = native_execution().policy.model_dump(mode="json", by_alias=True)
     if change == "campaign": wire["source_read_scope"]["campaign_id"] = "foreign-campaign"
     if change == "count": wire["max_provider_attempts"] = 65

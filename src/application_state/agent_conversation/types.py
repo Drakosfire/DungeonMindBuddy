@@ -10,6 +10,7 @@ from application_state.agent_conversation.identifier_limits import (
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 
 import hashlib
+from hashlib import sha256
 import json
 from collections.abc import Sequence
 from datetime import datetime
@@ -18,6 +19,8 @@ from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -843,6 +846,128 @@ def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     return _fingerprint(payload)
 
 
+MarkerBeat = Annotated[str, Field(pattern=r"^beat:[a-z0-9][a-z0-9._-]{0,127}$")]
+
+MarkerScene = Annotated[str, Field(pattern=r"^scene:[a-z0-9][a-z0-9._-]{0,127}$")]
+
+OwnerId = Annotated[str, Field(min_length=1, max_length=128)]
+
+SourceKind = Literal["current_moment", "scene_note"]
+
+class PlayGraphPolicyV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_graph_policy_v1"] = Field(default="dmb_play_graph_policy_v1", alias="schema")
+    policy: Literal["native_play_world_v1"] = "native_play_world_v1"
+
+class SubmittedPlayTargetV1(ClosedRulesModel):
+    schema_: Literal["dmb_submitted_play_target_v1"] = Field(default="dmb_submitted_play_target_v1", alias="schema")
+    beat_id: MarkerBeat
+    scene_id: MarkerScene | None
+    marker_grammar_version: Literal["v2"] = "v2"
+
+class PlayGraphIntentV1(SubmittedTurnIntentV1):
+    model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always")
+    schema_: Literal["dmb_play_graph_intent_v1"] = Field(default="dmb_play_graph_intent_v1", alias="schema")
+    surface_id: Literal["play"]
+    client_work_state: Literal["saved_clean", "saved_dirty"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    play_graph_policy: PlayGraphPolicyV1
+    play_target: SubmittedPlayTargetV1
+    playable_target: None = None
+    selected_knowledge: None = None
+    graph_selection: None = None
+
+    @model_validator(mode="after")
+    def exact_native_play_intent(self):
+        ref, graph = self.primary_work, self.graph_request
+        if (ref.kind != "run" or ref.play_content_basis is None
+                or graph.mode != "world" or graph.campaign_id is not None or graph.revision_pin is not None
+                or graph.focus is None or graph.focus.kind != "none"):
+            raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
+        return self
+
+class PlaySourceLocatorV1(ClosedRulesModel):
+    world_id: OwnerId
+    run_id: OwnerId
+    run_revision: Annotated[int, Field(ge=1)]
+    edition: PlayContentBasis
+    beat_id: MarkerBeat
+    scene_id: MarkerScene | None
+
+    @model_validator(mode="after")
+    def canonical_owner(self):
+        if any(value != value.strip() for value in (self.world_id, self.run_id)):
+            raise ValueError("Play source owners must be canonical")
+        return self
+
+class PlaySourcePayloadV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_payload_v1"] = Field(default="dmb_play_source_payload_v1", alias="schema")
+    source_kind: SourceKind
+    locator: PlaySourceLocatorV1
+    text: Annotated[str, Field(min_length=1, max_length=32000)]
+
+    @model_validator(mode="after")
+    def bounded_source(self):
+        if (not self.text.strip() or len(self.text.encode("utf-8")) > 32768
+                or len(canonical_bytes(self)) > 49152):
+            raise ValueError("Play source exceeds its text/payload budget or is blank")
+        if self.source_kind == "scene_note" and self.locator.scene_id is None:
+            raise ValueError("Saved scene-note source requires a selected Scene")
+        return self
+
+class PlaySourceManifestEntryV1(ClosedRulesModel):
+    source_id: Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]
+    source_kind: SourceKind
+    locator: PlaySourceLocatorV1
+    payload_sha256: Digest
+    payload_utf8_bytes: Annotated[int, Field(ge=1, le=49152)]
+    text_sha256: Digest
+    text_utf8_bytes: Annotated[int, Field(ge=1, le=32768)]
+    text_codepoints: Annotated[int, Field(ge=1, le=32000)]
+
+    @model_validator(mode="after")
+    def source_identity(self):
+        if self.source_id != "play-source:" + self.payload_sha256:
+            raise ValueError("Play source handle differs from its exact payload")
+        return self
+
+def source_entry(payload: PlaySourcePayloadV1) -> PlaySourceManifestEntryV1:
+    checked = PlaySourcePayloadV1.model_validate_json(payload.model_dump_json(by_alias=True))
+    raw, text = canonical_bytes(checked), checked.text.encode("utf-8")
+    digest = sha256(raw).hexdigest()
+    return PlaySourceManifestEntryV1(source_id="play-source:" + digest,
+        source_kind=checked.source_kind, locator=checked.locator,
+        payload_sha256=digest, payload_utf8_bytes=len(raw),
+        text_sha256=sha256(text).hexdigest(), text_utf8_bytes=len(text), text_codepoints=len(checked.text))
+
+class PlaySourceManifestV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_manifest_v1"] = Field(default="dmb_play_source_manifest_v1", alias="schema")
+    entries: Annotated[tuple[PlaySourceManifestEntryV1, ...], Field(max_length=2)]
+    manifest_sha256: Digest
+
+    @model_validator(mode="after")
+    def sealed_manifest(self):
+        ids = [entry.source_id for entry in self.entries]
+        if ids != sorted(set(ids)):
+            raise ValueError("Play source manifest must be sorted and distinct")
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"manifest_sha256"})
+        if self.manifest_sha256 != canonical_sha256(payload):
+            raise ValueError("Play source manifest seal differs")
+        return self
+
+class PlaySourceFrameV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_source_frame_v1"] = Field(default="dmb_play_source_frame_v1", alias="schema")
+    manifest: PlaySourceManifestV1
+    sources: Annotated[tuple[PlaySourcePayloadV1, ...], Field(max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_supplied_sources(self):
+        if tuple(source_entry(source) for source in self.sources) != self.manifest.entries:
+            raise ValueError("Play frame source bodies differ from its manifest")
+        if len(canonical_bytes(self)) > 65536:
+            raise ValueError("Play source frame exceeds its UTF8 budget")
+        return self
+
+
 class PlanContextPolicyV1(StrictModel):
     schema_: Literal["dmb_plan_context_policy_v1"] = Field(
         default="dmb_plan_context_policy_v1", alias="schema"
@@ -1150,6 +1275,74 @@ class BuildGraphContextReceiptV1(StrictModel):
         payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
         if self.context_receipt_sha256 != _canonical_sha256(payload):
             raise ValueError("Build receipt digest does not match its contents")
+        return self
+
+
+class PlayWorldGraphPacketV1(PlanWorldGraphPacketV1):
+    schema_: Literal["dmb_play_world_graph_packet_v1"] = Field(
+        default="dmb_play_world_graph_packet_v1", alias="schema")
+
+class PlayGraphSourceTokenAccountingV1(PlanWorldGraphSourceTokenAccountingV1):
+    source_kind: Literal["play", "history", "graph", "instructions", "tools", "message", "rules"]
+
+class PlayWorldGraphAssembledInputV1(PlanWorldGraphAssembledInputV1):
+    source_token_accounting: Annotated[list[PlayGraphSourceTokenAccountingV1], Field(max_length=128)]
+
+def play_source_locator(basis: PlayRunTurnContextReceiptV2) -> PlaySourceLocatorV1:
+    return PlaySourceLocatorV1(world_id=basis.world_id, run_id=basis.run_id,
+        run_revision=basis.run_revision, beat_id=basis.beat_id, scene_id=basis.scene_id,
+        edition=PlayContentBasis(edition_revision=basis.edition_revision,
+            edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256))
+
+class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_world_graph_context_receipt_v1"] = Field(
+        default="dmb_play_world_graph_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: Digest
+    play_graph_policy: PlayGraphPolicyV1
+    play_basis: PlayRunTurnContextReceiptV2
+    play_sources: PlaySourceManifestV1
+    retrieval_session_id: Annotated[str, Field(min_length=1, max_length=128)]
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlayWorldGraphPacketV1
+    assembled_input: PlayWorldGraphAssembledInputV1
+    evidence_mode: Literal["metadata_only"]
+    source_opened: Literal[False]
+
+    @property
+    def committed_content_sha256(self) -> str:
+        """Structural common evidence view of the genuine Play edition."""
+        return self.play_basis.content_sha256
+
+    @model_validator(mode="after")
+    def exact_receipt(self):
+        authority = self.graph_authority
+        if (authority.managed_world_id != self.play_basis.world_id
+                or authority.campaign_id is not None or authority.admissibility_version != "gm-v1"
+                or any(not value.strip() or value != value.strip() for value in (
+                    authority.managed_world_id, authority.native_world_id, self.retrieval_session_id))):
+            raise ValueError("Play receipt requires exact canonical World-only GM authority")
+        locator = play_source_locator(self.play_basis)
+        kinds = set()
+        for entry in self.play_sources.entries:
+            if entry.locator != locator or entry.source_kind in kinds:
+                raise ValueError("Play receipt source differs from its Run edition or selected target")
+            kinds.add(entry.source_kind)
+            if entry.source_kind == "scene_note":
+                if self.play_basis.scene_note is None:
+                    raise ValueError("Play note source was not supplied by its Run owner")
+                expected = source_entry(PlaySourcePayloadV1(source_kind="scene_note",
+                    locator=locator, text=self.play_basis.scene_note))
+                if entry != expected:
+                    raise ValueError("Play note commitment differs from its exact saved note")
+        if self.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1":
+            raise ValueError("Native Play requires its World-wide source scope, not a selected-index policy")
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if canonical_sha256(payload) != self.context_receipt_sha256:
+            raise ValueError("Play receipt digest differs from its exact contents")
+        if len(canonical_bytes(self)) > 131072:
+            raise ValueError("Play receipt exceeds its UTF8 budget")
         return self
 
 
@@ -1946,6 +2139,21 @@ class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
     """Explicit receipt settlement; historical policies keep reservation accounting."""
 
     source_read_accounting: Literal["settled_receipts_v1"]
+
+
+class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
+    """Finite native Play budgets; no Build controller/writer capabilities."""
+    policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
+    max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
+    max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
+    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)]
+    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)]
+
+    @model_validator(mode="after")
+    def world_only(self):
+        if self.source_read_scope.campaign_id is not None:
+            raise ValueError("Native Play source scope must be World-only")
+        return self
 
 
 class GraphProviderRoleTargetV1(StrictModel):
@@ -3449,6 +3657,29 @@ def graph_execution_policy_digest_v3(
         "context_receipt_sha256": context_receipt_sha256,
         "policy": policy.model_dump(mode="json", by_alias=True),
     })
+
+
+PlayGraphExecutionEventV1 = Annotated[
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    | ProviderOutcomeEventV1 | CompletionBindingEventV1
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+    | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2,
+    Field(discriminator="kind"),
+]
+
+class PlayWorldGraphExecutionV1(ClosedRulesModel):
+    """Standalone pure Play ledger, not registered with durable codecs yet."""
+    schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    policy: NativePlayGraphPolicyV1
+    events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
+
+    @model_validator(mode="after")
+    def exact_execution(self):
+        validate_graph_execution_record(self, dynamic_source_scope=True)
+        return self
 
 
 PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
