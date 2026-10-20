@@ -1,6 +1,6 @@
 # Rules Agent authority v1 — closed steward decision
 
-**Status:** PROPOSED closed contract; independent architecture review required before implementation dispatch. Implements merged R2 design1503 (49e319b820814cd3351165ee74fc6fe0d40df1e4). Owning repository: Buddy, including ApplicationState. Current DungeonMind dependency unchanged. No Rules graph experiment or sibling write.
+**Status:** ACCEPTED closed contract. Cycle2 independent design approval13b2882be7d28f1004ed37fa54725e6b217eddc1; merged6d8d340fc23e2e4b25aea0341b74eb7ae2c42808. R2A dispatch is separately ACTIVE in HANDOFF-RULES-authority-persistence.md; R2B remains blocked. Implements merged R2 design1503 (49e319b820814cd3351165ee74fc6fe0d40df1e4). Owning repository: Buddy, including ApplicationState. Current DungeonMind dependency unchanged. No Rules graph experiment or sibling write.
 
 ## Delivery order and write ownership
 
