@@ -77,6 +77,29 @@ describe("protected read acquisition",()=>{
   b.resolve(Response.json({}));await second;fetch.mockResolvedValueOnce(Response.json({version:2}));expect(await(await api.authenticatedApiFetch(historyPath)).response.json()).toEqual({version:2});
   expect(fetch.mock.calls.filter(([url])=>String(url)===historyPath)).toHaveLength(2);expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/turn"))).toHaveLength(2);during.resolve(Response.json({}));await old;
  });
+ it("keeps graph reads in one wave across passive recap status inspections without sharing the inspections",async()=>{
+  api.setNativeGraphAccessToken("inspection-test");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const request={schema:"dmb_managed_world_graph_projection_request_v1" as const,managedWorldId:"elderwyld"};
+  const first=api.postManagedWorldGraphProjection(request);const status={method:"POST",body:JSON.stringify({operation:"inspect_status",campaign_id:"longmont-c2",session:29,title:"Saved recap"})};
+  const inspections=[api.authenticatedApiFetch("/api/live/recap-ingest",status),api.authenticatedApiFetch("/api/live/recap-ingest",status)];const second=api.postManagedWorldGraphProjection(request);
+  await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(1));
+  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("recap-ingest"))).toHaveLength(2);gate.resolve(Response.json({}));await Promise.all([first,second,...inspections]);
+ });
+ it("preserves a pending graph read across inspection settlement",async()=>{
+  api.setNativeGraphAccessToken("inspection-settlement");const graph=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(url=>String(url).endsWith("recap-ingest")?Promise.resolve(Response.json({})):graph.promise);
+  const request={schema:"dmb_managed_world_graph_projection_request_v1" as const,managedWorldId:"elderwyld"};const first=api.postManagedWorldGraphProjection(request);
+  await api.authenticatedApiFetch("/api/live/recap-ingest",{method:"POST",body:JSON.stringify({operation:"inspect_status",campaign_id:"longmont-c2",session:29})});
+  const second=api.postManagedWorldGraphProjection(request);await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(1));graph.resolve(Response.json({}));await Promise.all([first,second]);
+ });
+ it("keeps ordinary status inspection independent of Graph authentication",async()=>{
+  api.setNativeGraphAccessToken(null);const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(Response.json({status:"saved"}));
+  const result=await api.authenticatedApiFetch("/api/live/recap-ingest",{method:"POST",body:JSON.stringify({operation:"inspect_status",campaign_id:"longmont-c2",session:29})});expect(await result.response.json()).toEqual({status:"saved"});expect(fetch).toHaveBeenCalledTimes(1);expect(String(fetch.mock.calls[0][0])).toBe("/api/live/recap-ingest");expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+ });
+ it.each([{operation:"generate_recap_memory"},{operation:"reconcile_normalized_recap"},{operation:"build_graph_preview_bundle"},{operation:"materialize_preview_supergraph"},{operation:"INSPECT_STATUS"},{operation:"inspect_status",force_recap:true},{operation:"inspect_status",session:0}])("retains a fresh wave for command/unknown inspection shape %j",async body=>{
+  api.setNativeGraphAccessToken("inspection-command-test");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);const request={schema:"dmb_managed_world_graph_projection_request_v1" as const,managedWorldId:"elderwyld"};
+  const first=api.postManagedWorldGraphProjection(request);const command=api.authenticatedApiFetch("/api/live/recap-ingest",{method:"POST",body:JSON.stringify({campaign_id:"longmont-c2",session:29,...body})});const second=api.postManagedWorldGraphProjection(request);
+  await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(2));gate.resolve(Response.json({}));await Promise.all([first,command,second]);
+ });
  it("fences old bearer responses and native warm bytes after rotation",async()=>{
   api.setNativeGraphAccessToken("old-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const old=api.authenticatedApiFetch(historyPath).then(()=>"accepted",error=>error.code);await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));api.setNativeGraphAccessToken("new-bearer");
