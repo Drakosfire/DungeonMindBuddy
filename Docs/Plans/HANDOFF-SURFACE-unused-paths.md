@@ -1,132 +1,64 @@
 # Surface unused-path cleanup
 
-Status: ACTIVE. Operator authorizes the same cleanup/review/merge/5202 pattern
-across all surfaces, with no backwards compatibility. PRIME/Buddy UI owns this
-serial, finite no-behavior slice. Base cd54c10eb110207824291d22409c75ab5885fc81;
-branch codex/remove-unused-surface-paths; reused buddy-context-loop checkout.
-Architecture read-only invariant/candidate critique accepted before activation.
+Status: COMPLETE — finite removal/nonregression slice accepted with explicit baseline
+exceptions. All source/runtime leases released. This is not all-surfaces capability
+acceptance. Operator authorized a general cross-surface unused-path cleanup using
+the same independent review, merge and5202 delivery pattern, no compatibility era.
 
-## Removal map and current replacements
+## Source and ownership settlement
+PR1481 merged19046afe68f4c9a107cc43989a59428c94c6a0e8 from base
+cd54c10eb110207824291d22409c75ab5885fc81. Architecture Cycle2 APPROVE exact
+head d873896f45733f076ae9ccbf84a6451a89642158; no production findings. Cycle1
+approved unchanged production794d99774; Cycle2 corrected ownership/evidence and EOF.
+Removed17 files:16 unused/forwarding source modules and1 exclusive parser test.
+Every live/type/test shim consumer uses identical canonical graphLens/worldGraph/
+graphReference functions. Current semantic adapter assertions moved to their owner.
+Build's unused transitional return property is gone; canonical destination tests remain.
+No route, API, schema, save owner, data or storage-key migration/deletion.
 
-| Candidate | Callers/replacement | State / writes |
-|---|---|---|
-| Zero-consumer chrome alias, old ingest status panels, Plan Edit bar, MarkdownEditor wrapper, unused URL hook | No runtime/test/story/HTML/script consumers; current chrome, IngestionModule, EditHost, MarkdownEditorCore and workspace authoring remain | No reachable state owner removed |
-| GraphPreviewProjection + SourceExcerptPanel; RecapGraphProjection + recapMarkdown/parser tests | Disconnected clusters; current GraphProjectionReader, WorldGraphRecapProjection and exact-run review remain | Removed tests exclusively describe removed parser; no source/data API removal |
-| Plan-local graphLens reexports and World Graph adapter wrapper | Every runtime/type/test consumer switches to identical canonical graphLens/worldGraph functions | No wrapper semantics, save owner, URL behavior or publication changed |
-| recapGraphNodeRuntime and GraphNodePresentation forwarding aliases | GraphProjectionReader type switches to GraphNodeChipDeltaPresentation; GraphReviewProjectionLane uses shared GraphNodeHoverToken/presentationForNodeId | Dead empty getter/setter facade removed; current provider/reader retained |
-| Build controller creatableCampaignIds return property | No production consumers; tests assert equivalent canonical destinationOptions | Internal admissibility calculation and suggested destination stay unchanged |
+PRIME serialized PlanSurfaceCanvas.tsx import-only cleanup against historical1188
+at3d6733a5. Cleanup now releases that path;1188 must re-anchor/reacquire before any
+resumed work.1190 had no path overlap. Unmerged proposals/history are retained.
+Live projection hosting, Combat/static routes, developer spike, lower source readers
+and disconnected GraphReview prototype clusters were outside this finite removal set.
+A future removal needs its own consumer/replacement map, not a name-based deletion.
 
-## Census, ownership and exclusions
-TS AST import census:926 source/test/story files,473 production-reachable from main.
-Checked sole Vite HTML entry/static plugin, literal/dynamic imports, barrels, type
-imports, public/static scripts and shell/test consumers. Exact private census and
-import map: established jev-evidence-loop-20261016 surface-cleanup-*.json. File
-names shared with backend Python classes are not consumers of the removed TSX.
-Open1188/1190 are retained welcome proposals.1188 at3d6733a5 overlaps the
-PlanSurfaceCanvas.tsx path;1190 atce9ab930 has no source-path overlap. PRIME
-explicitly serializes and transfers that one shared path to this operator-authorized
-import-only cleanup lease.1188 must re-anchor and reacquire it before resumed work;
-its unmerged proposal/history is preserved and no welcome behavior changes here.
-Combat1367 is
-a doc-only acceptance gate; current /combat static tracker remains live.
-Live LegacyProjectionHostAdapter, route publications, shell/module registry, current
-Ingest/exact-run readers, campaign APIs, grammar parsers, data/storage keys, developer
-spike route and planned UI prototypes remain outside this removal slice. Disconnected
-GraphReview rendering clusters require a separate equivalence map and are not leased.
+## Evidence and limits
+Author36-file cohort396/396 passed; supplemental reference/lease/source/draft/media
+cohort196pass/2inherited resolver-fixture failures. Production TypeScript/build passed.
+Independent35-file cohort393pass/2inherited App-navigation failures; canonical adapter
+4 passed again after the corrected head. Counts overlap; no full-repository-green claim.
+Both resolver failures and both navigation failures reproduced at the exact base.
+Author's nonexistent chrome/appNavigation.test.ts filter did not prove real App nav;
+actual test/appNavigation.test.tsx base9pass/2fail is explicit. Current App routing,
+World selection and native writers were not modified to satisfy old fixtures.
+Retired-import fitness scan:0 remaining consumers of the17 removed paths. Diffcheck
+clean. Known React act and Vite chunk warnings remain. Baseline repro and browser
+results belong to PRIME; Architecture did not independently rerun those live checks.
 
-## Exact exclusive write lease
-- This handoff
-- apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts
-- apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.ts
-- apps/live-control-ui/src/chrome/AppChromeGraphLens.tsx
-- apps/live-control-ui/src/modules/AuthorityTransitionPanel.tsx
-- apps/live-control-ui/src/modules/IngestionModule.tsx
-- apps/live-control-ui/src/modules/SpellingAuditPanel.tsx
-- apps/live-control-ui/src/planSurface/PlanAgentReviewedEdit.integration.test.tsx
-- apps/live-control-ui/src/planSurface/PlanGraphLensContext.tsx
-- apps/live-control-ui/src/planSurface/PlanSurfaceRunbookAuthoring.test.tsx
-- apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx
-- apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx
-- apps/live-control-ui/src/planSurface/ReviewCampaignPicker.tsx
-- apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.test.tsx
-- apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx
-- apps/live-control-ui/src/planSurface/components/PlanEditBar.tsx
-- apps/live-control-ui/src/planSurface/components/PlanGraphLoadPanel.tsx
-- apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx
-- apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.tsx
-- apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts
-- apps/live-control-ui/src/planSurface/config/planSurfaceConfig.ts
-- apps/live-control-ui/src/planSurface/dogfood/GraphObjectDogfoodPanel.tsx
-- apps/live-control-ui/src/planSurface/graphGoldReview/GraphGoldReviewModule.tsx
-- apps/live-control-ui/src/planSurface/graphGoldReview/GraphGoldReviewSessionPicker.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/GraphNodePresentation.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/GraphPreviewModule.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/GraphPreviewProjection.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/RecapGraphProjection.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/SourceExcerptPanel.tsx
-- apps/live-control-ui/src/planSurface/graphPreview/recapGraphNodeRuntime.ts
-- apps/live-control-ui/src/planSurface/graphPreview/recapMarkdown.test.ts
-- apps/live-control-ui/src/planSurface/graphPreview/recapMarkdown.ts
-- apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewProjectionLane.tsx
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAuthority.ts
-- apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils.ts
-- apps/live-control-ui/src/planSurface/planGraphFocusOptions.ts
-- apps/live-control-ui/src/planSurface/projection/projectionBindings.test.tsx
-- apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts
-- apps/live-control-ui/src/planSurface/reference/resolvePlanRelationshipTarget.ts
-- apps/live-control-ui/src/planSurface/reference/usePlanGraphReferenceResolver.ts
-- apps/live-control-ui/src/planSurface/reference/worldGraphProjectionAdapter.test.ts
-- apps/live-control-ui/src/planSurface/reference/worldGraphProjectionAdapter.ts
-- apps/live-control-ui/src/planSurface/sessionCampaignContext.ts
-- apps/live-control-ui/src/tiptap/MarkdownEditor.tsx
-- apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.ts
-- apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentUrlSelection.ts
-- apps/live-control-ui/src/worldGraph/worldGraphNodeViewAdapter.planCard.test.ts
-- apps/live-control-ui/src/worldGraph/worldGraphNodeViewAdapter.test.ts
+## Runtime acceptance and explicit exceptions
+UI adopted on existing5202 artifact target; index SHA256
+f13867eba40bc2d5a568e5e901c974d737da517c422d60c2f2f2038d106bfa4a.
+Index→Plan current source/Cards/Document, Build Edge saved media/tables, Ingest saved
+Session29 candidates and Ephanna inspection, route cleanup/Back continuity, Play chooser
+and ended saved reflections/current JourneyNorth all rendered in Elderwyld. No source
+edits, extraction, publication, provider call or API restart. Old assets retained.
+All17 protected JSON responses unchanged after browser checks (16 adoption checks plus
+Edge snapshot captured before opening it). Draft/media ownership suites passed; user
+tabs retained and temporary QA tab closed. No gameplay progress changed.
 
-## Gates
-Inspect cumulative base-to-head diff; negative retired import-path fitness scan;
-production build/typecheck with honest baseline failures; canonical graphLens,
-worldGraph/reference/XSS and current Plan/Play/Build/Ingest owner tests, actualApp
-route/context smoke. Preserve semantic adapter assertions at canonical owner; retire
-only migration-structure assertions about removed wrappers. Browser all-current-
-surface scoped smoke and16 protected-state responses unchanged; no provider or
-extraction/commit call, API restart, data deletion or conversion. Independently review
-exact head, merge, guarded5202 artifact adoption and truthful settlement/lease release.
+The original all-current-surface smoke gate is PARTIALLY UNMET. PRIME accepts only
+removal/nonregression because the source is behavior-equivalent and the following
+capabilities are inherited, unchanged and outside the finite slice:
+- Combat /combat resolves to Index on5202. The unchanged Vite static plugin only
+  configures development serving; existing preview does not serve the tracker there.
+  Combat C0 rendered adoption remains open under the Combat owner/PR1367. No working
+  Combat witness is claimed; do not restore retired410 APIs or static fallbacks here.
+- Build Find existing object opens its current projection/policy, but graph lookup
+  returns authority_receipt_missing for Elderwyld. This proves opening/lease continuity,
+  not successful native graph lookup. Knowledge/adoption receipt acceptance remains open.
 
-## Owning-test repair amendment before edits
-Baseline typecheck passes;35-file cohort390pass/2fail. Extend lease to
-apps/live-control-ui/src/buildSurface/BuildGraphObjectContext.test.tsx and
-apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.test.tsx
-for obsolete host/callout assertions only: Build lacks current Peek host, and reader
-expects aside instead of current collapsible details. Preserve actual scope and prose.
-
-## Exact forwarding map
-- planSurface/sessionCampaignContext.ts → graphLens/sessionCampaignContext.ts
-- planSurface/planGraphFocusOptions.ts → graphLens/planGraphFocusOptions.ts
-- planSurface/PlanGraphLensContext.tsx → graphLens/WorldGraphLensContext.tsx
-- planSurface/components/PlanGraphLoadPanel.tsx → graphLens/GraphLoadPanel.tsx
-- planSurface/reference/worldGraphProjectionAdapter.ts → worldGraph/worldGraphNodeViewAdapter.ts
-- planSurface/graphPreview/recapGraphNodeRuntime.ts → graphReference/index.ts
-
-Author verification: production TypeScript/build passed;36-file owner cohort396/396
-passed, no skips. Reference/lease/source/draft/media supplemental cohort196pass/2fail:
-2 old graphAwareReferenceResolver tests expect incomplete fixture nodes to resolve;
-their test, adapter and canonical resolver files are byte-identical to the base.
-No full-repository-green claim. All other reference/relationship, Build leases and
-workspace Markdown/media authoring tests in that18-file cohort passed. Retired import
-fitness scan:17 removed files (16 source modules and1 exclusive test),0 remaining
-source/test/story path consumers.
-
-## Navigation baseline reconciliation
-Author396/396 covers actual App.surfaceInteraction6 and graph-reader helper suites;
-the supplied src/chrome/appNavigation.test.ts filter was nonexistent and does not
-prove actual App navigation. Independent reviewer added src/test/appNavigation.test.tsx:
-393pass/2fail across35files. Exactbase cd54c10eb reproduces9pass/2fail in that file:
-obsolete agent-interaction-chrome expectation at245 and missing Play-status fixture
-behind World admission at297. App/navigation/router sources are unchanged. All4
-known supplemental baseline failures (navigation2 + resolver2) remain explicit.
-Baseline reproductions are PRIME evidence; no actual-App-navigation-green claim.
+Future Combat delivery or missing-receipt repair must re-anchor its actual serving/
+knowledge owner and activate a separate bounded contract. The cleanup does not bypass
+those gates. Private exact manifests, test logs, baseline reproductions and rollout/
+state receipts remain in established jev-evidence-loop-20261016 surface-cleanup files.

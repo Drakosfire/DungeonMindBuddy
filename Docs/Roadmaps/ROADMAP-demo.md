@@ -53,6 +53,7 @@ back into the active roadmap. The pre-pruning document is available at the
 | Ordinary Build Jev retrieval and one evidence-bound writer | #1325 and subsequent accounting/coverage fixes through #1369 | Generality, coverage, latency and cost are separate from one successful answer |
 | Agent service regression baseline | `tests/test_agent_turn_service.py`: 164 passed on 2026-10-19 after repairing seven inherited fixture failures; [bounded handoff](../Plans/HANDOFF-TEST-agent-baseline.md) | Specific suite baseline; not repository-wide test or J1–J6 acceptance |
 | Shared document-reference inspection across Build, Plan and Play | #1471 plus core-shell correction #1472; Architecture review and actual desktop/narrow open/Back/Close, exact Plan revision, draft/scene/Notes retention and protected-state checks on 5202; [settled contract](../Plans/HANDOFF-SURFACE-reference-peek-slot.md) | Build/Plan document targets; unavailable historical Build revisions stay unavailable, no silent current fallback |
+| Unused surface modules and forwarding paths retired | #1481; Architecture Cycle2 approval, production build, canonical owner tests and5202 nonregression checks; [settled scope](../Plans/HANDOFF-SURFACE-unused-paths.md) | Finite no-behavior cleanup;17 removed files. Combat preview delivery and Build Find receipt remain unaccepted |
 
 The operator ran a real session: Play helped improvisation and scene note-taking.
 They identified media access and navigation as major weaknesses. This is useful
@@ -89,7 +90,11 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    does not establish those graph semantics.
 6. **Rules and table tools:** cited 2024 travel-rule retrieval and the connected
    statblock/combat/recorded-roll journeys remain acceptance work; the prepared
-   rules text and a standalone statblock do not prove those tools.
+   rules text and a standalone statblock do not prove those tools. The cleanup smoke
+   confirmed that5202 `/combat` currently resolves Index; the unchanged preview/static
+   serving gap remains under Combat C0/PR1367. Build Find also reports
+   `authority_receipt_missing` for Elderwyld. Neither is a successful tool-adoption
+   witness; #1481 did not change those owners or restore retired paths.
 7. **Full local acceptance:** first-World preparation and J1–J6 twice without
    console repair remain unaccepted. Existing selected-World use is not full
    corpus or fresh-World proof. The Agent service suite baseline is now green;
