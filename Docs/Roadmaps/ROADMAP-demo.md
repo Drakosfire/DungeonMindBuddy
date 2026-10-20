@@ -52,6 +52,7 @@ back into the active roadmap. The pre-pruning document is available at the
 | Ingest exact candidate/source navigation and correction safeguards | #1315, #1375, #1391, #1395/#1396, #1399–#1407 | Extraction quality and complete chronology still need source-based evaluation |
 | Ordinary Build Jev retrieval and one evidence-bound writer | #1325 and subsequent accounting/coverage fixes through #1369 | Generality, coverage, latency and cost are separate from one successful answer |
 | Agent service regression baseline | `tests/test_agent_turn_service.py`: 164 passed on 2026-10-19 after repairing seven inherited fixture failures; [bounded handoff](../Plans/HANDOFF-TEST-agent-baseline.md) | Specific suite baseline; not repository-wide test or J1–J6 acceptance |
+| Shared document-reference inspection across Build, Plan and Play | #1471 plus core-shell correction #1472; Architecture review and actual desktop/narrow open/Back/Close, exact Plan revision, draft/scene/Notes retention and protected-state checks on 5202; [settled contract](../Plans/HANDOFF-SURFACE-reference-peek-slot.md) | Build/Plan document targets; unavailable historical Build revisions stay unavailable, no silent current fallback |
 
 The operator ran a real session: Play helped improvisation and scene note-taking.
 They identified media access and navigation as major weaknesses. This is useful
@@ -72,8 +73,8 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    the full content-first workflow remain open. The navigation slice does not prove
    Plan Cards' entire workflow.
 3. **Connected knowledge:** ordinary Plan access to the published Session 29 recap,
-   authored-source revision navigation and the song callback remain specific open
-   witnesses unless demonstrated. Shared read-only document inspection is bounded by
+   historical authored-source availability and the song callback remain specific open
+   witnesses unless demonstrated. The delivered shared read-only document interaction is bounded by
    the [surface reference contract](../Plans/HANDOFF-SURFACE-document-references.md):
    Build/Plan links share one peek interaction across Build, Plan and Play. Exact
    historical Build reads without an admitted owner API remain unavailable; the
