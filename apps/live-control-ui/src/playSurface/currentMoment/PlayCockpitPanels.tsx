@@ -29,6 +29,7 @@ export function PlaySceneOutline({
   toggleRef,
   compact,
   returnFocusRef,
+  fallbackFocusRef,
 }: {
   deck: NativeRunbookReadyV2;
   currentSceneId: string | null;
@@ -39,6 +40,7 @@ export function PlaySceneOutline({
   toggleRef: RefObject<HTMLButtonElement | null>;
   compact: boolean;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
+  fallbackFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
   const entries = deck.beats.flatMap(beat => beat.scenes.map(scene => ({
     ...scene, groupTitle: beat.title, current: scene.id === currentSceneId,
@@ -50,6 +52,7 @@ export function PlaySceneOutline({
       toggleRef={toggleRef} toggleTestId="play-beat-context-toggle"
       bodyId="play-outline-body" bodyTestId="play-outline-body" compact={compact}
       dismissFocusRef={compact ? returnFocusRef : toggleRef}
+      fallbackDismissFocusRef={compact ? fallbackFocusRef : undefined}
       onSelect={id => { const scene = sceneInAnyBeat(deck, id); if (scene) onInspect(scene); }} />
   </aside>;
 }

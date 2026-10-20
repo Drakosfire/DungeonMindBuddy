@@ -1097,6 +1097,7 @@ export function PlayCurrentMomentCockpit({
           collapsed={beatCollapsed}
           compact={compactLayoutRef.current}
           returnFocusRef={scenesNavbarToggleRef}
+          fallbackFocusRef={moreNavbarToggleRef}
           onToggle={toggleOutline}
           onInspect={openInspect}
           toggleRef={outlineToggleRef}
