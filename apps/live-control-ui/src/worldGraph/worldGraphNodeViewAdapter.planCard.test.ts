@@ -89,4 +89,3 @@ describe("adaptWorldGraphNodeView", () => {
     expect(adaptWorldGraphNodeView(relatedNode).adjacency[0]?.direction).toBe("related");
   });
 });
-

@@ -22,8 +22,12 @@ Checked sole Vite HTML entry/static plugin, literal/dynamic imports, barrels, ty
 imports, public/static scripts and shell/test consumers. Exact private census and
 import map: established jev-evidence-loop-20261016 surface-cleanup-*.json. File
 names shared with backend Python classes are not consumers of the removed TSX.
-Open1188/1190 are historical welcome proposals, not active dispatch authority per
-current roadmap; none of their changed source paths is leased here. Combat1367 is
+Open1188/1190 are retained welcome proposals.1188 at3d6733a5 overlaps the
+PlanSurfaceCanvas.tsx path;1190 atce9ab930 has no source-path overlap. PRIME
+explicitly serializes and transfers that one shared path to this operator-authorized
+import-only cleanup lease.1188 must re-anchor and reacquire it before resumed work;
+its unmerged proposal/history is preserved and no welcome behavior changes here.
+Combat1367 is
 a doc-only acceptance gate; current /combat static tracker remains live.
 Live LegacyProjectionHostAdapter, route publications, shell/module registry, current
 Ingest/exact-run readers, campaign APIs, grammar parsers, data/storage keys, developer
@@ -114,4 +118,15 @@ passed, no skips. Reference/lease/source/draft/media supplemental cohort196pass/
 their test, adapter and canonical resolver files are byte-identical to the base.
 No full-repository-green claim. All other reference/relationship, Build leases and
 workspace Markdown/media authoring tests in that18-file cohort passed. Retired import
-fitness scan:17 removed modules,0 remaining source/test/story path consumers.
+fitness scan:17 removed files (16 source modules and1 exclusive test),0 remaining
+source/test/story path consumers.
+
+## Navigation baseline reconciliation
+Author396/396 covers actual App.surfaceInteraction6 and graph-reader helper suites;
+the supplied src/chrome/appNavigation.test.ts filter was nonexistent and does not
+prove actual App navigation. Independent reviewer added src/test/appNavigation.test.tsx:
+393pass/2fail across35files. Exactbase cd54c10eb reproduces9pass/2fail in that file:
+obsolete agent-interaction-chrome expectation at245 and missing Play-status fixture
+behind World admission at297. App/navigation/router sources are unchanged. All4
+known supplemental baseline failures (navigation2 + resolver2) remain explicit.
+Baseline reproductions are PRIME evidence; no actual-App-navigation-green claim.
