@@ -1,6 +1,6 @@
 # R1 native Plan tool publication and shared host correction
 
-**Status:** ACTIVE native-acceptance repair. PR1501 merged8363bcbdb91d689e41714de6a8cf6532ac5e3797 after Cycle2 da9fadb3a source approval; NOT accepted as a delivered user seam. Actual5202 managed Plan has no Tools launcher. API lookup/inspect works, protected17 and nonterminal7 unchanged. Base8363bcbdb; existing checkout branch codex/rules-native-plan-host. UI-only.
+**Status:** COMPLETE native-acceptance repair. PR1502 reviewed c515625925f09a04d8d7c82106e102de44192fcb, merged0468e6c92051af319a47966ff8f70bfe6bb34f92, accepted on5202. PR1501 merged8363bcbdb91d689e41714de6a8cf6532ac5e3797 after Cycle2 da9fadb3a source approval; NOT accepted as a delivered user seam. Actual5202 managed Plan has no Tools launcher. API lookup/inspect works, protected17 and nonterminal7 unchanged. Base8363bcbdb; existing checkout branch codex/rules-native-plan-host. UI-only.
 
 ## Owning boundary and lease
 
@@ -11,3 +11,7 @@ Actual managed PlanSurfacePage + selected World + shared ToolHost/projection hos
 ## Author verification
 
 Actual managed PlanSurfacePage/SelectedWorld/ToolHost/current host test1PASS (90 unrelated Plan tests skipped), with real editor unsaved insertion, JSON/selection retention, Rules catalog→query→verified inspect, close and undo to original; no save. Shared published-host Rules5PASS (Plan and explicit synthetic Build capability, identity/stale callback, capability removal, unregistered renderer). Existing current Build/shared projection adapter13PASS; UI/recovery/transport22PASS, combined five files40PASS. Actual app TypeScript and production build PASS; entry index-CLjHpgLN.js about465.3KB. New test fixture initially used fresh publication objects on each render and looped; only that owned test process terminated, fixture memoized by exact identity/capability. Rerun completes cleanly; no product loop or live process affected. Backend/corpus/source-review/admission unchanged. Independent exact-head source review and actual native5202 acceptance still required.
+
+## Accepted settlement
+
+Architecture Cycle1 APPROVE c515625925f09a04d8d7c82106e102de44192fcb; independent40/40 focused plus actual managed Plan real-writer1PASS/90skip, Bugbot no findings. Exact default entry index-CLjHpgLN.js465,333raw/131,901native encoded; default indexSHA70403db8ed3b465add90b130c218c89fae188e424bbe7d60ccec33c029f81865. Real managed Plan→Tools→Rules Lookup catalog200, occupancy query200, cited passage200 with SRDpage14/CCattribution, unsupported travelquery200/no_evidence with explicit limited-coverage explanation; close leaves writer DOM unchanged. Instrumented accepted sequence1catalog/2deliberatequeries/1inspect,0inference. Plain uninstrumented default repeated actual launcher/query successfully. Screenshots unavailable; DOM/request receipts in rules-native-accepted.json. Protected17 unchanged; API healthy; seven expired nonterminal rows retained. Prior hashed assets retained; owned QA tabs/trace HTML removed. R1 limited user seam accepted; Agent/R2 and broader Rules coverage not delivered by this fact.

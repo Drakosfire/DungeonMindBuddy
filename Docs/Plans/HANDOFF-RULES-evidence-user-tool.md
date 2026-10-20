@@ -1,6 +1,6 @@
 # Rules evidence user seam — R1
 
-**Status:** ACTIVE. PRIME activates the first independently useful lookup capability under merged design1500 and operator goal. Base2e089d3c63652d939267befb533a57102aab86b6; branch codex/rules-evidence-user-tool, existing Buddy checkout. UI5202/API8000 delivery after exact-head review and merge.
+**Status:** COMPLETE for the limited user seam after1502 native repair; see accepted settlement below. PRIME activates the first independently useful lookup capability under merged design1500 and operator goal. Base2e089d3c63652d939267befb533a57102aab86b6; branch codex/rules-evidence-user-tool, existing Buddy checkout. UI5202/API8000 delivery after exact-head review and merge.
 
 ## Source admission and lease
 
@@ -27,3 +27,7 @@ Cycle 1 HOLD at a5b49047bf89b47dcb81f4d41b0ce5cd182ed6bb: strict success access 
 ## Native acceptance hold after merge
 
 1501 merged8363bcbdb91d689e41714de6a8cf6532ac5e3797. API8000 adopted reviewed source: authenticated occupancy query/inspect200 with exact passage hash, travel no_evidence, seven expired nonterminal rows and17 protected responses unchanged. UI source adopted but actual managed Plan publishes empty tools/projections, so no Tools launcher: R1 NOT delivered/complete, R2 remains blocked. Earlier host test exercised older Plan fixture and missed the actual native publisher. Follow-up HANDOFF-RULES-native-plan-host.md repairs actual native publication/shared host and removes misplaced Rules additions from older publisher/catalog. This is an explicit author/native gate failure, not accepted user functionality.
+
+## Accepted R1 user seam
+
+Native1502 correction reviewedc515625925f09a04d8d7c82106e102de44192fcb, merged0468e6c92051af319a47966ff8f70bfe6bb34f92 and accepted5202. Actual managed Plan Tools launcher→catalog→occupancy query→exact verified passage inspection→explicit missing-travel result→close works; source writer unchanged, zero inference, protected17 unchanged/APIhealthy. Plain default identity index-CLjHpgLN.js verified. Prior missed-publisher hold is resolved with actual production-composition evidence, not by older fixture assertions. R1 remains intentionally one public SRD section; R2 callable Buddy tool/citations remains separate work.
