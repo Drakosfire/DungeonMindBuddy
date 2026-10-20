@@ -7,6 +7,7 @@ import { useGraphNodeChipRuntime } from "../../graphReference/GraphNodeChipRunti
 import { WorldPlanGraphReferenceActivationProvider, useWorldPlanGraphReferenceActivation } from "./WorldPlanGraphReferenceActivation";
 
 vi.mock("../../graphLens/useWorldGraphLensProjection", () => ({
+  useWorldGraphLensProjectionDemand: vi.fn(),
   useOptionalWorldGraphLensProjection: vi.fn(),
 }));
 

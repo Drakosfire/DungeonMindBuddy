@@ -11,6 +11,7 @@ import {
 
 import {
   useOptionalWorldGraphLensProjection,
+  useWorldGraphLensProjectionDemand,
   type WorldGraphLensProjectionValue,
 } from "../../graphLens/useWorldGraphLensProjection";
 import { GraphNodeChipRuntimeProvider } from "../../graphReference/GraphNodeChipRuntime";
@@ -48,7 +49,7 @@ function resolutionForRequest(
   graph: WorldGraphLensProjectionValue | null,
 ): GraphReferenceResolution {
   const { nodeId } = request;
-  const projectionState = graph?.projectionState ?? "unavailable";
+  const projectionState = graph?.projectionState === "idle" ? "loading" : graph?.projectionState ?? "unavailable";
   const projection = graph?.projection ?? null;
   const ref = { kind: "ref" as const, refType: GRAPH_NODE_REF_TYPE, refId: nodeId, label: nodeId };
   if (!isValidGraphNodeId(nodeId)) {
@@ -143,6 +144,7 @@ export function WorldPlanGraphReferenceActivationProvider({
   worldId: string;
   children: ReactNode;
 }) {
+  useWorldGraphLensProjectionDemand(Boolean(worldId));
   const graph = useOptionalWorldGraphLensProjection();
   const [request, setRequest] = useState<ActivationRequest | null>(null);
   const requestRef = useRef<ActivationRequest | null>(request);

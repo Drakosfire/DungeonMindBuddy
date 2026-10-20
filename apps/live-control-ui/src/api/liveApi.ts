@@ -196,6 +196,8 @@ let nativeGraphSessionRecovery: {
   connectedEpoch: number | null;
   request: Promise<string>;
 } | null = null;
+export function getNativeGraphAccessGeneration(): number { return nativeGraphSessionEpoch; }
+
 export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
 
 function localGraphSessionTarget(): string {
@@ -1526,9 +1528,11 @@ if (import.meta.hot) import.meta.hot.dispose(() => {
 
 export async function postWorldGraphProjection(
   request: WorldGraphProjectionRequest,
+  signal?: AbortSignal,
 ): Promise<WorldGraphProjection> {
   ensureProjectionRevisionInvalidation();
   return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+    signal,
     method: "POST",
     body: JSON.stringify(request),
   });
@@ -1536,6 +1540,7 @@ export async function postWorldGraphProjection(
 
 export async function postManagedWorldGraphProjection(
   request: ManagedWorldGraphProjectionRequest,
+  signal?: AbortSignal,
 ): Promise<ManagedWorldGraphProjectionResponse> {
   ensureProjectionRevisionInvalidation();
   // The strict server model defaults both optional fields to null. Encode that
@@ -1545,6 +1550,7 @@ export async function postManagedWorldGraphProjection(
   return apiFetch<ManagedWorldGraphProjectionResponse>(
     "/api/live/world-graph/managed-projection",
     {
+      signal,
       method: "POST",
       body: JSON.stringify({ schema, managedWorldId, revisionPin, queryText, ...extra }),
     },

@@ -74,5 +74,7 @@ export {
   useOptionalWorldGraphLensInformationChannel,
   useOptionalWorldGraphLensProjection,
   useWorldGraphLensProjection,
+  useWorldGraphLensProjectionDemand,
+  type WorldGraphLensProjectionState,
   type WorldGraphLensProjectionValue,
 } from "./useWorldGraphLensProjection";

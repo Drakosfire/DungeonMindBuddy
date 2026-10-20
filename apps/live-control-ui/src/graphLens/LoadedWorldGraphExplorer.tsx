@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import { useOptionalWorldGraphLensProjection } from "./useWorldGraphLensProjection";
+import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection, type WorldGraphLensProjectionState } from "./useWorldGraphLensProjection";
 import type { WorldGraphProjection } from "../api/types";
 import { graphObjectTypeBadgeLabel, graphObjectSecondaryRoleLabel } from "../graphObjectCard/graphObjectDisplay";
 import "./LoadedWorldGraphExplorer.css";
@@ -13,21 +13,24 @@ function readableGraphLabel(value: string): string {
   return labels[value.trim().toLowerCase()] ?? graphObjectTypeBadgeLabel(value);
 }
 
-/** Inspect the shared, verified loaded projection; opening this view never fetches or mutates Graph. */
+/** Opening acquires the shared verified projection; closing releases this consumer. */
 export function LoadedWorldGraphExplorer() {
   const world = useSelectedWorld();
   const graph = useOptionalWorldGraphLensProjection();
   if (world.kind !== "managed" || !graph) return null;
   return <LoadedGraphBrowser key={world.worldId} worldName={world.name}
-    projection={graph.projectionState === "ready" ? graph.projection : null} />;
+    projection={graph.projectionState === "ready" ? graph.projection : null}
+    projectionState={graph.projectionState} projectionError={graph.projectionError} />;
 }
 
-export function LoadedGraphBrowser({ worldName, projection }: {
+export function LoadedGraphBrowser({ worldName, projection, projectionState, projectionError }: {
   worldName: string; projection: WorldGraphProjection | null;
+  projectionState: WorldGraphLensProjectionState; projectionError: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const retry = useWorldGraphLensProjectionDemand(open);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState("all");
@@ -54,9 +57,9 @@ export function LoadedGraphBrowser({ worldName, projection }: {
   const secondaryRole = selected ? graphObjectSecondaryRoleLabel(selected.kind, selected.role) : null;
   const byId = new Map(nodes.map((node) => [node.nodeId, node]));
   return <>
-    <button ref={launcher} type="button" disabled={!projection} onClick={() => setOpen(true)}
-      aria-haspopup="dialog" title={projection ? `Explore the loaded graph for ${worldName}` : "The World graph is not loaded yet"}>
-      Explore loaded graph
+    <button ref={launcher} type="button" onClick={() => setOpen(true)}
+      aria-haspopup="dialog" title={projection ? `Explore the loaded graph for ${worldName}` : `Load the World graph for ${worldName}`}>
+      Explore graph
     </button>
     <dialog ref={dialog} className="loaded-graph-explorer" aria-label={`${worldName} loaded graph`}
       onCancel={close} onClose={close}>
@@ -74,7 +77,10 @@ export function LoadedGraphBrowser({ worldName, projection }: {
         </span>
       </div> : null}
       {projection?.summary.projectionTruncated ? <p className="loaded-graph-explorer__notice" role="status">This loaded projection is truncated. More graph content may exist; the counts and search below describe only what is loaded here.</p> : null}
-      {!projection ? <p role="status">The graph is loading or unavailable. The previous projection is no longer shown.</p> :
+      {!projection ? <div><p role="status">{projectionState === "error" ? projectionError || "The World graph could not be loaded."
+        : projectionState === "unavailable" ? "The World graph is unavailable."
+        : "Loading the World graph…"} The previous projection is no longer shown.</p>
+        {(projectionState === "error" || projectionState === "unavailable") && retry ? <button type="button" onClick={retry}>Retry graph load</button> : null}</div> :
         <div className="loaded-graph-explorer__layout">
           <nav aria-label="Loaded graph nodes">
             <label className="loaded-graph-explorer__search">Find a node<input type="search" placeholder="Name, alias, or type" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(100); }} /></label>

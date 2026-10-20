@@ -3,7 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "./liveApi";
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
-import { WorldGraphLensProvider, WorldGraphLensProjectionProvider, useWorldGraphLensProjection } from "../graphLens";
+import { WorldGraphLensProvider, WorldGraphLensProjectionProvider, useWorldGraphLensProjectionDemand, useWorldGraphLensProjection } from "../graphLens";
 function deferred<T>() { let resolve!: (value:T)=>void; let reject!:(error:unknown)=>void; const promise=new Promise<T>((r,j)=>{resolve=r;reject=j;}); return {promise,resolve,reject}; }
 afterEach(()=>{cleanup();vi.restoreAllMocks();api.setNativeGraphAccessToken(null);});
 const historyPath="/api/live/agent/worlds/elderwyld/conversation?limit=40";
@@ -15,7 +15,7 @@ describe("protected read acquisition",()=>{
   const gate=deferred<Response>();
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>String(url).endsWith("local-session")?Response.json({status:"active",csrf_token:"test-csrf"}):gate.promise);
   const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
-  const {result}=renderHook(()=>useWorldGraphLensProjection(),{wrapper});
+  const {result}=renderHook(()=>{useWorldGraphLensProjectionDemand(true);return useWorldGraphLensProjection()},{wrapper});
   await waitFor(()=>expect(fetch.mock.calls.some(([url])=>String(url).endsWith("managed-projection"))).toBe(true));
   await act(async()=>{await new Promise(r=>setTimeout(r,20));});
   expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(1);

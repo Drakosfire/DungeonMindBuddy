@@ -2,7 +2,10 @@ import {
   createContext,
   createElement,
   useContext,
+  useCallback,
+  useRef,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -10,6 +13,7 @@ import {
 
 import {
   LiveApiError,
+  getNativeGraphAccessGeneration,
   NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
   postManagedWorldGraphProjection,
   postWorldGraphProjection,
@@ -42,6 +46,8 @@ import {
 
 export { WORLD_GRAPH_REVISION_COMMITTED_EVENT };
 
+export type WorldGraphLensProjectionState = GraphReferenceProjectionState | "idle";
+
 export interface WorldGraphLensProjectionValue {
   /** Desired exact request identity (may precede loaded bytes during transitions). */
   request: WorldGraphProjectionRequest | null;
@@ -51,7 +57,7 @@ export interface WorldGraphLensProjectionValue {
    * current desired requestKey + revision refresh generation.
    */
   projection: WorldGraphProjection | null;
-  projectionState: GraphReferenceProjectionState;
+  projectionState: WorldGraphLensProjectionState;
   projectionError: string | null;
   nodeCount: number;
   lastProjectionLoadMs: number | null;
@@ -59,6 +65,7 @@ export interface WorldGraphLensProjectionValue {
 }
 
 type StoredProjectionLoad = {
+  scope: ProjectionDemandScope;
   requestKey: string;
   refreshKey: string;
   request: WorldGraphProjectionRequest;
@@ -86,6 +93,24 @@ export function WorldGraphLensInformationChannelProvider({
 
 export function useOptionalWorldGraphLensInformationChannel(): SurfaceInformationChannel<WorldGraphProjection> | null {
   return useContext(WorldGraphLensInformationChannelContext);
+}
+
+interface ProjectionDemandScope { readonly key: string | null }
+interface ProjectionDemandOwner {
+  scope: ProjectionDemandScope;
+  acquire: (scope: ProjectionDemandScope) => () => void;
+  retry: () => void;
+}
+const ProjectionDemandContext = createContext<ProjectionDemandOwner | null>(null);
+
+/** Explicit ownership; observer hooks never acquire projection bytes. */
+export function useWorldGraphLensProjectionDemand(enabled: boolean): (() => void) | undefined {
+  const owner = useContext(ProjectionDemandContext);
+  useEffect(() => {
+    if (!enabled || !owner?.scope.key) return;
+    return owner.acquire(owner.scope);
+  }, [enabled, owner]);
+  return owner?.retry;
 }
 
 let projectionLoadGeneration = 0;
@@ -174,6 +199,22 @@ export function WorldGraphLensProjectionProvider({
   const ownerKind = managedWorldId ? "managed" : "native";
   const [stored, setStored] = useState<StoredProjectionLoad | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
+  const currentScope = useRef<ProjectionDemandScope | null>(null);
+  const revisionGeneration = useRef(0);
+  const retry = useCallback(() => {
+    revisionGeneration.current += 1;
+    setRevisionEventBump(previous => previous + 1);
+  }, []);
+  const [demands, setDemands] = useState<ReadonlyMap<symbol, ProjectionDemandScope>>(new Map());
+  const acquire = useCallback((scope: ProjectionDemandScope) => {
+    if (scope !== currentScope.current) return () => {};
+    const lease = Symbol("projection-demand");
+    setDemands(previous => new Map(previous).set(lease, scope));
+    return () => setDemands(previous => {
+      if (!previous.has(lease)) return previous;
+      const next = new Map(previous); next.delete(lease); return next;
+    });
+  }, []);
 
   const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
   const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
@@ -205,43 +246,73 @@ export function WorldGraphLensProjectionProvider({
     [desiredRequest, ownerKind],
   );
 
-  const [informationChannel, setInformationChannel] = useState<
-    SurfaceInformationChannel<WorldGraphProjection> | null
-  >(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let accessGeneration = getNativeGraphAccessGeneration();
+    const onAccessChanged = () => {
+      const next = getNativeGraphAccessGeneration();
+      // Initial cookie bootstrap notifies at the same epoch; its own load stays owned.
+      if (next === accessGeneration) return;
+      accessGeneration = next;
+      retry();
+    };
+    const onProjectionRefresh = () => {
+      retry();
+    };
+    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
+    window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onAccessChanged);
+    return () => {
+      window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
+      window.removeEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onAccessChanged);
+    };
+  }, [retry]);
+
+  const projectionRefreshKey = `${revisionRefreshToken ?? ""}:${revisionEventBump}`;
+  // Object identity is a unique generation even for A→B→A request identities.
+  const demandScope = useMemo<ProjectionDemandScope>(() => ({ key: desiredRequestKey }),
+    [desiredRequestKey, projectionRefreshKey]);
+  useLayoutEffect(() => { currentScope.current = demandScope; }, [demandScope]);
+  const demandOwner = useMemo(() => ({ scope: demandScope, acquire, retry: () => {
+    if (currentScope.current === demandScope) retry();
+  } }), [demandScope, acquire, retry]);
+  const active = [...demands.values()].some(scope => scope === demandScope);
+  const wanted = useRef({ scope: demandScope, active });
+  useLayoutEffect(() => { wanted.current = { scope: demandScope, active }; }, [demandScope, active]);
+  const [channelOwner, setChannelOwner] = useState<{
+    scope: ProjectionDemandScope; channel: SurfaceInformationChannel<WorldGraphProjection>;
+  } | null>(null);
+  const informationChannel = active && channelOwner?.scope === demandScope ? channelOwner.channel : null;
 
   useEffect(() => {
-    if (!desiredRequest || !desiredRequestKey) {
-      setInformationChannel(null);
+    if (!active || !desiredRequest || !desiredRequestKey) {
+      setStored(null);
+      setChannelOwner(null);
       return;
     }
     const channel = createSurfaceInformationChannel<WorldGraphProjection>(
       worldGraphLensInformationDescriptor(desiredRequest, ownerKind),
     );
-    setInformationChannel(channel);
+    setChannelOwner({ scope: demandScope, channel });
     return () => {
+      // Drop the value retained by this channel as well as the provider's private load.
+      channel.beginObservation();
       channel.dispose();
     };
-  }, [desiredRequest, desiredRequestKey, ownerKind]);
+  }, [active, desiredRequest, desiredRequestKey, demandScope, ownerKind]);
+
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onProjectionRefresh = () => {
-      setRevisionEventBump((previous) => previous + 1);
-    };
-    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
-    window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onProjectionRefresh);
-    return () => {
-      window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
-      window.removeEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onProjectionRefresh);
-    };
-  }, []);
-
-  const projectionRefreshKey = `${revisionRefreshToken ?? ""}:${revisionEventBump}`;
-
-  useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const loadScope = demandScope;
+    const loadRevision = revisionGeneration.current;
+    const loadAccess = getNativeGraphAccessGeneration();
+    const stillOwned = () => !controller.signal.aborted
+      && wanted.current.active && wanted.current.scope === loadScope
+      && loadRevision === revisionGeneration.current
+      && loadAccess === getNativeGraphAccessGeneration();
 
     async function loadProjection() {
+      if (!active) return;
       if (focusValidationPending) {
         if (channelMatchesDesiredRequest(informationChannel, desiredRequest, ownerKind)) {
           informationChannel.beginObservation();
@@ -297,13 +368,12 @@ export function WorldGraphLensProjectionProvider({
             managedWorldId,
             revisionPin: loadRequest.revisionPin ?? null,
             queryText: loadRequest.queryText ?? null,
-          });
+          }, controller.signal);
           response = managedResponse.projection;
         } else {
-          response = await postWorldGraphProjection(loadRequest);
+          response = await postWorldGraphProjection(loadRequest, controller.signal);
         }
-        commitObservation(response, undefined, managedResponse);
-        if (cancelled) return;
+        if (!stillOwned()) return;
         const revisionKind = loadRequest.revisionPin ? "pinned" : "head";
         const mismatch = managedResponse
           ? verifyManagedWorldGraphProjectionResponse({
@@ -319,8 +389,13 @@ export function WorldGraphLensProjectionProvider({
               revisionKind,
               pinnedRevisionId: loadRequest.revisionPin ?? null,
             });
+        if (!stillOwned()) return;
+        // Verification and ownership admission precede both shared-channel and private commits.
+        commitObservation(response, undefined, managedResponse);
+        if (!stillOwned()) return;
         if (mismatch) {
           setStored({
+            scope: loadScope,
             requestKey: loadRequestKey,
             refreshKey: loadRefreshKey,
             request: loadRequest,
@@ -333,6 +408,7 @@ export function WorldGraphLensProjectionProvider({
           return;
         }
         setStored({
+          scope: loadScope,
           requestKey: loadRequestKey,
           refreshKey: loadRefreshKey,
           request: loadRequest,
@@ -343,10 +419,12 @@ export function WorldGraphLensProjectionProvider({
           lastProjectionLoadOutcome: "ready",
         });
       } catch (error) {
+        if (!stillOwned()) return;
         commitObservation(null, error);
-        if (cancelled) return;
+        if (!stillOwned()) return;
         if (isWorldGraphUnavailable(error)) {
           setStored({
+            scope: loadScope,
             requestKey: loadRequestKey,
             refreshKey: loadRefreshKey,
             request: loadRequest,
@@ -359,6 +437,7 @@ export function WorldGraphLensProjectionProvider({
           return;
         }
         setStored({
+          scope: loadScope,
           requestKey: loadRequestKey,
           refreshKey: loadRefreshKey,
           request: loadRequest,
@@ -374,9 +453,11 @@ export function WorldGraphLensProjectionProvider({
     void loadProjection();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [
+    active,
+    demandScope,
     context,
     desiredRequest,
     desiredRequestKey,
@@ -391,9 +472,11 @@ export function WorldGraphLensProjectionProvider({
     const coherent =
       stored != null
       && desiredRequestKey != null
+      && stored.scope === demandScope
       && stored.requestKey === desiredRequestKey
       && stored.refreshKey === projectionRefreshKey
-      && !focusValidationPending;
+      && !focusValidationPending
+      && active;
 
     if (!desiredRequest || !desiredRequestKey) {
       return {
@@ -406,6 +489,12 @@ export function WorldGraphLensProjectionProvider({
         lastProjectionLoadMs: null,
         lastProjectionLoadOutcome: "unavailable",
       };
+    }
+
+    if (!active) {
+      return { request: desiredRequest, requestKey: desiredRequestKey, projection: null,
+        projectionState: "idle", projectionError: null, nodeCount: 0,
+        lastProjectionLoadMs: null, lastProjectionLoadOutcome: null };
     }
 
     if (!coherent) {
@@ -432,6 +521,8 @@ export function WorldGraphLensProjectionProvider({
       lastProjectionLoadOutcome: stored.lastProjectionLoadOutcome,
     };
   }, [
+    active,
+    demandScope,
     desiredRequest,
     desiredRequestKey,
     focusValidationPending,
@@ -445,7 +536,7 @@ export function WorldGraphLensProjectionProvider({
     createElement(
       WorldGraphLensInformationChannelContext.Provider,
       { value: informationChannel },
-      children,
+      createElement(ProjectionDemandContext.Provider, { value: demandOwner }, children),
     ),
   );
 }
