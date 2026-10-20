@@ -3,7 +3,14 @@ import type { BuildComposeBridge } from "../buildSurface/buildComposeBridge";
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { WorldAgentConversationHistoryResponse } from "../api/types";
-import { WorldPlanAgentConversation, type WorldPlanAgentConversationProps } from "../planSurface/components/WorldPlanAgentConversation";
+import type { WorldPlanAgentConversationProps } from "../planSurface/components/WorldPlanAgentConversation";
+import { deferredComponent } from "../ui/deferredComponent";
+import { useWorldConversationActivation } from "./worldConversationActivation";
+
+const WorldPlanAgentConversation = deferredComponent(
+  () => import("../planSurface/components/WorldPlanAgentConversation").then(module => ({ default: module.WorldPlanAgentConversation })),
+  "World conversation",
+);
 import "./WorldAgentConversation.css";
 
 export interface AdmittedWorldPlayConversationContext {
@@ -130,15 +137,29 @@ export function usePublishPlaySceneEditBridge(bridge: PlaySceneEditBridge): void
 }
 
 /** One persistent conversation controller; route adapters supply current context and portal hosts. */
+type WorldConversationSurface = "plan" | "play" | "build" | "other";
+
 export function WorldAgentConversation({ surface, worldId, worldName }: {
-  surface: "plan" | "play" | "build" | "other";
+  surface: WorldConversationSurface;
   worldId: string | null;
   worldName?: string;
 }) {
   const registry = useContext(Registry);
+  if (!worldId || !registry || registry.worldId !== worldId) return null;
+  return <ScopedWorldConversation key={worldId} surface={surface} worldId={worldId}
+    worldName={worldName} registry={registry} />;
+}
+
+function ScopedWorldConversation({ surface, worldId, worldName, registry }: {
+  surface: WorldConversationSurface;
+  worldId: string;
+  worldName?: string;
+  registry: WorldConversationRegistry;
+}) {
+  const activated = useWorldConversationActivation(worldId, surface !== "other");
   const lastPlan = useRef<WorldPlanAgentConversationProps | null>(null);
   if (registry?.plan?.value.worldId === worldId) lastPlan.current = registry.plan.value;
-  if (!worldId || !registry || registry.worldId !== worldId) return null;
+  if (!activated) return null;
   // Unmount the transport/recovery controller, not just its composer. Late
   // history and in-flight replies cannot reactivate a session-copy transport.
   if (surface === "play" && registry.play?.unavailableReason) {
