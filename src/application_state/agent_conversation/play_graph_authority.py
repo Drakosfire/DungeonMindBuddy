@@ -11,7 +11,13 @@ from typing import Annotated, Literal
 from pydantic import ConfigDict, Field, model_validator
 
 from .types import (PlayContentBasis, PlayRunTurnContextReceiptV2,
-                    SubmittedPrimaryWorkIntentV1, SubmittedTurnIntentV1)
+                    SubmittedPrimaryWorkIntentV1, SubmittedTurnIntentV1,
+                    SettledGraphExecutionPolicyV3, ValidatedGraphOperationEventV3,
+                    ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1,
+                    CompletionBindingEventV1, SourceScopeExtensionEventV3,
+                    SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
+                    RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+                    RelatedRecapContextProviderInclusionEventV2, validate_graph_execution_record)
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 
 MarkerBeat = Annotated[str, Field(pattern=r"^beat:[a-z0-9][a-z0-9._-]{0,127}$")]
@@ -179,3 +185,49 @@ def validate_play_source_owner_join(frame: PlaySourceFrameV1, basis: PlayRunTurn
         text = basis.scene_note if source.source_kind == "scene_note" else owner_resolved_current_moment_text
         if text is None or source.text != text:
             raise ValueError("Play source body was not supplied by its independent source owner")
+
+
+class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
+    """Finite native Play budgets; no Build controller/writer capabilities."""
+    policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
+    max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
+    max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
+    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)]
+    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)]
+
+    @model_validator(mode="after")
+    def world_only(self):
+        if self.source_read_scope.campaign_id is not None:
+            raise ValueError("Native Play source scope must be World-only")
+        return self
+
+
+PlayGraphExecutionEventV1 = Annotated[
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    | ProviderOutcomeEventV1 | CompletionBindingEventV1
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+    | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2,
+    Field(discriminator="kind"),
+]
+
+
+def play_graph_execution_policy_digest(context_receipt_sha256: str, policy: NativePlayGraphPolicyV1) -> str:
+    checked = NativePlayGraphPolicyV1.model_validate_json(policy.model_dump_json(by_alias=True))
+    return canonical_sha256({"schema": "dmb_play_world_graph_execution_v1",
+        "context_receipt_sha256": context_receipt_sha256,
+        "policy": checked.model_dump(mode="json", by_alias=True)})
+
+
+class PlayWorldGraphExecutionV1(ClosedRulesModel):
+    """Standalone pure Play ledger, not registered with durable codecs yet."""
+    schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    policy: NativePlayGraphPolicyV1
+    events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
+
+    @model_validator(mode="after")
+    def exact_execution(self):
+        validate_graph_execution_record(self, dynamic_source_scope=True)
+        return self

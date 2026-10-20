@@ -159,3 +159,172 @@ def test_combined_frame_utf8_budget_is_independent_of_individual_payload_budgets
     assert len(canonical_bytes(moment)) < 49152 and len(canonical_bytes(note)) < 49152
     with pytest.raises(ValueError, match="frame exceeds"):
         play_source_frame((moment, note))
+
+
+# Pure ledger tests reuse the existing source accounting fixtures so that the
+# new wire identity exercises the same source/provider invariants as Plan.
+def native_execution(**policy_changes):
+    from tests.test_settled_source_read_accounting import fixture_execution
+    from application_state.agent_conversation.play_graph_authority import (
+        NativePlayGraphPolicyV1, PlayWorldGraphExecutionV1, play_graph_execution_policy_digest)
+    original = fixture_execution()
+    values = original.policy.model_dump(mode="json", by_alias=True)
+    values.update(dict(policy_version="play_world_graph_execution_v1", max_provider_attempts=4,
+        max_graph_operations=32, max_total_provider_input_tokens=4096,
+        max_total_provider_output_tokens=1024) | policy_changes)
+    policy = NativePlayGraphPolicyV1.model_validate_json(json.dumps(values))
+    return PlayWorldGraphExecutionV1(context_receipt_sha256=original.context_receipt_sha256,
+        execution_policy_sha256=play_graph_execution_policy_digest(original.context_receipt_sha256, policy),
+        policy=policy, events=[])
+
+
+def native_events(execution, events):
+    return type(execution).model_validate_json(json.dumps(execution.model_dump(mode="json", by_alias=True)
+        | {"events": [event.model_dump(mode="json", by_alias=True) for event in events]}))
+
+
+def native_provider(sequence=0, **changes):
+    from uuid import uuid4
+    from application_state.agent_conversation.types import ProviderAttemptAuthorizedEventV3
+    return ProviderAttemptAuthorizedEventV3(event_id=uuid4(), sequence=sequence,
+        kind="provider_attempt_authorized_v3", provider_attempt_id=uuid4(),
+        envelope_sha256="c" * 64, serializer_version="canonical-json-utf8-v1",
+        provider="synthetic", model="synthetic", api_mode="synthetic", tool_schema_sha256="d" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic", input_tokens=12,
+        output_token_reserve=10, included_assertion_ids=[], included_relationship_ids=[],
+        included_evidence_ref_ids=[], included_graph_event_ids=[], included_source_read_event_ids=[],
+        **changes)
+
+
+def test_native_play_ledger_is_not_a_plan_subtype_and_uses_its_own_policy_digest():
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV2, graph_execution_policy_digest_v3
+    execution = native_execution()
+    assert not isinstance(execution, PlanWorldGraphExecutionV2)
+    encoded = execution.model_dump_json(by_alias=True)
+    assert type(execution).model_validate_json(encoded).model_dump_json(by_alias=True) == encoded
+    assert execution.execution_policy_sha256 != graph_execution_policy_digest_v3(execution.context_receipt_sha256, execution.policy)
+    wire = execution.model_dump(mode="json", by_alias=True)
+    wire["schema"] = "dmb_agent_plan_world_graph_execution_v3"
+    with pytest.raises(ValueError):
+        type(execution).model_validate_json(json.dumps(wire))
+
+
+@pytest.mark.parametrize("field", ["max_provider_attempts", "max_graph_operations", "max_total_provider_input_tokens", "max_total_provider_output_tokens"])
+def test_native_play_cannot_inherit_uncapped_policy(field):
+    with pytest.raises(ValueError):
+        native_execution(**{field: None})
+
+
+def test_native_play_source_receipt_settles_but_cannot_overbook():
+    from tests.test_settled_source_read_accounting import authorization, receipt
+    execution = native_execution()
+    first = authorization(execution)
+    done = receipt(first)
+    next_read = authorization(execution, 2, count=1)
+    assert len(native_events(execution, [first, done, next_read]).events) == 3
+    with pytest.raises(ValueError, match="character budget"):
+        native_events(execution, [first, authorization(execution, 1, count=1)])
+
+
+@pytest.mark.parametrize("change", ["sequence", "world", "revision", "session", "scope_hash", "policy_hash", "pin", "characters", "duplicate_call", "missing_authorization", "receipt_pin", "duplicate_receipt"])
+def test_native_play_enforces_shared_source_ledger_invariants(change):
+    from uuid import uuid4
+    from tests.test_settled_source_read_accounting import authorization, receipt
+    execution = native_execution()
+    auth = authorization(execution, count=1)
+    done = receipt(auth)
+    fields = {"sequence": ("sequence", 1), "world": ("world_id", "other"),
+        "revision": ("graph_revision", "other"), "session": ("retrieval_session_id", "other"),
+        "scope_hash": ("context_receipt_sha256", "f" * 64), "policy_hash": ("execution_policy_sha256", "f" * 64),
+        "characters": ("max_chars", 12001)}
+    events = [auth, done]
+    if change in fields:
+        field, value = fields[change]
+        events[0] = auth.model_copy(update={field: value})
+    if change == "pin":
+        events[0] = auth.model_copy(update={"anchors": [auth.anchors[0].model_copy(update={"source_revision_id": "forged"})]})
+    if change == "duplicate_call":
+        events = [auth, auth.model_copy(update={"sequence": 1, "event_id": uuid4()})]
+    if change == "missing_authorization": events = [done.model_copy(update={"sequence": 0})]
+    if change == "receipt_pin":
+        events[1] = done.model_copy(update={"receipts": [done.receipts[0].model_copy(update={"source_revision_id": "other"})]})
+    if change == "duplicate_receipt":
+        events.append(done.model_copy(update={"sequence": 2, "event_id": uuid4()}))
+    with pytest.raises(ValueError):
+        native_events(execution, events)
+
+
+def test_native_play_provider_observation_and_completion_state_machine_remains_required():
+    from uuid import uuid4
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1, CompletionBindingEventV1
+    from tests.test_settled_source_read_accounting import authorization
+    execution = native_execution()
+    auth = native_provider()
+    def outcome(sequence, value):
+        return ProviderOutcomeEventV1(event_id=uuid4(), sequence=sequence, kind="provider_outcome",
+            provider_attempt_id=auth.provider_attempt_id, outcome=value)
+    complete = CompletionBindingEventV1(event_id=uuid4(), sequence=3, kind="completion_binding",
+        provider_attempt_id=auth.provider_attempt_id, completion_sha256="e" * 64, claim_graph_event_ids={})
+    assert len(native_events(execution, [auth, outcome(1,"sdk_entered"), outcome(2,"response_received"), complete]).events) == 4
+    with pytest.raises(ValueError): native_events(execution, [auth, outcome(1,"response_received")])
+    with pytest.raises(ValueError): native_events(execution, [auth, complete.model_copy(update={"sequence": 1})])
+    with pytest.raises(ValueError): native_events(execution, [auth, outcome(1,"outcome_unknown"), authorization(execution, 2, count=1)])
+    with pytest.raises(ValueError): native_events(execution, [auth, native_provider(1)])
+
+
+def test_native_play_budget_and_build_event_capabilities_are_closed():
+    from uuid import uuid4
+    execution = native_execution(max_total_provider_input_tokens=1)
+    with pytest.raises(ValueError, match="token budget"):
+        native_events(execution, [native_provider()])
+    wire = native_execution().model_dump(mode="json", by_alias=True)
+    wire["events"] = [dict(kind="build_jev_action_selection_v1", event_id=str(uuid4()), sequence=0)]
+    with pytest.raises(ValueError): type(execution).model_validate_json(json.dumps(wire))
+    wire["events"] = []
+    wire["policy"]["provider_roles"] = {"controller": {}, "writer": {}}
+    with pytest.raises(ValueError): type(execution).model_validate_json(json.dumps(wire))
+
+
+@pytest.mark.parametrize("change", [None, "origin", "pins", "world", "revision", "session", "policy_hash", "rebind"])
+def test_native_play_dynamic_extensions_require_their_exact_prior_graph_origin(change):
+    from uuid import uuid4
+    from application_state.agent_conversation.types import (
+        GraphSourceScopeAnchorV2, ValidatedGraphOperationEventV3, SourceScopeExtensionEventV3)
+    execution = native_execution()
+    scope = execution.policy.source_read_scope
+    pin = GraphSourceScopeAnchorV2(anchor_id="new-anchor", evidence_ref_id="new-evidence",
+        source_artifact_id="artifact-two", source_revision_id="source-two")
+    if change == "rebind": pin = scope.admitted_anchors[0].model_copy(update={"source_revision_id": "forged"})
+    origin = ValidatedGraphOperationEventV3(event_id=uuid4(), sequence=0,
+        kind="validated_graph_operation_v3", operation_id=uuid4(), operation="expand_graph_retrieval",
+        request_arguments_sha256="a" * 64, graph_revision=scope.graph_revision,
+        result_packet_sha256="b" * 64, assertion_ids=[], relationship_ids=[],
+        evidence_ref_ids=[pin.evidence_ref_id], evidence_sufficiency_status="sufficient",
+        coverage_status="complete", truncated=False, source_opened=False, returned_source_pins=[pin])
+    extension = SourceScopeExtensionEventV3(event_id=uuid4(), sequence=1,
+        kind="source_scope_extension_v3", origin_graph_event_id=origin.event_id,
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, world_id=scope.world_id,
+        native_world_id="native-world", binding_version=1, campaign_id=None,
+        graph_revision=scope.graph_revision, retrieval_session_id=scope.retrieval_session_id, pins=[pin])
+    fields = {"origin": ("origin_graph_event_id", uuid4()), "world": ("world_id", "other"),
+        "revision": ("graph_revision", "other"), "session": ("retrieval_session_id", "other"),
+        "policy_hash": ("execution_policy_sha256", "f" * 64),
+        "pins": ("pins", [pin.model_copy(update={"source_revision_id": "forged"})])}
+    if change in fields:
+        field, value = fields[change]
+        extension = extension.model_copy(update={field: value})
+    if change is None:
+        assert len(native_events(execution, [origin, extension]).events) == 2
+    else:
+        with pytest.raises(ValueError): native_events(execution, [origin, extension])
+
+
+@pytest.mark.parametrize("change", ["campaign", "count", "accounting"])
+def test_native_play_policy_cannot_change_scope_or_budget_mode(change):
+    from application_state.agent_conversation.play_graph_authority import NativePlayGraphPolicyV1
+    wire = native_execution().policy.model_dump(mode="json", by_alias=True)
+    if change == "campaign": wire["source_read_scope"]["campaign_id"] = "foreign-campaign"
+    if change == "count": wire["max_provider_attempts"] = 65
+    if change == "accounting": wire["source_read_accounting"] = "reservation_only"
+    with pytest.raises(ValueError): NativePlayGraphPolicyV1.model_validate_json(json.dumps(wire))

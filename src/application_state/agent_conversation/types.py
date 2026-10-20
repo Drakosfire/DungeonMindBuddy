@@ -14,7 +14,7 @@ import json
 from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Literal, NoReturn
+from typing import Annotated, ClassVar, Literal, NoReturn
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -2738,7 +2738,194 @@ def source_read_character_usage(
     return usage
 
 
+def validate_graph_execution_record(execution, *, dynamic_source_scope: bool) -> None:
+    """Shared ledger invariants; dynamic source admission is an explicit capability.
+
+    This validates structure and accounting, not Turn ownership or provider input.
+    Wire types independently close allowed policy and event variants.
+    """
+    expected_policy_digest = _canonical_sha256({
+        "schema": execution.schema_,
+        "context_receipt_sha256": execution.context_receipt_sha256,
+        "policy": execution.policy.model_dump(mode="json", by_alias=True),
+    })
+    if execution.execution_policy_sha256 != expected_policy_digest:
+        raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
+    if [event.sequence for event in execution.events] != list(range(len(execution.events))):
+        raise ValueError("Graph execution events must have contiguous sequence numbers")
+    if len({event.event_id for event in execution.events}) != len(execution.events):
+        raise ValueError("Graph execution event IDs must be unique")
+    scope = execution.policy.source_read_scope
+    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+    origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
+    auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
+    receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
+    receipts_by_call: set[UUID] = set()
+    all_read_ids: set[str] = set()
+    authorized_anchors = 0
+    latest_attempt_id: UUID | None = None
+    latest_outcome: str | None = None
+    for event in execution.events:
+        if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
+            raise ValueError("source reads cannot continue after an unknown provider outcome")
+        if isinstance(event, CompletionBindingEventV1) and event.sequence != len(execution.events) - 1:
+            raise ValueError("completion binding must be the final V2 execution event")
+        if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
+            latest_attempt_id = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
+            latest_outcome = event.outcome
+        if isinstance(event, ValidatedGraphOperationEventV3):
+            if event.graph_revision != scope.graph_revision:
+                raise ValueError("source origin uses a different Graph revision")
+            origins[event.event_id] = event
+        elif isinstance(event, SourceScopeExtensionEventV3):
+            origin = origins.get(event.origin_graph_event_id)
+            if origin is None or origin.sequence >= event.sequence or event.pins != origin.returned_source_pins:
+                raise ValueError("source extension requires exact pins from an earlier validated origin")
+            if (event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+                or event.world_id != scope.world_id or event.campaign_id != scope.campaign_id
+                or event.graph_revision != scope.graph_revision
+                or event.retrieval_session_id != scope.retrieval_session_id):
+                raise ValueError("source extension differs from the frozen scope")
+            for pin in event.pins:
+                if pin.anchor_id in scope_by_anchor and scope_by_anchor[pin.anchor_id] != pin:
+                    raise ValueError("source extension cannot rebind an admitted anchor")
+                scope_by_anchor[pin.anchor_id] = pin
+        if isinstance(event, SourceReadAuthorizationEventV2):
+            if event.read_call_id in auths:
+                raise ValueError("source-read call ID was authorized more than once")
+            if (
+                event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+                or event.retrieval_session_id != scope.retrieval_session_id
+                or event.world_id != scope.world_id
+                or event.campaign_id != scope.campaign_id
+                or event.graph_revision != scope.graph_revision
+            ):
+                raise ValueError("source-read authorization differs from the frozen source scope")
+            anchor_ids = [anchor.anchor_id for anchor in event.anchors]
+            if len(anchor_ids) != len(set(anchor_ids)):
+                raise ValueError("source-read authorization anchor IDs must be unique")
+            if any(scope_by_anchor.get(anchor.anchor_id) != anchor for anchor in event.anchors):
+                raise ValueError("source-read authorization contains an unadmitted or changed anchor")
+            if event.max_chars > execution.policy.max_chars_per_source_read:
+                raise ValueError("source-read per-call character limit exceeded")
+            auths[event.read_call_id] = event
+            authorized_anchors += len(event.anchors)
+        elif isinstance(event, ValidatedSourceReadEventV2):
+            auth = auths.get(event.read_call_id)
+            if auth is None or event.sequence <= auth.sequence:
+                raise ValueError("validated source read requires an earlier authorization")
+            if event.read_call_id in receipts_by_call:
+                raise ValueError("source-read authorization already has a receipt")
+            if len(event.receipts) != len(auth.anchors):
+                raise ValueError("source-read receipt count must match its authorization")
+            for expected, result in zip(auth.anchors, event.receipts, strict=True):
+                if (
+                    result.anchor_id != expected.anchor_id
+                    or result.evidence_ref_id != expected.evidence_ref_id
+                    or result.source_artifact_id != expected.source_artifact_id
+                ):
+                    raise ValueError("source-read receipt pins differ from the authorized anchor")
+                if result.source_revision_id is not None and result.source_revision_id != expected.source_revision_id:
+                    raise ValueError("source-read receipt source revision differs from the admitted revision")
+                if result.returned_chars > auth.max_chars:
+                    raise ValueError("source-read returned characters exceed the authorization")
+                if result.source_read_id in all_read_ids:
+                    raise ValueError("source-read ID must be unique within the turn")
+                all_read_ids.add(result.source_read_id)
+            receipts_by_event[event.event_id] = event
+            receipts_by_call.add(event.read_call_id)
+        elif isinstance(event, ProviderAttemptAuthorizedEventV2):
+            if any(event_id not in receipts_by_event for event_id in event.included_source_read_event_ids):
+                raise ValueError("provider envelope references an unknown or later source-read receipt")
+    if not dynamic_source_scope and len(auths) > execution.policy.max_source_read_calls:
+        raise ValueError("source-read call budget exceeded")
+    if not dynamic_source_scope and authorized_anchors > execution.policy.max_source_read_anchors:
+        raise ValueError("source-read anchor budget exceeded")
+    source_read_character_usage(execution.policy, execution.events)
+
+    _validate_related_recap_context_events(execution)
+
+    # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
+    legacy_events: list[dict[str, object]] = []
+    provider_index = 0
+    for event in execution.events:
+        if isinstance(
+            event,
+            (
+                SourceScopeExtensionEventV3,
+                SourceReadAuthorizationEventV2,
+                ValidatedSourceReadEventV2,
+                RelatedRecapContextAuthorizationEventV2,
+                ValidatedRelatedRecapContextEventV2,
+                RelatedRecapContextProviderInclusionEventV2,
+                BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+                BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
+                BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1,
+            ),
+        ):
+            continue
+        payload = event.model_dump(mode="json", by_alias=True)
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if isinstance(execution.policy, BuildEstimatedActionControllerWriterPolicyV1):
+                role = (event.provider, event.model, event.api_mode)
+                controller = execution.policy.provider_roles.controller.identity()
+                writer = execution.policy.provider_roles.writer.identity()
+                if role not in {controller, writer} or (provider_index == 0 and role != controller):
+                    raise ValueError("provider accounting role differs from frozen policy")
+                if isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
+                    writer_budget = execution.policy.writer_context_budget
+                    if (event.output_token_reserve != writer_budget.output_reserve_tokens
+                            or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
+                        raise ValueError("writer envelope exceeds its frozen role budget")
+                estimated = role == controller and (provider_index > 0
+                    or isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
+                descriptor = execution.policy.controller_continuation_accounting
+                expected_kind = "estimated_token_count" if estimated else execution.policy.provider_input_accounting.kind
+                expected_estimator = descriptor.policy if estimated else execution.policy.provider_input_accounting.estimator
+                if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
+                    raise ValueError("provider attempt accounting differs from accepted role policy")
+                if estimated and event.input_tokens > descriptor.request_limit_tokens:
+                    raise ValueError("controller request estimate exceeds frozen policy")
+                # Structural validator projection only; original event remains
+                # explicitly estimated in the stored ledger and its hashes.
+                payload["input_accounting_kind"] = execution.policy.provider_input_accounting.kind
+                payload["input_estimator"] = execution.policy.provider_input_accounting.estimator
+            provider_index += 1
+        if isinstance(event, ProviderAttemptAuthorizedEventV2):
+            payload["kind"] = "provider_attempt_authorized"
+            payload.pop("included_source_read_event_ids", None)
+        if isinstance(event, ValidatedGraphOperationEventV3):
+            payload["kind"] = "validated_graph_operation"
+            payload.pop("returned_source_pins", None)
+        payload["sequence"] = len(legacy_events)
+        legacy_events.append(payload)
+    legacy_policy = {
+        key: value for key, value in execution.policy.model_dump(mode="json", by_alias=True).items()
+        if key in {
+            "policy_version", "allowed_graph_operations", "max_provider_attempts",
+            "max_graph_operations", "max_results_per_operation",
+            "max_total_provider_input_tokens", "max_total_provider_output_tokens",
+            "provider_input_accounting", "source_opened",
+        }
+    }
+    PlanWorldGraphExecutionV1.model_validate({
+        "schema": "dmb_agent_plan_world_graph_execution_v1",
+        "context_receipt_sha256": execution.context_receipt_sha256,
+        "policy": legacy_policy,
+        "events": legacy_events,
+    })
+    if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+        raise ValueError("Graph execution record exceeds the storage size limit")
+    if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
+        raise ValueError("Graph execution record exceeds the storage size limit")
+
+
 class PlanWorldGraphExecutionV2(StrictModel):
+    _dynamic_source_scope: ClassVar[bool] = False
     schema_: Literal["dmb_agent_plan_world_graph_execution_v2"] = Field(
         default="dmb_agent_plan_world_graph_execution_v2", alias="schema"
     )
@@ -2749,185 +2936,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution(self) -> PlanWorldGraphExecutionV2:
-        expected_policy_digest = _canonical_sha256({
-            "schema": self.schema_,
-            "context_receipt_sha256": self.context_receipt_sha256,
-            "policy": self.policy.model_dump(mode="json", by_alias=True),
-        })
-        if self.execution_policy_sha256 != expected_policy_digest:
-            raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
-        if [event.sequence for event in self.events] != list(range(len(self.events))):
-            raise ValueError("Graph execution events must have contiguous sequence numbers")
-        if len({event.event_id for event in self.events}) != len(self.events):
-            raise ValueError("Graph execution event IDs must be unique")
-        scope = self.policy.source_read_scope
-        scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
-        dynamic = self.schema_ == "dmb_agent_plan_world_graph_execution_v3"
-        origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
-        auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
-        receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
-        receipts_by_call: set[UUID] = set()
-        all_read_ids: set[str] = set()
-        authorized_anchors = 0
-        latest_attempt_id: UUID | None = None
-        latest_outcome: str | None = None
-        for event in self.events:
-            if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
-                raise ValueError("source reads cannot continue after an unknown provider outcome")
-            if isinstance(event, CompletionBindingEventV1) and event.sequence != len(self.events) - 1:
-                raise ValueError("completion binding must be the final V2 execution event")
-            if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
-                latest_attempt_id = event.provider_attempt_id
-                latest_outcome = None
-            elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
-                latest_outcome = event.outcome
-            if isinstance(event, ValidatedGraphOperationEventV3):
-                if event.graph_revision != scope.graph_revision:
-                    raise ValueError("source origin uses a different Graph revision")
-                origins[event.event_id] = event
-            elif isinstance(event, SourceScopeExtensionEventV3):
-                origin = origins.get(event.origin_graph_event_id)
-                if origin is None or origin.sequence >= event.sequence or event.pins != origin.returned_source_pins:
-                    raise ValueError("source extension requires exact pins from an earlier validated origin")
-                if (event.context_receipt_sha256 != self.context_receipt_sha256
-                    or event.execution_policy_sha256 != self.execution_policy_sha256
-                    or event.world_id != scope.world_id or event.campaign_id != scope.campaign_id
-                    or event.graph_revision != scope.graph_revision
-                    or event.retrieval_session_id != scope.retrieval_session_id):
-                    raise ValueError("source extension differs from the frozen scope")
-                for pin in event.pins:
-                    if pin.anchor_id in scope_by_anchor and scope_by_anchor[pin.anchor_id] != pin:
-                        raise ValueError("source extension cannot rebind an admitted anchor")
-                    scope_by_anchor[pin.anchor_id] = pin
-            if isinstance(event, SourceReadAuthorizationEventV2):
-                if event.read_call_id in auths:
-                    raise ValueError("source-read call ID was authorized more than once")
-                if (
-                    event.context_receipt_sha256 != self.context_receipt_sha256
-                    or event.execution_policy_sha256 != self.execution_policy_sha256
-                    or event.retrieval_session_id != scope.retrieval_session_id
-                    or event.world_id != scope.world_id
-                    or event.campaign_id != scope.campaign_id
-                    or event.graph_revision != scope.graph_revision
-                ):
-                    raise ValueError("source-read authorization differs from the frozen source scope")
-                anchor_ids = [anchor.anchor_id for anchor in event.anchors]
-                if len(anchor_ids) != len(set(anchor_ids)):
-                    raise ValueError("source-read authorization anchor IDs must be unique")
-                if any(scope_by_anchor.get(anchor.anchor_id) != anchor for anchor in event.anchors):
-                    raise ValueError("source-read authorization contains an unadmitted or changed anchor")
-                if event.max_chars > self.policy.max_chars_per_source_read:
-                    raise ValueError("source-read per-call character limit exceeded")
-                auths[event.read_call_id] = event
-                authorized_anchors += len(event.anchors)
-            elif isinstance(event, ValidatedSourceReadEventV2):
-                auth = auths.get(event.read_call_id)
-                if auth is None or event.sequence <= auth.sequence:
-                    raise ValueError("validated source read requires an earlier authorization")
-                if event.read_call_id in receipts_by_call:
-                    raise ValueError("source-read authorization already has a receipt")
-                if len(event.receipts) != len(auth.anchors):
-                    raise ValueError("source-read receipt count must match its authorization")
-                for expected, result in zip(auth.anchors, event.receipts, strict=True):
-                    if (
-                        result.anchor_id != expected.anchor_id
-                        or result.evidence_ref_id != expected.evidence_ref_id
-                        or result.source_artifact_id != expected.source_artifact_id
-                    ):
-                        raise ValueError("source-read receipt pins differ from the authorized anchor")
-                    if result.source_revision_id is not None and result.source_revision_id != expected.source_revision_id:
-                        raise ValueError("source-read receipt source revision differs from the admitted revision")
-                    if result.returned_chars > auth.max_chars:
-                        raise ValueError("source-read returned characters exceed the authorization")
-                    if result.source_read_id in all_read_ids:
-                        raise ValueError("source-read ID must be unique within the turn")
-                    all_read_ids.add(result.source_read_id)
-                receipts_by_event[event.event_id] = event
-                receipts_by_call.add(event.read_call_id)
-            elif isinstance(event, ProviderAttemptAuthorizedEventV2):
-                if any(event_id not in receipts_by_event for event_id in event.included_source_read_event_ids):
-                    raise ValueError("provider envelope references an unknown or later source-read receipt")
-        if not dynamic and len(auths) > self.policy.max_source_read_calls:
-            raise ValueError("source-read call budget exceeded")
-        if not dynamic and authorized_anchors > self.policy.max_source_read_anchors:
-            raise ValueError("source-read anchor budget exceeded")
-        source_read_character_usage(self.policy, self.events)
-
-        _validate_related_recap_context_events(self)
-
-        # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
-        legacy_events: list[dict[str, object]] = []
-        provider_index = 0
-        for event in self.events:
-            if isinstance(
-                event,
-                (
-                    SourceScopeExtensionEventV3,
-                    SourceReadAuthorizationEventV2,
-                    ValidatedSourceReadEventV2,
-                    RelatedRecapContextAuthorizationEventV2,
-                    ValidatedRelatedRecapContextEventV2,
-                    RelatedRecapContextProviderInclusionEventV2,
-                    BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
-                    BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                    BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1,
-                ),
-            ):
-                continue
-            payload = event.model_dump(mode="json", by_alias=True)
-            if isinstance(event, ProviderAttemptAuthorizedEventV1):
-                if isinstance(self.policy, BuildEstimatedActionControllerWriterPolicyV1):
-                    role = (event.provider, event.model, event.api_mode)
-                    controller = self.policy.provider_roles.controller.identity()
-                    writer = self.policy.provider_roles.writer.identity()
-                    if role not in {controller, writer} or (provider_index == 0 and role != controller):
-                        raise ValueError("provider accounting role differs from frozen policy")
-                    if isinstance(self.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
-                        writer_budget = self.policy.writer_context_budget
-                        if (event.output_token_reserve != writer_budget.output_reserve_tokens
-                                or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
-                            raise ValueError("writer envelope exceeds its frozen role budget")
-                    estimated = role == controller and (provider_index > 0
-                        or isinstance(self.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
-                    descriptor = self.policy.controller_continuation_accounting
-                    expected_kind = "estimated_token_count" if estimated else self.policy.provider_input_accounting.kind
-                    expected_estimator = descriptor.policy if estimated else self.policy.provider_input_accounting.estimator
-                    if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
-                        raise ValueError("provider attempt accounting differs from accepted role policy")
-                    if estimated and event.input_tokens > descriptor.request_limit_tokens:
-                        raise ValueError("controller request estimate exceeds frozen policy")
-                    # Structural validator projection only; original event remains
-                    # explicitly estimated in the stored ledger and its hashes.
-                    payload["input_accounting_kind"] = self.policy.provider_input_accounting.kind
-                    payload["input_estimator"] = self.policy.provider_input_accounting.estimator
-                provider_index += 1
-            if isinstance(event, ProviderAttemptAuthorizedEventV2):
-                payload["kind"] = "provider_attempt_authorized"
-                payload.pop("included_source_read_event_ids", None)
-            if isinstance(event, ValidatedGraphOperationEventV3):
-                payload["kind"] = "validated_graph_operation"
-                payload.pop("returned_source_pins", None)
-            payload["sequence"] = len(legacy_events)
-            legacy_events.append(payload)
-        legacy_policy = {
-            key: value for key, value in self.policy.model_dump(mode="json", by_alias=True).items()
-            if key in {
-                "policy_version", "allowed_graph_operations", "max_provider_attempts",
-                "max_graph_operations", "max_results_per_operation",
-                "max_total_provider_input_tokens", "max_total_provider_output_tokens",
-                "provider_input_accounting", "source_opened",
-            }
-        }
-        PlanWorldGraphExecutionV1.model_validate({
-            "schema": "dmb_agent_plan_world_graph_execution_v1",
-            "context_receipt_sha256": self.context_receipt_sha256,
-            "policy": legacy_policy,
-            "events": legacy_events,
-        })
-        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
-            raise ValueError("Graph execution record exceeds the storage size limit")
-        if dynamic and len(json.dumps(self.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
-            raise ValueError("Graph execution record exceeds the storage size limit")
+        validate_graph_execution_record(self, dynamic_source_scope=self._dynamic_source_scope)
         return self
 
 
@@ -3063,6 +3072,7 @@ GraphExecutionEventV3 = Annotated[
 
 
 class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
+    _dynamic_source_scope: ClassVar[bool] = True
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
