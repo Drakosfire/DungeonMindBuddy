@@ -1615,6 +1615,18 @@ class _PolicyExecutionAdapter:
             raise ValueError("Rules capability is already frozen")
         self.rules_runtime = RulesBuildRuntime(self, capability)
 
+    def enable_native_rules_lookup(self, capability):
+        """Install the closed Plan/Play Rules owner before provider preparation."""
+        from .native_rules_runtime import NativeRulesRuntime
+        if self.rules_runtime is not None:
+            raise ValueError("Rules capability is already frozen")
+        self.rules_runtime = NativeRulesRuntime(self, capability)
+
+    def capture_native_provider_reply(self, reply: Any) -> bool:
+        runtime = self.rules_runtime
+        capture = getattr(runtime, "capture_reply", None)
+        return bool(callable(capture) and capture(reply))
+
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
         from .graph_tool_transport import GraphToolPageCache, TransportScope
@@ -2632,6 +2644,15 @@ class _PolicyExecutionAdapter:
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
+        if message.get("toolName") == "lookup_rules":
+            lookup = getattr(self.rules_runtime, "lookup", None)
+            if not callable(lookup):
+                return self._denied_tool_result(
+                    "lookup_rules", "rules_lookup_not_enabled", 403,
+                    "Rules lookup is not available for this turn.",
+                    arguments=message.get("arguments"),
+                )
+            return lookup(message)
         if message.get("toolName") == "observe_context_compaction":
             if (self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
@@ -6472,6 +6493,26 @@ def execute_agent_turn(
                 assembly.invocation, plan_continuity_turn=plan_continuity,
                 graph_read_profile=("governed_build" if _governed_build_turn(request) else "world_graph"),
             )
+            native_rules_enabled = (
+                not _governed_build_turn(request)
+                and request.surface.surface_id in {"plan", "play"}
+            )
+            if native_rules_enabled:
+                from application_state.agent_conversation.rules_authority_policy import rules_capability
+
+                rules_capability_v1 = rules_capability(graph=True)
+                invocation = replace(
+                    invocation,
+                    context_packet=replace(
+                        invocation.context_packet,
+                        rules_capability=rules_capability_v1,
+                    ),
+                    capability_policy=replace(
+                        invocation.capability_policy,
+                        policy_id=rules_capability_v1.policy_id,
+                    ),
+                )
+                adapter.enable_native_rules_lookup(rules_capability_v1)
             if request.build_write_capability is not None:
                 from .build_insertion_tool import BuildInsertionTool, TOOL_NAME
                 from .build_document_proposal import _source
@@ -6527,6 +6568,9 @@ def execute_agent_turn(
                 "on_graph_operation": broker_operation,
                 "on_provider_lifecycle": adapter.record_lifecycle,
             }
+            if native_rules_enabled:
+                run_options["native_rules_capture_required"] = True
+                run_options["on_native_provider_reply"] = adapter.capture_native_provider_reply
             if policy_bootstrap.source_scope_anchors:
                 run_options["source_read_enabled"] = True
             if adapter.context_read_enabled:
@@ -6673,25 +6717,46 @@ def execute_agent_turn(
                         producing_provider_attempt_id=adapter.producing_provider_attempt_id)
                 except (ApplicationStateError, psycopg.OperationalError) as exc:
                     capture_error = exc
-            completion, bindings, answer_text = _parse_policy_completion(
-                policy_result.final_text, policy_turn,
-                adapter.producing_provider_attempt_id,
-                build_evidence=adapter.build_claim_evidence.get(adapter.producing_provider_attempt_id),
+            native_rules_runtime = (
+                adapter.rules_runtime if native_rules_enabled else None
             )
+            try:
+                mixed_completed = (
+                    native_rules_runtime.complete(policy_turn, native_rules_runtime.last_reply)
+                    if native_rules_runtime is not None
+                    and native_rules_runtime.record is not None
+                    and native_rules_runtime.record.execution.budget_use.calls
+                    else None
+                )
+            except ValueError as exc:
+                raise AgentTurnServiceError(
+                    "Buddy could not verify the captured Rules-backed answer; no answer was accepted.",
+                    code="native_rules_completion_invalid", status_code=422,
+                ) from exc
             if capture_error is not None:
                 raise capture_error
-            if adapter.context_capture is not None:
-                adapter.context_capture.answer_context(answer_text)
-            completed_turn = conversation_service.complete_turn(TurnResult(
-                world_id=policy_turn.world_id,
-                conversation_id=policy_turn.conversation_id,
-                turn_id=policy_turn.turn_id,
-                expected_revision=policy_turn.revision,
-                assistant_text=answer_text,
-                completion=completion,
-                producing_provider_attempt_id=adapter.producing_provider_attempt_id,
-                claim_graph_event_ids=bindings,
-            ))
+            if mixed_completed is not None:
+                completed_turn = mixed_completed
+                if adapter.context_capture is not None:
+                    adapter.context_capture.answer_context(completed_turn.assistant_text)
+            else:
+                completion, bindings, answer_text = _parse_policy_completion(
+                    policy_result.final_text, policy_turn,
+                    adapter.producing_provider_attempt_id,
+                    build_evidence=adapter.build_claim_evidence.get(adapter.producing_provider_attempt_id),
+                )
+                if adapter.context_capture is not None:
+                    adapter.context_capture.answer_context(answer_text)
+                completed_turn = conversation_service.complete_turn(TurnResult(
+                    world_id=policy_turn.world_id,
+                    conversation_id=policy_turn.conversation_id,
+                    turn_id=policy_turn.turn_id,
+                    expected_revision=policy_turn.revision,
+                    assistant_text=answer_text,
+                    completion=completion,
+                    producing_provider_attempt_id=adapter.producing_provider_attempt_id,
+                    claim_graph_event_ids=bindings,
+                ))
         except AgentTurnServiceError as exc:
             trace.complete_phase(span_id, status="error")
             if isinstance(exc, _AnswerValidationFailure):
