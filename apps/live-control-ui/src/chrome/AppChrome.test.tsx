@@ -66,6 +66,15 @@ describe("AppChrome Ingest peek composition", () => {
     expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
     expect(screen.getByText("Build source")).toBeInTheDocument();
   });
+  it.each(["plan", "play", "build", "ingest"] as const)("keeps %s navigation outside its content width", (activeRoute) => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute={activeRoute}><main>Surface body</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const header = screen.getByTestId("app-chrome-header");
+    const wrap = document.querySelector(".app-wrap");
+    expect(header.parentElement).toHaveClass("app-shell-layout");
+    expect(wrap?.parentElement).toBe(header.parentElement);
+    expect(wrap).not.toContainElement(header);
+    expect(wrap).toContainElement(screen.getByText("Surface body"));
+  });
   afterEach(() => vi.unstubAllGlobals());
   it("keeps Nav outside the CENTER/PEEK workspace and collapses an empty Peek", () => {
     renderIngestChrome(false);

@@ -31,6 +31,11 @@
   box-sizing: border-box;
 }
 
+/* Keep viewport chrome steady when a surface gains or loses page scrolling. */
+html {
+  scrollbar-gutter: stable;
+}
+
 html,
 body,
 #root {
@@ -216,21 +221,6 @@ code {
     overflow-x: clip;
   }
 
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status {
-    flex: 1 1 100%;
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status .surface-context-popover {
-    justify-content: flex-start;
-    min-width: 0;
-  }
-
-  .app-wrap:has(.world-owned-plan) .app-world-graph-status__trigger {
-    max-width: 100%;
-  }
-
   .world-owned-plan {
     width: 100%;
     margin: 0.75rem auto;
@@ -262,9 +252,10 @@ code {
 }
 
 .app-wrap {
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: 6px 20px calc(var(--app-chrome-bottom) + 1rem);
+  padding: 0 20px calc(var(--app-chrome-bottom) + 1rem);
 }
 
 .app-wrap:has(.plan-surface-root) {
@@ -290,11 +281,14 @@ code {
   line-height: 1;
 }
 
+/* Shared viewport chrome is independent of each surface's reading width. */
 .app-chrome-header {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 6px 20px;
   position: sticky;
   top: 6px;
   z-index: 20;
-  margin-bottom: 6px;
   overflow: visible;
 }
 
@@ -425,10 +419,6 @@ code {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.app-wrap:has(.app-chrome-workspace > .app-peek-region:not([hidden])) > .app-chrome-header {
-  flex: 0 0 auto;
 }
 
 .app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
@@ -3184,7 +3174,6 @@ button:disabled {
 /* Opted-in Plan workspace: navigation owns its height, dock fills the remainder. */
 .app-shell-layout:has(> .app-wrap[data-workspace-layout="bounded"]) { display:flex; flex-direction:column; overflow:hidden; }
 .app-wrap[data-workspace-layout="bounded"] { flex:1; min-height:0; width:100%; display:flex; flex-direction:column; overflow:hidden; padding-bottom:0; }
-.app-wrap[data-workspace-layout="bounded"] > .app-chrome-header { flex:0 0 auto; }
 .app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace { flex:1; min-height:0; display:flex; align-items:stretch; overflow:hidden; }
 .app-wrap[data-workspace-layout="bounded"] .app-chrome-center { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
 

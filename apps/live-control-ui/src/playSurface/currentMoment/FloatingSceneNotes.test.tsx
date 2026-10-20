@@ -76,6 +76,20 @@ describe("FloatingSceneNotes", () => {
     expect(field).toHaveValue("Retained draft");
   });
 
+  it("keeps notes below the shared header outside the content wrapper", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+      const top = 0;
+      const height = this.classList.contains("app-chrome-header") ? 160 : 200;
+      return { x: 0, y: top, left: 0, top, right: 1000, bottom: top + height, width: 1000, height, toJSON: () => ({}) };
+    });
+    render(<div className="app-shell-layout"><header className="app-chrome-header">Navigation</header>
+      <div className="app-wrap"><div className="app-chrome-play-workspace">
+        <FloatingSceneNotes sceneTitle="North Gate" status="Saved" open><textarea defaultValue="Retained" /></FloatingSceneNotes>
+      </div></div></div>);
+    expect(screen.getByTestId("floating-scene-notes")).toHaveStyle({ top: "168px" });
+    expect(screen.getByRole("textbox")).toHaveValue("Retained");
+  });
+
   it("does not fabricate a target when no scene is current", () => {
     render(<FloatingSceneNotes sceneTitle={null} available={false} status="No current scene">None</FloatingSceneNotes>);
     expect(screen.getByRole("button")).toBeDisabled();
