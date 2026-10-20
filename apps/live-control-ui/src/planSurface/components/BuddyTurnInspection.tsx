@@ -45,7 +45,10 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
       setFailure(current => current?.key === key ? current : null)
     }
     if (!enabled) {
-      if ((cache.current?.bytes ?? 0) > CLOSED_SNAPSHOT_MAX_BYTES) {
+      const snapshot = cache.current
+      const reusable = !running && snapshot && snapshot.data.attempts.length > 0
+        && snapshot.data.attempts.every(trace => trace.closed_at != null && trace.capture_status === 'complete')
+      if (snapshot && (!reusable || snapshot.bytes > CLOSED_SNAPSHOT_MAX_BYTES)) {
         cache.current = null
         setLoaded(null)
       }
@@ -56,10 +59,6 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
     let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
     const owns = () => active && consumers.current.size > 0 && getReadWaveVersion() === wave
-    const isRecording = (data: WorldAgentTurnContextTraceResponse) => {
-      const latest = data.attempts.at(-1)
-      return latest != null ? latest.closed_at == null : running
-    }
     const read = () => void Promise.resolve().then(() => {
       if (!owns()) throw new Error('Inspection owner retired')
       return load(worldId, turnId, controller.signal)
@@ -75,7 +74,7 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
       cache.current = next
       setLoaded(next)
       setFailure(null)
-      if (isRecording(data)) timer = setTimeout(read, 2000)
+      if (running) timer = setTimeout(read, 2000)
     }).catch(() => {
       if (owns()) setFailure({ key, message: 'Execution trace is unavailable. The message will not be resent.' })
     })
@@ -84,7 +83,7 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
     if (cache.current?.key !== key || explicitRetry) {
       setFailure(null)
       read()
-    } else if (isRecording(cache.current.data)) timer = setTimeout(read, 2000)
+    } else if (running) timer = setTimeout(read, 2000)
     return () => { active = false; clearTimeout(timer); controller.abort() }
   }, [enabled, key, worldId, turnId, conversationId, running, load, retry, wave])
   // Epoch and exact binding are checked during render, before effect cleanup.

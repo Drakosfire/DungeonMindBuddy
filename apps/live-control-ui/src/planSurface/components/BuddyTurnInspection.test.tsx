@@ -76,16 +76,50 @@ describe('one captured observation for an inspected turn', () => {
     expect(screen.queryByText('Debug: late-private')).not.toBeInTheDocument()
   })
 
-  it('runs one recording poller for two views and stops after terminal capture', async () => {
+  it('keeps one poller between closed attempts until the owning turn ends', async () => {
     vi.useFakeTimers()
-    const load = vi.fn().mockResolvedValueOnce(response('recording', binding, true)).mockResolvedValue(response('finished'))
-    render(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /><Probe name="Prompt" enabled /></BuddyTurnInspection>)
+    const load = vi.fn().mockResolvedValueOnce(response('closed-first')).mockResolvedValue(response('next-attempt'))
+    const view=render(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /><Probe name="Prompt" enabled /></BuddyTurnInspection>)
     await act(async () => {})
     expect(load).toHaveBeenCalledTimes(1)
-    await act(async () => vi.advanceTimersByTimeAsync(2000))
-    expect(screen.getByText('Debug: finished')).toBeInTheDocument()
-    expect(screen.getByText('Prompt: finished')).toBeInTheDocument()
+    await act(async () => vi.advanceTimersByTimeAsync(4000))
+    expect(load).toHaveBeenCalledTimes(3)
+    expect(screen.getByText('Debug: next-attempt')).toBeInTheDocument()
+    expect(screen.getByText('Prompt: next-attempt')).toBeInTheDocument()
+    view.rerender(<BuddyTurnInspection {...binding} load={load}><Probe name="Debug" enabled /><Probe name="Prompt" enabled /></BuddyTurnInspection>)
+    await act(async () => {})
     await act(async () => vi.advanceTimersByTimeAsync(10000))
+    expect(load).toHaveBeenCalledTimes(4)
+  })
+
+  it.each(['empty', 'unclosed', 'incomplete'] as const)('does not poll a terminal %s capture and reacquires after close', async mode => {
+    vi.useFakeTimers()
+    const data=response('partial',binding,mode==='unclosed')
+    if(mode==='empty') data.attempts=[]
+    if(mode==='incomplete') data.attempts[0].capture_status='incomplete'
+    const load=vi.fn().mockResolvedValue(data)
+    const view=render(<BuddyTurnInspection {...binding} load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>)
+    await act(async()=>{})
+    await act(async()=>vi.advanceTimersByTimeAsync(4000))
+    expect(load).toHaveBeenCalledTimes(1)
+    view.rerender(<BuddyTurnInspection {...binding} load={load}><Probe name="Debug" enabled={false} /></BuddyTurnInspection>)
+    view.rerender(<BuddyTurnInspection {...binding} load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>)
+    await act(async()=>{})
+    expect(load).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByRole('button',{name:'Refresh Debug'}))
+    await act(async()=>{})
+    await act(async()=>vi.advanceTimersByTimeAsync(4000))
+    expect(load).toHaveBeenCalledTimes(3)
+  })
+
+  it('reacquires an active small closed capture when inspection is reopened', async () => {
+    vi.useFakeTimers()
+    const load=vi.fn().mockResolvedValue(response('between-attempts'))
+    const view=render(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>)
+    await act(async()=>{})
+    view.rerender(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled={false} /></BuddyTurnInspection>)
+    view.rerender(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>)
+    await act(async()=>{})
     expect(load).toHaveBeenCalledTimes(2)
   })
 
