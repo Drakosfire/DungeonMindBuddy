@@ -59,9 +59,9 @@ describe('one surface document inspection capability',()=>{
       <MarkdownDocumentReader markdown={source}/>
     </DocumentReferenceProvider>));
     fireEvent.click(screen.getByRole('link',{name:'Edge'}));await screen.findByRole('heading',{name:'Saved Edge'});
-    const pane=screen.getByRole('region',{name:'Document reference'});pane.scrollTop=143;
-    fireEvent.click(within(pane).getByRole('link',{name:'Nested'}));await screen.findByRole('heading',{name:'Nested source'});
-    fireEvent.click(screen.getByRole('button',{name:'← Previous reference'}));await screen.findByRole('heading',{name:'Saved Edge'});
+    const pane=screen.getByRole('region',{name:'Document reference'});await within(pane).findByRole('link',{name:'Nested'});pane.scrollTop=143;
+    fireEvent.click(await within(pane).findByRole('link',{name:'Nested'}));await screen.findByRole('heading',{name:'Nested source'});
+    fireEvent.click(screen.getByRole('button',{name:'← Previous reference'}));await screen.findByRole('heading',{name:'Saved Edge'});await within(pane).findByRole('link',{name:'Nested'});
     expect(pane.scrollTop).toBe(143);expect(dismiss).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button',{name:'Close reference'}));expect(screen.getByLabelText('Tool draft')).toHaveValue('unsaved');
   });

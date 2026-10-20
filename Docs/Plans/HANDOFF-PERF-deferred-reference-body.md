@@ -1,0 +1,19 @@
+# Deferred document-reference presentation
+
+**Status:** ACTIVE. Base 76e370c79accb00410e6577e8cb1d786863dbc4b; serial branch codex/defer-reference-body in existing Buddy checkout. UI-only delivery on 5202.
+
+## Bounded ownership contract
+
+The global DocumentReferenceProvider currently imports both saved-document renderers and Markdown conversion, retaining 36 editor/ProseMirror modules in the initial entry even after controller splitting. Defer only the parsed read-only body through the existing module-scope deferredComponent. The parent retains exact reference validation, generation fences, source/World lifetime, bounded nested history, saved provenance, close/Back/focus and source scroll. No request, authority, dependency, storage or editing changes. Both supported-body and source-rendering behavior remain identical.
+
+A suspended body can clamp pane scroll. Its post-DOM layout callback must reapply the current history entry's scroll after body commit, including Back, and never resurrect a dismissed or obsolete reference. Keep current render/source errors and explicit deferred-load retry. No generic helper redesign or compatibility path.
+
+## Gates
+
+Prove no renderer import while closed/loading/error; suspended latest-reference behavior; close/source/World isolation; Back scroll restoration after delayed body; explicit failed-chunk retry; existing real rendering, source writer draft/selection/undo/focus and nested history. Inspect cumulative diff, actual app TypeScript and production chunk ownership; independent exact-head review, merge, native cold Index omission plus opened saved reference/Back/close behavior and protected 17 comparison. Preserve existing recovery bytes and active tabs. Bundle bytes are not 8 GB hardware measurements.
+
+Rules stage remains user + Buddy cited lookup. Rules graph experiments wait until all four goal objectives are delivered.
+
+## Author verification
+
+Five focused files: 45/45 PASS (7 controlled loader cases, 8 real provider/writer cases, 4 surface host, 23 exact reference validation and 3 shared deferred helper). Existing nested-history test now waits for body DOM before setting or asserting pane scroll; header arrival is not body readiness. Actual app TypeScript and Vite production build PASS. Production entry index-fTmtUm6C.js is 464,768 raw / 131,516 gzip level-6 bytes versus accepted 1,010,642 raw / 294,869 gzip level-6. In-memory build audit with build.write=false preserves dist index digest; initial static chunk closure has zero Tiptap/ProseMirror modules and body has its own dynamic chunk. This is author build/source evidence, pending independent review and native acceptance. No API/runtime/data/dependency changes.
