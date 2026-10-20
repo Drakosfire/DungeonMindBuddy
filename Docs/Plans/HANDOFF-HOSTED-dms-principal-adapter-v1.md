@@ -1,12 +1,14 @@
 # HANDOFF — HOSTED: DMS principal adapter
 
-**Status:** ACTIVE
+**Status:** SETTLED — PR #1508 merged at `4ba6de08c33d9f8870d6c2857b585ce72f97d903`.
 
 **Steward:** Hosted Buddy v1 implementation task
 
 **Owning flow:** `HOSTED`
 
-**Buddy base:** `origin/main` at `04e44374300a985e247941fb03de6bdaa01662b3`
+**Original implementation base:** `origin/main` at `04e44374300a985e247941fb03de6bdaa01662b3`.
+
+**Current Buddy main:** `origin/main` at `4ba6de08c33d9f8870d6c2857b585ce72f97d903`, the confirmed merge of PR #1508.
 
 **Design authority:** DungeonOverMind plan `Docs/Plans/PLAN-buddymind-hosted-v1.md`, design commit `98454eb41a096462d0650a15edaa34b3e679b0db`. ARCHITECTURE cleared this exact design in thread `01a086f2-c457-7b10-b753-df6063cab1ce` on 2026-10-20. The disposition is thread-only, not a GitHub review.
 
@@ -50,4 +52,4 @@ Inspect the project test configuration first. Run the focused test file with the
 
 ## Completion boundary
 
-The lane remains active and `hosted_owner` remains disabled after PR publication and review. Do not mark this handoff complete or claim hosted identity/launch readiness until a separately authorized merge and state settlement occur. Cookie delivery, full route authorization, CSRF, persistence, operator configuration, and launch rehearsal remain later gates.
+PR #1508 was merged from exact reviewed head `a43004aef8afecf6241c3584c1e4948a80dffc30` on 2026-10-20; GitHub confirms merge commit `4ba6de08c33d9f8870d6c2857b585ce72f97d903`, now the Buddy `origin/main` anchor. The adapter and tests are part of main, but the resolver remains unmounted, `hosted_owner` remains disabled, and no deployment or live configuration change occurred. This handoff is settled as implementation authority. Cookie delivery, route authorization, CSRF, persistence, operator configuration, and launch rehearsal remain later gates.
