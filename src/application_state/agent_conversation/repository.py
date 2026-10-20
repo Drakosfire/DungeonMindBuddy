@@ -1693,3 +1693,29 @@ def complete_mixed_claimed_turn(
         closed_at=row["completed_at"],
     )
     return completed
+
+
+def interrupt_expired_rules_claim(
+    conn, *, world_id, turn_id, expected_revision, expected_attempt, failure_code
+):
+    """Fence an expired Rules dispatch without inventing Graph execution data."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE agent.turn SET status='interrupted',revision=revision+1,failure_code=%s,
+            claim_expires_at=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s
+                AND (claim_expires_at IS NULL OR claim_expires_at<=clock_timestamp()) RETURNING {_TURN_COLS}""",
+            (failure_code, world_id, turn_id, expected_revision, expected_attempt),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    close_context_trace_locked(
+        conn,
+        world_id=world_id,
+        turn_id=turn_id,
+        attempt=expected_attempt,
+        status="interrupted",
+        closed_at=row["completed_at"],
+    )
+    return _turn_from_row(conn,row)

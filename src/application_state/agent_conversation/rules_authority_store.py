@@ -168,6 +168,10 @@ def open_execution_locked(
     _lock_current_claim(conn, scope, expected_turn_revision)
     current = _locked_record(conn, scope)
     if current is not None:
+        if current.execution.state != "active":
+            raise ApplicationStateConflictError(
+                "Rules execution already closed for this attempt"
+            )
         return current
     execution = empty_execution(scope)
     conn.execute(

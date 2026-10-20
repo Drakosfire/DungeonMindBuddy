@@ -451,12 +451,7 @@ def test_real_plan_graph_enabled_rules_only_completion_is_unclaimed(
     assert service.complete_mixed_turn(result) == completed
 
 
-@pytest.mark.parametrize("crash", [False, True])
-def test_real_build_mixed_completion_validates_and_stores_exact_base_subsequence(
-    application_state_dsn,
-    monkeypatch,
-    crash,
-):
+def ready_build_mixed(dsn):
     from tests.application_state.test_build_graph_turns import (
         _accept_claim,
         _completion,
@@ -464,8 +459,8 @@ def test_real_build_mixed_completion_validates_and_stores_exact_base_subsequence
 
     service = AgentConversationService()
     submission, turn = _accept_claim(service)
-    turn, result = ready_rules(application_state_dsn, turn)
-    turn = join_graph_provider(application_state_dsn, service, turn, result)
+    turn, result = ready_rules(dsn, turn)
+    turn = join_graph_provider(dsn, service, turn, result)
     base_completion = _completion(submission)
     base_text = "\n".join(item.text for item in base_completion.answer_segments)
     base_result = TurnResult(
@@ -491,6 +486,18 @@ def test_real_build_mixed_completion_validates_and_stores_exact_base_subsequence
         assistant_text_sha256=hashed(fields["assistant_text"]),
     )
     result = MixedTurnResultV1.model_validate_json(json.dumps(fields))
+    return turn, result, base_completion
+
+
+@pytest.mark.parametrize("crash", [False, True])
+def test_real_build_mixed_completion_validates_and_stores_exact_base_subsequence(
+    application_state_dsn,
+    monkeypatch,
+    crash,
+):
+    service = AgentConversationService()
+    turn, result, base_completion = ready_build_mixed(application_state_dsn)
+    base_text = "\n".join(item.text for item in base_completion.answer_segments)
     if crash:
         before = persisted(application_state_dsn, turn)
         actual = repo.complete_mixed_claimed_turn
@@ -514,7 +521,7 @@ def test_real_build_mixed_completion_validates_and_stores_exact_base_subsequence
     )
     assert (
         completed.base_projection.turn.completion == base_completion
-        and completed.assistant_text == fields["assistant_text"]
+        and completed.assistant_text == result.assistant_text
     )
     assert (
         service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == completed
@@ -573,3 +580,50 @@ def test_both_completion_cas_revisions_are_required(application_state_dsn, field
             MixedTurnResultV1.model_validate_json(json.dumps(fields))
         )
     assert persisted(application_state_dsn, turn) == before
+
+
+def test_mixed_acceptance_receipt_and_reconcile_keep_the_exact_completed_record(
+    application_state_dsn,
+):
+    from application_state.agent_conversation.types import (
+        TurnSubmission,
+        SubmittedTurnIntentV1,
+        SubmittedGraphRequestIntentV1,
+    )
+
+    turn, result = ready_rules(application_state_dsn)
+    service = AgentConversationService()
+    completed = service.complete_mixed_turn(result)
+    intent = SubmittedTurnIntentV1(
+        world_id=turn.world_id,
+        client_thread_id="rules-store-thread",
+        message=turn.user_text,
+        surface_id="index",
+        surface_instance_id="rules-store",
+        client_work_state="none",
+        primary_work=None,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    submission = TurnSubmission(
+        world_id=turn.world_id,
+        conversation_id=turn.conversation_id,
+        idempotency_key=turn.idempotency_key,
+        expected_conversation_revision=1,
+        user_text=turn.user_text,
+        provenance=turn.provenance,
+        submitted_intent_v1=intent,
+    )
+    assert service.accept_turn(submission) == completed
+    assert (
+        service.reconcile_turn(
+            world_id=turn.world_id,
+            idempotency_key=turn.idempotency_key,
+            submitted_intent=intent,
+        )
+        == completed
+    )
+    assert (
+        persisted(application_state_dsn, turn)[1][0]
+        == result.expected_rules_revision + 1
+    )

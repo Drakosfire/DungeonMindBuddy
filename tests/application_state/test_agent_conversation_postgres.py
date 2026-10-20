@@ -171,47 +171,44 @@ def test_play_v2_edition_and_saved_note_receipt_round_trip_and_replay_binding(
 ) -> None:
     import psycopg
 
+    from uuid import UUID
+    from application_state.play.service import create_world_play_run, replace_world_play_run_progress
+    from application_state.play.edition_service import read_content, commit_content, read_context_snapshot
+    from application_state.play.edition_types import ContentCommit
+    from tests.application_state.test_play_runtime_world_runs_postgres import _create_world_plan
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+
     writer = AgentConversationService()
     world_id = "play-v2-receipt-world"
     conversation = _new(writer, world_id)
-    origin = PlayRunTurnContextReceiptV1(
-        schema="dmb_play_run_turn_context_receipt_v1",
-        run_id="run-v2",
-        run_revision=3,
-        runbook_object_id="runbook-v2",
-        runbook_object_revision=5,
-        runbook_work_revision_id=uuid4(),
-        runbook_revision_n=2,
-        runbook_content_sha256="b" * 64,
-        beat_id="beat:a",
-        scene_id="scene:arrival",
-    )
-    primary, supporting = encode_play_run_turn_context_references(origin)
-    provenance = TurnProvenance(
-        world_id=world_id,
-        surface_resolution="resolved",
-        surface_id="play",
-        primary_work=primary,
-        supporting_work=supporting,
-        selected_object=HistoricalReference(resolution="absent"),
-    )
+    work_object, revision = _create_world_plan(world_id, markdown=V2_SOURCE_MARKDOWN)
+    aggregate = create_world_play_run(world_id=world_id, run_id=str(uuid4()),
+        playable_artifact_id=work_object.work_object_id, expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256)
     note = "A durable accepted-edition Scene note."
-    basis = PlayContentBasis(
-        edition_revision=1,
-        edition_revision_id=uuid4(),
-        content_sha256="c" * 64,
-    )
-    receipt = PlayRunTurnContextReceiptV2(
-        **(origin.model_dump(mode="python", by_alias=True) | {
-            "schema": "dmb_play_run_turn_context_receipt_v2"
-        }),
-        world_id=world_id,
-        edition_revision=basis.edition_revision,
-        edition_revision_id=basis.edition_revision_id,
-        content_sha256=basis.content_sha256,
-        scene_note=note,
-        scene_note_sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
-    )
+    replace_world_play_run_progress(world_id=world_id, run_id=aggregate.run.run_id,
+        expected_run_revision=aggregate.run.run_revision, progress={
+            "current_scene_id":"scene:gate", "current_beat_id":"beat:arrival", "resolved_beat_ids":[],
+            "selections":{}, "notes_by_element_id":{"scene:gate":note}})
+    pinned = read_content(run_id=str(aggregate.run.run_id), world_id=world_id)
+    commit_content(run_id=str(aggregate.run.run_id), world_id=world_id, command_id=str(uuid4()),
+        request=ContentCommit(schema_version="dmb_world_play_run_content_commit_v1", expected_origin=pinned.origin,
+            expected_edition_revision=pinned.edition_revision, expected_content_sha256=pinned.content_sha256,
+            markdown=pinned.markdown+"\nSaved session-copy detail.\n"))
+    run, content = read_context_snapshot(run_id=str(aggregate.run.run_id), world_id=world_id)
+    basis = PlayContentBasis(edition_revision=content.edition_revision,
+        edition_revision_id=UUID(content.edition_revision_id), content_sha256=content.content_sha256)
+    receipt = PlayRunTurnContextReceiptV2(schema="dmb_play_run_turn_context_receipt_v2", world_id=world_id,
+        run_id=str(run.run_id), run_revision=run.run_revision, runbook_object_id=str(run.playable_work_object_id),
+        runbook_object_revision=work_object.object_revision, runbook_work_revision_id=run.playable_work_revision_id,
+        runbook_revision_n=run.playable_revision_n, runbook_content_sha256=run.playable_content_sha256,
+        beat_id="beat:arrival", scene_id="scene:gate", edition_revision=basis.edition_revision,
+        edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256,
+        scene_note=run.progress["notes_by_element_id"]["scene:gate"], scene_note_sha256=hashlib.sha256(note.encode()).hexdigest())
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    provenance = TurnProvenance(world_id=world_id, surface_resolution="resolved", surface_id="play",
+        surface_instance_id="play-main", primary_work=primary, supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"))
     submission = TurnSubmission(
         world_id=world_id,
         conversation_id=conversation.conversation_id,
@@ -227,7 +224,7 @@ def test_play_v2_edition_and_saved_note_receipt_round_trip_and_replay_binding(
             surface_instance_id="play-main",
             client_work_state="saved_clean",
             primary_work=SubmittedPrimaryWorkIntentV1(
-                kind="run", object_id="run-v2", expected_revision=3,
+                kind="run", object_id=str(run.run_id), expected_revision=run.run_revision,
                 play_content_basis=basis,
             ),
             graph_request=SubmittedGraphRequestIntentV1(mode="none"),

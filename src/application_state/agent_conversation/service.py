@@ -85,6 +85,7 @@ from application_state.agent_conversation.types import (
 )
 from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
 from .rules_authority_completion import MixedTurnResultV1
+from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
@@ -845,6 +846,19 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("turn not found in verified World")
             return turn
 
+    def inspect_rules_passage(
+        self, request: RulesHistoricalPassageRequestV1
+    ) -> RulesHistoricalPassageV1:
+        """Caller verifies current World/operator admission; inspect one cited capsule."""
+        from .rules_authority_passages import read_historical_rules_passage
+
+        if _world_id(request.world_id) != request.world_id:
+            raise ApplicationStateValidationError(
+                "Rules passage World must be canonical"
+            )
+        with unit_of_work(_ready_dsn()) as conn:
+            return read_historical_rules_passage(conn, request)
+
     def list_turns(
         self,
         world_id: str,
@@ -920,11 +934,14 @@ class AgentConversationService:
         _validate_turn_claim_lease(lease_seconds)
         dsn = _ready_dsn()
         interrupted_after_dispatch = False
+        interrupted_domain = "Graph"
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
             if isinstance(turn, MixedCompletedTurnV1):
                 if turn.envelope.conversation_id != conversation_id:
-                    raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+                    raise ApplicationStateNotFoundError(
+                        "turn not found in verified World conversation"
+                    )
                 return TurnClaimReceipt(disposition="completed", turn=turn)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
@@ -947,37 +964,128 @@ class AgentConversationService:
                 isinstance(event, ProviderAttemptAuthorizedEventV1)
                 for event in turn.graph_context_execution.events
             ):
-                if turn.status == "running" and (turn.claim_expires_at is None or turn.claim_expires_at <= now):
+                if turn.status == "running" and (
+                    turn.claim_expires_at is None or turn.claim_expires_at <= now
+                ):
                     execution = turn.graph_context_execution
-                    auths = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+                    auths = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderAttemptAuthorizedEventV1)
+                    ]
                     latest = auths[-1]
-                    outcomes = [e for e in execution.events if isinstance(e, ProviderOutcomeEventV1) and e.provider_attempt_id == latest.provider_attempt_id]
+                    outcomes = [
+                        e
+                        for e in execution.events
+                        if isinstance(e, ProviderOutcomeEventV1)
+                        and e.provider_attempt_id == latest.provider_attempt_id
+                    ]
                     outcome_unknown = False
-                    if not outcomes or outcomes[-1].outcome not in {"response_received", "known_not_sent", "outcome_unknown"}:
+                    if not outcomes or outcomes[-1].outcome not in {
+                        "response_received",
+                        "known_not_sent",
+                        "outcome_unknown",
+                    }:
                         outcome_unknown = True
                         unknown = ProviderOutcomeEventV1(
-                            event_id=uuid4(), sequence=len(execution.events),
-                            kind="provider_outcome", provider_attempt_id=latest.provider_attempt_id,
+                            event_id=uuid4(),
+                            sequence=len(execution.events),
+                            kind="provider_outcome",
+                            provider_attempt_id=latest.provider_attempt_id,
                             outcome="outcome_unknown",
                         )
                         execution_type = type(execution)
                         execution = execution_type.model_validate(
                             execution.model_dump(mode="json", by_alias=True)
-                            | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], unknown.model_dump(mode="json", by_alias=True)]}
+                            | {
+                                "events": [
+                                    *[
+                                        e.model_dump(mode="json", by_alias=True)
+                                        for e in execution.events
+                                    ],
+                                    unknown.model_dump(mode="json", by_alias=True),
+                                ]
+                            }
                         )
                     interrupted = repo.interrupt_expired_graph_execution(
-                        conn, world_id=world_id, turn_id=turn_id,
-                        expected_revision=expected_revision, expected_attempt=turn.attempt,
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
                         execution=execution,
-                        failure_code=("provider_outcome_unknown" if outcome_unknown else "provider_authorized_nonreclaimable"),
+                        failure_code=(
+                            "provider_outcome_unknown"
+                            if outcome_unknown
+                            else "provider_authorized_nonreclaimable"
+                        ),
                     )
                     if interrupted is None:
-                        raise ApplicationStateConflictError("expired Graph provider claim could not be fenced")
+                        raise ApplicationStateConflictError(
+                            "expired Graph provider claim could not be fenced"
+                        )
+                    from .rules_authority_store import fail_execution_locked
+
+                    fail_execution_locked(conn, turn)
                     interrupted_after_dispatch = True
                 else:
                     raise ApplicationStateConflictError(
                         "Graph execution with a prior provider authorization cannot be reclaimed"
                     )
+            if not interrupted_after_dispatch:
+                from .rules_authority_store import (
+                    load_turn_rules_locked,
+                    fail_execution_locked,
+                )
+                from .rules_authority_events import (
+                    RulesProviderAuthorizedV1,
+                    RulesProviderOutcomeV1,
+                )
+
+                rules = load_turn_rules_locked(conn, turn)
+                dispatches = (
+                    [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderAuthorizedV1)
+                    ]
+                    if rules is not None
+                    else []
+                )
+                if dispatches:
+                    if turn.status != "running":
+                        raise ApplicationStateConflictError(
+                            "Rules execution with a prior provider authorization cannot be reclaimed"
+                        )
+                    latest = dispatches[-1]
+                    outcomes = [
+                        event
+                        for event in rules.execution.events
+                        if isinstance(event, RulesProviderOutcomeV1)
+                        and event.provider_attempt_id == latest.provider_attempt_id
+                    ]
+                    unknown = not outcomes or outcomes[-1].status == "unknown"
+                    fail_execution_locked(conn, turn)
+                    interrupted = repo.interrupt_expired_rules_claim(
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        expected_revision=expected_revision,
+                        expected_attempt=turn.attempt,
+                        failure_code="rules_provider_outcome_unknown"
+                        if unknown
+                        else "rules_provider_authorized_nonreclaimable",
+                    )
+                    if interrupted is None:
+                        raise ApplicationStateConflictError(
+                            "expired Rules provider claim could not be fenced"
+                        )
+                    interrupted_after_dispatch = True
+                    interrupted_domain = "Rules"
+                elif rules is not None and rules.execution.state == "active":
+                    # A new product attempt must never inherit old source cache or
+                    # pending output authority, even when nothing was dispatched.
+                    fail_execution_locked(conn, turn)
             if not interrupted_after_dispatch:
                 if turn.status not in {"accepted", "failed", "interrupted", "running"}:
                     raise ApplicationStateConflictError(
@@ -987,8 +1095,12 @@ class AgentConversationService:
                     turn.claim_expires_at is None or turn.claim_expires_at <= now
                 ):
                     close_context_trace_locked(
-                        conn, world_id=world_id, turn_id=turn_id,
-                        attempt=turn.attempt, status="interrupted", closed_at=now,
+                        conn,
+                        world_id=world_id,
+                        turn_id=turn_id,
+                        attempt=turn.attempt,
+                        status="interrupted",
+                        closed_at=now,
                     )
                 claimed = repo.claim_turn(
                     conn,
@@ -1004,7 +1116,7 @@ class AgentConversationService:
                 return TurnClaimReceipt(disposition="claimed", turn=claimed)
         if interrupted_after_dispatch:
             raise ApplicationStateConflictError(
-                "expired Graph provider claim was recorded as potentially sent and cannot be reclaimed"
+                f"expired {interrupted_domain} provider claim was recorded as potentially sent and cannot be reclaimed"
             )
 
     def _append_graph_execution_event(

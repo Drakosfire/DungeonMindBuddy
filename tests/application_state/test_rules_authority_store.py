@@ -531,3 +531,18 @@ def test_corrupt_provenance_cannot_expand_a_page_transfer_unboundedly(
             )
         with pytest.raises(ApplicationStateIntegrityError, match="transfer bound"):
             repo.get_turn(conn, scope.world_id, scope.turn_id)
+
+
+def test_begin_cannot_reopen_a_closed_scope_under_a_running_turn(application_state_dsn):
+    from application_state.agent_conversation.rules_authority_store import (
+        fail_execution_locked,
+    )
+
+    turn, scope = admitted()
+    with psycopg.connect(application_state_dsn) as conn:
+        open_execution_locked(conn, scope, expected_turn_revision=turn.revision)
+        # Internal lifecycle owner closes the scope; it cannot be advertised again.
+        fail_execution_locked(conn, turn)
+    with pytest.raises(ApplicationStateConflictError, match="already closed"):
+        with psycopg.connect(application_state_dsn) as conn:
+            open_execution_locked(conn, scope, expected_turn_revision=turn.revision)

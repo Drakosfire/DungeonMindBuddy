@@ -4,9 +4,10 @@ This module owns the read-only APP-STATE fingerprint and the recovery-verificati
 logic for the durable local authority (`compose.postgres.app-state.yml`).
 
 Invariants:
-- Schema-at-head alone is never READY. A fingerprint covers every durable domain:
-  Content work objects/revisions/working copies, Play runs/manifests/active run,
-  IngestRun identity/lifecycle, and Source artifact/revision bindings.
+- Schema-at-head alone is never READY. Fingerprint parity covers the explicitly
+  enumerated tables below, including accepted Agent turn/Rules restoration.
+  Other Agent tables and other unlisted domains are not semantically covered;
+  a complete physical dump does not imply fingerprint coverage of every domain.
 - Fingerprints are deterministic: fixed table order, stable row order, canonical
   JSON serialization, SHA-256 digests.
 - Fingerprints and reports never contain secrets; DSNs are redacted before display.
@@ -58,7 +59,8 @@ from application_state.naming import (
 
 FINGERPRINT_SCHEMA = "dmb_application_state_fingerprint_v1"
 
-# Durable APP-STATE domain tables in fixed fingerprint order.
+# Explicit APP-STATE verification coverage in fixed fingerprint order.
+# This is not a complete inventory of all durable Agent/runtime tables.
 # (domain name, fully qualified table, row-order column)
 _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("content.work_object", "content.work_object", "work_object_id"),
@@ -74,10 +76,14 @@ _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("source.revision", "source.revision", "source_revision_id"),
     ("media.asset", "media.asset", "asset_id"),
     ("media.storage", "media.storage", "asset_id"),
+    ("agent.conversation", "agent.conversation", "conversation_id"),
+    ("agent.turn", "agent.turn", "turn_id"),
+    ("agent.turn_reference", "agent.turn_reference", "turn_id, reference_role, ordinal"),
+    ("agent.turn_rules_execution", "agent.turn_rules_execution", "turn_id, product_attempt"),
 )
 
 # Schemas that mark a database as already holding APP-STATE (restore must refuse).
-_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source", "media")
+_APP_STATE_SCHEMAS = ("application_state", "content", "play", "ingest", "source", "media", "agent")
 
 
 @dataclass(frozen=True)
