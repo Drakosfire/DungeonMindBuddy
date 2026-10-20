@@ -33,3 +33,7 @@ Inspect cumulative diff, meaningful affected suites, independent exact-head revi
 ## Steward amendment before event implementation
 
 Same-lease closed decision amendment pins derived query_observed.presentation_utf8 with internal exact raw-output SHA/length/closed capsule proof, sum-derived counters,1024byte terminal-diagnostic reserve and explicit support_capsules packet field. Architecture acknowledged this as necessary bounded metadata, not a new capability. No raw quoted packet is added to persisted ledger/history. This amendment is covered by the eventual cumulative source review. Initial pure Scope/Support/composition/map/binding28tests pass; no event/DB/runtime/tool activation is implied by that result.
+
+## Incremental author evidence (not completion)
+
+Initial strict source/composition/binding values28puretests PASS. New0041 migration9real disposable PostgreSQL tests PASS: existing current submitted-intent turn survives empty downgrade/re-upgrade, retained Rules row refuses downgrade, SQL scope/type/event/byte caps and completed-only mixed marker. First fixture omitted the current required submitted intent and correctly failed; fixture now supplies valid current Index intent, no compatibility acceptance added. Fixture-created safe databases were removed by their existing teardown. Live runtime/source/schema unchanged; event proof, mixed transaction/read/replay integration and backup/restore/adoption remain required before review/delivery.
