@@ -6,7 +6,6 @@ Handles alone never grant inclusion authority in the producing request.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from hashlib import sha256
 import json
 from typing import Annotated, Literal
@@ -24,6 +23,7 @@ from application_state.agent_conversation.rules_authority_packet import (
 from application_state.agent_conversation.rules_authority_types import (
     ClosedRulesModel, RulesSupportRefV1, RulesSupportV1, canonical_bytes, canonical_sha256,
 )
+from application_state.agent_conversation.rules_authority_runtime import RulesLookupPreparedV1
 from . import rules_lookup as reader
 
 RULESET = "dnd_2024_srd_5_2_1"
@@ -68,13 +68,6 @@ def prepare_authorization(execution: RulesExecutionV1, call_id: str,
     return event
 
 
-@dataclass(frozen=True)
-class PreparedRulesLookup:
-    raw_output: str
-    observation: RulesQueryObservedV1
-    new_supports: tuple[RulesSupportV1, ...]
-
-
 def _support_for_hit(execution, bundle, hit):
     if not isinstance(hit, dict):
         raise ValueError("Rules reader returned a malformed hit")
@@ -113,7 +106,7 @@ def _support_for_hit(execution, bundle, hit):
 
 def prepare_lookup(execution: RulesExecutionV1, call_id: str,
                    arguments: LookupRulesArguments, *,
-                   current_context_refs: tuple[RulesSupportRefV1, ...] = ()) -> PreparedRulesLookup:
+                   current_context_refs: tuple[RulesSupportRefV1, ...] = ()) -> RulesLookupPreparedV1:
     """Read/reuse under a prior durable authorization; caller seals before delivery."""
     _check_scope(execution)
     arguments = LookupRulesArguments.model_validate(arguments)
@@ -184,8 +177,8 @@ def prepare_lookup(execution: RulesExecutionV1, call_id: str,
 
 
 def _prepared(execution, auth, raw, status, refs, emitted, new):
-    return PreparedRulesLookup(raw, RulesQueryObservedV1(kind="query_observed", event_id=uuid4(),
+    return RulesLookupPreparedV1(raw_output=raw, observation=RulesQueryObservedV1(kind="query_observed", event_id=uuid4(),
         sequence=len(execution.events), execution_id=execution.scope.execution_id,
         call_id=auth.call_id, query_id=auth.query_id, packet_sha256=sha256(raw.encode()).hexdigest(),
         presentation_utf8=len(raw.encode()), status=status, support_refs=refs,
-        emitted_support_ids=tuple(s.support_id for s in emitted)), new)
+        emitted_support_ids=tuple(s.support_id for s in emitted)), new_supports=new)

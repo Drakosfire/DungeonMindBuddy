@@ -6,6 +6,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -95,6 +96,15 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
+
+if TYPE_CHECKING:
+    from .rules_authority_types import RulesScopeV1
+    from .rules_authority_events import (
+        RulesToolAuthorizedV1, RulesProviderAuthorizedV1,
+        RulesProviderIncludedV1, RulesProviderOutcomeV1,
+    )
+    from .rules_authority_store import RulesLedgerRecordV1
+    from .rules_authority_runtime import RulesLocalReader, RulesLookupDeliveryV1
 
 DEFAULT_TURN_CLAIM_LEASE_SECONDS = 60
 MAX_TURN_CLAIM_LEASE_SECONDS = 300
@@ -845,6 +855,53 @@ class AgentConversationService:
             if turn is None:
                 raise ApplicationStateNotFoundError("turn not found in verified World")
             return turn
+
+    def begin_rules_execution(self, scope: RulesScopeV1, *, expected_turn_revision: int) -> RulesLedgerRecordV1:
+        """Internal parent port; caller already admitted current operator/World."""
+        from .rules_authority_store import open_execution_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
+        return record
+
+    def authorize_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                               expected_ledger_revision: int, event: RulesToolAuthorizedV1) -> RulesLedgerRecordV1:
+        """Commit exact call authority before the parent starts a local read."""
+        from .rules_authority_events import RulesToolAuthorizedV1
+        from .rules_authority_store import append_lookup_event_locked
+        if not isinstance(event, RulesToolAuthorizedV1):
+            raise ApplicationStateValidationError("Rules lookup requires a tool authorization")
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_lookup_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision,
+                expected_ledger_revision=expected_ledger_revision, event=event)
+        return record
+
+    def execute_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                             call_id: str, local_reader: RulesLocalReader) -> RulesLookupDeliveryV1:
+        """Serialize/reload/read/seal; return source bytes only after commit.
+
+        local_reader is an internal bounded local-source adapter, never model or
+        HTTP input. It must not dispatch inference/network work under this lock.
+        """
+        from .rules_authority_runtime import execute_local_lookup_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            delivery = execute_local_lookup_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision, call_id=call_id,
+                local_reader=local_reader)
+        return delivery
+
+    def append_rules_provider_event(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                                    expected_ledger_revision: int,
+                                    event: RulesProviderAuthorizedV1 | RulesProviderIncludedV1 | RulesProviderOutcomeV1,
+                                    prepared_request_json: str | None = None) -> RulesLedgerRecordV1:
+        """Internal exact-input/lifecycle append; no dispatch permission on failure."""
+        from .rules_authority_store import append_provider_event_locked
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_provider_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision,
+                expected_ledger_revision=expected_ledger_revision, event=event,
+                prepared_request_json=prepared_request_json)
+        return record
 
     def inspect_rules_passage(
         self, request: RulesHistoricalPassageRequestV1
