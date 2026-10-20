@@ -66,10 +66,13 @@ def test_commit_precedes_delivery_and_exact_replay_does_not_read_or_count(applic
     assert stored(application_state_dsn, turn) == (revision, payload)
 
 
-def test_concurrent_equivalent_calls_reload_and_read_source_once(application_state_dsn, monkeypatch):
+@pytest.mark.parametrize("same_call", [False, True])
+def test_concurrent_calls_reload_and_read_source_once(application_state_dsn, monkeypatch, same_call):
     service, turn, scope, record = ready()
     record = authorize(service, turn, scope, record, "call:1")
-    record = authorize(service, turn, scope, record, "call:2")
+    if not same_call:
+        record = authorize(service, turn, scope, record, "call:2")
+    call_ids = ("call:1", "call:1" if same_call else "call:2")
     start = Barrier(3)
     entered, release = Event(), Event()
     reads, guard = [], Lock()
@@ -85,7 +88,7 @@ def test_concurrent_equivalent_calls_reload_and_read_source_once(application_sta
         start.wait(10)
         return deliver(service, turn, scope, call_id)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = [pool.submit(run, cid) for cid in ("call:1", "call:2")]
+        futures = [pool.submit(run, cid) for cid in call_ids]
         start.wait(10)
         assert entered.wait(10)
         # Prove a second real connection is waiting on the owning row while
@@ -107,9 +110,13 @@ def test_concurrent_equivalent_calls_reload_and_read_source_once(application_sta
     refs = [r.prepared.observation.support_refs for r in results]
     assert refs[0] == refs[1]
     _, payload = stored(application_state_dsn, turn)
-    assert payload["budget_use"]["calls"] == 2 and payload["budget_use"]["distinct_questions"] == 1
+    assert payload["budget_use"]["calls"] == (1 if same_call else 2) and payload["budget_use"]["distinct_questions"] == 1
     assert len(payload["supports"]) == 1
-    assert payload["budget_use"]["presentation_utf8"] == sum(len(r.prepared.raw_output.encode()) for r in results)
+    assert sum(r.replayed for r in results) == (1 if same_call else 0)
+    assert payload["budget_use"]["presentation_utf8"] == sum(len(r.prepared.raw_output.encode()) for r in results if not r.replayed)
+    if same_call:
+        assert results[0].prepared.raw_output == results[1].prepared.raw_output
+        assert sum(e["kind"] == "query_observed" for e in payload["events"]) == 1
 
 
 def test_reader_failure_rolls_back_observation_without_returning_packet(application_state_dsn):
@@ -192,3 +199,58 @@ def test_noncanonical_historical_packet_is_integrity_failure_not_reinterpretatio
     with pytest.raises(ApplicationStateIntegrityError, match="canonical"):
         deliver(service, turn, scope, "call:1", lambda _: pytest.fail("corrupt replay read source"))
     assert stored(application_state_dsn, turn) == before
+
+
+def test_deferred_commit_failure_returns_no_delivery_and_rolls_back(application_state_dsn):
+    service, turn, scope, record = ready()
+    record = authorize(service, turn, scope, record, "call:1")
+    before = stored(application_state_dsn, turn)
+    # Real PostgreSQL failure at COMMIT, after the packet was prepared/sealed.
+    # The fixture database alone owns this temporary deferred constraint.
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""CREATE FUNCTION public.reject_rules_delivery_commit() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture rejects Rules commit'; END $$""")
+        conn.execute("""CREATE CONSTRAINT TRIGGER reject_rules_delivery_commit
+        AFTER UPDATE ON agent.turn_rules_execution DEFERRABLE INITIALLY DEFERRED
+        FOR EACH ROW EXECUTE FUNCTION public.reject_rules_delivery_commit()""")
+    with pytest.raises(psycopg.errors.RaiseException, match="rejects Rules commit"):
+        deliver(service, turn, scope, "call:1")
+    assert stored(application_state_dsn, turn) == before
+
+
+def test_provider_port_requires_exact_actual_request_before_dispatch(application_state_dsn):
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_events import (
+        RulesProviderAuthorizedV1, RulesProviderIncludedV1, RulesProviderOutcomeV1, RulesOutputRefV1,
+    )
+    service, turn, scope, record = ready()
+    record = authorize(service, turn, scope, record, "call:1")
+    delivered = deliver(service, turn, scope, "call:1")
+    record = delivered.record
+    raw = json.dumps(dict(input=[dict(type="function_call", call_id="call:1", name="lookup_rules",
+        arguments=args().model_dump_json()), dict(type="function_call_output", call_id="call:1",
+        output=delivered.prepared.raw_output)]))
+    producer = uuid4()
+    fields = dict(provider_attempt_id=producer, request_envelope_sha256=sha256(raw.encode()).hexdigest(),
+        matched_outputs=(RulesOutputRefV1(call_id="call:1", packet_sha256=delivered.prepared.observation.packet_sha256),))
+    auth = RulesProviderAuthorizedV1(kind="provider_authorized", event_id=uuid4(), sequence=len(record.execution.events),
+        execution_id=scope.execution_id, declared_support_refs=delivered.prepared.observation.support_refs, **fields)
+    before = stored(application_state_dsn, turn)
+    with pytest.raises(ApplicationStateValidationError):
+        service.append_rules_provider_event(scope, expected_turn_revision=turn.revision,
+            expected_ledger_revision=record.revision, event=auth, prepared_request_json=raw + " ")
+    assert stored(application_state_dsn, turn) == before
+    record = service.append_rules_provider_event(scope, expected_turn_revision=turn.revision,
+        expected_ledger_revision=record.revision, event=auth, prepared_request_json=raw)
+    included = RulesProviderIncludedV1(kind="provider_included", event_id=uuid4(), sequence=len(record.execution.events),
+        execution_id=scope.execution_id, support_refs=delivered.prepared.observation.support_refs, **fields)
+    record = service.append_rules_provider_event(scope, expected_turn_revision=turn.revision,
+        expected_ledger_revision=record.revision, event=included, prepared_request_json=raw)
+    outcome = RulesProviderOutcomeV1(kind="provider_outcome", event_id=uuid4(), sequence=len(record.execution.events),
+        execution_id=scope.execution_id, provider_attempt_id=producer,
+        request_envelope_sha256=fields["request_envelope_sha256"], status="answered")
+    record = service.append_rules_provider_event(scope, expected_turn_revision=turn.revision,
+        expected_ledger_revision=record.revision, event=outcome)
+    revision, payload = stored(application_state_dsn, turn)
+    assert revision == record.revision and payload["budget_use"]["provider_requests"] == 1
+    assert [e["kind"] for e in payload["events"]][-3:] == ["provider_authorized", "provider_included", "provider_outcome"]
