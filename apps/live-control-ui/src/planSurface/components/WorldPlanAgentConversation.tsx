@@ -2470,6 +2470,7 @@ export function WorldPlanAgentConversation({
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
   const [pendingPlayTurn, setPendingPlayTurn] = useState<StoredPendingPlayTurn | null>(null);
   const [pendingPlayLoadError, setPendingPlayLoadError] = useState<string | null>(null);
+  const [pendingPlayLoadedWorldId, setPendingPlayLoadedWorldId] = useState<string | null>(null);
   const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
@@ -3033,9 +3034,11 @@ export function WorldPlanAgentConversation({
       const stored = readPendingPlayTurn(verifiedWorldId);
       setPendingPlayTurn(stored);
       setPendingPlayLoadError(null);
+      setPendingPlayLoadedWorldId(verifiedWorldId);
       if (stored) sharedConversation?.setPendingTurn((current) => current ?? { surface: stored.request.surface.surface_id, turnId: stored.request.turn_id });
     } catch (reason) {
       setPendingPlayLoadError(reason instanceof Error ? reason.message : "Saved Play request recovery is unavailable.");
+      setPendingPlayLoadedWorldId(verifiedWorldId);
     }
   }, [verifiedWorldId, sharedConversation?.setPendingTurn]);
 
@@ -5183,10 +5186,12 @@ export function WorldPlanAgentConversation({
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
+  const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
   const composerBusy = isReadOnly
     ? buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
-      || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
+      || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext || pendingPlayRecoveryHydrating
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+      || pendingPlayRecoveryHydrating
       || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
   const messageLimit = isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
@@ -5962,6 +5967,7 @@ export function WorldPlanAgentConversation({
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
           disabled={(isReadOnly ? !currentReadOnlyContext : !scopeMatches)
+            || pendingPlayRecoveryHydrating
             || Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError)}
           placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
