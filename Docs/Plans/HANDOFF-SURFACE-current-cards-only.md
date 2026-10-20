@@ -52,3 +52,25 @@ Contents selection uses current accessible buttons; progress re-admission uses c
 note-save interaction. The v1 manifest rejection covers marked and unmarked source and
 asserts no content/active/progress/rebase/World conversation publication. Current failed
 admission cannot offer rebase. Lower source parser/API coverage remains unchanged.
+
+## Review Cycle1 amendment
+Architecture HOLD on982923cc39d7844d1ccde3fa97b926dc1f5ea5ca: production approved,
+153 independently pass, but affected App shell contracts still require deleted renderer.
+Steward expands this same slice lease to apps/live-control-ui/src/App.test.tsx only
+for directly affected Play cases: current-v2 fixtures/routing/resume/reconciliation,
+explicit v1 rejection/no-write/publication, current chooser actions and sharedContents.
+Unrelated historical App failures remain reported separately. No new runtime capability.
+
+Cycle1 remediation: all24 affected App Play cases pass, with no executable retired
+renderer assertions. App fixture uses a fixed campaign-scope provider seam to exercise
+App routing; real World admission is independently covered by its full13-test suite.
+Successful campaign API-schema-v1 fixtures now carry genuine Playable-v2 manifests and
+Beat/Scene structure. Explicit unsupported-v1 App case proves blank published document/
+campaign authority and no create/seal/active/progress writes. Root without a World no
+longer offers the retired create controls; current create/seal remains StartRunPanel
+owner coverage (all30 pass). Current 409 case retains inspection position but replaces
+R3 authored body with exact R4, using current Make Current rather than retired Resolved.
+Full11-file run:226 passed,3 failed,0 skipped; the3 failures are pre-existing unrelated
+App Plan-root label and2 Build-shell cases, also present before App changes. All24 Play
+shell cases plus original153, real World admission13, creation30 passed. Production
+build passed. No production source changed during this test-only remediation.
