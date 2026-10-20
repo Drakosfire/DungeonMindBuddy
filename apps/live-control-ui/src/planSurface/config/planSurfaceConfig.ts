@@ -60,6 +60,7 @@ export function createPlanSurfaceConfig(
       { id: "recap", label: "Recap", size: "wide" },
       { id: "party-registry", label: "Party Registry", size: "wide" },
       { id: "statblock", label: "Statblock", size: "wide" },
+      { id: "rules-lookup", label: "Rules Lookup", size: "wide" },
     ],
     canvas: {
       documentId: durableDocumentId,

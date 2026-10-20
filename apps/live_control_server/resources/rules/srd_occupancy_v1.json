@@ -1,0 +1,27 @@
+{
+  "schema": "dmb_rules_evidence_bundle_v1",
+  "ruleset_id": "dnd_2024_srd_5_2_1",
+  "title": "D&D 2024 · SRD 5.2.1",
+  "coverage": "Moving around Other Creatures only. Other topics are not available in this source set.",
+  "source_export": {
+    "repository": "https://github.com/Drakosfire/RulesIngestion",
+    "revision": "b4a06e8b28ac34d40add64978a11116c6a24cf9c"
+  },
+  "attribution": "This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.",
+  "units": [
+    {
+      "unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+      "text": "Moving around Other Creatures — You can’t willingly end a move in a space occupied by another creature. If you somehow end a turn in a space with another creature, you have the Prone condition (see “Rules Glossary”) unless you are Tiny or are of a larger size than the other creature.",
+      "text_sha256": "198a9b0329f3878fd9f5532f1b189f5bc34831e8ede20809e3ae0592182cdba6",
+      "stage_b_content_hash": "154cf1e3e0abb269e93b9cfcad1a5b79792e482a7aa80ffc41a2e189f5596197",
+      "page_fingerprint": "008789fb51c05be746534eed53c009be3dc4ee625c6df972a993a2dba757a7b5",
+      "gate_passed": true,
+      "section": "Moving around Other Creatures",
+      "source_title": "System Reference Document 5.2.1",
+      "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+      "source_sha256": "8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "pdf_page_index": 13,
+      "printed_page": 14
+    }
+  ]
+}

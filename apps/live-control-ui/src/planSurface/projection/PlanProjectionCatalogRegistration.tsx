@@ -24,6 +24,8 @@ import { useProjection } from "./projectionContext";
 
 import { deferredComponent } from "../../ui/deferredComponent";
 
+const RulesLookupTool = deferredComponent(() => import("../../rulesLookup/RulesLookupTool"), "rules lookup");
+
 const PartyRegistryModule = deferredComponent(() => import("../../modules/PartyRegistryModule").then(module => ({ default: module.PartyRegistryModule })), "party");
 const StatblockWorkbenchModule = deferredComponent(() => import("../../surface/modules/StatblockWorkbenchModule").then(module => ({ default: module.StatblockWorkbenchModule })), "statblocks");
 const GraphPreviewModule = deferredComponent(() => import("../graphPreview/GraphPreviewModule").then(module => ({ default: module.GraphPreviewModule })), "graph preview");
@@ -42,6 +44,7 @@ export interface PlanProjectionDefinition {
 }
 
 export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = [
+  { projectionId: "rules-lookup", kind: "tool", preferredSize: "wide", requiredBindingIds: [], render: () => <RulesLookupTool /> },
   {
     projectionId: "recap",
     kind: "tool",

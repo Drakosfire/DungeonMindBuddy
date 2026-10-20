@@ -331,6 +331,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   const pathname = path.split("?", 1)[0];
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
@@ -670,7 +671,8 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
-    || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname);
+    || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
+    || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
   return method === "POST" && typeof init?.body === "string"
     && ["/api/live/world-graph/projection", "/api/live/world-graph/managed-projection", "/api/live/world-graph/recap-projection"].includes(pathname);
 }
@@ -3134,4 +3136,17 @@ export function getPlanActionPromptBody(worldId: string, actionId: string, attem
 export function getPlanActionTerminalDiagnostic(worldId: string, actionId: string, signal?: AbortSignal):
   Promise<import("./types").ActionTerminalDiagnosticRead> {
   return apiFetch(`/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/terminal-diagnostic?world_id=${encodeURIComponent(worldId)}`, { signal, cache: "no-store" });
+}
+
+// Passive exact rules reads share only pending transport, never settled evidence.
+export function getRulesCatalog(signal?: AbortSignal) {
+  return apiFetch<import('./rulesLookupTypes').RulesCatalog>('/api/live/rules/catalog', { signal, cache: 'no-store' });
+}
+export function queryRulesEvidence(corpus: string, question: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ corpus, question, limit: '4' });
+  return apiFetch<import('./rulesLookupTypes').RulesLookupPacket>(`/api/live/rules/query?${query}`, { signal, cache: 'no-store' });
+}
+export function getRulesPassage(corpus: string, citationId: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ corpus });
+  return apiFetch<import('./rulesLookupTypes').RulesPassage>(`/api/live/rules/passages/${encodeURIComponent(citationId)}?${query}`, { signal, cache: 'no-store' });
 }

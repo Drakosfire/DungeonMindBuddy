@@ -175,6 +175,7 @@ function OpenReferenceButton({
 describe("projection catalog registration inventory", () => {
   it("exports the exact Plan projection definition inventory", () => {
     expect(PLAN_PROJECTION_DEFINITIONS.map((entry) => entry.projectionId)).toEqual([
+      "rules-lookup",
       "recap",
       "party-registry",
       "statblock",
