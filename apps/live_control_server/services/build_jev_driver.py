@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass
 
 from application_state.agent_conversation import types as ledger
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
 )
@@ -95,15 +96,18 @@ def freeze_interaction(adapter):
     rows = adapter.service.list_turns(adapter.world_id, conversation_id, limit=6) if conversation_id else []
     history, remaining = [], 12000
     for row in reversed(rows):
-        if row.status != "completed" or not row.assistant_text:
+        # A mixed answer has an explicit lifecycle envelope and full visible text.
+        # Its approved base is only a subsequence, never the historical answer.
+        envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
+        if envelope.status != "completed" or not row.assistant_text:
             continue
-        size = len(row.user_text) + len(row.assistant_text)
+        size = len(envelope.user_text) + len(row.assistant_text)
         if size > remaining:
             continue
         remaining -= size
-        history.append({"turn_id": str(row.turn_id), "user": row.user_text,
+        history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,
             "assistant": row.assistant_text,
-            "user_sha256": hashlib.sha256(row.user_text.encode()).hexdigest(),
+            "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
             "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest()})
     return {"allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,

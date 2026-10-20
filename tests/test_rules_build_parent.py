@@ -247,3 +247,34 @@ def test_never_dispatched_retry_keeps_exact_first_body_and_binds_fresh_attempt(
     assert scope.product_attempt == completed.envelope.attempt
     assert adapter.rules_runtime.record.execution.budget_use.calls == 1
     assert len(final_writer.calls) == 1
+
+
+@pytest.mark.parametrize("base", [False, True])
+def test_next_real_build_turn_uses_full_mixed_history_as_reference_only(
+    application_state_dsn, build_case, tmp_path, monkeypatch, base,
+):
+    from uuid import uuid4
+
+    first, _, _, _, _ = run_parent(build_case, tmp_path, monkeypatch, base=base)
+    source, request, bootstrap = build_case
+    next_case = source, request.model_copy(update={"turn_id": str(uuid4())}), bootstrap
+    second, _, decisions, writer, _ = run_parent(
+        next_case, tmp_path, monkeypatch, query=False,
+        question="Discuss the previous answer without changing the page.",
+    )
+    assert second.status == "completed"
+    first_body = json.loads(decisions.calls[0].content)
+    interaction = first_body["state"]["decision"]["state"]["interaction"]
+    assert interaction["history"] == [{
+        "turn_id": str(first.envelope.turn_id),
+        "user": first.envelope.user_text,
+        "assistant": first.assistant_text,
+        "user_sha256": sha256(first.envelope.user_text.encode()).hexdigest(),
+        "assistant_sha256": sha256(first.assistant_text.encode()).hexdigest(),
+    }]
+    assert interaction["history_policy"] == "newest_complete_pairs_up_to_6_and_12000_chars_reference_only_v1"
+    # Historical Rules text carries no producing support capsules or new lookup.
+    assert "rules_projection" not in json.loads(json.loads(writer.calls[0].content)["input"])
+    with psycopg.connect(application_state_dsn) as conn:
+        payload = conn.execute("SELECT payload FROM agent.turn_rules_execution WHERE turn_id=%s", (second.turn_id,)).fetchone()[0]
+    assert payload["state"] == "unused" and payload["supports"] == {}

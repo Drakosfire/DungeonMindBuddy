@@ -1493,6 +1493,51 @@ def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: s
         raise HTTPException(status_code=409, detail={"code": "historical_passage_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}")
+def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: str,
+        request: Request):
+    """One persisted cited capsule; historical identity never resolves current rules."""
+    from fastapi.responses import Response
+    from application_state.agent_conversation.rules_authority_passages import (
+        RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1,
+    )
+    from application_state.agent_conversation.rules_authority_types import canonical_bytes
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    try:
+        selectors = list(request.query_params.multi_items())
+        keys = {"conversation_id", "attempt", "support_sha256"}
+        if len(selectors) != len(keys) or {key for key, _ in selectors} != keys:
+            raise ValueError("Rules passage requires exact selectors")
+        query = dict(selectors)
+        if any(str(UUID(value)) != value for value in (turn_id, support_id, query["conversation_id"])):
+            raise ValueError("Rules passage requires canonical identifiers")
+        attempt = int(query["attempt"])
+        if str(attempt) != query["attempt"] or not 1 <= attempt <= 2147483647:
+            raise ValueError("Rules passage attempt is invalid")
+        reference = RulesHistoricalPassageRequestV1(world_id=verified,
+            conversation_id=UUID(query["conversation_id"]), turn_id=UUID(turn_id),
+            attempt=attempt, support_id=UUID(support_id), support_sha256=query["support_sha256"])
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail={"code": "rules_passage_selector_invalid"}) from exc
+    try:
+        stored = _conversation_service(request).inspect_rules_passage(reference)
+        # Revalidate the outward boundary, including injected service implementations.
+        passage = RulesHistoricalPassageV1.model_validate_json(stored.model_dump_json(by_alias=True))
+        if (passage.world_id, passage.conversation_id, passage.turn_id,
+            passage.accepted_attempt, passage.support.support_id, passage.support_sha256) != (
+            reference.world_id, reference.conversation_id, reference.turn_id,
+            reference.attempt, reference.support_id, reference.support_sha256):
+            raise ValueError("Rules passage differs from requested accepted identity")
+        return Response(content=canonical_bytes(passage), media_type="application/json",
+            headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "rules_passage_unavailable"}) from exc
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "rules_passage_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)
 def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request) -> AgentTurnContextTraceResponseV1:
     """Explicit authenticated read; normal history never includes passage bytes."""
