@@ -15,6 +15,24 @@ describe("pending read ownership",()=>{
   await Promise.resolve();controller.abort();expect(await first).toBe("AbortError");expect(owned.aborted).toBe(true);
   expect(await shareInFlightRead("k",async()=>"fresh")).toBe("fresh");gate.resolve("late");
  });
+ it("reuses an exact pending read across synchronous effect cleanup and remount",async()=>{
+  const controller=new AbortController(),gate=deferred<string>();let owned!:AbortSignal;
+  const loader=vi.fn((signal:AbortSignal)=>{owned=signal;return gate.promise;});
+  const rehearsed=shareInFlightRead("same-authority-request",loader,controller.signal).catch(error=>error.name);
+  await Promise.resolve(); // The first owner has already dispatched its transport.
+  controller.abort();
+  const replacement=shareInFlightRead("same-authority-request",loader);
+  await Promise.resolve();
+  expect(loader).toHaveBeenCalledTimes(1);expect(owned.aborted).toBe(false);
+  gate.resolve("one transfer");
+  expect(await Promise.all([rehearsed,replacement])).toEqual(["AbortError","one transfer"]);
+ });
+ it("does not dispatch a read whose only owner cancels before the loader starts",async()=>{
+  const controller=new AbortController(),loader=vi.fn(async()=>"unwanted");
+  const abandoned=shareInFlightRead("cancel-before-start",loader,controller.signal).catch(error=>error.name);
+  controller.abort();
+  expect(await abandoned).toBe("AbortError");expect(loader).not.toHaveBeenCalled();
+ });
  it("does not let an old wave completion erase the new wave's pending read",async()=>{
   const old=deferred<string>(),fresh=deferred<string>();const a=shareInFlightRead("k",()=>old.promise);startReadWave();const loader=vi.fn(()=>fresh.promise);const b=shareInFlightRead("k",loader);
   old.resolve("old");await a;const c=shareInFlightRead("k",loader);fresh.resolve("fresh");expect(await Promise.all([b,c])).toEqual(["fresh","fresh"]);expect(loader).toHaveBeenCalledTimes(1);

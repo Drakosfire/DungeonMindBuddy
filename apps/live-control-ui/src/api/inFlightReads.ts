@@ -24,11 +24,17 @@ export function shareInFlightRead<T>(key: string, loader: (signal: AbortSignal) 
   let entry = pending.get(key) as Entry<T> | undefined;
   if (!entry) {
     const controller = new AbortController();
-    entry = { controller, subscribers: 0, settled: false, promise: Promise.resolve().then(() => {
-      if (controller.signal.aborted) throw controller.signal.reason;
+    let owned: Entry<T>;
+    owned = { controller, subscribers: 0, settled: false, promise: Promise.resolve().then(() => {
+      // A caller can release and an equivalent owner can subscribe again in
+      // the same commit (React StrictMode rehearses effects this way). Avoid
+      // dispatching when the read was abandoned before its loader starts.
+      if (controller.signal.aborted || !owned.subscribers) {
+        throw controller.signal.reason ?? new DOMException("Read cancelled", "AbortError");
+      }
       return loader(controller.signal);
     }) };
-    const owned = entry;
+    entry = owned;
     // Beyond the bounded registry, reads still work with their own cancellation.
     if (pending.size < MAX_TRACKED_READS) pending.set(key, owned);
     const settle = () => {
@@ -46,8 +52,16 @@ export function shareInFlightRead<T>(key: string, loader: (signal: AbortSignal) 
       signal?.removeEventListener("abort", cancel);
       owned.subscribers -= 1;
       if (!owned.subscribers && !owned.settled) {
-        if (pending.get(key) === owned) pending.delete(key);
-        owned.controller.abort();
+        // Keep the pending identity through this synchronous turn so a
+        // replacement effect can take ownership before transport is aborted.
+        // The loader also checks subscriber count before dispatch, so an
+        // already-abandoned read never starts merely because cancellation is
+        // deferred by one microtask.
+        queueMicrotask(() => {
+          if (owned.subscribers || owned.settled) return;
+          if (pending.get(key) === owned) pending.delete(key);
+          owned.controller.abort();
+        });
       }
     };
     const cancel = () => {
