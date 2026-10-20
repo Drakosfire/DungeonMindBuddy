@@ -83,6 +83,7 @@ from application_state.agent_conversation.types import (
     _ask_graph_validation_inputs,
     validate_graph_provider_envelope,
 )
+from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
@@ -244,6 +245,14 @@ def _ready_dsn() -> str:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     return dsn
+
+
+def _ordinary_mutation_turn(turn: TurnReadModel | None, conversation_id: UUID) -> Turn | None:
+    if isinstance(turn, MixedCompletedTurnV1):
+        if turn.envelope.conversation_id != conversation_id:
+            raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+        raise ApplicationStateConflictError("completed mixed Rules answer cannot accept an ordinary mutation")
+    return turn
 
 
 class AgentConversationService:
@@ -503,7 +512,7 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def accept_turn(self, submission: TurnSubmission) -> Turn:
+    def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
@@ -532,7 +541,7 @@ class AgentConversationService:
             else submitted_turn_intent_fingerprint_v2(submitted_intent_v2)
         )
 
-        def matching_receipt(existing) -> Turn:
+        def matching_receipt(existing) -> TurnReadModel:
             (
                 turn,
                 _old_request_fingerprint,
@@ -540,9 +549,25 @@ class AgentConversationService:
                 old_submitted_intent_fingerprint,
                 old_submitted_intent_fingerprint_v2,
             ) = existing
+            if isinstance(turn, MixedCompletedTurnV1):
+                turn_meta = turn.envelope
+                projection = turn.base_projection
+                if projection.kind == "approved":
+                    graph_receipt = projection.turn.graph_context_receipt
+                    graph_execution = projection.turn.graph_context_execution
+                elif projection.kind == "unclaimed":
+                    graph_receipt = projection.graph_context_receipt
+                    graph_execution = projection.graph_context_execution
+                else:
+                    graph_receipt = None
+                    graph_execution = None
+            else:
+                turn_meta = turn
+                graph_receipt = turn.graph_context_receipt
+                graph_execution = turn.graph_context_execution
             if (
-                turn.play_context_receipt is not None
-                and turn.play_context_receipt != submission.play_context_receipt
+                turn_meta.play_context_receipt is not None
+                and turn_meta.play_context_receipt != submission.play_context_receipt
             ):
                 raise ApplicationStateConflictError(
                     "turn idempotency key was already used with a different Play context receipt"
@@ -568,18 +593,18 @@ class AgentConversationService:
             if submitted_intent_fingerprint_v2 is not None and (
                 old_submitted_intent_fingerprint_v2 != submitted_intent_fingerprint_v2
                 or old_submitted_intent_fingerprint is not None
-                or turn.graph_context_receipt != submission.graph_context_receipt
+                or graph_receipt != submission.graph_context_receipt
                 or (
-                    (turn.graph_context_execution is None)
+                    (graph_execution is None)
                     != (submission.graph_context_execution is None)
                 )
                 or (
-                    turn.graph_context_execution is not None
+                    graph_execution is not None
                     and submission.graph_context_execution is not None
                     and (
-                        turn.graph_context_execution.context_receipt_sha256
+                        graph_execution.context_receipt_sha256
                         != submission.graph_context_execution.context_receipt_sha256
-                        or turn.graph_context_execution.policy
+                        or graph_execution.policy
                         != submission.graph_context_execution.policy
                     )
                 )
@@ -655,7 +680,7 @@ class AgentConversationService:
         world_id: str,
         idempotency_key: UUID,
         submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1,
-    ) -> Turn | None:
+    ) -> TurnReadModel | None:
         """Find an exact World receipt before resolving mutable current context.
 
         A legacy receipt has no lossless submitted-intent identity and therefore
@@ -693,7 +718,7 @@ class AgentConversationService:
             )
         return turn
 
-    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> Turn:
+    def inspect_turn(self, *, world_id: str, turn_id: UUID) -> TurnReadModel:
         """Load one historical turn in its verified World; no pointer/head lookup."""
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
@@ -709,7 +734,7 @@ class AgentConversationService:
         *,
         limit: int = 50,
         before_sequence: int | None = None,
-    ) -> list[Turn]:
+    ) -> list[TurnReadModel]:
         world_id = _world_id(world_id)
         if not 1 <= limit <= 100:
             raise ApplicationStateValidationError("turn page limit must be between 1 and 100")
@@ -779,6 +804,10 @@ class AgentConversationService:
         interrupted_after_dispatch = False
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            if isinstance(turn, MixedCompletedTurnV1):
+                if turn.envelope.conversation_id != conversation_id:
+                    raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+                return TurnClaimReceipt(disposition="completed", turn=turn)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
@@ -878,6 +907,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             execution = turn.graph_context_execution
@@ -1240,6 +1270,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError(
                     "turn not found in verified World conversation"
@@ -1272,6 +1303,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, result.turn_id)
+            turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == "completed":
@@ -1391,6 +1423,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, failure.turn_id)
+            turn = _ordinary_mutation_turn(turn, failure.conversation_id)
             if turn is None or turn.conversation_id != failure.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == status:

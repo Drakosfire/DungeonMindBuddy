@@ -39,12 +39,13 @@ from application_state.errors import (
 def admitted():
     service = AgentConversationService()
     world = "rules-store-fixture"
+    pointer = service.get_world_pointer(world)
     receipt = service.new_conversation(
         ConversationCommand(
             world_id=world,
             command_id=uuid4(),
-            expected_pointer_revision=0,
-            expected_active_conversation_id=None,
+            expected_pointer_revision=pointer.revision,
+            expected_active_conversation_id=pointer.active_conversation_id,
         )
     )
     conversation = service.get_conversation(world, receipt.conversation_id)
@@ -425,3 +426,108 @@ def test_provider_exposure_is_fenced_and_persisted_from_actual_input(
                 expected_ledger_revision=5,
                 event=outcome,
             )
+
+
+def test_bounded_turn_page_batches_provenance_and_excludes_other_conversations(
+    application_state_dsn,
+):
+    from application_state.agent_conversation import repository as repo
+
+    turn, scope = admitted()
+    service = AgentConversationService()
+    expected_ids = [turn.turn_id]
+    for index in range(3):
+        conversation = service.get_conversation(scope.world_id, scope.conversation_id)
+        message = f"Page item {index}"
+        accepted = service.accept_turn(
+            TurnSubmission(
+                world_id=scope.world_id,
+                conversation_id=scope.conversation_id,
+                idempotency_key=uuid4(),
+                expected_conversation_revision=conversation.revision,
+                user_text=message,
+                provenance=turn.provenance,
+                submitted_intent_v1=SubmittedTurnIntentV1(
+                    world_id=scope.world_id,
+                    client_thread_id="rules-store-thread",
+                    message=message,
+                    surface_id="index",
+                    surface_instance_id="rules-store",
+                    client_work_state="none",
+                    primary_work=None,
+                    graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+                    graph_selection=None,
+                ),
+            )
+        )
+        expected_ids.append(accepted.turn_id)
+    other, _ = admitted()
+    queries = []
+
+    class Cursor:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __enter__(self):
+            self.inner.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.inner.__exit__(*args)
+
+        def execute(self, sql, params=None):
+            queries.append((sql, params))
+            return self.inner.execute(sql, params)
+
+        def __getattr__(self, name):
+            return getattr(self.inner, name)
+
+    class Connection:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def cursor(self, *args, **kwargs):
+            return Cursor(self.inner.cursor(*args, **kwargs))
+
+    with psycopg.connect(application_state_dsn) as conn:
+        page = repo.list_turns(
+            Connection(conn),
+            scope.world_id,
+            scope.conversation_id,
+            limit=100,
+            before_sequence=None,
+        )
+    assert [item.turn_id for item in page] == expected_ids
+    assert other.turn_id not in expected_ids
+    assert len(queries) == 2  # bounded page + one admitted-ID provenance query
+    assert set(queries[1][1][0]) == set(expected_ids)
+    assert "accepted_binding::text)<=40960" in queries[0][0]
+    assert "x.payload->>'state'" in queries[0][0]
+    assert "SELECT payload" not in queries[0][0]
+
+
+def test_corrupt_provenance_cannot_expand_a_page_transfer_unboundedly(
+    application_state_dsn,
+):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateIntegrityError
+
+    turn, scope = admitted()
+    with psycopg.connect(application_state_dsn) as conn:
+        # This fixture bypasses typed writer admission to exercise storage damage.
+        for ordinal in range(40):
+            conn.execute(
+                """INSERT INTO agent.turn_reference(turn_id,reference_role,ordinal,resolution,kind,object_id,revision)
+                VALUES(%s,'supporting',%s,'resolved','source_artifact',%s,'1')""",
+                (turn.turn_id, ordinal, f"source-{ordinal}"),
+            )
+        with pytest.raises(ApplicationStateIntegrityError, match="transfer bound"):
+            repo.list_turns(
+                conn,
+                scope.world_id,
+                scope.conversation_id,
+                limit=100,
+                before_sequence=None,
+            )
+        with pytest.raises(ApplicationStateIntegrityError, match="transfer bound"):
+            repo.get_turn(conn, scope.world_id, scope.turn_id)

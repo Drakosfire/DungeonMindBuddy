@@ -699,3 +699,37 @@ def test_cached_query_can_retire_with_one_reserved_budget_diagnostic():
     ledger["budget_use"]["calls"] = 2
     ledger["budget_use"]["presentation_utf8"] += len(raw.encode())
     assert parse(ledger).budget_use.calls == 2
+
+
+def test_acceptance_derives_source_map_and_seal_from_the_actual_producing_input():
+    from application_state.agent_conversation.rules_authority_completion import (
+        prepare_rules_acceptance,
+    )
+
+    accepted = parse(accepted_fixture())
+    data = accepted.model_dump(mode="json", by_alias=True)
+    data.update(state="active", composition=None, rules_completion=None)
+    data["events"].pop()
+    active = parse(data)
+    finalized, binding = prepare_rules_acceptance(
+        active,
+        accepted.composition,
+        producing_provider_attempt_id=accepted.rules_completion.producing_provider_attempt_id,
+        accepted_turn_revision=3,
+        event_id=uuid4(),
+    )
+    assert finalized.state == "accepted"
+    assert finalized.events[-1].accepted_binding_sha256 == canonical_sha256(binding)
+    assert binding.validate_text(accepted.composition.render()) == ""
+    assert len(binding.support_table) == 1 and binding.support_table[
+        0
+    ].source_label.endswith("p. 14")
+    assert active.state == "active" and len(active.events) == 5
+    with pytest.raises(ValueError, match="active Rules"):
+        prepare_rules_acceptance(
+            finalized,
+            accepted.composition,
+            producing_provider_attempt_id=accepted.rules_completion.producing_provider_attempt_id,
+            accepted_turn_revision=3,
+            event_id=uuid4(),
+        )

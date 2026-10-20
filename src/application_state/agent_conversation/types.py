@@ -1696,7 +1696,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanAskHistoryAttributionV1 | None = None
+    history_attribution: PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":
@@ -1704,7 +1704,7 @@ class CompletedPlanAskPair(StrictModel):
             raise ValueError(
                 "completed Plan Ask pairs require visible question and answer"
             )
-        if self.history_attribution is not None:
+        if isinstance(self.history_attribution, PlanAskHistoryAttributionV1):
             if (
                 self.history_attribution.source_turn_id != self.source_record_id
                 or self.history_attribution.source_sequence != self.source_sequence
@@ -1719,6 +1719,8 @@ class CompletedPlanAskPair(StrictModel):
                 raise ValueError(
                     "Ask history completion segments must match its answer"
                 )
+        elif isinstance(self.history_attribution, MixedHistoryAttributionV1):
+            self.history_attribution.validate_visible_pair(record_id=self.source_record_id, sequence=self.source_sequence, answer=self.answer)
         return self
 
 
@@ -4457,6 +4459,94 @@ def _receipt_target_matches_intent(
     )
 
 
+def validate_turn_lifecycle_fields(
+    *, world_id: str, provenance: TurnProvenance,
+    play_context_receipt: PlayRunTurnContextReceiptV2 | None, status: TurnStatus,
+    claim_expires_at: datetime | None, submitted_intent_fingerprint_v1: str | None,
+    submitted_intent_fingerprint_v2: str | None,
+) -> None:
+    try:
+        validate_play_context_receipt(
+            play_context_receipt, world_id, provenance
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("stored Play context receipt differs from its provenance") from exc
+    if status != "running" and claim_expires_at is not None:
+        raise ValueError("only a running turn can carry an active claim expiry")
+    if (
+        submitted_intent_fingerprint_v1 is not None
+        and submitted_intent_fingerprint_v2 is not None
+    ):
+        raise ValueError("turn cannot carry both submitted-intent fingerprints")
+
+
+def validate_turn_graph_fields(
+    *, provenance: TurnProvenance, submitted_intent_fingerprint_v2: str | None,
+    graph_context_receipt: GraphContextReceipt | None,
+    graph_context_execution: PlanWorldGraphExecution | None,
+    completion: GraphTurnCompletion | None, assistant_text: str | None,
+) -> None:
+    if completion is not None:
+        validate_session_evidence_claims(completion.answer_segments,provenance)
+    if (
+        graph_context_receipt is not None
+        and submitted_intent_fingerprint_v2 is None
+    ):
+        raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
+    if graph_context_receipt is not None:
+        validate_selected_source_binding(graph_context_receipt, graph_context_execution)
+        validate_related_recap_context_scope(
+            graph_context_receipt, graph_context_execution
+        )
+    if graph_context_execution is not None:
+        if graph_context_receipt is None:
+            raise ValueError("Graph execution requires its frozen context receipt")
+        if submitted_intent_fingerprint_v2 is None:
+            raise ValueError("Graph execution requires a v2 submitted-intent fingerprint")
+        if graph_context_execution.context_receipt_sha256 != graph_context_receipt.context_receipt_sha256:
+            raise ValueError("Graph execution must bind the exact stored receipt")
+        has_completion_binding = any(
+            isinstance(event, CompletionBindingEventV1)
+            for event in graph_context_execution.events
+        )
+        if has_completion_binding != (completion is not None):
+            raise ValueError("completion binding must be present exactly when completion is stored")
+    if isinstance(graph_context_receipt, BuildGraphContextReceiptV1) and (
+        not isinstance(graph_context_execution, PlanWorldGraphExecutionV2)
+        or provenance.surface_id != "build"
+        or provenance.primary_work.kind != "build"
+    ):
+        raise ValueError("Build Graph receipt requires governed Build execution and provenance")
+    if isinstance(graph_context_receipt, BuildGraphContextReceiptV1):
+        _validate_build_receipt_provenance(graph_context_receipt, provenance)
+        if isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and assistant_text != "\n".join(s.text for s in completion.answer_segments):
+            raise ValueError("Build answer text must match its validated completion segments")
+    if (completion is None and graph_context_execution is not None
+            and any(isinstance(event, BuildSectionAnswerBindingV1) for event in graph_context_execution.events)):
+        raise ValueError("Saved answer bindings require a completed answer")
+    if completion is not None:
+        if graph_context_receipt is None:
+            raise ValueError("Graph completion requires its frozen context receipt")
+        if graph_context_execution is None:
+            validate_completion_against_receipt(
+                completion, graph_context_receipt
+            )
+        else:
+            bindings = [e for e in graph_context_execution.events if isinstance(e, CompletionBindingEventV1)]
+            if len(bindings) != 1:
+                raise ValueError("execution completion requires exactly one completion binding")
+            binding = bindings[0]
+            if binding.completion_sha256 != _canonical_sha256(completion.model_dump(mode="json", by_alias=True)):
+                raise ValueError("completion binding digest does not match completion")
+            validate_execution_completion(
+                completion,
+                graph_context_receipt,
+                graph_context_execution,
+                binding.provider_attempt_id,
+                binding.claim_graph_event_ids,
+            )
+
+
 class Turn(StrictModel):
     turn_id: UUID
     conversation_id: UUID
@@ -4487,78 +4577,23 @@ class Turn(StrictModel):
 
     @model_validator(mode="after")
     def validate_claim_expiry(self) -> "Turn":
-        if self.completion is not None:
-            validate_session_evidence_claims(self.completion.answer_segments,self.provenance)
-        try:
-            validate_play_context_receipt(
-                self.play_context_receipt, self.world_id, self.provenance
-            )
-        except (TypeError, ValueError) as exc:
-            raise ValueError("stored Play context receipt differs from its provenance") from exc
-        if self.status != "running" and self.claim_expires_at is not None:
-            raise ValueError("only a running turn can carry an active claim expiry")
-        if (
-            self.submitted_intent_fingerprint_v1 is not None
-            and self.submitted_intent_fingerprint_v2 is not None
-        ):
-            raise ValueError("turn cannot carry both submitted-intent fingerprints")
-        if (
-            self.graph_context_receipt is not None
-            and self.submitted_intent_fingerprint_v2 is None
-        ):
-            raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
-        if self.graph_context_receipt is not None:
-            validate_selected_source_binding(self.graph_context_receipt, self.graph_context_execution)
-            validate_related_recap_context_scope(
-                self.graph_context_receipt, self.graph_context_execution
-            )
-        if self.graph_context_execution is not None:
-            if self.graph_context_receipt is None:
-                raise ValueError("Graph execution requires its frozen context receipt")
-            if self.submitted_intent_fingerprint_v2 is None:
-                raise ValueError("Graph execution requires a v2 submitted-intent fingerprint")
-            if self.graph_context_execution.context_receipt_sha256 != self.graph_context_receipt.context_receipt_sha256:
-                raise ValueError("Graph execution must bind the exact stored receipt")
-            has_completion_binding = any(
-                isinstance(event, CompletionBindingEventV1)
-                for event in self.graph_context_execution.events
-            )
-            if has_completion_binding != (self.completion is not None):
-                raise ValueError("completion binding must be present exactly when completion is stored")
-        if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1) and (
-            not isinstance(self.graph_context_execution, PlanWorldGraphExecutionV2)
-            or self.provenance.surface_id != "build"
-            or self.provenance.primary_work.kind != "build"
-        ):
-            raise ValueError("Build Graph receipt requires governed Build execution and provenance")
-        if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
-            _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
-            if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
-                raise ValueError("Build answer text must match its validated completion segments")
-        if (self.completion is None and self.graph_context_execution is not None
-                and any(isinstance(event, BuildSectionAnswerBindingV1) for event in self.graph_context_execution.events)):
-            raise ValueError("Saved answer bindings require a completed answer")
-        if self.completion is not None:
-            if self.graph_context_receipt is None:
-                raise ValueError("Graph completion requires its frozen context receipt")
-            if self.graph_context_execution is None:
-                validate_completion_against_receipt(
-                    self.completion, self.graph_context_receipt
-                )
-            else:
-                bindings = [e for e in self.graph_context_execution.events if isinstance(e, CompletionBindingEventV1)]
-                if len(bindings) != 1:
-                    raise ValueError("execution completion requires exactly one completion binding")
-                binding = bindings[0]
-                if binding.completion_sha256 != _canonical_sha256(self.completion.model_dump(mode="json", by_alias=True)):
-                    raise ValueError("completion binding digest does not match completion")
-                validate_execution_completion(
-                    self.completion,
-                    self.graph_context_receipt,
-                    self.graph_context_execution,
-                    binding.provider_attempt_id,
-                    binding.claim_graph_event_ids,
-                )
+        validate_turn_lifecycle_fields(
+            world_id=self.world_id,
+            provenance=self.provenance,
+            play_context_receipt=self.play_context_receipt,
+            status=self.status,
+            claim_expires_at=self.claim_expires_at,
+            submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
+            submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
+        )
+        validate_turn_graph_fields(
+            provenance=self.provenance,
+            submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
+            graph_context_receipt=self.graph_context_receipt,
+            graph_context_execution=self.graph_context_execution,
+            completion=self.completion,
+            assistant_text=self.assistant_text,
+        )
         return self
 
 
@@ -4611,7 +4646,13 @@ class TurnFailure(StrictModel):
 
 class TurnClaimReceipt(StrictModel):
     disposition: TurnClaimDisposition
-    turn: Turn
+    turn: Turn | MixedCompletedTurnV1
+
+    @model_validator(mode="after")
+    def mixed_is_completed(self):
+        if isinstance(self.turn, MixedCompletedTurnV1) and self.disposition != "completed":
+            raise ValueError("Mixed completed record cannot carry a live claim disposition")
+        return self
 
 
 class DraftSave(StrictModel):
@@ -4795,3 +4836,10 @@ class CommandResolutionRecordV1(StrictModel):
         values = {key: value.model_dump(mode="json", by_alias=True) if isinstance(value, BaseModel) else str(value) if isinstance(value, UUID) else value for key, value in values.items()}
         values.update(schema="dmb_agent_new_conversation_resolution_record_v1", original_command_kind="new", record_serializer_version="canonical-json-ascii-v1")
         return cls.model_validate({**values, "record_sha256": _fingerprint(values)})
+
+
+# Resolve the explicit completed read variants after ordinary domain definitions;
+# Rules read models reuse these validators without constructing a fake Turn.
+from .rules_authority_reads import MixedCompletedTurnV1, MixedHistoryAttributionV1
+TurnClaimReceipt.model_rebuild()
+CompletedPlanAskPair.model_rebuild()
