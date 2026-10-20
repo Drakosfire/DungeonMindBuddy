@@ -21,6 +21,21 @@ it("keeps stored attachment refs when reads fail, instead of silently dropping t
  fireEvent.click(screen.getByText(/Supplemental session evidence/));expect(await screen.findByRole("alert")).toHaveTextContent("offline");expect(change).toHaveBeenLastCalledWith(refs);
  fireEvent.click(screen.getByRole("button",{name:"Clear selected session evidence"}));expect(change).toHaveBeenLastCalledWith([]);
 });
+it("rehydrates an exact saved reference from the bounded index without reading note text",async()=>{
+ const refs=[{run_id:"run-a",review_revision:54,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
+ const change=vi.fn();render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
+ fireEvent.click(screen.getByText(/Supplemental session evidence/));
+ expect(await screen.findByText(/Played session · ended/)).toBeInTheDocument();
+ expect(change).toHaveBeenLastCalledWith(refs);expect(listSessionEvidence).toHaveBeenCalledTimes(1);expect(readSessionEvidence).not.toHaveBeenCalled();
+});
+it("keeps older saved refs visible without downloading their source bodies",async()=>{
+ const refs=[{run_id:"old-run-id",review_revision:4,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
+ vi.mocked(listSessionEvidence).mockResolvedValue([indexItem]);const change=vi.fn();
+ render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
+ fireEvent.click(screen.getByText(/Supplemental session evidence/));
+ const box=await screen.findByRole("checkbox",{name:/Saved session · old-run- · previously selected/});
+ expect(box).toBeChecked();expect(readSessionEvidence).not.toHaveBeenCalled();expect(change).toHaveBeenLastCalledWith(refs);
+});
 it("does not restore cleared refs when a new detail read settles late",async()=>{
  const refs=[{run_id:"run-a",review_revision:54,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
  vi.mocked(listSessionEvidence).mockResolvedValue([indexItemB]);
@@ -35,12 +50,12 @@ it("does not restore cleared refs when a new detail read settles late",async()=>
 });
 it("does not restore saved refs when initial hydration settles after clear",async()=>{
  const refs=[{run_id:"run-a",review_revision:54,sha256:"a".repeat(64)}];localStorage.setItem("dmb.ingestion.session-evidence.elderwyld.c2:30",JSON.stringify(refs));
- let resolvePending!:(value:SessionEvidence)=>void;const pending=new Promise<SessionEvidence>(resolve=>{resolvePending=resolve});
- vi.mocked(readSessionEvidence).mockReturnValue(pending);
+ let resolvePending!:(value:SessionEvidenceIndexItem[])=>void;const pending=new Promise<SessionEvidenceIndexItem[]>(resolve=>{resolvePending=resolve});
+ vi.mocked(listSessionEvidence).mockReturnValue(pending);
  const change=vi.fn();render(<SessionEvidencePicker worldId="elderwyld" targetKey="c2:30" onChange={change}/>);
  fireEvent.click(screen.getByText(/Supplemental session evidence/));
  fireEvent.click(await screen.findByRole("button",{name:"Clear selected session evidence"}));expect(change).toHaveBeenLastCalledWith([]);
- await act(async()=>{resolvePending(item);await pending});
+ await act(async()=>{resolvePending([indexItem]);await pending});
  expect(change).toHaveBeenLastCalledWith([]);expect(localStorage.getItem("dmb.ingestion.session-evidence.elderwyld.c2:30")).toBeNull();
 });
 it("keeps the recent-session index when clear interrupts saved-ref hydration",async()=>{
