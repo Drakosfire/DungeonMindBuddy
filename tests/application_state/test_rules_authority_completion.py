@@ -14,7 +14,9 @@ from application_state.agent_conversation import (
 )
 from application_state.agent_conversation.rules_authority_completion import (
     MixedTurnResultV1,
+    NativeRulesMixedTurnResultV1,
 )
+from application_state.agent_conversation.native_rules_output import NativeRulesOutputProofV1
 from application_state.agent_conversation.rules_authority_events import (
     RulesToolAuthorizedV1,
     RulesQueryObservedV1,
@@ -186,6 +188,48 @@ def persisted(dsn, turn):
             (turn.turn_id, turn.attempt),
         ).fetchone()
     return owner, ledger
+
+
+def test_native_mixed_result_keeps_output_proof_separate_and_scope_bound(application_state_dsn):
+    _, result = ready_rules(application_state_dsn)
+    request = "{\"messages\":[]}"
+    raw = "{\"schema\":\"dmb_rules_mixed_answer_v1\"}"
+    proof = NativeRulesOutputProofV1(
+        schema="dmb_native_rules_output_proof_v1",
+        policy="exact_producer_composition_v1",
+        rules_execution_id=result.scope.execution_id,
+        producing_provider_attempt_id=result.producing_provider_attempt_id,
+        request_envelope_sha256=hashed(request),
+        authorization_id="host:authorized:1",
+        api_request_id="api-request-1",
+        prepared_request_json=request,
+        raw_output_json=raw,
+        raw_output_sha256=hashed(raw),
+        raw_output_utf8_bytes=len(raw.encode("utf-8")),
+    )
+    native_composition = result.composition.model_copy(
+        update={"base_disposition": "unclaimed"}
+    )
+    native = NativeRulesMixedTurnResultV1(
+        schema="dmb_native_rules_mixed_turn_result_v1",
+        scope=result.scope,
+        expected_turn_revision=result.expected_turn_revision,
+        expected_rules_revision=result.expected_rules_revision,
+        assistant_text=result.assistant_text,
+        composition=native_composition,
+        producing_provider_attempt_id=result.producing_provider_attempt_id,
+        base_result=None,
+        output_proof=proof,
+    )
+
+    assert NativeRulesMixedTurnResultV1.model_validate_json(
+        native.model_dump_json(by_alias=True)
+    ) == native
+    with pytest.raises(ValueError, match="exact output proof"):
+        NativeRulesMixedTurnResultV1.model_validate(
+            native.model_dump(mode="python", by_alias=True)
+            | {"output_proof": proof.model_copy(update={"rules_execution_id": uuid4()})}
+        )
 
 
 def test_rules_only_completion_is_atomic_and_replays_without_a_live_claim(

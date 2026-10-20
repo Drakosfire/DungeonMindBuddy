@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 from .types import TurnResult, CitedSourceTurnResult
 from .rules_authority_output import BuildRulesOutputProofV1
+from .native_rules_output import NativeRulesOutputProofV1
 
 from .rules_authority_events import (
     RulesCompletionBoundV1,
@@ -242,4 +243,26 @@ class BuildRulesMixedTurnResultV1(MixedTurnResultV1):
                 or base.writer_request_json != self.output_proof.prepared_request_json
                 or base.raw_provider_output_json != self.output_proof.raw_output_json):
             raise ValueError("Mixed runtime base must carry its same actual outer proof")
+        return self
+
+
+class NativeRulesMixedTurnResultV1(MixedTurnResultV1):
+    """Native Plan/Play completion with exact transient SDK output proof."""
+
+    schema_: Literal["dmb_native_rules_mixed_turn_result_v1"] = Field(alias="schema")
+    output_proof: NativeRulesOutputProofV1
+
+    @model_validator(mode="after")
+    def exact_native_proof(self):
+        proof = self.output_proof
+        if self.composition.base_disposition not in {"approved", "unclaimed"}:
+            raise ValueError("Native mixed output requires an owning Plan/Play Graph scope")
+        if (
+            proof.rules_execution_id != self.scope.execution_id
+            or proof.producing_provider_attempt_id
+            != self.producing_provider_attempt_id
+        ):
+            raise ValueError("Native mixed result differs from its exact output proof")
+        if isinstance(self.base_result, CitedSourceTurnResult):
+            raise ValueError("Native mixed base must use its owning Plan/Play result")
         return self

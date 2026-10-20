@@ -87,7 +87,8 @@ from application_state.agent_conversation.types import (
 )
 from .rules_authority_reads import MixedCompletedTurnV1, TurnReadModel
 from .rules_authority_completion import (
-    MixedTurnResultV1, BuildRulesMixedTurnResultV1, RulesCitedSourceTurnResultV1,
+    MixedTurnResultV1, BuildRulesMixedTurnResultV1, NativeRulesMixedTurnResultV1,
+    RulesCitedSourceTurnResultV1,
 )
 from .rules_authority_passages import RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1
 from application_state.cli import assert_at_head
@@ -283,7 +284,9 @@ def _validated_base_execution_locked(
     )
 
     from .types import PlayWorldGraphCompletionV1
-    if isinstance(result.completion, PlayWorldGraphCompletionV1):
+    from .native_rules_output import NativeRulesNormalizedOutputV1
+    if (isinstance(result.completion, PlayWorldGraphCompletionV1)
+            and not isinstance(mixed_output_context, NativeRulesNormalizedOutputV1)):
         raise ApplicationStateValidationError("Native Play requires its actual producing-output proof owner before completion")
     execution = turn.graph_context_execution
     if isinstance(result, RulesCitedSourceTurnResultV1) and (
@@ -1651,7 +1654,7 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool) -> Turn:
-        from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildActionControllerWriterPolicyV1
+        from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
@@ -1730,7 +1733,7 @@ class AgentConversationService:
         scope = result.scope
         world_id = _world_id(scope.world_id)
         if (capability_for_policy_sha256(scope.capability_policy_sha256) is not None
-                and not isinstance(result, BuildRulesMixedTurnResultV1)):
+                and not isinstance(result, (BuildRulesMixedTurnResultV1, NativeRulesMixedTurnResultV1))):
             raise ApplicationStateValidationError("Current runtime Rules completion requires actual outer output proof")
         with unit_of_work(_ready_dsn()) as conn:
             turn = repo.lock_turn(conn, world_id, scope.turn_id)
@@ -1828,6 +1831,51 @@ class AgentConversationService:
                             raise ValueError("Replayed output differs from accepted producing request/composition")
                     except (ValueError, KeyError, TypeError, AttributeError) as exc:
                         raise ApplicationStateValidationError(str(exc)) from exc
+                elif isinstance(result, NativeRulesMixedTurnResultV1):
+                    try:
+                        proof = result.output_proof
+                        base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
+                            if result.base_result is not None else ())
+                        supplied = tuple(RulesSupportRefV1(
+                            support_id=item.support_id,
+                            support_sha256=item.support_sha256,
+                        ) for item in binding.support_table)
+                        from .rules_authority_output import parse_answer
+                        request_bytes = proof.prepared_request_json.encode("utf-8")
+                        output_bytes = proof.raw_output_json.encode("utf-8")
+                        sealed = conn.execute(
+                            """SELECT e.value->>'authorization_id',e.value->>'api_request_id',
+                            e.value->>'request_envelope_sha256',e.value->>'output_sha256',
+                            (e.value->>'output_utf8_bytes')::integer
+                            FROM agent.turn_rules_execution r
+                            CROSS JOIN LATERAL jsonb_array_elements(r.payload->'events') AS e(value)
+                            WHERE r.turn_id=%s AND r.product_attempt=%s
+                            AND e.value->>'kind'='native_provider_outcome'
+                            AND e.value->>'provider_attempt_id'=%s
+                            AND octet_length(e.value::text)<=2048""",
+                            (scope.turn_id, scope.product_attempt,
+                             str(result.producing_provider_attempt_id)),
+                        ).fetchall()
+                        if len(sealed) != 1:
+                            raise ValueError("Replayed native output has no unique compact provider witness")
+                        derived = parse_answer(proof.raw_output_json).composition(
+                            supplied_refs=supplied,
+                            base_segments=base_segments,
+                            base_disposition=result.composition.base_disposition,
+                        )
+                        if (hashlib.sha256(request_bytes).hexdigest()
+                                != binding.request_envelope_sha256
+                                or len(request_bytes) > 262144
+                                or len(output_bytes) != proof.raw_output_utf8_bytes
+                                or hashlib.sha256(output_bytes).hexdigest()
+                                != proof.raw_output_sha256
+                                or (proof.authorization_id, proof.api_request_id,
+                                    proof.request_envelope_sha256, proof.raw_output_sha256,
+                                    proof.raw_output_utf8_bytes) != sealed[0]
+                                or derived != result.composition):
+                            raise ValueError("Replayed native output differs from the accepted producing request/composition")
+                    except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 if (
                     exact_scope == scope
                     and frozen[0] == result.expected_rules_revision + 1
@@ -1882,6 +1930,87 @@ class AgentConversationService:
                         trace=captured[0] if captured else {})
                     output_context = (current.execution, proof, answer)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif isinstance(result, NativeRulesMixedTurnResultV1):
+                try:
+                    from types import SimpleNamespace
+                    from .native_rules_output import normalize_native_mixed_output
+                    from .rules_authority_events import RulesNativeProviderOutcomeV1
+
+                    proof = result.output_proof
+                    outcomes = [event for event in current.execution.events
+                        if isinstance(event, RulesNativeProviderOutcomeV1)
+                        and event.provider_attempt_id == result.producing_provider_attempt_id]
+                    if len(outcomes) != 1:
+                        raise ValueError("Native Rules completion has no unique sealed provider outcome")
+                    outcome = outcomes[0]
+                    graph_auths = [event for event in turn.graph_context_execution.events
+                        if isinstance(event, (ProviderAttemptAuthorizedEventV1,
+                            ProviderAttemptAuthorizedEventV2, ProviderAttemptAuthorizedEventV3))
+                        and event.provider_attempt_id == result.producing_provider_attempt_id]
+                    if len(graph_auths) != 1:
+                        raise ValueError("Native Rules completion has no unique Graph provider authorization")
+                    graph_auth = graph_auths[0]
+                    capture = SimpleNamespace(
+                        authorization_id=outcome.authorization_id,
+                        api_request_id=outcome.api_request_id,
+                        provider=graph_auth.provider,
+                        model=graph_auth.model,
+                        api_mode=graph_auth.api_mode,
+                        request_sha256=graph_auth.envelope_sha256,
+                        status=outcome.status,
+                        finish_reason=outcome.finish_reason,
+                        text=proof.raw_output_json,
+                        text_sha256=outcome.output_sha256,
+                        text_utf8_bytes=outcome.output_utf8_bytes,
+                        tool_calls=(),
+                    )
+                    operation_events = {event.event_id: event
+                        for event in turn.graph_context_execution.events
+                        if isinstance(event, ValidatedGraphOperationEventV1)}
+                    closures = []
+                    for event_id in graph_auth.included_graph_event_ids:
+                        operation = operation_events.get(event_id)
+                        if (operation is None or operation.coverage_status != "complete"
+                                or operation.evidence_sufficiency_status != "sufficient"
+                                or operation.truncated):
+                            continue
+                        if len(operation.assertion_ids) + len(operation.relationship_ids) != 1:
+                            continue
+                        refs = tuple(operation.evidence_ref_ids)
+                        closures.extend(("assertion", target, refs)
+                            for target in operation.assertion_ids)
+                        closures.extend(("relationship", target, refs)
+                            for target in operation.relationship_ids)
+                    receipt = turn.graph_context_receipt
+                    graph_support = SimpleNamespace(
+                        provider_attempt_id=result.producing_provider_attempt_id,
+                        envelope_sha256=graph_auth.envelope_sha256,
+                        context_receipt_sha256=receipt.context_receipt_sha256,
+                        graph_revision=receipt.graph_authority.graph_revision,
+                        closures=tuple(closures),
+                    )
+                    normalized = normalize_native_mixed_output(
+                        turn, turn.graph_context_execution, current.execution,
+                        proof, capture, graph_support=graph_support,
+                    )
+                    if (normalized.composition != result.composition
+                            or normalized.assistant_text != result.assistant_text):
+                        raise ValueError("Native mixed result differs from its actual outer output normalization")
+                    if normalized.base_completion is None:
+                        if result.base_result is not None:
+                            raise ValueError("Native unclaimed output cannot attach a base completion")
+                    elif (result.base_result is None
+                            or result.base_result.completion != normalized.base_completion
+                            or result.base_result.assistant_text != "\n".join(
+                                item.text for item in normalized.base_completion.answer_segments)
+                            or result.base_result.producing_provider_attempt_id
+                                != result.producing_provider_attempt_id
+                            or result.base_result.claim_graph_event_ids
+                                != normalized.claim_graph_event_ids):
+                        raise ValueError("Native base result differs from its owning Plan/Play normalization")
+                    output_context = normalized
+                except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             disposition = result.composition.base_disposition
             base_result = result.base_result
