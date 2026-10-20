@@ -707,7 +707,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261020_0041"
+    assert current == head == "20261020_0042"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1253,11 +1253,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert v1_execution_before is not None
     command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261020_0041"
+        "20261005_0017", "20261020_0042"
     )
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261020_0041", "20261020_0041"
+        "20261020_0042", "20261020_0042"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1281,7 +1281,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261020_0041", "20261020_0041"
+        "20261020_0042", "20261020_0042"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1306,8 +1306,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261020_0041",
-        "20261020_0041",
+        "20261020_0042",
+        "20261020_0042",
     )
 
 
@@ -3550,7 +3550,7 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     from application_state.cli import alembic_config
     with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
         command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261020_0041", "20261020_0041")
+    assert _current_and_head(application_state_dsn) == ("20261020_0042", "20261020_0042")
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
 
 
@@ -3987,7 +3987,7 @@ def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(applica
                 conn.execute(statement)
     with pytest.raises(Exception, match="downgrade refused"):
         migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261020_0041", "20261020_0041")
+    assert _current_and_head(application_state_dsn) == ("20261020_0042", "20261020_0042")
     assert service.get_command_resolution(request) == record
 
 
@@ -4003,9 +4003,9 @@ def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(applicat
         assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
     migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261020_0041")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261020_0042")
     migration.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == ("20261020_0041", "20261020_0041")
+    assert _current_and_head(application_state_dsn) == ("20261020_0042", "20261020_0042")
 
 
 def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):

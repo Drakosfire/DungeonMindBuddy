@@ -65,6 +65,7 @@ from application_state.agent_conversation.types import (
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
     BuildGraphIntentV1,
+    PlayGraphIntentV1, PlayWorldGraphExecutionV1, PlaySourceProviderInclusionV1,
     Turn,
     TurnClaimReceipt,
     TurnFailure,
@@ -776,14 +777,18 @@ class AgentConversationService:
                 # Acquire the Run lock before the conversation/pointer locks,
                 # matching Trash's lock order. Existing receipts above remain
                 # replayable after Trash; only new admissions are refused.
-                run = conn.execute(
-                    "SELECT world_id,lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE",
-                    (play_receipt.run_id,),
-                ).fetchone()
-                if run is None or run[0] != world_id:
-                    raise ApplicationStateNotFoundError("Play session is unavailable in this World")
-                if run[1] != "active":
-                    raise ApplicationStateConflictError("Play session is in Trash")
+                if isinstance(submitted_intent_v2, PlayGraphIntentV1):
+                    from .play_graph_persistence import lock_and_validate_native_play_basis
+                    lock_and_validate_native_play_basis(conn, play_receipt)
+                else:
+                    run = conn.execute(
+                        "SELECT world_id,lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE",
+                        (play_receipt.run_id,),
+                    ).fetchone()
+                    if run is None or run[0] != world_id:
+                        raise ApplicationStateNotFoundError("Play session is unavailable in this World")
+                    if run[1] != "active":
+                        raise ApplicationStateConflictError("Play session is in Trash")
             pointer = _lock_pointer(conn, world_id)
             existing = repo.get_turn_by_world_key(
                 conn, world_id, submission.idempotency_key
@@ -823,7 +828,7 @@ class AgentConversationService:
         self,
         world_id: str,
         idempotency_key: UUID,
-        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1,
+        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1,
     ) -> TurnReadModel | None:
         """Find an exact World receipt before resolving mutable current context.
 
@@ -835,7 +840,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World does not match verified World"
             )
-        if isinstance(submitted_intent, (SubmittedTurnIntentV2, BuildGraphIntentV1)):
+        if isinstance(submitted_intent, (SubmittedTurnIntentV2, BuildGraphIntentV1, PlayGraphIntentV1)):
             digest_v1 = None
             digest_v2 = submitted_turn_intent_fingerprint_v2(submitted_intent)
         else:
@@ -1234,6 +1239,8 @@ class AgentConversationService:
                         raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
                     if event.text != exact:
                         raise ApplicationStateValidationError("Saved passage is not the exact immutable source slice")
+            if isinstance(event, PlaySourceProviderInclusionV1):
+                raise ApplicationStateValidationError("Native Play source inclusion requires its actual prepared-input proof owner")
             trace_row = conn.execute(
                 "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
                 "WHERE turn_id=%s AND attempt=%s",
@@ -1254,7 +1261,7 @@ class AgentConversationService:
                         isinstance(prior, ValidatedGraphOperationEventV1)
                         and isinstance(event, ValidatedGraphOperationEventV1)
                     ):
-                        if isinstance(execution, PlanWorldGraphExecutionV3):
+                        if isinstance(execution, (PlanWorldGraphExecutionV3, PlayWorldGraphExecutionV1)):
                             if prior == event:
                                 return turn, False
                             raise ApplicationStateConflictError("Graph origin was reused with changed content")

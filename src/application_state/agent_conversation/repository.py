@@ -216,6 +216,23 @@ def _turn_from_row(
             "rules_summary",
         }
     } | {"provenance": provenance}
+    # psycopg returns JSON arrays as Python lists. Decode the native JSON columns
+    # in JSON mode so strict immutable tuple fields retain their wire semantics.
+    from .types import (
+        PlayWorldGraphContextReceiptV1,
+        PlayWorldGraphExecutionV1,
+        PlayWorldGraphCompletionV1,
+    )
+    import json
+
+    for key, model in (
+        ("graph_context_receipt", PlayWorldGraphContextReceiptV1),
+        ("graph_context_execution", PlayWorldGraphExecutionV1),
+        ("completion", PlayWorldGraphCompletionV1),
+    ):
+        value = fields.get(key)
+        if isinstance(value, dict) and value.get("schema") == model.model_fields["schema_"].default:
+            fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
     marker = row["answer_composition_kind"]
     summary = row["rules_summary"]
     # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
