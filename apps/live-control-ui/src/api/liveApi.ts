@@ -676,6 +676,16 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     && ["/api/live/world-graph/projection", "/api/live/world-graph/managed-projection", "/api/live/world-graph/recap-projection"].includes(pathname);
 }
 
+/** The current wizard's status probe is a read despite its POST transport. */
+function isPassiveRecapInspection(path: string, init?: RequestInit): boolean {
+  if (path !== "/api/live/recap-ingest" || init?.method?.toUpperCase() !== "POST") return false;
+  const body = requestBodyRecord(init.body);
+  return body?.operation === "inspect_status"
+    && typeof body.campaign_id === "string" && body.campaign_id.length > 0
+    && Number.isSafeInteger(body.session) && Number(body.session) > 0
+    && Object.keys(body).every(key => ["operation", "campaign_id", "session", "slug", "title"].includes(key));
+}
+
 /** These allowlisted endpoints return JSON; keep admission valid through body consumption. */
 function admittedReadResponse(response: Response, assertCurrent: () => void): Response {
   return new Proxy(response, {
@@ -703,7 +713,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   // Validate the destination before touching a shared acquisition.
   apiRequestTarget(path, init?.body);
   if (!isShareableRead(path, init)) {
-    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
+    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase()) || isPassiveRecapInspection(path, init)) return authenticatedApiFetchOnce(path, init);
     startReadWave();
     try {
       return await authenticatedApiFetchOnce(path, init);
