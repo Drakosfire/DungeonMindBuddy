@@ -8,15 +8,6 @@
   overflow-wrap: anywhere;
 }
 
-.shared-scene-card--plan {
-  padding: clamp(1rem, 3cqi, 1.5rem);
-  border: 1px solid var(--scene-card-border);
-  border-top: 3px solid var(--accent, #c58b49);
-  border-radius: var(--ui-radius-md, 0.75rem);
-  background: var(--scene-card-paper);
-  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
-  font-family: Georgia, "Book Antiqua", "Times New Roman", serif;
-}
 
 .shared-scene-card__header,
 .shared-scene-card__content,
@@ -60,7 +51,6 @@
 }
 
 .shared-scene-card__body {
-  max-width: 68ch;
   line-height: 1.65;
 }
 

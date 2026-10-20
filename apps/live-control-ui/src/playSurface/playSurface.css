@@ -833,18 +833,6 @@
   white-space: pre-wrap;
 }
 
-.play-cockpit-center {
-  min-width: 0;
-  padding: clamp(1rem, 3cqi, 2rem);
-  border: 1px solid var(--ui-border-paper, #c0ad6a);
-  border-radius: var(--ui-radius-md, 0.75rem);
-  background: var(--ui-background-paper, #f7ebd7);
-  color: var(--ui-text-on-paper, #332d25);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
-  font-family: Georgia, "Book Antiqua", "Times New Roman", serif;
-  line-height: 1.58;
-  overflow-wrap: anywhere;
-}
 
 .play-cockpit-center h2 {
   margin: 0 0 0.75rem;
@@ -871,7 +859,6 @@
 }
 
 .play-cockpit-center .play-body {
-  max-width: none;
   color: inherit;
 }
 
@@ -1311,10 +1298,6 @@
 }
 
 @container play-cockpit (max-width: 40rem) {
-  .play-cockpit-center {
-    padding: 1rem;
-  }
-
   .play-cockpit-center h2 {
     font-size: clamp(1.55rem, 8cqi, 2rem);
   }
