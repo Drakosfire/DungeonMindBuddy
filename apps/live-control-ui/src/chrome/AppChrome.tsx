@@ -132,6 +132,7 @@ export function AppChrome({
   children,
 }: AppChromeProps) {
   const { winner: secondaryContext } = usePeekRegionState();
+  const supportsSharedPeek = ["build", "plan", "play", "ingest"].includes(activeRoute);
   const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
   const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
   secondaryKindRef.current = secondaryContext?.kind ?? null;
@@ -176,7 +177,7 @@ export function AppChrome({
 
   useLayoutEffect(() => {
     const center = centerRef.current;
-    if (activeRoute !== "ingest" || !center) return;
+    if (!supportsSharedPeek || !center) return;
     const captureReadingPosition = (event: Event) => {
       if (secondaryKindRef.current !== null) return;
       const element = event.target;
@@ -185,10 +186,10 @@ export function AppChrome({
     };
     center.addEventListener("scroll", captureReadingPosition, true);
     return () => center.removeEventListener("scroll", captureReadingPosition, true);
-  }, [activeRoute]);
+  }, [supportsSharedPeek]);
 
   useLayoutEffect(() => {
-    if (activeRoute !== "ingest") return;
+    if (!supportsSharedPeek) return;
     const previousKind = priorSecondaryKindRef.current;
     const nextKind = secondaryContext?.kind ?? null;
     const narrow = window.matchMedia?.("(max-width: 900px)").matches ?? false;
@@ -209,7 +210,7 @@ export function AppChrome({
     }
 
     priorSecondaryKindRef.current = nextKind;
-  }, [activeRoute, secondaryContext?.kind]);
+  }, [supportsSharedPeek, secondaryContext?.kind]);
 
   const agentInteraction = useAgentInteraction();
   const pageActionsRef = useRef(pageActions);
@@ -354,14 +355,16 @@ export function AppChrome({
         <SurfaceContextHost />
       </header>
 
-      {activeRoute === "ingest" || workspaceLayout === "bounded" ? (
+      {supportsSharedPeek || workspaceLayout === "bounded" ? (
         <div className="app-chrome-workspace">
           <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
-            {children}
+            {activeRoute === "play" ? (
+              <div className="app-chrome-play-workspace" data-testid="app-chrome-play-workspace">{children}</div>
+            ) : children}
           </div>
-          {activeRoute === "ingest" ? <PeekRegionSlot /> : null}
+          {supportsSharedPeek ? <PeekRegionSlot /> : null}
         </div>
-      ) : activeRoute === "play" ? <div className="app-chrome-play-workspace" data-testid="app-chrome-play-workspace">{children}</div> : children}
+      ) : children}
     </div>
   );
 

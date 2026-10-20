@@ -3,3 +3,21 @@
 .document-reference > header { display: flex; gap: .5rem; justify-content: space-between; position: sticky; top: 0; background: var(--bg, #11151f); padding-bottom: .5rem; z-index: 1; }
 .document-reference h2 { margin-top: .75rem; }
 .document-reference details { font-size: .8rem; opacity: .85; margin: 1rem 0; }
+
+/* Core writers use a bounded flex center, while Ingest retains its grid. */
+.app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace > .app-peek-region:not([hidden]) {
+  flex: 0 0 min(28rem, 42%); min-width: 20rem; max-width: 42%;
+}
+.app-peek-region[data-active-peek="document-reference"] { display: flex; flex-direction: column; overflow: hidden; }
+.app-peek-claim[data-peek-claim="document-reference"] { flex: 1; min-height: 0; overflow: hidden; }
+/* Keep Play's established chat width hook on its inner source workspace. */
+#root:has(.agent-interaction-shell--play.open[data-play-layout="side"]) .app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
+  width: calc(100% - var(--agent-play-panel-width));
+}
+#root:has(.agent-interaction-shell--play.open[data-play-layout="side"]) .app-chrome-workspace:has(> .app-peek-region:not([hidden])) .app-chrome-play-workspace { width: 100%; }
+@media (max-width: 900px) {
+  .app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace:has(> .app-peek-region:not([hidden])) > .app-chrome-center { display: none; }
+  .app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace > .app-peek-region:not([hidden]) {
+    flex: 1; width: 100%; min-width: 0; max-width: none;
+  }
+}

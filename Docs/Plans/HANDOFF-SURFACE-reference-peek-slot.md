@@ -1,0 +1,21 @@
+# Core surface reference peek slot
+
+Status: ACTIVE. PRIME authorizes this serial corrective successor under the operator's shared-reference feature request. Base: 80c436c81f124440b66fb98cd5c7aa320e40d2ec (merged #1471). Reuse buddy-context-loop checkout; no new checkout/environment. The predecessor's source review passed, but actual 5202 Plan acceptance found no PeekRegionSlot: AppChrome mounts it only for Ingest. Therefore predecessor delivery acceptance is incomplete. Existing harnesses supplied a synthetic slot and missed the product boundary.
+
+## Invariant and correction
+
+One real AppChrome slot must render a document-reference Peek claim across Build, Plan and Play without unmounting the source subtree on open/close. Preserve existing Ingest behavior and the existing Graph/tools/projection claim priority and mutation owners; mount the same single slot for all core surfaces, rather than a second document-only host. Existing lower-priority claims remain mounted and resume when reference inspection closes. Shared wrappers stay mounted with center and navbar stable; Play keeps its app-chrome-play-workspace hook for chat. Desktop pane bounded beside center; narrow pane replaces visible center without unmounting it, with Back/Close and scroll/focus return. No provider, parser, backend, storage, history or content-authority contract change.
+
+## Exclusive paths and resources
+
+apps/live-control-ui/src/chrome/AppChrome.tsx and its tests; src/documentReference/DocumentReferenceSurfaceHost.test.tsx (replace manual slot with real AppChrome integration); src/documentReference/documentReference.css for narrowly scoped core pane sizing; predecessor HANDOFF-SURFACE-document-references.md; this handoff; Docs/Roadmaps/ROADMAP-demo.md for final truthful settlement. No other source paths unless a concrete defect is bounded by PRIME before editing. Port5202 UI-only reviewed artifact delivery; preserve owned API8000 and twelve protected responses. One own disposable Build fixture eeca44fb-c62d-456b-bc87-2ec6f606fc8a exists from normal authoring API for acceptance; no real source or note changes. Trash that fixture after acceptance using recoverable normal lifecycle, never purge.
+
+## Gates
+
+Exact cumulative diff independent Architecture review before PRIME merge. Real AppChrome+publication+editor integration tests all three surfaces must fail without product slot and pass with it, including pending source retirement and view stability. Focused tests, typecheck/build, actual Plan/Play Dustwalker and disposable Build refs at desktop/narrow on5202, source URL/editor/position retention, protected responses after recoverable fixture cleanup. No new inference or real story writes. Postmerge re-anchor and settle both leases; do not mark historical Edge8 retrieval as delivered.
+
+## Implemented boundary and source checks
+
+Actual AppChrome now mounts one existing slot for core routes plus Ingest, with stable workspace/center wrappers. Play retains its inner app-chrome-play-workspace class/test ID and header stays outside the pane. Existing claim priority/owners remain unchanged. Generalized existing narrow scroll restoration to the supported routes. Bounded flex pane gets explicit width; narrow specificity hides (never unmounts) center and expands pane. Document inspector owns its flex height/scroll and sticky Close; Play chat side width is reserved while Peek is visible.
+
+Actual AppChrome/SurfaceHost/publisher harness (no manually mounted slot) verifies Build/Plan/Play source writer identity/draft preservation, slot visibility, navbar/Play wrapper placement, pending read retirement through local picker/pushState, and view-only stability. First source cohort: 84 passed, one inherited chromeBand static-regex failure at line25; that assertion reads unchanged src/styles.css, outside this slice. Production TypeScript/build passed with the existing chunk-size warning. Final focused run: 79 passed across seven files; final production build passed. Independent review and final real-browser acceptance pending. Private logs: document-reference-slot-*. Initial failed delivery was rolled back; current serving index is the original b1586c0c value above. Disposable fixture receipt and original active session selection are retained privately for cleanup/verification.
