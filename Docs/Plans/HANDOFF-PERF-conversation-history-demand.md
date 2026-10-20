@@ -1,6 +1,6 @@
 # PERF — conversation history follows consumption and recovery
 
-**Status:** ACTIVE; PRIME owns design/implementation/delivery under the operator's frontend-foundation goal.
+**Status:** COMPLETE; accepted on 5202, write lease released. The full frontend-foundation goal remains active.
 **Base:** main e13221a8415b84db1f0e0943530e39652873f55b; branch codex/conversation-history-demand, existing buddy-context-loop checkout.
 **Topology:** serial successor to accepted 1484; no concurrent read-efficiency implementation PR.
 
@@ -28,3 +28,13 @@ No registry, prompt, dispatch, backend/schema/dependency changes. Paused Rules 7
 - Full two owner suites: 261 passed, 15 failed. The same 7 integration failures were reproduced against exact base e13221a (in-memory Vite base transform), and the same 8 history failures were previously reproduced against the accepted baseline. They concern obsolete rich-text/UI expectations, recovery expectations and unmocked extra fetch totals. No new failure remains; this slice does not repair or hide these inherited failures.
 - Older-page test now also proves a New Conversation aborts the abandoned page and can load the new conversation's older page. API test proves the optional signal stays out of the exact history query and aborts owned transport.
 - Native browser acceptance and protected-state comparison remain pending merge/adoption. No provider request was sent by these checks.
+
+## Independent review, merge and native acceptance
+
+Architecture ReviewCycle1 approved exact head a2320b4f2e2e40c13f89821dd63ea1702e4d6ea8 in chat (no external review post). Independent transport cohort 256/256 and 9 targeted owner cases pass; no blocking source finding. PR1485 merged at 4a4173ba90aca0cd1e76360627bdcae2635a0ab4; re-anchored before UI adoption.
+
+Owned 5202 process PID17085 retained, API unchanged. Atomically adopted reviewed index-B06pSrlL.js; served index SHA256 3640f71e458431967a30b69607d81eb53f817f1c53148579d1edd625527405ea; prior hashed assets retained for active tabs/rollback.
+
+Native current-host six-second samples: Build closed history 1→0 and API bytes 2,260,298→2,194,663; ended Play review history 2→0 and API bytes 2,362,540→2,231,414. The Build native trace records no history until opening Buddy at ~12.97s, then exactly one read, and one fresh read on reopening at ~27.97s. A temporary unsent composer draft survived close/reopen, then was restored to the original empty value; no provider request was sent. Actual Plan retains saved recovery demand (2 reads in the sample), correctly not forced to zero. Document/Cards retained Journey north scene and rendered content.
+
+All 17 protected canonical JSON responses unchanged before/after native acceptance, including Plan, Build, ended Run/review/active pointer, media and registry state. Private evidence retained in established experiment state under history-demand-*; temporary probe HTML/tabs removed. Screenshot APIs remain unavailable in this browser; acceptance uses rendered DOM, native request metadata and protected-state comparison. Warm/cache-uncontrolled host samples are not an older-laptop performance claim.
