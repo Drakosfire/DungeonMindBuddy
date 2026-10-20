@@ -1,7 +1,7 @@
 # Defer unused World conversation code; retain activated owners
 
-**Status:** HOLD for a serialized root same-World continuity prerequisite. Implementation retained on this branch; no merge/default adoption.
-**Base:**60cb4b4e44d0e86cbf71bbbac081c985154b61db. Existing checkout branch codex/defer-world-conversation-controller. Serial after1496. UI-only5202, no backend/data/dependency change.
+**Status:** ACTIVE; prerequisite1498 is accepted. Rebased implementation requires its own exact-head review and delivery.
+**Base:**f65e201efe9a22bfdc635c1afef99ffd7c5fd9ef (accepted1498); originalheldbase60cb4b4e44d0e86cbf71bbbac081c985154b61db. Existing checkout branch codex/defer-world-conversation-controller. Serial after1496. UI-only5202, no backend/data/dependency change.
 
 ## Capability and ownership
 
@@ -28,3 +28,11 @@ Bounded source loader implemented: both value uses share module-scope deferredty
 Candidate entryindex-5klxh-tU.js1,009,305raw/295,286encoded, controllerchunk254,020raw/66,676encoded. NativeunselectedIndex0controllerchunk. SelectedElderwyld has36storagekeys/18recoverymarkers, so rightlyloadscontroller;0inference. These records are not cleared. BrowserreportedusedJSheap~16.8MB onthishost, nonstandard/nonisolatedobservation; notRSS, comparativeRAMproof or8GBhardwareclaim.
 
 Native fullAppPlan→Play→Plan drops temporaryunsentQAtext and remounts conversation. ReproducedonUNCHANGEDacceptedindex-BQBQggex.js too, confirming rootbaseline, not introducedlazybehavior. Originalcomposerrestoredexactlyinbothcases; noSend/providerdispatch,17protectedresponsesunchanged. CurrentSelectedWorldProvider keysverificationbyfullobjectselectors andeffectdependslocationSnapshot; loadingSelectedWorldAppreturnunmountsWorldregistry/controller on sameWorld routechange. Thuscomponenttests doNOTprove fullAppcontinuity. DeferPR mustremainheld untilseparatelyboundedrootWorld-lifetimeprerequisiteisreviewed/merged/adopted, thenrebaseandrepeatnativefullAppcontinuity. Screenshotsunavailable;DOM/metadatareceipts. Temporarytabs/HTMLremoved, default5202remains1496.
+
+## Prerequisite settlement and reactivation
+
+RootPR1498 reviewed in2cycles, mergedf65e201efe9a22bfdc635c1afef99ffd7c5fd9ef and accepted5202; exactnativeQAunsentPlan→Play→Plan nowretained, registry4→1,17protectedunchanged. This existingbranch rebased cleanly onto acceptedf65; Root currentbridge/save/clear gating retained in the World-keyedScopedhost. Heavycontroller/providerRegistry APIs byteunchanged relativetoacceptedbase. Rootsettlementincluded. Draft1497 no prior formal sourceapproval; newhead must receive independent source review, then native fullApp continuity and protected17 before its own merge/delivery claim. The older nativehold evidence above is history, not an active blocker after verified1498 settlement.
+
+## Rebased author verification
+
+On acceptedf65 root,7filecombined owner54/54PASS: loader/presence/helper21 and actualApp/selection/currentmanagedGraph/navigation33. Realcurrentconversation+history261pass/15sameknownbaseline failures; no newfailure. ActualappTypeScript/productionbuildpass. Sourceonlyscopehostimport/activation; acceptedrootedit/save/clear gating preserved; registry APIs/heavycontroller/transportsourceunchanged. Rebasedentryindex-C5WRhiOK.js1,010,642raw; controllerchunk254,020raw. Gzip/compressedcounts mustlabelcompressor or use nativeencoded receipt; previousgzip9manualcount is not networktransfer. Cumulativef65→head inspected/diffcheckclean. No defaultadoption yet; formal exactheadreview next, nativefullApp continuity/protected17 follow.
