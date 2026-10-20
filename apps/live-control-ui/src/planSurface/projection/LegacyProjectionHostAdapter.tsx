@@ -56,7 +56,7 @@ type ProjectionHostPolicy =
       toolDescriptors: NonNullable<SurfaceInteractionPublication["projections"]>;
     }
   | {
-      kind: "native-build";
+      kind: "native-published";
       publication: SurfaceInteractionPublication;
     }
   | { kind: "none" };
@@ -82,10 +82,9 @@ function resolveProjectionHostPolicy(
   const publication = surfaceInteractionPublication;
   if (
     publication
-    && publication.surfaceId === "build"
     && publication.tools.some((tool) => tool.activation.kind === "projection")
   ) {
-    return { kind: "native-build", publication };
+    return { kind: "native-published", publication };
   }
 
   return { kind: "none" };
@@ -214,7 +213,7 @@ export function LegacyProjectionHostAdapter() {
   }, [openToolFromNav, policy.kind, registerProjectionToolActivator]);
 
   useEffect(() => {
-    if (policy.kind === "native-build") {
+    if (policy.kind === "native-published") {
       return registerProjectionToolActivator((toolId) => openTool(toolId));
     }
     return undefined;
@@ -229,7 +228,7 @@ export function LegacyProjectionHostAdapter() {
   }, [openTool, policy]);
 
   const runtimeBindings = useMemo(() => {
-    const bindings: Record<string, unknown> = policy.kind === "native-build"
+    const bindings: Record<string, unknown> = policy.kind === "native-published"
       ? mapPublicationBindings(policy.publication)
       : policy.kind === "legacy-plan-or-ingest"
         ? {
@@ -262,7 +261,7 @@ export function LegacyProjectionHostAdapter() {
     if (policy.kind === "legacy-plan-or-ingest") {
       return policy.config.tools.map((tool) => ({ id: tool.id, label: tool.label }));
     }
-    if (policy.kind === "native-build") {
+    if (policy.kind === "native-published") {
       // Nav id = projection descriptor id so ProjectionHost can match active.key
       // without host/type changes (tool id ≠ projection id for Build Find existing).
       return policy.publication.tools
@@ -278,7 +277,7 @@ export function LegacyProjectionHostAdapter() {
   }, [policy]);
 
   const hostLabels = useMemo(() => {
-    if (policy.kind === "native-build") {
+    if (policy.kind === "native-published") {
       const surfaceLabel = policy.publication.label;
       return {
         toggleTitle: `${surfaceLabel} toolbox`,
@@ -314,7 +313,7 @@ export function LegacyProjectionHostAdapter() {
         void openToolFromNav(itemId);
         return;
       }
-      if (policy.kind === "native-build") {
+      if (policy.kind === "native-published") {
         const tool = policy.publication.tools.find(
           (entry) =>
             entry.id === itemId
