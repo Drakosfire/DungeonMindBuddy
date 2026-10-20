@@ -154,7 +154,7 @@ describe("AgentInteractionChrome", () => {
     expect(open).toHaveAttribute("title");
     expect(open.getAttribute("title")).toMatch(/Ask DungeonBuddy · Ingest · New thread/i);
     expect(open.getAttribute("title")).toMatch(/Graph Review · longmont-c2/i);
-    expect(open.querySelector("img")).toHaveAttribute("src", expect.stringContaining("dungeonbuddy-agent.png"));
+    expect(open.querySelector("img")).toHaveAttribute("src", expect.stringContaining("dungeonbuddy-agent-launcher.webp"));
     expect(screen.getByTestId("agent-interaction-bar")).toHaveTextContent("");
   });
 

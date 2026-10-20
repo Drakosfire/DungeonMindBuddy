@@ -1,6 +1,6 @@
 # Surface and tool code follows activation
 
-**Status:** CODE DISTRIBUTION DELIVERED; original source lease released. Fresh global chrome geometry acceptance is superseded by the corrective shared-agent-chrome-styles handoff. Full frontend-foundation goal remains active.
+**Status:** COMPLETE; code distribution and corrected global chrome delivery accepted. Original source lease released; full frontend-foundation goal remains active.
 **Base:** d154de4d3e9643b5159c53d9aaaa99a2019e5794, branch codex/surface-code-loading, existing buddy-context-loop checkout.
 **Topology:** serial successor to accepted history-demand; no overlapping active code-loading lane found in open PRs.
 
@@ -36,3 +36,7 @@ Controlled native browser fixture built from the exact reviewed wrapper demonstr
 ## Corrective native evidence — global CSS ownership
 
 Fresh-Index geometry inspection after acceptance exposed a missed1487 regression: the global AgentInteractionChrome launcher/shell rules stayed in lazy planSurface.css. Initial Index launcher rendered its1254px image at full size (button1277×1274), despite successful byte/load/DOM-content checks. Those checks did not establish unchanged presentation. Corrective HANDOFF-PERF-shared-agent-chrome-styles.md moves only global chrome styles to their owning component, preserving lazy Plan and per-surface overrides, and requires cold/load-order/narrow geometry checks before combined rollout. No screenshot evidence was available; the defect is confirmed by actual rendered element rectangles.
+
+## Paired delivery accepted
+
+Architecture ReviewCycle1 approved exacta27fa2da6929a8f202766f78645a3815afcd07e2; PR1490 merged7ab8340461a465b29744a4da143f84c1cd9f4187. Combined1489/1490 adopted atomically on owned5202, API untouched; default index-D-rXrI1c.js/indexSHA256371b1bbd42e64ae3a2b1cfafbdae91490d9653cfaa31be987a4ca9c2f313a34e. Native default root confirms80px launcher before visiting Plan and the exact accepted asset; saved Plan Cards renders normally. Candidate desktop/narrow/load-order checks prove existing launcher/pane geometry, with viewport reset. Debug→The Prompt shared one200trace GET; explicit Refresh added exactly one more200GET, zero provider turn POSTs. All17protected responses unchanged after candidate and default acceptance. Screenshots unavailable; native DOM/rectangle/request metadata evidence only, no target-laptop latency claim. Original assets retained for active tabs/rollback. Temporary probes/tabs cleaned after acceptance. Remaining payload/list/controller/media work and Rules/Combat stay open.
