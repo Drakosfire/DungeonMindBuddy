@@ -703,8 +703,16 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   // Validate the destination before touching a shared acquisition.
   apiRequestTarget(path, init?.body);
   if (!isShareableRead(path, init)) {
-    if (!["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) startReadWave();
-    return authenticatedApiFetchOnce(path, init);
+    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
+    startReadWave();
+    try {
+      return await authenticatedApiFetchOnce(path, init);
+    } finally {
+      // Reads begun during a write may observe its predecessor, even when they
+      // resolve after it. Post-write refreshes need their own acquisition wave.
+      // Also invalidate on an uncertain transport failure; never infer no write.
+      startReadWave();
+    }
   }
   const { signal, ...callerOptions } = init ?? {};
   const options = { ...callerOptions, headers: headerRecord(callerOptions.headers) };

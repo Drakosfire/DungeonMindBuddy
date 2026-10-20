@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "./liveApi";
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { WorldGraphLensProvider, WorldGraphLensProjectionProvider, useWorldGraphLensProjection } from "../graphLens";
-function deferred<T>() { let resolve!: (value:T)=>void; const promise=new Promise<T>(r=>{resolve=r;}); return {promise,resolve}; }
+function deferred<T>() { let resolve!: (value:T)=>void; let reject!:(error:unknown)=>void; const promise=new Promise<T>((r,j)=>{resolve=r;reject=j;}); return {promise,resolve,reject}; }
 afterEach(()=>{cleanup();vi.restoreAllMocks();api.setNativeGraphAccessToken(null);});
 const historyPath="/api/live/agent/worlds/elderwyld/conversation?limit=40";
 describe("protected read acquisition",()=>{
@@ -44,6 +44,24 @@ describe("protected read acquisition",()=>{
   const first=api.authenticatedApiFetch(historyPath);const command={method:"POST",body:JSON.stringify({turn_id:"one"})};
   const writes=[api.authenticatedApiFetch("/api/live/agent/turn",command),api.authenticatedApiFetch("/api/live/agent/turn",command)];const after=api.authenticatedApiFetch(historyPath);
   await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(4));gate.resolve(Response.json({}));await Promise.all([first,after,...writes]);
+ });
+ it.each(["success","failure","uncertain"] as const)("refreshes after a %s write without reusing a read begun during the write",async outcome=>{
+  api.setNativeGraphAccessToken("settlement-test");const command=deferred<Response>();const during=deferred<Response>();
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation((url)=>String(url).endsWith("/turn")?command.promise:during.promise);
+  const write=api.authenticatedApiFetch("/api/live/agent/turn",{method:"POST",body:"{}"}).catch(error=>error);
+  const old=api.authenticatedApiFetch(historyPath);await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));
+  if(outcome==="uncertain")command.reject(new TypeError("Unknown dispatch outcome"));else command.resolve(Response.json({},{status:outcome==="success"?200:503}));
+  await write;fetch.mockResolvedValueOnce(Response.json({version:2}));const refreshed=api.authenticatedApiFetch(historyPath);
+  expect(await(await refreshed).response.json()).toEqual({version:2});expect(fetch.mock.calls.filter(([url])=>String(url)===historyPath)).toHaveLength(2);
+  during.resolve(Response.json({version:1}));await old;
+ });
+ it("invalidates independently when overlapping writes settle",async()=>{
+  api.setNativeGraphAccessToken("overlap-test");const a=deferred<Response>(),b=deferred<Response>(),during=deferred<Response>();
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation((url,init)=>String(url).endsWith("/turn")?(init?.body==="a"?a.promise:b.promise):during.promise);
+  const first=api.authenticatedApiFetch("/api/live/agent/turn",{method:"POST",body:"a"});const second=api.authenticatedApiFetch("/api/live/agent/turn",{method:"POST",body:"b"});
+  a.resolve(Response.json({}));await first;const old=api.authenticatedApiFetch(historyPath);await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url)===historyPath)).toHaveLength(1));
+  b.resolve(Response.json({}));await second;fetch.mockResolvedValueOnce(Response.json({version:2}));expect(await(await api.authenticatedApiFetch(historyPath)).response.json()).toEqual({version:2});
+  expect(fetch.mock.calls.filter(([url])=>String(url)===historyPath)).toHaveLength(2);expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/turn"))).toHaveLength(2);during.resolve(Response.json({}));await old;
  });
  it("fences old bearer responses and native warm bytes after rotation",async()=>{
   api.setNativeGraphAccessToken("old-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
