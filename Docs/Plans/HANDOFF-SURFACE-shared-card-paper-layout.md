@@ -9,6 +9,7 @@ open PRs inspected; no overlapping current source lease.
 - This handoff
 - apps/live-control-ui/src/shared/SceneCard.tsx
 - apps/live-control-ui/src/shared/sceneCard.css
+- apps/live-control-ui/src/shared/SurfaceCardLayout.test.tsx
 - apps/live-control-ui/src/shared/SurfaceCardLayout.tsx
 - apps/live-control-ui/src/shared/surfaceCardLayout.css
 - apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx
@@ -30,3 +31,10 @@ adapter tests. Independent exact-head cumulative review before merge. Real5202
 Plan/Play desktop and narrow widths, open/collapsed Contents, retained scene/Document
 position and13 saved-state responses unchanged. Adopt existing UI artifact with old
 assets retained; no API restart/provider calls. Settle source lease after acceptance.
+
+## Review correction
+Architecture Cycle1 HOLD at a087095bfea0a3cfea2e5583dcf50e0bdd8885b4:
+shared-scene body width alone does not cover Play beat/decision/option/consequence
+play-body readers. Extend the shared paper body contract to those readers, retaining
+outside-rail and media sizing. Add rendered-reader CSS cascade regression evidence
+before the second exact-head review; no merge/adoption of held head.

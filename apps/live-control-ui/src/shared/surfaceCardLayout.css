@@ -16,7 +16,8 @@
   line-height: 1.58;
   overflow-wrap: anywhere;
 }
-.surface-card-layout .shared-scene-card__body {
+.surface-card-layout .shared-scene-card__body,
+.surface-card-layout .play-body {
   min-width: 0;
   max-width: none;
 }
