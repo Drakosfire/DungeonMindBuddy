@@ -1,3 +1,4 @@
+import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
@@ -355,6 +356,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
             <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
+                  <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={route}>
                   {content}
                   <ToolHost />
                   <LegacyProjectionHostAdapter />
@@ -362,6 +364,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
                   <WorldAgentConversation surface={route === "plan" || route === "play" || route === "build" ? route : "other"}
                     worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
                     worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />
+                  </DocumentReferenceSurfaceHost>
                 </PeekRegionProvider>
               </SurfaceContextProvider>
             </WorldGraphLensProjectionProvider>

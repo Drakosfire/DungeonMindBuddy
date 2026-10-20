@@ -1,0 +1,5 @@
+.document-reference-capability { display: contents; }
+.document-reference { padding: 1rem; overflow: auto; height: 100%; min-width: 0; overflow-wrap: anywhere; }
+.document-reference > header { display: flex; gap: .5rem; justify-content: space-between; position: sticky; top: 0; background: var(--bg, #11151f); padding-bottom: .5rem; z-index: 1; }
+.document-reference h2 { margin-top: .75rem; }
+.document-reference details { font-size: .8rem; opacity: .85; margin: 1rem 0; }

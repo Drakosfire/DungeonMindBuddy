@@ -224,11 +224,12 @@ function renderSafeLink(args: {
   key: string;
 }): ReactNode {
   const kind = classifyLinkUrl(args.url);
-  if (kind === "safe_external" || kind === "safe_mailto" || kind === "fragment") {
+  if (kind === "surface_document" || kind === "safe_external" || kind === "safe_mailto" || kind === "fragment") {
     const isExternal = kind === "safe_external";
     return (
       <a
         key={args.key}
+        data-document-reference=""
         href={args.url}
         title={args.title ?? undefined}
         {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}

@@ -37,6 +37,19 @@ describe('mounted web source link fidelity', () => {
     expect(semanticMarkdownSerializationDiagnostics({ type: 'doc', content: [{type: 'paragraph',content: [{type:'text',text:'Source',marks:[{type:'link',attrs:{href}}]}]}] })).not.toEqual([]);
   });
 
+  it('roundtrips recognized root-relative document references without admitting arbitrary local paths', () => {
+    const href = '/build?world=elderwyld&documentId=bba72416-9dfe-49bb-add0-21a346e9a421&revision=8';
+    const imported = markdownToTiptapDoc(`[Edge](${href})`);
+    expect(imported.diagnostics).toEqual([]);
+    const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+    try {
+      expect(editor.view.dom.querySelector('a')?.getAttribute('href')).toBe(href);
+      expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+      expect(markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(editor.getJSON())).diagnostics).toEqual([]);
+      expect(markdownToTiptapDoc('[Unsupported](/build?documentId=unknown)').diagnostics.length).toBeGreaterThan(0);
+    } finally { editor.destroy(); }
+  });
+
   it('protects link titles and non-text labels instead of losing them', () => {
     for (const source of ['[Source](https://example.com "Caption")', '[![image](https://example.com/image)](https://example.com)']) {
       expect(markdownToTiptapDoc(source).diagnostics.some(d => d.level === 'warning')).toBe(true);
