@@ -118,12 +118,6 @@ class GraphPreviewSurfaceResponse(BaseModel):
     candidates: list[GraphPreviewCandidateRow] = Field(default_factory=list)
 
 
-class GraphPreviewRunsResponse(BaseModel):
-    schema_version: Literal["dmb_graph_preview_surface_v1"] = GRAPH_PREVIEW_SURFACE_SCHEMA
-    version: str = GRAPH_PREVIEW_SURFACE_VERSION
-    runs: list[GraphPreviewRunSummary] = Field(default_factory=list)
-
-
 class RecapGraphChip(BaseModel):
     label: str
     tone: Literal["new", "recurring", "evidence", "warning", "neutral"] = "neutral"

@@ -105,7 +105,6 @@ import type {
   WorldOwnedRunbookSnapshotV2,
   WorldOwnedRunbookMarkdownWriteCommitResponseV2,
   GraphPreviewSurfaceResponse,
-  GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
   GraphIngestRunsResponse,
   GoldGraphProjectionResponse,
@@ -1366,10 +1365,6 @@ export async function getGraphPreviewLatest(
   if (query?.session_id) params.set("session_id", query.session_id);
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${suffix}`);
-}
-
-export async function getGraphPreviewRuns(query?: RecapGraphQuery): Promise<GraphPreviewRunsResponse> {
-  return apiFetch<GraphPreviewRunsResponse>(`/api/live/graph-preview/runs${recapGraphQueryString(query)}`);
 }
 
 export async function getRecapGraphPresentation(

@@ -24,13 +24,11 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     resolve_latest_preview_union_graph_ingest_run,
 )
 from apps.live_control_server.services.graph_preview_surface import (
-    GraphPreviewRunsResponse,
     GraphPreviewSurfaceResponse,
     RecapGraphPresentationResponse,
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
     build_recap_graph_presentation,
-    discover_graph_preview_runs,
     GraphPreviewSurfaceError,
 )
 from apps.live_control_server.services.graph_gold_authoring_prepare import (
@@ -100,21 +98,6 @@ def get_recap_artifacts(
     ensure_recap_artifacts_registry(root)
     records = list_recap_artifact_records(root, campaign_id=campaign_id)
     return RecapArtifactsListResponse(records=records).model_dump(mode="json")
-
-
-@router.get("/runs", response_model=GraphPreviewRunsResponse)
-def get_graph_preview_runs(
-    artifact_id: Annotated[str | None, Query()] = None,
-    campaign_id: Annotated[str | None, Query()] = None,
-    session_id: Annotated[str | None, Query()] = None,
-) -> dict[str, Any]:
-    runs = discover_graph_preview_runs(
-        repo_root(),
-        artifact_id=artifact_id,
-        campaign_id=campaign_id,
-        session_id=session_id,
-    )
-    return GraphPreviewRunsResponse(runs=runs).model_dump(mode="json")
 
 
 @router.get("/latest", response_model=GraphPreviewSurfaceResponse)
