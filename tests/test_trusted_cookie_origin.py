@@ -47,6 +47,7 @@ def test_lowercase_safe_method_tokens_are_not_exempt(method: str) -> None:
         ("HTTPS://ExAmPlE.com:443", "https://example.com"),
         ("http://EXAMPLE.com:80", "http://example.com"),
         ("https://xn--bcher-kva.example", "https://xn--bcher-kva.example"),
+        ("https://xn--fa-hia.example", "https://xn--fa-hia.example"),
         ("https://[2001:0db8::1]:443", "https://[2001:db8::1]"),
         ("https://example.com:0008443", "https://example.com:8443"),
         ("https://127.0.0.1", "https://127.0.0.1"),
@@ -198,6 +199,24 @@ def test_unicode_u_label_configuration_fails_closed() -> None:
         require_cookie_write_origin(
             _request("POST", ["https://fass.example"]),
             trusted_origins=["https://faß.example"],
+        )
+    assert error.value.status_code == 403
+
+
+def test_invalid_ascii_idna_a_label_request_fails_closed() -> None:
+    with pytest.raises(HTTPException) as error:
+        require_cookie_write_origin(
+            _request("POST", ["https://xn--a.example"]),
+            trusted_origins=["https://xn--a.example"],
+        )
+    assert error.value.status_code == 403
+
+
+def test_invalid_ascii_idna_a_label_configuration_fails_closed() -> None:
+    with pytest.raises(HTTPException) as error:
+        require_cookie_write_origin(
+            _request("POST", ["https://buddy.example"]),
+            trusted_origins=["https://buddy.example", "https://xn--a.example"],
         )
     assert error.value.status_code == 403
 

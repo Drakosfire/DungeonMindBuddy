@@ -6,6 +6,7 @@ import unicodedata
 from collections.abc import Collection
 from urllib.parse import urlsplit
 
+import idna
 from fastapi import HTTPException
 from starlette.requests import Request
 
@@ -105,8 +106,12 @@ def _canonical_http_origin(value: object) -> str | None:
             return None
 
         try:
-            ascii_host = host.encode("idna").decode("ascii").lower()
-        except (UnicodeError, ValueError):
+            ascii_host = idna.encode(
+                host, uts46=True, transitional=False, std3_rules=True
+            ).decode("ascii").lower()
+        except (idna.IDNAError, UnicodeError, ValueError):
+            return None
+        if ascii_host != host.lower():
             return None
         if not ascii_host or ascii_host.endswith(".") or len(ascii_host) > 253:
             return None
