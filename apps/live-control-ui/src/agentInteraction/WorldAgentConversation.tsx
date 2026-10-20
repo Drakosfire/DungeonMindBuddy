@@ -155,7 +155,12 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
   const admittedRun = run && run.worldId === worldId && run.runId.trim()
     && Number.isSafeInteger(run.runRevision) && run.runRevision > 0 && run.surfaceInstanceId.trim()
     ? run : null;
-  return <WorldPlanAgentConversation {...props} worldName={worldName ?? props.worldName}
+  return <WorldPlanAgentConversation {...props} editBridge={surface === "plan" ? props.editBridge : null}
+    onSavePlan={surface === "plan" ? props.onSavePlan : undefined}
+    savePlanEnabled={surface === "plan" && props.savePlanEnabled}
+    onClearPlayableTarget={surface === "plan" ? props.onClearPlayableTarget : undefined}
+    onClearPlayableEditTarget={surface === "plan" ? props.onClearPlayableEditTarget : undefined}
+    worldName={worldName ?? props.worldName}
     presentationHosts={surface === "plan" ? props.presentationHosts : surface === "build" ? build?.presentationHosts : undefined}
     visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play" || surface === "build"}
     buildMode={surface === "build" ? { savedSource, composeBridge: build?.composeBridge ?? null } : null}
