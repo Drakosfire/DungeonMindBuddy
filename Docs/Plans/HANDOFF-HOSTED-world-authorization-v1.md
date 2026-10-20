@@ -44,11 +44,11 @@ No other product behavior is silently selected by this document. The user has al
 
 This section proposes sequencing for steward review only. It does not activate workers or authorize edits. Once product decisions and technical gates are satisfied, the steward must re-anchor main, inspect active PR/worktree/handoff topology, split merge-ready invariants, pin paths and base, then publish an ACTIVE handoff with a concrete §4 write lease.
 
-1. **Owner data/create/list core:** add the versioned owner field, hosted create semantics, owner-filtered list and central owner service; preserve v1/v2/local behavior. Required acceptance includes same-name Worlds created by accounts A/B never alias and caller-supplied owner values never grant authority.
-2. **Route and resource enforcement:** serialize by ownership surface and cover the full current route inventory, file/media/object paths and mutations. Reject before provider, queue, file, or registry side effects. Do not create one unreviewed global middleware shortcut.
-3. **Jobs/results and revocation:** bind subject and World to durable jobs; enforce the chosen DMS/account revocation behavior and recheck owner before execution/persistence; prove cancellation and stale-result fencing.
+1. **Offline owner core (no route callers):** add a versioned owner field and a pure/server-internal owner service with synthetic principal tests. Preserve v1/v2/local behavior. Required acceptance includes same-name Worlds created by accounts A/B never alias and caller-supplied owner values never grant authority. This code must remain unmounted; it does not implement hosted create/list HTTP behavior.
+2. **Hosted identity and route integration:** only after allowed/denied population evidence, real cookie-delivery proof for `buddy.dungeonmind.net`, Origin/CSRF review, and the complete route-to-World map. Then wire World list/create and each protected resource route through the owner service; do not enable hosted access while any exposed route can bypass the policy. Reject before provider, queue, file, or registry side effects.
+3. **Jobs/results and revocation:** bind subject and World to durable jobs; enforce the chosen DMS/account revocation behavior and recheck owner before execution/persistence; prove cancellation and stale-result fencing. If no durable queue exists, keep hosted job-producing routes disabled until that contract is implemented.
 4. **Legacy ownership migration:** implement the selected operator-only migration procedure only after backup/restore rehearsal and exact owner mapping approval. Unmapped records remain hosted-denied.
-5. **Hosted route integration and launch rehearsal:** only after allowed/denied population evidence, real cookie-delivery proof for `buddy.dungeonmind.net`, Origin/CSRF coverage, owner ACL coverage, persistence/restore, and finite per-account/World budgets.
+5. **Launch rehearsal and scaling gate:** prove persistence/restore, finite per-account/World budgets, cancellation, and recovery. Limit initial hosted execution to the verified single-host storage boundary; use a shared transactional store before additional Buddy hosts.
 
 Steps are a proposed decomposition, not parallel lanes or stacked PR authority. HOSTED defaults to serial. No implementation branch/PR should be opened under this BLOCKED handoff.
 
@@ -65,16 +65,26 @@ Before any implementation dispatch, ARCHITECTURE must review this exact design/h
 
 No code test is applicable to this documentation-only design. Verify source anchors against pinned Buddy/DMS refs, `git diff --check`, exact PR head/base, and no changes outside the two named design files. This review is not formal GitHub approval, merge authority, live evidence, or launch approval.
 
-## 6. Activation gates
+## 6. Separate activation gates
 
-This handoff remains BLOCKED until all of the following are true:
+### 6.1 Offline owner-core slice
 
-- the three operator decisions in §2 are recorded;
-- Google/DMS managed-population allow/deny evidence and the selected account-removal/revocation behavior are established;
-- the browser proves the existing DMS cookie reaches the intended Buddy request only on `buddy.dungeonmind.net`, and the cookie/return path/expiry/logout contract is tested;
-- CSRF-Origin wiring is reviewed for every unsafe cookie-authenticated route before side effects;
-- the exact implementation scope and route/resource owner map are reviewed, with local mode preserved;
-- data-root persistence, backup/restore and one-host constraint are verified; finite account/World provider budgets and job cancellation are specified;
-- ARCHITECTURE reviews the exact handoff/design head; the steward then re-anchors and writes a separate ACTIVE implementation handoff with exact base, lease, topology, and offline verification contract.
+The current handoff remains BLOCKED. Before the steward may author a separate ACTIVE handoff for an unmounted offline owner-core slice:
 
-Until then, hosted route/auth implementation, legacy ownership assignment, production writes, real cookie tests, server configuration, and deployment remain stopped. No deployment or live calls were made for this design proposal.
+- record the operator decisions in §2 that govern new-World owner semantics and legacy fail-closed behavior;
+- obtain ARCHITECTURE disposition on this exact design/handoff revision;
+- re-anchor to current main, check active HOSTED PR/worktree/lease topology, then write an ACTIVE handoff with the exact code/test paths, base, serial topology, and synthetic/offline acceptance.
+
+This slice can use synthetic DMS principals and isolated test data. It must not import the owner service from an HTTP route, mount the DMS resolver or Origin helper, enable `hosted_owner`, transmit real cookies, or write production data. Live Google population, browser cookie, and CSRF evidence are **not** prerequisites for this pure unmounted core; they remain mandatory for route wiring.
+
+### 6.2 Hosted route integration and launch
+
+Before any hosted HTTP route wiring, account data exposure, real-user operation, or enabling of `hosted_owner`, independently establish all of the following:
+
+- Google/DMS managed-population allowed/denied sign-in evidence and the selected account-removal/revocation behavior;
+- browser proof that the existing DMS cookie reaches only the intended Buddy request on `buddy.dungeonmind.net`, with callback/deep-link, expiry, logout, and foreign-Origin tests;
+- Origin/CSRF review and a complete route/resource-to-World map, with every exposed route covered before hosted access is enabled;
+- actual persistent data-root and backup/restore behavior; finite per-account/World provider budgets, durable job identity, cancellation, and recovery;
+- a separate exact-scope implementation handoff and exact-head ARCHITECTURE review for route integration.
+
+Until those route-integration gates are satisfied, hosted routes remain unavailable even if an offline owner core is later approved/merged. Legacy ownership assignment, production writes, real cookie tests, server configuration, and deployment remain stopped under this design. No deployment or live calls were made here.
