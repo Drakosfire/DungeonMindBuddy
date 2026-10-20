@@ -347,6 +347,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted))?)?$/.test(pathname)
@@ -675,6 +676,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
@@ -3156,4 +3158,17 @@ export function queryRulesEvidence(corpus: string, question: string, signal?: Ab
 export function getRulesPassage(corpus: string, citationId: string, signal?: AbortSignal) {
   const query = new URLSearchParams({ corpus });
   return apiFetch<import('./rulesLookupTypes').RulesPassage>(`/api/live/rules/passages/${encodeURIComponent(citationId)}?${query}`, { signal, cache: 'no-store' });
+}
+
+
+export function getHistoricalRulesPassage(target: import('./rulesLookupTypes').RulesPassageTarget, signal?: AbortSignal) {
+  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+  if (!target.worldId || target.worldId.length > 128
+    || ![target.conversationId, target.turnId, target.supportId].every(value => uuid.test(value))
+    || !Number.isSafeInteger(target.attempt) || target.attempt < 1 || target.attempt > 2147483647
+    || !/^[a-f0-9]{64}$/.test(target.supportSha256)) throw new Error('Invalid historical Rules citation.');
+  const query = new URLSearchParams({ conversation_id: target.conversationId, attempt: String(target.attempt), support_sha256: target.supportSha256 });
+  return apiFetch<import('./rulesLookupTypes').RulesHistoricalPassage>(
+    `/api/live/agent/worlds/${encodeURIComponent(target.worldId)}/conversation/turns/${target.turnId}/rules-passages/${target.supportId}?${query}`,
+    { signal, cache: 'no-store' });
 }

@@ -12,9 +12,9 @@ Rules evidence never becomes World/Graph or played truth. Source text is untrust
 
 ## 2. Authority, lane and delivery ownership
 
-PR1506, branch `codex/rules-runtime-lookup`, base `55ab48ebce184ac5fe2d952c0bdf1e0a03eb8532`, reuse `buddy-context-loop` checkout. PRIME owns this serial implementation lane. No new checkout/environment. Cross-owner contract: R1 owns admitted corpus identity/text; APP owns World/conversation/Turn/attempt/claim and accepted evidence; Buddy runtime owns actual provider/tool dispatch; native UI owns deferred shared presentation. Closed authority is `DECISION-RULES-agent-authority-v1.md`; accepted R2A settlement is `HANDOFF-RULES-authority-persistence.md`.
+PR1506, branch `codex/rules-runtime-lookup`, base `04e44374300a985e247941fb03de6bdaa01662b3`, reuse `buddy-context-loop` checkout. PRIME owns this serial implementation lane. No new checkout/environment. Cross-owner contract: R1 owns admitted corpus identity/text; APP owns World/conversation/Turn/attempt/claim and accepted evidence; Buddy runtime owns actual provider/tool dispatch; native UI owns deferred shared presentation. Closed authority is `DECISION-RULES-agent-authority-v1.md`; accepted R2A settlement is `HANDOFF-RULES-authority-persistence.md`.
 
-Current accepted runtime is API8000/schema0041 in the existing `buddy-main-e778b3f0/source`, unchanged UI5202 `index-CLjHpgLN.js`. Current implementation checkout is not the running source. Before adoption re-anchor exact source/schema/runtime lease and claims. Preserve seven retained expired nonterminal rows, recoverable data/drafts/undo, notes/reflections, scene position, active transport/recovery and protected persisted state. No service restart/source adoption in the currently activated source phases.
+Current accepted runtime is API8000/schema0041 in the existing `buddy-main-e778b3f0/source`, UI5202 `index-CKtaN8p7.js` from independently reviewed/merged navigation PR1507. Current implementation checkout is not the running source. Before adoption re-anchor exact source/schema/runtime lease and claims. Preserve seven retained expired nonterminal rows, recoverable data/drafts/undo, notes/reflections, scene position, active transport/recovery and protected persisted state. No service restart/source adoption in the currently activated source phases.
 
 ## 3. Current protocol
 
@@ -67,7 +67,7 @@ Use accepted mixed transactional completion/read/history and the reserved authen
 
 ## 4. Current exclusive expected write lease
 
-- Docs: this handoff, `DECISION-RULES-agent-authority-v1.md`, and already committed R2A/agent-query settlement handoffs.
+- Docs: this handoff, `DECISION-RULES-agent-authority-v1.md`, and already committed R2A/agent-query settlement handoffs, plus `HANDOFF-SURFACE-navigation-width.md` for truthful settlement of merged PR1507.
 - APP agent_conversation: `rules_authority_policy.py`, `rules_authority_types.py`, `rules_authority_events.py`, `rules_authority_input.py`, `rules_authority_build_input.py`, `rules_authority_completion.py`, `rules_authority_output.py`, `rules_authority_runtime.py`, `rules_authority_store.py`, `service.py` for the declared Rules transaction ports.
 - Runtime: `rules_lookup_broker.py`, `agent_runtime.py`, `hermes_agent_runtime.py`, `hermes_graph_agent_contract.py`, `hermes_graph_agent_host.py`, `hermes_graph_agent.py`; `src/graph_memory/hermes_graph_plugin.py`.
 - Tests: Rules kernel/capability/typed-input and `test_rules_authority_output.py` pure modules; `tests/application_state/test_rules_lookup_runtime.py`, `test_rules_build_runtime.py`, affected existing Rules owners; current Hermes runtime/contract/agent/host owners.
@@ -89,3 +89,10 @@ Required evidence: graph-on/off policies and actual dispatch; initial claim/scop
 Current owner tests use the admitted default Graph read catalog, parent source reads where declared, and explicit already-required final-answer reservation limits. Real offline Hermes witnesses exercise actual tool schema/call IDs/result bytes and zero network; they do not replace durable product-parent or live provider/UI acceptance.
 
 Finish with exact cumulative independent review, meaningful owner tests, authorized merge and accepted API/UI5202 rollout. Re-anchor runtime lease, preserve recoverable DB backup, prove restore and protected-state retention, then run configured-provider occupancy plus unsupported travel queries under existing story-sharing authorization with no Plan change. Do not claim broad rules coverage or independent PG verification when only author PG evidence exists. Settle mutable authority after merge with the next dependent work.
+
+
+### Activated shared source-presentation phase
+
+UI lease: `api/rulesLookupTypes.ts`, `api/liveApi.ts` and its Rules owner tests; `rulesLookup/RulesPassageView.tsx`, `rulesEvidence.ts`, `RulesHistoricalCitation.tsx`, `RulesHistoricalPassage.tsx` and focused tests; existing `RulesLookupTool.tsx` presentation only. Reuse exact historical capsule route/closed support model. Cited target comes from validated server identity, never a model URL; exact World/conversation/Turn/attempt/support/digest and canonical support/excerpt hashes must match before rendering. Source bytes remain inert text, bounded32KiB capsule/16KiB excerpt with Unicode codepoint ranges. Historical excerpt is not falsely labelled a full current source passage. Shared source view also serves existing direct lookup.
+
+The outer citation button must not fetch or import the reader until opened. Inner reader owns cancellation/access epoch and exact target; stale/closed/cross-target/changed-access replies do not publish. No catalog/current corpus fallback, eager source bodies, or persistent source cache. Add exact Rules route to existing authenticated, epoch-scoped coalesced passive GET transport. Conversation wire/parser/renderer integration and native parent/output remain unfinished; these source-presentation components do not activate the model tool. The navigation handoff settlement records source review cycle1 and current live UI acceptance without claiming Rules runtime delivery.

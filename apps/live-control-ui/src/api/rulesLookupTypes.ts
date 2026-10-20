@@ -11,3 +11,20 @@ export interface RulesLookupPacket {
   status: 'evidence' | 'no_evidence'; coverage: string; coverage_status: 'limited'; hits: RulesHit[]; additional_matches: boolean;
 }
 export interface RulesPassage extends RulesCitation { schema: 'dmb_rules_passage_v1'; text: string; attribution: string }
+
+
+export interface RulesPassageTarget {
+  worldId: string; conversationId: string; turnId: string; attempt: number;
+  supportId: string; supportSha256: string;
+}
+export interface RulesStoredSupport {
+  schema: 'dmb_rules_support_v1'; support_id: string; corpus_sha256: string; ruleset_id: string;
+  unit_id: string; full_text_sha256: string; excerpt_start: number; excerpt_end: number;
+  excerpt_text: string; excerpt_sha256: string; source_title: string; section: string;
+  source_uri: string; source_sha256: string; page_fingerprint: string;
+  pdf_page_index: number; printed_page: number | null;
+}
+export interface RulesHistoricalPassage {
+  schema: 'dmb_rules_historical_passage_v1'; world_id: string; conversation_id: string;
+  turn_id: string; accepted_attempt: number; support: RulesStoredSupport; support_sha256: string;
+}
