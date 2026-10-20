@@ -25,7 +25,7 @@ export function FloatingSceneNotes({ sceneTitle, status, available = true, suspe
     const element = floating.current;
     const rect = element?.getBoundingClientRect();
     const workspace = element?.closest(".app-chrome-play-workspace")?.getBoundingClientRect();
-    const header = element?.closest(".app-wrap")?.querySelector(".app-chrome-header")?.getBoundingClientRect();
+    const header = element?.closest(".app-shell-layout")?.querySelector(".app-chrome-header")?.getBoundingClientRect();
     const bottomChat = document.querySelector('.agent-interaction-shell.open[data-surface-id="play"][data-play-layout="bottom"]')?.getBoundingClientRect();
     const left = Math.max(8, workspace?.left ?? 0);
     const top = Math.max(8, (header?.bottom ?? 0) + 8);

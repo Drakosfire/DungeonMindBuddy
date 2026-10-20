@@ -350,11 +350,6 @@ export function AppChrome({
 
   const mainContent = (
     <div className="app-wrap" data-workspace-layout={workspaceLayout}>
-      <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
-        <CompactAppNavigation activeRoute={activeRoute} />
-        <SurfaceContextHost />
-      </header>
-
       {supportsSharedPeek || workspaceLayout === "bounded" ? (
         <div className="app-chrome-workspace">
           <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
@@ -372,6 +367,10 @@ export function AppChrome({
     <div className={shellClassName}>
       <div className="app-shell-layout">
         {editToolboxLayout === "dock" ? editHost : null}
+        <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
+          <CompactAppNavigation activeRoute={activeRoute} />
+          <SurfaceContextHost />
+        </header>
         {mainContent}
       </div>
 
