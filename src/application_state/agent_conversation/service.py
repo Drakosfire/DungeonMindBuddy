@@ -281,6 +281,9 @@ def _validated_base_execution_locked(
         BuildCitedSourceActionControllerWriterPolicyV1,
     )
 
+    from .types import PlayWorldGraphCompletionV1
+    if isinstance(result.completion, PlayWorldGraphCompletionV1):
+        raise ApplicationStateValidationError("Native Play requires its actual producing-output proof owner before completion")
     execution = turn.graph_context_execution
     if isinstance(result, RulesCitedSourceTurnResultV1) and (
             mixed_output_context is None or not isinstance(getattr(execution, "policy", None),

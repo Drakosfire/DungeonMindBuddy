@@ -92,3 +92,19 @@ def prepare_play_source_provider_inclusion(receipt: t.PlayWorldGraphContextRecei
     pending = t.PlayWorldGraphExecutionV1.model_validate_json(json.dumps(wire))
     validate_play_graph_execution_binding(receipt, pending)
     return event
+
+
+def validate_play_graph_provenance(receipt: t.PlayWorldGraphContextReceiptV1, provenance: t.TurnProvenance) -> None:
+    receipt = _checked_receipt(receipt)
+    provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+    if (provenance.surface_resolution != 'resolved' or provenance.surface_id != 'play'
+            or provenance.selected_object.resolution != 'absent'):
+        raise ValueError('Native Play Graph requires resolved Play/Run provenance without selected objects')
+    t.validate_play_context_receipt(receipt.play_basis, receipt.play_basis.world_id, provenance)
+    binding = t.decode_play_graph_binding_references(provenance)
+    authority = receipt.graph_authority
+    revisions = [ref for ref in provenance.supporting_work if ref.kind == 'world_graph_revision']
+    if (binding is None or binding.managed_world_id != authority.managed_world_id
+            or binding.native_world_id != authority.native_world_id or binding.binding_version != authority.binding_version
+            or len(revisions) != 1 or revisions[0].revision != authority.graph_revision):
+        raise ValueError('Native Play Graph receipt differs from its exact binding/revision provenance')

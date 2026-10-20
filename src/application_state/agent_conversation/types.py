@@ -865,7 +865,7 @@ class SubmittedPlayTargetV1(ClosedRulesModel):
     marker_grammar_version: Literal["v2"] = "v2"
 
 class PlayGraphIntentV1(SubmittedTurnIntentV1):
-    model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always")
+    model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always", validate_by_name=True)
     schema_: Literal["dmb_play_graph_intent_v1"] = Field(default="dmb_play_graph_intent_v1", alias="schema")
     surface_id: Literal["play"]
     client_work_state: Literal["saved_clean", "saved_dirty"]
@@ -1059,8 +1059,11 @@ class SubmittedTurnIntentV2(StrictModel):
         return self
 
 
-def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV1) -> str:
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
     """Fingerprint only normalized caller intent, excluding routing thread identity."""
+    if isinstance(intent, PlayGraphIntentV1):
+        from .play_graph_authority import play_graph_intent_fingerprint
+        return play_graph_intent_fingerprint(intent)
     payload = intent.model_dump(
         mode="json", by_alias=True, exclude={"client_thread_id"}
     )
@@ -1348,7 +1351,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -1364,7 +1367,9 @@ class GraphEvidenceValidationInputs(StrictModel):
 
 def _ask_graph_validation_inputs(
     receipt: GraphContextReceipt,
-) -> GraphEvidenceValidationInputs:
+) -> GraphEvidenceValidationView:
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        return receipt
     return GraphEvidenceValidationInputs(
         context_receipt_sha256=receipt.context_receipt_sha256,
         committed_content_sha256=(receipt.source_basis.content_sha256
@@ -1851,7 +1856,7 @@ class BuildImagePreparationCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3804,6 +3809,7 @@ class PlayWorldGraphExecutionV1(ClosedRulesModel):
 
 
 PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+GraphTurnExecution = PlanWorldGraphExecution | PlayWorldGraphExecutionV1
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -3883,8 +3889,14 @@ def validate_graph_provider_envelope(
 
 def validate_selected_source_binding(
     receipt: GraphContextReceipt,
-    execution: PlanWorldGraphExecution | None,
+    execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        from .play_graph_context import validate_play_graph_execution_binding
+        if not isinstance(execution, PlayWorldGraphExecutionV1):
+            raise ValueError("Native Play receipt requires its actual Play ledger")
+        validate_play_graph_execution_binding(receipt, execution)
+        return
     validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
     for event in execution.events if execution is not None else ():
         if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
@@ -3929,8 +3941,14 @@ def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs
 
 def validate_related_recap_context_scope(
     receipt: GraphContextReceipt,
-    execution: PlanWorldGraphExecution | None,
+    execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        from .play_graph_context import validate_play_graph_execution_binding
+        if not isinstance(execution, PlayWorldGraphExecutionV1):
+            raise ValueError("Native Play receipt requires its actual Play ledger")
+        validate_play_graph_execution_binding(receipt, execution)
+        return
     validate_graph_related_recap_context_scope(_ask_graph_validation_inputs(receipt), execution)
 
 
@@ -4533,11 +4551,18 @@ def validate_build_passage_completion(completion, receipt, execution, attempt_id
 def validate_execution_completion(
     completion: GraphTurnCompletion,
     receipt: GraphContextReceipt,
-    execution: PlanWorldGraphExecution,
+    execution: GraphTurnExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, PlayWorldGraphCompletionV1) or isinstance(receipt, PlayWorldGraphContextReceiptV1) or isinstance(execution, PlayWorldGraphExecutionV1):
+        from .play_graph_completion import validate_play_graph_completion
+        if not (isinstance(completion, PlayWorldGraphCompletionV1) and isinstance(receipt, PlayWorldGraphContextReceiptV1)
+                and isinstance(execution, PlayWorldGraphExecutionV1)):
+            raise ValueError("Native Play completion requires its own matching receipt and ledger")
+        validate_play_graph_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
         if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ValueError("Cited source policy requires its reconstructed source completion")
@@ -4686,9 +4711,9 @@ class TurnSubmission(StrictModel):
     user_text: str
     provenance: TurnProvenance
     submitted_intent_v1: SubmittedTurnIntentV1 | None = None
-    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
-    graph_context_execution: PlanWorldGraphExecution | None = None
+    graph_context_execution: GraphTurnExecution | None = None
     play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
 
     @model_validator(mode="after")
@@ -4728,6 +4753,9 @@ class TurnSubmission(StrictModel):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
         if isinstance(self.submitted_intent_v2, BuildGraphIntentV1):
             _validate_build_submission(self)
+            return self
+        if isinstance(self.submitted_intent_v2, PlayGraphIntentV1):
+            _validate_native_play_submission(self)
             return self
         if self.submitted_intent_v2 is not None:
             intent = self.submitted_intent_v2
@@ -4778,6 +4806,29 @@ class TurnSubmission(StrictModel):
         if self.graph_context_execution is not None and self.submitted_intent_v2 is None:
             raise ValueError("Graph execution requires submitted intent v2")
         return self
+
+
+def _validate_native_play_submission(submission: TurnSubmission) -> None:
+    from .play_graph_context import (
+        validate_play_graph_intent_receipt, validate_play_graph_execution_binding,
+        validate_play_graph_provenance,
+    )
+    intent, receipt, execution = submission.submitted_intent_v2, submission.graph_context_receipt, submission.graph_context_execution
+    if (not isinstance(intent, PlayGraphIntentV1) or not isinstance(receipt, PlayWorldGraphContextReceiptV1)
+            or not isinstance(execution, PlayWorldGraphExecutionV1)
+            or submission.play_context_receipt != receipt.play_basis
+            or intent.world_id != submission.world_id or intent.message != submission.user_text
+            or submission.provenance.surface_instance_id != intent.surface_instance_id):
+        raise ValueError("Native Play submission requires its exact original intent and owning receipts")
+    validate_play_graph_intent_receipt(intent, receipt)
+    validate_play_graph_provenance(receipt, submission.provenance)
+    validate_play_graph_execution_binding(receipt, execution)
+    if execution.events:
+        raise ValueError("Native Play accepted execution must start empty")
+    accounting = execution.policy.provider_input_accounting
+    if (accounting.estimator != receipt.assembled_input.tokenizer_name
+            or (accounting.kind == "conservative_upper_bound" and receipt.assembled_input.tokenizer_version != "v1")):
+        raise ValueError("Native Play receipt differs from frozen provider accounting")
 
 
 def _validate_build_submission(submission: TurnSubmission) -> None:
@@ -4914,10 +4965,30 @@ def validate_turn_graph_fields(
     provenance: TurnProvenance,
     submitted_intent_fingerprint_v2: str | None,
     graph_context_receipt: GraphContextReceipt | None,
-    graph_context_execution: PlanWorldGraphExecution | None,
+    graph_context_execution: GraphTurnExecution | None,
     completion: GraphTurnCompletion | None,
     assistant_text: str | None,
 ) -> None:
+    if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
+        from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance
+        from .play_graph_completion import validate_play_graph_completion
+        if (not isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1)
+                or not isinstance(graph_context_execution, PlayWorldGraphExecutionV1)
+                or submitted_intent_fingerprint_v2 is None):
+            raise ValueError("Stored native Play requires its own receipt, ledger and intent fingerprint")
+        validate_play_graph_provenance(graph_context_receipt, provenance)
+        validate_play_graph_execution_binding(graph_context_receipt, graph_context_execution)
+        bindings = [event for event in graph_context_execution.events if isinstance(event, CompletionBindingEventV1)]
+        if completion is None:
+            if bindings or assistant_text is not None:
+                raise ValueError("Native Play completion binding/text requires its completion")
+            return
+        if not isinstance(completion, PlayWorldGraphCompletionV1) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
+            raise ValueError("Stored native Play answer requires its exact typed completion and binding")
+        binding = bindings[0]
+        validate_play_graph_completion(completion, graph_context_receipt, graph_context_execution,
+            binding.provider_attempt_id, binding.claim_graph_event_ids)
+        return
     if completion is not None:
         validate_session_evidence_claims(completion.answer_segments, provenance)
     if graph_context_receipt is not None and submitted_intent_fingerprint_v2 is None:
@@ -5026,7 +5097,7 @@ class Turn(StrictModel):
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
     graph_context_receipt: GraphContextReceipt | None = None
-    graph_context_execution: PlanWorldGraphExecution | None = None
+    graph_context_execution: GraphTurnExecution | None = None
     play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
     completion: GraphTurnCompletion | None = None
     attempt: int = Field(ge=0)
@@ -5046,6 +5117,11 @@ class Turn(StrictModel):
             submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
         )
+        if isinstance(self.graph_context_receipt, PlayWorldGraphContextReceiptV1) and (
+                self.play_context_receipt != self.graph_context_receipt.play_basis
+                or (self.status == "completed" and (self.completion is None or self.completed_at is None))
+                or (self.status != "completed" and self.completion is not None)):
+            raise ValueError("Native Play retained lifecycle/context must match its owning receipt")
         validate_turn_graph_fields(
             provenance=self.provenance,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
@@ -5070,6 +5146,10 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
+        if isinstance(self.completion, PlayWorldGraphCompletionV1) and (
+                self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
+                or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
+            raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
         if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip():
