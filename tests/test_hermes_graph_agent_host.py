@@ -1410,6 +1410,10 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             ),
         ],
     ]
+    if rules_lookup and os.environ.get("DMB_HERMES_TEST_RULES_LOOKUPS") == "2":
+        responses_streams[0].insert(1, SimpleNamespace(type="response.output_item.done",
+            item=SimpleNamespace(type="function_call", id="fc_2", call_id="call-rules-2",
+                name="lookup_rules", arguments=json_mod.dumps({**tool_args, "question": tool_args["question"].upper()}), status="completed")))
     mocked_responses_requests: list[dict[str, Any]] = []
     active_request: Any | None = None
 

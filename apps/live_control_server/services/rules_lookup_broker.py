@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation.rules_authority_events import (
     RulesExecutionV1, RulesQueryObservedV1, RulesToolAuthorizedV1,
+    RulesBuildToolAuthorizedV1, build_rules_operation_id,
     normalized_question, query_identity, ref_map,
 )
 from application_state.agent_conversation.rules_authority_packet import (
@@ -43,6 +44,28 @@ def prepare_authorization(execution: RulesExecutionV1, call_id: str,
         sequence=len(execution.events), execution_id=execution.scope.execution_id,
         call_id=call_id, query_id=query_identity(execution.scope, question),
         normalized_question=question, packet_limit=4)
+    return _preflight_authorization(execution, event)
+
+
+def prepare_build_authorization(execution: RulesExecutionV1, arguments: LookupRulesArguments, *,
+        origin_provider_attempt_id: UUID, origin_request_envelope_sha256: str,
+        decision_request_id: str, operation_index: int) -> RulesBuildToolAuthorizedV1:
+    """Parent supplies an actually acknowledged typed decision, never a fake call."""
+    _check_scope(execution)
+    arguments = LookupRulesArguments.model_validate(arguments)
+    question = normalized_question(arguments.question)
+    query = query_identity(execution.scope, question)
+    event = RulesBuildToolAuthorizedV1(kind="build_tool_authorized", event_id=uuid4(),
+        sequence=len(execution.events), execution_id=execution.scope.execution_id,
+        call_id=build_rules_operation_id(origin_provider_attempt_id, decision_request_id, operation_index, query),
+        query_id=query, normalized_question=question, packet_limit=4,
+        origin_provider_attempt_id=origin_provider_attempt_id,
+        origin_request_envelope_sha256=origin_request_envelope_sha256,
+        decision_request_id=decision_request_id, operation_index=operation_index)
+    return _preflight_authorization(execution, event)
+
+
+def _preflight_authorization(execution, event):
     # Exercise the same closed whole-ledger invariants as the locked store.
     data = execution.model_dump(mode="json", by_alias=True)
     data["events"].append(event.model_dump(mode="json", by_alias=True))

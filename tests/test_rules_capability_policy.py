@@ -283,3 +283,55 @@ def test_rules_capability_agrees_with_actual_admitted_r1_source():
     from apps.live_control_server.services import rules_lookup
     bundle = rules_lookup.admitted_bundle(CORPUS)
     assert rules_lookup.SEED_DIGEST == CORPUS and bundle.ruleset_id == RULESET
+
+
+def test_real_offline_two_lookup_batch_preserves_distinct_call_ids_and_one_excerpt(tmp_path, monkeypatch):
+    from uuid import uuid4
+    from hashlib import sha256
+    from apps.live_control_server.services.hermes_graph_agent_host import HermesGraphAgentHost
+    from tests.test_hermes_graph_agent_host import _tool_using_aiagent_host_worker
+    from tests.test_rules_lookup_broker import execution, lookup
+    from apps.live_control_server.services import rules_lookup as reader
+    from application_state.agent_conversation.rules_authority_events import RulesProviderAuthorizedV1, RulesOutputRefV1
+    from application_state.agent_conversation.rules_authority_input import verify_prepared_input
+    reads = []
+    actual = reader.query_rules
+    def read(*a, **kw):
+        reads.append(1)
+        return actual(*a, **kw)
+    monkeypatch.setattr(reader, "query_rules", read)
+    owner, first = lookup(execution(), call_id="call-graph-1")
+    owner, second = lookup(owner, call_id="call-rules-2", present=first.observation.support_refs)
+    assert reads == [1] and second.observation.emitted_support_ids == ()
+    results = {r.observation.call_id: r for r in (first, second)}
+    witness = tmp_path / "two-rules-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DMB_HERMES_TEST_RULES_LOOKUP", "1")
+    monkeypatch.setenv("DMB_HERMES_TEST_RULES_LOOKUPS", "2")
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "synthetic-model")
+    monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
+    request = replace(guarded_request(), root=tmp_path / "graph", request_budget={**_budget(), "apiMode": "codex_responses"})
+    observed, authorized = [], []
+    def broker(message):
+        observed.append(message["modelCallId"])
+        return {"resultJson": results[message["modelCallId"]].raw_output, "retrievalSession": None}
+    host = HermesGraphAgentHost(worker_target=_tool_using_aiagent_host_worker, turn_timeout_s=45,
+        ready_timeout_s=30, accept_timeout_s=10, session_profiles_root=tmp_path / "profiles")
+    try:
+        result = host.execute(request, on_provider_authorization=lambda view: authorized.append(view) or True,
+            on_provider_lifecycle=lambda _: True, on_graph_operation=broker)
+        assert result.status == "ok", (result.error_code, result.error_message)
+    finally:
+        host.shutdown()
+    assert observed == ["call-graph-1", "call-rules-2"] and len(authorized) == 2
+    final = authorized[-1]["payloadJson"]
+    event = RulesProviderAuthorizedV1(kind="provider_authorized", event_id=uuid4(), sequence=len(owner.events),
+        execution_id=owner.scope.execution_id, provider_attempt_id=uuid4(),
+        request_envelope_sha256=sha256(final.encode()).hexdigest(),
+        matched_outputs=tuple(RulesOutputRefV1(call_id=r.observation.call_id, packet_sha256=r.observation.packet_sha256) for r in (first, second)),
+        declared_support_refs=first.observation.support_refs)
+    verify_prepared_input(owner, event, final)
+    outputs = [i for i in json.loads(final)["input"] if isinstance(i, dict) and i.get("type") == "function_call_output"]
+    assert len(outputs) == 2
+    assert sum(len(json.loads(i["output"])["support_capsules"]) for i in outputs) == 1
+    assert json.loads(witness.read_text())["network_attempts"] == []

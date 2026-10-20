@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from uuid import UUID, uuid5, NAMESPACE_URL
 from pydantic import Field, field_validator, model_validator
 from .rules_authority_types import (
     ClosedRulesModel, Digest, RulesBudgetV1, RULES_BUDGET_V1, canonical_sha256,
@@ -66,3 +67,24 @@ def rules_capability(*, graph: bool) -> RulesCapabilityV1:
         ruleset_id=RULESET, corpus_sha256=CORPUS,
         input_proof_policies=("matched_lookup_outputs_v1", "build_rules_projection_v1"),
         tool_contract_sha256=canonical_sha256(rules_tool_definition()), budget=RULES_BUDGET_V1)
+
+
+_CAPABILITIES_BY_SHA = {cap.policy_sha256: cap for cap in (rules_capability(graph=False), rules_capability(graph=True))}
+
+
+def capability_for_policy_sha256(digest: str) -> RulesCapabilityV1 | None:
+    return _CAPABILITIES_BY_SHA.get(digest)
+
+
+def rules_submission_authorization_id(*, world_id: str, conversation_id: UUID,
+        idempotency_key: UUID, submitted_intent_sha256: str, capability: RulesCapabilityV1) -> UUID:
+    """Stable correlation only; the actual locked Turn/claim remains authority."""
+    capability = RulesCapabilityV1.model_validate(capability)
+    if (not isinstance(world_id, str) or not 1 <= len(world_id) <= 256 or world_id.strip() != world_id
+            or not isinstance(conversation_id, UUID) or not isinstance(idempotency_key, UUID)
+            or not isinstance(submitted_intent_sha256, str) or len(submitted_intent_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in submitted_intent_sha256)):
+        raise ValueError("Rules correlation requires exact server-validated logical submission identity")
+    digest = canonical_sha256([world_id, str(conversation_id), str(idempotency_key),
+        submitted_intent_sha256, capability.policy_sha256])
+    return uuid5(NAMESPACE_URL, "dungeonbuddy:rules-submission-authorization:v1:" + digest)

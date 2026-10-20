@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 from typing import Annotated, Literal
 from pydantic import Field, model_validator
-from .types import TurnResult
+from .types import TurnResult, CitedSourceTurnResult
 
 from .rules_authority_events import (
     RulesCompletionBoundV1,
@@ -180,7 +180,7 @@ class MixedTurnResultV1(ClosedRulesModel):
     assistant_text: Annotated[str, Field(min_length=1, max_length=32000)]
     composition: AnswerCompositionV1
     producing_provider_attempt_id: UUID
-    base_result: TurnResult | None
+    base_result: CitedSourceTurnResult | TurnResult | None
 
     @model_validator(mode="after")
     def exact_partitions(self):
