@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getWorldAgentConversationHistory,
+  getWorldAgentTurnContextTrace,
   getWorldAgentNewConversationStatus,
   postWorldAgentNewConversation,
   postWorldPlayAgentTurn,
@@ -72,7 +73,7 @@ describe("World Agent conversation transport", () => {
     expect(fetchSpy.mock.calls[0]?.[1]?.body).toBeUndefined();
   });
 
-  it("passes cancellation only as transport control for the exact history query", async () => {
+  it.each(["history", "trace"])("passes cancellation only as transport control for the exact %s read", async kind => {
     setNativeGraphAccessToken("test-token");
     const controller = new AbortController();
     let owned: AbortSignal | null | undefined;
@@ -80,9 +81,13 @@ describe("World Agent conversation transport", () => {
       owned = init?.signal;
       return new Promise((_resolve, reject) => owned?.addEventListener("abort", () => reject(owned?.reason), {once:true}));
     });
-    const read = getWorldAgentConversationHistory("world/a", {limit:50,includeTurnCorrelation:true,signal:controller.signal});
+    const read = kind === "history"
+      ? getWorldAgentConversationHistory("world/a", {limit:50,includeTurnCorrelation:true,signal:controller.signal})
+      : getWorldAgentTurnContextTrace("world/a", "turn/b", controller.signal);
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
-    expect(String(fetchSpy.mock.calls[0][0])).toBe("/api/live/agent/worlds/world%2Fa/conversation?limit=50&include_turn_correlation=true");
+    expect(String(fetchSpy.mock.calls[0][0])).toBe(kind === "history"
+      ? "/api/live/agent/worlds/world%2Fa/conversation?limit=50&include_turn_correlation=true"
+      : "/api/live/agent/worlds/world%2Fa/conversation/turns/turn%2Fb/context-trace");
     const rejected = expect(read).rejects.toMatchObject({name:"AbortError"});
     controller.abort(); await rejected; expect(owned?.aborted).toBe(true);
   });

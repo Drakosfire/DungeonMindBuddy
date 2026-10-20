@@ -14,6 +14,7 @@ import type { PlanConversationPresentationHosts } from "./PlanConversationDockAd
 import { PlanEditReview } from "./PlanEditReview";
 import { ResponseEvidenceTabs } from "./ResponseEvidenceTabs";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
+import { BuddyTurnInspection } from "./BuddyTurnInspection";
 
 import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -4346,7 +4347,7 @@ export function WorldPlanAgentConversation({
           : <p>Select the original World to open these source passages.</p>}
           prompt={verifiedWorldId && history?.conversation_id
             ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
-              conversationId={history.conversation_id} running={false} />
+              conversationId={history.conversation_id} />
             : <p>The saved request is unavailable.</p>} />
       </details>;
     }
@@ -4475,7 +4476,6 @@ export function WorldPlanAgentConversation({
         })}
       </div>} prompt={verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
         enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
-        running={turn.lifecycle_status === "running" || turn.lifecycle_status === "accepted"}
       /> : <p>No complete request was captured for this response.</p>} />
     </details>;
   }
@@ -5295,8 +5295,10 @@ export function WorldPlanAgentConversation({
     const turnSurfaceLabel = turn.provenance.surface_id === "plan" ? `Plan${historicalCardKind ? ` · ${historicalCardKind}` : ""}`
       : turn.provenance.surface_id === "play" ? "Play · Run" : turn.provenance.surface_id ?? "World";
     return (
+      <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ""}
+        conversationId={history?.conversation_id ?? ""} turnId={turn.turn_id}
+        lifecycle={turn.lifecycle_status}>
       <article
-        key={`world:${turn.turn_id}`}
         className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
         data-sequence={turn.sequence}
       >
@@ -5343,7 +5345,6 @@ export function WorldPlanAgentConversation({
             {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
               enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
               worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
-              running={turn.lifecycle_status === "running" || turn.lifecycle_status === "accepted"}
             /> : null}
             <p className="world-plan-agent-conversation__context">
               Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
@@ -5356,6 +5357,7 @@ export function WorldPlanAgentConversation({
           </details>
         </div>
       </article>
+      </BuddyTurnInspection>
     );
   };
   const displayedConversation = [

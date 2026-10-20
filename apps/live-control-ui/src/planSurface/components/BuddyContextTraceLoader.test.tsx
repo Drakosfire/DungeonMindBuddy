@@ -1,7 +1,14 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BuddyTurnContextTrace, WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
-import { BuddyContextTraceLoader } from './BuddyContextTraceLoader'
+import { BuddyContextTraceLoader as TraceView } from './BuddyContextTraceLoader'
+import { BuddyTurnInspection } from './BuddyTurnInspection'
+import type { ComponentProps } from 'react'
+import type { getWorldAgentTurnContextTrace } from '../../api/liveApi'
+
+function BuddyContextTraceLoader({ load, running, ...props }: ComponentProps<typeof TraceView> & { load?: typeof getWorldAgentTurnContextTrace; running?: boolean }) {
+  return <BuddyTurnInspection {...props} load={load} lifecycle={running ? "running" : "completed"}><TraceView {...props} /></BuddyTurnInspection>
+}
 
 const props = { worldId:'world', turnId:'turn', conversationId:'conversation' }
 function response(attempts: BuddyTurnContextTrace[] = []): WorldAgentTurnContextTraceResponse {
@@ -15,12 +22,12 @@ function trace(): BuddyTurnContextTrace {
 describe('opt-in turn trace read', () => {
   afterEach(() => vi.useRealTimers())
   it('fetches only while enabled, then reuses the exact captured response', async () => {
-    const load=vi.fn().mockResolvedValue(response([trace()]))
+    const load=vi.fn().mockResolvedValue(response([{...trace(), closed_at:'2026-10-13T00:00:01Z', terminal_status:'completed', capture_status:'complete'}]))
     const view=render(<BuddyContextTraceLoader {...props} enabled={false} load={load} />)
     expect(load).not.toHaveBeenCalled()
     view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
     await screen.findByText('How Buddy built this reply')
-    expect(load).toHaveBeenCalledWith('world','turn')
+    expect(load).toHaveBeenCalledWith('world','turn',expect.any(AbortSignal))
     view.rerender(<BuddyContextTraceLoader {...props} enabled={false} load={load} />)
     view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
     expect(load).toHaveBeenCalledTimes(1)
@@ -44,26 +51,29 @@ describe('opt-in turn trace read', () => {
     await act(async()=>resolve(response([trace()])))
     expect(screen.queryByText('How Buddy built this reply')).not.toBeInTheDocument()
   })
-  it('updates a recording trace in place and stops polling after terminal capture', async () => {
+  it('updates a recording trace in place and stops polling when the owning turn ends', async () => {
     vi.useFakeTimers()
     const finished = {...trace(), closed_at:'2026-10-13T00:00:01Z', terminal_status:'completed' as const,
       capture_status:'complete' as const, observations:[{kind:'provider_call' as const, sequence:0, elapsed_ms:1,
         provider:'openai-api', model:'actual-model', outcome:'response_received' as const, input_tokens:42, output_tokens:7}]}
     const load=vi.fn().mockResolvedValueOnce(response([trace()])).mockResolvedValue(response([finished]))
-    render(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    const view=render(<BuddyContextTraceLoader {...props} enabled running load={load} />)
     await act(async()=>{})
     const header=screen.getByText('How Buddy built this reply')
     await act(async()=>vi.advanceTimersByTimeAsync(2000))
     expect(screen.getByText('How Buddy built this reply')).toBe(header)
     expect(screen.getByText('actual-model')).toBeInTheDocument()
+    view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    await act(async()=>{})
+    expect(load).toHaveBeenCalledTimes(3)
     await act(async()=>vi.advanceTimersByTimeAsync(10000))
-    expect(load).toHaveBeenCalledTimes(2)
+    expect(load).toHaveBeenCalledTimes(3)
   })
   it('preserves captured observations when an update fails and retries only the trace read', async () => {
     vi.useFakeTimers()
     const load=vi.fn().mockResolvedValueOnce(response([trace()])).mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValue(response([{...trace(),closed_at:'2026-10-13T00:00:01Z',terminal_status:'failed'}]))
-    render(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    render(<BuddyContextTraceLoader {...props} enabled running load={load} />)
     await act(async()=>{})
     const header=screen.getByText('How Buddy built this reply')
     await act(async()=>vi.advanceTimersByTimeAsync(2000))
@@ -78,9 +88,9 @@ describe('opt-in turn trace read', () => {
   it('cancels recording-trace updates when Debug closes', async () => {
     vi.useFakeTimers()
     const load=vi.fn().mockResolvedValue(response([trace()]))
-    const view=render(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    const view=render(<BuddyContextTraceLoader {...props} enabled running load={load} />)
     await act(async()=>{})
-    view.rerender(<BuddyContextTraceLoader {...props} enabled={false} load={load} />)
+    view.rerender(<BuddyContextTraceLoader {...props} enabled={false} running load={load} />)
     await act(async()=>vi.advanceTimersByTimeAsync(10000))
     expect(load).toHaveBeenCalledTimes(1)
   })
@@ -94,4 +104,20 @@ describe('opt-in turn trace read', () => {
     expect(screen.getByText('How Buddy built this reply')).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
   })
+  it('shows an ended turn with an unclosed capture as incomplete without background polling', async () => {
+    vi.useFakeTimers()
+    const saved=trace(), load=vi.fn().mockResolvedValue(response([saved]))
+    const view=render(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    await act(async()=>{})
+    expect(screen.getByText('Incomplete capture')).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('The turn has ended')
+    expect(saved.closed_at).toBeNull()
+    await act(async()=>vi.advanceTimersByTimeAsync(10000))
+    expect(load).toHaveBeenCalledTimes(1)
+    view.rerender(<BuddyContextTraceLoader {...props} enabled={false} load={load} />)
+    view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
+    await act(async()=>{})
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
 })

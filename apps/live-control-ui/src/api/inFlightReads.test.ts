@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { shareInFlightRead, startReadWave } from "./inFlightReads";
+import { getReadWaveVersion, subscribeReadWave, shareInFlightRead, startReadWave } from "./inFlightReads";
 function deferred<T>() { let resolve!:(value:T)=>void;let reject!:(error:unknown)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject}; }
 afterEach(startReadWave);
 describe("pending read ownership",()=>{
@@ -26,4 +26,17 @@ describe("pending read ownership",()=>{
  it("never dispatches a read already cancelled by its only owner",async()=>{
   const controller=new AbortController();controller.abort();const loader=vi.fn();await expect(shareInFlightRead("k",loader,controller.signal)).rejects.toMatchObject({name:"AbortError"});expect(loader).not.toHaveBeenCalled();
  });
+});
+
+it("publishes every authority/read wave and releases observers", () => {
+ const listener=vi.fn(), initial=getReadWaveVersion(), unsubscribe=subscribeReadWave(listener);
+ startReadWave(); expect(getReadWaveVersion()).toBe(initial+1); expect(listener).toHaveBeenCalledTimes(1);
+ unsubscribe();startReadWave();expect(getReadWaveVersion()).toBe(initial+2);expect(listener).toHaveBeenCalledTimes(1);
+});
+
+it("reports a failed observer without breaking transport waves or other owners", () => {
+ const failure=new Error("broken observer"), log=vi.spyOn(console,"error").mockImplementation(()=>undefined), good=vi.fn();
+ const releaseBad=subscribeReadWave(()=>{throw failure;}), releaseGood=subscribeReadWave(good);
+ try { expect(()=>startReadWave()).not.toThrow();expect(good).toHaveBeenCalledTimes(1);expect(log).toHaveBeenCalledWith("Read-wave observer failed",failure); }
+ finally { releaseBad();releaseGood();log.mockRestore(); }
 });

@@ -80,13 +80,13 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
   }
 }
 
-export function BuddyContextTrace({ trace }: { trace: BuddyTurnContextTrace | null }) {
+export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const last = trace.observations.at(-1)
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>How Buddy built this reply</h4><p>Observable execution · attempt {trace.attempt}</p></div>
-      <span>{trace.capture_status === 'incomplete' ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+      <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     <ol>{trace.observations.map(event => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>

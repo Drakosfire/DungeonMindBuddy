@@ -2,9 +2,22 @@
 type Entry<T> = { promise: Promise<T>; controller: AbortController; subscribers: number; settled: boolean };
 const pending = new Map<string, Entry<unknown>>();
 const MAX_TRACKED_READS = 64;
+let readWaveVersion = 0;
+const readWaveListeners = new Set<() => void>();
+export function getReadWaveVersion(): number { return readWaveVersion; }
+export function subscribeReadWave(listener: () => void): () => void {
+  readWaveListeners.add(listener);
+  return () => { readWaveListeners.delete(listener); };
+}
 
 /** A mutation starts a fresh acquisition wave; existing owners keep their reads. */
-export function startReadWave(): void { pending.clear(); }
+export function startReadWave(): void {
+  pending.clear();
+  readWaveVersion += 1;
+  for (const listener of [...readWaveListeners]) {
+    try { listener(); } catch (error) { console.error("Read-wave observer failed", error); }
+  }
+}
 
 export function shareInFlightRead<T>(key: string, loader: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal | null): Promise<T> {
   if (signal?.aborted) return Promise.reject(signal.reason ?? new DOMException("Read cancelled", "AbortError"));
