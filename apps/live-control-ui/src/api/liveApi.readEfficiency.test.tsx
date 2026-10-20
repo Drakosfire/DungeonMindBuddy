@@ -103,6 +103,26 @@ describe("protected read acquisition",()=>{
   const responses=await Promise.all(reads);expect(await Promise.all(responses.map(r=>r.response.json()))).toEqual([{version:1},{version:1}]);
   fetch.mockResolvedValueOnce(Response.json({version:2}));expect(await(await api.authenticatedApiFetch(path)).response.json()).toEqual({version:2});expect(fetch).toHaveBeenCalledTimes(2);
  });
+ it.each(["/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace","/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace/trace-1/prompt/attempt-1"])("shares exact pending trace evidence request %s",async path=>{
+  api.setNativeGraphAccessToken("trace-evidence");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const reads=[api.authenticatedApiFetch(path),api.authenticatedApiFetch(path)];await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));gate.resolve(Response.json({version:1}));
+  const responses=await Promise.all(reads);expect(await Promise.all(responses.map(r=>r.response.json()))).toEqual([{version:1},{version:1}]);
+  fetch.mockResolvedValueOnce(Response.json({version:2}));expect(await(await api.authenticatedApiFetch(path)).response.json()).toEqual({version:2});expect(fetch).toHaveBeenCalledTimes(2);
+ });
+ it("keeps trace evidence isolated by World, turn, trace and provider attempt",async()=>{
+  api.setNativeGraphAccessToken("trace-isolation");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const paths=[
+   "/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace",
+   "/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace",
+   "/api/live/agent/worlds/other-world/conversation/turns/turn-1/context-trace",
+   "/api/live/agent/worlds/elderwyld/conversation/turns/turn-2/context-trace",
+   "/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace/trace-2/prompt/attempt-1",
+   "/api/live/agent/worlds/elderwyld/conversation/turns/turn-1/context-trace/trace-2/prompt/attempt-2",
+  ];
+  const reads=paths.map(path=>api.authenticatedApiFetch(path));await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(5));
+  expect(fetch.mock.calls.map(([url])=>String(url)).sort()).toEqual([...new Set(paths)].sort());
+  gate.resolve(Response.json({version:1}));await Promise.all(reads);
+ });
  it("shares equivalent option/header order while preserving distinct header values",async()=>{
   api.setNativeGraphAccessToken("header-test");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const reads=[api.authenticatedApiFetch(historyPath,{headers:{Accept:"application/json"},method:"GET"}),api.authenticatedApiFetch(historyPath,{method:"GET",headers:new Headers({accept:"application/json"})}),api.authenticatedApiFetch(historyPath,{headers:{Accept:"text/plain"}})];
