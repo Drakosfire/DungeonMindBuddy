@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from uuid import UUID
 
 from . import types as t
 from .play_graph_authority import validate_play_source_owner_join
@@ -26,7 +27,7 @@ def validate_play_graph_source_frame(receipt: t.PlayWorldGraphContextReceiptV1, 
     """Exact source commitment/body join, not proof of actual provider inclusion."""
     receipt = _checked_receipt(receipt)
     frame = t.PlaySourceFrameV1.model_validate_json(frame.model_dump_json(by_alias=True))
-    if frame.manifest != receipt.play_sources:
+    if frame.manifest != receipt.play_sources or t.canonical_sha256(frame) != receipt.play_source_frame_sha256:
         raise ValueError('Supplied Play frame differs from the frozen receipt manifest')
     validate_play_source_owner_join(frame, receipt.play_basis, owner_resolved_current_moment_text=owner_resolved_current_moment_text)
 
@@ -45,6 +46,10 @@ def validate_play_graph_execution_binding(receipt: t.PlayWorldGraphContextReceip
     if execution.context_receipt_sha256 != receipt.context_receipt_sha256 or scope.world_id != authority.managed_world_id or scope.campaign_id is not None or (scope.graph_revision != authority.graph_revision) or (scope.retrieval_session_id != receipt.retrieval_session_id) or any((pin.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for pin in scope.admitted_anchors)):
         raise ValueError('Play execution differs from its frozen receipt Graph scope')
     for index, event in enumerate(execution.events):
+        if isinstance(event, t.PlaySourceProviderInclusionV1) and (
+                event.source_ids != [entry.source_id for entry in receipt.play_sources.entries]
+                or event.source_frame_sha256 != receipt.play_source_frame_sha256):
+            raise ValueError('Play producer source frame differs from its exact frozen receipt')
         if isinstance(event, t.SourceScopeExtensionEventV3) and (event.native_world_id != authority.native_world_id or event.binding_version != authority.binding_version):
             raise ValueError('Play source extension differs from its managed/native World authority')
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
@@ -64,3 +69,26 @@ def validate_play_graph_provider_authorization(receipt: t.PlayWorldGraphContextR
     appended = t.PlayWorldGraphExecutionV1.model_validate_json(json.dumps(wire))
     validate_play_graph_execution_binding(receipt, appended)
     return appended
+
+
+def prepare_play_source_provider_inclusion(receipt: t.PlayWorldGraphContextReceiptV1,
+        execution: t.PlayWorldGraphExecutionV1, frame: t.PlaySourceFrameV1, *,
+        event_id: UUID, provider_attempt_id: UUID, envelope_sha256: str,
+        owner_resolved_current_moment_text: str | None) -> t.PlaySourceProviderInclusionV1:
+    """Derive an owner witness; APP commit and actual SDK input proof are separate."""
+    validate_play_graph_execution_binding(receipt, execution)
+    validate_play_graph_source_frame(receipt, frame,
+        owner_resolved_current_moment_text=owner_resolved_current_moment_text)
+    receipt, frame = _checked_receipt(receipt), t.PlaySourceFrameV1.model_validate_json(frame.model_dump_json(by_alias=True))
+    event = t.PlaySourceProviderInclusionV1(kind='play_source_provider_inclusion_v1',
+        event_id=event_id, sequence=len(execution.events),
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        provider_attempt_id=provider_attempt_id, envelope_sha256=envelope_sha256,
+        source_frame_sha256=t.canonical_sha256(frame),
+        source_ids=[entry.source_id for entry in frame.manifest.entries])
+    wire = execution.model_dump(mode='json', by_alias=True)
+    wire['events'].append(event.model_dump(mode='json', by_alias=True))
+    pending = t.PlayWorldGraphExecutionV1.model_validate_json(json.dumps(wire))
+    validate_play_graph_execution_binding(receipt, pending)
+    return event

@@ -1302,6 +1302,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
     play_graph_policy: PlayGraphPolicyV1
     play_basis: PlayRunTurnContextReceiptV2
     play_sources: PlaySourceManifestV1
+    play_source_frame_sha256: Digest
     retrieval_session_id: Annotated[str, Field(min_length=1, max_length=128)]
     graph_authority: PlanWorldGraphAuthorityV1
     graph_packet: PlayWorldGraphPacketV1
@@ -1579,6 +1580,68 @@ class PlanWorldGraphCitationMapV2(StrictModel):
     )
     context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     entries: list[PlanWorldGraphCitationV2] = Field(max_length=128)
+
+
+class PlayContextClaimV1(ClosedRulesModel):
+    kind: Literal["play_context_claim"]
+    text: Annotated[str, Field(min_length=1, max_length=4000)]
+    source_ids: Annotated[list[Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]], Field(min_length=1, max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_sources(self):
+        if not self.text.strip() or self.source_ids != sorted(set(self.source_ids)):
+            raise ValueError("Play context claim requires nonblank prose and sorted distinct sources")
+        return self
+
+
+PlayWorldGraphAnswerSegmentV1 = Annotated[
+    PlayContextClaimV1 | PlanWorldGraphClaimSegmentV1 | PlanWorldGraphConnectiveSegmentV1,
+    Field(discriminator="kind"),
+]
+
+
+def play_answer_basis(segments):
+    graph = any(isinstance(segment, PlanWorldGraphClaimSegmentV1) for segment in segments)
+    play = any(isinstance(segment, PlayContextClaimV1) for segment in segments)
+    return ("play_sources_plus_world_graph" if graph and play else "world_graph" if graph
+        else "play_sources" if play else "nonfactual_context")
+
+
+class PlayWorldGraphCompletionV1(ClosedRulesModel):
+    schema_: Literal["dmb_play_world_graph_completion_v1"] = Field(default="dmb_play_world_graph_completion_v1", alias="schema")
+    context_receipt_sha256: Digest
+    answer_basis: Literal["play_sources", "world_graph", "play_sources_plus_world_graph", "nonfactual_context"]
+    answer_context_status: Literal["graph_grounded", "graph_grounded_partial", "play_only_insufficient_evidence", "play_only_graph_unused"]
+    answer_segments: Annotated[list[PlayWorldGraphAnswerSegmentV1], Field(min_length=1, max_length=128)]
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def exact_completion(self):
+        if self.answer_basis != play_answer_basis(self.answer_segments):
+            raise ValueError("Play answer basis must follow its typed claims")
+        if not any(segment.text.strip() for segment in self.answer_segments):
+            raise ValueError("Play completion must contain nonblank answer prose")
+        claims = [segment for segment in self.answer_segments if isinstance(segment, PlanWorldGraphClaimSegmentV1)]
+        grounded = self.answer_context_status in {"graph_grounded", "graph_grounded_partial"}
+        if grounded != bool(claims):
+            raise ValueError("Play Graph status must follow actual Graph claims")
+        if not grounded and self.citation_map is not None:
+            raise ValueError("Play-only answer cannot carry Graph citations")
+        if grounded:
+            entries = self.citation_map.entries if self.citation_map is not None else []
+            expected = {claim.claim_id: claim for claim in claims}
+            if (len(expected) != len(claims) or len(entries) != len(expected)
+                    or len({entry.claim_id for entry in entries}) != len(entries)
+                    or self.citation_map.context_receipt_sha256 != self.context_receipt_sha256):
+                raise ValueError("Play Graph citations must match each claim and owning receipt")
+            for entry in entries:
+                claim = expected.get(entry.claim_id)
+                if claim is None or any(getattr(claim, key) != getattr(entry, key) for key in (
+                        "target_kind", "target_id", "graph_revision", "evidence_ref_ids")):
+                    raise ValueError("Play Graph citation differs from its claim")
+        if len(canonical_bytes(self)) > 65536:
+            raise ValueError("Play completion exceeds its UTF8 budget")
+        return self
 
 
 class PlanWorldGraphCompletionV2(StrictModel):
@@ -2422,6 +2485,23 @@ class ProviderOutcomeEventV1(GraphExecutionEventBaseV1):
     response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
+class PlaySourceProviderInclusionV1(GraphExecutionEventBaseV1):
+    """Native Play-only owner witness, never raw source text or model metadata."""
+    kind: Literal["play_source_provider_inclusion_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    provider_attempt_id: UUID
+    envelope_sha256: Digest
+    source_frame_sha256: Digest
+    source_ids: Annotated[list[Annotated[str, Field(pattern=r"^play-source:[a-f0-9]{64}$")]], Field(max_length=2)]
+
+    @model_validator(mode="after")
+    def exact_sources(self):
+        if self.source_ids != sorted(set(self.source_ids)):
+            raise ValueError("Play inclusion source handles must be sorted and unique")
+        return self
+
+
 class CompletionBindingEventV1(GraphExecutionEventBaseV1):
     kind: Literal["completion_binding"]
     provider_attempt_id: UUID
@@ -2946,12 +3026,14 @@ def source_read_character_usage(
     return usage
 
 
-def validate_graph_execution_record(execution, *, dynamic_source_scope: bool) -> None:
+def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, allow_play_source_inclusion: bool = False) -> None:
     """Shared ledger invariants; dynamic source admission is an explicit capability.
 
     This validates structure and accounting, not Turn ownership or provider input.
     Wire types independently close allowed policy and event variants.
     """
+    if not allow_play_source_inclusion and any(isinstance(event, PlaySourceProviderInclusionV1) for event in execution.events):
+        raise ValueError("Play source inclusion is native-Play-only")
     expected_policy_digest = _canonical_sha256({
         "schema": execution.schema_,
         "context_receipt_sha256": execution.context_receipt_sha256,
@@ -3064,6 +3146,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool) ->
         if isinstance(
             event,
             (
+                PlaySourceProviderInclusionV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
                 ValidatedSourceReadEventV2,
@@ -3660,13 +3743,50 @@ def graph_execution_policy_digest_v3(
 
 
 PlayGraphExecutionEventV1 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2,
     Field(discriminator="kind"),
 ]
+
+def validate_play_source_inclusion_events(execution) -> None:
+    pending = None
+    seen = set()
+    authorized = set()
+    latest_provider = None
+    latest_outcome = None
+    for event in execution.events:
+        if isinstance(event, PlaySourceProviderInclusionV1):
+            if (pending is not None or event.provider_attempt_id in seen or event.provider_attempt_id in authorized
+                    or (latest_provider is not None and latest_outcome not in {"response_received", "known_not_sent"})
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError("Play source inclusion requires current scope and resolved prior provider")
+            pending = event
+            seen.add(event.provider_attempt_id)
+            continue
+        if pending is not None:
+            if isinstance(event, RelatedRecapContextProviderInclusionEventV2):
+                if (event.provider_attempt_id != pending.provider_attempt_id
+                        or event.envelope_sha256 != pending.envelope_sha256):
+                    raise ValueError("Play and related-corpus inclusion must bind the same request")
+                continue
+            if (not isinstance(event, ProviderAttemptAuthorizedEventV3)
+                    or event.provider_attempt_id != pending.provider_attempt_id
+                    or event.envelope_sha256 != pending.envelope_sha256):
+                raise ValueError("Play source inclusion must precede its exact provider authorization")
+            pending = None
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            authorized.add(event.provider_attempt_id)
+            latest_provider = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_provider:
+            latest_outcome = event.outcome
+    # An unfinished inclusion can be retained on an interrupted/failed attempt;
+    # without an acknowledged matching provider it grants no producing sources.
+
 
 class PlayWorldGraphExecutionV1(ClosedRulesModel):
     """Standalone pure Play ledger, not registered with durable codecs yet."""
@@ -3678,7 +3798,8 @@ class PlayWorldGraphExecutionV1(ClosedRulesModel):
 
     @model_validator(mode="after")
     def exact_execution(self):
-        validate_graph_execution_record(self, dynamic_source_scope=True)
+        validate_play_source_inclusion_events(self)
+        validate_graph_execution_record(self, dynamic_source_scope=True, allow_play_source_inclusion=True)
         return self
 
 
@@ -4088,6 +4209,31 @@ def derive_graph_execution_evidence_status(
     "plan_only_insufficient_evidence",
     "plan_only_graph_unused",
 ]:
+    return derive_graph_execution_evidence_status_for_scope(
+        context_receipt_sha256=context_receipt_sha256, answer_segments=answer_segments,
+        citation_map=citation_map, inputs=inputs, execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+        source_scope=(execution.policy.source_read_scope if isinstance(execution, PlanWorldGraphExecutionV2) else None),
+    )
+
+
+def derive_graph_execution_evidence_status_for_scope(
+    *,
+    context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
+    inputs: GraphEvidenceValidationView,
+    execution: GraphProviderExecutionView,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+    source_scope: GraphSourceReadScopeV2 | GraphSelectedSourceReadScopeV2 | None,
+) -> Literal[
+    "graph_grounded",
+    "graph_grounded_partial",
+    "plan_only_insufficient_evidence",
+    "plan_only_graph_unused",
+]:
     """Validate producing-envelope evidence and derive its answer context status.
 
     This accepts the typed completion fields separately so callers can derive a
@@ -4135,11 +4281,6 @@ def derive_graph_execution_evidence_status(
     indexed_policy = (
         inputs.graph_packet.selection_policy_version
         in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}
-    )
-    source_scope = (
-        execution.policy.source_read_scope
-        if isinstance(execution, PlanWorldGraphExecutionV2)
-        else None
     )
     scope_anchors: dict[str, list[GraphSourceScopeAnchorV2]] = {}
     if source_scope is not None:

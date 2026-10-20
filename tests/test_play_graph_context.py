@@ -62,6 +62,7 @@ def fixture():
     wire = dict(schema="dmb_play_world_graph_context_receipt_v1", receipt_serializer_version="canonical-json-utf8-v1",
         play_graph_policy=PlayGraphPolicyV1().model_dump(mode="json", by_alias=True),
         play_basis=basis().model_dump(mode="json", by_alias=True), play_sources=frame.manifest.model_dump(mode="json", by_alias=True),
+        play_source_frame_sha256=canonical_sha256(frame),
         retrieval_session_id="retrieval-one", graph_authority=PlanWorldGraphAuthorityV1(managed_world_id="world-one",
             native_world_id="native-world-one", binding_version=1, scope_mode="world", campaign_id=None,
             admissibility_version="gm-v1", graph_revision="graph-one").model_dump(mode="json", by_alias=True),
@@ -239,6 +240,7 @@ def test_empty_source_commitment_grants_no_prepared_text_and_rejects_inserting_a
     empty = play_source_frame(())
     wire = receipt.model_dump(mode="json", by_alias=True)
     wire["play_sources"] = empty.manifest.model_dump(mode="json", by_alias=True)
+    wire["play_source_frame_sha256"] = canonical_sha256(empty)
     receipt = seal_receipt(wire)
     validate_play_graph_source_frame(receipt, empty, owner_resolved_current_moment_text=None)
     with pytest.raises(ValueError, match="frozen receipt manifest"):
