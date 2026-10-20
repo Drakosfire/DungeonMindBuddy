@@ -5053,7 +5053,9 @@ describe("World Plan conversation consumer", () => {
   });
 
   it("loads the persisted execution trace only when the turn Debug is expanded", async () => {
-    setupApi(history("conversation-a", 4, [makeTurn(1, "turn-trace", "Question", "Answer")]));
+    const context = await planGraphContext("graph_grounded");
+    setupApi({ ...history("conversation-a", 4, []), schema: "dmb_agent_conversation_history_v2",
+      turns: [policyHistoryTurn(1, "turn-trace", "Question", "Answer", context)] });
     const loadTrace = vi.mocked(liveApi.getWorldAgentTurnContextTrace).mockResolvedValue({
       schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: "turn-trace",
       attempts: [{ schema: "dmb_turn_context_trace_v1", trace_id: "trace", world_id: worldId,
@@ -5063,13 +5065,18 @@ describe("World Plan conversation consumer", () => {
           elapsed_ms: 1000, provider: "openai-api", model: "trace-model", outcome: "response_received", input_tokens: 42, output_tokens: 7}] }],
     });
     render(conversationElement());
-    await screen.findByText("Answer");
+    await screen.findByText("Question");
     expect(loadTrace).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Debug"));
     await screen.findByText("How Buddy built this reply");
     expect(screen.getByText("trace-model")).toBeInTheDocument();
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
-    expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace");
+    expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
+    fireEvent.click(screen.getByText("Evidence trail", { exact: true }).closest("summary")!);
+    fireEvent.click(screen.getByRole("tab", { name: "The Prompt" }));
+    await screen.findByText(/No complete request was captured for this call/);
+    expect(loadTrace).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("tab", { name: "Evidence Trail" }));
     fireEvent.click(screen.getByText("Debug"));
     fireEvent.click(screen.getByText("Debug"));
     expect(loadTrace).toHaveBeenCalledTimes(1);

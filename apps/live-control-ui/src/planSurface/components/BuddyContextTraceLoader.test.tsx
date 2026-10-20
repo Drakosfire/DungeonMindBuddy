@@ -1,7 +1,14 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BuddyTurnContextTrace, WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
-import { BuddyContextTraceLoader } from './BuddyContextTraceLoader'
+import { BuddyContextTraceLoader as TraceView } from './BuddyContextTraceLoader'
+import { BuddyTurnInspection } from './BuddyTurnInspection'
+import type { ComponentProps } from 'react'
+import type { getWorldAgentTurnContextTrace } from '../../api/liveApi'
+
+function BuddyContextTraceLoader({ load, running, ...props }: ComponentProps<typeof TraceView> & { load?: typeof getWorldAgentTurnContextTrace; running?: boolean }) {
+  return <BuddyTurnInspection {...props} load={load} lifecycle={running ? "running" : "completed"}><TraceView {...props} /></BuddyTurnInspection>
+}
 
 const props = { worldId:'world', turnId:'turn', conversationId:'conversation' }
 function response(attempts: BuddyTurnContextTrace[] = []): WorldAgentTurnContextTraceResponse {
@@ -20,7 +27,7 @@ describe('opt-in turn trace read', () => {
     expect(load).not.toHaveBeenCalled()
     view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
     await screen.findByText('How Buddy built this reply')
-    expect(load).toHaveBeenCalledWith('world','turn')
+    expect(load).toHaveBeenCalledWith('world','turn',expect.any(AbortSignal))
     view.rerender(<BuddyContextTraceLoader {...props} enabled={false} load={load} />)
     view.rerender(<BuddyContextTraceLoader {...props} enabled load={load} />)
     expect(load).toHaveBeenCalledTimes(1)
