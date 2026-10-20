@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from application_state.agent_conversation.rules_authority_policy import (
+    RulesCapabilityV1, RULES_READ_POLICY_ID, WORLD_GRAPH_RULES_READ_POLICY_ID,
+)
+
 WORLD_GRAPH_READ_POLICY_ID = "world_graph_read_v1"
 CONVERSATION_ONLY_POLICY_ID = "conversation_only_v1"
 SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS = 64000
@@ -108,6 +112,7 @@ class AgentContextPacket:
     surface_context: AgentSurfaceContext | None = None
     selected_knowledge_context: Mapping[str, Any] | None = None
     session_evidence: Mapping[str, Any] | None = None
+    rules_capability: RulesCapabilityV1 | None = None
 
 
 @dataclass(frozen=True, slots=True)

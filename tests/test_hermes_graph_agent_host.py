@@ -154,6 +154,7 @@ def _synthetic_request_budget() -> dict[str, Any]:
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 32768,
         "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3, "maxGraphOperations": 8,
     }
 
 
@@ -1367,6 +1368,9 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         "operation": "search",
         "queryText": os.environ.get("DMB_HERMES_TEST_TOOL_QUERY", "Tripod"),
     }
+    rules_lookup = os.environ.get("DMB_HERMES_TEST_RULES_LOOKUP") == "1"
+    if rules_lookup:
+        tool_args = {"question": "Can I end my move in an occupied space?", "ruleset_id": "dnd_2024_srd_5_2_1"}
     responses_streams = [
         [
             SimpleNamespace(
@@ -1375,7 +1379,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     type="function_call",
                     id="fc_1",
                     call_id="call-graph-1",
-                    name="expand_graph_retrieval",
+                    name="lookup_rules" if rules_lookup else "expand_graph_retrieval",
                     arguments=json_mod.dumps(tool_args),
                     status="completed",
                 ),
@@ -1555,16 +1559,12 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     return _fake_execute(tool_name, arguments), None
                 graph_operation_sequence += 1
                 operation_id = f"{request_id}:g{graph_operation_sequence}"
-                _put_json(
-                    response_queue,
-                    {
-                        "type": "graph_operation_request",
-                        "requestId": request_id,
-                        "operationId": operation_id,
-                        "toolName": tool_name,
-                        "arguments": dict(arguments),
-                    },
-                )
+                frame = {"type": "graph_operation_request", "requestId": request_id,
+                    "operationId": operation_id, "toolName": tool_name, "arguments": dict(arguments)}
+                if tool_name == "lookup_rules":
+                    from graph_memory.hermes_graph_plugin import get_active_rules_call_id
+                    frame["modelCallId"] = get_active_rules_call_id()
+                _put_json(response_queue, frame)
                 response = decode_json_wire(request_queue.get(timeout=30.0))
                 if (
                     response.get("type") != "graph_operation_response"

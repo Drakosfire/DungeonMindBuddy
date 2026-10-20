@@ -17,7 +17,9 @@ from graph_memory.hermes_graph_plugin import (
     HermesGraphScope,
     HermesPluginActivation,
     HermesToolCapabilityRule,
+    validate_capability_policy_structure,
 )
+from application_state.agent_conversation.rules_authority_policy import RulesCapabilityV1
 
 HermesGraphAgentStatus = Literal["ok", "error"]
 HermesAnswerScope = Literal["graph", "conversation_context"]
@@ -89,6 +91,7 @@ _POLICY_ALLOWED_KEYS = frozenset(
         "enabledToolsets",
         "enabledToolNames",
         "graphScope",
+        "rulesCapability",
         "pluginActivations",
         "toolRules",
     }
@@ -98,7 +101,7 @@ _SCOPE_ALLOWED_KEYS = frozenset(
 )
 _ACTIVATION_ALLOWED_KEYS = frozenset({"pluginId", "toolsets"})
 _RULE_ALLOWED_KEYS = frozenset(
-    {"toolName", "toolset", "requireGraphScope", "allowedEffects"}
+    {"toolName", "toolset", "requireGraphScope", "requireRulesAuthority", "allowedEffects"}
 )
 _RESULT_ALLOWED_KEYS = frozenset(
     {
@@ -655,6 +658,9 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
         raise ValueError(f"pluginActivations exceeds max {MAX_PLUGIN_ACTIVATIONS}")
     if len(rules) > MAX_TOOL_RULES:
         raise ValueError(f"toolRules exceeds max {MAX_TOOL_RULES}")
+    error = validate_capability_policy_structure(policy)
+    if error is not None:
+        raise ValueError(error)
     if policy.mode == "conversation_only":
         if policy.graph_scope is not None or toolsets or tool_names or activations or rules:
             raise ValueError("conversation-only capability policy must contain no graph scope or tools")
@@ -663,15 +669,16 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
             "enabledToolsets": [],
             "enabledToolNames": [],
             "graphScope": None,
+            "rulesCapability": None,
             "pluginActivations": [],
             "toolRules": [],
         }
-    if policy.mode != "graph" or policy.graph_scope is None:
-        raise ValueError("graph capability policy requires a graph scope")
-    scope_mode = _scope_mode(policy.graph_scope.scope_mode)
+    scope_mode = None if policy.graph_scope is None else _scope_mode(policy.graph_scope.scope_mode)
     if scope_mode == "campaign" and not policy.graph_scope.campaign_id.strip():
         raise ValueError("campaignId is required when scopeMode is campaign")
     return {
+        "mode": policy.mode,
+        "rulesCapability": None if policy.rules_capability is None else policy.rules_capability.model_dump(mode="json", by_alias=True),
         "enabledToolsets": [_require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets],
         "enabledToolNames": [
             _require_str(item, label="toolName", max_chars=MAX_ID_CHARS) for item in tool_names
@@ -699,7 +706,7 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
                 label="revisionPin",
                 max_chars=MAX_ID_CHARS,
             ),
-        },
+        } if policy.graph_scope is not None else None,
         "pluginActivations": [
             _serialize_plugin_activation(activation) for activation in activations
         ],
@@ -707,7 +714,8 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
             {
                 "toolName": _require_str(rule.tool_name, label="toolName", max_chars=MAX_ID_CHARS),
                 "toolset": _require_str(rule.toolset, label="toolset", max_chars=MAX_ID_CHARS),
-                "requireGraphScope": bool(rule.require_graph_scope),
+                "requireGraphScope": rule.require_graph_scope,
+                "requireRulesAuthority": rule.require_rules_authority,
                 "allowedEffects": sorted(
                     _serialize_allowed_effects(rule.allowed_effects)
                 ),
@@ -754,7 +762,11 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
     if not isinstance(payload, Mapping):
         raise ValueError("capability policy payload must be a mapping")
     _reject_unknown_keys(payload, _POLICY_ALLOWED_KEYS, label="capability policy")
-    mode = payload.get("mode", "graph")
+    if set(payload) != _POLICY_ALLOWED_KEYS:
+        raise ValueError("capability policy must use the complete current wire form")
+    mode = payload["mode"]
+    cap_raw = payload["rulesCapability"]
+    capability = None if cap_raw is None else RulesCapabilityV1.model_validate_json(json.dumps(cap_raw))
     if mode == "conversation_only":
         if any(
             payload.get(key) != expected
@@ -762,6 +774,7 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
                 ("enabledToolsets", []),
                 ("enabledToolNames", []),
                 ("graphScope", None),
+                ("rulesCapability", None),
                 ("pluginActivations", []),
                 ("toolRules", []),
             )
@@ -775,12 +788,16 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
             plugin_activations=(),
             mode="conversation_only",
         )
-    if mode != "graph":
-        raise ValueError("capability policy mode must be graph or conversation_only")
+    if mode not in {"graph", "rules", "graph_rules"}:
+        raise ValueError("invalid capability policy mode")
     scope_raw = payload.get("graphScope")
-    if not isinstance(scope_raw, Mapping):
-        raise ValueError("capability policy graphScope must be a mapping")
-    _reject_unknown_keys(scope_raw, _SCOPE_ALLOWED_KEYS, label="graphScope")
+    if mode == "rules":
+        if scope_raw is not None:
+            raise ValueError("Rules-only policy cannot carry Graph scope")
+    else:
+        if not isinstance(scope_raw, Mapping):
+            raise ValueError("capability policy graphScope must be a mapping")
+        _reject_unknown_keys(scope_raw, _SCOPE_ALLOWED_KEYS, label="graphScope")
     toolsets_raw = payload.get("enabledToolsets")
     names_raw = payload.get("enabledToolNames")
     if not isinstance(toolsets_raw, list) or not isinstance(names_raw, list):
@@ -830,6 +847,8 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
         if not isinstance(item, Mapping):
             raise ValueError("tool rule must be a mapping")
         _reject_unknown_keys(item, _RULE_ALLOWED_KEYS, label="tool rule")
+        if set(item) != _RULE_ALLOWED_KEYS or any(type(item.get(key)) is not bool for key in ("requireGraphScope", "requireRulesAuthority")):
+            raise ValueError("tool rule requires exact current boolean authority flags")
         effects_raw = item.get("allowedEffects")
         if not isinstance(effects_raw, list):
             raise ValueError("tool rule allowedEffects must be a list")
@@ -845,44 +864,41 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
             HermesToolCapabilityRule(
                 tool_name=_require_str(item.get("toolName"), label="toolName", max_chars=MAX_ID_CHARS),
                 toolset=_require_str(item.get("toolset"), label="toolset", max_chars=MAX_ID_CHARS),
-                require_graph_scope=bool(item.get("requireGraphScope", True)),
+                require_graph_scope=item["requireGraphScope"],
+                require_rules_authority=item["requireRulesAuthority"],
                 allowed_effects=frozenset(effects),  # type: ignore[arg-type]
             )
         )
 
-    focus = _deserialize_focus(scope_raw.get("focus"))
-    scope_mode = _scope_mode(scope_raw.get("scopeMode"))
-    campaign_id = _require_str(
-        scope_raw.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS
-    ).strip()
-    if scope_mode == "campaign" and not campaign_id:
-        raise ValueError("campaignId is required when scopeMode is campaign")
-    return HermesCapabilityPolicy(
+    graph_scope = None
+    if scope_raw is not None:
+        focus = _deserialize_focus(scope_raw.get("focus"))
+        scope_mode = _scope_mode(scope_raw.get("scopeMode"))
+        campaign_id = _require_str(scope_raw.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS).strip()
+        if scope_mode == "campaign" and not campaign_id:
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        graph_scope = HermesGraphScope(
+            world_id=_require_str(scope_raw.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS).strip(),
+            campaign_id=campaign_id, scope_mode=scope_mode, focus=focus or {},
+            admissibility=_require_str(scope_raw.get("admissibility"), label="admissibility", max_chars=MAX_ID_CHARS),
+            revision_pin=_optional_str(scope_raw.get("revisionPin"), label="revisionPin", max_chars=MAX_ID_CHARS))
+    policy = HermesCapabilityPolicy(
         enabled_toolsets=tuple(
             _require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets_raw
         ),
         enabled_tool_names=tuple(
             _require_str(item, label="toolName", max_chars=MAX_ID_CHARS) for item in names_raw
         ),
-        graph_scope=HermesGraphScope(
-            world_id=_require_str(scope_raw.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS).strip(),
-            campaign_id=campaign_id,
-            scope_mode=scope_mode,
-            focus=focus or {},
-            admissibility=_require_str(
-                scope_raw.get("admissibility") or "gm",
-                label="admissibility",
-                max_chars=MAX_ID_CHARS,
-            ),
-            revision_pin=_optional_str(
-                scope_raw.get("revisionPin"),
-                label="revisionPin",
-                max_chars=MAX_ID_CHARS,
-            ),
-        ),
+        graph_scope=graph_scope,
+        mode=mode, rules_capability=capability,
         plugin_activations=tuple(activations),
         tool_rules=tuple(rules),
     )
+
+    error = validate_capability_policy_structure(policy)
+    if error is not None:
+        raise ValueError(error)
+    return policy
 
 
 def _input_kind(value: Any) -> Literal["ordinary_question", "server_assembled_saved_work"]:
@@ -909,7 +925,7 @@ def serialize_hermes_graph_agent_turn_request(
         ),
     )
     policy = request.capability_policy
-    conversation_only = policy is not None and policy.mode == "conversation_only"
+    conversation_only = policy is not None and policy.mode in {"conversation_only", "rules"}
     if conversation_only:
         if any(
             value is not None
@@ -964,10 +980,14 @@ def serialize_hermes_graph_agent_turn_request(
         raise ValueError("providerAuthorizationRequired must be a boolean")
     if not isinstance(request.parent_graph_broker_required, bool):
         raise ValueError("parentGraphBrokerRequired must be a boolean")
+    if policy is not None and policy.rules_capability is not None and not (
+        request.parent_graph_broker_required and request.provider_authorization_required
+    ):
+        raise ValueError("Rules capability requires parent provider authorization and broker")
     if request.parent_graph_broker_required and (
         not request.provider_authorization_required
-        or request.retrieval_session_id is None
-        or request.retrieval_session is None
+        or ((policy is None or policy.mode != "rules") and (
+            request.retrieval_session_id is None or request.retrieval_session is None))
     ):
         raise ValueError(
             "parent Graph broker requires provider authorization and a retrieval session"
@@ -1069,17 +1089,21 @@ def deserialize_hermes_graph_agent_turn_request(
         raise ValueError(
             "provider authorization requires an explicit request budget"
         )
+    if policy is not None and policy.rules_capability is not None and not (
+        parent_graph_broker_required and provider_authorization_required
+    ):
+        raise ValueError("Rules capability requires parent provider authorization and broker")
     if parent_graph_broker_required:
         _require_final_answer_reservation(request_budget)
     if parent_graph_broker_required and (
         not provider_authorization_required
-        or not payload.get("retrievalSessionId")
-        or retrieval_session_raw is None
+        or ((policy is None or policy.mode != "rules") and (
+            not payload.get("retrievalSessionId") or retrieval_session_raw is None))
     ):
         raise ValueError(
             "parent Graph broker requires provider authorization and a retrieval session"
         )
-    conversation_only = policy is not None and policy.mode == "conversation_only"
+    conversation_only = policy is not None and policy.mode in {"conversation_only", "rules"}
     if conversation_only:
         graph_keys = (
                 "worldId",

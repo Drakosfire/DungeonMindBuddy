@@ -1824,7 +1824,7 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
 
     monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
 
-    graph_names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+    graph_names = default_graph_only_capability_policy(_default_scope()).enabled_tool_names
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
         enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
@@ -2614,8 +2614,9 @@ def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
         assert graph_plugin.get_parent_retrieval_session_packet() == packet
 
         read_source = graph_plugin._handler_for("read_graph_source")
-        denied = json.loads(read_source({"sourceAnchorId": "anchor-1"}))
-        assert denied["code"] == "plan_graph_tool_not_permitted"
+        assert read_source({"sourceAnchorId": "anchor-1"}) == '{"status":"ok"}'
+        assert calls[-1][0] == "read_graph_source"
+        assert graph_plugin.get_parent_retrieval_session_packet() == packet
     finally:
         reset_active_capability_policy(policy_token)
         graph_plugin.reset_parent_graph_broker(broker_token)

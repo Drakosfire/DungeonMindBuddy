@@ -15,6 +15,7 @@ from typing import Any
 
 from apps.live_control_server.services.agent_runtime import (
     CONVERSATION_ONLY_POLICY_ID,
+    RULES_READ_POLICY_ID, WORLD_GRAPH_RULES_READ_POLICY_ID,
     SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS,
     HERMES_RUNTIME_DESCRIPTOR,
     UNSUPPORTED_CAPABILITY_POLICY,
@@ -46,6 +47,7 @@ from graph_memory.hermes_graph_plugin import (
     default_graph_only_capability_policy,
     parent_brokered_graph_expansion_policy,
     parent_brokered_graph_source_policy,
+    rules_capability_policy,
 )
 
 HostFactory = Callable[[], HermesGraphAgentHost]
@@ -112,19 +114,23 @@ def map_invocation_to_hermes_request(
     invocation: AgentRuntimeInvocation,
 ) -> HermesGraphAgentTurnRequest:
     world_scope = invocation.context_packet.world_scope
+    rules = invocation.context_packet.rules_capability
+    if rules is not None:
+        from application_state.agent_conversation.rules_authority_policy import RulesCapabilityV1
+        rules = RulesCapabilityV1.model_validate(rules)
     if world_scope is None:
         if (
-            invocation.capability_policy.policy_id != CONVERSATION_ONLY_POLICY_ID
+            invocation.capability_policy.policy_id != (RULES_READ_POLICY_ID if rules is not None else CONVERSATION_ONLY_POLICY_ID)
             or invocation.context_packet.retrieval_session is not None
         ):
             raise ValueError(
-                "no-scope turn requires conversation-only policy and no retrieval session"
+                "no-Graph turn requires its selected conversation or Rules policy and no retrieval session"
             )
         host_focus = None
         capability_policy = default_conversation_only_capability_policy()
         world_id = campaign_id = scope_mode = admissibility = revision_pin = None
     else:
-        if invocation.capability_policy.policy_id != WORLD_GRAPH_READ_POLICY_ID:
+        if invocation.capability_policy.policy_id != (WORLD_GRAPH_RULES_READ_POLICY_ID if rules is not None else WORLD_GRAPH_READ_POLICY_ID):
             raise ValueError("graph scope requires the graph-read capability policy")
         host_focus = _api_focus_to_host_focus(world_scope.focus)
         graph_scope = HermesGraphScope(
@@ -141,6 +147,11 @@ def map_invocation_to_hermes_request(
         scope_mode = world_scope.scope_mode
         admissibility = world_scope.admissibility
         revision_pin = world_scope.revision_id
+    if rules is not None:
+        if rules.policy_id != invocation.capability_policy.policy_id:
+            raise ValueError("Rules metadata differs from the selected capability policy")
+        capability_policy = rules_capability_policy(rules,
+            graph_policy=capability_policy if world_scope is not None else None)
     retrieval = invocation.context_packet.retrieval_session
     history = (
         [
@@ -283,24 +294,29 @@ class HermesAgentRuntimeAdapter:
     ) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
+        rules = invocation.context_packet.rules_capability
         expected_policy = (
-            CONVERSATION_ONLY_POLICY_ID
-            if world_scope is None
-            else WORLD_GRAPH_READ_POLICY_ID
+            (RULES_READ_POLICY_ID if rules is not None else CONVERSATION_ONLY_POLICY_ID)
+            if world_scope is None else
+            (WORLD_GRAPH_RULES_READ_POLICY_ID if rules is not None else WORLD_GRAPH_READ_POLICY_ID)
         )
         if policy_id != expected_policy:
             return _unsupported_policy_result(policy_id)
+        if rules is not None and not require_authorization:
+            return AgentRuntimeResult(status="error", error_code="rules_parent_authorization_required",
+                error_message="Rules lookup requires the authorized parent execution path.")
         request = map_invocation_to_hermes_request(invocation)
         if require_authorization:
-            if request.capability_policy is None or request.capability_policy.graph_scope is None:
-                raise ValueError("Plan Graph authorization requires a resolved World scope")
+            if request.capability_policy is None or (request.capability_policy.graph_scope is None and rules is None):
+                raise ValueError("Authorization requires an admitted Graph or Rules capability")
             if on_graph_operation is None:
                 raise ValueError("Plan Graph authorization requires a parent broker")
-            parent_policy = (
-                parent_brokered_graph_source_policy(request.capability_policy.graph_scope)
-                if source_read_enabled else
-                parent_brokered_graph_expansion_policy(request.capability_policy.graph_scope)
-            )
+            graph_scope = request.capability_policy.graph_scope
+            if graph_scope is None and (source_read_enabled or context_read_enabled):
+                raise ValueError("Rules-only capability cannot acquire Graph source/context tools")
+            parent_policy = None if graph_scope is None else (
+                parent_brokered_graph_source_policy(graph_scope) if source_read_enabled
+                else parent_brokered_graph_expansion_policy(graph_scope))
             if context_read_enabled:
                 parent_policy = replace(
                     parent_policy,
@@ -319,6 +335,8 @@ class HermesAgentRuntimeAdapter:
                     ),
                 )
             if invocation.capability_policy.surface_actions:
+                if graph_scope is None:
+                    raise ValueError("Surface authoring requires its independent Graph policy")
                 surface = invocation.context_packet.surface_context
                 if surface is None or surface.surface_id != "build" or surface.current_work is None or surface.current_work.kind != "build":
                     raise ValueError("Build insertion requires the current Build surface")
@@ -331,6 +349,8 @@ class HermesAgentRuntimeAdapter:
                     tool_rules=(*parent_policy.tool_rules, *(HermesToolCapabilityRule(
                         tool_name=name, toolset=TOOLSET_NAME, require_graph_scope=False,
                         allowed_effects=frozenset({"write"})) for name in actions)))
+            if rules is not None:
+                parent_policy = rules_capability_policy(rules, graph_policy=parent_policy)
             request = replace(
                 request,
                 provider_authorization_required=True,

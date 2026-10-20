@@ -8,10 +8,8 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
-from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from pydantic import Field, field_validator
 
 from application_state.agent_conversation.rules_authority_events import (
     RulesExecutionV1, RulesQueryObservedV1, RulesToolAuthorizedV1,
@@ -21,24 +19,12 @@ from application_state.agent_conversation.rules_authority_packet import (
     RulesBudgetDiagnosticV1, RulesPacketV1, append_observed_output,
 )
 from application_state.agent_conversation.rules_authority_types import (
-    ClosedRulesModel, RulesSupportRefV1, RulesSupportV1, canonical_bytes, canonical_sha256,
+    RulesSupportRefV1, RulesSupportV1, canonical_bytes, canonical_sha256,
 )
 from application_state.agent_conversation.rules_authority_runtime import RulesLookupPreparedV1
 from . import rules_lookup as reader
 
-RULESET = "dnd_2024_srd_5_2_1"
-
-
-class LookupRulesArguments(ClosedRulesModel):
-    question: Annotated[str, Field(min_length=1, max_length=800)]
-    ruleset_id: Literal["dnd_2024_srd_5_2_1"]
-
-    @field_validator("question")
-    @classmethod
-    def nonblank(cls, value):
-        if not value.strip():
-            raise ValueError("Enter a rules question")
-        return value
+from application_state.agent_conversation.rules_authority_policy import RULESET, LookupRulesArguments
 
 
 def _check_scope(execution: RulesExecutionV1) -> None:

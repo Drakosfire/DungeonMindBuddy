@@ -522,9 +522,9 @@ def hermes_graph_agent_worker_main(
                     )
                 graph_operation_sequence += 1
                 operation_id = f"{request_id}:g{graph_operation_sequence}"
-                if tool_name not in {
+                if not _rules_operation_permitted(request, tool_name) or tool_name not in {
                     "expand_graph_retrieval", "read_graph_source",
-                    "read_related_recap_context", "observe_context_compaction", "propose_build_insertion", "prepare_build_image",
+                    "read_related_recap_context", "observe_context_compaction", "propose_build_insertion", "prepare_build_image", "lookup_rules",
                 }:
                     return (
                         '{"schema":"dmb_world_graph_retrieval_error_v1",'
@@ -534,13 +534,15 @@ def hermes_graph_agent_worker_main(
                         None,
                     )
                 try:
-                    response_queue.put(encode_json_wire({
-                        "type": "graph_operation_request",
-                        "requestId": request_id,
-                        "operationId": operation_id,
-                        "toolName": tool_name,
-                        "arguments": dict(arguments),
-                    }))
+                    frame = {"type": "graph_operation_request", "requestId": request_id,
+                        "operationId": operation_id, "toolName": tool_name, "arguments": dict(arguments)}
+                    if tool_name == "lookup_rules":
+                        from graph_memory.hermes_graph_plugin import get_active_rules_call_id
+                        call_id = get_active_rules_call_id()
+                        if call_id is None:
+                            raise ValueError("Missing actual Rules model call identity")
+                        frame["modelCallId"] = call_id
+                    response_queue.put(encode_json_wire(frame))
                     message = decode_json_wire(request_queue.get(timeout=30.0))
                 except Exception:
                     return (
@@ -612,6 +614,21 @@ def hermes_graph_agent_worker_main(
                     }
                 )
             )
+
+
+def _rules_operation_permitted(request, tool_name: str) -> bool:
+    """Extra domain fence on the shared broker channel, not lookup authority."""
+    policy = request.capability_policy
+    if tool_name == "lookup_rules":
+        return bool(policy is not None and policy.mode in {"rules", "graph_rules"}
+            and policy.rules_capability is not None
+            and policy.rule_for(tool_name) is not None
+            and policy.rule_for(tool_name).require_rules_authority
+            and tool_name in policy.enabled_tool_names
+            and request.provider_authorization_required and request.parent_graph_broker_required)
+    if policy is not None and policy.mode == "rules":
+        return tool_name == "observe_context_compaction"
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -783,6 +800,7 @@ class HermesGraphAgentHost:
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None,
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None,
     ) -> HermesGraphAgentTurnResult:
+        request = deserialize_hermes_graph_agent_turn_request(wire_payload)
         self._started = True
         # Retry only covers pre-enqueue / start failures. After enqueue, two-phase
         # proceed keeps Rung 3 unstarted until accept is observed; a lost accept
@@ -951,9 +969,13 @@ class HermesGraphAgentHost:
                 }
                 if (
                     operation_id == expected_id
+                    and _rules_operation_permitted(request, tool_name)
+                    and (tool_name != "lookup_rules" or (
+                        isinstance(message.get("modelCallId"), str)
+                        and bool(message["modelCallId"].strip()) and len(message["modelCallId"]) <= 128))
                     and tool_name in {
                         "expand_graph_retrieval", "read_graph_source",
-                        "read_related_recap_context", "observe_context_compaction", "propose_build_insertion", "prepare_build_image",
+                        "read_related_recap_context", "observe_context_compaction", "propose_build_insertion", "prepare_build_image", "lookup_rules",
                     }
                     and isinstance(arguments, Mapping)
                     and on_graph_operation is not None
