@@ -1,6 +1,6 @@
 # Plan target-only citation binding
 
-Status: SOURCE DELIVERED / LIVE ACCEPTANCE PENDING, 2026-10-19. Implementation write lease released; no active implementation lane or successor is authorized here. The current fixed answer has not been live verified. Operator grounding repair/delivery request remains incomplete pending specific external-model egress approval or an explicit local-only acceptance decision. Architecture critiqued distinct target-only model wire contract before activation.
+Status: SOURCE DELIVERED / SUCCESSOR BOUNDED LIVE ACCEPTANCE RECORDED, 2026-10-19. Implementation write lease released. Specific external-story egress approval was subsequently granted; the initial target-only live attempt failed and remains historical evidence. After instruction-only PR #1469, one final durable grounding witness completed with two recovered ambiguous_target tool refusals. See HANDOFF-PLAN-grounding-id-instructions.md for exact evidence and limitations; this is not a general model-reliability guarantee or authority for another replay. Architecture critiqued distinct target-only model wire contract before activation.
 Base55188056be6083f04f7a9d9d5809d380e5d8bbda; branchcodex/plan-target-citation-binding; same buddy-context-loop checkout. Serial one PR; PRIME implementation/merge/API8000+5202 delivery; independent Architecture exact-head review.
 
 Invariant: model selects exact complete claim targets from its producing envelope; parent binds full uniquely supported evidence closure and graph revision. New whole-answer two-key wire (answer_context_status,answer_segments) forbids graph metadata/citation_map/source-open claims. Legacy explicit-ref three-key wire remains strict, never repairs typos. Plan/session/proposal attribution and Build/JEV remain distinct. Existing typed completion/APP/current-source receipt validation stays authoritative.
@@ -11,7 +11,7 @@ Capture perattempt support during exact provider authorization from complete exp
 
 Verify owning parent authorization through target-only parsing, existing APP completion and citation navigation; current donor source-opening; initial, closed/absent/ambiguous/cross-fence and explicit malformed legacy negatives; Build regressions. Reuse existing API candidate source/runtime, correct candidate WorkingDirectory,12route retention and UIindex checks, bounded fresh live question after review. No Plan/session/image mutation.
 
-## Source delivery and acceptance boundary
+## Historical source delivery and acceptance boundary
 
 - Buddy PR #1468 merged at `ebc4aa3669c67e32233159de47a4e389c098e58c`.
   Accepted implementation head: `879706633503ae43d9160421a644164e57a514ad`.
@@ -32,7 +32,7 @@ Verify owning parent authorization through target-only parsing, existing APP com
   All 12 protected payloads and UI index
   `b1586c0c597f8e2036f786697b80ad19ff8cb924ce7533c08445ce1ec0bff638`
   remained unchanged. This documentation settlement performs no runtime operation.
-- Final fresh external-model acceptance is **PENDING specific user approval**.
+- At initial settlement, final fresh external-model acceptance was **PENDING specific user approval**.
   Auto-review rejected the replay command before execution; no request file was
   created and no new provider request was sent. General repair/delivery authority
   is not substituted for the required specific payload/destination approval.
@@ -41,10 +41,22 @@ Verify owning parent authorization through target-only parsing, existing APP com
   7,536-byte answer after eight provider attempts and five source reads, but that
   answer was rejected by strict explicit-reference validation. It is not an
   accepted answer or proof that the subsequently delivered fix works live.
-- PRIME retains the approval question and any explicitly authorized acceptance
-  follow-up. Record subsequent proof in a guarded state sync; until then neither
-  this slice's live acceptance nor the overall grounding repair is complete.
+- At that settlement, PRIME retained the approval question and explicitly
+  authorized acceptance follow-up. Later authorization, failed attempts and the
+  successful successor witness are recorded below and in the successor handoff;
+  the initial settlement itself did not claim live acceptance.
 
 ## Subsequent authorization and live attempt
 
-Operator explicitly authorized running the check and other requested external sharing of story material on2026-10-19; the pendingapproval statements above describe the earlier boundary. Newlive turn2d3f70f3-13e2-4996-a1e2-6592d93b4626 retrievedcompleteevidence butfailedafter37.55s because modeltarget assertion:a9683b58c67c8735 wasabsent; actualcompleteinputtarget wasassertion:a9688d6c6ff9c2d4. The strictvalidator correctlyrejectedit.12protectedpayloadsunchanged. Groundingacceptance remainsopen; narrowinstructionclarification successor preservesexistingwire andvalidator. Broaderreferenceformat proposal wasauto-reviewrejected beforeanywrites andisnotactivated.
+Operator explicitly authorized running the check and other requested external sharing of story material on2026-10-19; the pendingapproval statements above describe the earlier boundary. Newlive turn2d3f70f3-13e2-4996-a1e2-6592d93b4626 retrievedcompleteevidence butfailedafter37.55s because modeltarget assertion:a9683b58c67c8735 wasabsent; actualcompleteinputtarget wasassertion:a9688d6c6ff9c2d4. The strictvalidator correctlyrejectedit.12protectedpayloadsunchanged. At that point groundingacceptance remainedopen; narrowinstructionclarification successor preservesexistingwire andvalidator. Broaderreferenceformat proposal wasauto-reviewrejected beforeanywrites andisnotactivated.
+
+## Successor acceptance
+
+PR #1469 merged at `7a96a2fde47c91672cd09f794c8a205b5e9e8146`.
+Its final client witness `6217b2ea-260a-4e19-9836-8e89bfbccfd4` / durable turn
+`c3a8239e-415b-4097-a741-f7cb048e4c83` completed, with HTTP/history/durable
+completion agreement and two opened citations independently checked from saved
+evidence. Two recovered ambiguous_target trace events remain explicit; the
+unchanged zero-failure verifier assertion did not pass. The successor handoff
+owns the bounded acceptance record, protected-state attribution and remaining
+limits. Historical failed answers above remain rejected, not retroactively fixed.
