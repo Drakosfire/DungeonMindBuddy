@@ -6,9 +6,11 @@ import { usePublishSurfaceInteraction } from '../agentInteraction/usePublishSurf
 import { buildSurfaceInteractionIdentity } from '../surfaceInteraction/surfaceIdentity';
 import type { SurfaceInteractionPublication } from '../surfaceInteraction/types';
 import { buildWorldPlanSurfaceIdentity } from '../planSurface/worldPlanIdentity';
-import { PeekRegionProvider, PeekRegionSlot } from '../surfaceInteraction/peekHost';
+import { PeekRegionProvider } from '../surfaceInteraction/peekHost';
 import { DocumentReferenceSurfaceHost } from './DocumentReferenceSurfaceHost';
 import type { DocumentInspection } from './resolveDocumentReference';
+import { AppChrome } from '../chrome/AppChrome';
+import type { AppRouteKey } from '../chrome/appChromeConfig';
 import type { Editor } from '@tiptap/core';
 import { MarkdownEditorCore } from '../tiptap/MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
@@ -37,8 +39,11 @@ function Owner({ surface, onEditor }: {surface:string;onEditor:(editor:Editor|nu
 }
 function Harness({surface,load,onEditor}:{surface:string;load:typeof import('./resolveDocumentReference').resolveDocumentReference;onEditor:(editor:Editor|null)=>void}) {
   return <AgentInteractionProvider><PeekRegionProvider>
-    <DocumentReferenceSurfaceHost worldId="elderwyld" surface={surface} load={load}><Owner surface={surface} onEditor={onEditor}/></DocumentReferenceSurfaceHost>
-    <PeekRegionSlot/>
+    <DocumentReferenceSurfaceHost worldId="elderwyld" surface={surface} load={load}>
+      <AppChrome activeRoute={surface as AppRouteKey} workspaceLayout={surface === 'play' ? 'content' : 'bounded'}>
+        <Owner surface={surface} onEditor={onEditor}/>
+      </AppChrome>
+    </DocumentReferenceSurfaceHost>
   </PeekRegionProvider></AgentInteractionProvider>;
 }
 
@@ -48,11 +53,19 @@ describe('source publication lifecycle',()=>{
     const load=vi.fn().mockImplementation(()=>new Promise<DocumentInspection>(done=>{resolve=done;}));
     render(<Harness surface={surface} load={load} onEditor={value=>{editor=value;}}/>);
     await waitFor(()=>expect(editor).not.toBeNull());
+    expect(screen.getAllByTestId('app-peek-region')).toHaveLength(1);
+    expect(screen.getByTestId('app-peek-region')).toHaveAttribute('hidden');
     const original=editor! as Editor;original.setOptions({editorProps:{handleScrollToSelection:()=>true}});
     act(()=>{original.commands.insertContent('unsaved ');});const before=original.getJSON();
     fireEvent.click(screen.getByRole('link',{name:'Source'}));await waitFor(()=>expect(load).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('app-peek-region')).not.toHaveAttribute('hidden');
+    expect(screen.getByRole('region',{name:'Document reference'})).toBeInTheDocument();
+    expect(screen.getByTestId('app-chrome-center')).toContainElement(original.view.dom);
+    expect(screen.getByTestId('app-chrome-center')).not.toContainElement(screen.getByTestId('app-chrome-header'));
+    if (surface === 'play') expect(screen.getByTestId('app-chrome-play-workspace')).toContainElement(original.view.dom);
     fireEvent.click(screen.getByText('Choose other document'));
     await waitFor(()=>expect(screen.queryByRole('region',{name:'Document reference'})).not.toBeInTheDocument());
+    expect(screen.getByTestId('app-peek-region')).toHaveAttribute('hidden');
     await act(async()=>resolve({...data,title:'OLD SOURCE'}));expect(screen.queryByText('OLD SOURCE')).not.toBeInTheDocument();
     expect(editor).toBe(original);expect(original.getJSON()).toEqual(before);
   });

@@ -45,13 +45,13 @@ function ResponsiveHarness() {
 }
 
 describe("AppChrome Ingest peek composition", () => {
-  it("opts Plan into a bounded center without creating an Ingest peek or moving navigation into it", () => {
+  it("opts Plan into a bounded center with an initially hidden shared peek outside navigation", () => {
     render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="plan" workspaceLayout="bounded"><main>Plan dock</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
     const workspace = document.querySelector(".app-chrome-workspace");
     expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "bounded");
     expect(workspace).toContainElement(screen.getByText("Plan dock"));
     expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
-    expect(screen.queryByTestId("app-peek-region")).toBeNull();
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
   });
   it("keeps the Play navbar outside the reflowing chat workspace", () => {
     render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="play"><main>Play scene</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
@@ -59,10 +59,11 @@ describe("AppChrome Ingest peek composition", () => {
     expect(workspace).toContainElement(screen.getByText("Play scene"));
     expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
   });
-  it("leaves ordinary non-Plan chrome in content flow", () => {
+  it("keeps Build content in a stable center with a hidden shared peek", () => {
     render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="build"><main>Build source</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
     expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "content");
-    expect(document.querySelector('.app-chrome-workspace')).toBeNull();
+    expect(document.querySelector('.app-chrome-workspace')).toContainElement(screen.getByText("Build source"));
+    expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
     expect(screen.getByText("Build source")).toBeInTheDocument();
   });
   afterEach(() => vi.unstubAllGlobals());
