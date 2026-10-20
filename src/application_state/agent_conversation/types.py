@@ -14,7 +14,7 @@ import json
 from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, ClassVar, Literal, NoReturn
+from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -3461,8 +3461,40 @@ _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1 = (
 )
 
 
+class GraphEvidenceValidationView(Protocol):
+    """Read-only view of an independently validated owning receipt, not a codec."""
+    @property
+    def context_receipt_sha256(self) -> str: ...
+    @property
+    def committed_content_sha256(self) -> str: ...
+    @property
+    def graph_authority(self) -> PlanWorldGraphAuthorityV1: ...
+    @property
+    def graph_packet(self) -> PlanWorldGraphPacketV1: ...
+    @property
+    def assembled_input(self) -> PlanWorldGraphAssembledInputV1: ...
+
+
+class GraphProviderExecutionView(Protocol):
+    """Common validated provider fields, including retained V1 ledgers."""
+    @property
+    def policy(self) -> GraphExecutionPolicyV1: ...
+    @property
+    def events(self) -> Sequence[GraphExecutionEventBaseV1]: ...
+
+
+class GraphExecutionValidationView(Protocol):
+    """Actual validated ledger or its genuine prefix; grants no authority."""
+    @property
+    def execution_policy_sha256(self) -> str: ...
+    @property
+    def policy(self) -> GraphExecutionPolicyV2 | GraphExecutionPolicyV3: ...
+    @property
+    def events(self) -> Sequence[GraphExecutionEventV2 | GraphExecutionEventV3]: ...
+
+
 def validate_graph_provider_envelope(
-    inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution,
+    inputs: GraphEvidenceValidationView, execution: GraphProviderExecutionView,
     event: ProviderAttemptAuthorizedEventV1,
 ) -> None:
     """Shared admitted-ID, first-envelope and frozen-context-window checks."""
@@ -3557,6 +3589,17 @@ def validate_graph_related_recap_context_scope(
     """Bind related-context authorization to turn-admitted targets and Core pins."""
     if not isinstance(execution, PlanWorldGraphExecutionV2):
         return
+    validate_related_recap_context_scope_record(inputs, execution)
+
+
+def validate_related_recap_context_scope_record(
+    inputs: GraphEvidenceValidationView, execution: GraphExecutionValidationView,
+) -> None:
+    """Common scope checks for an already validated owning Graph receipt/ledger.
+
+    No subclass test grants or skips authority here. Callers select an admitted
+    domain and independently validate its exact receipt and execution identity.
+    """
     authorizations = [
         event
         for event in execution.events
