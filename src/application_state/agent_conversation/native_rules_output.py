@@ -23,8 +23,14 @@ from .rules_authority_events import (
     RulesProviderOutcomeV1,
     RulesExecutionV1,
 )
-from .rules_authority_output import POLICY, RulesWriterAnswerV1, parse_answer
+from .rules_authority_output import (
+    MAX_REQUEST_BYTES,
+    POLICY,
+    RulesWriterAnswerV1,
+    parse_answer,
+)
 from .rules_authority_types import ClosedRulesModel
+from .source_writer_output import strict_json
 from .types import (
     PlanWorldGraphExecutionV3,
     PlayWorldGraphExecutionV1,
@@ -47,13 +53,19 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     request_envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     authorization_id: str = Field(min_length=1, max_length=256)
     api_request_id: str = Field(min_length=1, max_length=256)
+    prepared_request_json: str = Field(min_length=1, max_length=MAX_REQUEST_BYTES)
     raw_output_json: str = Field(min_length=1, max_length=MAX_NATIVE_OUTPUT_BYTES)
     raw_output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
 
     @classmethod
     def from_capture(
-        cls, capture, *, rules_execution_id: UUID, producing_provider_attempt_id: UUID
+        cls,
+        capture,
+        *,
+        prepared_request_json: str,
+        rules_execution_id: UUID,
+        producing_provider_attempt_id: UUID,
     ):
         text = getattr(capture, "text", None)
         if not isinstance(text, str):
@@ -67,6 +79,7 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
             request_envelope_sha256=capture.request_sha256,
             authorization_id=capture.authorization_id,
             api_request_id=capture.api_request_id,
+            prepared_request_json=prepared_request_json,
             raw_output_json=text,
             raw_output_sha256=sha256(encoded).hexdigest(),
             raw_output_utf8_bytes=len(encoded),
@@ -110,6 +123,21 @@ def verify_native_output(
             "Native Rules output is not a complete final assistant message"
         )
     raw = proof.raw_output_json
+    try:
+        request_bytes = proof.prepared_request_json.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Native Rules request is not valid UTF8") from exc
+    if (
+        len(request_bytes) > MAX_REQUEST_BYTES
+        or sha256(request_bytes).hexdigest() != proof.request_envelope_sha256
+    ):
+        raise ValueError("Native Rules proof differs from its exact prepared request")
+    try:
+        request = strict_json(proof.prepared_request_json)
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise ValueError("Native Rules prepared request is not strict JSON") from exc
+    if not isinstance(request, dict):
+        raise ValueError("Native Rules prepared request is not an object")
     try:
         encoded = raw.encode("utf-8")
     except UnicodeError as exc:

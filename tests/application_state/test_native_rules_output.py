@@ -25,7 +25,8 @@ from tests.test_play_graph_authority import native_provider
 def native_case():
     owner, lookup, _ = read_after_controller()
     attempt = uuid4()
-    request_sha = "a" * 64
+    prepared_request_json = json.dumps({"input": "actual native prepared envelope"})
+    request_sha = sha256(prepared_request_json.encode("utf-8")).hexdigest()
     refs = lookup.observation.support_refs
     outputs = (
         RulesOutputRefV1(
@@ -118,6 +119,7 @@ def native_case():
     )
     proof = NativeRulesOutputProofV1.from_capture(
         capture,
+        prepared_request_json=prepared_request_json,
         rules_execution_id=owner.scope.execution_id,
         producing_provider_attempt_id=attempt,
     )
@@ -149,6 +151,7 @@ def test_native_output_joins_actual_final_request_and_rules_supports():
         "tools",
         "raw",
         "proof_hash",
+        "request_body",
         "missing_graph",
         "missing_rules_include",
         "not_final_rules_auth",
@@ -174,6 +177,10 @@ def test_native_output_rejects_capture_and_authority_mismatches(mutation):
         capture = changed(capture, text=raw + " ")
     elif mutation == "proof_hash":
         proof = proof.model_copy(update={"raw_output_sha256": "b" * 64})
+    elif mutation == "request_body":
+        proof = proof.model_copy(
+            update={"prepared_request_json": '{"input":"changed"}'}
+        )
     elif mutation == "missing_graph":
         graph = SimpleNamespace(events=[])
     elif mutation == "missing_rules_include":
@@ -204,6 +211,7 @@ def test_native_proof_rejects_foreign_rules_scope_and_oversized_text():
     with pytest.raises(ValueError):
         NativeRulesOutputProofV1.from_capture(
             oversized,
+            prepared_request_json=proof.prepared_request_json,
             rules_execution_id=rules.scope.execution_id,
             producing_provider_attempt_id=proof.producing_provider_attempt_id,
         )
