@@ -1,3 +1,4 @@
+import "../../agentInteraction/AgentInteractionChrome.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 

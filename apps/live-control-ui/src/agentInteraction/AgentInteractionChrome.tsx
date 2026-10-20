@@ -1,3 +1,4 @@
+import "./AgentInteractionChrome.css";
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
 import { useAskPluginSlot } from "./AskPluginSlot";
 import { createPortal } from "react-dom";

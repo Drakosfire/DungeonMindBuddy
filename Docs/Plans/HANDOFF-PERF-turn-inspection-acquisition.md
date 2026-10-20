@@ -1,6 +1,6 @@
 # One owned trace observation per inspected turn
 
-**Status:** ACTIVE; PRIME owns implementation and delivery under the frontend-foundation goal.
+**Status:** SOURCE MERGED; source write lease released. Rendered acceptance is pending the shared-chrome stylesheet correction, then paired 5202 adoption.
 **Base:** cdb5867b066a5c422180695778bc8b6668b7cfc2; branch codex/turn-inspection-acquisition, existing buddy-context-loop checkout.
 **Topology:** serial successor to accepted1488. No overlapping active acquisition lane found.
 
@@ -46,3 +46,9 @@ The correction makes accepted/running owner status the sole polling decision: on
 Corrected lifecycle mismatch cohort39/39passes across shared resource, loader and trace view. Final9-file diagnostic/transport-owner cohort80/80passes; broader history/host remains261pass/15sameinheritedfailures, including the real Debug→Prompt single-acquisition case. TypeScript/Vite build and diff check pass. Existing275-case protected transport evidence remains applicable: those production paths did not change in this correction.
 
 Tests now explicitly witness three reads over4seconds for a running owner between closed attempts, then no background reads after its terminal lifecycle transition; terminal empty/open/incomplete captures stay at one read over4seconds, reopen freshly and refresh only explicitly. Two viewers retain one poller. A terminal unclosed view is labeled incomplete without changing recorded closed_at. Completed closed snapshot reuse still proves Debug→Prompt one fetch. Current source is reviewable; native delivery remains pending Cycle2 approval/merge.
+
+## ReviewCycle2 approval and source merge
+
+Architecture approved exact c4b776128c643f14a6b207a1f6c767c6a19d57aa, independently80/80owner cases plus both formerly failing review probes and real World Debug→Prompt integration. PR1489 merged279ba2e245437f23577f61e923fbb94f0a4921fe. No held head was adopted. Source lease released.
+
+Runtime adoption is deliberately pending a newly verified predecessor1487 global CSS regression: a fresh Index load has no lazy Plan stylesheet, while globally mounted AgentInteractionChrome still depended on it. Native launcher button1277×1274/image1254×1254 instead of the defined80px button. This is not a trace-acquisition failure. Corrective HANDOFF-PERF-shared-agent-chrome-styles.md owns stylesheet/import paths and this delivery settlement; adopt the reviewed combined source and verify trace one-read/Refresh/protected17 after correction. Existing5202 still serves accepted1488 assets, not unaccepted1489 assets. No runtime/data operation accompanied this source merge.

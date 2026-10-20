@@ -1,6 +1,6 @@
 # Surface and tool code follows activation
 
-**Status:** COMPLETE; accepted on 5202, write lease released. Full frontend-foundation goal remains active.
+**Status:** CODE DISTRIBUTION DELIVERED; original source lease released. Fresh global chrome geometry acceptance is superseded by the corrective shared-agent-chrome-styles handoff. Full frontend-foundation goal remains active.
 **Base:** d154de4d3e9643b5159c53d9aaaa99a2019e5794, branch codex/surface-code-loading, existing buddy-context-loop checkout.
 **Topology:** serial successor to accepted history-demand; no overlapping active code-loading lane found in open PRs.
 
@@ -32,3 +32,7 @@ Architecture ReviewCycle1 source-approved exact b711d1f30b936c5b344f59570d3bc3ce
 Native six-second host measurements: Index1JS/1,359,390raw/387,904encoded with no route/tool chunks; initialCSS155,279raw vs397,142. Activated total JS: Plan13chunks/1,695,479raw; Play6/1,530,410; Build11/1,578,394; Ingest13/1,764,754. All rendered; Plan Document/Cards retained Journey north, and real Plan Buddy unsent draft survived close/reopen before restoration to the original empty composer. Existing saved recovery remained active; no provider request was sent. No editor/controller identity was moved; existing user-tab assets retained.
 
 Controlled native browser fixture built from the exact reviewed wrapper demonstrated delayed load→local failure→retry→current World-B binding while retaining the sibling draft. This is a controlled loader test, not a network404cache recovery guarantee. All17protected canonical JSON responses unchanged before/after. Private receipts surface-loading-* retained in established experiment state. Owned temporary tabs, HTML and fixture assets removed; no runtime/API restart. Screenshot API unavailable; evidence uses renderedDOM/native request metadata. Measurements are current-host/warm-cache, not older-laptop latency/INP/RAM proof. Architecture acknowledged reported acceptance with these limits. This backward-looking settlement travels with the next dependent trace implementation.
+
+## Corrective native evidence — global CSS ownership
+
+Fresh-Index geometry inspection after acceptance exposed a missed1487 regression: the global AgentInteractionChrome launcher/shell rules stayed in lazy planSurface.css. Initial Index launcher rendered its1254px image at full size (button1277×1274), despite successful byte/load/DOM-content checks. Those checks did not establish unchanged presentation. Corrective HANDOFF-PERF-shared-agent-chrome-styles.md moves only global chrome styles to their owning component, preserving lazy Plan and per-surface overrides, and requires cold/load-order/narrow geometry checks before combined rollout. No screenshot evidence was available; the defect is confirmed by actual rendered element rectangles.

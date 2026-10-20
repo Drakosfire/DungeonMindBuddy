@@ -1,0 +1,325 @@
+/* App-scoped Agent chrome: available before any surface is activated. */
+
+
+.plan-agent-shell {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 920;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  display: grid;
+  gap: 0;
+  pointer-events: none;
+}
+
+.plan-agent-shell.open {
+  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transform: none;
+  width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  z-index: 980;
+}
+
+.agent-interaction-exit {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 1;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+}
+
+.agent-interaction-exit:hover {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-agent-shell.open .plan-agent-pane-header,
+.plan-agent-shell.open .index-agent-conversation header {
+  padding-right: 5.5rem;
+}
+
+body.surface-projection-open .plan-agent-shell {
+  z-index: 840;
+}
+
+.plan-agent-shell > * {
+  pointer-events: auto;
+}
+
+.agent-interaction-ask-host:empty {
+  display: none;
+}
+
+.agent-interaction-ask-host:not(:empty) {
+  display: contents;
+}
+
+.agent-interaction-ask-host[hidden] {
+  display: none !important;
+}
+
+/* The app reserves the Ask band for its content; the Plan panel fills its own viewport slot. */
+.plan-agent-shell.agent-interaction-shell--plan.open {
+  top: var(--app-chrome-top, 0px);
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: var(--agent-plan-panel-width, 440px);
+  min-width: 20rem;
+  max-width: 72vw;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  border-left: 1px solid var(--ui-border-strong, #414e61);
+  background: var(--ui-background-ops, #10141d);
+  box-shadow: -18px 0 44px rgb(0 0 0 / 32%);
+}
+
+/* Play keeps the active Run beside the same World conversation. */
+:root:has(.plan-agent-shell.agent-interaction-shell--play.open) {
+  --app-chrome-bottom: 0rem;
+  --agent-play-panel-width: min(440px, 38vw);
+}
+
+#root:has(.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="side"]) .app-chrome-play-workspace {
+  width: calc(100% - var(--agent-play-panel-width));
+  min-width: 0;
+}
+
+#root:has(.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"]) .app-chrome-play-workspace {
+  padding-bottom: min(46dvh, 28rem);
+}
+
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+  top: auto; left: 0; right: 0; bottom: 0;
+  width: 100%; height: min(46dvh, 28rem);
+}
+
+.agent-interaction-play-layout { display: flex; justify-content: flex-end; gap: .35rem; padding: .25rem .5rem; flex: 0 0 auto; }
+
+.agent-interaction-play-layout button { color: #ccd8e6; background: #202a38; border: 1px solid #536279; border-radius: .35rem; padding: .2rem .55rem; cursor: pointer; }
+
+.agent-interaction-play-layout button[aria-pressed="true"] { border-color: #d7ac50; color: #f4d38f; }
+
+.agent-interaction-play-layout button:disabled { opacity: .5; cursor: default; }
+
+.plan-agent-shell.open[data-surface-id="play"] { display: flex; flex-direction: column; }
+
+.plan-agent-shell[data-surface-id="play"] .agent-interaction-ask-host:not(:empty) { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.plan-agent-shell[data-surface-id="play"] .world-agent-conversation { flex: 1 1 auto; }
+
+.plan-agent-shell.agent-interaction-shell--play.open {
+  top: var(--app-chrome-top, 0px);
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: var(--agent-play-panel-width, min(440px, 38vw));
+  max-width: none;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-left: 1px solid var(--ui-border-strong, #414e61);
+  background: var(--ui-background-ops, #10141d);
+  box-shadow: -18px 0 44px rgb(0 0 0 / 32%);
+}
+
+.plan-agent-shell.agent-interaction-shell--play.open .world-agent-conversation {
+  min-width: 0;
+  min-height: 0;
+}
+
+.plan-agent-shell.agent-interaction-shell--plan.open .agent-interaction-exit {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.7rem;
+}
+
+.agent-interaction-resize {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0;
+  touch-action: none;
+}
+
+.agent-interaction-resize--vertical {
+  top: 0;
+  bottom: 0;
+  left: -7px;
+  width: 14px;
+  cursor: col-resize;
+}
+
+.agent-interaction-resize--horizontal {
+  display: none;
+}
+
+.agent-interaction-resize[hidden] {
+  display: none !important;
+}
+
+.agent-interaction-resize--vertical:focus-visible,
+.agent-interaction-resize--horizontal:focus-visible {
+  outline: 2px solid var(--ui-accent, #879fdf);
+  outline-offset: 1px;
+}
+
+.plan-agent-bar {
+  display: block;
+  width: 5rem;
+  height: 5rem;
+}
+
+.plan-agent-bar strong,
+.plan-agent-bar span {
+  display: block;
+}
+
+.plan-agent-bar span {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.9rem;
+}
+
+.plan-agent-bar button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+}
+
+.plan-agent-bar button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid rgba(186, 137, 255, 0.72);
+  border-radius: 50%;
+  background: #050507;
+  box-shadow: 0 10px 30px rgba(76, 29, 149, 0.48);
+}
+
+.plan-agent-bar button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plan-agent-bar button:hover {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-agent-shell.open .plan-agent-pane {
+  max-height: none;
+  height: 100%;
+  width: 100%;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  padding: 0.75rem 1rem 0.85rem;
+}
+
+.plan-agent-shell.open .plan-agent-transcript {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.plan-agent-shell.open .plan-agent-content {
+  /* Give the conversation nearly the full drawer height. */
+  min-height: min(72dvh, calc(100dvh - 11rem));
+}
+
+.plan-agent-shell:not(.open) .plan-agent-transcript-scroll {
+  max-height: min(52vh, 28rem);
+}
+
+.plan-agent-shell.open .plan-agent-transcript-scroll {
+  /* Prefer a large conversation canvas once the drawer is open. */
+  min-height: min(58dvh, calc(100dvh - 14rem));
+}
+
+@media (max-width: 42rem) {
+
+  .plan-agent-shell.agent-interaction-shell--play.open {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: min(62dvh, calc(100dvh - var(--app-chrome-top, 0px) - 3rem));
+    max-height: none;
+    border: 1px solid var(--ui-border-strong, #414e61);
+    border-bottom: 0;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -18px 44px rgb(0 0 0 / 36%);
+  }
+
+  .plan-agent-shell.agent-interaction-shell--plan.open {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    min-width: 0;
+    max-width: 100vw;
+    height: var(--agent-plan-sheet-height, 440px);
+    min-height: 15rem;
+    max-height: min(78dvh, calc(100dvh - var(--app-chrome-top, 0px) - 3rem));
+    border: 1px solid var(--ui-border-strong, #414e61);
+    border-bottom: 0;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -18px 44px rgb(0 0 0 / 36%);
+  }
+
+  .plan-agent-shell.agent-interaction-shell--plan.open .agent-interaction-exit {
+    top: 0.35rem;
+    right: 0.55rem;
+  }
+
+  .agent-interaction-resize--vertical {
+    display: none;
+  }
+
+  .agent-interaction-resize--horizontal {
+    display: block;
+    top: -7px;
+    right: 0;
+    left: 0;
+    width: 100%;
+    height: 14px;
+    cursor: row-resize;
+  }
+}
+
+/* Match Play's 1440px border-box wrap with 20px inner padding (36px minimum inset). */
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"] {
+  right: max(2.25rem, calc((100% - 1400px) / 2));
+}
+
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+  left: max(2.25rem, calc((100% - 1400px) / 2));
+  width: auto;
+}
+
+@media (max-width: 40rem) {
+  .plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] { left: 0; right: 0; width: auto; }
+}
