@@ -2468,6 +2468,7 @@ export function WorldPlanAgentConversation({
     setSourcePassage(null);
   }, [scopeKey, verifiedWorldId, history?.conversation_id]);
   const historyGenerationRef = useRef(0);
+  const olderHistoryReadRef = useRef<AbortController | null>(null);
   const historyReadScopeRef = useRef<string | null>(null);
   const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
@@ -2770,6 +2771,13 @@ export function WorldPlanAgentConversation({
     setEditError(null);
   }, [proposalFenceKey]);
 
+  const unresolvedPlanAskKey = pendingAsks.filter((item) => item.envelope?.request.plan_context_policy
+    && !isPendingAskFailureConfirmed(item)).map((item) => item.serialized).join("\u001f");
+  const historyRequested = agent.paneState.isOpen || sending || newConversationSending
+    || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn)
+    || pendingAsks.some(item => item.envelope && !isPendingAskFailureConfirmed(item))
+    || pendingCommands.some(item => item.envelope) || Boolean(confirmedAskNoticeRef.current);
+
   useEffect(() => {
     let active = true;
     const generation = ++historyGenerationRef.current;
@@ -2792,15 +2800,17 @@ export function WorldPlanAgentConversation({
     setHistoryError(null);
     const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play" || sharedConversation?.pendingTurn?.surface === "build";
     if (((!isReadOnly && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
-      || verifiedWorldId !== worldId || (!visible && !reconcilingPendingPlay)) {
+      || verifiedWorldId !== worldId || (!visible && !reconcilingPendingPlay) || !historyRequested) {
       setHistoryLoading(false);
       return () => { active = false; };
     }
 
+    const controller = new AbortController();
     setHistoryLoading(true);
     void getWorldAgentConversationHistory(verifiedWorldId, {
       limit: WORLD_HISTORY_PAGE_SIZE,
       includeTurnCorrelation: true,
+      signal: controller.signal,
     })
       .then(async (page) => {
         if (!active || generation !== historyGenerationRef.current) return;
@@ -2916,8 +2926,8 @@ export function WorldPlanAgentConversation({
       .finally(() => {
         if (active && generation === historyGenerationRef.current) setHistoryLoading(false);
       });
-    return () => { active = false; };
-  }, [scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce, sharedConversation?.historyRefreshNonce,
+    return () => { active = false; controller.abort(); olderHistoryReadRef.current?.abort(); };
+  }, [historyRequested, scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce, sharedConversation?.historyRefreshNonce,
     sharedConversation?.pendingTurn?.surface, pendingPlayTurn?.serialized, isReadOnly, visible]);
 
   useEffect(() => {
@@ -2943,8 +2953,6 @@ export function WorldPlanAgentConversation({
   }, [scopeKey, scopeMatches, verifiedWorldId, documentId]);
 
   // Recovery reads history only. Absence from a page never proves failure or permits reposting.
-  const unresolvedPlanAskKey = pendingAsks.filter((item) => item.envelope?.request.plan_context_policy
-    && !isPendingAskFailureConfirmed(item)).map((item) => item.serialized).join("\u001f");
   useEffect(() => {
     if (!visible || !scopeMatches || !verifiedWorldId || !documentId || sending || !unresolvedPlanAskKey) return;
     let attempts = 0;
@@ -3794,7 +3802,10 @@ export function WorldPlanAgentConversation({
 
   async function loadOlderTurns() {
     const current = historySnapshotRef.current;
-    if (!current || !current.next_before_sequence || olderLoading || historyLoading) return;
+    if (!current || !current.next_before_sequence || olderLoading || historyLoading
+      || (olderHistoryReadRef.current && !olderHistoryReadRef.current.signal.aborted)) return;
+    const controller = new AbortController();
+    olderHistoryReadRef.current = controller;
     const cursor = current.next_before_sequence;
     const generation = historyGenerationRef.current;
     setOlderLoading(true);
@@ -3804,12 +3815,14 @@ export function WorldPlanAgentConversation({
         limit: WORLD_HISTORY_PAGE_SIZE,
         beforeSequence: cursor,
         includeTurnCorrelation: true,
+        signal: controller.signal,
       });
       const latest = historySnapshotRef.current;
-      if (generation !== historyGenerationRef.current) return;
+      if (controller.signal.aborted || generation !== historyGenerationRef.current) return;
       const validPage = isWorldConversationHistory(page)
         && page.world_id === current.world_id
         && await areHistoryReceiptDigestsBound(page);
+      if (controller.signal.aborted || generation !== historyGenerationRef.current) return;
       if (!validPage || !latest || !sameHistoryPointer(current, latest)
         || !sameHistoryPointer(latest, page)
         || page.world_id !== current.world_id) {
@@ -3833,12 +3846,13 @@ export function WorldPlanAgentConversation({
       }
       setHistory(merged);
     } catch (reason) {
-      if (generation === historyGenerationRef.current) {
+      if (!controller.signal.aborted && generation === historyGenerationRef.current) {
         setHistoryError(localOperatorCredentialFailure(reason, "refresh World history")
           ?? (reason instanceof Error ? reason.message : "Could not load older World turns."));
       }
     } finally {
-      if (generation === historyGenerationRef.current) setOlderLoading(false);
+      if (olderHistoryReadRef.current === controller) olderHistoryReadRef.current = null;
+      if (!controller.signal.aborted && generation === historyGenerationRef.current) setOlderLoading(false);
     }
   }
 

@@ -1789,6 +1789,7 @@ export interface WorldAgentConversationHistoryOptions {
   limit?: number;
   beforeSequence?: number;
   includeTurnCorrelation?: boolean;
+  signal?: AbortSignal;
 }
 
 export async function getWorldAgentConversationHistory(
@@ -1802,6 +1803,7 @@ export async function getWorldAgentConversationHistory(
   const suffix = query.size ? `?${query.toString()}` : "";
   return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
+    options.signal ? { signal: options.signal } : undefined,
   );
 }
 
