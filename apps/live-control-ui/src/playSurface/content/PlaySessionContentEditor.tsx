@@ -1,9 +1,8 @@
 import { createPlaySceneEditBridge } from "../agentEdit/playSceneEditBridge";
 import { usePublishPlaySceneEditBridge } from "../../agentInteraction/WorldAgentConversation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { PLAYABLE_ELEMENT_ID_HTML_ATTR, PLAYABLE_ELEMENT_KIND_HTML_ATTR } from "../../tiptap/playable/playableElementIdentity";
-import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
@@ -13,9 +12,10 @@ import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfac
 import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
 import { usePlayRunContentController } from "./usePlayRunContentController";
 import type { PlayRunContent } from "../playRunContentTypes";
-import { DocumentImageStudio } from "../../media/DocumentImageStudio";
-import { createDocumentMediaBridge, type DocumentMediaState } from "../../media/documentMediaBridge";
 import "./playSessionContentEditor.css";
+
+const PlaySessionVisualEditor = lazy(() => import("./PlaySessionVisualEditor").then(module => ({ default: module.PlaySessionVisualEditor })));
+const PlaySessionImageStudio = lazy(() => import("./PlaySessionImageStudio").then(module => ({ default: module.PlaySessionImageStudio })));
 
 export function PlaySessionContentEditor({
   content,
@@ -106,14 +106,10 @@ export function PlaySessionContentEditor({
   };
   const mediaIdentity = `${identityKey}:${currentSceneId ?? "none"}`;
   const [mediaTarget, setMediaTarget] = useState<string | null>(null);
-  const mediaState = useRef<DocumentMediaState | null>(null);
-  mediaState.current = visualEditor ? { editor: visualEditor, identity: mediaIdentity,
-    version: `${controller.state.accepted.edition_revision_id ?? "pinned"}:${controller.state.draftGeneration}:${controller.state.editorRevision}:${runRevision ?? content.observed_run_revision}`,
-    canEdit: open && mode === "visual" && ["saved", "dirty"].includes(controller.state.saveState)
-      && !imported.diagnostics.some(item => item.level === "warning"),
-  } : null;
-  const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
   useEffect(() => { setMediaTarget(null); }, [mediaIdentity]);
+  const mediaVersion = `${controller.state.accepted.edition_revision_id ?? "pinned"}:${controller.state.draftGeneration}:${controller.state.editorRevision}:${runRevision ?? content.observed_run_revision}`;
+  const mediaCanEdit = open && mode === "visual" && ["saved", "dirty"].includes(controller.state.saveState)
+    && !imported.diagnostics.some(item => item.level === "warning");
 
   const discardDraftForLatest = () => {
     controller.useLatestDiscardingDraft();
@@ -138,7 +134,12 @@ export function PlaySessionContentEditor({
         onClick={() => { setOpen(true); setHasOpened(true); setMode("visual"); setJumpCount(value => value + 1); setMediaTarget(mediaIdentity); }}>Images</SurfaceContextAction>
       <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}><span tabIndex={0} title={savedLabel}>{controller.state.saveState === "saved" ? "Saved" : savedLabel}</span></SurfaceContextStatus>
     </PlaySurfaceContext>
-    {mediaTarget === mediaIdentity ? <DocumentImageStudio key={mediaIdentity} bridge={mediaBridge} targetLabel="session copy" onClose={() => setMediaTarget(null)} /> : null}
+    {mediaTarget === mediaIdentity && visualEditor ? (
+      <Suspense fallback={<p role="status">Opening Image Studio…</p>}>
+        <PlaySessionImageStudio key={mediaIdentity} editor={visualEditor} identity={mediaIdentity} version={mediaVersion}
+          canEdit={mediaCanEdit} onClose={() => setMediaTarget(null)} />
+      </Suspense>
+    ) : null}
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">
 
       {controller.state.message ? <p className="play-session-content__message" role={controller.state.saveState === "invalid" || controller.state.saveState === "rejected" || controller.state.saveState === "storage-error" ? "alert" : "status"}>{controller.state.message}</p> : null}
@@ -180,15 +181,15 @@ export function PlaySessionContentEditor({
                 <ul>{imported.diagnostics.filter(item => item.level === "warning").map((item, index) => <li key={`${item.message}:${index}`}>{item.message}</li>)}</ul>
               </div>
             ) : (
-              <MarkdownEditorCore
-                content={imported.doc}
-                editable={controller.state.saveState !== "recovering"}
-                documentKey={`${identityKey}:${controller.state.editorRevision}:${editorEpoch}:visual`}
-                onUpdate={updateFromVisual}
-                onEditorChange={bindEditor}
-                className="play-session-content__visual"
-                dataTestId="play-session-copy-visual"
-              />
+              <Suspense fallback={<div className="play-session-content__visual" role="status">Loading visual editor…</div>}>
+                <PlaySessionVisualEditor
+                  content={imported.doc}
+                  editable={controller.state.saveState !== "recovering"}
+                  documentKey={`${identityKey}:${controller.state.editorRevision}:${editorEpoch}:visual`}
+                  onUpdate={updateFromVisual}
+                  onEditorChange={bindEditor}
+                />
+              </Suspense>
             )
           ) : (
             <textarea

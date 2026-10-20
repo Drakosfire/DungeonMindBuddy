@@ -160,7 +160,7 @@ it("places a library image from the Play navbar only through its session-copy wr
   await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));
   const surface = await screen.findByTestId("play-session-copy-visual");
-  expect(screen.getByLabelText("Image Studio · session copy")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Image Studio · session copy")).toBeInTheDocument();
   const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
   vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: editor.state.doc.content.size - 1, inside: 0 });
   const placing = mediaWizardCapture.props.onChoose({ asset_id: assetId, state: "ready" }, { prompt: "Saved map" }, { mode: "click", signal: new AbortController().signal });
@@ -176,7 +176,7 @@ it("closes Image Studio when the Play scene target changes", async () => {
   const props = { content, currentSceneId: "scene:gate", originLabel: "Saved Plan", onAcceptedContent: vi.fn(), onUnsubmittedChange: vi.fn() };
   const mounted = render(<PlaySessionContentEditor {...props} />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));expect(screen.getByLabelText("Image Studio · session copy")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));expect(await screen.findByLabelText("Image Studio · session copy")).toBeInTheDocument();
   mounted.rerender(<PlaySessionContentEditor {...props} currentSceneId="scene:other" />);
   expect(screen.queryByLabelText("Image Studio · session copy")).not.toBeInTheDocument();
 });
