@@ -26,7 +26,6 @@ import {
   resolveInitialReviewCampaignId,
   syncReviewCampaignUrl,
 } from "../graphLens/sessionCampaignContext";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { GraphReviewHistoricalRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewHistoricalRecapProjection";
 import { GraphReviewCandidateRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection";
 import { getExactRunCandidateProjection, type ExactRunCandidateProjection } from "../api/exactRunCandidateProjectionApi";
@@ -805,7 +804,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setToast(null);
     lastToastKeyRef.current = null;
     inspectedTargetRef.current = "";
-    window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
   }
 
   function handleRecapSessionChange(nextSession: number) {
@@ -2240,7 +2238,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       : null;
     if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
     window.history.pushState({}, "", `${ingestRoutePath()}?${params.toString()}${window.location.hash}`);
-    window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
     window.dispatchEvent(new Event("popstate"));
     projection?.close();
   }

@@ -6,8 +6,7 @@ import { confirmWorldbuilding, getWorldbuildingCapabilities, prepareWorldbuildin
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
 
-type Props = {review: ExactRunReviewPackage; onConfirmInFlightChange?: (busy: boolean) => void;
-  onCatalogRefresh?: () => void | Promise<void>};
+type Props = {review: ExactRunReviewPackage; onConfirmInFlightChange?: (busy: boolean) => void};
 const digest = (value: unknown) => typeof value === "string" && /^sha256:[a-f0-9]{64}$/.test(value);
 const message = (error: unknown) => error instanceof Error ? error.message : "World publication is unavailable.";
 
@@ -21,7 +20,7 @@ export function GraphReviewWorldbuildingPublication(props: Props) {
   return <Publication key={`${world.worldId}:${props.review.runId}:${props.review.sourceArtifactId}:${props.review.sourceRevisionId}`}
     {...props} managedWorldId={world.worldId} />;
 }
-function Publication({review, managedWorldId, onConfirmInFlightChange, onCatalogRefresh}: Props & {managedWorldId: string}) {
+function Publication({review, managedWorldId, onConfirmInFlightChange}: Props & {managedWorldId: string}) {
   const [projection, setProjection] = useState<ManagedWorldGraphProjectionResponse | null>(null);
   const [firstWorld, setFirstWorld] = useState(false);
   const [ready, setReady] = useState(false);
@@ -61,7 +60,7 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onCatalog
   }, [managedWorldId, review.worldState, review.firstWorldPublishEligible]);
 
   if (firstWorld) return <GraphReviewFirstWorldPublishSheet review={review}
-    onConfirmInFlightChange={onConfirmInFlightChange} onCatalogRefresh={onCatalogRefresh} />;
+    onConfirmInFlightChange={onConfirmInFlightChange} />;
   const busy = phase === "preparing" || phase === "confirming";
   const selected = Object.values(decisions).some(d => ["create_new", "bind_existing", "accept"].includes(d.decision));
   const update = (id: string, decision: WorldbuildingDecision["decision"], targetNodeId?: string) => {
@@ -115,9 +114,7 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onCatalog
         throw new Error("The publication receipt could not be verified.");
       }
       setReceipt(result); setPhase("idle");
-      void Promise.resolve().then(() => onCatalogRefresh?.()).catch(() => {
-        if (alive.current) setError("Publication is recorded, but the run list could not refresh.");
-      });
+
     } catch (e) {if (alive.current) {setPhase("uncertain"); setError(`${message(e)} The publication outcome is unverified. Check World history before sending another publication.`);}}
     finally {lock.current = false; onConfirmInFlightChange?.(false);}
   }

@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
-import * as ingestRunCatalogApi from "./ingestSurface/ingestRunCatalogApi";
 import type {
   WorldGraphProjection,
   WorldGraphProjectionRequest,
@@ -109,14 +108,6 @@ vi.mock("./api/liveApi", async (importOriginal) => {
   };
 });
 
-vi.mock("./ingestSurface/ingestRunCatalogApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./ingestSurface/ingestRunCatalogApi")>();
-  return {
-    ...actual,
-    getExtractionRunCatalog: vi.fn(),
-  };
-});
-
 function northGateRunbookRecord() {
   return fixtureWorkspaceDocumentRecord({
     document_id: FIXTURE_DOC_ID,
@@ -193,10 +184,6 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
       schema_version: "dmb_graph_ingest_run_registry_v1",
       version: "test",
-      runs: [],
-    });
-    vi.mocked(ingestRunCatalogApi.getExtractionRunCatalog).mockResolvedValue({
-      schema_version: "dmb_extraction_run_catalog_v1",
       runs: [],
     });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
@@ -387,7 +374,6 @@ describe("App inspector integration", () => {
     expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
     expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
-    expect(ingestRunCatalogApi.getExtractionRunCatalog).not.toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
   });

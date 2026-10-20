@@ -205,15 +205,13 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     });
   });
 
-  it("confirm success shows terminal receipt that survives refresh error", async () => {
+  it("confirm success retains the terminal receipt without catalog refresh", async () => {
     vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(sealedPlan());
     vi.mocked(extractPromoteApi.confirmFirstWorldGraph).mockResolvedValue(confirmReceipt());
-    const onCatalogRefresh = vi.fn().mockRejectedValue(new Error("refresh failed"));
 
     render(
       <GraphReviewFirstWorldPublishSheet
         review={baseReview}
-        onCatalogRefresh={onCatalogRefresh}
       />,
     );
 
@@ -228,7 +226,6 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     );
     expect(screen.getByText(/World Graph created/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-first-world-create-cta")).not.toBeInTheDocument();
-    expect(onCatalogRefresh).toHaveBeenCalled();
   });
 
   it("unknown confirm error offers exact-plan retry without re-prepare", async () => {

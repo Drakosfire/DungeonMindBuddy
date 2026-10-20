@@ -293,8 +293,6 @@ export function buildGraphReviewCatalog(
   });
 }
 
-export const GRAPH_REVIEW_RUNS_CHANGED_EVENT = "dmb:graph-runs-changed";
-
 export function catalogSessionsForReviewCampaign(
   sessions: GraphReviewCatalogSession[],
   selectedCampaignId: string,

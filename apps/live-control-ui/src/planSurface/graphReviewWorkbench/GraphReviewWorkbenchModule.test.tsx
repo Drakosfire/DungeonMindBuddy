@@ -2,6 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MemoryIngestPage } from "../../ingestSurface/MemoryIngestPage";
+import { mockPlanView } from "../../test/fixtures";
+import * as appChrome from "../../chrome/AppChrome";
 import * as extractPromoteApi from "../../api/extractPromoteApi";
 import { ExtractPromoteApiError } from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
@@ -21,19 +24,12 @@ import { SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
 import type { PlanContextDescriptor } from "../types";
 import { LegacyProjectionHostAdapter } from "../projection/LegacyProjectionHostAdapter";
 import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
-import { createSurfaceInformationChannel } from "../../surfaceInformation";
-import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
-import {
-  INGEST_RUN_CATALOG_DESCRIPTOR,
-  mapIngestRunCatalogObservation,
-} from "../../ingestSurface/ingestRunCatalogSurfaceInformation";
 import type { ExtractionRunRecord } from "../../api/types";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 import {
   catalogRunBindingKey,
   exactRunBindingKey,
 } from "./graphReviewCommittedAuthority";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
 import { session23WorldGraphRecapFixture } from "../graphPreview/worldGraphRecapFixture";
@@ -172,69 +168,6 @@ function completeHistoricalObject(
   };
 }
 
-function readyCatalogChannel(runs: ExtractionRunRecord[] = [canonicalRun()]) {
-  const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
-    INGEST_RUN_CATALOG_DESCRIPTOR,
-  );
-  const ticket = channel.beginObservation();
-  if (ticket) {
-    channel.commit(
-      ticket,
-      mapIngestRunCatalogObservation({
-        response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
-      }),
-    );
-  }
-  return channel;
-}
-
-function createRefreshableCatalogChannel(initialRuns: ExtractionRunRecord[] = [canonicalRun()]) {
-  const channel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
-    INGEST_RUN_CATALOG_DESCRIPTOR,
-  );
-  let pendingTicket: ReturnType<typeof channel.beginObservation> = null;
-  const beginRefresh = () => {
-    pendingTicket = channel.beginObservation();
-    return pendingTicket;
-  };
-  const commitPending = (
-    observation: Parameters<typeof mapIngestRunCatalogObservation>[0],
-  ) => {
-    if (!pendingTicket) return;
-    channel.commit(pendingTicket, mapIngestRunCatalogObservation(observation));
-    pendingTicket = null;
-  };
-  const commitRuns = (runs: ExtractionRunRecord[]) => {
-    beginRefresh();
-    commitPending({
-      response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
-    });
-  };
-  commitRuns(initialRuns);
-  return {
-    channel,
-    beginRefresh,
-    commitRuns: (runs: ExtractionRunRecord[]) => {
-      commitPending({
-        response: { schema_version: "dmb_extraction_run_catalog_v1", runs },
-      });
-    },
-    commitEmpty: () => {
-      commitPending({
-        response: { schema_version: "dmb_extraction_run_catalog_v1", runs: [] },
-      });
-    },
-    commitUnavailable: () => {
-      commitPending({
-        error: new Error("catalog unavailable for W14"),
-      });
-    },
-    refresh: (runs: ExtractionRunRecord[]) => {
-      commitRuns(runs);
-    },
-  };
-}
-
 function exactReviewPackageForRun(
   run: ExtractionRunRecord = canonicalRun(),
 ): ExactRunReviewPackage {
@@ -272,10 +205,6 @@ function renderWorkbench(
   runs?: ExtractionRunRecord[],
   moduleContext: PlanContextDescriptor = context,
   options?: {
-    catalogChannel?: ReturnType<
-      typeof createSurfaceInformationChannel<ExtractionRunCatalogResponse>
-    >;
-    onCatalogRefresh?: () => void | Promise<void>;
     sourceReviewOnly?: boolean;
     sourceReviewRunId?: string | null;
     selectedWorldId?: string;
@@ -289,8 +218,6 @@ function renderWorkbench(
         <PeekRegionProvider>
           <GraphReviewWorkbenchModule
             context={moduleContext}
-            catalogChannel={options?.catalogChannel ?? readyCatalogChannel(runs)}
-            onCatalogRefresh={options?.onCatalogRefresh ?? (() => undefined)}
             sourceReviewOnly={options?.sourceReviewOnly}
             sourceReviewRunId={options?.sourceReviewRunId}
             locationSearch={options?.locationSearch}
@@ -518,7 +445,7 @@ describe("GraphReviewWorkbenchModule", () => {
       screen.queryByText(/Load a session recap from the published World Graph/i),
     ).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
     await waitFor(() =>
@@ -548,7 +475,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
@@ -565,7 +492,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([canonicalRun({ run_id: "er_other" })]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("graph-review-selected-run-missing")).not.toBeInTheDocument();
     expect(screen.queryByText(/er_vanished/)).not.toBeInTheDocument();
@@ -577,7 +504,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-banner")).not.toBeInTheDocument();
@@ -589,7 +516,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
@@ -604,7 +531,7 @@ describe("GraphReviewWorkbenchModule", () => {
     const first = renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
 
     const restoredUrl = `${window.location.pathname}${window.location.search}`;
@@ -613,31 +540,40 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
   });
 
-  it("mounts published recap while the ExtractionRun catalog is still loading", async () => {
-    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
-      INGEST_RUN_CATALOG_DESCRIPTOR,
-    );
-    catalogChannel.beginObservation();
-    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
-    renderWorkbench(undefined, context, { catalogChannel });
+  it("mounts the real Ingest page and workbench without retired list or comparison reads", async () => {
+    vi.spyOn(appChrome, "AppChrome").mockImplementation(({children}) => <>{children}</>);
+    vi.spyOn(liveApi, "getPlanView").mockResolvedValue({...mockPlanView, world_id: selectedManagedWorld.world_id});
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(canonicalRun());
+    window.history.replaceState({}, "", "/ingest?world=managed-world-a&extractionRunId=er_run_a&sourceArtifactId=sa_1");
+    const tree = <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a">
+      <AgentInteractionProvider><SurfaceContextProvider><PeekRegionProvider>
+        <MemoryIngestPage />
+      </PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>
+    </SelectedWorldProvider>;
+    const view = render(tree);
+    await screen.findByTestId("graph-review-workbench");
+    view.rerender(tree);
+    act(() => window.dispatchEvent(new PopStateEvent("popstate")));
+    await waitFor(() => expect(liveApi.getPlanView).toHaveBeenCalled());
+    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
+    expect(liveApi.getGoldReviewCompare).not.toHaveBeenCalled();
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).split("?")[0].endsWith("/graph-preview/extraction-runs"))).toBe(false);
+  });
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
-    );
-    expect(screen.queryByText(/Loading graph review sessions/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
-      "data-write-authority",
-      "none",
-    );
-    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
-      "data-browse-session",
-      "session-27",
-    );
+  it("mounts published Memory without catalog or Gold comparison acquisition", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench();
+    await screen.findByLabelText("Working recap");
+    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
+    expect(liveApi.getGoldReviewCompare).not.toHaveBeenCalled();
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).split("?")[0].endsWith("/graph-preview/extraction-runs"))).toBe(false);
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute("data-write-authority", "none");
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute("data-browse-session", "session-27");
   });
 
   it("does not show ExtractionRun catalog empty state on ordinary published-memory browse", async () => {
@@ -645,7 +581,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
@@ -653,27 +589,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-27");
   });
 
-  it("does not leak ExtractionRun catalog unavailability into published-memory browse", async () => {
-    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
-      INGEST_RUN_CATALOG_DESCRIPTOR,
-    );
-    const ticket = catalogChannel.beginObservation();
-    if (ticket) {
-      catalogChannel.commit(
-        ticket,
-        mapIngestRunCatalogObservation({ error: new Error("catalog unavailable") }),
-      );
-    }
-    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
-    renderWorkbench(undefined, context, { catalogChannel });
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
-    );
-    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
-    expect(screen.queryByText(/catalog unavailable/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
-  });
 
   it("opens published-local Author Node from a stale persisted catalog run without write authority", async () => {
     window.sessionStorage.setItem(
@@ -690,7 +606,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
       "data-write-authority",
@@ -703,7 +619,7 @@ describe("GraphReviewWorkbenchModule", () => {
       "data-local-stage-only",
       "true",
     );
-    expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
     expect(prepareSpy).not.toHaveBeenCalled();
     expect(authorPrepareSpy).not.toHaveBeenCalled();
   });
@@ -720,7 +636,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(
       await screen.findByTestId("graph-review-exact-run-error"),
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Working recap")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
     expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
       "data-write-authority",
@@ -735,7 +651,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -752,7 +668,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -762,7 +678,7 @@ describe("GraphReviewWorkbenchModule", () => {
       await screen.findByLabelText("Diagnostics projection"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Select a live run with a projection to inspect diagnostics/i),
+      await screen.findByText(/Select a live run with a projection to inspect diagnostics/i),
     ).toBeInTheDocument();
   });
 
@@ -833,7 +749,7 @@ describe("GraphReviewWorkbenchModule", () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
 
     const projectionRequestCount = vi.mocked(
@@ -886,7 +802,7 @@ describe("GraphReviewWorkbenchModule", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(compareSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
@@ -901,7 +817,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(ingestRunsSpy).not.toHaveBeenCalled();
@@ -909,7 +825,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
-  it("W14: catalog refresh keeps structural projection surface bound across LOADING and EMPTY/UNAVAILABLE", async () => {
+  it("keeps the structural surface bound across config rerenders without catalog acquisition", async () => {
     window.history.replaceState({}, "", "/ingest");
     const publishCalls: Array<ProjectionSurfacePublication | null> = [];
     const originalUseAgentInteraction = agentInteractionProvider.useAgentInteraction;
@@ -931,60 +847,18 @@ describe("GraphReviewWorkbenchModule", () => {
       };
     });
 
-    const refreshable = createRefreshableCatalogChannel([canonicalRun()]);
-    renderWorkbench(undefined, context, {
-      catalogChannel: refreshable.channel,
-      onCatalogRefresh: () => {
-        refreshable.refresh([canonicalRun()]);
-      },
-    });
-
-    await waitFor(() =>
-      expect(screen.getByLabelText("Campaign")).toBeInTheDocument(),
-    );
-    expect(publishCalls.some((call) => call !== null)).toBe(true);
-    const nullPublishesBeforeRefresh = publishCalls.filter((call) => call === null).length;
-
-    // READY → LOADING (visible) → READY without structural unbind.
-    act(() => {
-      refreshable.beginRefresh();
-    });
-    expect(refreshable.channel.getSnapshot().state.status).toBe("loading");
-    expect(publishCalls.filter((call) => call === null)).toHaveLength(nullPublishesBeforeRefresh);
-    act(() => {
-      refreshable.commitRuns([canonicalRun({ run_id: "er_run_a" })]);
-    });
-    await waitFor(() => {
-      expect(refreshable.channel.getSnapshot().state.status).toBe("ready");
-    });
-    expect(publishCalls.filter((call) => call === null)).toHaveLength(nullPublishesBeforeRefresh);
-
-    // READY → LOADING → EMPTY without structural unbind.
-    act(() => {
-      refreshable.beginRefresh();
-    });
-    expect(refreshable.channel.getSnapshot().state.status).toBe("loading");
-    act(() => {
-      refreshable.commitEmpty();
-    });
-    await waitFor(() => {
-      expect(refreshable.channel.getSnapshot().state.status).toBe("empty");
-    });
-    expect(publishCalls.filter((call) => call === null)).toHaveLength(nullPublishesBeforeRefresh);
-
-    // EMPTY → LOADING → UNAVAILABLE without structural unbind.
-    act(() => {
-      refreshable.beginRefresh();
-    });
-    expect(refreshable.channel.getSnapshot().state.status).toBe("loading");
-    act(() => {
-      refreshable.commitUnavailable();
-    });
-    await waitFor(() => {
-      expect(refreshable.channel.getSnapshot().state.status).toBe("unavailable");
-    });
-    expect(publishCalls.filter((call) => call === null)).toHaveLength(nullPublishesBeforeRefresh);
-    expect(publishCalls.some((call) => call !== null)).toBe(true);
+    const view = renderWorkbench();
+    await screen.findByLabelText("Campaign");
+    const nullBefore = publishCalls.filter(call => call === null).length;
+    view.rerender(<AgentInteractionProvider><SurfaceContextProvider><PeekRegionProvider>
+      <GraphReviewWorkbenchModule context={{...context}} />
+      <PeekRegionSlot /><ToolHost /><LegacyProjectionHostAdapter />
+    </PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>);
+    await screen.findByLabelText("Campaign");
+    expect(publishCalls.filter(call => call === null)).toHaveLength(nullBefore);
+    expect(publishCalls.some(call => call !== null)).toBe(true);
+    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
+    expect(liveApi.getGoldReviewCompare).not.toHaveBeenCalled();
   });
 
   it("does not surface a vanished catalog run when the URL session recap loads", async () => {
@@ -1014,7 +888,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([promoted]);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
@@ -1143,7 +1017,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([validated]);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
+      expect(screen.getByLabelText("Working recap")).toBeInTheDocument();
     });
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
@@ -1347,8 +1221,6 @@ describe("GraphReviewWorkbenchModule", () => {
               <PeekRegionProvider>
                 <GraphReviewWorkbenchModule
                   context={{ ...context, campaignId: "elderwyld" }}
-                  catalogChannel={readyCatalogChannel([])}
-                  onCatalogRefresh={() => undefined}
                   sourceReviewOnly
                   sourceReviewRunId={run.run_id}
                 />
@@ -1376,8 +1248,6 @@ describe("GraphReviewWorkbenchModule", () => {
             <PeekRegionProvider>
               <GraphReviewWorkbenchModule
                 context={{ ...context, campaignId: "elderwyld" }}
-                catalogChannel={readyCatalogChannel([])}
-                onCatalogRefresh={() => undefined}
                 sourceReviewOnly={false}
               />
               <PeekRegionSlot />

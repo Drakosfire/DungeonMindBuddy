@@ -17,13 +17,11 @@ import {
   togglePromoteSelection,
 } from "./extractPromoteSelectionUtils";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
-import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 
 export interface GraphReviewExtractPromoteSheetProps {
   prepared: ExtractPromotePrepareResponse;
   onClose: () => void;
   onConfirmInFlightChange?: (inFlight: boolean) => void;
-  onCatalogRefresh?: () => void | Promise<void>;
 }
 
 type ConfirmPhase = "idle" | "confirming" | "receipt" | "pre_commit_error" | "unknown_result";
@@ -92,11 +90,6 @@ function confirmErrorMessage(error: unknown): string {
   return "Failed to confirm promotion.";
 }
 
-async function defaultCatalogRefresh(): Promise<void> {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
-}
-
 /**
  * Game-facing promote review sheet (PR011A2 prepare + PR011A3 confirm).
  */
@@ -104,7 +97,6 @@ export function GraphReviewExtractPromoteSheet({
   prepared,
   onClose,
   onConfirmInFlightChange,
-  onCatalogRefresh = defaultCatalogRefresh,
 }: GraphReviewExtractPromoteSheetProps) {
   const { adoptCommittedReceipt, reloadCommittedAuthority, committedBinding } =
     useGraphReviewLiveState();
@@ -205,8 +197,7 @@ export function GraphReviewExtractPromoteSheet({
       setReceipt(nextReceipt);
       setConfirmPhase("receipt");
 
-      // Adopt before catalog refresh so a refresh-driven binding change cannot
-      // race ahead of freezing committed authority for the current binding.
+      // Freeze committed authority before any subsequent binding change.
       try {
         await adoptTerminalReceipt(nextReceipt, frozenBinding);
       } catch (error) {
@@ -217,14 +208,8 @@ export function GraphReviewExtractPromoteSheet({
             : "Failed to reload committed World Graph revision.",
         );
       }
-
-      try {
-        await onCatalogRefresh();
-      } catch {
-        // Catalog refresh failure must not erase receipt.
-      }
     },
-    [adoptTerminalReceipt, committedBinding, onCatalogRefresh, prepared.reviewPackage],
+    [adoptTerminalReceipt, committedBinding, prepared.reviewPackage],
   );
 
   const onMergeClick = () => {

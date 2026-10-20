@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../App";
 import * as liveApi from "../api/liveApi";
-import * as ingestRunCatalogApi from "../ingestSurface/ingestRunCatalogApi";
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "./fixtures";
 import {
   appRouteFromPathname,
@@ -40,14 +39,6 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     listPlayRuns: vi.fn(),
     getPlayRun: vi.fn(),
     getPlayRunReferenceManifest: vi.fn(),
-  };
-});
-
-vi.mock("../ingestSurface/ingestRunCatalogApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../ingestSurface/ingestRunCatalogApi")>();
-  return {
-    ...actual,
-    getExtractionRunCatalog: vi.fn(),
   };
 });
 
@@ -169,10 +160,6 @@ describe("App same-document primary navigation", () => {
     vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
       schema_version: "dmb_graph_ingest_run_registry_v1",
       version: "test",
-      runs: [],
-    });
-    vi.mocked(ingestRunCatalogApi.getExtractionRunCatalog).mockResolvedValue({
-      schema_version: "dmb_extraction_run_catalog_v1",
       runs: [],
     });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
