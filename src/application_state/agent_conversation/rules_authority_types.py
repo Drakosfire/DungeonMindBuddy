@@ -28,7 +28,7 @@ def canonical_sha256(value: BaseModel | object) -> str:
 
 
 class ClosedRulesModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, revalidate_instances="always")
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, revalidate_instances="always", validate_by_name=True)
 
 
 class RulesBudgetV1(ClosedRulesModel):
