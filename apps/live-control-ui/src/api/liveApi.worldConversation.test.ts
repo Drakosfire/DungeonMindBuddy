@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getWorldAgentConversationHistory,
   getWorldAgentTurnContextTrace,
+  getWorldAgentHistoricalSourcePassage,
   getWorldAgentNewConversationStatus,
   postWorldAgentNewConversation,
   postWorldPlayAgentTurn,
@@ -209,3 +210,34 @@ it("injects bearer for both exact resolution routes and rejects off-loopback des
   vi.stubEnv("VITE_LIVE_API_BASE_URL", "https://api.example.invalid"); vi.resetModules(); const blocked = await import("./liveApi"); blocked.setNativeGraphAccessToken("resolution-token");
   fetchSpy.mockClear(); await expect(blocked.postWorldCommandResolution(request)).rejects.toMatchObject({ status: 0 }); await expect(blocked.getWorldCommandResolution(request)).rejects.toMatchObject({ status: 0 }); expect(fetchSpy).not.toHaveBeenCalled();
 });
+
+describe('exact historical passage acquisition',()=>{
+  const reference={schema:'dmb_trace_historical_source_ref_v1' as const,world_id:'world/a',turn_id:'turn/b',conversation_id:'conversation',trace_id:'trace',attempt:2,source_read_event_id:'event',source_read_id:'read/a ?&=🦉',content_sha256:'a'.repeat(64)}
+  function read(ref=reference,signal?:AbortSignal) {return getWorldAgentHistoricalSourcePassage(ref,signal)}
+  it('encodes every exact selector, authenticates, and shares only equivalent pending requests',async()=>{
+    setNativeGraphAccessToken('passage-token');let release!:()=>void;const gate=new Promise<void>(r=>{release=r})
+    const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(()=>gate.then(()=>Response.json({exact:true})))
+    const reads=[read(),read(),read({...reference,source_read_event_id:'other-event'}),read({...reference,source_read_id:'other-read'}),read({...reference,content_sha256:'b'.repeat(64)}),read({...reference,conversation_id:'other-conversation'})]
+    await vi.waitFor(()=>expect(fetch).toHaveBeenCalledTimes(5))
+    const url=String(fetch.mock.calls[0][0]);expect(url).toMatch(/^\/api\/live\/agent\/worlds\/world%2Fa\/conversation\/turns\/turn%2Fb\/context-trace\/trace\/source-passages\/event\?/)
+    const query=new URL(url,'http://localhost').searchParams
+    expect(Object.fromEntries(query)).toEqual({conversation_id:'conversation',attempt:'2',source_read_id:reference.source_read_id,content_sha256:reference.content_sha256})
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer passage-token')
+    expect(fetch.mock.calls[0][1]?.cache).toBe('no-store');expect(fetch.mock.calls.every(([,init])=>!init?.body&&init?.method!=='POST')).toBe(true)
+    release();await Promise.all(reads);await read();expect(fetch).toHaveBeenCalledTimes(6)
+  })
+  it('keeps a shared read for another subscriber after cancellation',async()=>{
+    setNativeGraphAccessToken('passage-cancel');let release!:(value:Response)=>void;const gate=new Promise<Response>(r=>{release=r})
+    const fetch=vi.spyOn(globalThis,'fetch').mockReturnValue(gate);const controller=new AbortController()
+    const first=read(reference,controller.signal).catch(error=>error.name);const second=read()
+    await vi.waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));controller.abort();expect(await first).toBe('AbortError')
+    expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);release(Response.json({exact:true}));expect(await second).toEqual({exact:true})
+  })
+  it('rejects a body completing after credential rotation',async()=>{
+    setNativeGraphAccessToken('passage-before');let stream!:ReadableStreamDefaultController<Uint8Array>
+    vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(new ReadableStream<Uint8Array>({start(c){stream=c}})))
+    const pending=read().catch(error=>error.code)
+    await vi.waitFor(()=>expect(globalThis.fetch).toHaveBeenCalledTimes(1));setNativeGraphAccessToken('passage-after')
+    stream.enqueue(new TextEncoder().encode('{"exact":true}'));stream.close();expect(await pending).toBe('local_graph_session_changed')
+  })
+})
