@@ -190,8 +190,13 @@ class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
         if not isinstance(text, str):
             raise ValueError("Native Rules outcome requires complete captured text")
         encoded = text.encode("utf-8")
+        output_sha256 = sha256(encoded).hexdigest()
         if (
-            getattr(capture, "status", None) != "answered"
+            getattr(capture, "request_sha256", None)
+            != request_envelope_sha256
+            or getattr(capture, "text_sha256", None) != output_sha256
+            or getattr(capture, "text_utf8_bytes", None) != len(encoded)
+            or getattr(capture, "status", None) != "answered"
             or getattr(capture, "finish_reason", None) != "stop"
             or getattr(capture, "tool_calls", ())
             or not encoded
@@ -208,7 +213,7 @@ class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
             status="answered",
             authorization_id=capture.authorization_id,
             api_request_id=capture.api_request_id,
-            output_sha256=sha256(encoded).hexdigest(),
+            output_sha256=output_sha256,
             output_utf8_bytes=len(encoded),
             finish_reason="stop",
             tool_call_count=0,

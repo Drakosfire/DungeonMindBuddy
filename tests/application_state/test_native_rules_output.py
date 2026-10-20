@@ -272,6 +272,28 @@ def test_native_output_rejects_rewritten_capture_and_proof_against_sealed_outcom
         verify_native_output(graph, rules, forged_proof, forged_capture)
 
 
+def test_native_outcome_factory_rejects_request_or_capture_byte_mismatch():
+    _, _, proof, capture, _, _ = native_case()
+    event_fields = {
+        "event_id": uuid4(),
+        "sequence": 0,
+        "execution_id": proof.rules_execution_id,
+        "provider_attempt_id": proof.producing_provider_attempt_id,
+    }
+    with pytest.raises(ValueError, match="complete final reply"):
+        RulesNativeProviderOutcomeV1.from_capture(
+            capture,
+            **event_fields,
+            request_envelope_sha256="b" * 64,
+        )
+    with pytest.raises(ValueError, match="complete final reply"):
+        RulesNativeProviderOutcomeV1.from_capture(
+            changed(capture, text_sha256="a" * 64),
+            **event_fields,
+            request_envelope_sha256=proof.request_envelope_sha256,
+        )
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
