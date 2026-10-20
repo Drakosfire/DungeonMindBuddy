@@ -164,6 +164,57 @@ class RulesProviderOutcomeV1(RulesEventBaseV1):
     status: Literal["tool_calls", "answered", "failed", "unknown"]
 
 
+class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
+    """Seal the exact uncapped native final reply without storing its body."""
+
+    kind: Literal["native_provider_outcome"]
+    authorization_id: Annotated[str, Field(min_length=1, max_length=256)]
+    api_request_id: Annotated[str, Field(min_length=1, max_length=256)]
+    output_sha256: Digest
+    output_utf8_bytes: Annotated[int, Field(ge=1, le=262144)]
+    finish_reason: Literal["stop"]
+    tool_call_count: Literal[0]
+
+    @classmethod
+    def from_capture(
+        cls,
+        capture,
+        *,
+        event_id: UUID,
+        sequence: int,
+        execution_id: UUID,
+        provider_attempt_id: UUID,
+        request_envelope_sha256: str,
+    ) -> "RulesNativeProviderOutcomeV1":
+        text = getattr(capture, "text", None)
+        if not isinstance(text, str):
+            raise ValueError("Native Rules outcome requires complete captured text")
+        encoded = text.encode("utf-8")
+        if (
+            getattr(capture, "status", None) != "answered"
+            or getattr(capture, "finish_reason", None) != "stop"
+            or getattr(capture, "tool_calls", ())
+            or not encoded
+            or len(encoded) > 262144
+        ):
+            raise ValueError("Native Rules outcome requires a complete final reply")
+        return cls(
+            event_id=event_id,
+            sequence=sequence,
+            execution_id=execution_id,
+            kind="native_provider_outcome",
+            provider_attempt_id=provider_attempt_id,
+            request_envelope_sha256=request_envelope_sha256,
+            status="answered",
+            authorization_id=capture.authorization_id,
+            api_request_id=capture.api_request_id,
+            output_sha256=sha256(encoded).hexdigest(),
+            output_utf8_bytes=len(encoded),
+            finish_reason="stop",
+            tool_call_count=0,
+        )
+
+
 class RulesCompletionBoundV1(RulesEventBaseV1):
     kind: Literal["completion_bound"]
     producing_provider_attempt_id: UUID
@@ -185,6 +236,7 @@ RulesEventV1 = Annotated[
     | RulesBuildProviderAuthorizedV1
     | RulesBuildProviderIncludedV1
     | RulesProviderOutcomeV1
+    | RulesNativeProviderOutcomeV1
     | RulesCompletionBoundV1,
     Field(discriminator="kind"),
 ]
@@ -424,6 +476,14 @@ class RulesExecutionV1(ClosedRulesModel):
                 ):
                     raise ValueError(
                         "Rules provider outcome has no unique authorization"
+                    )
+                if isinstance(event, RulesNativeProviderOutcomeV1) and (
+                    isinstance(auth, RulesBuildProviderAuthorizedV1)
+                    or event.status != "answered"
+                    or event.provider_attempt_id not in inclusions
+                ):
+                    raise ValueError(
+                        "Native Rules outcome lacks its final included non-Build input"
                     )
                 outcomes[event.provider_attempt_id] = event
             else:

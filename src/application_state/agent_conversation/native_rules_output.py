@@ -21,7 +21,7 @@ from .rules_authority_events import (
     RulesBuildProviderIncludedV1,
     RulesProviderAuthorizedV1,
     RulesProviderIncludedV1,
-    RulesProviderOutcomeV1,
+    RulesNativeProviderOutcomeV1,
     RulesExecutionV1,
 )
 from .rules_authority_output import (
@@ -239,16 +239,22 @@ def verify_native_output(
         [
             event
             for event in rules_execution.events
-            if isinstance(event, RulesProviderOutcomeV1)
+            if isinstance(event, RulesNativeProviderOutcomeV1)
             and event.provider_attempt_id == proof.producing_provider_attempt_id
         ],
-        "Native Rules output has no unique terminal outcome",
+        "Native Rules output has no unique byte-sealed terminal outcome",
     )
     if (
         rules_auth.request_envelope_sha256 != proof.request_envelope_sha256
         or included.request_envelope_sha256 != proof.request_envelope_sha256
         or outcome.request_envelope_sha256 != proof.request_envelope_sha256
         or outcome.status != "answered"
+        or outcome.authorization_id != proof.authorization_id
+        or outcome.api_request_id != proof.api_request_id
+        or outcome.output_sha256 != proof.raw_output_sha256
+        or outcome.output_utf8_bytes != proof.raw_output_utf8_bytes
+        or outcome.finish_reason != getattr(capture, "finish_reason", None)
+        or outcome.tool_call_count != len(getattr(capture, "tool_calls", ()))
         or rules_auth.declared_support_refs != included.support_refs
         or rules_auth.matched_outputs != included.matched_outputs
     ):

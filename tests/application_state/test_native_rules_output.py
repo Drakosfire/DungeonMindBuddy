@@ -16,6 +16,7 @@ from application_state.agent_conversation.rules_authority_events import (
     RulesOutputRefV1,
     RulesProviderAuthorizedV1,
     RulesProviderIncludedV1,
+    RulesNativeProviderOutcomeV1,
     RulesProviderOutcomeV1,
 )
 from application_state.agent_conversation.types import ProviderOutcomeEventV1
@@ -87,18 +88,6 @@ def native_case(*, graph_turn=None, base_output=None):
         support_refs=refs,
     )
     owner = append(owner, included)
-    owner = append(
-        owner,
-        RulesProviderOutcomeV1(
-            event_id=uuid4(),
-            sequence=len(owner.events),
-            execution_id=owner.scope.execution_id,
-            kind="provider_outcome",
-            provider_attempt_id=attempt,
-            request_envelope_sha256=request_sha,
-            status="answered",
-        ),
-    )
     ordered_refs = ([{"domain": "base", "segment_index": None}]
                     if base_output is not None else [])
     ordered_refs.append({"domain": "rules", "segment_index": 0})
@@ -163,6 +152,17 @@ def native_case(*, graph_turn=None, base_output=None):
         text_sha256=sha256(raw_bytes).hexdigest(),
         text_utf8_bytes=len(raw_bytes),
         tool_calls=(),
+    )
+    owner = append(
+        owner,
+        RulesNativeProviderOutcomeV1.from_capture(
+            capture,
+            event_id=uuid4(),
+            sequence=len(owner.events),
+            execution_id=owner.scope.execution_id,
+            provider_attempt_id=attempt,
+            request_envelope_sha256=request_sha,
+        ),
     )
     proof = NativeRulesOutputProofV1.from_capture(
         capture,
@@ -249,6 +249,27 @@ def test_native_output_rechecks_actual_rules_call_and_result_bytes():
     capture = changed(capture, request_sha256=digest)
     with pytest.raises(ValueError, match="prepared input differs"):
         verify_native_output(graph, rules, proof, capture)
+
+
+def test_native_output_rejects_rewritten_capture_and_proof_against_sealed_outcome():
+    graph, rules, proof, capture, _, _ = native_case()
+    raw = capture.text.replace("The rule applies.", "A forged rule applies.")
+    raw_bytes = raw.encode("utf-8")
+    forged_capture = changed(
+        capture,
+        text=raw,
+        text_sha256=sha256(raw_bytes).hexdigest(),
+        text_utf8_bytes=len(raw_bytes),
+    )
+    forged_proof = NativeRulesOutputProofV1.from_capture(
+        forged_capture,
+        prepared_request_json=proof.prepared_request_json,
+        rules_execution_id=proof.rules_execution_id,
+        producing_provider_attempt_id=proof.producing_provider_attempt_id,
+    )
+
+    with pytest.raises(ValueError, match="exact included Rules evidence"):
+        verify_native_output(graph, rules, forged_proof, forged_capture)
 
 
 @pytest.mark.parametrize(
