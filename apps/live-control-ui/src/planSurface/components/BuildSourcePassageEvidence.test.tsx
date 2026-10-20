@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
 import { BuildSourcePassageEvidence, isBuildSourceCompletion } from './BuildSourcePassageEvidence';
-import { ResponseEvidenceTabs } from './BuddyPromptInspector';
+import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
 import { getAgentSourcePassage } from '../../api/liveApi';
 import type { AgentSourcePassageReadResponseV1, WorldBuildGraphCompletionV2 } from '../../api/types';
 vi.mock('../../api/liveApi', () => ({ getAgentSourcePassage: vi.fn() }));
