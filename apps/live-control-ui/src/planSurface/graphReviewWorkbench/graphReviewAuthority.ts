@@ -7,7 +7,7 @@
 import {
   requestedCampaignFromLocation,
   resolveInitialReviewCampaignId,
-} from "../sessionCampaignContext";
+} from "../../graphLens/sessionCampaignContext";
 import type { GraphReviewExactRunHandoff } from "./graphReviewRunSelection";
 
 export type PublishedMemoryAdmissibility = "gm" | "pending" | "unknown";

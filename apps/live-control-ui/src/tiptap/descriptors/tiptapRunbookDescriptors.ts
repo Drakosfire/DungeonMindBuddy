@@ -1,6 +1,6 @@
 import { createWorkspaceDocument, getWorkspaceDocument, listWorkspaceDocuments } from "../../api/liveApi";
 import type { WorkspaceDocumentRecord } from "../../api/types";
-import { requestedDocumentIdFromLocation } from "../../planSurface/sessionCampaignContext";
+import { requestedDocumentIdFromLocation } from "../../graphLens/sessionCampaignContext";
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
 import { workspaceDocumentStorageKey } from "../state/tiptapLocalState";

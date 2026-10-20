@@ -1,7 +1,7 @@
 import type { PlanViewProjection } from "../../api/types";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "../types";
 import type { SurfaceInteractionWorkObjectIdentity } from "../../surfaceInteraction/types";
-import { requestedSessionNumberFromLocation } from "../sessionCampaignContext";
+import { requestedSessionNumberFromLocation } from "../../graphLens/sessionCampaignContext";
 import {
   buildPlanContextFromPlanView,
   createPlanSessionDescriptor,

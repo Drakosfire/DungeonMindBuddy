@@ -6,10 +6,6 @@ import type {
   GraphProjectionSuggestedExpansion,
 } from "../../api/types";
 import {
-  GraphNodeHoverToken,
-  presentationForNodeId as sharedPresentationForNodeId,
-} from "../../graphReference";
-import {
   adjacencyThreadLabel,
   buildRecapNodePresentation,
   DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP,
@@ -17,11 +13,7 @@ import {
   expansionRankReasonLabel,
   evidencePlanningText,
   roleClass,
-  type RecapNodePresentation,
 } from "./recapNodePresentation";
-
-/** @deprecated Prefer GraphNodeHoverToken from graphReference; kept as ingest/Graph Review alias. */
-export const GraphNodeToken = GraphNodeHoverToken;
 
 function PlanningScanSection({
   title,
@@ -299,12 +291,4 @@ export function GraphNodeExplorer({
       </p>
     </aside>
   );
-}
-
-export function presentationForNodeId(
-  nodeViews: Record<string, GraphProjectionNodeView>,
-  nodeId: string,
-  label: string,
-): RecapNodePresentation {
-  return sharedPresentationForNodeId(nodeViews, nodeId, label);
 }

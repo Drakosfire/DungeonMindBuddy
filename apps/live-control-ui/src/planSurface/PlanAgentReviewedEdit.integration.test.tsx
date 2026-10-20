@@ -26,7 +26,7 @@ import { AgentInteractionProjectionTestHost } from "./projection/projectionTestH
 import { fixturePlanSessionDescriptor, fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider, useEditCapability } from "./edit/editCapability";
-import { PlanGraphLensProvider } from "./PlanGraphLensContext";
+import { PlanGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { adoptCreatedPlanIdentity } from "./planBlankAuthoringState";

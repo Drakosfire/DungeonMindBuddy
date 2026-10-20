@@ -11,7 +11,7 @@ import {
   resolvePlanReferenceFromGraphProjection,
 } from "./graphAwareReferenceResolver";
 import { REFERENCE_INDEX_ENDPOINTS, resolveReference } from "./referenceResolver";
-import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
+import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 
 function appendIngestEscalationHint(message: string): string {
   if (/ingest/i.test(message)) return message;
@@ -190,7 +190,7 @@ export async function resolvePlanRelationshipTarget({
           locator,
           reference,
           graphNodeId: exactNode.nodeId,
-          graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(exactNode)),
+          graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeView(exactNode)),
           graphScope,
           projectionState,
           message: `Resolved graph node ${exactNode.label}.`,

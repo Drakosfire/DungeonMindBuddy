@@ -4,9 +4,9 @@ import type {
   RecapProjectionSourceSpan,
 } from "../../api/types";
 import {
-  GraphNodeToken,
+  GraphNodeHoverToken,
   presentationForNodeId,
-} from "../graphPreview/GraphNodePresentation";
+} from "../../graphReference";
 import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
@@ -119,7 +119,7 @@ function renderMentionToken({
   const activeHere =
     activeObject?.laneRole === laneRole && activeObject?.nodeId === nodeId;
   return (
-    <GraphNodeToken
+    <GraphNodeHoverToken
       key={key}
       presentation={presentation}
       label={label}
@@ -148,8 +148,7 @@ function renderMentionToken({
   );
 }
 
-// Matches parseRecapInlineSegments (graphPreview/recapMarkdown.ts) and
-// markdownToTiptap.ts's graphNodeReferencePattern: find `[label](dmb-node:id)`
+// Matches markdownToTiptap.ts's graphNodeReferencePattern: find `[label](dmb-node:id)`
 // links directly in the markdown text being rendered. This intentionally does
 // NOT rely on server-computed mention offsets — those have to stay byte-perfect
 // in sync with a markdown string that gets mutated in a different language, and

@@ -25,7 +25,7 @@ import { ReviewCampaignPicker } from "../planSurface/ReviewCampaignPicker";
 import {
   resolveInitialReviewCampaignId,
   syncReviewCampaignUrl,
-} from "../planSurface/sessionCampaignContext";
+} from "../graphLens/sessionCampaignContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { GraphReviewHistoricalRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewHistoricalRecapProjection";
 import { GraphReviewCandidateRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection";

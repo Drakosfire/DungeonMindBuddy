@@ -289,7 +289,7 @@ describe("useBuildWorkspaceDocumentController", () => {
 
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
-    expect(result.current.creatableCampaignIds).toContain("eldyrwild");
+    expect(result.current.destinationOptions).toContainEqual(expect.objectContaining({ kind: "campaign", campaignId: "eldyrwild", value: "campaign:eldyrwild" }));
 
     await act(async () => {
       result.current.createDocument({
@@ -320,7 +320,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
     await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
 
-    expect(result.current.creatableCampaignIds).toContain("eldyrwild");
+    expect(result.current.destinationOptions).toContainEqual(expect.objectContaining({ kind: "campaign", campaignId: "eldyrwild", value: "campaign:eldyrwild" }));
     expect(result.current.suggestedCreateCampaignId).toBe("eldyrwild");
   });
 

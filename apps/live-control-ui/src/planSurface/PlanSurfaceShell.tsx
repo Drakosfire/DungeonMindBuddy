@@ -25,7 +25,7 @@ import {
   resolvePlanningDocument,
   suggestNextPlanTargetSession,
 } from "./config/planSessionDescriptor";
-import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "./sessionCampaignContext";
+import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../graphLens/sessionCampaignContext";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";

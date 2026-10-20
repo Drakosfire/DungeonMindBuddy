@@ -72,7 +72,7 @@ import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { createPlanSessionDescriptor } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
-import { PlanGraphLensProvider } from "./PlanGraphLensContext";
+import { PlanGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import {
   WorldGraphLensProjectionProvider,

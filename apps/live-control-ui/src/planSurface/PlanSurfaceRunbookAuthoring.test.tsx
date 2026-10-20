@@ -23,7 +23,7 @@ import {
 } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { adoptCreatedPlanIdentity } from "./planBlankAuthoringState";
-import { PlanGraphLensProvider } from "./PlanGraphLensContext";
+import { PlanGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import { PlanSurfaceCanvas, canSavePlanningDocument } from "./components/PlanSurfaceCanvas";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";

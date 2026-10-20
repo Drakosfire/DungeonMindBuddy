@@ -11,7 +11,7 @@ import type { GraphReferenceResolution } from "../../graphReference/types";
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
-import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
+import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import type { PlanSessionDescriptor } from "../types";
 import {
   addNodeToDogfoodList,
@@ -147,7 +147,7 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
     const byId = new Map(
       (projection?.nodes ?? []).map((node) => [
         node.nodeId,
-        adaptWorldGraphNodeForPlanCard(node),
+        adaptWorldGraphNodeView(node),
       ]),
     );
     return state.addedNodeIds

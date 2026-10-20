@@ -14,7 +14,7 @@ import {
   requestedRecapSessionIdFromLocation,
   resolveInitialReviewCampaignId,
   resolveSessionRecapContext,
-} from "../sessionCampaignContext";
+} from "../../graphLens/sessionCampaignContext";
 import {
   filterNumericRecapArtifactRecords,
   sortRecapArtifactRecords,
