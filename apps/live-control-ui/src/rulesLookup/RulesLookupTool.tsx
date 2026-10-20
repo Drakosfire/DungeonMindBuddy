@@ -39,7 +39,23 @@ export default function RulesLookupTool() {
   function begin() {
     retire(); const controller = new AbortController(); request.current = controller; setBusy(true); setError(null);
     const epoch = getNativeGraphAccessGeneration(), current = generation.current;
-    return { controller, current: () => !controller.signal.aborted && generation.current === current && epoch === getNativeGraphAccessGeneration() };
+    const ownerCurrent = () => !controller.signal.aborted && generation.current === current;
+    const sameAccess = () => epoch === getNativeGraphAccessGeneration();
+    return { controller, ownerCurrent, sameAccess, current: () => {
+      if (!ownerCurrent()) return false;
+      if (!sameAccess()) throw new Error('Access changed. Reload rules sources.');
+      return true;
+    } };
+  }
+  function failed(action: ReturnType<typeof begin>, reason: unknown, fallback: string) {
+    if (!action.ownerCurrent()) return;
+    // A failed transport recovery can advance its epoch without emitting an event.
+    // Settle this owner's error without admitting any prior-access evidence.
+    if (!action.sameAccess()) {
+      accessEpoch.current = getNativeGraphAccessGeneration();
+      setCatalog(null); setCorpus(''); setPacket(null); setPassage(null);
+    }
+    setError(reason instanceof Error ? reason.message : fallback);
   }
   useEffect(() => {
     const action = begin();
@@ -53,8 +69,8 @@ export default function RulesLookupTool() {
             || typeof item.ruleset_id !== 'string' || !/^[a-z0-9_]{1,80}$/.test(item.ruleset_id)
             || !Number.isSafeInteger(item.unit_count) || item.unit_count! < 1 || item.unit_count! > 10000)))) throw new Error('The rules source catalog is invalid.');
       setCatalog(value); setCorpus(value.sources.find(item => item.available)?.corpus ?? '');
-    }).catch(reason => { if (action.current()) setError(reason instanceof Error ? reason.message : 'Rules sources unavailable.'); })
-      .finally(() => { if (action.current()) setBusy(false); });
+    }).catch(reason => failed(action, reason, 'Rules sources unavailable.'))
+      .finally(() => { if (action.ownerCurrent()) setBusy(false); });
     return retire;
   }, [retry]);
   // Access loss retires visible private evidence immediately, not only on the next request.
@@ -70,8 +86,8 @@ export default function RulesLookupTool() {
       const value = await queryRulesEvidence(corpus, question.trim(), action.controller.signal);
       if (!action.current()) return;
       validatePacket(value, corpus); setPacket(value);
-    } catch (reason) { if (action.current()) setError(reason instanceof Error ? reason.message : 'Rules lookup failed.'); }
-    finally { if (action.current()) setBusy(false); }
+    } catch (reason) { failed(action, reason, 'Rules lookup failed.'); }
+    finally { if (action.ownerCurrent()) setBusy(false); }
   }
   async function inspect(hit: RulesHit) {
     const action = begin(); setPassage(null);
@@ -88,8 +104,8 @@ export default function RulesLookupTool() {
       if (!action.current()) return;
       if (actual !== hit.text_sha256) throw new Error('This exact rules passage could not be verified.');
       setPassage(value);
-    } catch (reason) { if (action.current()) setError(reason instanceof Error ? reason.message : 'Rules passage unavailable.'); }
-    finally { if (action.current()) setBusy(false); }
+    } catch (reason) { failed(action, reason, 'Rules passage unavailable.'); }
+    finally { if (action.ownerCurrent()) setBusy(false); }
   }
   const selected = catalog?.sources.find(item => item.corpus === corpus);
   return <section aria-label="Rules lookup">
