@@ -1393,7 +1393,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(composer, { target: { value: 'Keep this unsent draft' } });
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
-    fireEvent.click(screen.getByRole('button', { name: /Inspect Rules source/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
     expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(capsule.support.excerpt_text);
     expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
