@@ -1727,7 +1727,11 @@ class AgentConversationService:
         from .rules_authority_types import RulesScopeV1, canonical_sha256
 
         from .rules_authority_policy import capability_for_policy_sha256
-        from .rules_authority_output import verify_build_output, parse_answer
+        from .rules_authority_output import (
+            MAX_REQUEST_BYTES,
+            parse_answer,
+            verify_build_output,
+        )
         from .rules_authority_types import RulesSupportRefV1
 
         scope = result.scope
@@ -1865,7 +1869,7 @@ class AgentConversationService:
                         )
                         if (hashlib.sha256(request_bytes).hexdigest()
                                 != binding.request_envelope_sha256
-                                or len(request_bytes) > 262144
+                                or len(request_bytes) > MAX_REQUEST_BYTES
                                 or len(output_bytes) != proof.raw_output_utf8_bytes
                                 or hashlib.sha256(output_bytes).hexdigest()
                                 != proof.raw_output_sha256
@@ -2033,7 +2037,12 @@ class AgentConversationService:
                     "unclaimed base requires genuine Graph receipt and execution"
                 )
             try:
-                if output_context is not None:
+                if isinstance(result, NativeRulesMixedTurnResultV1):
+                    if (output_context is None
+                            or output_context.composition != result.composition
+                            or output_context.assistant_text != result.assistant_text):
+                        raise ValueError("Native mixed result differs from its actual outer output normalization")
+                elif output_context is not None:
                     derived = output_context[2].composition(supplied_refs=next(
                         e.support_refs for e in current.execution.events
                         if e.kind == "build_provider_included" and e.provider_attempt_id == result.producing_provider_attempt_id),

@@ -2,6 +2,7 @@
 
 from hashlib import sha256
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 
 import psycopg
@@ -23,6 +24,7 @@ from application_state.agent_conversation.rules_authority_events import (
     RulesProviderAuthorizedV1,
     RulesProviderIncludedV1,
     RulesProviderOutcomeV1,
+    RulesNativeProviderOutcomeV1,
     RulesOutputRefV1,
     RulesExecutionV1,
 )
@@ -53,7 +55,9 @@ def hashed(text):
     return sha256(text.encode()).hexdigest()
 
 
-def ready_rules(dsn, turn=None):
+def ready_rules(
+    dsn, turn=None, *, native_output=False, request_padding_bytes=0
+):
     if turn is None:
         turn, scope = admitted()
     else:
@@ -92,6 +96,10 @@ def ready_rules(dsn, turn=None):
         ),
         ensure_ascii=False,
     )
+    if request_padding_bytes:
+        body_fields = json.loads(body)
+        body_fields["bounded_test_context"] = "x" * request_padding_bytes
+        body = json.dumps(body_fields, ensure_ascii=False)
     producer = uuid4()
     fields = dict(
         execution_id=scope.execution_id,
@@ -117,13 +125,54 @@ def ready_rules(dsn, turn=None):
         support_refs=(ref,),
         **fields,
     )
-    outcome = RulesProviderOutcomeV1(
-        event_id=uuid4(),
-        sequence=4,
-        kind="provider_outcome",
-        status="answered",
-        **fields,
-    )
+    native_details = None
+    if native_output:
+        raw_output_json = json.dumps(
+            {
+                "schema": "dmb_rules_mixed_answer_v1",
+                "base_output": None,
+                "rules_segments": [
+                    {
+                        "kind": "rules_claim",
+                        "text": unit.excerpt_text,
+                        "support_ids": [str(ref.support_id)],
+                    }
+                ],
+                "ordered_refs": [{"domain": "rules", "segment_index": 0}],
+            },
+            ensure_ascii=False,
+        )
+        capture = SimpleNamespace(
+            authorization_id="test-native-authorization",
+            api_request_id="test-native-request",
+            provider="test-provider",
+            model="synthetic-model",
+            api_mode="codex_responses",
+            request_sha256=hashed(body),
+            status="answered",
+            finish_reason="stop",
+            text=raw_output_json,
+            text_sha256=hashed(raw_output_json),
+            text_utf8_bytes=len(raw_output_json.encode("utf-8")),
+            tool_calls=(),
+        )
+        outcome = RulesNativeProviderOutcomeV1.from_capture(
+            capture,
+            event_id=uuid4(),
+            sequence=4,
+            execution_id=scope.execution_id,
+            provider_attempt_id=producer,
+            request_envelope_sha256=hashed(body),
+        )
+        native_details = (body, raw_output_json, capture)
+    else:
+        outcome = RulesProviderOutcomeV1(
+            event_id=uuid4(),
+            sequence=4,
+            kind="provider_outcome",
+            status="answered",
+            **fields,
+        )
     with psycopg.connect(dsn) as conn:
         record = open_execution_locked(
             conn, scope, expected_turn_revision=turn.revision
@@ -165,7 +214,7 @@ def ready_rules(dsn, turn=None):
             )
         )
     )
-    return turn, MixedTurnResultV1(
+    result = MixedTurnResultV1(
         schema="dmb_mixed_turn_result_v1",
         scope=scope,
         expected_turn_revision=turn.revision,
@@ -175,6 +224,7 @@ def ready_rules(dsn, turn=None):
         producing_provider_attempt_id=producer,
         base_result=None,
     )
+    return (turn, result, native_details) if native_output else (turn, result)
 
 
 def persisted(dsn, turn):
@@ -393,14 +443,16 @@ def test_unused_rules_scope_closes_with_ordinary_completion_in_one_transaction(
     )
 
 
-def join_graph_provider(dsn, service, turn, result):
+def join_graph_provider(dsn, service, turn, result, *, native_output=False):
     from tests.application_state.test_agent_conversation_postgres import (
         _provider_authorization_event,
     )
     from application_state.agent_conversation.types import (
         ProviderOutcomeEventV1,
         ProviderAttemptAuthorizedEventV2,
+        ProviderAttemptAuthorizedEventV3,
         PlanWorldGraphExecutionV2,
+        PlanWorldGraphExecutionV3,
     )
 
     # The final Rules event and final Graph event name the identical raw request.
@@ -421,7 +473,25 @@ def join_graph_provider(dsn, service, turn, result):
         auth = _provider_authorization_event(
             attempt_id=producer, sequence=len(turn.graph_context_execution.events)
         ).model_copy(update={"envelope_sha256": digest})
-        if isinstance(turn.graph_context_execution, PlanWorldGraphExecutionV2):
+        if native_output:
+            auth = auth.model_copy(update={"api_mode": "codex_responses"})
+        if isinstance(turn.graph_context_execution, PlanWorldGraphExecutionV3):
+            auth = ProviderAttemptAuthorizedEventV3.model_validate(
+                auth.model_dump(mode="json", by_alias=True)
+                | {
+                    "kind": "provider_attempt_authorized_v3",
+                    "included_source_read_event_ids": [],
+                }
+            )
+            turn, _ = service.authorize_provider_attempt(
+                turn.world_id,
+                turn.conversation_id,
+                turn.turn_id,
+                expected_revision=turn.revision,
+                expected_attempt=turn.attempt,
+                provider_attempt_event=auth,
+            )
+        elif isinstance(turn.graph_context_execution, PlanWorldGraphExecutionV2):
             auth = ProviderAttemptAuthorizedEventV2.model_validate(
                 auth.model_dump(mode="python")
                 | {
@@ -492,6 +562,62 @@ def test_real_plan_graph_enabled_rules_only_completion_is_unclaimed(
         pairs[0].answer == result.assistant_text
         and pairs[0].history_attribution.base_attribution is None
     )
+    assert service.complete_mixed_turn(result) == completed
+
+
+def test_native_plan_rules_only_completion_commits_and_replays_atomically(
+    application_state_dsn,
+):
+    from application_state.agent_conversation.rules_authority_output import parse_answer
+    from tests.application_state.test_agent_conversation_postgres import (
+        _accepted_execution_turn,
+    )
+
+    service = AgentConversationService()
+    _, _, _, turn = _accepted_execution_turn(
+        service, "native-rules-completion-world", execution_version=3
+    )
+    turn, base, native_details = ready_rules(
+        application_state_dsn,
+        turn,
+        native_output=True,
+        request_padding_bytes=270_000,
+    )
+    turn = join_graph_provider(
+        application_state_dsn, service, turn, base, native_output=True
+    )
+    prepared_request_json, raw_output_json, capture = native_details
+    included = next(
+        event for event in base.composition.rules_segments[0].support_refs
+    )
+    composition = parse_answer(raw_output_json).composition(
+        supplied_refs=(included,),
+        base_segments=(),
+        base_disposition="unclaimed",
+    )
+    proof = NativeRulesOutputProofV1.from_capture(
+        capture,
+        prepared_request_json=prepared_request_json,
+        rules_execution_id=base.scope.execution_id,
+        producing_provider_attempt_id=base.producing_provider_attempt_id,
+    )
+    result = NativeRulesMixedTurnResultV1(
+        schema="dmb_native_rules_mixed_turn_result_v1",
+        scope=base.scope,
+        expected_turn_revision=turn.revision,
+        expected_rules_revision=base.expected_rules_revision,
+        assistant_text=composition.render(()),
+        composition=composition,
+        producing_provider_attempt_id=base.producing_provider_attempt_id,
+        base_result=None,
+        output_proof=proof,
+    )
+
+    completed = service.complete_mixed_turn(result)
+
+    assert completed.assistant_text == result.assistant_text
+    assert completed.base_projection.kind == "unclaimed"
+    assert completed.accepted_binding.base_disposition == "unclaimed"
     assert service.complete_mixed_turn(result) == completed
 
 
