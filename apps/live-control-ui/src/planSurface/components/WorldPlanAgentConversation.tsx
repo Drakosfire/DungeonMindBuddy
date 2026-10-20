@@ -5961,7 +5961,8 @@ export function WorldPlanAgentConversation({
           }}
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
-          disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}
+          disabled={(isReadOnly ? !currentReadOnlyContext : !scopeMatches)
+            || Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError)}
           placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
