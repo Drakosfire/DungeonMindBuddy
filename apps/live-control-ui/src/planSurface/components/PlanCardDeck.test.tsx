@@ -18,6 +18,7 @@ it("shows an inert draft thumbnail with saved media and keeps the full scene tar
   const { rerender } = render(<PlanCardDeck scenes={[scene]} nodes={[scene]} sceneId={scene.id} onSelect={select} visible />);
   const card = screen.getByRole("button", { name: "Show scene: Harbor" });
   expect(card).toHaveAttribute("aria-current", "true");
+  expect(screen.queryByRole("button", { name: "Scene outline" })).toBeNull();
   expect(card).toHaveTextContent("An authored <script> lantern cue.");
   expect(card.querySelector("script")).toBeNull();
   expect(card.querySelectorAll("button, a, input, textarea")).toHaveLength(0);
