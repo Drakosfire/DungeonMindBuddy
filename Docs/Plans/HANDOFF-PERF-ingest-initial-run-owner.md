@@ -1,6 +1,6 @@
 # One initial exact-run observation per Ingest navigation
 
-**Status:** ACTIVE; PRIME adopts Architecture's narrowed navigation-observation contract.
+**Status:** COMPLETE; source lease released and accepted on5202.
 **Base:**407c9a6730e0c84ecb3843ae9a7093ce4160fae4; branch codex/ingest-initial-run-owner, existing buddy-context-loop checkout.
 **Topology:**serial after accepted1493; one useful frontend read-ownership capability, no backend/schema change. UI5202 artifacts owned; existing API/runtime/data untouched.
 
@@ -29,3 +29,7 @@ Verify actual root+Workbench oneexactGET with slowPlanView, claimedlineagepositi
 Seven-file root/Workbench/generic/API/publication cohort168passes, including realpage+realWorkbench oneexactGET with deliberatelydelayedPlanView, downstreamcanonicalsourcepositive, acceptedsourceDOMidentity retained across mutationstart/end waves, complete existing correction/uncertain/receipt cases. Sixnewroot witnesses cover artifact mismatchbeforemetadata, incompleteclaimedlineagebeforelookup, A→B→A latebody/cancel plusstaleAgentcontext, unresolvedaccessrotationcancel/retry, acceptedowner lifetime, explicitfailedreadretry/unmountabort; existingWorld/source-only childremount cases pass. OptionalAPI signals verifiedtransport-only on exact encodedrun/PlanView URLs. Test-onlydirectWorkbench mounts use an explicit observation owner, no productionfallback. Fresh correction-child proofread remainsdistinct frominitialnavigation (keptunchanged), and subsequent childnavigation is fresh.
 
 Actualapp `tsc -p tsconfig.app.json --noEmit` and productionbuild pass. BroaderIngestion/App/navigation retains119pass/5sameknownroot/navigationfailures previouslyexactbasereproduced by1493; no newbroaderfailure. Sourcecumulative diff inspected and diffcheckclean. Nativeaftercount and17protectedacceptance await independentlyreviewedmerge; initialdata is not advertised current aftermutations, no newwavefreshnesssubscription ortransactionlifecyclechange.
+
+## Review, merge and accepted delivery
+
+Architecture/Bugbot ReviewCycle1 approvedexactfad99e35347fbb14bcab4231bf670f160eb3e054; Architecture independently168/168focusedtests, no blockingfinding. PR1494 merged7da2ef9b8d2bf047fcfdd5ba82eee1c4a9b0b3c9. UI-only5202 adoptionindex-CjZti0LT.js/indexSHA25647f93e1eaf28187d3e249588b833fc0b095717c86a3540286dbdd20550f59488; existingAPI/source/services unchanged, oldassetsretained. NativeactualrootIngest→OpenGraphReview sameSession29source handoff nowONEexactGET2002769bytes versuspredecessortwo; reviewpackage200/canonicalsource/read-onlyexistingquoteguardintact,0catalog/providerreads. All17protectedresponsesunchanged. Ownedmeasurementtab/HTML removed. No livepublication/correction; transaction/correction/recovery evidence is owner-test coverage, not userWorldmutation. Screenshot unavailable; nativeDOM/requestmetadata receipts are PRIME evidence, not independentbrowserreplay. Remainingfullgraph/cache/code/Rules/Combat objectives stayopen.

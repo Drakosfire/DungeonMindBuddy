@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clearProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 import {
   activateStatblockRetrieval,
   addGeneratedStatblockToCombat,
@@ -816,7 +815,6 @@ describe("local operator API destination policy", () => {
 
 describe("Threat publication API", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1405,7 +1403,6 @@ describe("Threat publication API", () => {
 
 describe("liveApi getBuildSourceNavigation", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1448,7 +1445,6 @@ describe("liveApi getBuildSourceNavigation", () => {
 
 describe("liveApi artifact/capability helpers", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2360,13 +2356,11 @@ describe("liveApi artifact/capability helpers", () => {
 
 describe("liveApi World Graph error preservation", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
     setNativeGraphAccessToken("test-only-local-operator-credential-value");
-    clearProjectionRequestCache();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
       schema: "dmb_world_graph_projection_error_v1",
       code: "projection_integrity_error",
@@ -2403,7 +2397,6 @@ describe("liveApi World Graph error preservation", () => {
 
 describe("liveApi postLiveQuery Hermes serializer", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2602,7 +2595,6 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
 describe("liveApi postWorldGraphSourceAnchorRead", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2653,7 +2645,6 @@ describe("liveApi postWorldGraphSourceAnchorRead", () => {
 
 describe("liveApi citation source helper", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -2711,7 +2702,6 @@ function worldbuildingRecord(overrides: Partial<WorkspaceDocumentRecord> = {}): 
 
 describe("liveApi world container contracts", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -3170,7 +3160,6 @@ describe("World Play V2 API transport", () => {
 
 describe("liveApi PR380B World Graph recap client", () => {
   afterEach(() => {
-    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 

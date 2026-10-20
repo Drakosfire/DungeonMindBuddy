@@ -181,7 +181,7 @@ import type {
   ThreatQueryHydrationResponseV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
-import { clearProjectionRequestCache, withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
+import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../planSurface/reference/planGraphContextRequest";
 import { shareInFlightRead, startReadWave } from "./inFlightReads";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -251,7 +251,6 @@ export async function connectNativeGraphSession(): Promise<string> {
   if (nativeGraphRevocationRequest) await nativeGraphRevocationRequest.catch(() => undefined);
   if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
   nativeGraphSessionEpoch += 1;
-  clearProjectionRequestCache();
   startReadWave();
   nativeGraphCsrf = null;
   nativeGraphSessionRevoked = false;
@@ -262,7 +261,6 @@ export function revokeNativeGraphSession(): Promise<void> {
   if (!nativeGraphRevocationRequest) {
     const cachedCsrf = nativeGraphCsrf;
     nativeGraphSessionEpoch += 1;
-    clearProjectionRequestCache();
     startReadWave();
     nativeGraphSessionRevoked = true;
     nativeGraphCsrf = null;
@@ -294,7 +292,6 @@ export function revokeNativeGraphSession(): Promise<void> {
 function blockStaleNativeGraphSession(status: number, usedCsrf: string | null, requestEpoch: number): void {
   if (!usedCsrf || requestEpoch !== nativeGraphSessionEpoch || (status !== 401 && status !== 403)) return;
   nativeGraphSessionEpoch += 1;
-  clearProjectionRequestCache();
   startReadWave();
   nativeGraphCsrf = null;
   nativeGraphSessionRevoked = true;
@@ -308,7 +305,6 @@ export function setNativeGraphAccessToken(token: string | null): void {
   nativeGraphAccessToken = normalized || null;
   if (changed) {
     nativeGraphSessionEpoch += 1;
-    clearProjectionRequestCache();
     startReadWave();
   }
   if (!nativeGraphAccessToken) nativeGraphCsrf = null;
@@ -645,7 +641,6 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
         throw new LiveApiError("Local session changed during recovery.", 401, { code: "local_graph_session_changed" });
       }
       nativeGraphSessionEpoch += 1;
-      clearProjectionRequestCache();
       startReadWave();
       nativeGraphCsrf = null;
       owned.connectedEpoch = nativeGraphSessionEpoch;
@@ -1510,20 +1505,39 @@ export async function getUnionSupergraphProjection(
   );
 }
 
+let projectionInvalidationTarget: Window | null = null;
+
+/** Retire pre-commit sharing, without retaining projection values or refetching owners. */
+function ensureProjectionRevisionInvalidation(): void {
+  const target = typeof window === "undefined" ? null : window;
+  if (projectionInvalidationTarget === target) return;
+  projectionInvalidationTarget?.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+  projectionInvalidationTarget = target;
+  target?.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+}
+
+// Invalidate before current bubble-phase consumers synchronously refresh.
+ensureProjectionRevisionInvalidation();
+
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  projectionInvalidationTarget?.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+  projectionInvalidationTarget = null;
+});
+
 export async function postWorldGraphProjection(
   request: WorldGraphProjectionRequest,
 ): Promise<WorldGraphProjection> {
-  return withProjectionRequestCache("projection", request, () =>
-    apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
-      method: "POST",
-      body: JSON.stringify(request),
-    }),
-  );
+  ensureProjectionRevisionInvalidation();
+  return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function postManagedWorldGraphProjection(
   request: ManagedWorldGraphProjectionRequest,
 ): Promise<ManagedWorldGraphProjectionResponse> {
+  ensureProjectionRevisionInvalidation();
   // The strict server model defaults both optional fields to null. Encode that
   // identity once so equivalent producers can share a pending read. Preserve
   // unexpected runtime fields for the server's extra=forbid validation.
@@ -1552,12 +1566,11 @@ export async function postWorldGraphCompleteObject(
 export async function postWorldGraphRecapProjection(
   request: WorldGraphProjectionRequest,
 ): Promise<WorldGraphRecapProjection> {
-  return withProjectionRequestCache("recap-projection", request, () =>
-    apiFetch<WorldGraphRecapProjection>("/api/live/world-graph/recap-projection", {
-      method: "POST",
-      body: JSON.stringify(request),
-    }),
-  );
+  ensureProjectionRevisionInvalidation();
+  return apiFetch<WorldGraphRecapProjection>("/api/live/world-graph/recap-projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function getDefaultUnionSupergraphProjection(

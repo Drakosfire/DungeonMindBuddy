@@ -100,7 +100,7 @@ describe("protected read acquisition",()=>{
   const first=api.postManagedWorldGraphProjection(request);const command=api.authenticatedApiFetch("/api/live/recap-ingest",{method:"POST",body:JSON.stringify({campaign_id:"longmont-c2",session:29,...body})});const second=api.postManagedWorldGraphProjection(request);
   await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("managed-projection"))).toHaveLength(2));gate.resolve(Response.json({}));await Promise.all([first,command,second]);
  });
- it("fences old bearer responses and native warm bytes after rotation",async()=>{
+ it("fences old bearer responses and makes native reads fresh after rotation",async()=>{
   api.setNativeGraphAccessToken("old-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const old=api.authenticatedApiFetch(historyPath).then(()=>"accepted",error=>error.code);await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));api.setNativeGraphAccessToken("new-bearer");
   const fresh=api.authenticatedApiFetch(historyPath);await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));gate.resolve(Response.json({}));expect(await old).toBe("local_graph_session_changed");await fresh;
