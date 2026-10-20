@@ -52,7 +52,7 @@ export type ContentsEntry = {
 
 export function Contents({ entries, selectedId, onSelect, visible, expanded: controlledExpanded,
   onExpandedChange, showToggle = true, outlineAction, toggleRef: externalToggleRef,
-  toggleTestId, bodyId, bodyTestId, compact, dismissFocusRef }: {
+  toggleTestId, bodyId, bodyTestId, compact, dismissFocusRef, fallbackDismissFocusRef }: {
   entries: readonly ContentsEntry[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -66,6 +66,7 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
   bodyTestId?: string;
   compact?: boolean;
   dismissFocusRef?: RefObject<HTMLButtonElement | null>;
+  fallbackDismissFocusRef?: RefObject<HTMLButtonElement | null>;
   outlineAction?: { label: string; selected: boolean; onClick: () => void };
 }) {
   const [localExpanded, setLocalExpanded] = useState(() => !(window.matchMedia?.("(max-width: 700px)").matches ?? false));
@@ -79,7 +80,13 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
   const toggleRef = externalToggleRef ?? localToggleRef;
   const generatedId = useId();
   const contentsId = bodyId ?? `surface-contents-${generatedId}`;
-  const dismiss = () => { setExpanded(false); (dismissFocusRef ?? toggleRef).current?.focus(); };
+  const dismiss = () => {
+    setExpanded(false);
+    const opener = dismissFocusRef?.current;
+    const target = opener?.getClientRects().length ? opener
+      : fallbackDismissFocusRef?.current ?? opener ?? toggleRef.current;
+    target?.focus();
+  };
   const select = (action: () => void) => {
     action();
     if (compact ?? window.matchMedia?.("(max-width: 700px)").matches) dismiss();

@@ -61,3 +61,14 @@ it("returns focus to a visible surface opener when a compact overlay closes", ()
   expect(opener.current).toHaveFocus();
   expect(screen.getByRole("button", { name: "Expand Contents" })).toHaveAttribute("aria-expanded", "false");
 });
+
+it("uses the visible fallback when the compact surface opener is hidden", () => {
+  const hiddenOpener = createRef<HTMLButtonElement>();
+  const fallback = createRef<HTMLButtonElement>();
+  render(<><button ref={hiddenOpener} hidden>Hidden opener</button>
+    <button ref={fallback}>More</button><Contents entries={entries} selectedId="one"
+      onSelect={vi.fn()} visible compact expanded onExpandedChange={vi.fn()}
+      dismissFocusRef={hiddenOpener} fallbackDismissFocusRef={fallback} /></>);
+  fireEvent.keyDown(screen.getByRole("button", { name: "Collapse Contents" }), { key: "Escape" });
+  expect(fallback.current).toHaveFocus();
+});

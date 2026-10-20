@@ -31,3 +31,14 @@ review by Architecture; exact approved-head merge. Adopt existing 5202 UI dist
 with prior assets retained, no API restart. Verify desktop/narrow both surfaces,
 mouse/keyboard toggle and scene continuity; all protected stored responses and
 active selection unchanged. Postmerge settle handoff and release lease.
+
+## Rendered gate correction
+PR #1474 merged at 51e1c0970eab2c512a59272116952921b1f342f2;
+Architecture Cycle 1 approved 9e76fb3e6fca7306867fd95fea33f7c5818c2f8b.
+Desktop source behavior and 76 tests passed, but narrow 666px rendered acceptance
+found dismissal focus targeting a hidden navbar Contents opener. Delivery is not
+accepted yet. Same bounded capability continues serially in correction branch
+codex/shared-contents-focus-fallback from that merge, one correction PR. Existing
+lease remains ACTIVE, including shared and Play files/tests. Add a visible-opener
+fallback in the shared dismissal contract; Play supplies More as fallback. No API,
+stored state or provider changes. Review correction independently before adoption.
