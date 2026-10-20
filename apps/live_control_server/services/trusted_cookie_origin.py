@@ -24,7 +24,7 @@ def require_cookie_write_origin(
     Authentication selection belongs to the caller. This helper intentionally
     does not inspect cookies, authorization headers, Host, or proxy headers.
     """
-    if request.method.upper() in _SAFE_METHODS:
+    if request.method in _SAFE_METHODS:
         return
 
     try:
@@ -101,7 +101,7 @@ def _canonical_http_origin(value: object) -> str | None:
             return None
         if not separator:
             port_text = None
-        if not host or host.endswith("."):
+        if not host or host.endswith(".") or not host.isascii():
             return None
 
         try:

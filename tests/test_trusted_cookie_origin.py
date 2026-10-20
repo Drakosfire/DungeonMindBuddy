@@ -34,12 +34,19 @@ def test_safe_methods_do_not_require_origin_or_trusted_configuration(method: str
     require_cookie_write_origin(_request(method), trusted_origins=[])
 
 
+@pytest.mark.parametrize("method", ["get", "head", "options"])
+def test_lowercase_safe_method_tokens_are_not_exempt(method: str) -> None:
+    with pytest.raises(HTTPException) as error:
+        require_cookie_write_origin(_request(method), trusted_origins=[])
+    assert error.value.status_code == 403
+
+
 @pytest.mark.parametrize(
     ("request_origin", "trusted_origin"),
     [
         ("HTTPS://ExAmPlE.com:443", "https://example.com"),
         ("http://EXAMPLE.com:80", "http://example.com"),
-        ("https://bücher.example", "https://xn--bcher-kva.example"),
+        ("https://xn--bcher-kva.example", "https://xn--bcher-kva.example"),
         ("https://[2001:0db8::1]:443", "https://[2001:db8::1]"),
         ("https://example.com:0008443", "https://example.com:8443"),
         ("https://127.0.0.1", "https://127.0.0.1"),
@@ -100,6 +107,7 @@ def test_trusted_origin_allows_mutation_only_after_guard(method: str) -> None:
         "https://0x7f.0.0.1",
         "https://example.com\\@buddy.example",
         "https://attacker.example",
+        "https://faß.example",
     ],
 )
 def test_rejected_origin_never_reaches_the_mutation(origin: str) -> None:
@@ -166,6 +174,32 @@ def test_canonical_duplicate_configuration_entries_collapse() -> None:
             "https://buddy.example",
         ],
     )
+
+
+@pytest.mark.parametrize(
+    ("request_origin", "trusted_origin"),
+    [
+        ("https://fass.example", "https://xn--fa-hia.example"),
+        ("https://xn--fa-hia.example", "https://fass.example"),
+    ],
+)
+def test_sharp_s_a_label_is_distinct_from_fass(
+    request_origin: str, trusted_origin: str
+) -> None:
+    with pytest.raises(HTTPException) as error:
+        require_cookie_write_origin(
+            _request("POST", [request_origin]), trusted_origins=[trusted_origin]
+        )
+    assert error.value.status_code == 403
+
+
+def test_unicode_u_label_configuration_fails_closed() -> None:
+    with pytest.raises(HTTPException) as error:
+        require_cookie_write_origin(
+            _request("POST", ["https://fass.example"]),
+            trusted_origins=["https://faß.example"],
+        )
+    assert error.value.status_code == 403
 
 
 def test_proxy_and_referer_headers_do_not_substitute_for_origin() -> None:
