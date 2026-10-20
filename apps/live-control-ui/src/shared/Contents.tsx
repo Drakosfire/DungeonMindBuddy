@@ -51,7 +51,7 @@ export type ContentsEntry = {
 };
 
 export function Contents({ entries, selectedId, onSelect, visible, expanded: controlledExpanded,
-  onExpandedChange, showToggle = true, outlineAction, toggleRef: externalToggleRef,
+  onExpandedChange, toggleRef: externalToggleRef,
   toggleTestId, bodyId, bodyTestId, compact, dismissFocusRef, fallbackDismissFocusRef }: {
   entries: readonly ContentsEntry[];
   selectedId: string | null;
@@ -59,7 +59,6 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
   visible: boolean;
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
-  showToggle?: boolean;
   toggleRef?: RefObject<HTMLButtonElement | null>;
   toggleTestId?: string;
   bodyId?: string;
@@ -67,7 +66,6 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
   compact?: boolean;
   dismissFocusRef?: RefObject<HTMLButtonElement | null>;
   fallbackDismissFocusRef?: RefObject<HTMLButtonElement | null>;
-  outlineAction?: { label: string; selected: boolean; onClick: () => void };
 }) {
   const [localExpanded, setLocalExpanded] = useState(() => !(window.matchMedia?.("(max-width: 700px)").matches ?? false));
   const expanded = controlledExpanded ?? localExpanded;
@@ -119,11 +117,9 @@ export function Contents({ entries, selectedId, onSelect, visible, expanded: con
         event.preventDefault(); event.stopPropagation(); dismiss();
       }
     }}>
-    {showToggle ? <ContentsToggle buttonRef={toggleRef} expanded={expanded}
-      controls={contentsId} testId={toggleTestId} onToggle={() => expanded ? dismiss() : setExpanded(true)} /> : null}
+    <ContentsToggle buttonRef={toggleRef} expanded={expanded}
+      controls={contentsId} testId={toggleTestId} onToggle={() => expanded ? dismiss() : setExpanded(true)} />
     <div id={contentsId} data-testid={bodyTestId} hidden={!expanded} className="surface-contents__contents">
-      {outlineAction ? <button type="button" className="surface-contents__outline" aria-current={outlineAction.selected ? "true" : undefined}
-        onClick={() => select(outlineAction.onClick)}>{outlineAction.label}</button> : null}
       {entries.length === 0 ? <p>No scenes</p> : null}
       <ul ref={listRef} className="surface-contents__list">
         {entries.map((scene, index) => {

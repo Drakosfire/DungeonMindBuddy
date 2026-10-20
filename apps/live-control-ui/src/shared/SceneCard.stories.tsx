@@ -1,6 +1,6 @@
 import { SceneCard } from "./SceneCard";
 import "../playSurface/playSurface.css";
-import { WorldPlanCardProjection, buildWorldPlanCardProjectionModel, worldPlanCardTargetKeys } from "../planSurface/components/WorldPlanCardProjection";
+import { WorldPlanCardProjection, buildWorldPlanCardProjectionModel } from "../planSurface/components/WorldPlanCardProjection";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import "../ui/tokens.css";
 import "../planSurface/components/WorldPlanCardProjection.css";
@@ -28,15 +28,13 @@ const markdown = [
 const planDoc = markdownToTiptapDoc(markdown).doc;
 const model = buildWorldPlanCardProjectionModel({ document: planDoc, markdown, sourceWarnings: [] });
 if (model.status !== "ready") throw new Error("Plan Scene card fixture must be ready.");
-const selectableTargetKeys = worldPlanCardTargetKeys(model);
 
 export const NarrowPlanFocus = () => (
   <main style={{ width: 320, maxWidth: "100%", marginInline: "auto", background: "#101319", minHeight: "100vh" }}>
     <WorldPlanCardProjection worldId="fixture-world" documentId="fixture-plan"
       document={planDoc} markdown={markdown} sourceWarnings={[]}
       basis={{ status: "verified", revision: 9, contentSha256: "a".repeat(64) }}
-      isDirty={false} onReturnToDocument={() => {}} selectableTargetKeys={selectableTargetKeys}
-      onSelectTarget={() => {}} />
+      isDirty={false} sceneId="scene:sheep-gate" onReturnToDocument={() => {}} />
   </main>
 );
 

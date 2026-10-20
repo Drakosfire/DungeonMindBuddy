@@ -109,7 +109,7 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   const plan = render(<div style={{ width: 320 }}><WorldPlanCardProjection
     worldId={data.run.world_id} documentId={documentId} document={imported.doc}
     markdown={data.markdown} sourceWarnings={[]} basis={{ status: "verified", revision: 9, contentSha256: sha }}
-    isDirty={false} navigation={{ sceneId: "scene:one", onChange: () => {} }} onReturnToDocument={() => {}} /></div>);
+    isDirty={false} sceneId="scene:one" onReturnToDocument={() => {}} /></div>);
   const user = userEvent.setup();
   const planCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(planCard).toHaveAttribute("data-scene-id", "scene:one");
@@ -124,7 +124,7 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   plan.rerender(<div style={{ width: 320 }}><WorldPlanCardProjection
     worldId={data.run.world_id} documentId={documentId} document={imported.doc}
     markdown={data.markdown} sourceWarnings={[]} basis={{ status: "verified", revision: 9, contentSha256: sha }}
-    isDirty navigation={{ sceneId: "scene:one", onChange: () => {} }} onReturnToDocument={() => {}} /></div>);
+    isDirty sceneId="scene:one" onReturnToDocument={() => {}} /></div>);
   const draftCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(draftCard).toHaveAttribute("data-source-state", "draft");
   expect(draftCard).toHaveAttribute("data-source-revision", "");
