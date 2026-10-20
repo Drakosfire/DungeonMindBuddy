@@ -2,48 +2,84 @@ import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "rea
 import { createPortal } from "react-dom";
 import { SavedMediaImage } from "../media/SavedMediaImage";
 import { imagePresentation, MEDIA_ASSET_ID } from "../media/mediaReferences";
-import { generateHTML, mergeAttributes, type JSONContent } from "@tiptap/core";
-import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../tiptap/MarkdownEditorCore";
-import { MediaImageNode } from "../tiptap/extensions/MediaImageNode";
-import { GraphNodeReferenceNode } from "../tiptap/extensions/GraphNodeReferenceNode";
+import { generateHTML, mergeAttributes, Node, type AnyExtension, type JSONContent } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { CalloutNode } from "../tiptap/extensions/CalloutNode";
+import { DECISION_CONSEQUENCE_EXTENSIONS } from "../tiptap/extensions/DecisionConsequenceNode";
+import { PLAN_TABLE_EXTENSIONS } from "../tiptap/extensions/planTableExtensions";
+import { PlayableElementHeadingAttributes } from "../tiptap/extensions/PlayableElementHeadingAttributes";
+import { WebSourceLink } from "../tiptap/extensions/WebSourceLink";
+import { isSupportedRunbookReference, normalizeRunbookReferenceAttrs, runbookReferenceClasses } from "../tiptap/references/runbookReferences";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
-function graphNodeReferenceExtension(activatable: boolean) {
-  return GraphNodeReferenceNode.extend({
+function graphNodeReferenceExtension(activatable: boolean): AnyExtension {
+  return Node.create({
+    name: "graphNodeReference", group: "inline", inline: true, atom: true, selectable: true,
+    addAttributes: () => ({ nodeId: { default: "", rendered: false }, label: { default: "", rendered: false } }),
+    parseHTML: () => [{
+      tag: "button[data-graph-node-id]",
+      getAttrs: element => {
+        if (!(element instanceof HTMLElement)) return false;
+        const nodeId = element.dataset.graphNodeId;
+        return nodeId ? { nodeId, label: element.textContent?.trim() || nodeId } : false;
+      },
+    }],
     renderHTML({ node, HTMLAttributes }) {
-      const attrs = node.attrs as { nodeId?: unknown; label?: unknown };
-      const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId : "";
-      const label = typeof attrs.label === "string" ? attrs.label : "";
-      return [
-        activatable ? "button" : "span",
-        mergeAttributes(HTMLAttributes, {
-          class: "graph-node-reference-pill recap-node-token",
-          "data-graph-node-id": nodeId,
-          "data-plan-card-reference": "graph",
-          ...(activatable ? { type: "button", "data-graph-node-activation": "enabled" } : {}),
-          contenteditable: "false",
-        }),
-        label,
-      ];
+      const nodeId = typeof node.attrs.nodeId === "string" ? node.attrs.nodeId : "";
+      const label = typeof node.attrs.label === "string" ? node.attrs.label : "";
+      return [activatable ? "button" : "span", mergeAttributes(HTMLAttributes, {
+        class: "graph-node-reference-pill recap-node-token",
+        "data-graph-node-id": nodeId,
+        "data-plan-card-reference": "graph",
+        ...(activatable ? { type: "button", "data-graph-node-activation": "enabled" } : {}),
+        contenteditable: "false",
+      }), label];
     },
   });
 }
 
-function readOnlyBodyExtensions(activatable: boolean) {
-  const graphReferenceExtension = graphNodeReferenceExtension(activatable);
-  const mediaSlotExtension = MediaImageNode.extend({
+const READ_ONLY_RUNBOOK_REFERENCE = Node.create({
+  name: "runbookReference", group: "inline", inline: true, atom: true, selectable: true,
+  addAttributes: () => ({
+    kind: { default: "ref", rendered: false }, refType: { default: "npc", rendered: false },
+    refId: { default: "", rendered: false }, label: { default: "", rendered: false },
+  }),
+  renderHTML({ node, HTMLAttributes }) {
+    const attrs = normalizeRunbookReferenceAttrs(node.attrs, { labelSource: "semantic" });
+    const valid = (node.attrs.kind === "ref" || node.attrs.kind === "action") && isSupportedRunbookReference(attrs);
+    return ["span", mergeAttributes(HTMLAttributes, {
+      class: valid ? runbookReferenceClasses(attrs) : "md-ref-invalid",
+      "data-md-ref-kind": valid ? attrs.kind : "invalid",
+      "data-md-ref-type": attrs.refType,
+      "data-md-ref-id": attrs.refId,
+      contenteditable: "false",
+      title: valid ? undefined : "Invalid runbook reference",
+    }), attrs.label];
+  },
+});
+
+function mediaImageExtension(): AnyExtension {
+  return Node.create({
+    name: "mediaImage", group: "inline", inline: true, atom: true, selectable: true,
+    addAttributes: () => ({
+      assetId: { default: "", rendered: false }, alt: { default: "", rendered: false },
+      width: { default: null, rendered: false }, collapsed: { default: null, rendered: false },
+    }),
     renderHTML({ node }) {
-      return ["span", { "data-media-asset-id": node.attrs.assetId,
+      return ["span", {
+        "data-media-asset-id": node.attrs.assetId,
         "data-media-alt": node.attrs.alt,
         ...(node.attrs.width != null || node.attrs.collapsed != null
           ? { "data-media-presentation": `dmb-image:v1 width=${node.attrs.width} collapsed=${node.attrs.collapsed}` } : {}),
       }];
     },
   });
-  return DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
-    extension.name === GraphNodeReferenceNode.name ? graphReferenceExtension
-      : extension.name === MediaImageNode.name ? mediaSlotExtension : extension
-  ));
+}
+
+function readOnlyBodyExtensions(activatable: boolean): AnyExtension[] {
+  return [StarterKit, WebSourceLink, PlayableElementHeadingAttributes, CalloutNode,
+    ...DECISION_CONSEQUENCE_EXTENSIONS, ...PLAN_TABLE_EXTENSIONS, READ_ONLY_RUNBOOK_REFERENCE,
+    graphNodeReferenceExtension(activatable), mediaImageExtension()];
 }
 
 const READ_ONLY_BODY_EXTENSIONS = readOnlyBodyExtensions(false);
