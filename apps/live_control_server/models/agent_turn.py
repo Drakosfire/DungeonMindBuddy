@@ -16,6 +16,8 @@ from application_state.agent_conversation.context_trace import TurnContextTraceV
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
 
+from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV1, canonical_sha256
+
 from application_state.agent_conversation.types import (
     PlayContentBasis,
     BuildGraphCompletionV1,
@@ -684,6 +686,34 @@ class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
     knowledge_context: AgentBuildGraphContextResponseV1
 
 
+class AgentRulesAnswerContextV1(BaseModel):
+    """Sealed answer attribution; source bytes require a separate admitted read."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_rules_answer_context_v1"] = Field(
+        default="dmb_agent_rules_answer_context_v1", alias="schema")
+    accepted_binding: RulesAcceptedBindingV1
+    accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | None
+
+    @model_validator(mode="after")
+    def validate_accepted_context(self):
+        if canonical_sha256(self.accepted_binding) != self.accepted_binding_sha256:
+            raise ValueError("Rules context differs from accepted seal")
+        approved = self.accepted_binding.base_disposition == "approved"
+        if approved != (self.base_context is not None):
+            raise ValueError("Only an independently approved base has answer context")
+        if self.base_context is not None:
+            completion = self.base_context.completion
+            if completion is None or self.accepted_binding.graph_used != ("world_graph" in completion.answer_basis):
+                raise ValueError("Rules context cannot relabel base Graph grounding")
+        return self
+
+    def validate_answer(self, text: str):
+        segments = () if self.base_context is None else tuple(
+            item.text for item in self.base_context.completion.answer_segments)
+        self.accepted_binding.validate_text(text, segments)
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -760,6 +790,39 @@ class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
     turns: list[AgentConversationHistoryBuildTurnV3 | AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+
+
+class AgentConversationHistoryMixedTurnV1(AgentConversationHistoryTurnV3):
+    schema_: Literal["dmb_agent_conversation_history_mixed_turn_v1"] = Field(
+        default="dmb_agent_conversation_history_mixed_turn_v1", alias="schema")
+    lifecycle_status: Literal["completed"]
+    assistant_text: str = Field(min_length=1, max_length=32000)
+    rules_context: AgentRulesAnswerContextV1
+
+    @model_validator(mode="after")
+    def validate_mixed_history_answer(self):
+        binding = self.rules_context.accepted_binding
+        if self.turn_id != binding.turn_id or self.provenance.world_id != binding.world_id:
+            raise ValueError("Mixed history answer differs from accepted owner")
+        self.rules_context.validate_answer(self.assistant_text)
+        return self
+
+
+class AgentConversationHistoryResponseV4(AgentConversationHistoryResponse):
+    schema_: Literal["dmb_agent_conversation_history_v4"] = Field(
+        default="dmb_agent_conversation_history_v4", alias="schema")
+    turns: list[AgentConversationHistoryMixedTurnV1 | AgentConversationHistoryBuildTurnV3 |
+        AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3 |
+        AgentConversationHistoryBuildTurnV2 | AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+
+    @model_validator(mode="after")
+    def validate_mixed_page_owner(self):
+        for turn in self.turns:
+            if isinstance(turn, AgentConversationHistoryMixedTurnV1):
+                binding = turn.rules_context.accepted_binding
+                if (binding.world_id, binding.conversation_id) != (self.world_id, self.conversation_id):
+                    raise ValueError("Mixed history answer belongs to another conversation")
+        return self
 
 
 class AgentHistoricalSourcePassageResponseV1(BaseModel):

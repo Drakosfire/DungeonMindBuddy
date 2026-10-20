@@ -1223,6 +1223,7 @@ def _serialized_card_a_history_body(
         agent_route.AgentConversationHistoryResponse
         | agent_route.AgentConversationHistoryResponseV2
         | agent_route.AgentConversationHistoryResponseV3
+        | agent_route.AgentConversationHistoryResponseV4
     )
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(

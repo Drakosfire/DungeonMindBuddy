@@ -11,6 +11,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
 from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
@@ -28,6 +30,8 @@ from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryBuildTurnV3,
     AgentConversationHistoryResponseV2,
     AgentConversationHistoryResponseV3,
+    AgentConversationHistoryResponseV4,
+    AgentConversationHistoryMixedTurnV1,
     AgentConversationHistoryPlanTurnV3,
     AgentConversationHistoryTurn,
     AgentConversationHistoryTurnV2,
@@ -1271,6 +1275,7 @@ def _verified_world_id(world_id: str) -> str:
         AgentConversationHistoryResponse
         | AgentConversationHistoryResponseV2
         | AgentConversationHistoryResponseV3
+        | AgentConversationHistoryResponseV4
     ),
 )
 def get_world_conversation_history(
@@ -1283,6 +1288,7 @@ def get_world_conversation_history(
     AgentConversationHistoryResponse
     | AgentConversationHistoryResponseV2
     | AgentConversationHistoryResponseV3
+    | AgentConversationHistoryResponseV4
 ):
     # Authenticate before managed World lookup and every APP-STATE read.
     enforce_native_graph_gm(request)
@@ -1342,11 +1348,22 @@ def get_world_conversation_history(
             pointer_revision=pointer.revision,
             turns=[],
         )
+    contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
     contains_plan_context = any(
-        turn.graph_context_receipt is not None for turn in turns
+        not isinstance(turn, MixedCompletedTurnV1) and turn.graph_context_receipt is not None
+        for turn in turns
     )
     history_turns = []
     for turn in turns:
+        if isinstance(turn, MixedCompletedTurnV1):
+            envelope = turn.envelope
+            history_turns.append(AgentConversationHistoryMixedTurnV1(
+                turn_id=envelope.turn_id, sequence=envelope.sequence,
+                lifecycle_status=envelope.status, user_text=envelope.user_text,
+                assistant_text=turn.assistant_text, provenance=envelope.provenance,
+                idempotency_key=envelope.idempotency_key,
+                rules_context=project_rules_answer_context(turn, delivery_replay=False)))
+            continue
         values = {
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,
@@ -1388,7 +1405,9 @@ def get_world_conversation_history(
                 if include_turn_correlation else AgentConversationHistoryTurn
             )
             history_turns.append(turn_model(**values))
-    if include_turn_correlation:
+    if contains_mixed:
+        response_model = AgentConversationHistoryResponseV4
+    elif include_turn_correlation:
         response_model = AgentConversationHistoryResponseV3
     elif contains_plan_context:
         response_model = AgentConversationHistoryResponseV2
@@ -1404,7 +1423,8 @@ def get_world_conversation_history(
         # before_sequence is exclusive; using the first visible sequence gives
         # the caller the next older page without exposing repository ordering.
         next_before_sequence=(
-            turns[0].sequence if len(turns) == limit and turns else None
+            (turns[0].envelope.sequence if isinstance(turns[0], MixedCompletedTurnV1) else turns[0].sequence)
+            if len(turns) == limit and turns else None
         ),
     )
 
