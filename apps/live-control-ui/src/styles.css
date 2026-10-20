@@ -285,7 +285,9 @@ code {
 .app-chrome-header {
   flex: 0 0 auto;
   min-width: 0;
-  margin: 6px 20px;
+  width: min(1440px, calc(100% - 2rem));
+  box-sizing: border-box;
+  margin: 6px auto;
   position: sticky;
   top: 6px;
   z-index: 20;
