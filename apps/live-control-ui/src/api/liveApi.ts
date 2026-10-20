@@ -668,6 +668,10 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   const pathname = path.split("?", 1)[0];
   if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
+    || pathname === "/api/live/play-runs"
+    || pathname === "/api/live/play-active-run"
+    || pathname === "/api/live/world-play-runs/v2"
+    || pathname === "/api/live/world-play-runs/v2/active"
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
