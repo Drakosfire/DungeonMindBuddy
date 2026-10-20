@@ -156,7 +156,6 @@
 }
 
 @media (max-width: 600px) {
-  .shared-scene-card--plan,
   .shared-scene-choice {
     padding: 0.8rem;
   }
