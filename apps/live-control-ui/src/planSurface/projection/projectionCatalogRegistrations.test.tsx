@@ -218,7 +218,7 @@ describe("explicit Plan definition renderer factories", () => {
     { id: "graph-preview", testId: "graph-preview-module", module: () => GraphPreviewModule },
     { id: "graph-gold-review", testId: "graph-gold-review-module", module: () => GraphGoldReviewModule },
     { id: "manual-review", testId: "manual-review-module", module: () => ManualReviewModule },
-  ] as const)("maps $id to its concrete module via definition.render", ({ id, testId, module }) => {
+  ] as const)("maps $id to its concrete module via definition.render", async ({ id, testId, module }) => {
     const definition = PLAN_PROJECTION_DEFINITIONS.find((entry) => entry.projectionId === id);
     expect(definition).toBeDefined();
     render(
@@ -230,7 +230,7 @@ describe("explicit Plan definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(await screen.findByTestId(testId)).toBeInTheDocument();
     expect(module()).toHaveBeenCalled();
     // Cross-check: sibling modules must not be selected by this factory.
     const others = [
@@ -246,7 +246,7 @@ describe("explicit Plan definition renderer factories", () => {
     }
   });
 
-  it("renders graph-reference as PlanReferenceObjectCard with memory tools and ingest session link", () => {
+  it("renders graph-reference as PlanReferenceObjectCard with memory tools and ingest session link", async () => {
     const definition = PLAN_PROJECTION_DEFINITIONS.find(
       (entry) => entry.projectionId === GRAPH_REFERENCE_PROJECTION_ID,
     );
@@ -287,7 +287,7 @@ describe("explicit Plan definition renderer factories", () => {
       </>,
     );
 
-    expect(screen.getByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
     expect(screen.getByText("Memory tools")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
@@ -304,7 +304,7 @@ describe("explicit Ingest definition renderer factories", () => {
     diagnosticsPanelSpy.mockClear();
   });
 
-  it("maps ingest-recap to IngestionModule via definition.render", () => {
+  it("maps ingest-recap to IngestionModule via definition.render", async () => {
     const definition = INGEST_PROJECTION_DEFINITIONS.find(
       (entry) => entry.projectionId === "ingest-recap",
     );
@@ -318,12 +318,12 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId("ingest-recap-module")).toHaveTextContent("longmont-c2:21");
+    expect(await screen.findByTestId("ingest-recap-module")).toHaveTextContent("longmont-c2:21");
     expect(IngestionModule).toHaveBeenCalled();
     expect(diagnosticsPanelSpy).not.toHaveBeenCalled();
   });
 
-  it("maps graph-review-diagnostics to GraphReviewDiagnosticsToolPanel via definition.render", () => {
+  it("maps graph-review-diagnostics to GraphReviewDiagnosticsToolPanel via definition.render", async () => {
     const definition = INGEST_PROJECTION_DEFINITIONS.find(
       (entry) => entry.projectionId === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
     );
@@ -343,7 +343,7 @@ describe("explicit Ingest definition renderer factories", () => {
         })}
       </>,
     );
-    expect(screen.getByTestId("diagnostics-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("diagnostics-panel")).toBeInTheDocument();
     expect(diagnosticsPanelSpy).toHaveBeenCalledTimes(1);
     expect(IngestionModule).not.toHaveBeenCalled();
   });

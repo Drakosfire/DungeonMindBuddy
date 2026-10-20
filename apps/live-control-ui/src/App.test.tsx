@@ -354,7 +354,7 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /inspector/i }));
-    expect(screen.getByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
   });
 
   it("renders plan surface from /plan", async () => {
