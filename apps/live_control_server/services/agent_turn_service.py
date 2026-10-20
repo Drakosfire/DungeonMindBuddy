@@ -3834,16 +3834,21 @@ def _parse_policy_completion(
             stage="authority", reason="missing_execution",
             message="The provider answer has no durable Graph execution authority.",
         )
+    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) and not isinstance(receipt, BuildGraphContextReceiptV1):
+        from application_state.agent_conversation.native_answer_output import parse_native_answer, NativeAnswerError
+        if build_section_bindings:
+            raise _AnswerValidationFailure(stage="authority", reason="foreign_section_binding")
+        try:
+            return parse_native_answer(final_text, turn, producing_provider_attempt_id, support=build_evidence)
+        except NativeAnswerError as exc:
+            raise _AnswerValidationFailure(stage=exc.stage, reason=exc.reason) from exc
     stage, reason = "unknown", "unknown"
     try:
         stage, reason = "json", "invalid_json"
         candidate = json.loads(final_text)
         stage, reason = "shape", "top_level_shape"
         expected_fields = {"answer_context_status", "answer_segments"}
-        plan_target_only = (not isinstance(receipt, BuildGraphContextReceiptV1)
-            and isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
-            and isinstance(candidate, dict) and set(candidate) == expected_fields)
-        if not isinstance(receipt, BuildGraphContextReceiptV1) and not plan_target_only:
+        if not isinstance(receipt, BuildGraphContextReceiptV1):
             expected_fields.add("citation_map")
         if not isinstance(candidate, dict) or set(candidate) != expected_fields:
             raise ValueError("provider answer must be a strict typed JSON object")
@@ -3857,7 +3862,7 @@ def _parse_policy_completion(
             if not isinstance(segment, dict):
                 raise ValueError("answer segment must be an object")
             normalized = dict(segment)
-            if normalized.get("kind") == "graph_claim" and (isinstance(receipt, BuildGraphContextReceiptV1) or plan_target_only):
+            if normalized.get("kind") == "graph_claim" and isinstance(receipt, BuildGraphContextReceiptV1):
                 normalized = _normalize_build_graph_claim(
                     normalized, build_evidence, turn, producing_provider_attempt_id,
                 )
@@ -3899,11 +3904,6 @@ def _parse_policy_completion(
                 "claim_id", "target_kind", "target_id", "graph_revision", "evidence_ref_ids"}),
                 "source_opened": False} for segment in build_segments
                 if isinstance(segment, graph_types.PlanWorldGraphClaimSegmentV1)]
-            citations = {"entries": entries} if entries else None
-        elif plan_target_only:
-            entries = [{**{key: row[key] for key in (
-                "claim_id", "target_kind", "target_id", "graph_revision", "evidence_ref_ids")},
-                "source_opened": False} for row in normalized_segments if row.get("kind") == "graph_claim"]
             citations = {"entries": entries} if entries else None
         else:
             citations = candidate["citation_map"]
