@@ -22,6 +22,11 @@ export interface BuddyHistoricalSourceReference {
   turn_id: string; attempt: number; trace_id: string; source_read_event_id: string
   source_read_id: string; content_sha256: string
 }
+export interface BuddyHistoricalSourcePassageResponse {
+  schema: 'dmb_agent_historical_source_passage_v1'
+  reference: BuddyHistoricalSourceReference
+  passage: BuddyTraceSourcePassage
+}
 interface Observation { sequence: number; elapsed_ms: number }
 interface GraphLimits {
   max_nodes?: number | null; max_relationships?: number | null

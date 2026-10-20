@@ -13,6 +13,7 @@ from application_state.agent_conversation.context_trace import (
     MAX_CONTEXT_TRACE_BYTES,
     MAX_SOURCE_PASSAGE_CHARS_PER_TURN,
     TraceContextSnapshot,
+    TraceHistoricalSourceReferenceV1,
     TraceGraphTool,
     TraceSourcePassage,
     TracePromptReference,
@@ -363,6 +364,40 @@ class TurnContextTraceStore:
             })
             _save_trace(conn, incomplete)
             return incomplete
+
+    def read_historical_passage(self, reference: TraceHistoricalSourceReferenceV1) -> TraceSourcePassage:
+        """Read one bounded exact capture, never all attempts or current Graph evidence."""
+        from application_state.agent_conversation.service import _ready_dsn
+
+        with unit_of_work(_ready_dsn()) as conn:
+            row = conn.execute(
+                "SELECT CASE WHEN octet_length(capture.payload::text) <= %s "
+                "THEN capture.payload ELSE NULL END "
+                "FROM agent.turn source JOIN agent.turn_context_trace capture "
+                "ON capture.turn_id=source.turn_id "
+                "WHERE source.world_id=%s AND source.conversation_id=%s AND source.turn_id=%s "
+                "AND capture.attempt=%s AND capture.trace_id=%s",
+                (MAX_CONTEXT_TRACE_BYTES, reference.world_id, reference.conversation_id,
+                 reference.turn_id, reference.attempt, reference.trace_id),
+            ).fetchone()
+        if row is None:
+            raise ApplicationStateNotFoundError("historical passage is unavailable")
+        if row[0] is None:
+            raise ApplicationStateValidationError("historical trace exceeds its capture bound")
+        trace = _load_trace(row[0])
+        if (trace.world_id != reference.world_id or trace.conversation_id != reference.conversation_id
+                or trace.turn_id != reference.turn_id or trace.trace_id != reference.trace_id
+                or trace.attempt != reference.attempt):
+            raise ApplicationStateValidationError("historical trace binding is invalid")
+        matches = [item for item in trace.observations if isinstance(item, TraceSourcePassage)
+                   and item.world_id == reference.world_id
+                   and item.source_read_event_id == reference.source_read_event_id
+                   and item.source_read_id == reference.source_read_id
+                   and item.content_sha256 == reference.content_sha256]
+        if len(matches) != 1:
+            raise ApplicationStateNotFoundError("historical passage is unavailable")
+        # _load_trace validates the actual UTF8 digest and exact character count.
+        return matches[0]
 
     def list_attempts(
         self, *, world_id: str, turn_id: UUID,

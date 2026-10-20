@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from application_state.agent_conversation.context_trace import TurnContextTraceV1
+from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
 
@@ -760,6 +760,26 @@ class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
     turns: list[AgentConversationHistoryBuildTurnV3 | AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+
+
+class AgentHistoricalSourcePassageResponseV1(BaseModel):
+    """Exact captured memory; no current Graph or citation authority."""
+
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal["dmb_agent_historical_source_passage_v1"] = Field(
+        default="dmb_agent_historical_source_passage_v1", alias="schema")
+    reference: TraceHistoricalSourceReferenceV1
+    passage: TraceSourcePassage
+
+    @model_validator(mode="after")
+    def validate_binding_and_bytes(self):
+        ref, passage = self.reference, self.passage
+        if (passage.world_id != ref.world_id or passage.source_read_event_id != ref.source_read_event_id
+                or passage.source_read_id != ref.source_read_id or passage.content_sha256 != ref.content_sha256):
+            raise ValueError("historical passage does not match its reference")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 65536:
+            raise ValueError("historical passage response exceeds 64 KiB")
+        return self
 
 
 class AgentTurnContextTraceResponseV1(BaseModel):

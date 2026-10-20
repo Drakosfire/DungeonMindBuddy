@@ -13,6 +13,7 @@ from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.context_trace import (
     ContextTraceObservation,
     TraceSourcePassage,
+    TraceHistoricalSourceReferenceV1,
     TurnContextTraceV1,
 )
 from application_state.agent_conversation.context_trace_store import (
@@ -1168,6 +1169,9 @@ class AgentConversationService:
             turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
             trace_id=trace_id, failure_code=failure_code,
         )
+
+    def read_historical_source_passage(self, reference: TraceHistoricalSourceReferenceV1) -> TraceSourcePassage:
+        return TurnContextTraceStore().read_historical_passage(reference)
 
     def list_context_trace_attempts(
         self, *, world_id: str, turn_id: UUID,

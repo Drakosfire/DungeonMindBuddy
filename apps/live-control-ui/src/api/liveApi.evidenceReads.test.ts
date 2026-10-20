@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'prompt', 'source-passage', 'action-index', 'action-prompt', 'action-diagnostic'] as const
+const cases = ['trace', 'historical-passage', 'prompt', 'source-passage', 'action-index', 'action-prompt', 'action-diagnostic'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -8,6 +8,7 @@ async function setup(base = '') {
 }
 type Api = Awaited<ReturnType<typeof setup>>
 function read(api: Api, kind: typeof cases[number]) {
+  if (kind === 'historical-passage') return api.getWorldAgentHistoricalSourcePassage({schema:'dmb_trace_historical_source_ref_v1',world_id:'world/a',conversation_id:'conversation-a',turn_id:'turn-a',trace_id:'trace-a',attempt:1,source_read_event_id:'event-a',source_read_id:'read/a ?&=',content_sha256:'a'.repeat(64)})
   if (kind === 'action-diagnostic') return api.getPlanActionTerminalDiagnostic('world/a', 'action-a')
   if (kind === 'action-index') return api.getPlanActionPromptIndex('world/a', 'action-a')
   if (kind === 'action-prompt') return api.getPlanActionPromptBody('world/a', 'action-a', 'provider-a')

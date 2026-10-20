@@ -40,6 +40,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentTurnContentBasis,
     AgentTurnRequest,
     AgentTurnContextTraceResponseV1,
+    AgentHistoricalSourcePassageResponseV1,
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentWorkContext,
@@ -1452,6 +1453,44 @@ def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: 
             detail={"code": "source_passage_turn_unavailable"}) from exc
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=409, detail={"code": "source_passage_binding_invalid"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}")
+def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: str,
+        source_read_event_id: str, request: Request):
+    """One exact historical capture, independent of current-turn citation authority."""
+    from fastapi.responses import Response
+    from application_state.agent_conversation.context_trace import TraceHistoricalSourceReferenceV1
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    selectors = list(request.query_params.multi_items())
+    expected = {"conversation_id", "attempt", "source_read_id", "content_sha256"}
+    try:
+        if len(selectors) != len(expected) or {key for key, _ in selectors} != expected:
+            raise ValueError("invalid selectors")
+        query = dict(selectors)
+        uuid_values = [turn_id, trace_id, source_read_event_id, query["conversation_id"]]
+        if any(str(UUID(value)) != value for value in uuid_values):
+            raise ValueError("noncanonical identifier")
+        attempt = int(query["attempt"])
+        if str(attempt) != query["attempt"] or not 1 <= attempt <= 2147483647:
+            raise ValueError("invalid attempt")
+        reference = TraceHistoricalSourceReferenceV1(world_id=verified, turn_id=UUID(turn_id),
+            conversation_id=UUID(query["conversation_id"]), trace_id=UUID(trace_id),
+            source_read_event_id=UUID(source_read_event_id), attempt=attempt,
+            source_read_id=query["source_read_id"], content_sha256=query["content_sha256"])
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail={"code": "historical_passage_selector_invalid"}) from exc
+    try:
+        passage = _conversation_service(request).read_historical_source_passage(reference)
+        result = AgentHistoricalSourcePassageResponseV1(reference=reference, passage=passage)
+        return Response(content=result.model_dump_json(by_alias=True), media_type="application/json",
+                        headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "historical_passage_unavailable"}) from exc
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "historical_passage_binding_invalid"}) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)

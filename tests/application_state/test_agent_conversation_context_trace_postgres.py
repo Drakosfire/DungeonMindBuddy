@@ -99,3 +99,63 @@ def test_trace_migration_rejects_missing_identity_fields(application_state_dsn):
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s",
                 (Jsonb({"execution_start_sequence": 0, "observations": []}), turn.turn_id))
+
+
+def _captured_passage_fixture(dsn):
+    from hashlib import sha256
+    from application_state.agent_conversation.context_trace import TraceSourcePassage, TraceHistoricalSourceReferenceV1
+    service, turn, identity, trace = _setup_turn()
+    text = 'Earlier 🦉 source.'
+    passage = TraceSourcePassage(sequence=0, elapsed_ms=1, source_read_event_id=uuid4(), read_call_id=uuid4(),
+        world_id=turn.world_id, graph_revision='revision', source_read_id='source/a ?&=', anchor_id='anchor',
+        evidence_ref_id='evidence', source_artifact_id='artifact', source_revision_id='revision',
+        outcome='enough', returned_chars=len(text), content_sha256=sha256(text.encode()).hexdigest(), text=text)
+    payload = trace.model_dump(mode='json', by_alias=True)
+    payload['observations'] = [passage.model_dump(mode='json')]
+    with psycopg.connect(dsn) as conn:
+        conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=1', (Jsonb(payload), turn.turn_id))
+        # Deliberately invalid model in another attempt: exact reads must not load it.
+        other = {**payload, 'attempt': 2, 'trace_id': str(uuid4()), 'observations': [{'invalid': True}]}
+        conn.execute('INSERT INTO agent.turn_context_trace(turn_id,attempt,trace_id,payload) VALUES(%s,2,%s,%s)',
+            (turn.turn_id, other['trace_id'], Jsonb(other)))
+    reference = TraceHistoricalSourceReferenceV1(world_id=turn.world_id, conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id, attempt=1, trace_id=trace.trace_id, source_read_event_id=passage.source_read_event_id,
+        source_read_id=passage.source_read_id, content_sha256=passage.content_sha256)
+    return service, reference, passage, payload
+
+
+def test_exact_historical_read_loads_only_one_attempt(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation import context_trace_store
+    service, reference, passage, _ = _captured_passage_fixture(application_state_dsn)
+    load = context_trace_store._load_trace
+    seen = []
+    def record(payload):
+        seen.append(payload['attempt'])
+        return load(payload)
+    monkeypatch.setattr(context_trace_store, '_load_trace', record)
+    assert service.read_historical_source_passage(reference) == passage
+    assert seen == [1]
+
+
+@pytest.mark.parametrize('field', ['world_id', 'conversation_id', 'turn_id', 'trace_id', 'attempt', 'source_read_event_id', 'source_read_id', 'content_sha256'])
+def test_exact_historical_read_rejects_every_changed_pin(application_state_dsn, field):
+    from application_state.errors import ApplicationStateNotFoundError
+    service, reference, _, _ = _captured_passage_fixture(application_state_dsn)
+    value = 3 if field == 'attempt' else 'b' * 64 if field == 'content_sha256' else 'foreign' if field in {'world_id', 'source_read_id'} else uuid4()
+    changed = type(reference).model_validate({**reference.model_dump(), field: value})
+    with pytest.raises(ApplicationStateNotFoundError):
+        service.read_historical_source_passage(changed)
+
+
+@pytest.mark.parametrize('corruption', ['hash', 'count', 'world', 'duplicate'])
+def test_exact_historical_read_fails_closed_on_stored_corruption(application_state_dsn, corruption):
+    service, reference, _, payload = _captured_passage_fixture(application_state_dsn)
+    if corruption == 'hash': payload['observations'][0]['text'] = 'Changed source!'
+    if corruption == 'count': payload['observations'][0]['returned_chars'] += 1
+    if corruption == 'world': payload['world_id'] = 'foreign'
+    if corruption == 'duplicate': payload['observations'].append({**payload['observations'][0], 'sequence': 1})
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=1', (Jsonb(payload), reference.turn_id))
+    from application_state.errors import ApplicationStateError
+    with pytest.raises(ApplicationStateError):
+        service.read_historical_source_passage(reference)

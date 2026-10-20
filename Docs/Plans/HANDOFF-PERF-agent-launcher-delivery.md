@@ -1,6 +1,6 @@
 # Right-sized launcher delivery
 
-**Status:** ACTIVE; PRIME owns design, implementation, review and delivery.
+**Status:** COMPLETE; source lease released and accepted on5202.
 **Base:** 7ab8340461a465b29744a4da143f84c1cd9f4187; branch codex/agent-launcher-delivery; existing buddy-context-loop checkout.
 **Topology:** serial successor to accepted shared chrome1490. Current open PRs have no overlapping asset/chrome lease. Owned UI5202 artifact; API/data unchanged.
 
@@ -19,3 +19,7 @@ Verify decoded dimensions/pixels against the specified source resize, import gra
 ## Author evidence
 
 Derivative67,550bytes versus1,441,393byte master (95.3% smaller); decoded256²RGB pixels match the exact prescribed resize byte-for-byte after lossless WebP round-trip. Production contains only the hashed launcher WebP, not the original master. Existing chrome6/6tests, tsc/build and diff check pass. No CSS/controller behavior changed. Native decode/geometry/protected-state acceptance awaits reviewed merge/adoption.
+
+## Review and accepted delivery
+
+Architecture ReviewCycle1 approved exacte19d71512b79709a1b25d4432293aad45e1ede8f; PR1491 mergede4ab29157d98684bc1e1ad9362ce220dc499e03a. Owned5202 atomically adopted index-BfMQ7Ebc.js/indexSHA25641b5ee43c4702eb6acfb3bd275b46480b9e85213e3a70979f0c118ecfc5bcd40. Native freshIndex80px and Plan43.993px launchers both decode the256x256 hashedWebP completely, saved Plan renders intact. All17protected JSON responses unchanged. Screenshot API unavailable; native image/rectangle receipts in established private evidence. Prior product assets retained for active tabs/rollback; owned QA tab closed. API/runtime data unchanged. This is asset delivery/pixel evidence, not all-DPR visual equivalence or measured laptop latency/RAM.

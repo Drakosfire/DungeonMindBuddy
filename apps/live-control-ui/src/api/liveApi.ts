@@ -347,6 +347,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted))?)?$/.test(pathname)
@@ -669,6 +670,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   const pathname = path.split("?", 1)[0];
   if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname);
@@ -1776,6 +1778,15 @@ export async function getWorldAgentTurnContextTrace(worldId: string, turnId: str
   return apiFetch<import('./buddyContextTraceTypes').WorldAgentTurnContextTraceResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace`,
     signal ? { signal } : undefined,
+  );
+}
+
+export async function getWorldAgentHistoricalSourcePassage(reference: import('./buddyContextTraceTypes').BuddyHistoricalSourceReference, signal?: AbortSignal) {
+  const query = new URLSearchParams({ conversation_id: reference.conversation_id, attempt: String(reference.attempt),
+    source_read_id: reference.source_read_id, content_sha256: reference.content_sha256 });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyHistoricalSourcePassageResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(reference.world_id)}/conversation/turns/${encodeURIComponent(reference.turn_id)}/context-trace/${encodeURIComponent(reference.trace_id)}/source-passages/${encodeURIComponent(reference.source_read_event_id)}?${query}`,
+    { signal, cache: 'no-store' },
   );
 }
 
