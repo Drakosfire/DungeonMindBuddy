@@ -33,6 +33,20 @@ describe("protected read acquisition",()=>{
   const reads=[api.authenticatedApiFetch(historyPath,{headers:{Accept:"application/json"},method:"GET"}),api.authenticatedApiFetch(historyPath,{method:"GET",headers:new Headers({accept:"application/json"})}),api.authenticatedApiFetch(historyPath,{headers:{Accept:"text/plain"}})];
   await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(2));gate.resolve(Response.json({}));await Promise.all(reads);
  });
+ it("shares equivalent managed requests with omitted versus explicit null defaults",async()=>{
+  api.setNativeGraphAccessToken("managed-defaults");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const plain={schema:"dmb_managed_world_graph_projection_request_v1" as const,managedWorldId:"elderwyld"};
+  const reads=[api.postManagedWorldGraphProjection(plain),api.postManagedWorldGraphProjection({queryText:null,revisionPin:null,...plain})];
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));gate.resolve(Response.json({fixture:true}));await Promise.all(reads);
+ });
+ it("preserves explicit empty queries, exact pins and unexpected fields for server rejection",async()=>{
+  api.setNativeGraphAccessToken("managed-fields");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const plain={schema:"dmb_managed_world_graph_projection_request_v1" as const,managedWorldId:"elderwyld"};
+  const reads=[api.postManagedWorldGraphProjection(plain),api.postManagedWorldGraphProjection({...plain,queryText:""}),api.postManagedWorldGraphProjection({...plain,revisionPin:"pin-1"}),api.postManagedWorldGraphProjection({...plain,managedWorldId:"other"}),api.postManagedWorldGraphProjection({...plain,unexpected:"reject-this"} as never).catch(error=>error.status)];
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(5));const bodies=fetch.mock.calls.map(([,init])=>JSON.parse(String(init?.body)));
+  expect(bodies.some(body=>body.queryText==="")).toBe(true);expect(bodies.some(body=>body.revisionPin==="pin-1")).toBe(true);expect(bodies.some(body=>body.unexpected==="reject-this")).toBe(true);
+  gate.resolve(Response.json({detail:"Strict schema rejection"},{status:422}));expect((await Promise.allSettled(reads)).filter(result=>result.status==="rejected")).toHaveLength(4);
+ });
  it("isolates World, page, options and projection query/revision",async()=>{
   api.setNativeGraphAccessToken("test-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const reads=[historyPath,historyPath.replace("elderwyld","other"),historyPath+"&before_sequence=10"].map(path=>api.authenticatedApiFetch(path));reads.push(api.authenticatedApiFetch(historyPath,{cache:"no-store"}));
