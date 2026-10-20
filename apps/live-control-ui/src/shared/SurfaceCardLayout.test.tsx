@@ -3,7 +3,8 @@ import { afterEach, expect, it } from "vitest";
 import { SceneCard } from "./SceneCard";
 import { SurfaceCardLayout } from "./SurfaceCardLayout";
 import { ReadOnlyBodyContent } from "../markdownReader/ReadOnlyBodyContent";
-import layoutCss from "./surfaceCardLayout.css?raw";
+import { readFileSync } from "node:fs";
+const layoutCss = readFileSync(new URL("./surfaceCardLayout.css", import.meta.url), "utf8");
 
 afterEach(cleanup);
 it("uncaps scene, beat and decision readers inside shared paper while retaining outside reader and media sizing", () => {
@@ -24,7 +25,7 @@ it("uncaps scene, beat and decision readers inside shared paper while retaining 
   const paper = screen.getByTestId("paper");
   const readers = paper.querySelectorAll(".play-body");
   expect(readers.length).toBeGreaterThanOrEqual(4);
-  for (const reader of readers) expect(getComputedStyle(reader).maxWidth).toBe("none");
+  for (const reader of readers) expect(getComputedStyle(reader).maxWidth, reader.className).toBe("none");
   expect(getComputedStyle(screen.getByTestId("outside")).maxWidth).toBe("78ch");
   expect(screen.getByAltText("Explicit media width")).toHaveStyle({ width: "55%" });
 });
