@@ -34,9 +34,11 @@ from .rules_authority_input import verify_prepared_input
 from .rules_authority_types import AnswerCompositionV1, ClosedRulesModel
 from .source_writer_output import strict_json
 from .types import (
+    PlanWorldGraphContextReceiptV1,
     PlanWorldGraphCompletionV2,
     PlanWorldGraphExecutionV3,
     PlayWorldGraphCompletionV1,
+    PlayWorldGraphContextReceiptV1,
     PlayWorldGraphExecutionV1,
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
@@ -320,6 +322,17 @@ def normalize_native_mixed_output(
         raise ValueError("Native Rules execution differs from its Plan/Play turn")
     if turn.graph_context_execution != graph_execution:
         raise ValueError("Native Rules Graph execution differs from its owning turn")
+    receipt = turn.graph_context_receipt
+    native_plan = isinstance(receipt, PlanWorldGraphContextReceiptV1) and isinstance(
+        graph_execution, PlanWorldGraphExecutionV3
+    )
+    native_play = isinstance(receipt, PlayWorldGraphContextReceiptV1) and isinstance(
+        graph_execution, PlayWorldGraphExecutionV1
+    )
+    if not (native_plan or native_play):
+        raise ValueError("Native mixed output requires an owning Plan or Play Graph pair")
+    if receipt.context_receipt_sha256 != graph_execution.context_receipt_sha256:
+        raise ValueError("Native Rules Graph execution differs from its frozen receipt")
 
     answer = verify_native_output(graph_execution, rules_execution, proof, capture)
     included = _one(

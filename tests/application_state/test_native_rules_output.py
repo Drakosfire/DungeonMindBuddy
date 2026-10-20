@@ -217,6 +217,18 @@ def test_native_mixed_output_marks_unclaimed_plan_base_without_discarding_turn_g
     assert result.assistant_text == "The rule applies."
 
 
+def test_native_mixed_output_rejects_build_receipt_with_plan_graph_execution():
+    from application_state.agent_conversation.types import BuildGraphContextReceiptV1
+
+    turn, _ = plan_turn()
+    graph, rules, proof, capture, _, turn = native_case(graph_turn=turn)
+    build_receipt = BuildGraphContextReceiptV1.model_construct()
+    forged_turn = turn.model_copy(update={"graph_context_receipt": build_receipt})
+
+    with pytest.raises(ValueError, match="owning Plan or Play Graph pair"):
+        normalize_native_mixed_output(forged_turn, graph, rules, proof, capture)
+
+
 def test_native_output_rechecks_actual_rules_call_and_result_bytes():
     graph, rules, proof, capture, _, _ = native_case()
     body = json.loads(proof.prepared_request_json)
