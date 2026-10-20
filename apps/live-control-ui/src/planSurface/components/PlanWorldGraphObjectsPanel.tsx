@@ -11,7 +11,7 @@ import type {
   OpenGraphReferenceArgs,
 } from "../../graphReference/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import { useOptionalWorldGraphLensInformationChannel } from "../../graphLens/useWorldGraphLensProjection";
+import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection, useOptionalWorldGraphLensInformationChannel } from "../../graphLens/useWorldGraphLensProjection";
 import type {
   SurfaceInformationChannel,
   SurfaceInformationSnapshot,
@@ -239,16 +239,18 @@ export function PlanWorldGraphObjectsPanel({
   isInsertCurrentlyEnabled,
   onInsertReference,
 }: PlanWorldGraphObjectsPanelProps) {
+  useWorldGraphLensProjectionDemand(true);
+  const graph = useOptionalWorldGraphLensProjection();
   const channel = useOptionalWorldGraphLensInformationChannel();
   if (!channel) {
     return (
       <section
         className="plan-world-graph-objects-panel"
         data-testid="plan-world-graph-objects-panel"
-        data-status="no-request"
+        data-status={graph?.request ? "loading" : "no-request"}
       >
         <p className="graph-reference-search__status" role="status">
-          No active World Graph lens request is selected.
+          {graph?.request ? "World Graph information is not loaded yet." : "No active World Graph lens request is selected."}
         </p>
       </section>
     );

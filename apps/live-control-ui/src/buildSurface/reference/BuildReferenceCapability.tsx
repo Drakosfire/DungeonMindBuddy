@@ -33,6 +33,7 @@ import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdap
 import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
 import {
   useOptionalWorldGraphLensInformationChannel,
+  useWorldGraphLensProjectionDemand,
   useOptionalWorldGraphLensProjection,
 } from "../../graphLens/useWorldGraphLensProjection";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConfig";
@@ -423,6 +424,8 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     sharedLensIdentityKey,
     sharedProjection?.requestKey,
   ]);
+
+  useWorldGraphLensProjectionDemand(Boolean(acceptedDocument) && lens.status === "ready");
 
   const documentIdentity = useMemo(
     () => ({

@@ -5,7 +5,7 @@ import { LoadedGraphBrowser, LoadedWorldGraphExplorer } from "./LoadedWorldGraph
 
 const state = vi.hoisted(() => ({ world: { kind: "managed", worldId: "elderwyld", name: "Elderwyld" }, graph: null as any }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => state.world }));
-vi.mock("./useWorldGraphLensProjection", () => ({ useOptionalWorldGraphLensProjection: () => state.graph }));
+vi.mock("./useWorldGraphLensProjection", () => ({ useOptionalWorldGraphLensProjection: () => state.graph, useWorldGraphLensProjectionDemand: vi.fn() }));
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -25,8 +25,8 @@ const projection: WorldGraphProjection = {
 describe("loaded World graph inspection", () => {
   it("searches aliases and navigates loaded connections without a fetch", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} projectionState="ready" projectionError={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
     expect(screen.getByRole("dialog", { name: "Elderwyld loaded graph" })).toBeVisible();
     expect(screen.getByText(/projection is truncated/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Find a node"), { target: { value: "Ironveil" } });
@@ -37,7 +37,7 @@ describe("loaded World graph inspection", () => {
     expect(detail).toHaveTextContent("Brin guards the warehouse.");
     fireEvent.click(screen.getByRole("button", { name: "Close graph" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explore loaded graph" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Explore graph" })).toHaveFocus();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -48,8 +48,8 @@ describe("loaded World graph inspection", () => {
       adjacency: [projection.nodes[0]!.adjacency[0]!, { ...projection.nodes[0]!.adjacency[0]!, edgeId: "second-edge" }] };
     const raw = { ...projection, nodes: [rawNode, { ...node("brin", "Brin"), kind: "player_character", role: "player_character" }] };
     const original = JSON.stringify(raw);
-    render(<LoadedGraphBrowser worldName="Elderwyld" projection={raw} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    render(<LoadedGraphBrowser worldName="Elderwyld" projection={raw} projectionState="ready" projectionError={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
     fireEvent.click(screen.getByRole("button", { name: "Captain Lysandra NPC" }));
     const detail = screen.getByRole("article", { name: "Selected graph node" });
     expect(within(detail).getByText("NPC", { exact: true })).toBeInTheDocument();
@@ -66,8 +66,8 @@ describe("loaded World graph inspection", () => {
 
   it("keeps the loaded coverage visible while filtering subjects", () => {
     const mixed = { ...projection, nodes: [node("brin", "Brin"), { ...node("mirathorn", "Mirathorn"), kind: "location" }] };
-    render(<LoadedGraphBrowser worldName="Elderwyld" projection={mixed} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    render(<LoadedGraphBrowser worldName="Elderwyld" projection={mixed} projectionState="ready" projectionError={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
     expect(screen.getByRole("status")).toHaveTextContent("counts and search below describe only what is loaded");
     fireEvent.change(screen.getByRole("combobox", { name: "Show" }), { target: { value: "location" } });
     expect(screen.getByText("1 match in the loaded projection")).toBeInTheDocument();
@@ -75,12 +75,12 @@ describe("loaded World graph inspection", () => {
     expect(screen.queryByRole("button", { name: "Brin Person" })).not.toBeInTheDocument();
   });
 
-  it("removes stale graph content and gates exploration when the projection is unavailable", () => {
-    const view = render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+  it("removes stale graph content and allows reopening when the projection is unavailable", () => {
+    const view = render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} projectionState="ready" projectionError={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
     fireEvent.click(screen.getByRole("button", { name: "Lysandra Person" }));
-    view.rerender(<LoadedGraphBrowser worldName="Elderwyld" projection={null} />);
-    expect(screen.getByRole("button", { name: "Explore loaded graph" })).toBeDisabled();
+    view.rerender(<LoadedGraphBrowser worldName="Elderwyld" projection={null} projectionState="unavailable" projectionError={null} />);
+    expect(screen.getByRole("button", { name: "Explore graph" })).toBeEnabled();
     expect(screen.queryByText("Lysandra guards the warehouse.")).not.toBeInTheDocument();
     expect(screen.getByText(/previous projection is no longer shown/)).toBeInTheDocument();
   });
@@ -88,11 +88,11 @@ describe("loaded World graph inspection", () => {
   it("resets the inspector when the managed World switches", () => {
     state.graph = { projectionState: "ready", projection };
     const view = render(<LoadedWorldGraphExplorer />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
     state.world = { kind: "managed", worldId: "sheep", name: "Sheep" };
     state.graph = { projectionState: "loading", projection: null };
     view.rerender(<LoadedWorldGraphExplorer />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explore loaded graph" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Explore graph" })).toBeEnabled();
   });
 });

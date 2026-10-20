@@ -16,7 +16,7 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../../graphLens/WorldGraphLensContext";
 import { isFocusValidationBlocking } from "../../graphLens/planGraphFocusOptions";
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import {
   extractExactGraphReferenceScope,
 } from "../../graphReference/resolveGraphReference";
@@ -267,6 +267,7 @@ function usePlanGraphReferenceResolverLoad(
   sessionDescriptor: PlanSessionDescriptor | null | undefined,
   revisionRefreshToken?: string | number | null,
 ): UsePlanGraphReferenceResolverResult {
+  useWorldGraphLensProjectionDemand(Boolean(sessionDescriptor));
   const sharedProjection = useOptionalWorldGraphLensProjection();
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
   const [projectionState, setProjectionState] = useState<GraphReferenceProjectionState>("loading");
@@ -374,7 +375,8 @@ function usePlanGraphReferenceResolverLoad(
   }, [context, focusValidationPending, projectionRefreshKey, skipLocalProjectionLoad]);
 
   const effectiveProjection = sharedProjection?.projection ?? projection;
-  const effectiveProjectionState = sharedProjection?.projectionState ?? projectionState;
+  const effectiveProjectionState = sharedProjection?.projectionState === "idle"
+    ? "loading" : sharedProjection?.projectionState ?? projectionState;
   const effectiveProjectionError = sharedProjection?.projectionError ?? projectionError;
   const effectiveLastProjectionLoadMs = sharedProjection?.lastProjectionLoadMs ?? lastProjectionLoadMs;
   const effectiveLastProjectionLoadOutcome =

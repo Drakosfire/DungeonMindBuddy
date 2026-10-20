@@ -7,11 +7,20 @@ import type { ManagedWorldGraphProjectionResponse, WorldGraphProjection } from "
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import {
   WorldGraphLensProvider,
-  WorldGraphLensProjectionProvider,
+  WorldGraphLensProjectionProvider as ProjectionProvider,
+  useWorldGraphLensProjectionDemand,
   useOptionalWorldGraphLensInformationChannel,
   useWorldGraphLens,
   useWorldGraphLensProjection,
 } from "./index";
+
+function Demand({ children }: { children: ReactNode }) {
+  useWorldGraphLensProjectionDemand(true);
+  return children;
+}
+function WorldGraphLensProjectionProvider(props: Parameters<typeof ProjectionProvider>[0]) {
+  return createElement(ProjectionProvider, props, createElement(Demand, null, props.children));
+}
 
 function headProjection(
   snapshotOverrides: Partial<WorldGraphProjection["snapshot"]> = {},
@@ -183,7 +192,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({
       schema: "dmb_managed_world_graph_projection_request_v1",
       managedWorldId: worldId,
-    }));
+    }), expect.any(AbortSignal));
     expect(spy).toHaveBeenCalledTimes(1);
     expect(nativeSpy).not.toHaveBeenCalled();
     expect(result.current.projection?.snapshot.worldId).toBe("eldyrwild");
@@ -512,12 +521,14 @@ describe("WorldGraphLensProjectionProvider", () => {
     });
 
     await waitFor(() => expect(result.current.channel).not.toBeNull());
-    const channel = result.current.channel!;
-    const descriptor = channel.descriptor;
+    const retired = result.current.channel!;
 
     refreshToken = "r1";
     rerender();
-    expect(result.current.channel).toBe(channel);
+    const channel = result.current.channel!;
+    expect(channel).not.toBe(retired);
+    expect(retired.getSnapshot().state.status).toBe("loading");
+    const descriptor = channel.descriptor;
 
     await act(async () => {
       const campaignId = result.current.projection.request?.campaignId ?? "longmont-c2";
@@ -579,7 +590,9 @@ describe("WorldGraphLensProjectionProvider", () => {
     refreshToken = "r1";
     rerender();
     await waitFor(() => expect(channel.getSnapshot().generation).toBeGreaterThan(first.generation));
-    expect(result.current.channel).toBe(channel);
+    expect(result.current.channel).not.toBe(channel);
+    await waitFor(() => expect(result.current.channel?.getSnapshot().state.status).toBe("ready"));
+    expect(channel.getSnapshot().state.status).toBe("loading");
   });
 
   it("does not introduce a second World Graph request path", async () => {

@@ -1,6 +1,6 @@
 # One pending projection transport owner
 
-**Status:** ACTIVE; PRIME adopts Architecture's serial prerequisite before demand-driven projection loading.
+**Status:** COMPLETE; reviewed, merged and accepted on5202; source lease released.
 **Base:**7da2ef9b8d2bf047fcfdd5ba82eee1c4a9b0b3c9; branch codex/retire-projection-warm-cache, existing buddy-context-loop checkout.
 **Topology:**serial after accepted1494. Current open work has no overlapping projectioncache/API lease. UI5202 only; API/data/dependencies unchanged.
 
@@ -26,3 +26,7 @@ Verify pendingnative/recap/managed1HTTPperexactkey, sequentialsettledsuccess/err
 ## Author verification
 
 Focused transport/acquisition cohort50/50 passes, including14 new projection acquisition cases; API/native Graph provider boundary153/153 passes. Actual application TypeScript project and production Vite build pass (existing large-chunk warning remains). No retired cache references remain under UI src. Cumulative source diff inspected and diffcheck clean. Production entry index-BtItgvKx.js; no runtime adoption before exact-head independent review. Sequential fresh reads are deliberate; no measured total-memory or universal latency claim.
+
+## Accepted delivery
+
+Architecture/Bugbot Cycle1 APPROVE exact9012a0ab039dbbbbe022b1e5009b69ac32fe7868; independently203/203 focused tests. PR1495 merge4574abf82ef176fbcf870628107d5c9e46a7f83b. UI-only default5202 index-BtItgvKx.js, indexSHA256a8c4a6c70d3f177dc7706b314f7bf4ed512aa884a5ac08653a6c6cccf423f111; prior assets retained, API unchanged/healthy. Native Plan one managed projectionPOST200/no inference and Next→Document→Cards retained First sight of Edge. Ended Play review/reflections rendered. All17protectedresponses unchanged. Owned tab/temporaryHTML removed. Native evidence belongs PRIME, independent review source/tests only. No demand/memory reduction claim.

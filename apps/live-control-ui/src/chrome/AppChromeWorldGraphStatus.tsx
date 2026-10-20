@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { GraphLoadPanel } from "../graphLens/GraphLoadPanel";
 import type { PlanGraphLensFocus, ReviewCampaignId } from "../graphLens/sessionCampaignContext";
 import { useOptionalPlanGraphLens } from "../graphLens/WorldGraphLensContext";
-import { useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
+import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import {
   SurfaceContextPopover,
@@ -64,13 +64,13 @@ export function formatWorldGraphChromeScope(input: {
 export function presentWorldGraphChromeStatus(input: {
   hasProjectionContext: boolean;
   hasLensControls: boolean;
-  projectionState: "loading" | "ready" | "error" | "unavailable" | null;
+  projectionState: "idle" | "loading" | "ready" | "error" | "unavailable" | null;
   projectionError: string | null;
   focusValidationStatus: string | null;
   selectedCampaignIds: readonly ReviewCampaignId[] | null;
   focus: PlanGraphLensFocus | null;
 }): WorldGraphChromePresentation {
-  if (!input.hasProjectionContext) {
+  if (!input.hasProjectionContext || input.projectionState === "idle") {
     return {
       tone: "not_loaded",
       compactLabel: "World · Not loaded",
@@ -152,10 +152,11 @@ function WorldGraphConstellation({ tone }: { tone: WorldGraphChromeTone }) {
 }
 
 /**
- * Application-chrome World Graph status. Observes lens/projection; does not load.
+ * Resting chrome observes the lens; open inspection explicitly owns projection demand.
  */
 export function AppChromeWorldGraphStatus({ compact = false }: { compact?: boolean } = {}) {
   const [open, setOpen] = useState(false);
+  const retry = useWorldGraphLensProjectionDemand(open);
   const selectedWorld = useSelectedWorld();
   const projection = useOptionalWorldGraphLensProjection();
   const lens = useOptionalPlanGraphLens();
@@ -164,10 +165,10 @@ export function AppChromeWorldGraphStatus({ compact = false }: { compact?: boole
     () => selectedWorld.kind === "managed"
       ? (() => {
           const state = projection?.projectionState;
-          const tone: WorldGraphChromeTone = state === "unavailable" ? "unavailable"
+          const tone: WorldGraphChromeTone = !state || state === "idle" ? "not_loaded" : state === "unavailable" ? "unavailable"
             : state === "ready" ? "ready"
               : state === "error" ? "error" : "loading";
-          const status = state === "unavailable" ? "Not initialized"
+          const status = !state || state === "idle" ? "Not loaded" : state === "unavailable" ? "Not initialized"
             : state === "ready" ? "Ready"
               : state === "error" ? "Needs attention" : "Loading…";
           return {
@@ -240,6 +241,8 @@ export function AppChromeWorldGraphStatus({ compact = false }: { compact?: boole
                 ? `${projection.nodeCount.toLocaleString()} node${projection.nodeCount === 1 ? "" : "s"}`
                 : presentation.fullLabel}
             </p>
+            {(projection.projectionState === "error" || projection.projectionState === "unavailable") && retry
+              ? <button type="button" onClick={retry}>Retry graph load</button> : null}
             <GraphLoadPanel
               projectionState={projection.projectionState}
               projectionError={projection.projectionError}
