@@ -254,6 +254,35 @@ describe("Play selected-World admission", () => {
     expect(screen.getByRole("link",{name:"Open a Plan →"})).toHaveAttribute("href","/plan?world=world-b");
     expect(screen.queryByTestId("play-load-run")).not.toBeInTheDocument();
   });
+  it("aborts the previous World's run inventory when navigation changes", async () => {
+    const first = deferred<Awaited<ReturnType<typeof listWorldPlayRuns>>>();
+    let firstSignal: AbortSignal | undefined;
+    vi.mocked(listWorldPlayRuns).mockImplementation((worldId, signal) => {
+      if (worldId === "world-b") {
+        firstSignal = signal;
+        return first.promise;
+      }
+      return Promise.resolve({ schema_version: "dmb_world_play_runs_list_v2", records: [] });
+    });
+    window.history.replaceState({}, "", "/play?world=world-b&choose=1");
+    const view = render(<PlaySurfacePage />);
+    await waitFor(() => expect(firstSignal).toBeDefined());
+
+    await act(async () => {
+      selectedWorldHarness.worldId = "world-a";
+      window.history.replaceState({}, "", "/play?world=world-a&choose=1");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      view.rerender(<PlaySurfacePage />);
+    });
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    await act(async () => {
+      first.resolve({ schema_version: "dmb_world_play_runs_list_v2", records: [worldRun()] });
+      await first.promise;
+    });
+    expect(screen.queryByTestId(`play-session-${runId}`)).not.toBeInTheDocument();
+  });
   it("puts the selected Plan's active session first with its title and notes, without creating anything", async () => {
     window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${artifactId}`);
     vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun(runId));
@@ -348,7 +377,7 @@ describe("Play selected-World admission", () => {
     expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
     expect(playDetails("play-source-cue")).toHaveTextContent("Created from saved Runbook version 1");
     expect(getWorldPlayRun).toHaveBeenCalledWith(runId, "world-b");
-    expect(listWorldPlayRuns).toHaveBeenCalledExactlyOnceWith("world-b");
+    expect(listWorldPlayRuns).toHaveBeenCalledExactlyOnceWith("world-b", expect.any(AbortSignal));
     expect(listPlayRuns).not.toHaveBeenCalled();
     expect(getWorldPlayRunReferenceManifest).toHaveBeenCalledWith(runId, "world-b");
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledWith(artifactId, "world-b", 1, shaA);
@@ -723,7 +752,7 @@ describe("Play selected-World admission", () => {
       view.rerender(<PlaySurfacePage />);
     });
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a"));
+    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a", expect.any(AbortSignal)));
 
     await act(async () => {
       pendingRebase.resolve(worldRun({
@@ -788,7 +817,7 @@ describe("Play selected-World admission", () => {
       view.rerender(<PlaySurfacePage />);
     });
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a"));
+    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a", expect.any(AbortSignal)));
 
     await act(async () => {
       pendingRebase.reject(new Error("rebase response lost"));

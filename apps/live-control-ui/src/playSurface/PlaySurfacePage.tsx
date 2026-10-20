@@ -396,13 +396,14 @@ function PlayChooser({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       setStatus("loading");
       setRecords([]);
       try {
         const listed = selectedWorldId
-          ? await listWorldPlayRuns(selectedWorldId)
-          : await listPlayRuns();
+          ? await listWorldPlayRuns(selectedWorldId, controller.signal)
+          : await listPlayRuns({}, controller.signal);
         if (cancelled) return;
         setRecords(listed.records.filter(record => selectedWorldId
           ? record.schema_version === "dmb_world_play_run_record_v2" && record.world_id === selectedWorldId
@@ -426,6 +427,7 @@ function PlayChooser({
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedWorldId, trashInventoryVersion]);
 

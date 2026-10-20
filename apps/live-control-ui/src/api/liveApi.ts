@@ -2967,12 +2967,12 @@ export async function putWorldPlayActiveRun(
 export async function listPlayRuns(args: {
   campaign_id?: string;
   playable_artifact_id?: string;
-} = {}): Promise<PlayRunsListResponse> {
+} = {}, signal?: AbortSignal): Promise<PlayRunsListResponse> {
   const params = new URLSearchParams();
   if (args.campaign_id) params.set("campaign_id", args.campaign_id);
   if (args.playable_artifact_id) params.set("playable_artifact_id", args.playable_artifact_id);
   const query = params.toString();
-  return apiFetch<PlayRunsListResponse>(`/api/live/play-runs${query ? `?${query}` : ""}`);
+  return apiFetch<PlayRunsListResponse>(`/api/live/play-runs${query ? `?${query}` : ""}`, signal ? { signal } : undefined);
 }
 
 export async function getPlayRun(
@@ -3018,9 +3018,10 @@ export async function putPlayRunProgress(
   );
 }
 
-export async function listWorldPlayRuns(worldId: string): Promise<WorldPlayRunsListResponseV2> {
+export async function listWorldPlayRuns(worldId: string, signal?: AbortSignal): Promise<WorldPlayRunsListResponseV2> {
   const response = await apiFetch<WorldPlayRunsListResponseV2>(
     `/api/live/world-play-runs/v2?${worldQuery(worldId)}`,
+    signal ? { signal } : undefined,
   );
   if (
     response.schema_version !== "dmb_world_play_runs_list_v2"
