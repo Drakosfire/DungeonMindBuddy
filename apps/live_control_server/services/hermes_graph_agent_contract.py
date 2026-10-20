@@ -633,13 +633,32 @@ def decode_worker_wire(raw: bytes | bytearray | memoryview | str, *, body_limit:
         raise ValueError("wire payload must be bytes or str")
     text = raw if isinstance(raw, str) else bytes(raw).decode("utf-8")
     size = len(text.encode("utf-8"))
-    if size > limit:
-        raise ValueError("provider_authorization_frame_bytes_exceeded")
+    # Native exact-response capture is the only other large worker frame. Its
+    # own closed decoder enforces the expanded JSON-escape ceiling; ordinary
+    # worker messages remain under MAX_WIRE_BYTES.
+    if size > MAX_WIRE_BYTES:
+        try:
+            candidate = json.loads(text)
+        except (TypeError, ValueError, RecursionError):
+            candidate = None
+        if isinstance(candidate, dict) and candidate.get("type") == "native_provider_reply":
+            from apps.live_control_server.services.native_rules_capture import (
+                MAX_CAPTURE_FRAME_BYTES, decode_native_reply_wire,
+            )
+            if size > MAX_CAPTURE_FRAME_BYTES:
+                raise ValueError("native capture frame exceeds byte bound")
+            decode_native_reply_wire(text)
+            return candidate
+        if size > limit:
+            raise ValueError("provider_authorization_frame_bytes_exceeded")
     message = json.loads(text)
     if not isinstance(message, dict):
         raise ValueError("wire payload must be a JSON object")
     if message.get("type") == "provider_authorization_request":
         _validate_provider_frame(message, body_limit)
+    elif message.get("type") == "native_provider_reply":
+        from apps.live_control_server.services.native_rules_capture import decode_native_reply_wire
+        decode_native_reply_wire(text)
     elif size > MAX_WIRE_BYTES:
         raise ValueError("non-provider wire payload exceeds max bytes")
     return message
