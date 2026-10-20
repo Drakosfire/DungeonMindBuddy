@@ -871,6 +871,7 @@
 }
 
 .play-cockpit-center .play-body {
+  max-width: none;
   color: inherit;
 }
 
@@ -1362,3 +1363,17 @@
 .play-outline .surface-contents { position: static; width: 100%; }
 .play-outline .surface-contents__list { max-height: calc(100dvh - var(--app-chrome-top, 0px) - 8rem); }
 .play-outline .play-rail-body[hidden] { display: none !important; }
+
+/* Contents keeps the same compact book control in either rail state. */
+.play-outline .play-rail-toggle,
+.play-outline.is-collapsed .play-rail-toggle {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.35rem;
+  writing-mode: horizontal-tb;
+  text-align: center;
+  font-size: 1.2rem;
+}
