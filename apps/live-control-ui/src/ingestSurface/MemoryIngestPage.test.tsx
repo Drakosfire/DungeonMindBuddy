@@ -2,7 +2,9 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getExtractionRun, getPlanView } from "../api/liveApi";
+import { getExtractionRun, getPlanView, NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT } from "../api/liveApi";
+import { startReadWave } from "../api/inFlightReads";
+import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import type { SelectedWorldState } from "../selectedWorld/SelectedWorldContext";
 import { mockPlanView } from "../test/fixtures";
 import { MemoryIngestPage } from "./MemoryIngestPage";
@@ -14,17 +16,19 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
 }));
 const selection = vi.hoisted(() => ({ current: { kind: "managed", worldId: "world-b", name: "World B", documentId: null } as SelectedWorldState }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => selection.current }));
-vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
+vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: vi.fn() }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => ({
   GraphReviewWorkbenchModule: ({
     sourceReviewOnly,
-    locationSearch,
-  }: { sourceReviewOnly?: boolean; locationSearch?: string }) => (
+    locationSearch, initialRunObservation,
+  }: { sourceReviewOnly?: boolean; locationSearch?: string; initialRunObservation: import("./ingestInitialRunObservation").IngestInitialRunObservation }) => (
     <div
       data-testid="exact-graph-review"
       data-source-review-only={sourceReviewOnly ? "true" : "false"}
       data-location-search={locationSearch}
+      data-observed-generation={initialRunObservation.owner.generation}
+      data-observed-run={initialRunObservation.status === "ready" ? initialRunObservation.run.run_id : "none"}
     />
   ),
 }));
@@ -87,7 +91,8 @@ describe("managed-World Ingest boundary", () => {
     render(<MemoryIngestPage />);
     expect(await screen.findByRole("heading", { name: "Bring a source into the story." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open build/i })).toHaveAttribute("href", "/build?world=world-b");
-    expect(getPlanView).toHaveBeenCalledWith("world-b");
+    expect(getPlanView).toHaveBeenCalledWith("world-b", expect.any(AbortSignal));
+    expect(getExtractionRun).not.toHaveBeenCalled();
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 
@@ -144,7 +149,7 @@ describe("managed-World Ingest boundary", () => {
     } as Awaited<ReturnType<typeof getExtractionRun>>);
     render(<MemoryIngestPage />);
     expect(await screen.findByTestId("exact-graph-review")).toBeInTheDocument();
-    expect(getPlanView).toHaveBeenCalledWith("world-b");
+    expect(getPlanView).toHaveBeenCalledWith("world-b", expect.any(AbortSignal));
   });
 
   it("opens an exact recap as read-only source review with the selected World shown as target", async () => {
@@ -214,7 +219,7 @@ describe("managed-World Ingest boundary", () => {
         window.history.replaceState({}, "", `/ingest?world=elderwyld&extractionRunId=${runId}`);
         window.dispatchEvent(new PopStateEvent("popstate"));
       });
-      await waitFor(() => expect(getExtractionRun).toHaveBeenCalledWith(runId));
+      await waitFor(() => expect(getExtractionRun).toHaveBeenCalledWith(runId, expect.any(AbortSignal)));
     };
 
     await navigate("run-a");
@@ -272,6 +277,72 @@ describe("managed-World Ingest boundary", () => {
       "true",
     );
   });
+  it("rejects an artifact mismatch before publishing source metadata or reading Plan context", async () => {
+    window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-b&sourceArtifactId=claimed");
+    vi.mocked(getExtractionRun).mockResolvedValue({run_id:"run-b",source_artifact_id:"actual",source_domain:"recap",campaign_id:"other"} as never);
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText(/sourceArtifactId does not match/)).toBeInTheDocument();
+    expect(getPlanView).not.toHaveBeenCalled();expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+  });
+
+  it("rejects incomplete workspace lineage before any exact record read", async () => {
+    window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-b&documentId=doc");
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText(/documentId and revision must be supplied together/)).toBeInTheDocument();
+    expect(getExtractionRun).not.toHaveBeenCalled();expect(getPlanView).not.toHaveBeenCalled();
+  });
+
+  it("aborts old reads and suppresses old DOM/Agent context across A-B-A navigation", async () => {
+    const oldA=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),newA=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),b=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockReturnValueOnce(oldA.promise).mockReturnValueOnce(b.promise).mockReturnValueOnce(newA.promise);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(1));
+    const navigate=async(id:string)=>{await act(async()=>{window.history.replaceState({},"",`/ingest?world=world-b&extractionRunId=${id}`);window.dispatchEvent(new PopStateEvent("popstate"))})};
+    await navigate("b");await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(getExtractionRun).mock.calls[0][1]?.aborted).toBe(true);
+    await navigate("a");await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(3));
+    await act(async()=>oldA.resolve({run_id:"a",source_domain:"recap",source_artifact_id:"old",campaign_id:"foreign"} as never));
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    expect(vi.mocked(usePublishAgentSurfaceContext).mock.calls.at(-1)?.[0]?.campaignId).toBeNull();
+    await act(async()=>newA.resolve({run_id:"a",source_domain:"worldbuilding",source_artifact_id:"new",campaign_id:"world-b"} as never));
+    expect(await screen.findByTestId("exact-graph-review")).toHaveAttribute("data-observed-run","a");
+    expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+  });
+
+  it("retires an unresolved access-bound read and never admits its late result", async () => {
+    const old=deferred<Awaited<ReturnType<typeof getExtractionRun>>>(),fresh=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(1));
+    act(()=>window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT)));
+    await waitFor(()=>expect(getExtractionRun).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(getExtractionRun).mock.calls[0][1]?.aborted).toBe(true);
+    await act(async()=>old.resolve({run_id:"a",source_domain:"recap",source_artifact_id:"old",campaign_id:"foreign"} as never));
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    await act(async()=>fresh.resolve({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never));
+    expect(await screen.findByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only","false");
+  });
+
+  it("keeps the accepted initial owner mounted through mutation waves", async () => {
+    vi.mocked(getExtractionRun).mockResolvedValue({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");render(<MemoryIngestPage />);
+    const element=await screen.findByTestId("exact-graph-review"),generation=element.dataset.observedGeneration;
+    act(()=>{startReadWave();startReadWave()});
+    expect(screen.getByTestId("exact-graph-review")).toBe(element);
+    expect(element.dataset.observedGeneration).toBe(generation);expect(getExtractionRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries failed context reads explicitly and aborts unresolved work on unmount", async () => {
+    const user=userEvent.setup();vi.mocked(getExtractionRun).mockRejectedValueOnce(new Error("read unavailable")).mockResolvedValueOnce({run_id:"a",source_domain:"worldbuilding",campaign_id:"world-b"} as never);
+    window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=a");const view=render(<MemoryIngestPage />);
+    await screen.findByText("read unavailable");await user.click(screen.getByRole("button",{name:"Retry context read"}));
+    await screen.findByTestId("exact-graph-review");expect(getExtractionRun).toHaveBeenCalledTimes(2);
+    const gate=deferred<Awaited<ReturnType<typeof getExtractionRun>>>();vi.mocked(getExtractionRun).mockReturnValue(gate.promise);
+    await act(async()=>{window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=b");window.dispatchEvent(new PopStateEvent("popstate"))});
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+    view.unmount();expect(vi.mocked(getExtractionRun).mock.calls.at(-1)?.[1]?.aborted).toBe(true);
+  });
+
 });
 
 

@@ -1273,9 +1273,10 @@ export async function getJobs(): Promise<LiveJobsResponse> {
   return apiFetch<LiveJobsResponse>("/api/live/jobs");
 }
 
-export async function getPlanView(worldId?: string | null): Promise<PlanViewProjection> {
+export async function getPlanView(worldId?: string | null, signal?: AbortSignal): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>(
     worldId ? `/api/live/plan-view?world_id=${encodeURIComponent(worldId)}` : "/api/live/plan-view",
+    signal ? { signal } : undefined,
   );
 }
 
@@ -2774,9 +2775,10 @@ export async function launchExtractionRun(
 }
 
 /** Generic exact ExtractionRun reload (recap + worldbuilding). Never substitutes latest. */
-export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+export async function getExtractionRun(runId: string, signal?: AbortSignal): Promise<ExtractionRunRecord> {
   return apiFetch<ExtractionRunRecord>(
     `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
+    signal ? { signal } : undefined,
   );
 }
 

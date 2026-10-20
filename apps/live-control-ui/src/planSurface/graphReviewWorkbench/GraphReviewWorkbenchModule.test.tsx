@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { startReadWave } from "../../api/inFlightReads";
 import { MemoryIngestPage } from "../../ingestSurface/MemoryIngestPage";
 import { mockPlanView } from "../../test/fixtures";
 import * as appChrome from "../../chrome/AppChrome";
@@ -25,7 +26,7 @@ import type { PlanContextDescriptor } from "../types";
 import { LegacyProjectionHostAdapter } from "../projection/LegacyProjectionHostAdapter";
 import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import type { ExtractionRunRecord } from "../../api/types";
-import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
+import { IngestRunObservationTestHost } from "../../test/ingestRunObservationTestHost";
 import {
   catalogRunBindingKey,
   exactRunBindingKey,
@@ -216,7 +217,7 @@ function renderWorkbench(
     <AgentInteractionProvider>
       <SurfaceContextProvider>
         <PeekRegionProvider>
-          <GraphReviewWorkbenchModule
+          <IngestRunObservationTestHost
             context={moduleContext}
             sourceReviewOnly={options?.sourceReviewOnly}
             sourceReviewRunId={options?.sourceReviewRunId}
@@ -547,7 +548,8 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("mounts the real Ingest page and workbench without retired list or comparison reads", async () => {
     vi.spyOn(appChrome, "AppChrome").mockImplementation(({children}) => <>{children}</>);
-    vi.spyOn(liveApi, "getPlanView").mockResolvedValue({...mockPlanView, world_id: selectedManagedWorld.world_id});
+    const planGate = deferred<Awaited<ReturnType<typeof liveApi.getPlanView>>>();
+    vi.spyOn(liveApi, "getPlanView").mockReturnValue(planGate.promise);
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(canonicalRun());
     window.history.replaceState({}, "", "/ingest?world=managed-world-a&extractionRunId=er_run_a&sourceArtifactId=sa_1");
     const tree = <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a">
@@ -556,10 +558,18 @@ describe("GraphReviewWorkbenchModule", () => {
       </PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>
     </SelectedWorldProvider>;
     const view = render(tree);
+    await waitFor(() => expect(liveApi.getPlanView).toHaveBeenCalled());
+    expect(liveApi.getExtractionRun).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("graph-review-workbench")).not.toBeInTheDocument();
+    await act(async () => planGate.resolve({...mockPlanView, world_id: selectedManagedWorld.world_id}));
     await screen.findByTestId("graph-review-workbench");
+    const canonicalSource = await screen.findByRole("region", {name:"Canonical source prose"});
+    act(() => { startReadWave(); startReadWave(); });
+    expect(screen.getByRole("region", {name:"Canonical source prose"})).toBe(canonicalSource);
     view.rerender(tree);
     act(() => window.dispatchEvent(new PopStateEvent("popstate")));
     await waitFor(() => expect(liveApi.getPlanView).toHaveBeenCalled());
+    expect(liveApi.getExtractionRun).toHaveBeenCalledTimes(1);
     expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
     expect(liveApi.getGoldReviewCompare).not.toHaveBeenCalled();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).split("?")[0].endsWith("/graph-preview/extraction-runs"))).toBe(false);
@@ -851,7 +861,7 @@ describe("GraphReviewWorkbenchModule", () => {
     await screen.findByLabelText("Campaign");
     const nullBefore = publishCalls.filter(call => call === null).length;
     view.rerender(<AgentInteractionProvider><SurfaceContextProvider><PeekRegionProvider>
-      <GraphReviewWorkbenchModule context={{...context}} />
+      <IngestRunObservationTestHost context={{...context}} />
       <PeekRegionSlot /><ToolHost /><LegacyProjectionHostAdapter />
     </PeekRegionProvider></SurfaceContextProvider></AgentInteractionProvider>);
     await screen.findByLabelText("Campaign");
@@ -1219,7 +1229,7 @@ describe("GraphReviewWorkbenchModule", () => {
           <AgentInteractionProvider>
             <SurfaceContextProvider>
               <PeekRegionProvider>
-                <GraphReviewWorkbenchModule
+                <IngestRunObservationTestHost
                   context={{ ...context, campaignId: "elderwyld" }}
                   sourceReviewOnly
                   sourceReviewRunId={run.run_id}
@@ -1246,7 +1256,7 @@ describe("GraphReviewWorkbenchModule", () => {
         <AgentInteractionProvider>
           <SurfaceContextProvider>
             <PeekRegionProvider>
-              <GraphReviewWorkbenchModule
+              <IngestRunObservationTestHost
                 context={{ ...context, campaignId: "elderwyld" }}
                 sourceReviewOnly={false}
               />

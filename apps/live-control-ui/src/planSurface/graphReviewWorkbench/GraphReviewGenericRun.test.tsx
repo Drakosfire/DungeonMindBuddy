@@ -9,7 +9,7 @@ import * as worldbuildingApi from "../../api/worldbuildingPublicationApi";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
 import type { ExactRunReviewPackage, RecapEvidenceCorrectionResponse, ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
-import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
+import { IngestRunObservationTestHost } from "../../test/ingestRunObservationTestHost";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 
 const context: PlanContextDescriptor = {
@@ -138,7 +138,7 @@ function renderModule(
 ) {
   const workbench = (
     <AgentInteractionProvider>
-      <GraphReviewWorkbenchModule
+      <IngestRunObservationTestHost
         context={context}
       />
     </AgentInteractionProvider>
@@ -188,7 +188,7 @@ describe("GraphReviewGenericRun", () => {
       "doc doc-1 r3",
     );
     expect(screen.queryByText(/session-23/i)).not.toBeInTheDocument();
-    expect(liveApi.getExtractionRun).toHaveBeenCalledWith("extraction-run-wb-1");
+    expect(liveApi.getExtractionRun).toHaveBeenCalledWith("extraction-run-wb-1", expect.any(AbortSignal));
     expect(liveApi.getExtractionRun).toHaveBeenCalledTimes(1);
   });
 
@@ -587,7 +587,7 @@ describe("GraphReviewGenericRun", () => {
           </button>
           <SelectedWorldProvider locationSnapshot={`/ingest?world=${worldId}`}>
             <AgentInteractionProvider>
-              <GraphReviewWorkbenchModule
+              <IngestRunObservationTestHost
                 context={context}
               />
             </AgentInteractionProvider>
@@ -606,7 +606,7 @@ describe("GraphReviewGenericRun", () => {
     });
 
     await user.click(screen.getByTestId("switch-managed-world"));
-    await waitFor(() => expect(prepareButton).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByTestId("graph-review-exact-run-prepare")).not.toBeDisabled());
 
     await resolvePrepare({
       schema: "dmb_extract_promote_prepare_v1",
@@ -747,7 +747,7 @@ function setupRecap() {
 }
 function recapWorkbench(search = "?world=managed-world-a&extractionRunId=recap-parent", changed = vi.fn()) {
   return <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a"><AgentInteractionProvider>
-    <GraphReviewWorkbenchModule context={context}
+    <IngestRunObservationTestHost context={context}
       sourceReviewOnly sourceReviewRunId="recap-parent" locationSearch={search} onLocationSearchChange={changed} />
   </AgentInteractionProvider></SelectedWorldProvider>;
 }

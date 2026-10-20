@@ -60,8 +60,11 @@ import type {
   GraphReviewExactRunLineage,
 } from "./graphReviewRunSelection";
 
+import type { IngestInitialRunObservation } from "../../ingestSurface/ingestInitialRunObservation";
+
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
+  initialRunObservation: IngestInitialRunObservation;
   /** Opens exact recap evidence without granting writes against the selected target World. */
   sourceReviewOnly?: boolean;
   sourceReviewRunId?: string | null;
@@ -151,6 +154,7 @@ function verifyRecapQuoteChild(parent: ExtractionRunRecord, parentReview: ExactR
 
 export function GraphReviewWorkbenchModule({
   context,
+  initialRunObservation,
   sourceReviewOnly = false,
   sourceReviewRunId = null,
   locationSearch,
@@ -342,17 +346,16 @@ export function GraphReviewWorkbenchModule({
       setExactReviewError(null);
     };
     void (async () => {
-      let run: ExtractionRunRecord;
-      try {
-        run = await getExtractionRun(exactHandoff.extractionRunId);
-      } catch (error) {
-        fail(
-          error instanceof LiveApiError || error instanceof Error
-            ? error.message
-            : "Failed to load exact extraction run.",
-        );
+      const observation = initialRunObservation;
+      const search = locationSearch ?? (typeof window !== "undefined" ? window.location.search : "");
+      if (observation.owner.worldId !== managedWorldId || observation.owner.search !== search) {
+        fail("Initial extraction run observation does not match this World and navigation.");
         return;
       }
+      if (observation.status === "loading") return;
+      if (observation.status === "error") { fail(observation.message); return; }
+      if (observation.status !== "ready") { fail("An exact root-owned run observation is required."); return; }
+      const run = observation.run;
       if (cancelled) return;
       if (run.run_id !== exactHandoff.extractionRunId) {
         fail("handoff extractionRunId does not match the loaded run");
@@ -513,7 +516,7 @@ export function GraphReviewWorkbenchModule({
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, exactHandoff, exactHandoffErrors, sourceReviewOnlyForCurrentRun]);
+  }, [context.campaignId, exactHandoff, exactHandoffErrors, sourceReviewOnlyForCurrentRun, initialRunObservation, locationSearch, managedWorldId]);
 
   // Catalog recap is the published World Graph recap reader
   // (same RecapGraphModule as Plan → Recap). Extract-promote review-package
@@ -712,6 +715,8 @@ export function GraphReviewWorkbenchModule({
       const currentSaved = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as RecapQuoteRecovery | null;
       if (currentSaved?.id === capsule.id) window.sessionStorage.setItem(storageKey, JSON.stringify({ ...capsule, receipt }));
       if (!isCurrent()) return;
+      // A correction receipt requires a fresh exact child proof; this is not
+      // the initial navigation lookup owned by the page.
       const [child, childReview] = await Promise.all([getExtractionRun(receipt.runId), getExactRunReviewPackage(receipt.runId)]);
       if (!isCurrent()) return;
       verifyRecapQuoteChild(exactRun, exactReview, receipt, child, childReview);

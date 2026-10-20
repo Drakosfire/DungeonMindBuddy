@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getExtractionRun, getPlanView } from "../api/liveApi";
+import { getExtractionRun, getPlanView, NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT } from "../api/liveApi";
 import type { ExtractionRunRecord, PlanViewProjection } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { IngestionModule } from "../modules/IngestionModule";
 import { AppChrome } from "../chrome/AppChrome";
 import { buildIngestContextFromPlanView } from "../planSurface/config/ingestSurfaceConfig";
 import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule";
-import { parseGraphReviewRunHandoff } from "../planSurface/graphReviewWorkbench/graphReviewRunSelection";
+import { parseGraphReviewRunHandoff, assertExactRunHandoff } from "../planSurface/graphReviewWorkbench/graphReviewRunSelection";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 import "../planSurface/planSurface.css";
 import "./MemoryIngestPage.css";
+
+import type { IngestInitialRunObservation } from "./ingestInitialRunObservation";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -72,18 +74,44 @@ export function MemoryIngestPage() {
 function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId }: { managedWorldId: string }) {
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  const [status, setStatus] = useState<LoadStatus>("loading");
+  const [storedStatus, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
   const [locationSearch, setLocationSearch] = useState(() => window.location.search);
-  const locationSearchRef = useRef(locationSearch);
-  locationSearchRef.current = locationSearch;
   const [sourceReview, setSourceReview] = useState<Pick<
     ExtractionRunRecord,
     "run_id" | "source_artifact_id" | "campaign_id" | "session_id"
   > | null>(null);
 
-  const refresh = useCallback(async (searchSnapshot: string) => {
+  const [retryGeneration, setRetryGeneration] = useState(0);
+  const accessGeneration = useRef(0);
+  const pendingRead = useRef<AbortController | null>(null);
+  const navigation = useRef({ key: "", generation: 0 });
+  const requestKey = JSON.stringify([managedWorldId, locationSearch, retryGeneration]);
+  if (navigation.current.key !== requestKey) {
+    navigation.current = { key: requestKey, generation: navigation.current.generation + 1 };
+  }
+  const generation = navigation.current.generation;
+  const [loadedOwner, setLoadedOwner] = useState<{ key: string; generation: number } | null>(null);
+  const [initialRunObservation, setInitialRunObservation] = useState<IngestInitialRunObservation | null>(null);
+  const coherent = loadedOwner?.key === requestKey && loadedOwner.generation === generation;
+  const status = coherent ? storedStatus : "loading";
+
+  useEffect(() => {
+    const retireUnresolvedRead = () => {
+      accessGeneration.current += 1;
+      // An accepted initial observation keeps its existing lifetime. Do not
+      // remount a confirmation/receipt owner because credentials or writes change.
+      if (pendingRead.current) {
+        pendingRead.current.abort();
+        setRetryGeneration(value => value + 1);
+      }
+    };
+    window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, retireUnresolvedRead);
+    return () => window.removeEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, retireUnresolvedRead);
+  }, []);
+
+  const refresh = useCallback(async (searchSnapshot: string, signal: AbortSignal) => {
     const params = new URLSearchParams(searchSnapshot);
     const claimedCampaign = params.get("campaign")?.trim();
     const handoff = parseGraphReviewRunHandoff(searchSnapshot);
@@ -98,12 +126,22 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
     ) {
       throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
     }
+    if (handoff) {
+      const errors = assertExactRunHandoff(handoff);
+      if (errors.length) throw new Error(errors.join("; "));
+    }
+    let initialRun: ExtractionRunRecord | null = null;
     let nextSourceReview: typeof sourceReview = null;
     if (managedWorldId && handoff?.extractionRunId && handoff.errors.length === 0) {
-      const run = await getExtractionRun(handoff.extractionRunId);
+      const run = await getExtractionRun(handoff.extractionRunId, signal);
+      if (signal.aborted) throw signal.reason;
       if (run.run_id !== handoff.extractionRunId) {
         throw new Error("handoff extractionRunId does not match the loaded run");
       }
+      if (handoff.sourceArtifactId && run.source_artifact_id !== handoff.sourceArtifactId) {
+        throw new Error("handoff sourceArtifactId does not match the exact run");
+      }
+      initialRun = run;
       if (run.source_domain === "recap") {
         // A recap's campaign identifies its source. The selected managed World
         // is a destination intent; it does not establish recap ownership.
@@ -126,40 +164,57 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
         }
       }
     }
-    const response = await getPlanView(managedWorldId);
+    const response = await getPlanView(managedWorldId, signal);
+    if (signal.aborted) throw signal.reason;
     // The server-resolved World ID pins this view to the selected managed
     // World. Campaign scope is separate context and is not a World identity.
     if (managedWorldId && response.world_id !== managedWorldId) {
       throw new Error(`Ingest context does not match selected World ${managedWorldId}.`);
     }
-    return { planView: response, sourceReview: nextSourceReview };
+    return { planView: response, sourceReview: nextSourceReview, initialRun };
   }, [managedWorldId]);
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
+    const controller = new AbortController();
+    pendingRead.current = controller;
     const searchSnapshot = locationSearch;
+    const accessSnapshot = accessGeneration.current;
+    const owner = { worldId: managedWorldId, search: searchSnapshot, generation, accessGeneration: accessSnapshot };
+    const owns = () => active && !controller.signal.aborted && accessGeneration.current === accessSnapshot
+      && navigation.current.key === requestKey && navigation.current.generation === generation;
     (async () => {
       setStatus("loading");
       setError(null);
-      setSourceReview(null);
       setPlanView(null);
+      setSourceReview(null);
+      setInitialRunObservation(null);
       try {
-        const loaded = await refresh(searchSnapshot);
-        if (cancelled || locationSearchRef.current !== searchSnapshot) return;
+        const loaded = await refresh(searchSnapshot, controller.signal);
+        if (!owns()) return;
         setPlanView(loaded.planView);
         setSourceReview(loaded.sourceReview);
+        setInitialRunObservation(loaded.initialRun
+          ? { status: "ready", owner, run: loaded.initialRun }
+          : { status: "not_applicable", owner });
+        setLoadedOwner({ key: requestKey, generation });
         setStatus("ready");
       } catch (loadError) {
-        if (!cancelled && locationSearchRef.current === searchSnapshot) {
+        if (owns()) {
+          setLoadedOwner({ key: requestKey, generation });
           setStatus("error");
           setError(loadError instanceof Error ? loadError.message : "Failed to load ingest context");
         }
+      } finally {
+        if (pendingRead.current === controller) pendingRead.current = null;
       }
     })();
     return () => {
-      cancelled = true;
+      active = false;
+      controller.abort();
+      if (pendingRead.current === controller) pendingRead.current = null;
     };
-  }, [locationSearch, refresh]);
+  }, [locationSearch, refresh, managedWorldId, requestKey, generation]);
 
   useEffect(() => {
     const syncLocationSearch = () => setLocationSearch(window.location.search);
@@ -172,8 +227,8 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
   }, []);
 
   const context = useMemo(
-    () => (planView ? buildIngestContextFromPlanView(planView) : null),
-    [planView],
+    () => (coherent && planView ? buildIngestContextFromPlanView(planView) : null),
+    [coherent, planView],
   );
 
   const agentSurfaceContext = useMemo(() => {
@@ -188,7 +243,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
         sourceEnvelope: null,
       };
     }
-    if (status === "error" || !context) {
+    if (status === "error" || !context || !initialRunObservation) {
       return {
         surfaceId: "ingest",
         label: "Memory Ingest",
@@ -208,7 +263,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
       ambientSummary: `Graph Review · ${context.campaignId} · session ${context.ingestSession}`,
       sourceEnvelope: null,
     };
-  }, [context, error, status]);
+  }, [context, error, status, initialRunObservation]);
 
   usePublishAgentSurfaceContext(agentSurfaceContext);
 
@@ -222,12 +277,13 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
     );
   }
 
-  if (status === "error" || !context) {
+  if (status === "error" || !context || !initialRunObservation) {
     return (
       <AppChrome activeRoute="ingest">
         <main className="app-status app-error">
           <h1>Memory Ingest</h1>
           <p>{error ?? "Unable to load ingest context."}</p>
+          <button type="button" onClick={() => setRetryGeneration(value => value + 1)}>Retry context read</button>
         </main>
       </AppChrome>
     );
@@ -236,7 +292,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
   // The established recap pipeline owns the Longmont corpus in Elderwyld.
   // Keep it separate from exact managed extraction-run review; never infer
   // a Longmont campaign for another World.
-  if (managedWorldId && !parseGraphReviewRunHandoff(window.location.search)) {
+  if (managedWorldId && !parseGraphReviewRunHandoff(locationSearch)) {
     return (
       <AppChrome activeRoute="ingest">
         <main className="ingest-surface-root" aria-label="Memory Ingest">
@@ -290,6 +346,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
         ) : null}
         <GraphReviewWorkbenchModule
           context={context}
+          initialRunObservation={initialRunObservation}
           sourceReviewOnly={sourceReview !== null}
           sourceReviewRunId={sourceReview?.run_id ?? null}
           locationSearch={locationSearch}
