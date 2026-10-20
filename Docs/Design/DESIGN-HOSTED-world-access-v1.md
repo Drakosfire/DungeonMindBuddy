@@ -34,6 +34,26 @@ Identity, population eligibility, and object access remain distinct:
 - Local mode retains the existing explicit loopback `local_operator`/local-session path and its behavior. Local identity must not be treated as a hosted account, and a hosted principal must not gain local-mode ambient access.
 - If a legacy World is mapped to an account, that assignment is an explicit operator-controlled migration, never an implicit read-time mutation.
 
+The operator reports that all existing Worlds belong to them. Record this as an ownership statement; it does not itself write `owner_subject`, prove which DMS subject represents the operator, select a World for remote persistence, or authorize migration. A later approved migration may use the verified DMS subject for a specifically selected World. All local Worlds and source directories stay intact and available locally, including Worlds not selected for remote persistence.
+
+### Selective remote persistence is separate from ownership
+
+World ownership answers **who may access a World**. Remote persistence answers **which World data is copied to a configured remote store, with which dependencies and revision state**. Neither operation implies the other. A record's owner assignment is not a data migration, and moving a World to a remote database does not create or verify an account identity.
+
+The operator reports that the remote database is not configured for this use case. No remote database, credentials, configuration, or data was inspected. This is a separate future setup and authorization gate; do not treat any existing local runtime database or file registry as remote production readiness.
+
+Read-only metadata from the dirty local Buddy checkout at `58f564a7b99b70d02bb3728354d2e64e39f0545b` (not a clean or authoritative production snapshot) shows:
+
+| Local candidate | Registry identity | Metadata-only differentiator |
+| --- | --- | --- |
+| `corpus/elderwyld-markdown` | Registered `world_id=elderwyld`, display name `Elderwyld`; registry row created `2026-10-02T02:20:20.768346Z` | 27 files, 15 subdirectories, 105,015 bytes; newest local metadata mtime `2026-10-20T01:00:51Z` |
+| `corpus/eldyrwild-markdown/Elderwyld` | No matching World ID in the inspected registry | 129 files, 52 subdirectories, 1,749,536 bytes; newest local metadata mtime `2026-08-20T03:31:39Z` |
+| `corpus/Eldyrwild and Campaign Unprocessed/Elderwyld` | No matching World ID in the inspected registry | 594 files, 101 subdirectories, 216,891,987 bytes; newest local metadata mtime `2026-10-11T17:28:48Z` |
+
+Only the local registry row and filesystem metadata were read; campaign file contents were not opened. These candidates are not interchangeable: the two unregistered paths are source directories, not managed World IDs. The apparent spelling differences are preserved exactly as recorded on disk. This inventory helps identify what to select; it does not select a candidate or assert that any one directory is complete.
+
+Before any future remote copy, require the operator to identify the exact registered `world_id` (or separately authorize registration/import of a source path) and approve a metadata-only dependency manifest. It must enumerate the authoritative registry row and source root, file paths/sizes/hashes, linked workspace documents and media/image assets, native Graph ID plus binding version and validated head revision, other referenced World assets/revisions, and any included job/result state. Record excluded dependencies explicitly. Back up the source, configure the target only under separate authorization, restore the proposed package into an isolated staging target, and verify expected counts, hashes, references, Graph revision, and application reads before any production migration. Never delete or rewrite local sources as part of selection or copy; retain all local Worlds for rollback.
+
 ### Candidate persistence and scale boundary
 
 The current `GET` and `POST /api/live/world-containers` handlers (`apps/live_control_server/routes/world_containers.py:43-58`) take no request principal and the list returns the complete registry. `WorldContainerRecord` in `services/world_container_registry.py:71-85` has no owner field; the registry is `out/registries/world_containers.json` (`:173-176`). Mutations use a local filesystem `flock` and compare-and-swap (`services/registry_file_lock.py:18-33`; `world_container_registry.py:257-278,319-345`). Creation currently derives `world_id` from name and returns an existing record on any normalized-name match (`world_container_registry.py:190-205,319-345`), so hosted creation must make that idempotency owner-scoped before it can safely serve multiple accounts.
@@ -77,12 +97,12 @@ The current inventory describes process-local worker/job boundaries; this propos
 
 ## Legacy claim and migration options
 
-Recommended default: unowned records remain local-only until an operator explicitly supplies an owner mapping. No claim endpoint is exposed to ordinary users.
+The operator's statement that all existing Worlds are theirs resolves the human ownership assertion for this corpus. A future authorized implementation may prepare an operator-reviewed mapping from each exact registered `world_id` to the operator's verified DMS `sub`; the statement alone does not prove that account subject or authorize a registry/database write. Unmapped or unregistered source directories remain hosted-inaccessible. No claim endpoint is exposed to ordinary users.
 
-1. **Reviewed one-time mapping manifest (recommended):** operator supplies `world_id -> DMS subject` rows from known account ownership. An offline migration validates every World ID and subject, rejects duplicates/unknown records, shows a dry-run, requires a backup, applies atomically, emits an auditable before/after receipt, and is idempotent. Unmapped rows remain unowned and hosted-inaccessible.
-2. **Operator-assisted per-World claim:** an operator reviews a World and selects the DMS account in a protected administration workflow or offline command. Require explicit confirmation, reason, actor, timestamp, audit receipt, and an atomic owner assignment. This is slower but suitable when ownership is ambiguous.
+1. **One-time owner mapping manifest (recommended):** build the candidate rows only from the authoritative registry plus the operator's explicit ownership statement, then bind them to a separately verified DMS `sub`. The offline migration validates every ID and subject, rejects duplicates/unknown records, shows a dry run, requires backup/restore evidence, applies atomically, emits an auditable before/after receipt, and is idempotent. This is a future migration design, not current permission to execute it.
+2. **Operator-assisted per-World assignment:** retain only for a later case where ownership is ambiguous or records have different owners. Require exact `world_id`, verified DMS subject, explicit confirmation, reason, actor, timestamp, audit receipt, and atomic assignment. Do not make assignment implicitly copy files to a remote database.
 
-Do not bulk-assign every existing World to Alan or to the first successful DMS subject unless the operator supplies and approves an exact mapping. Do not expose a self-service “claim this World” action: it lets a caller convert an existing unowned record into authority.
+Do not infer a DMS subject from the ownership statement, email, directory owner, local `local_operator`, or first successful login. Do not expose a self-service “claim this World” action: it lets a caller convert an existing unowned record into authority. Do not migrate or remove any local World without separate explicit authorization.
 
 ## Revocation, sessions, and paid work
 
@@ -108,7 +128,7 @@ No live OAuth, cookie, DNS, TLS, database, server, provider, or deployment check
 ## Decisions requested from the operator
 
 1. **New World default:** confirm or reject “every newly created hosted World is private to the creating DMS account; no sharing/invites/public Worlds in v1.” The report and design treat this as proposed, not approved.
-2. **Legacy Worlds:** choose the recommended one-time reviewed mapping manifest or operator-assisted per-World claims. In either case, confirm unmapped Worlds remain unavailable in hosted mode while continuing to work in local mode.
+2. **Selective remote World:** confirm the exact `world_id` and source to persist. The local registry currently has `elderwyld` -> `corpus/elderwyld-markdown`; the two other Elderwyld-named paths above are not registered Worlds. If one of those is intended, it needs a separate registration/import design. Confirm every unselected local World remains local and unchanged. This decision does not authorize remote DB setup or migration.
 3. **Removal/revocation expectation:** choose the maximum time after removing an account from the managed population before existing DMS sessions and its queued Buddy work lose access. Immediate next-request revocation is the safest target, but DMS's deployed session/eligibility contract must support it; otherwise choose a bounded documented expiry before implementation.
 
-No sharing model is designed here. It remains deny-by-default until a separate policy review.
+The operator has stated that all existing Worlds belong to them; the design records that ownership assertion. No sharing model is designed here. It remains deny-by-default until a separate policy review. Any remote data migration still needs its own explicit authorization after exact source/dependency selection and successful restore verification.

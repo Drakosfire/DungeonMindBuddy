@@ -20,15 +20,17 @@ Proposed hosted behavior, subject to the operator decisions in the design docume
 
 Sharing, invites, player roles, public access, self-service claims, and hosted-admin bypass are out of scope and denied until separately designed and reviewed.
 
-## 2. Exact unresolved product decisions
+## 2. Operator decisions and migration boundary
 
-Implementation stays blocked until the operator resolves:
+The operator reports that all existing Worlds belong to them and that only one Elderwyld may need remote persistence. This resolves the human ownership assertion for the current corpus, but it does not select which local source to persist, prove the DMS subject, configure a remote database, or authorize a data/registry write.
+
+Before an ACTIVE implementation handoff may include hosted account behavior, record:
 
 1. Whether new hosted Worlds are private to their creating DMS account, with no v1 sharing or public Worlds.
-2. Whether legacy owner assignment uses a one-time operator-reviewed manifest or per-World operator-assisted claims; confirm unclaimed Worlds stay hosted-inaccessible and local-usable.
-3. Maximum revocation latency after a user is removed from the externally managed population, including already issued DMS sessions and queued Buddy work. Recommend next-request denial; DMS must prove it can deliver the chosen behavior.
+2. The exact selected existing `world_id` and source tree for any future remote-persistence work. The local registry metadata currently maps `elderwyld` to `corpus/elderwyld-markdown`; similarly named unregistered directories need a separate import/registration design. All unselected local Worlds remain untouched and local-usable.
+3. Maximum revocation latency after a user is removed from the externally managed population, including already issued DMS sessions and queued Buddy work. Recommend next-request denial; DMS must prove it can deliver this behavior.
 
-No other product behavior is silently selected by this document. The user has already directed us to reuse existing DMS/Google login, not introduce a new login.
+The user has directed reuse of existing DMS/Google login, not a new login. No sharing behavior is selected; it stays denied until separately designed. The user-reported ownership of existing Worlds does not authorize assigning `owner_subject` to records or copying data.
 
 ## 3. Design summary for review
 
@@ -37,6 +39,7 @@ No other product behavior is silently selected by this document. The user has al
 - Candidate single-host v1 storage: nullable `owner_subject` on a new World-registry schema; derive it server-side and persist with World creation under the existing registry mutation lock/CAS. The API must not return another account's World on a name collision; new Worlds require globally unique IDs and per-owner idempotency.
 - Hosted list/read/write authorization must cover all World-owned API, file, media, Graph, document, play, polling/job, and result paths before side effects. UI filtering is not authorization. Workers carry server-derived `{subject, world_id}` and revalidate ownership before consuming inputs, calling providers, or saving results.
 - Missing owner is denied in hosted mode and retained for local mode. Ownership migration is operator-reviewed, dry-run, backed up, audited, idempotent, and never triggered by a read.
+- Account ownership and remote persistence are separate operations. No remote database setup was inspected or performed; the operator reports it is not configured for this use. A selected World migration requires exact ID/source, explicit dependency and revision manifest, backup, isolated restore verification, and separate authorization. Keep all local Worlds and files intact.
 - The JSON registry and local `flock` are a single-host boundary, not a multi-host scaling guarantee. Move registry/ownership/jobs to a shared transactional store before horizontal replicas.
 - Cookie delivery, CSRF route mounting, external population proof, session revocation, deployment persistence/restore, quotas, and a full route-coverage review are explicit later gates.
 
@@ -47,7 +50,7 @@ This section proposes sequencing for steward review only. It does not activate w
 1. **Offline owner core (no route callers):** add a versioned owner field and a pure/server-internal owner service with synthetic principal tests. Preserve v1/v2/local behavior. Required acceptance includes same-name Worlds created by accounts A/B never alias and caller-supplied owner values never grant authority. This code must remain unmounted; it does not implement hosted create/list HTTP behavior.
 2. **Hosted identity and route integration:** only after allowed/denied population evidence, real cookie-delivery proof for `buddy.dungeonmind.net`, Origin/CSRF review, and the complete route-to-World map. Then wire World list/create and each protected resource route through the owner service; do not enable hosted access while any exposed route can bypass the policy. Reject before provider, queue, file, or registry side effects.
 3. **Jobs/results and revocation:** bind subject and World to durable jobs; enforce the chosen DMS/account revocation behavior and recheck owner before execution/persistence; prove cancellation and stale-result fencing. If no durable queue exists, keep hosted job-producing routes disabled until that contract is implemented.
-4. **Legacy ownership migration:** implement the selected operator-only migration procedure only after backup/restore rehearsal and exact owner mapping approval. Unmapped records remain hosted-denied.
+4. **Selected-World data migration (separate authorization):** only after the operator selects the exact registered `world_id`/source, approves its dependency/revision manifest, a remote target is separately configured, and isolated backup/restore verification succeeds. The data migration is not part of account ownership assignment; retain every local source and unselected World. If the selected source is not a registered World, return to a separately reviewed import design.
 5. **Launch rehearsal and scaling gate:** prove persistence/restore, finite per-account/World budgets, cancellation, and recovery. Limit initial hosted execution to the verified single-host storage boundary; use a shared transactional store before additional Buddy hosts.
 
 Steps are a proposed decomposition, not parallel lanes or stacked PR authority. HOSTED defaults to serial. No implementation branch/PR should be opened under this BLOCKED handoff.
@@ -71,11 +74,11 @@ No code test is applicable to this documentation-only design. Verify source anch
 
 The current handoff remains BLOCKED. Before the steward may author a separate ACTIVE handoff for an unmounted offline owner-core slice:
 
-- record the operator decisions in §2 that govern new-World owner semantics and legacy fail-closed behavior;
+- record the decision on the proposed private-to-creator policy in §2 and the fail-closed behavior for records without an owner; the operator's ownership statement is context, not a record mutation;
 - obtain ARCHITECTURE disposition on this exact design/handoff revision;
 - re-anchor to current main, check active HOSTED PR/worktree/lease topology, then write an ACTIVE handoff with the exact code/test paths, base, serial topology, and synthetic/offline acceptance.
 
-This slice can use synthetic DMS principals and isolated test data. It must not import the owner service from an HTTP route, mount the DMS resolver or Origin helper, enable `hosted_owner`, transmit real cookies, or write production data. Live Google population, browser cookie, and CSRF evidence are **not** prerequisites for this pure unmounted core; they remain mandatory for route wiring.
+This slice can use synthetic DMS principals and isolated test data. It does not require selecting an Elderwyld source for remote persistence or choosing the later revocation SLA. It must not import the owner service from an HTTP route, mount the DMS resolver or Origin helper, enable `hosted_owner`, transmit real cookies, or write production data. Live Google population, browser cookie, and CSRF evidence are **not** prerequisites for this pure unmounted core; they remain mandatory for route wiring.
 
 ### 6.2 Hosted route integration and launch
 
@@ -85,6 +88,7 @@ Before any hosted HTTP route wiring, account data exposure, real-user operation,
 - browser proof that the existing DMS cookie reaches only the intended Buddy request on `buddy.dungeonmind.net`, with callback/deep-link, expiry, logout, and foreign-Origin tests;
 - Origin/CSRF review and a complete route/resource-to-World map, with every exposed route covered before hosted access is enabled;
 - actual persistent data-root and backup/restore behavior; finite per-account/World provider budgets, durable job identity, cancellation, and recovery;
+- for any remote data copy, separate operator authorization for remote DB setup and migration, the exact selected World/source/dependency/revision manifest, and isolated restore verification. Local sources remain intact;
 - a separate exact-scope implementation handoff and exact-head ARCHITECTURE review for route integration.
 
 Until those route-integration gates are satisfied, hosted routes remain unavailable even if an offline owner core is later approved/merged. Legacy ownership assignment, production writes, real cookie tests, server configuration, and deployment remain stopped under this design. No deployment or live calls were made here.
