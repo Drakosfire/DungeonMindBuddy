@@ -9,6 +9,7 @@ import pytest
 
 from application_state.agent_conversation.native_rules_output import (
     NativeRulesOutputProofV1,
+    normalize_native_mixed_output,
     verify_native_output,
 )
 from application_state.agent_conversation.rules_authority_events import (
@@ -21,11 +22,26 @@ from application_state.agent_conversation.types import ProviderOutcomeEventV1
 from tests.test_rules_build_input import append, execution as native_rules_execution
 from tests.test_rules_lookup_broker import args, lookup as rules_lookup
 from tests.test_play_graph_authority import native_provider
+from tests.test_native_answer_output import plan_turn
 
 
-def native_case():
-    owner, lookup = rules_lookup(native_rules_execution())
+def native_case(*, graph_turn=None, base_output=None):
+    owner = native_rules_execution()
     attempt = uuid4()
+    if graph_turn is not None:
+        attempt = next(
+            event.provider_attempt_id
+            for event in graph_turn.graph_context_execution.events
+            if hasattr(event, "envelope_sha256")
+        )
+        scope = owner.scope.model_copy(update={
+            "world_id": graph_turn.world_id,
+            "conversation_id": graph_turn.conversation_id,
+            "turn_id": graph_turn.turn_id,
+            "product_attempt": graph_turn.attempt,
+        })
+        owner = owner.model_copy(update={"scope": scope})
+    owner, lookup = rules_lookup(owner)
     prepared_request_json = json.dumps({"messages": [
         {"role": "assistant", "tool_calls": [{
             "id": lookup.observation.call_id,
@@ -83,10 +99,13 @@ def native_case():
             status="answered",
         ),
     )
+    ordered_refs = ([{"domain": "base", "segment_index": None}]
+                    if base_output is not None else [])
+    ordered_refs.append({"domain": "rules", "segment_index": 0})
     raw = json.dumps(
         {
             "schema": "dmb_rules_mixed_answer_v1",
-            "base_output": None,
+            "base_output": base_output,
             "rules_segments": [
                 {
                     "kind": "rules_claim",
@@ -94,36 +113,49 @@ def native_case():
                     "support_ids": [str(refs[0].support_id)],
                 }
             ],
-            "ordered_refs": [{"domain": "rules", "segment_index": 0}],
+            "ordered_refs": ordered_refs,
         }
     )
-    graph_auth = native_provider().model_copy(
-        update={
-            "provider_attempt_id": attempt,
-            "envelope_sha256": request_sha,
-        }
-    )
-    graph = SimpleNamespace(
-        events=[
+    if graph_turn is None:
+        graph_auth = native_provider().model_copy(
+            update={"provider_attempt_id": attempt, "envelope_sha256": request_sha}
+        )
+        graph = SimpleNamespace(events=[
             graph_auth,
             ProviderOutcomeEventV1(
-                event_id=uuid4(),
-                sequence=1,
-                kind="provider_outcome",
-                provider_attempt_id=attempt,
-                outcome="response_received",
+                event_id=uuid4(), sequence=1, kind="provider_outcome",
+                provider_attempt_id=attempt, outcome="response_received",
             ),
-        ]
-    )
+        ])
+    else:
+        graph = graph_turn.graph_context_execution
+        events = list(graph.events)
+        graph_auth = next(
+            event for event in events
+            if getattr(event, "provider_attempt_id", None) == attempt
+            and hasattr(event, "envelope_sha256")
+        )
+        graph_auth = graph_auth.model_copy(update={
+            "envelope_sha256": request_sha,
+            "api_mode": "codex_responses",
+        })
+        events[events.index(next(
+            event for event in events
+            if getattr(event, "provider_attempt_id", None) == attempt
+            and hasattr(event, "envelope_sha256")
+        ))] = graph_auth
+        graph = graph.model_copy(update={"events": tuple(events)})
+        graph_turn = graph_turn.model_copy(update={"graph_context_execution": graph})
     raw_bytes = raw.encode("utf-8")
-    graph_auth = graph_auth.model_copy(update={"api_mode": "codex_responses"})
-    graph.events[0] = graph_auth
+    if graph_turn is None:
+        graph_auth = graph_auth.model_copy(update={"api_mode": "codex_responses"})
+        graph.events[0] = graph_auth
     capture = SimpleNamespace(
         authorization_id="host:1",
         api_request_id="api-request-1",
-        provider="synthetic",
-        model="synthetic",
-        api_mode="codex_responses",
+        provider=getattr(graph_auth, "provider", "synthetic"),
+        model=getattr(graph_auth, "model", "synthetic"),
+        api_mode=getattr(graph_auth, "api_mode", "codex_responses"),
         request_sha256=request_sha,
         status="answered",
         finish_reason="stop",
@@ -138,7 +170,7 @@ def native_case():
         rules_execution_id=owner.scope.execution_id,
         producing_provider_attempt_id=attempt,
     )
-    return graph, owner, proof, capture, raw
+    return graph, owner, proof, capture, raw, graph_turn
 
 
 def changed(value, **updates):
@@ -146,7 +178,7 @@ def changed(value, **updates):
 
 
 def test_native_output_joins_actual_final_request_and_rules_supports():
-    graph, rules, proof, capture, _ = native_case()
+    graph, rules, proof, capture, _, _ = native_case()
     answer = verify_native_output(graph, rules, proof, capture)
     assert answer.rules_segments[0].text == "The rule applies."
     assert answer.rules_segments[0].support_ids == tuple(
@@ -154,8 +186,39 @@ def test_native_output_joins_actual_final_request_and_rules_supports():
     )
 
 
+def test_native_mixed_output_normalizes_approved_plan_base_and_rules_partition():
+    turn, _ = plan_turn()
+    base = {
+        "answer_context_status": "plan_only_insufficient_evidence",
+        "answer_segments": [{"kind": "plan_claim", "text": "The party reaches Edge."}],
+        "citation_map": None,
+    }
+    graph, rules, proof, capture, _, turn = native_case(
+        graph_turn=turn, base_output=base
+    )
+
+    result = normalize_native_mixed_output(turn, graph, rules, proof, capture)
+
+    assert result.base_completion.answer_segments[0].text == "The party reaches Edge."
+    assert result.composition.base_disposition == "approved"
+    assert [ref.domain for ref in result.composition.ordered_refs] == ["base", "rules"]
+    assert result.assistant_text == "The party reaches Edge.\nThe rule applies."
+    assert result.graph_used is False
+
+
+def test_native_mixed_output_marks_unclaimed_plan_base_without_discarding_turn_graph():
+    turn, _ = plan_turn()
+    graph, rules, proof, capture, _, turn = native_case(graph_turn=turn)
+
+    result = normalize_native_mixed_output(turn, graph, rules, proof, capture)
+
+    assert result.base_completion is None
+    assert result.composition.base_disposition == "unclaimed"
+    assert result.assistant_text == "The rule applies."
+
+
 def test_native_output_rechecks_actual_rules_call_and_result_bytes():
-    graph, rules, proof, capture, _ = native_case()
+    graph, rules, proof, capture, _, _ = native_case()
     body = json.loads(proof.prepared_request_json)
     body["messages"][1]["content"] += " forged"
     prepared = json.dumps(body)
@@ -195,7 +258,7 @@ def test_native_output_rechecks_actual_rules_call_and_result_bytes():
     ],
 )
 def test_native_output_rejects_capture_and_authority_mismatches(mutation):
-    graph, rules, proof, capture, raw = native_case()
+    graph, rules, proof, capture, raw, _ = native_case()
     if mutation == "request_hash":
         capture = changed(capture, request_sha256="b" * 64)
     elif mutation == "provider":
@@ -240,7 +303,7 @@ def test_native_output_rejects_capture_and_authority_mismatches(mutation):
 
 
 def test_native_proof_rejects_foreign_rules_scope_and_oversized_text():
-    graph, rules, proof, capture, _ = native_case()
+    graph, rules, proof, capture, _, _ = native_case()
     foreign = proof.model_copy(update={"rules_execution_id": uuid4()})
     with pytest.raises(ValueError):
         verify_native_output(graph, rules, foreign, capture)

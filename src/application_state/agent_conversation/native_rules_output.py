@@ -9,6 +9,7 @@ and commit both domains through ``complete_mixed_turn``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal
 from uuid import UUID
@@ -30,15 +31,18 @@ from .rules_authority_output import (
     parse_answer,
 )
 from .rules_authority_input import verify_prepared_input
-from .rules_authority_types import ClosedRulesModel
+from .rules_authority_types import AnswerCompositionV1, ClosedRulesModel
 from .source_writer_output import strict_json
 from .types import (
+    PlanWorldGraphCompletionV2,
     PlanWorldGraphExecutionV3,
+    PlayWorldGraphCompletionV1,
     PlayWorldGraphExecutionV1,
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
     ProviderAttemptAuthorizedEventV3,
     ProviderOutcomeEventV1,
+    Turn,
 )
 
 MAX_NATIVE_OUTPUT_BYTES = 262144
@@ -278,3 +282,87 @@ def verify_native_output(
             "Native Rules output cites support absent from its producing input"
         )
     return answer
+
+
+@dataclass(frozen=True)
+class NativeRulesNormalizedOutputV1:
+    """Pure normalization result; it is not a durable acceptance receipt."""
+
+    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | None
+    claim_graph_event_ids: dict[str, list[UUID]]
+    composition: AnswerCompositionV1
+    assistant_text: str
+    graph_used: bool
+
+
+def normalize_native_mixed_output(
+    turn: Turn,
+    graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1,
+    rules_execution: RulesExecutionV1,
+    proof: NativeRulesOutputProofV1,
+    capture,
+    *,
+    graph_support=None,
+) -> NativeRulesNormalizedOutputV1:
+    """Normalize the exact native outer answer through both domain owners.
+
+    The caller still must persist the accepted Rules binding and completed Turn
+    together under the live claim lock. This helper performs no database reads,
+    commits, provider calls, or durable acceptance.
+    """
+    from .native_answer_output import normalize_native_answer
+
+    scope = rules_execution.scope
+    if (
+        (scope.world_id, scope.conversation_id, scope.turn_id, scope.product_attempt)
+        != (turn.world_id, turn.conversation_id, turn.turn_id, turn.attempt)
+    ):
+        raise ValueError("Native Rules execution differs from its Plan/Play turn")
+    if turn.graph_context_execution != graph_execution:
+        raise ValueError("Native Rules Graph execution differs from its owning turn")
+
+    answer = verify_native_output(graph_execution, rules_execution, proof, capture)
+    included = _one(
+        [
+            event
+            for event in rules_execution.events
+            if isinstance(event, RulesProviderIncludedV1)
+            and not isinstance(event, RulesBuildProviderIncludedV1)
+            and event.provider_attempt_id == proof.producing_provider_attempt_id
+        ],
+        "Native Rules output has no unique included input",
+    )
+
+    base_completion = None
+    bindings: dict[str, list[UUID]] = {}
+    base_segments: tuple[str, ...] = ()
+    disposition = "unclaimed"
+    graph_used = False
+    if answer.base_output is not None:
+        base_completion, bindings, base_text = normalize_native_answer(
+            answer.base_output,
+            turn,
+            proof.producing_provider_attempt_id,
+            support=graph_support,
+        )
+        base_segments = tuple(segment.text for segment in base_completion.answer_segments)
+        if base_text != "\n".join(base_segments):
+            raise ValueError("Native Graph base text differs from its normalized segments")
+        disposition = "approved"
+        graph_used = "world_graph" in base_completion.answer_basis
+    elif turn.graph_context_receipt is None or turn.graph_context_execution is None:
+        raise ValueError("Native Rules without a base partition requires frozen Graph scope")
+
+    composition = answer.composition(
+        supplied_refs=included.support_refs,
+        base_segments=base_segments,
+        base_disposition=disposition,
+    )
+    assistant_text = composition.render(base_segments)
+    return NativeRulesNormalizedOutputV1(
+        base_completion=base_completion,
+        claim_graph_event_ids=bindings,
+        composition=composition,
+        assistant_text=assistant_text,
+        graph_used=graph_used,
+    )
