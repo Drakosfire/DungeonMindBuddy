@@ -1511,11 +1511,15 @@ export async function postWorldGraphProjection(
 export async function postManagedWorldGraphProjection(
   request: ManagedWorldGraphProjectionRequest,
 ): Promise<ManagedWorldGraphProjectionResponse> {
+  // The strict server model defaults both optional fields to null. Encode that
+  // identity once so equivalent producers can share a pending read. Preserve
+  // unexpected runtime fields for the server's extra=forbid validation.
+  const { schema, managedWorldId, revisionPin = null, queryText = null, ...extra } = request;
   return apiFetch<ManagedWorldGraphProjectionResponse>(
     "/api/live/world-graph/managed-projection",
     {
       method: "POST",
-      body: JSON.stringify(request),
+      body: JSON.stringify({ schema, managedWorldId, revisionPin, queryText, ...extra }),
     },
   );
 }
