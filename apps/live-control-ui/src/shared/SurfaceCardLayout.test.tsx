@@ -4,7 +4,7 @@ import { SceneCard } from "./SceneCard";
 import { SurfaceCardLayout } from "./SurfaceCardLayout";
 import { ReadOnlyBodyContent } from "../markdownReader/ReadOnlyBodyContent";
 import { readFileSync } from "node:fs";
-const layoutCss = readFileSync(new URL("./surfaceCardLayout.css", import.meta.url), "utf8");
+const layoutCss = readFileSync("src/shared/surfaceCardLayout.css", "utf8");
 
 afterEach(cleanup);
 it("uncaps scene, beat and decision readers inside shared paper while retaining outside reader and media sizing", () => {
