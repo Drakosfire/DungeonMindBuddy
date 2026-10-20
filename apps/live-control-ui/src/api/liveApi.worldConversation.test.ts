@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getWorldAgentConversationHistory,
+  getExtractionRun,
+  getPlanView,
   getWorldAgentTurnContextTrace,
   getWorldAgentHistoricalSourcePassage,
   getWorldAgentNewConversationStatus,
@@ -241,3 +243,16 @@ describe('exact historical passage acquisition',()=>{
     stream.enqueue(new TextEncoder().encode('{"exact":true}'));stream.close();expect(await pending).toBe('local_graph_session_changed')
   })
 })
+
+
+it.each(["run", "plan"])("passes initial Ingest %s cancellation only as transport control", async kind => {
+  const controller = new AbortController();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => new Promise((_resolve,reject) => {
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {once:true});
+  }));
+  const pending = kind === "run" ? getExtractionRun("run/a",controller.signal) : getPlanView("world/a",controller.signal);
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  expect(String(fetch.mock.calls[0][0])).toBe(kind === "run" ? "/api/live/graph-preview/extraction-runs/run%2Fa" : "/api/live/plan-view?world_id=world%2Fa");
+  expect(fetch.mock.calls[0][1]?.body).toBeUndefined();
+  const failure = expect(pending).rejects.toMatchObject({name:"AbortError"});controller.abort();await failure;
+});
