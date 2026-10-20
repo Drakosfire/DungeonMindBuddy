@@ -1140,3 +1140,65 @@ it("opens an initial Cards deep link at the same canonical scene in Document", a
   expect(scrolled.at(-1)?.getAttribute("data-dmb-playable-id")).toBe("scene:lantern");
   expect(apis.commit).not.toHaveBeenCalled();
 });
+
+
+it("opens Cards directly at a scene with no outline destination and retains its editor across disclosure and views", async () => {
+  const apis = installApiMocks(navigationMarkdown);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}&view=cards`);
+  renderPlan();
+  await screen.findByTestId("world-owned-plan");
+  const first = await screen.findByRole("button", { name: "Show scene: Lantern Gate" });
+  await waitFor(() => expect(first).toHaveAttribute("aria-current", "true"));
+  expect(screen.queryByRole("button", { name: "Scene outline", exact: true })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Plan cards", exact: true })).toBeNull();
+  const dom = screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as HTMLElement & { editor: Editor };
+  const editor = dom.editor;
+  const accepted = editor.getJSON();
+  act(() => {
+    editor.commands.setTextSelection(2);
+    editor.commands.insertContent("Draft continuity ");
+    let mediaPos = -1;
+    editor.state.doc.descendants((node, pos) => { if (node.type.name === "mediaImage") mediaPos = pos; });
+    expect(mediaPos).toBeGreaterThanOrEqual(0);
+    editor.commands.command(({ tr }) => { tr.setNodeMarkup(mediaPos, undefined,
+      { ...tr.doc.nodeAt(mediaPos)!.attrs, width: 70, collapsed: false }); return true; });
+  });
+  const draft = editor.getJSON();
+  const initialCaret = editor.state.selection.toJSON();
+  fireEvent.click(screen.getByRole("button", { name: "Collapse Contents", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Expand Contents", exact: true }));
+  expect(editor.state.selection.toJSON()).toEqual(initialCaret);
+  fireEvent.click(screen.getByRole("button", { name: "Show scene: Glass Regent" }));
+  const caret = editor.state.selection.toJSON();
+  expect(screen.getByRole("button", { name: "Show scene: Glass Regent" })).toHaveAttribute("aria-current", "true");
+  const views = screen.getByRole("group", { name: "Plan view" });
+  fireEvent.click(within(views).getByRole("button", { name: "Document", exact: true }));
+  fireEvent.click(within(views).getByRole("button", { name: "Cards", exact: true }));
+  expect(screen.getByRole("button", { name: "Show scene: Glass Regent" })).toHaveAttribute("aria-current", "true");
+  expect(screen.queryByRole("heading", { name: "Plan cards", exact: true })).toBeNull();
+  expect(dom.editor).toBe(editor);
+  expect(editor.getJSON()).toEqual(draft);
+  expect(editor.state.selection.toJSON()).toEqual(caret);
+  act(() => { while (editor.commands.undo()) { /* retained user history */ } });
+  expect(editor.getJSON()).toEqual(accepted);
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+});
+
+it("opens Cards directly at the first remaining scene when the selected marker disappears", async () => {
+  const apis = installApiMocks(navigationMarkdown);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}&view=cards`);
+  renderPlan();
+  const selected = await screen.findByRole("button", { name: "Show scene: Glass Regent" });
+  fireEvent.click(selected);
+  expect(selected).toHaveAttribute("aria-current", "true");
+  const dom = screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as HTMLElement & { editor: Editor };
+  const views = screen.getByRole("group", { name: "Plan view" });
+  fireEvent.click(within(views).getByRole("button", { name: "Document", exact: true }));
+  act(() => { dom.editor.commands.setContent(markdownToTiptapDoc(navigationMarkdown.replace("id=scene:regent", "id=scene:renamed-regent")).doc); });
+  fireEvent.click(within(views).getByRole("button", { name: "Cards", exact: true }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Show scene: Lantern Gate" })).toHaveAttribute("aria-current", "true"));
+  expect(screen.queryByRole("heading", { name: "Plan cards", exact: true })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Scene outline", exact: true })).toBeNull();
+  expect(apis.commit).not.toHaveBeenCalled();
+});

@@ -1610,8 +1610,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const navigationNodes = useMemo(() => currentCardProjection.status === "ready"
     ? flattenNodes(currentCardProjection.roots) : [], [currentCardProjection]);
   const navigationScenes = navigationNodes.filter(node => node.kind === "scene");
-  const navigationSceneId = sceneNavigation?.identity === navigationIdentity
-    ? sceneNavigation.sceneId : savedBasis.status === "verified" ? navigationScenes[0]?.id ?? null : null;
+  const requestedSceneId = sceneNavigation?.identity === navigationIdentity ? sceneNavigation.sceneId : null;
+  // Cards always opens a scene. Null/stale cursors cannot revive the retired outline destination.
+  const navigationSceneId = navigationScenes.some(scene => scene.id === requestedSceneId)
+    ? requestedSceneId : navigationScenes[0]?.id ?? null;
   const cardScopeEpoch = useRef({ key: "", generation: 0 });
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
