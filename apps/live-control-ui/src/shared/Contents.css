@@ -7,7 +7,7 @@
   font: .85rem/1.4 ui-sans-serif, system-ui, sans-serif;
 }
 .surface-contents[data-expanded="false"] { width: 3.25rem; }
-:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle, :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__outline {
+:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle {
   padding: .4rem .55rem;
   border: 1px solid var(--surface-border, #53635d);
   border-radius: .4rem;
@@ -17,7 +17,6 @@
   cursor: pointer;
 }
 :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle { margin-bottom: .5rem; }
-:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__outline { width: 100%; text-align: left; margin-bottom: .5rem; }
 .surface-contents__list {
   position: relative;
   max-height: calc(100dvh - var(--app-chrome-top, 0px) - 7rem);
@@ -45,7 +44,7 @@
   overflow-wrap: anywhere;
 }
 :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__card[aria-current="true"] { border-color: #d5aa50; background: #d5aa5017; }
-:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__card:focus-visible, :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle:focus-visible, :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__outline:focus-visible {
+:is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__card:focus-visible, :is(.world-owned-plan, .play-cockpit) .surface-contents .surface-contents__toggle:focus-visible {
   outline: 2px solid #e8c678;
   outline-offset: 2px;
 }

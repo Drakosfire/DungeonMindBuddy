@@ -12,42 +12,10 @@ function project(markdown: string) {
 }
 
 describe("buildWorldPlanCardProjectionModel", () => {
-  it("projects v1 Scene-first membership and document order without absorbing trailing instructions", () => {
-    const model = project([
-      "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
-      "## Arrival",
-      "Scene overview.",
-      "<!-- dmb-playable-element:v1 kind=beat id=beat:gate -->",
-      "### The gate",
-      "Gate body.",
-      "### Ordinary H3 note",
-      "H3 remains body prose.",
-      "#### Ordinary H4 note",
-      "H4 remains body prose.",
-      "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->",
-      "### Choose a route",
-      "Choice prompt.",
-      "<!-- dmb-playable-element:v1 kind=option id=option:run -->",
-      "#### Run through the gate",
-      "Option text.",
-      "## GM Instructions",
-      "Keep this in the complete Document view.",
-    ].join("\n"));
-
-    expect(model.status).toBe("ready");
-    if (model.status !== "ready") return;
-    expect(model.version).toBe("v1");
-    expect(model.roots.map((node) => node.id)).toEqual(["scene:arrival"]);
-    const scene = model.roots[0]!;
-    expect(scene.children.map((node) => node.id)).toEqual(["beat:gate", "choice:route"]);
-    expect(scene.bodyText).toBe("Scene overview.");
-    expect(scene.children[0]?.bodyText).toContain("Ordinary H3 note");
-    expect(scene.children[0]?.bodyText).toContain("H3 remains body prose.");
-    expect(scene.children[0]?.bodyText).toContain("H4 remains body prose.");
-    const choice = scene.children[1]!;
-    expect(choice.children.map((node) => node.id)).toEqual(["option:run"]);
-    expect(choice.children[0]?.bodyText).toBe("Option text.");
-    expect(JSON.stringify(model)).not.toContain("Keep this in the complete Document view");
+  it("rejects unsupported v1 cards instead of projecting a compatibility hierarchy", () => {
+    const model = project("<!-- dmb-playable-element:v1 kind=scene id=scene:old -->\n## Old scene\nRetained source.\n");
+    expect(model.status).toBe("blocked");
+    if (model.status === "blocked") expect(model.diagnostics.some(entry => entry.code === "unsupported_version")).toBe(true);
   });
 
   it("projects v2 Beat-first hierarchy and displays authored edges without interpreting them", () => {

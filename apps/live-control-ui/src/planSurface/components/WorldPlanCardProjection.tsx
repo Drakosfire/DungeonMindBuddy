@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import { SceneCard, type SceneCardChoice, type SceneCardElement } from "../../shared/SceneCard";
 import {
-  indexPlayableStructure,
   indexPlayableStructureV2,
-  type PlayableStructureElement,
   type PlayableStructureElementV2,
 } from "../../tiptap/playable/playableStructureIndex";
 import {
@@ -16,7 +14,7 @@ import {
 } from "../../tiptap/playable/playableElementIdentity";
 import { slicePlayableBodies } from "../../playSurface/runbook/nativeRunbookProjection";
 
-type ProjectionVersion = "v1" | "v2";
+type ProjectionVersion = "v2";
 type ProjectionDiagnostic = { code: string; message: string };
 
 export type WorldPlanCardBasis =
@@ -69,10 +67,9 @@ function planSceneCardElement(node: WorldPlanCardNode, level: 2 | 3 | 4): SceneC
   };
 }
 
-/** A v2 Scene sees both Beat-wide and explicitly associated Choices; v1 Choices are Scene children. */
+/** A Scene sees Beat-wide and explicitly associated Choices. */
 export function planFocusedSceneChoices(scene: WorldPlanCardNode, parentBeat: WorldPlanCardNode | null): SceneCardChoice[] {
   const choiceNodes = [
-    ...scene.children.filter((child) => child.kind === "choice"),
     ...(parentBeat?.children.filter((child) => child.kind === "choice"
       && (child.sceneId == null || child.sceneId === scene.id)) ?? []),
   ];
@@ -101,16 +98,6 @@ function selectEditTargetWithScroll(button: HTMLButtonElement, target: WorldPlan
   if (Math.abs(nextScrollTop - window.scrollY) > 4) window.scrollTo({ top: nextScrollTop, behavior: "auto" });
 }
 
-function authoredInlineText(nodes: readonly JSONContent[]): string {
-  return nodes.map((node) => {
-    if (node.type === "text") return typeof node.text === "string" ? node.text : "";
-    if (node.type === "graphNodeReference" || node.type === "runbookReference") {
-      return typeof node.attrs?.label === "string" ? node.attrs.label : "";
-    }
-    return authoredInlineText(node.content ?? []);
-  }).join("");
-}
-
 export type WorldPlanCardProjectionModel =
   | { status: "empty" }
   | { status: "blocked"; diagnostics: ProjectionDiagnostic[] }
@@ -134,8 +121,8 @@ export function worldPlanCardTargetKeys(model: WorldPlanCardProjectionModel): Se
   return new Set([...counts].filter(([, count]) => count === 1).map(([key]) => key));
 }
 
-function scanSourceMarkers(markdown: string): { versions: Set<ProjectionVersion>; diagnostics: ProjectionDiagnostic[] } {
-  const versions = new Set<ProjectionVersion>();
+function scanSourceMarkers(markdown: string): { versions: Set<string>; diagnostics: ProjectionDiagnostic[] } {
+  const versions = new Set<string>();
   const diagnostics: ProjectionDiagnostic[] = [];
   let fence: { char: string; length: number } | null = null;
 
@@ -165,7 +152,9 @@ function scanSourceMarkers(markdown: string): { versions: Set<ProjectionVersion>
       });
       continue;
     }
-    versions.add(parsed.identity.version ?? "v1");
+    const version = parsed.identity.version;
+    if (version !== "v2") diagnostics.push({ code: "unsupported_version", message: `Cards require v2 Playable markers (line ${index + 1}). Open Document to edit the source.` });
+    versions.add(version ?? "unsupported");
   }
 
   if (versions.size > 1) {
@@ -175,8 +164,7 @@ function scanSourceMarkers(markdown: string): { versions: Set<ProjectionVersion>
 }
 
 function createNodes(
-  elements: readonly (PlayableStructureElement | PlayableStructureElementV2)[],
-  version: ProjectionVersion,
+  elements: readonly PlayableStructureElementV2[],
   document: JSONContent,
 ): { roots: WorldPlanCardNode[]; diagnostics: ProjectionDiagnostic[] } {
   const slices = slicePlayableBodies(document);
@@ -204,21 +192,14 @@ function createNodes(
       parentId: null,
       children: [],
     };
-    if (version === "v1") {
-      const legacyElement = element as PlayableStructureElement;
-      if (legacyElement.kind === "beat" || legacyElement.kind === "choice") node.parentId = legacyElement.sceneId;
-      if (legacyElement.kind === "option") node.parentId = legacyElement.choiceId;
-    } else {
-      const beatFirstElement = element as PlayableStructureElementV2;
-      if (beatFirstElement.kind === "scene" || beatFirstElement.kind === "choice") node.parentId = beatFirstElement.beatId;
-      if (beatFirstElement.kind === "option") node.parentId = beatFirstElement.choiceId;
-      if (beatFirstElement.kind === "beat") node.beatKind = beatFirstElement.beatKind;
-      if (beatFirstElement.kind === "choice") node.sceneId = beatFirstElement.sceneId;
-    }
+    if (element.kind === "scene" || element.kind === "choice") node.parentId = element.beatId;
+    if (element.kind === "option") node.parentId = element.choiceId;
+    if (element.kind === "beat") node.beatKind = element.beatKind;
+    if (element.kind === "choice") node.sceneId = element.sceneId;
     nodes.set(element.id, node);
   }
 
-  if (version === "v2") {
+  {
     const indexed = indexPlayableStructureV2(document);
     if (indexed.status === "ready") {
       for (const option of indexed.index.options) {
@@ -264,18 +245,15 @@ export function buildWorldPlanCardProjectionModel(input: {
   }
   if (diagnostics.length) return { status: "blocked", diagnostics };
 
-  const v1 = indexPlayableStructure(input.document);
   const v2 = indexPlayableStructureV2(input.document);
   if (source.versions.size === 0) {
-    const hasEditorIdentities = (v1.status === "ready" && v1.index.elements.length > 0)
-      || (v2.status === "ready" && v2.index.elements.length > 0);
+    const hasEditorIdentities = v2.status === "blocked" || v2.index.elements.length > 0;
     return hasEditorIdentities
       ? { status: "blocked", diagnostics: [{ code: "source_mismatch", message: "The editor structure does not match the saved Markdown source." }] }
       : { status: "empty" };
   }
 
-  const version = [...source.versions][0]!;
-  const indexed = version === "v1" ? v1 : v2;
+  const indexed = v2;
   if (indexed.status === "blocked") {
     return {
       status: "blocked",
@@ -286,427 +264,65 @@ export function buildWorldPlanCardProjectionModel(input: {
   if (elements.length === 0) {
     return { status: "blocked", diagnostics: [{ code: "source_mismatch", message: "Playable markers were not admitted into the editor document." }] };
   }
-  const projected = createNodes(elements, version, input.document);
+  const projected = createNodes(elements, input.document);
   if (projected.diagnostics.length) return { status: "blocked", diagnostics: projected.diagnostics };
-  return { status: "ready", version, roots: projected.roots };
+  return { status: "ready", version: "v2", roots: projected.roots };
 }
 
-function CardNodeView({
-  node,
-  worldId,
-  documentId,
-  selectableTargetKeys,
-  editableTargetKeys,
-  selectedTarget,
-  selectedEditTarget,
-  onSelectTarget,
-  onSelectEditTarget,
-  onFocusScene,
-  onActivateGraphNode,
-}: {
-  node: WorldPlanCardNode;
-  worldId: string;
-  documentId: string;
-  selectableTargetKeys: ReadonlySet<string>;
-  editableTargetKeys: ReadonlySet<string>;
-  selectedTarget: WorldPlanCardTarget | null;
-  selectedEditTarget: WorldPlanCardTarget | null;
-  onSelectTarget?: (target: WorldPlanCardTarget) => void;
-  onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
-  onFocusScene?: (scene: WorldPlanCardNode) => void;
-  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
-}) {
-  const target = { kind: node.kind, id: node.id };
-  const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
-  const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
-  const selectable = selectableTargetKeys.has(worldPlanCardTargetKey(target));
-  const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
-  const selectEditTarget = (button: HTMLButtonElement) => selectEditTargetWithScroll(button, target, onSelectEditTarget);
-  return (
-    <li className={`world-plan-card-node world-plan-card-node--${node.kind}`} data-element-id={node.id} data-element-kind={node.kind}>
-      <article className="world-plan-card">
-        <header className="world-plan-card__header">
-          <p className="world-plan-card__kind">{node.kind}{node.beatKind ? ` · ${node.beatKind}` : ""}</p>
-          <ReadOnlyBodyContent
-            content={[cardTitleContent(node, 3)]}
-            className="world-plan-card__title"
-            onActivateGraphNode={onActivateGraphNode}
-            unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-          />
-          <code>{node.id}</code>
-          {onSelectTarget ? (
-            <button
-              type="button"
-              className="world-plan-card__ask-target"
-              data-target-kind={node.kind}
-              data-target-id={node.id}
-              aria-pressed={selected}
-              disabled={!selectable}
-              title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
-              onClick={() => onSelectTarget(target)}
-            >
-              {selected ? "Selected for Ask" : "Select for Ask"}
-            </button>
-          ) : null}
-          {node.kind === "scene" && onFocusScene ? (
-            <button
-              type="button"
-              className="world-plan-card__focus-scene"
-              data-focus-scene-id={node.id}
-              aria-label={`Read scene: ${authoredInlineText(node.titleContent).trim() || node.title || node.id}`}
-              onClick={() => onFocusScene(node)}
-            >Read scene</button>
-          ) : null}
-          <button
-            type="button"
-            className="world-plan-card__edit-target"
-            data-edit-target-kind={node.kind}
-            data-edit-target-id={node.id}
-            aria-pressed={selectedForEdit}
-            disabled={!editable || !onSelectEditTarget}
-            title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
-            onClick={(event) => selectEditTarget(event.currentTarget)}
-          >
-            {selectedForEdit ? "Selected for Edit" : "Select for Edit"}
-          </button>
-        </header>
-        {node.sceneId ? <p className="world-plan-card__relationship">Associated scene: <code>{node.sceneId}</code></p> : null}
-        {node.bodyContent.length ? (
-          <ReadOnlyBodyContent
-            content={node.bodyContent}
-            className="world-plan-card__content"
-            onActivateGraphNode={onActivateGraphNode}
-            unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-          />
-        ) : null}
-        {node.activates?.length || node.suppresses?.length ? (
-          <ul className="world-plan-card__edges" aria-label="Authored relationships">
-            {node.activates?.map((target) => <li key={`activates:${target}`}>Authored activates: <code>{target}</code></li>)}
-            {node.suppresses?.map((target) => <li key={`suppresses:${target}`}>Authored suppresses: <code>{target}</code></li>)}
-          </ul>
-        ) : null}
-      </article>
-      {node.children.length ? (
-        <ol className="world-plan-card-children">
-          {node.children.map((child) => (
-            <CardNodeView
-              key={child.id}
-              node={child}
-              worldId={worldId}
-              documentId={documentId}
-              selectableTargetKeys={selectableTargetKeys}
-              editableTargetKeys={editableTargetKeys}
-              selectedTarget={selectedTarget}
-              selectedEditTarget={selectedEditTarget}
-              onSelectTarget={onSelectTarget}
-              onSelectEditTarget={onSelectEditTarget}
-              onFocusScene={onFocusScene}
-              onActivateGraphNode={onActivateGraphNode}
-            />
-          ))}
-        </ol>
-      ) : null}
-    </li>
-  );
-}
-
-export function WorldPlanCardProjection({
-  worldId,
-  documentId,
-  document,
-  markdown,
-  sourceWarnings,
-  basis,
-  isDirty,
-  onReturnToDocument,
-  selectableTargetKeys = new Set<string>(),
-  editableTargetKeys = new Set<string>(),
-  selectedTarget = null,
-  selectedEditTarget = null,
-  onSelectTarget,
-  onSelectEditTarget,
-  selectionStale = false,
-  onActivateGraphNode,
-  navigation,
-}: {
-  navigation?: { sceneId: string | null; onChange: (sceneId: string | null) => void };
-  worldId: string;
-  documentId: string;
-  document: JSONContent;
-  markdown: string;
-  sourceWarnings: readonly string[];
-  basis: WorldPlanCardBasis;
-  isDirty: boolean;
-  onReturnToDocument: () => void;
-  selectableTargetKeys?: ReadonlySet<string>;
-  editableTargetKeys?: ReadonlySet<string>;
-  selectedTarget?: WorldPlanCardTarget | null;
-  selectedEditTarget?: WorldPlanCardTarget | null;
-  onSelectTarget?: (target: WorldPlanCardTarget | null) => void;
-  onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
-  selectionStale?: boolean;
+/** Pure current-scene projection. The surface owns navigation and the mounted writer. */
+export function WorldPlanCardProjection({ worldId, documentId, document, markdown, sourceWarnings,
+  basis, isDirty, onReturnToDocument, sceneId, editableTargetKeys = new Set<string>(),
+  selectedEditTarget = null, onSelectEditTarget, selectionStale = false, onActivateGraphNode }: {
+  worldId: string; documentId: string; document: JSONContent; markdown: string;
+  sourceWarnings: readonly string[]; basis: WorldPlanCardBasis; isDirty: boolean;
+  sceneId: string | null; onReturnToDocument: () => void;
+  editableTargetKeys?: ReadonlySet<string>; selectedEditTarget?: WorldPlanCardTarget | null;
+  onSelectEditTarget?: (target: WorldPlanCardTarget) => void; selectionStale?: boolean;
   onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
-  const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
-  const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
-  const [localFocusedSceneId, setLocalFocusedSceneId] = useState<string | null>(null);
-  const focusedSceneId = navigation ? navigation.sceneId : localFocusedSceneId;
-  const setFocusedSceneId = navigation ? navigation.onChange : setLocalFocusedSceneId;
-  const defaultFocusAttemptedRef = useRef(false);
-  const focusedSceneHeadingRef = useRef<HTMLElement | null>(null);
-  const basisIdentity = basis.status === "verified"
-    ? `verified:${basis.revision}:${basis.contentSha256}`
-    : basis.status;
-  const focusIdentity = `${worldId}\u001f${documentId}\u001f${basisIdentity}`;
-  const focusIdentityRef = useRef(focusIdentity);
-  const focusedScene = scenes.find((scene) => scene.id === focusedSceneId) ?? null;
-  const focusedSceneIndex = focusedScene ? scenes.findIndex((scene) => scene.id === focusedScene.id) : -1;
-  const parentBeat = focusedScene?.parentId
-    ? nodes.find((node) => node.id === focusedScene.parentId && node.kind === "beat") ?? null
-    : null;
-  const contextBeats = parentBeat
-    ? [parentBeat]
-    : model.status === "ready" && model.version === "v1"
-      ? focusedScene?.children.filter((node) => node.kind === "beat") ?? []
-      : [];
-  const focusedChoices = focusedScene ? planFocusedSceneChoices(focusedScene, parentBeat) : [];
-  const focusedTarget = focusedScene ? { kind: focusedScene.kind, id: focusedScene.id } : null;
-  const focusedTargetSelectable = Boolean(focusedTarget
-    && basis.status === "verified"
-    && selectableTargetKeys.has(worldPlanCardTargetKey(focusedTarget)));
-  const focusedTargetSelected = Boolean(focusedTarget
-    && selectedTarget?.kind === focusedTarget.kind
-    && selectedTarget.id === focusedTarget.id);
-
-  const focusScene = useCallback((scene: WorldPlanCardNode) => {
-    defaultFocusAttemptedRef.current = true;
-    setFocusedSceneId(scene.id);
-    const target = { kind: scene.kind, id: scene.id } satisfies WorldPlanCardTarget;
-    onSelectTarget?.(basis.status === "verified"
-      && selectableTargetKeys.has(worldPlanCardTargetKey(target))
-      ? target
-      : null);
-  }, [basis.status, onSelectTarget, selectableTargetKeys]);
-
-  useEffect(() => {
-    if (navigation || focusIdentityRef.current === focusIdentity) return;
-    focusIdentityRef.current = focusIdentity;
-    setFocusedSceneId(null);
-    onSelectTarget?.(null);
-  }, [focusIdentity, onSelectTarget]);
-
-  useEffect(() => {
-    if (!focusedSceneId || focusedScene) return;
-    setFocusedSceneId(null);
-    onSelectTarget?.(null);
-  }, [focusedScene, focusedSceneId, onSelectTarget]);
-
-  useEffect(() => {
-    if (navigation || defaultFocusAttemptedRef.current || basis.status !== "verified") return;
-    const selectableScenes = scenes.filter((scene) => selectableTargetKeys.has(
-      worldPlanCardTargetKey({ kind: scene.kind, id: scene.id }),
-    ));
-    const selectedScene = selectedTarget?.kind === "scene"
-      ? selectableScenes.find((scene) => scene.id === selectedTarget.id)
-      : null;
-    const initialScene = selectedScene ?? selectableScenes[0];
-    if (initialScene) focusScene(initialScene);
-  }, [basis.status, focusScene, scenes, selectableTargetKeys, selectedTarget]);
-
-  useLayoutEffect(() => {
-    if (!focusedSceneId) return;
-    focusedSceneHeadingRef.current?.scrollIntoView?.({ block: "start" });
-  }, [focusedSceneId]);
-
-  if (model.status === "blocked") {
-    return (
-      <section className="world-plan-cards world-plan-cards--blocked" data-testid="world-plan-cards" role="alert" aria-label="Cards unavailable">
-        <header><p className="world-plan-card__kind">Cards</p><h2>Cards are unavailable for this Plan</h2></header>
-        <p>No partial or inferred cards are shown. The full Plan remains available in Document view.</p>
-        <ul>{model.diagnostics.map((diagnostic) => <li key={`${diagnostic.code}:${diagnostic.message}`}>{diagnostic.message}</li>)}</ul>
-        <button type="button" onClick={onReturnToDocument}>Return to Document</button>
-      </section>
-    );
-  }
-  if (model.status === "empty") {
-    return (
-      <section className="world-plan-cards" data-testid="world-plan-cards" aria-label="Plan cards">
-        <header><p className="world-plan-card__kind">Cards</p><h2>No marked scenes yet</h2></header>
-        <p>Nothing was inferred. The complete Plan is still available in Document.</p>
-        <button type="button" onClick={onReturnToDocument}>Open Document</button>
-      </section>
-    );
-  }
-  const cardState = isDirty
-    ? "Draft / unsaved"
-    : basis.status === "verified"
-      ? "Saved snapshot verified"
-      : basis.status === "server-draft"
-        ? "Server draft / uncommitted"
-        : "Saved basis unavailable";
-  const basisLabel = basis.status === "verified"
-    ? "Committed snapshot"
-    : basis.status === "server-draft"
-      ? "Uncommitted server draft"
-  : "Unavailable";
-  if (focusedScene) {
-    const previousScene = focusedSceneIndex > 0 ? scenes[focusedSceneIndex - 1] : null;
-    const nextScene = focusedSceneIndex >= 0 && focusedSceneIndex < scenes.length - 1
-      ? scenes[focusedSceneIndex + 1]
-      : null;
-    const editAction = (kind: "scene" | "choice" | "option", id: string) => {
-      const target = { kind, id } satisfies WorldPlanCardTarget;
-      const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
-      const selected = selectedEditTarget?.kind === kind && selectedEditTarget.id === id;
-      return (
-        <button type="button" className="world-plan-card__edit-target" data-edit-target-kind={kind}
-          data-edit-target-id={id} aria-pressed={selected} disabled={!editable || !onSelectEditTarget}
-          title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
-          onClick={(event) => selectEditTargetWithScroll(event.currentTarget, target, onSelectEditTarget)}>
-          {navigation ? (selected ? "Selected for Agent edit" : `Use ${kind} for Agent edit`)
-            : selected ? "Selected for Edit" : "Select for Edit"}
-        </button>
-      );
-    };
-    return (
-      <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
-        {!navigation ? <nav className="world-plan-scene-reader__navigation" aria-label="Scene navigation">
-          <button type="button" disabled={!previousScene} onClick={() => previousScene && focusScene(previousScene)}>Previous scene</button>
-          <button type="button" onClick={() => setFocusedSceneId(null)}>Back to outline</button>
-          <button type="button" disabled={!nextScene} onClick={() => nextScene && focusScene(nextScene)}>Next scene</button>
-        </nav> : null}
-        {selectionStale ? <p role="alert">The selected Ask card is stale. Select a matching saved card again before asking.</p> : null}
-        <SceneCard
-          identity={{ worldId, documentId, sceneId: focusedScene.id,
-            revision: basis.status === "verified" && !isDirty ? basis.revision : null,
-            contentSha256: basis.status === "verified" && !isDirty ? basis.contentSha256 : null,
-            sourceState: isDirty || basis.status !== "verified" ? "draft" : "verified" }}
-          scene={planSceneCardElement(focusedScene, 2)}
-          choices={focusedChoices}
-          variant="plan"
-          kicker={`Focused Scene · ${model.version}`}
-          compactHeader={Boolean(navigation)}
-          headingId="world-plan-focused-scene-heading"
-          headerRef={focusedSceneHeadingRef}
-          sceneActions={!navigation ? editAction("scene", focusedScene.id) : null}
-          choiceActions={{
-            renderChoiceActions: (choice) => editAction("choice", choice.id),
-            renderOptionActions: (_choice, option) => editAction("option", option.id),
-          }}
-          context={contextBeats.filter(beat => !navigation || beat.bodyContent.length > 0).map((beat) => (
-            <section key={beat.id} className="world-plan-scene-reader__context" aria-label="Authored Beat context"
-              data-beat-id={beat.id} data-parent-scene-id={model.version === "v1" ? focusedScene.id : undefined}>
-              <ReadOnlyBodyContent
-                content={[cardTitleContent(beat, 3)]}
-                className="world-plan-scene-reader__context-title"
-                onActivateGraphNode={onActivateGraphNode}
-                unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-              />
-              {beat.bodyContent[0] ? (
-                <ReadOnlyBodyContent
-                  content={[beat.bodyContent[0]]}
-                  className="world-plan-scene-reader__objective"
-                  onActivateGraphNode={onActivateGraphNode}
-                  unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-                />
-              ) : null}
-              {beat.bodyContent.length > 1 ? (
-                <details className="world-plan-scene-reader__beat-details">
-                  <summary>Beat details</summary>
-                  <ReadOnlyBodyContent
-                    content={beat.bodyContent.slice(1)}
-                    className="world-plan-scene-reader__details-content"
-                    onActivateGraphNode={onActivateGraphNode}
-                    unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-                  />
-                </details>
-              ) : null}
-            </section>
-          ))}
-          footer={!navigation ? <details className="world-plan-cards__basis"><summary>Plan and Agent details</summary>
-          <p>{cardState} · {basisLabel}</p>
-          {navigation ? <>
-            <p>Choose this scene as the target for an Agent edit proposal. This does not open an editor or change the Plan.</p>
-            {editAction("scene", focusedScene.id)}
-          </> : null}
-          <p className="world-plan-scene-reader__target" role="status">
-            {focusedTargetSelectable && focusedTargetSelected
-              ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."
-              : focusedTargetSelectable
-                ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
-                : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
-          </p></details> : null}
-          onActivateGraphNode={onActivateGraphNode}
-          unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-        />
-      </section>
-    );
-  }
-  return (
-    <section className="world-plan-cards" data-testid="world-plan-cards" aria-label="Plan cards">
-      <header className="world-plan-cards__heading">
-        <div><p className="world-plan-card__kind">Read-only Cards · {model.version}</p><h2>Plan cards</h2></div>
-        <p className="world-plan-cards__state">{cardState}</p>
-      </header>
-      <details className="world-plan-cards__basis">
-        <summary>Plan basis details</summary>
-        <dl>
-          <dt>World</dt><dd><code>{worldId}</code></dd>
-          <dt>Document</dt><dd><code>{documentId}</code></dd>
-          <dt>Basis</dt><dd>{basisLabel}</dd>
-          <dt>Object revision</dt><dd>{basis.status === "verified" ? basis.revision : "Unavailable"}</dd>
-          <dt>Content SHA-256</dt><dd><code>{basis.status === "verified" ? basis.contentSha256 : "Unavailable"}</code></dd>
-        </dl>
-      </details>
-      <p className="world-plan-cards__source-note">Only marked elements appear as cards. Unmarked Plan prose stays in Document.</p>
-      <p className="world-plan-cards__target-note" role="note">
-        Select one uniquely matching card for Ask. A targeted answer uses the committed Plan revision; unsaved edits are not sent.
-      </p>
-      <p className="world-plan-cards__target-note" role="note">
-        Select for Edit targets the exact body in the current draft. When the Plan is dirty, the proposal uses unsaved draft content; Apply still changes only the mounted draft and Save remains separate.
-      </p>
-      {basis.status !== "verified" ? (
-        <p className="world-plan-cards__target-warning" role="status">
-          Card targeting is unavailable until a committed Plan snapshot is verified.
-        </p>
-      ) : null}
-      {selectionStale ? (
-        <p className="world-plan-cards__target-warning" role="alert">
-          The selected card is no longer uniquely present in both this view and the committed Plan. Select a card again or clear the target before asking.
-        </p>
-      ) : null}
-      {scenes.length ? (
-        <nav className="world-plan-scene-outline" aria-label="Scene outline">
-          <h3>Scenes</h3>
-          <ol>
-            {scenes.map((scene) => (
-              <li key={scene.id}>
-                <button type="button" onClick={() => focusScene(scene)}>Open scene: {scene.title || "Untitled marked scene"}</button>
-                <code>{scene.id}</code>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      ) : null}
-      <ol className="world-plan-card-roots">
-        {model.roots.map((node) => (
-          <CardNodeView
-            key={node.id}
-            node={node}
-            worldId={worldId}
-            documentId={documentId}
-            selectableTargetKeys={selectableTargetKeys}
-            editableTargetKeys={editableTargetKeys}
-            selectedTarget={selectedTarget}
-            selectedEditTarget={selectedEditTarget}
-            onSelectTarget={onSelectTarget ? (target) => onSelectTarget(target) : undefined}
-            onSelectEditTarget={onSelectEditTarget}
-            onFocusScene={focusScene}
-            onActivateGraphNode={onActivateGraphNode}
-          />
-        ))}
-      </ol>
-    </section>
-  );
+  const nodes = model.status === "ready" ? flattenNodes(model.roots) : [];
+  const scene = nodes.find(node => node.kind === "scene" && node.id === sceneId);
+  if (model.status === "blocked") return <section className="world-plan-cards world-plan-cards--blocked"
+    data-testid="world-plan-cards" role="alert" aria-label="Cards unavailable">
+    <h2>Cards are unavailable for this Plan</h2>
+    <ul>{model.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}:${index}`}>{diagnostic.message}</li>)}</ul>
+    <button type="button" onClick={onReturnToDocument}>Open Document</button>
+  </section>;
+  if (!scene) return <section className="world-plan-cards" data-testid="world-plan-cards" aria-label="Cards unavailable">
+    <h2>{nodes.some(node => node.kind === "scene") ? "Choose a scene in Contents" : "No marked scenes yet"}</h2>
+    <button type="button" onClick={onReturnToDocument}>Open Document</button>
+  </section>;
+  const beat = nodes.find(node => node.kind === "beat" && node.id === scene.parentId);
+  const editAction = (kind: "scene" | "choice" | "option", id: string) => {
+    const target = { kind, id } satisfies WorldPlanCardTarget;
+    const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
+    return <button type="button" className="world-plan-card__edit-target" data-edit-target-kind={kind}
+      data-edit-target-id={id} aria-pressed={selectedEditTarget?.kind === kind && selectedEditTarget.id === id}
+      disabled={!editable || !onSelectEditTarget}
+      onClick={event => selectEditTargetWithScroll(event.currentTarget, target, onSelectEditTarget)}>
+      {selectedEditTarget?.kind === kind && selectedEditTarget.id === id ? "Selected for Agent edit" : `Use ${kind} for Agent edit`}
+    </button>;
+  };
+  return <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
+    {selectionStale ? <p role="alert">The selected Ask card is stale. Select a matching saved card again before asking.</p> : null}
+    <SceneCard identity={{ worldId, documentId, sceneId: scene.id,
+      revision: basis.status === "verified" && !isDirty ? basis.revision : null,
+      contentSha256: basis.status === "verified" && !isDirty ? basis.contentSha256 : null,
+      sourceState: isDirty || basis.status !== "verified" ? "draft" : "verified" }}
+      scene={planSceneCardElement(scene, 2)} choices={planFocusedSceneChoices(scene, beat ?? null)}
+      variant="plan" kicker="" compactHeader headingId="world-plan-focused-scene-heading"
+      sceneActions={onSelectEditTarget ? editAction("scene", scene.id) : null}
+      choiceActions={{ renderChoiceActions: choice => editAction("choice", choice.id),
+        renderOptionActions: (_choice, option) => editAction("option", option.id) }}
+      context={beat?.bodyContent.length ? <section className="world-plan-scene-reader__context" aria-label="Authored Beat context" data-beat-id={beat.id}>
+        <ReadOnlyBodyContent content={[cardTitleContent(beat, 3)]} className="world-plan-scene-reader__context-title" onActivateGraphNode={onActivateGraphNode} />
+        <ReadOnlyBodyContent content={beat.bodyContent.slice(0, 1)} className="world-plan-scene-reader__objective" onActivateGraphNode={onActivateGraphNode} />
+        {beat.bodyContent.length > 1 ? <details className="world-plan-scene-reader__beat-details"><summary>Beat details</summary>
+          <ReadOnlyBodyContent content={beat.bodyContent.slice(1)} className="world-plan-scene-reader__details-content" onActivateGraphNode={onActivateGraphNode} />
+        </details> : null}
+      </section> : null}
+      onActivateGraphNode={onActivateGraphNode}
+      unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it." />
+  </section>;
 }

@@ -1994,7 +1994,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         <div className="plan-cards-workspace__reader" hidden={!cardsViewActive || focusedCardEditable}>
           {documentId && cardsViewActive && !focusedCardEditable ? <WorldPlanCardProjection
             key={editorIdentity}
-            navigation={{ sceneId: navigationSceneId, onChange: navigatePlanScene }}
+            sceneId={navigationSceneId}
             worldId={worldId}
             documentId={documentId}
             document={cardProjectionDocument}
@@ -2003,11 +2003,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             basis={savedBasis}
             isDirty={cardProjectionDirty}
             onReturnToDocument={() => selectPlanView("document")}
-            selectableTargetKeys={selectableTargetKeys}
             editableTargetKeys={editableTargetKeys}
-            selectedTarget={selectedPlayableTarget?.target ?? null}
             selectedEditTarget={selectedPlayableEditTarget?.target ?? null}
-            onSelectTarget={selectPlayableTarget}
             onSelectEditTarget={selectPlayableEditTarget}
             selectionStale={selectedPlayableTargetStale}
             onActivateGraphNode={activateNode}
