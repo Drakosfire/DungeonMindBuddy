@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, StrictMode, useEffect, type ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "./liveApi";
@@ -9,6 +9,24 @@ afterEach(()=>{cleanup();vi.restoreAllMocks();api.setNativeGraphAccessToken(null
 function managedPacket(revision:string){return {schema:"dmb_managed_world_graph_projection_v1",managedWorldId:"elderwyld",nativeWorldId:"native-world",bindingVersion:1,projection:{schema:"dmb_world_graph_projection_v1",snapshot:{worldId:"native-world",campaignId:"",revisionId:revision,headRevisionId:revision,isHead:true,focus:{kind:"none",sessionId:null},admissibility:"gm",scopeMode:"world"},summary:{nodeCount:0,relationshipCount:0,attributeCount:0,evidenceCount:0,sourceArtifactCount:0,projectionTruncated:false},nodes:[],relationships:[],attributes:[],evidence:[],sourceArtifacts:[],diagnostics:[]}}}
 const historyPath="/api/live/agent/worlds/elderwyld/conversation?limit=40";
 describe("protected read acquisition",()=>{
+ it("reuses a pending World history request when its consumer effect restarts",async()=>{
+  api.setNativeGraphAccessToken("strict-history-rehearsal");
+  const gate=deferred<Response>();
+  const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
+  const {rerender,unmount}=renderHook(({generation})=>{
+   useEffect(()=>{
+    const controller=new AbortController();
+    void api.getWorldAgentConversationHistory("elderwyld",{limit:40,includeTurnCorrelation:true,signal:controller.signal}).catch(()=>undefined);
+    return()=>controller.abort();
+   },[generation]);
+  },{wrapper:StrictMode,initialProps:{generation:0}});
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));
+  expect(String(fetch.mock.calls[0][0])).toBe("/api/live/agent/worlds/elderwyld/conversation?limit=40&include_turn_correlation=true");
+  rerender({generation:1});
+  expect(fetch).toHaveBeenCalledTimes(1);
+  gate.resolve(Response.json({schema:"dmb_agent_conversation_history_v4",turns:[]}));
+  unmount();
+ });
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
