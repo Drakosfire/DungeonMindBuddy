@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   confirmFirstWorldGraph,
-  ExtractPromoteApiError,
   prepareFirstWorldGraph,
 } from "../../api/extractPromoteApi";
 import type {
@@ -14,9 +13,13 @@ import type {
   FirstWorldGraphPlan,
 } from "../../api/types";
 
+import {assertFirstWorldPlan,assertFirstWorldReceipt,firstWorldDecisions,firstWorldScope,
+  readFirstWorldRecovery,saveFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
+
 export interface GraphReviewFirstWorldPublishSheetProps {
   review: ExactRunReviewPackage;
   onConfirmInFlightChange?: (inFlight: boolean) => void;
+  isCurrent?: () => boolean;
 }
 
 type PublishPhase =
@@ -127,9 +130,6 @@ function outcomeLabel(outcome: FirstWorldGraphConfirmReceipt["outcome"]): string
 }
 
 function publishErrorMessage(error: unknown): string {
-  if (error instanceof ExtractPromoteApiError) {
-    return error.message;
-  }
   if (error instanceof Error) {
     return error.message;
   }
@@ -139,28 +139,35 @@ function publishErrorMessage(error: unknown): string {
 /**
  * First-world keep/reject review for exact worldbuilding runs (CR02A).
  */
-export function GraphReviewFirstWorldPublishSheet({
-  review,
-  onConfirmInFlightChange,
-}: GraphReviewFirstWorldPublishSheetProps) {
-  if (review.firstWorldPublishEligible !== true) {
-    return null;
-  }
-
+export function GraphReviewFirstWorldPublishSheet(props:GraphReviewFirstWorldPublishSheetProps){
+  const scope=firstWorldScope(props.review),currentScope=useRef(scope);currentScope.current=scope;
+  let saved:FirstWorldRecovery|null;
+  try {saved=readFirstWorldRecovery(props.review);}
+  catch(reason){return <p role="alert">{publishErrorMessage(reason)}</p>;}
+  if(props.review.firstWorldPublishEligible!==true&&!saved)return null;
+  return <FirstWorldPublish key={scope} {...props} saved={saved}
+    isScopeCurrent={()=>currentScope.current===scope&&(props.isCurrent?.()??true)}/>;
+}
+function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}:GraphReviewFirstWorldPublishSheetProps&{
+  saved:FirstWorldRecovery|null;isScopeCurrent:()=>boolean;
+}){
   const worldId = review.worldId?.trim() ?? "";
   const worldDisplayName = worldId ? formatWorldDisplayName(worldId) : "this world";
 
   const [keepByAssertionId, setKeepByAssertionId] = useState<Map<string, boolean>>(() =>
-    buildInitialKeepState(review.assertions),
+    saved?new Map(firstWorldDecisions(saved.plan).map(row=>[row.assertionId,row.decision!=='reject'])):buildInitialKeepState(review.assertions),
   );
-  const [publishPhase, setPublishPhase] = useState<PublishPhase>("idle");
-  const [sealedPlan, setSealedPlan] = useState<FirstWorldGraphPlan | null>(null);
+  const [publishPhase, setPublishPhase] = useState<PublishPhase>(saved?"unknown_result":"idle");
+  const [sealedPlan, setSealedPlan] = useState<FirstWorldGraphPlan | null>(saved?.plan??null);
   const [receipt, setReceipt] = useState<FirstWorldGraphConfirmReceipt | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
 
+  const alive=useRef(true),lock=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const current=()=>alive.current&&isScopeCurrent();
   const publishing = publishPhase === "publishing";
   const hasTerminalReceipt = receipt != null;
-  const selectionLocked = publishing || hasTerminalReceipt;
+  const selectionLocked = publishing || hasTerminalReceipt || sealedPlan!==null;
   const keptCount = useMemo(
     () => countKeptDecisions(review.assertions, keepByAssertionId),
     [keepByAssertionId, review.assertions],
@@ -194,72 +201,37 @@ export function GraphReviewFirstWorldPublishSheet({
     });
   };
 
-  const runConfirmWithPlan = useCallback(
-    async (plan: FirstWorldGraphPlan) => {
-      setPublishPhase("publishing");
-      setPublishError(null);
-
-      let nextReceipt: FirstWorldGraphConfirmReceipt;
-      try {
-        nextReceipt = await confirmFirstWorldGraph({ plan });
-      } catch (error) {
-        if (error instanceof ExtractPromoteApiError) {
-          setPublishPhase("pre_commit_error");
-          setPublishError(publishErrorMessage(error));
-          return;
-        }
-        setPublishPhase("unknown_result");
-        setPublishError(
-          error instanceof Error
-            ? error.message
-            : "Confirm result is unknown due to a network error.",
-        );
-        return;
-      }
-
-      setReceipt(nextReceipt);
-      setPublishPhase("receipt");
-    },
-    [],
-  );
-
-  const runPrepareAndConfirm = useCallback(async () => {
-    if (publishing || hasTerminalReceipt || keptCount === 0) return;
-
-    const decisions = buildFirstWorldDecisions(review.assertions, keepByAssertionId);
-    setPublishPhase("publishing");
-    setPublishError(null);
-
-    let plan: FirstWorldGraphPlan;
+  async function confirmRetained(plan:FirstWorldGraphPlan){
+    await saveFirstWorldRecovery(review,plan,true,current);
+    if(!current())return;
+    const nextReceipt=await confirmFirstWorldGraph({plan});
+    if(!current())return;
+    assertFirstWorldReceipt(nextReceipt,plan);
+    setReceipt(nextReceipt);setPublishPhase('receipt');
+  }
+  async function runConfirmWithPlan(plan:FirstWorldGraphPlan){
+    if(lock.current||hasTerminalReceipt||!current())return;
+    lock.current=true;setPublishPhase('publishing');setPublishError(null);
+    try {await confirmRetained(plan);}
+    catch(error){if(current()){setPublishPhase('unknown_result');setPublishError(publishErrorMessage(error));}}
+    finally {lock.current=false;}
+  }
+  async function runPrepareAndConfirm(){
+    if(lock.current||sealedPlan||hasTerminalReceipt||keptCount===0||!current())return;
+    lock.current=true;setPublishPhase('publishing');setPublishError(null);
+    let prepared=false;
     try {
-      plan = await prepareFirstWorldGraph({
-        runId: review.runId,
-        decisions,
-      });
-    } catch (error) {
-      setPublishPhase("pre_commit_error");
-      setPublishError(publishErrorMessage(error));
-      return;
-    }
-
-    setSealedPlan(plan);
-
-    if (!plan.confirmable) {
-      setPublishPhase("pre_commit_error");
-      setPublishError("No kept changes are confirmable for this world.");
-      return;
-    }
-
-    await runConfirmWithPlan(plan);
-  }, [
-    hasTerminalReceipt,
-    keepByAssertionId,
-    keptCount,
-    publishing,
-    review.assertions,
-    review.runId,
-    runConfirmWithPlan,
-  ]);
+      const decisions=buildFirstWorldDecisions(review.assertions,keepByAssertionId);
+      const plan=await prepareFirstWorldGraph({runId:review.runId,decisions});
+      if(!current())return;
+      assertFirstWorldPlan(plan,review,decisions);
+      await saveFirstWorldRecovery(review,plan,false,current);
+      if(!current())return;
+      prepared=true;setSealedPlan(plan);
+      await confirmRetained(plan);
+    } catch(error){if(current()){setPublishPhase(prepared?'unknown_result':'pre_commit_error');setPublishError(publishErrorMessage(error));}}
+    finally {lock.current=false;}
+  }
 
   const onRetryExactConfirm = () => {
     if (!sealedPlan) return;
@@ -438,7 +410,7 @@ export function GraphReviewFirstWorldPublishSheet({
             disabled={publishing || !sealedPlan}
             onClick={onRetryExactConfirm}
           >
-            Retry exact confirm
+            Recover saved creation result
           </button>
         ) : null}
       </footer>
