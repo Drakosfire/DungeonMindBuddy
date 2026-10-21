@@ -69,7 +69,7 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    document/session authority. Cross-surface availability is not arbitrary
    bidirectional synchronization.
 
-   **Planned follow-on — unify Build document ingestion (not active):**
+   **Build document ingestion — delivered foundation and remaining acceptance:**
    [Build document ingestion as one workflow](../Design/DESIGN-build-ingestion-as-document-workflow.md)
    folds exact-run evidence review, candidate decisions, correction/recovery and
    accepted receipts into the existing Build document context. Recap is a frozen
@@ -82,7 +82,7 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    [recoverable Recap launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537;
    [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are delivered by PR1538;
    [Recap publication recovery](../Plans/HANDOFF-BUILD-recap-publication-recovery.md) is delivered by PR1539.
-   Full live receipt/recovery acceptance and Worldbuilding publication recovery remain open. This does not replace the roadmap's
+   Full live receipt/recovery acceptance remains open; [existing-World Worldbuilding publication recovery](../Plans/HANDOFF-BUILD-worldbuilding-publication-recovery.md) is active, with first-World recovery separate. This does not replace the roadmap's
    focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
    ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
    [Combat C0 PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367)).

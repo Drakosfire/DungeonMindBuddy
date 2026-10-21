@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen, waitFor, cleanup } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {ExtractPromoteApiError} from "../../api/extractPromoteApi";
 import * as api from "../../api/worldbuildingPublicationApi";
 import * as live from "../../api/liveApi";
 import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from "../../api/types";
 import type { WorldbuildingPlan } from "../../api/worldbuildingPublicationApi";
+import {readWorldbuildingPublicationRecovery, worldbuildingPublicationRecoveryKey, worldbuildingPublicationScope} from './worldbuildingPublicationRecovery';
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 const selection = vi.hoisted(() => ({kind: "managed", worldId: "world-a", name: "A", documentId: null}));
 vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: () => selection}));
@@ -41,6 +43,8 @@ function choose() {
 async function ready() { await waitFor(() => expect(screen.getByRole("group", {name: "Publication choices"})).not.toBeDisabled()); }
 function deferred<T>() {let resolve!: (v: T) => void; const promise = new Promise<T>(r => {resolve=r;}); return {promise, resolve};}
 beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_name:string,callback:()=>unknown)=>Promise.resolve(callback())}});
   selection.worldId = "world-a";
   vi.spyOn(live, "postManagedWorldGraphProjection").mockResolvedValue(projection);
   vi.spyOn(api, "getWorldbuildingCapabilities").mockResolvedValue({schema: "dmb_worldbuilding_publication_capabilities_v1", configured: true,
@@ -74,7 +78,7 @@ describe("existing World worldbuilding publication", () => {
     render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
     fireEvent.click(screen.getByRole("button", {name: "Prepare proposed changes"})); await screen.findByRole("button", {name: "Confirm publication"});
     fireEvent.change(screen.getByLabelText("Existing identity for Edge"), {target: {value: ""}});
-    expect(screen.queryByRole("button", {name: "Confirm publication"})).toBeNull();
+    await waitFor(()=>expect(screen.queryByRole("button", {name: "Confirm publication"})).toBeNull());
     expect(screen.getByRole("button", {name: "Prepare proposed changes"})).toBeDisabled();
   });
   it("allows first-World flow only on an explicit missing native binding plus exact eligibility", async () => {
@@ -133,13 +137,14 @@ describe("existing World worldbuilding publication", () => {
     fireEvent.click(screen.getByRole("button", {name: "Prepare proposed changes"})); await screen.findByRole("alert");
     expect(api.prepareWorldbuilding).toHaveBeenCalledOnce(); expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
   });
-  it("retains uncertain confirmation as an error and disables another POST", async () => {
+  it("retains uncertain confirmation for an explicit exact retry", async () => {
     vi.mocked(api.confirmWorldbuilding).mockRejectedValue(new Error("network interrupted"));
     render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
     fireEvent.click(screen.getByRole("button", {name: "Prepare proposed changes"})); await screen.findByRole("button", {name: "Confirm publication"});
     fireEvent.click(screen.getByRole("button", {name: "Confirm publication"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("outcome is unverified");
-    expect(screen.getByRole("button", {name: "Confirm publication"})).toBeDisabled(); expect(api.confirmWorldbuilding).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", {name: "Recover publication result"})).toBeEnabled(); expect(api.confirmWorldbuilding).toHaveBeenCalledOnce();
+    expect(screen.getByRole("group", {name: "Publication choices"})).toBeDisabled();
   });
   it("discards an old run's late prepared result on selection change", async () => {
     const pending = deferred<WorldbuildingPlan>(); vi.mocked(api.prepareWorldbuilding).mockReturnValue(pending.promise);
@@ -160,4 +165,180 @@ describe("existing World worldbuilding publication", () => {
     render(<GraphReviewWorldbuildingPublication review={review} />);
     expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled(); expect(api.getWorldbuildingCapabilities).not.toHaveBeenCalled();
   });
+});
+
+
+describe("durable exact Worldbuilding recovery", () => {
+  async function prepared() {
+    const ui = render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
+    fireEvent.click(screen.getByRole("button", {name:"Prepare proposed changes"}));
+    await screen.findByRole("button", {name:"Confirm publication"});
+    return ui;
+  }
+  it("persists before confirmation and restores exact choices after closing review without a POST", async () => {
+    const ui = await prepared();
+    expect(readWorldbuildingPublicationRecovery(review, 'world-a')).toMatchObject({plan, submitted:false});
+    ui.unmount(); render(<GraphReviewWorldbuildingPublication review={review} />); await ready();
+    expect(screen.getByLabelText('Decision for Edge')).toHaveValue('bind_existing');
+    expect(screen.getByLabelText('Existing identity for Edge')).toHaveValue('loc_3');
+    expect(screen.getByLabelText('Decision for Mara')).toHaveValue('create_new');
+    expect(api.prepareWorldbuilding).toHaveBeenCalledOnce(); expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByText(/Publication recorded/);
+    expect(api.confirmWorldbuilding).toHaveBeenCalledExactlyOnceWith(plan);
+  });
+  it("persists submitted state before POST, then recovers a lost response after reload and advanced World head", async () => {
+    vi.mocked(api.confirmWorldbuilding).mockImplementationOnce(async actual => {
+      expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({plan:actual,submitted:true});
+      throw new Error('response lost');
+    });
+    const ui = await prepared(); fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByRole('alert'); ui.unmount();
+    vi.mocked(live.postManagedWorldGraphProjection).mockResolvedValue({...projection,projection:{...projection.projection,
+      snapshot:{...projection.projection.snapshot,revisionId:'rev:9',headRevisionId:'rev:9'}}});
+    render(<GraphReviewWorldbuildingPublication review={review} />);
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Recover publication result'})).toBeEnabled());
+    expect(api.confirmWorldbuilding).toHaveBeenCalledOnce(); expect(api.prepareWorldbuilding).toHaveBeenCalledOnce();
+    expect(screen.getByRole('group',{name:'Publication choices'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Recover publication result'}));
+    await screen.findByText(/Publication recorded/);
+    expect(vi.mocked(api.confirmWorldbuilding).mock.calls).toEqual([[plan],[plan]]);
+  });
+  it("does not treat a saved successful request as a verified receipt after reload", async () => {
+    const ui=await prepared(); fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByText(/Publication recorded/); ui.unmount();
+    render(<GraphReviewWorldbuildingPublication review={review} />);
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Recover publication result'})).toBeEnabled());
+    expect(screen.queryByText(/Publication recorded/)).toBeNull(); expect(api.confirmWorldbuilding).toHaveBeenCalledOnce();
+  });
+  it("never exposes confirmation if retaining the prepared plan fails", async () => {
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage full');});
+    render(<GraphReviewWorldbuildingPublication review={review} />); await ready(); choose();
+    fireEvent.click(screen.getByRole('button',{name:'Prepare proposed changes'})); await screen.findByRole('alert');
+    expect(screen.queryByRole('button',{name:'Confirm publication'})).toBeNull(); expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  });
+  it("blocks POST if submitted-state persistence fails and retains the unsubmitted plan", async () => {
+    await prepared(); vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage full');});
+    fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No request was sent');
+    expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:false,plan});
+  });
+  it("retains the original choices and plan if storage invalidation fails", async () => {
+    await prepared(); vi.spyOn(Storage.prototype,'removeItem').mockImplementation(()=>{throw new Error('storage unavailable');});
+    fireEvent.change(screen.getByLabelText('Decision for Mara'),{target:{value:'defer'}});
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Decision for Mara')).toHaveValue('create_new');
+    expect(screen.getByRole('button',{name:'Confirm publication'})).toBeEnabled();
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')?.plan).toEqual(plan);
+  });
+  it.each(['world','run','source','revision','binding','snapshot','duplicate','submitted','schema','malformed'])(
+    'refuses malformed or cross-scope saved %s before any write',async mutation=>{
+      const ui=await prepared();ui.unmount();
+      const key=worldbuildingPublicationRecoveryKey(worldbuildingPublicationScope(review,'world-a'));
+      const value=JSON.parse(localStorage.getItem(key)!);
+      if(mutation==='world')value.plan.worldId='foreign';
+      else if(mutation==='run')value.plan.runId='other';
+      else if(mutation==='source')value.plan.publicationBinding.sourceArtifactId='other';
+      else if(mutation==='revision')value.plan.sourceRevisionId='sha256:'+'d'.repeat(64);
+      else if(mutation==='binding')value.plan.publicationBinding.bindingVersion=2;
+      else if(mutation==='snapshot')value.plan.effect.decisionSnapshot[0].assertionId='foreign';
+      else if(mutation==='duplicate')value.plan.effect.decisionSnapshot[1]=value.plan.effect.decisionSnapshot[0];
+      else if(mutation==='submitted')value.submitted='true';
+      else if(mutation==='schema')value.schema='old';
+      localStorage.setItem(key,mutation==='malformed'?'{':JSON.stringify(value));
+      render(<GraphReviewWorldbuildingPublication review={review}/>);await screen.findByRole('alert');
+      const confirm=screen.queryByRole('button',{name:'Confirm publication'}); if(confirm)expect(confirm).toBeDisabled();
+      expect(api.confirmWorldbuilding).not.toHaveBeenCalled(); expect(api.prepareWorldbuilding).toHaveBeenCalledOnce();
+    });
+  it("ignores a late confirmation after another exact run is selected, retaining the original request",async()=>{
+    const pending=deferred<api.WorldbuildingReceipt>();vi.mocked(api.confirmWorldbuilding).mockReturnValue(pending.promise);
+    const ui=await prepared();fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    ui.rerender(<GraphReviewWorldbuildingPublication review={{...review,runId:'run-b'}}/>);await ready();
+    await act(async()=>{pending.resolve({schema:'dmb_worldbuilding_write_plan_confirm_v1',outcome:'committed',
+      worldId:'native-a',planId:plan.planId,planDigest:plan.planDigest,decisionDigest:plan.decisionDigest,
+      parentRevisionId:'rev:1',committedRevisionId:'rev:2',appliedAssertionCount:2,auditStatus:'ok',warnings:[]});await pending.promise;});
+    expect(screen.queryByText(/Publication recorded/)).toBeNull();
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,plan});
+  });
+  it('allows explicit replacement only after retaining a typed stale-parent rejection',async()=>{
+    vi.mocked(api.confirmWorldbuilding).mockRejectedValueOnce(new ExtractPromoteApiError('Outdated parent',409,'stale_parent_revision'));
+    await prepared();fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByRole('button',{name:'Set aside rejected plan and refresh World'});
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,staleParent:true,plan});
+    const key=worldbuildingPublicationRecoveryKey(worldbuildingPublicationScope(review,'world-a'));
+    fireEvent.click(screen.getByRole('button',{name:'Set aside rejected plan and refresh World'}));await ready();
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(JSON.parse(localStorage.getItem(key+':retained:'+plan.planId)!)).toMatchObject({plan,submitted:true,staleParent:true});
+    expect(screen.getByLabelText('Decision for Edge')).toHaveValue('defer');
+    expect(api.prepareWorldbuilding).toHaveBeenCalledOnce();expect(api.confirmWorldbuilding).toHaveBeenCalledOnce();
+  });
+  it('does not replace a rejected plan when archive storage fails',async()=>{
+    vi.mocked(api.confirmWorldbuilding).mockRejectedValueOnce(new ExtractPromoteApiError('Outdated parent',409,'stale_parent_revision'));
+    await prepared();fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByRole('button',{name:'Set aside rejected plan and refresh World'});
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('archive unavailable');});
+    fireEvent.click(screen.getByRole('button',{name:'Set aside rejected plan and refresh World'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('archive unavailable');
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,staleParent:true,plan});
+    expect(screen.getByRole('group',{name:'Publication choices'})).toBeDisabled();
+  });
+  it('never offers to replace an unknown confirmation',async()=>{
+    vi.mocked(api.confirmWorldbuilding).mockRejectedValueOnce(new Error('unknown delivery'));
+    await prepared();fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));await screen.findByRole('alert');
+    expect(screen.queryByRole('button',{name:'Set aside rejected plan and refresh World'})).toBeNull();
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,staleParent:false});
+  });
+
+  it('preserves current server null target fields in the sealed confirmation',async()=>{
+    const actual=JSON.parse(JSON.stringify(plan));
+    actual.effect.decisionSnapshot[1].targetNodeId=null;actual.effect.decisionSnapshot[2].targetNodeId=null;
+    vi.mocked(api.prepareWorldbuilding).mockResolvedValue(actual);
+    await prepared();fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    await screen.findByText(/Publication recorded/);
+    expect(api.confirmWorldbuilding).toHaveBeenCalledExactlyOnceWith(actual);
+  });
+
+  it('preserves an unknown request when another mounted review finishes preparing a different plan',async()=>{
+    const first=deferred<WorldbuildingPlan>(),second=deferred<WorldbuildingPlan>();
+    vi.mocked(api.prepareWorldbuilding).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    vi.mocked(api.confirmWorldbuilding).mockRejectedValueOnce(new Error('response lost'));
+    const a=render(<GraphReviewWorldbuildingPublication review={review}/>);
+    const b=render(<GraphReviewWorldbuildingPublication review={review}/>);
+    const qa=within(a.container),qb=within(b.container);
+    for(const q of [qa,qb]){
+      await waitFor(()=>expect(q.getByRole('group',{name:'Publication choices'})).toBeEnabled());
+      fireEvent.change(q.getByLabelText('Decision for Edge'),{target:{value:'bind_existing'}});
+      fireEvent.change(q.getByLabelText('Existing identity for Edge'),{target:{value:'loc_3'}});
+      fireEvent.change(q.getByLabelText('Decision for Mara'),{target:{value:'create_new'}});
+      fireEvent.change(q.getByLabelText('Decision for In town'),{target:{value:'reject'}});
+      fireEvent.click(q.getByRole('button',{name:'Prepare proposed changes'}));
+    }
+    await act(async()=>{first.resolve(plan);await first.promise;});
+    fireEvent.click(await qa.findByRole('button',{name:'Confirm publication'}));await qa.findByRole('alert');
+    const other={...plan,planId:'other-plan',planDigest:'sha256:'+'e'.repeat(64)};
+    await act(async()=>{second.resolve(other);await second.promise;});
+    expect(await qb.findByRole('alert')).toHaveTextContent('Another publication request was retained');
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({plan,submitted:true});
+    expect(api.confirmWorldbuilding).toHaveBeenCalledExactlyOnceWith(plan);
+    expect(qb.queryByRole('button',{name:'Confirm publication'})).toBeNull();
+  });
+  it('fails closed when cross-tab locking is unavailable',async()=>{
+    Object.defineProperty(navigator,'locks',{configurable:true,value:undefined});
+    render(<GraphReviewWorldbuildingPublication review={review}/>);await ready();choose();
+    fireEvent.click(screen.getByRole('button',{name:'Prepare proposed changes'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('cannot safely retain publication recovery across tabs');
+    expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  });
+
+  it('does not dispatch if review closes while waiting for the browser storage lock',async()=>{
+    const ui=await prepared();let release!:()=>void;
+    Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_name:string,callback:()=>unknown)=>
+      new Promise(resolve=>{release=()=>resolve(callback());})}});
+    fireEvent.click(screen.getByRole('button',{name:'Confirm publication'}));
+    ui.unmount();await act(async()=>{release();await Promise.resolve();});
+    expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+    expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,plan});
+  });
+
 });
