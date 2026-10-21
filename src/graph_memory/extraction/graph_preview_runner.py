@@ -71,6 +71,7 @@ class ProductionExtractionRequest:
     enable_edge_vocabulary_packet: bool = False
     initial_lineage: dict[str, Any] | None = None
     extra_known_entities: tuple[KnownEntity, ...] | None = None
+    reserved_run: ExtractionRun | None = None
 
 
 @dataclass
@@ -217,8 +218,23 @@ def _create_draft_run(
     profile_id: str | None,
     diagnostics: ExtractionRunDiagnostics | None = None,
     lineage: dict[str, Any] | None = None,
+    reserved_run: ExtractionRun | None = None,
 ) -> ExtractionRun:
-    from apps.live_control_server.services.graph_run_registry import create_extraction_run
+    from apps.live_control_server.services.graph_run_registry import create_extraction_run, get_extraction_run
+
+    if reserved_run is not None:
+        current = get_extraction_run(repo_root, reserved_run.run_id)
+        if (current.status != ExtractionRunStatus.DRAFT or current.revision != reserved_run.revision
+                or current.source_artifact_id != source.source_artifact_id
+                or current.source_domain != source.source_domain or current.campaign_id != source.campaign_id
+                or current.session_id != source.session_id or current.profile_id != profile_id
+                or not current.lineage.get("build_launch")
+                or any((lineage or {}).get(key) != value for key, value in current.lineage.items())):
+            raise ValueError("Build launch reservation no longer matches the exact draft extraction")
+        # The ordinary DRAFT -> PREPARED/FAILED CAS below is the execution fence.
+        # No model call occurs before that CAS wins against this exact revision.
+        return current.model_copy(update={"lineage": dict(lineage or {}),
+            "diagnostics": diagnostics or current.diagnostics})
 
     return create_extraction_run(
         repo_root,
@@ -369,6 +385,7 @@ def run_production_extraction(
             profile_id=f"{request.profile_id}@{request.profile_version}",
             diagnostics=ExtractionRunDiagnostics(messages=[str(exc)], errors=[str(exc)]),
             lineage={**(request.initial_lineage or {}), "failure_kind": "profile"},
+            reserved_run=request.reserved_run,
         )
         failed = _fail_run(
             request.repo_root,
@@ -396,6 +413,7 @@ def run_production_extraction(
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
         },
+        reserved_run=request.reserved_run,
     )
     output_dir = _run_output_dir(request.repo_root, draft.run_id, request.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

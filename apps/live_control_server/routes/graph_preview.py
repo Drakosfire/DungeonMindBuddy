@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from uuid import UUID
+from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
@@ -724,3 +726,23 @@ def get_recap_graph_presentation(
     except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
+
+
+@router.post("/build-recap-launches", dependencies=[Depends(native_graph_gm_dependency)])
+def post_build_recap_launch(body: BuildRecapLaunchRequest) -> dict[str, Any]:
+    from apps.live_control_server.services.build_recap_launch import launch_build_recap
+    try:
+        run = launch_build_recap(repo_root(), body)
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    return get_extraction_run_build_context(run.run_id)
+
+
+@router.get("/build-recap-launches/{request_id}", dependencies=[Depends(native_graph_gm_dependency)])
+def get_build_recap_launch(request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+    from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
+    try:
+        run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    return get_extraction_run_build_context(run.run_id)
