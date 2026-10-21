@@ -1,0 +1,9 @@
+# BUILD — preserve the native Recap World in exact-run review
+
+ACTIVE serial slice under the operator's ingestion-in-Build goal. PRIME owns design/implementation/merge; Bugbot independently reviews exact head. Base a65de0de8ffa428efbfa00631b54eec1d2608ea7, branch codex/build-recap-review-world, existing checkout. Open1235 UI review and1546 Plan paths stay read-only.
+
+Rendered public-only Build acceptance now successfully imports one external Recap in its single editor and performs actual configured DeepSeek extraction against a verified disposable native World/campaign. Review then refuses the response: the exact-run API reports worldId:null. Its projection incorrectly uses the first-World capability's World ID, which is absent for Recap because first-World publication is Worldbuilding-only. The source/run resolver already carries the canonical native World; present that identity in Recap review without granting first-World eligibility or weakening UI scope comparisons.
+
+Lease: this handoff; apps/live_control_server/services/extract_promote.py only exact-run review projection; tests/test_build_recap_launch.py for actual registered Build run→exact review World/campaign/session/source proof. No resolver, model, source admission, publication-policy or frontend gate changes. Verify actual APP boundary and existing review/semantic regressions; independent Bugbot; merge; guarded immutable API8000 adoption behind UI5202. Preserve all retained rows/drafts. Topology serial, disjoint from held1546/1235.
+
+PR1561 merged a65de0de8ffa428efbfa00631b54eec1d2608ea7 after Bugbot144 independently passing client transport tests; UI5202 serves it behind API dbe3fcbf, all1450 retained APP rows preserved. The public completed extraction and its disposable APP/native databases were snapshotted before owned services stopped; resume that same paid result after this repair, without another provider call. Full rendered acceptance still outstanding.

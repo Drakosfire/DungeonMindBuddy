@@ -1506,7 +1506,9 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 if semantic_assessment is not None else None
             ),
             inherited_pc_references=inherited_pc_references,
-            world_id=capability.world_id,
+            # Recap has no first-World capability, but its canonical source/run
+            # still owns a native World that the Build review must verify.
+            world_id=(resolved.world_id if resolved.source_domain == "recap" else capability.world_id),
             world_state=capability.world_state,
             first_world_publish_eligible=(
                 capability.eligible and invalid_evidence_count == 0 and not semantic_held

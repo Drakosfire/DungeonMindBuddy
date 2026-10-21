@@ -195,3 +195,19 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: pytest.fail('replay read'))
     assert service.launch_build_recap(tmp_path, request) == result
     assert calls == [result.run_id]
+
+
+def test_exact_build_recap_review_preserves_canonical_native_world(
+    tmp_path, request_body, execute, monkeypatch,
+):
+    from apps.live_control_server.services import extract_promote
+    run = service.launch_build_recap(tmp_path, request_body)
+    monkeypatch.setattr(extract_promote, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(extract_promote, 'world_graph_root', lambda: tmp_path / 'unused-world')
+    review = extract_promote.get_exact_run_review_package(run.run_id)
+    assert review.world_id == 'native-a'
+    assert review.campaign_id == request_body.campaign_id
+    assert review.session_id == f'session-{request_body.session}'
+    assert review.source_artifact_id == run.source_artifact_id
+    assert review.source_revision_id == 'sha256:' + request_body.expected_content_sha256
+    assert review.first_world_publish_eligible is False
