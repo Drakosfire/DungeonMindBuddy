@@ -6,6 +6,7 @@ import * as live from "../../api/liveApi";
 import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from "../../api/types";
 import type { WorldbuildingPlan } from "../../api/worldbuildingPublicationApi";
 import {readWorldbuildingPublicationRecovery, worldbuildingPublicationRecoveryKey, worldbuildingPublicationScope} from './worldbuildingPublicationRecovery';
+import {saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 const selection = vi.hoisted(() => ({kind: "managed", worldId: "world-a", name: "A", documentId: null}));
 vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: () => selection}));
@@ -341,4 +342,20 @@ describe("durable exact Worldbuilding recovery", () => {
     expect(readWorldbuildingPublicationRecovery(review,'world-a')).toMatchObject({submitted:true,plan});
   });
 
+});
+
+
+it('routes retained creation to recovery after initialization instead of existing-World publication',async()=>{
+  const bound={...review,assertions:review.assertions.map(row=>({...row,evidence:[{sourceArtifactId:review.sourceArtifactId,
+    sourceSpanRefId:'span-a',paragraphText:'A source-backed claim.',anchorQuotes:['source-backed']}]}))};
+  await saveFirstWorldRecovery(bound,{schema:'dmb_first_world_graph_plan_v1',planId:'first-plan',planDigest:'sha256:'+'a'.repeat(64),
+    decisionDigest:'sha256:'+'b'.repeat(64),worldId:'world-a',runId:review.runId,sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,
+    workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion-a'],
+    rejectedAssertionIds:[],contributionId:'contribution-a',contributionPayloadSha256:'c'.repeat(64),
+    reviewedEffect:{decision_snapshot:bound.assertions.map(row=>({assertion_id:row.assertionId,candidate_kind:row.kind==='object'?'node':'edge',
+      decision:row.kind==='object'?'create_new':'accept',target_node_id:null}))},summary:{createNewNodeCount:2,acceptedEdgeCount:1,rejectedCandidateCount:0,acceptedAssertionCount:1},
+    confirmable:true,diagnostics:[]},false,()=>true);
+  render(<GraphReviewWorldbuildingPublication review={{...bound,worldState:'initialized',firstWorldPublishEligible:false}}/>);
+  expect(await screen.findByText('First World review')).toBeInTheDocument();
+  expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();expect(api.prepareWorldbuilding).not.toHaveBeenCalled();
 });

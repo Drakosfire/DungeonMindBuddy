@@ -10,7 +10,9 @@ import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublis
 import {assertWorldbuildingPlan, clearUnsubmittedWorldbuildingPublication, readWorldbuildingPublicationRecovery,
   saveWorldbuildingPublicationRecovery, setAsideRejectedWorldbuildingPublication} from "./worldbuildingPublicationRecovery";
 
-type Props = {review: ExactRunReviewPackage; onConfirmInFlightChange?: (busy: boolean) => void};
+import {readFirstWorldRecovery} from './firstWorldPublicationRecovery';
+
+type Props = {review: ExactRunReviewPackage; onConfirmInFlightChange?: (busy: boolean) => void; isCurrent?:()=>boolean};
 
 const message = (error: unknown) => error instanceof Error ? error.message : "World publication is unavailable.";
 
@@ -18,14 +20,22 @@ const message = (error: unknown) => error instanceof Error ? error.message : "Wo
 export function GraphReviewWorldbuildingPublication(props: Props) {
   const world = useSelectedWorld();
   const [epoch, setEpoch] = useState(0);
+  const scope=JSON.stringify([world.kind,world.kind==='managed'?world.worldId:null,props.review.runId,props.review.sourceRevisionId]);
+  const currentScope=useRef(scope);currentScope.current=scope;
+  const isCurrent=()=>currentScope.current===scope;
   if (world.kind !== "managed" || props.review.worldId !== world.worldId) {
     return <p role="status">Select the verified World belonging to this exact source to review publication.</p>;
   }
   if (props.review.inspectionStatus !== "ready" || props.review.sourceDomain !== "worldbuilding") return null;
+  // Initialization changes eligibility and creates the binding. Recover the
+  // original creation request before considering a different publication mode.
+  try {
+    if(readFirstWorldRecovery(props.review))return <GraphReviewFirstWorldPublishSheet {...props} isCurrent={isCurrent}/>;
+  }catch(reason){return <p role="alert">{message(reason)}</p>;}
   return <Publication key={`${world.worldId}:${props.review.runId}:${props.review.sourceArtifactId}:${props.review.sourceRevisionId}:${epoch}`}
-    {...props} managedWorldId={world.worldId} onReset={() => setEpoch(n => n + 1)} />;
+    {...props} isCurrent={isCurrent} managedWorldId={world.worldId} onReset={() => setEpoch(n => n + 1)} />;
 }
-function Publication({review, managedWorldId, onConfirmInFlightChange, onReset}: Props & {managedWorldId: string; onReset: () => void}) {
+function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, isCurrent}: Props & {managedWorldId: string; onReset: () => void}) {
   const [saved] = useState(() => {
     try { return {recovery: readWorldbuildingPublicationRecovery(review, managedWorldId), error: null}; }
     catch (reason) { return {recovery: null, error: message(reason)}; }
@@ -75,7 +85,7 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset}:
   }, [managedWorldId, review.worldState, review.firstWorldPublishEligible]);
 
   if (firstWorld) return <GraphReviewFirstWorldPublishSheet review={review}
-    onConfirmInFlightChange={onConfirmInFlightChange} />;
+    onConfirmInFlightChange={onConfirmInFlightChange} isCurrent={isCurrent} />;
   const busy = phase === "preparing" || phase === "confirming";
   const selected = Object.values(decisions).some(d => ["create_new", "bind_existing", "accept"].includes(d.decision));
   const update = async (id: string, decision: WorldbuildingDecision["decision"], targetNodeId?: string) => {
