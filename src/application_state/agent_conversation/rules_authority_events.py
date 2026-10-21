@@ -200,7 +200,7 @@ class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
     kind: Literal["native_provider_outcome"]
     provider: Annotated[str, Field(min_length=1, max_length=256)]
     model: Annotated[str, Field(min_length=1, max_length=256)]
-    api_mode: Literal["chat_completions", "codex_responses"]
+    api_mode: Literal["chat_completions", "codex_responses", "responses"]
     authorization_id: Annotated[str, Field(min_length=1, max_length=256)]
     api_request_id: Annotated[str, Field(min_length=1, max_length=256)]
     output_sha256: Digest

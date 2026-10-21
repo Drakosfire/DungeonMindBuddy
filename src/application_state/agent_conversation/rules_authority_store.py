@@ -349,7 +349,7 @@ def append_provider_event_locked(
                 # current owner before accepting the new Plan-only carrier.
                 from . import repository
                 plan_turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
-                from .types import ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1
+                from .types import ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1, PlanJevWriterAuthorizedV1
                 graph_execution = getattr(plan_turn, "graph_context_execution", None)
                 attempts = [item for item in getattr(graph_execution, "events", ())
                             if isinstance(item, ProviderAttemptAuthorizedEventV3)]
@@ -357,7 +357,9 @@ def append_provider_event_locked(
                 body = json.loads(prepared_request_json)
                 if (not isinstance(body, dict) or graph_auth is None or graph_auth.provider_attempt_id != event.provider_attempt_id
                         or graph_auth.envelope_sha256 != event.request_envelope_sha256
-                        or graph_auth.api_mode != "codex_responses" or body.get("model") != graph_auth.model):
+                        or (graph_auth.api_mode != "codex_responses" and not (
+                            isinstance(graph_auth, PlanJevWriterAuthorizedV1) and graph_auth.api_mode == "responses"))
+                        or body.get("model") != graph_auth.model):
                     raise ValueError("Plan packet provider lacks its actual current Graph authorization")
                 if prior is None and any(isinstance(item, ProviderOutcomeEventV1)
                         and item.provider_attempt_id == graph_auth.provider_attempt_id

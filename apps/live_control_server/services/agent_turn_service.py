@@ -6765,6 +6765,7 @@ def execute_agent_turn(
     try:
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
+            from .plan_jev_harness import PlanJevHarness
             from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
             # Saved Build and Rules remain usable before source ingestion. The
             # current driver validates discovery status; never silently switch to
@@ -6825,7 +6826,7 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, BuildJevHarness)
+        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
@@ -6857,6 +6858,9 @@ def execute_agent_turn(
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
+        if isinstance(selected_runtime, PlanJevHarness):
+            return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace,
+                dialogue=assembly.invocation.conversation_history or ())
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(
