@@ -354,7 +354,8 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             'source_pins': list(bootstrap.source_scope_anchors)})
     text = 'Frank guards the western gate.' * (310 if observation in {'paged', 'paged-mutated', 'paged-unseen'} else 1)
     digest = sha256(text.encode()).hexdigest()
-    def read_external_graph(arguments, *, receipt_version):
+    def read_external_graph(arguments, *, receipt_version, root):
+        assert root == tmp_path
         assert receipt_version == 2 and arguments['anchorIds'] == ['anchor-one']
         return {'schema': 'dmb_internal_read_graph_source_batch_v2', 'retrievalSessionId': session.id,
             'reads': [{'sourceReadId': 'source-read-one', 'result': {

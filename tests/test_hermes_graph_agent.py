@@ -4193,3 +4193,20 @@ def test_graph_read_profile_default_wire_and_direct_host_admission(tmp_path):
 
     result = run_hermes_graph_agent_turn(build, agent_factory=NeverConstruct)
     assert result.error_code == "invalid_graph_read_profile"
+
+
+def test_native_rules_prompt_defines_both_unused_and_used_output_contracts():
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    from graph_memory.hermes_graph_plugin import rules_capability_policy
+    policy = rules_capability_policy(rules_capability(graph=False))
+    request = SimpleNamespace(parent_graph_broker_required=False, request_budget=None,
+                              surface_context_block=None)
+    prompt = hermes_graph_agent_mod._build_ephemeral_system_prompt(
+        policy, request, retrieval_session_packet=None)
+    assert "If you do not call lookup_rules, use the ordinary native answer JSON" in prompt
+    assert "After any lookup_rules call, including no_evidence, unavailable, denied or over_budget" in prompt
+    assert "dmb_rules_mixed_answer_v1" in prompt
+    assert "base_output is null for a rules-only answer" in prompt
+    assert "support_capsules excerpts are actually in this producing input" in prompt
+    assert "category:interpretation|gap|connective" in prompt
+    assert "domain:base,segment_index:null" in prompt

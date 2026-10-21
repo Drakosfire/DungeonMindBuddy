@@ -75,14 +75,12 @@ class NativeRulesRuntime:
 
     def __init__(self, adapter, capability: RulesCapabilityV1):
         from .agent_turn_service import _turn_idempotency_key
-        from . import rules_lookup as reader
 
         cap = RulesCapabilityV1.model_validate(capability)
         if cap != rules_capability(graph=True) or adapter._is_build_turn():
             raise ValueError("Native Rules requires the exact Plan/Play Graph capability")
         if adapter.rules_runtime is not None or adapter.fence is None:
             raise ValueError("Native Rules requires one current claimed provider attempt")
-        reader.admitted_bundle(cap.corpus_sha256)
         # Provider authorization has already admitted and claimed this logical
         # turn. Its persisted conversation is the authoritative parent scope;
         # do not perform a second lookup/create race while binding the tool.

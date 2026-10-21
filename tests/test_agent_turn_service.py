@@ -124,6 +124,20 @@ def test_graph_operation_membership_requires_exact_typed_function_output() -> No
     assert _included_graph_operation_payloads({"input": [source_call, source_output]}) == []
 
 
+
+def test_graph_request_parser_requires_native_rules_capability_for_rules_outputs():
+    from apps.live_control_server.services.agent_turn_service import _included_tool_payloads
+    body = {"input": [
+        {"type": "function_call", "call_id": "rules-1", "name": "lookup_rules", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "rules-1", "output": "rules packet"}]}
+    with pytest.raises(ValueError, match="not matched"):
+        _included_tool_payloads(body, tool_name="expand_graph_retrieval")
+    assert _included_tool_payloads(body, tool_name="expand_graph_retrieval", rules_enabled=True) == []
+    assert _included_tool_payloads(body, tool_name="lookup_rules", rules_enabled=True) == ["rules packet"]
+    body["input"][0]["name"] = "unregistered_tool"
+    with pytest.raises(ValueError, match="not matched"):
+        _included_tool_payloads(body, tool_name="expand_graph_retrieval", rules_enabled=True)
+
 def test_explicit_plan_context_policy_is_fingerprinted_as_submitted_intent_v2() -> None:
     request = _request(
         surface={"surface_id": "plan", "instance_id": "plan-main"},

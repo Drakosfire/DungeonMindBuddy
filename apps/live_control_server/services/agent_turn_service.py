@@ -558,7 +558,7 @@ def _nested_text_values(value: Any) -> list[str]:
     return []
 
 
-def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str) -> list[str]:
+def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str, rules_enabled: bool = False) -> list[str]:
     """Read only matched Responses function outputs for one permitted tool."""
     items = body.get("input")
     if not isinstance(items, list):
@@ -582,6 +582,7 @@ def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str) -> list[
                 or calls.get(call_id) not in {
                     "expand_graph_retrieval", "read_graph_source",
                     "read_related_recap_context", "propose_build_insertion", "prepare_build_image",
+                    *({"lookup_rules"} if rules_enabled else set()),
                 }
                 or not isinstance(item.get("output"), str)
             ):
@@ -1740,7 +1741,8 @@ class _PolicyExecutionAdapter:
         # A broker denial is conversational feedback, not a validated read.
         # Only exact parent-produced bytes for this tool are excluded. Foreign
         # errors and fabricated results still fail ordinary evidence membership.
-        payloads = _included_tool_payloads(body, tool_name=tool_name)
+        payloads = _included_tool_payloads(body, tool_name=tool_name,
+            rules_enabled=self.rules_runtime is not None)
         if not payloads:
             return []
         denials = list(self.denied_tool_payloads.get(tool_name, []))
@@ -2057,10 +2059,10 @@ class _PolicyExecutionAdapter:
                 included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
                 included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
                 included_context_payloads = self._included_evidence_payloads(body, "read_related_recap_context")
-                if _included_tool_payloads(body, tool_name="prepare_build_image"):
+                if _included_tool_payloads(body, tool_name="prepare_build_image", rules_enabled=self.rules_runtime is not None):
                     from .build_image_tool import validate_included_results as validate_image_results
                     validate_image_results(body, getattr(self, "build_image_results", set()))
-                inserted_payloads = _included_tool_payloads(body, tool_name="propose_build_insertion")
+                inserted_payloads = _included_tool_payloads(body, tool_name="propose_build_insertion", rules_enabled=self.rules_runtime is not None)
                 if inserted_payloads:
                     from .build_insertion_tool import validate_included_results
                     validate_included_results(body, getattr(self, "build_insertion_results", set()))

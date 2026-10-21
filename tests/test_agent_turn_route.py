@@ -78,6 +78,41 @@ def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
     }
 
 
+def _native_lookup_roundtrip(body, view, authorize, on_graph_operation, on_provider_lifecycle,
+                             on_native_provider_reply, *, question, count=2):
+    """Exercise the actual native parent broker with exact captured SDK identities."""
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_policy import RULESET
+    from apps.live_control_server.services.native_rules_capture import NativeProviderReply, NativeToolReply
+
+    args = {"question": question, "ruleset_id": RULESET}
+    raw_args, packets = json.dumps(args), []
+    for index in range(count):
+        call_id = f"lookup-{index}"
+        assert on_native_provider_reply(NativeProviderReply(
+            authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+            api_request_id=str(uuid4()), provider=view["provider"], model=view["model"],
+            api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+            finish_reason="tool_calls", status="tool_calls", text=None,
+            text_sha256=None, text_utf8_bytes=0,
+            tool_calls=(NativeToolReply(call_id=call_id, name="lookup_rules",
+                arguments_json=raw_args, arguments_sha256=hashlib.sha256(raw_args.encode()).hexdigest()),),
+        ))
+        assert on_provider_lifecycle({"transition": "response_received"})
+        output = on_graph_operation({"toolName": "lookup_rules", "modelCallId": call_id, "arguments": args})
+        packets.append(json.loads(output["resultJson"]))
+        body["input"].extend([
+            {"type": "function_call", "call_id": call_id, "name": "lookup_rules", "arguments": raw_args},
+            {"type": "function_call_output", "call_id": call_id, "output": output["resultJson"]},
+        ])
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        view = {**view, "payloadJson": encoded, "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode()), "providerAttemptId": str(uuid4())}
+        assert authorize(view), str(authorize.__self__.failure)
+        assert on_provider_lifecycle({"transition": "sdk_entered"})
+    return view, packets
+
+
 def _persisted_world_play_fixture(world_id: str = "world-a"):
     """Create the APP-owned Run and source used by route-level Play tests."""
     from application_state.content.service import create_world_plan, commit_plan
@@ -487,8 +522,9 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
 
 
 @pytest.mark.usefixtures("_mock_atomic_play_context_snapshot")
+@pytest.mark.parametrize("rules_case", ["unused", "occupancy", "travel", "unavailable"])
 def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
-    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, rules_case: str,
 ) -> None:
     from unittest.mock import patch
     from application_state.agent_conversation import AgentConversationService
@@ -569,6 +605,21 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
     monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    from apps.live_control_server.services import rules_lookup as rules_reader
+    actual_query = rules_reader.query_rules
+    rule_reads = []
+
+    def query_rules(*args, **kwargs):
+        rule_reads.append(args)
+        return actual_query(*args, **kwargs)
+
+    monkeypatch.setattr(rules_reader, "query_rules", query_rules)
+    if rules_case in {"unused", "unavailable"}:
+        def unavailable_bundle(*_args):
+            if rules_case == "unused":
+                pytest.fail("unused native Rules capability loaded corpus evidence")
+            raise rules_reader.RulesCorpusUnavailable("synthetic unavailable reader")
+        monkeypatch.setattr(rules_reader, "admitted_bundle", unavailable_bundle)
     class NativePlayRuntime(FakeRuntime):
         def run(self, invocation: Any) -> AgentRuntimeResult:
             pytest.fail("Governed Play Graph bypassed the parent provider gate")
@@ -620,10 +671,32 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             if not authorize(view):
                 raise AssertionError(getattr(authorize.__self__.failure, "code", None))
             assert on_provider_lifecycle({"transition": "sdk_entered"})
-            final_text = json.dumps({
-                "answer_context_status": "play_only_graph_unused",
-                "answer_segments": [{"kind": "connective", "text": "The scene is ready for play."}],
-            })
+            if rules_case != "unused":
+                question = ("How far can we travel in a day?" if rules_case == "travel" else
+                            "Can I willingly end my move in a prone ally space?")
+                view, packets = _native_lookup_roundtrip(body, view, authorize, on_graph_operation,
+                    on_provider_lifecycle, on_native_provider_reply, question=question)
+                digest = view["payloadSha256"]
+                if rules_case == "occupancy":
+                    assert [packet["status"] for packet in packets] == ["evidence", "evidence"]
+                    assert packets[0]["emitted_support_ids"] and not packets[1]["emitted_support_ids"]
+                    assert packets[1]["previous_support_ids"] == packets[0]["emitted_support_ids"]
+                    capsule = packets[0]["support_capsules"][0]
+                    segment = {"kind": "rules_claim", "text": capsule["excerpt_text"],
+                        "support_ids": [capsule["support_id"]]}
+                else:
+                    expected = "no_evidence" if rules_case == "travel" else "unavailable"
+                    assert [packet["status"] for packet in packets] == [expected, expected]
+                    segment = {"kind": "rules_context", "category": "gap",
+                        "text": "The admitted rules evidence does not answer this question."}
+                final_text = json.dumps({"schema": "dmb_rules_mixed_answer_v1", "base_output": None,
+                    "rules_segments": [segment], "ordered_refs": [{"domain": "rules", "segment_index": 0}]})
+                api_request_id = str(uuid4())
+            else:
+                final_text = json.dumps({
+                    "answer_context_status": "play_only_graph_unused",
+                    "answer_segments": [{"kind": "connective", "text": "The scene is ready for play."}],
+                })
             if native_rules_capture_required:
                 assert callable(on_native_provider_reply)
                 reply_bytes = final_text.encode()
@@ -726,12 +799,55 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
         from application_state.agent_conversation.rules_authority_store import load_turn_rules_locked
         from application_state.agent_conversation.service import unit_of_work
         with unit_of_work(application_state_dsn) as conn:
-            rules_record = load_turn_rules_locked(conn, saved_turn)
-            assert rules_record.execution.state == "unused"
-            assert rules_record.execution.budget_use.calls == 0
-            assert not rules_record.execution.supports
-        authority = first_turn.json()["play_context"]["receipt"]["graph_authority"]
+            rules_record = load_turn_rules_locked(conn,
+                saved_turn if rules_case == "unused" else saved_turn.envelope)
+            assert rules_record.execution.state == ("unused" if rules_case == "unused" else "accepted")
+            assert rules_record.execution.budget_use.calls == (0 if rules_case == "unused" else 2)
+            assert bool(rules_record.execution.supports) == (rules_case == "occupancy")
+        if rules_case == "unused":
+            authority = first_turn.json()["play_context"]["receipt"]["graph_authority"]
+        else:
+            assert first_turn.json()["schema"] == "dmb_agent_rules_turn_response_v1"
+            assert first_turn.json()["rules_context"]["base_context"] is None
+            assert saved_turn.base_projection.kind == "unclaimed"
+            authority = saved_turn.base_projection.graph_context_receipt.graph_authority.model_dump(mode="json")
+            from application_state.agent_conversation.rules_authority_reads import validate_unclaimed_receipt_owner
+            with pytest.raises(ValueError, match="owning turn"):
+                validate_unclaimed_receipt_owner(saved_turn.envelope.model_copy(update={"play_context_receipt": None}),
+                    saved_turn.base_projection.graph_context_receipt)
+            with pytest.raises(ValueError, match="Play"):
+                validate_unclaimed_receipt_owner(saved_turn.envelope.model_copy(update={
+                    "provenance": saved_turn.envelope.provenance.model_copy(update={"surface_id": "plan"})}),
+                    saved_turn.base_projection.graph_context_receipt)
         assert authority["native_world_id"] == NATIVE_ID and authority["binding_version"] == 1
+        if rules_case == "occupancy":
+            from urllib.parse import urlencode
+            binding = first_turn.json()["rules_context"]["accepted_binding"]
+            cited = binding["support_table"][0]
+            selectors = {"conversation_id": binding["conversation_id"],
+                "attempt": binding["product_attempt"], "support_sha256": cited["support_sha256"]}
+            path = (f"/api/live/agent/worlds/{managed.world_id}/conversation/turns/"
+                    f"{binding['turn_id']}/rules-passages/{cited['support_id']}")
+
+            async def inspect_citation(query):
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,
+                        client=("127.0.0.1", 50000)), base_url="http://test") as client:
+                    return await client.get(path + "?" + urlencode(query),
+                        headers={"Authorization": f"Bearer {auth_token}"})
+
+            reads_before_inspect = len(rule_reads)
+            with monkeypatch.context() as citation_patch:
+                def no_current_corpus(*_args, **_kwargs):
+                    pytest.fail("historical citation attempted current corpus acquisition")
+                citation_patch.setattr(rules_reader, "admitted_bundle", no_current_corpus)
+                passage = asyncio.run(inspect_citation(selectors))
+                assert passage.status_code == 200, passage.text
+                assert passage.json()["support"]["excerpt_text"] == first_turn.json()["answer"]["text"]
+                assert passage.json()["support_sha256"] == cited["support_sha256"]
+                assert passage.headers["cache-control"] == "no-store" and len(passage.content) <= 32768
+                wrong_passage = asyncio.run(inspect_citation({**selectors, "support_sha256": "0" * 64}))
+                assert wrong_passage.status_code == 404 and "support" not in wrong_passage.json()
+            assert len(rule_reads) == reads_before_inspect
         assert runtime.invocations[0].context_packet.world_scope.world_id == NATIVE_ID
         assert runtime.invocations[0].context_packet.world_scope.revision_id == first.revision_id
         assert "The Prancing Tavern" in str(runtime.invocations[0].context_packet.retrieval_session.packet)
@@ -763,7 +879,8 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
         assert replay.status_code == 200, replay.text
         assert replay.json()["graph"]["revision_id"] == first.revision_id
         assert len(native_reads) == reads_before and len(runtime.invocations) == 2
-        assert rejected_proofs == ["missing", "stale", "forged"] * 2
+        assert rejected_proofs == (["missing", "stale", "forged"] * 2 if rules_case == "unused" else [])
+        assert len(rule_reads) == (0 if rules_case == "unused" else 4 if rules_case == "unavailable" else 2)
         altered = asyncio.run(post({**payload, "message": "Altered intent"}))
         assert altered.status_code == 409
         monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
@@ -1094,8 +1211,9 @@ def test_policy_unproven_or_unmapped_failure_stays_generic(
     assert "plan_context_failure" not in caught.value.detail
 
 
+@pytest.mark.parametrize("use_rules", [False, True])
 def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id(
-    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, use_rules: bool,
 ) -> None:
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -1742,6 +1860,15 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "apiMode": "codex_responses",
     }
 
+    from apps.live_control_server.services import rules_lookup as native_rules_reader
+    actual_rules_query = native_rules_reader.query_rules
+    plan_rules_reads = []
+
+    def count_plan_rules_query(*args, **kwargs):
+        plan_rules_reads.append(args)
+        return actual_rules_query(*args, **kwargs)
+
+    monkeypatch.setattr(native_rules_reader, "query_rules", count_plan_rules_query)
     class BrokeredRuntime:
         descriptor = AgentRuntimeDescriptor("fake-brokered", "fake", "test", "graph")
         calls = 0
@@ -1809,6 +1936,20 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                 }],
                 "citation_map": None,
             })
+            if use_rules:
+                followup_view, packets = _native_lookup_roundtrip(followup_body, followup_view,
+                    authorize, on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
+                    question="Can I willingly end my move in a prone ally space?")
+                self.calls += 2
+                capsule = packets[0]["support_capsules"][0]
+                assert packets[1]["previous_support_ids"] == packets[0]["emitted_support_ids"]
+                assert not packets[1]["emitted_support_ids"]
+                final_text = json.dumps({"schema": "dmb_rules_mixed_answer_v1",
+                    "base_output": json.loads(final_text), "rules_segments": [{
+                        "kind": "rules_claim", "text": capsule["excerpt_text"],
+                        "support_ids": [capsule["support_id"]]}],
+                    "ordered_refs": [{"domain": "base", "segment_index": None},
+                                     {"domain": "rules", "segment_index": 0}]})
             if native_rules_capture_required:
                 from hashlib import sha256
                 from uuid import uuid4
@@ -1848,6 +1989,24 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         runtime=runtime,
         conversation_service=AgentConversationService(),
     )
+    if use_rules:
+        assert runtime.calls == 4 and len(plan_rules_reads) == 1
+        assert response.schema_ == "dmb_agent_rules_turn_response_v1"
+        assert response.rules_context.base_context.completion is not None
+        assert response.rules_context.base_context.receipt.plan_basis.document_id == "plan-1"
+        assert len(response.rules_context.accepted_binding.support_table) == 1
+        assert response.answer.text.startswith("The keeper waits by the tavern.\n")
+        replay = execute_agent_turn(body, root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _body: {"kind": "world", "id": managed.world_id, "name": managed.name},
+            work_resolver=lambda *_args: pytest.fail("mixed Plan replay resolved mutable work"),
+            graph_resolver=lambda *_args: pytest.fail("mixed Plan replay resolved Graph"),
+            plan_graph_resolver=lambda *_args: pytest.fail("mixed Plan replay bootstrapped Graph"),
+            runtime=runtime, conversation_service=AgentConversationService())
+        assert replay.answer.text == response.answer.text
+        assert replay.rules_context.base_context.delivery_replay is True
+        assert runtime.calls == 4 and len(plan_rules_reads) == 1
+        return
     assert runtime.calls == 2
     assert response.schema_ == "dmb_agent_turn_response_v2"
     assert response.answer.text == "The keeper waits by the tavern."

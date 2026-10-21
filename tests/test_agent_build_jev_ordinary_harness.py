@@ -160,8 +160,8 @@ def ordinary_case(build_case, monkeypatch, *, authoring=False):
     monkeypatch.setattr(reviewed_source_wave, "reviewed_source_wave", synthetic_wave)
     original_source_read = expansion_executor.execute_read_graph_source
 
-    def synthetic_source_read(arguments, *, receipt_version, native_services=None):
-        return original_source_read(arguments, receipt_version=receipt_version)
+    def synthetic_source_read(arguments, *, receipt_version, root, native_services=None):
+        return original_source_read(arguments, receipt_version=receipt_version, root=root)
 
     monkeypatch.setattr(expansion_executor, "execute_read_graph_source", synthetic_source_read)
     # The native selected-observation adapter, with all host admission/persistence
