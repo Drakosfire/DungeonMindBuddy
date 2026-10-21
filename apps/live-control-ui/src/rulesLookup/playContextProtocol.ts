@@ -1,4 +1,4 @@
-import type { WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1 } from '../api/types';
+import type { WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1, WorldPlaySourceContextV1 } from '../api/types';
 import { rulesCanonical, rulesDigest } from './rulesCanonical';
 import { isSurfaceGraphInput } from './surfaceGraphInput';
 
@@ -174,6 +174,54 @@ export function isPlayContextProvenanceBound(receipt: WorldPlayGraphContextRecei
     ...(b.scene_id === null ? [] : [ref('dmb_play_current_scene_v1', b.scene_id, 'v2')]),
     ref('dmb_play_graph_binding_v1', a.native_world_id, String(a.binding_version)), ref('world_graph_revision', a.native_world_id, a.graph_revision)];
   const reserved = new Set(['dmb_play_runbook_v1', 'dmb_play_current_beat_v1', 'dmb_play_current_scene_v1', 'dmb_play_graph_binding_v1', 'world_graph_revision', 'runbook']);
+  const supplied = provenance.supporting_work.filter(r => record(r) && reserved.has(String(r.kind)));
+  return supplied.length === expected.length && expected.every(e => supplied.filter(r => rulesCanonical(r) === rulesCanonical(e)).length === 1);
+}
+
+
+/** Graph-off Play source identity belongs to Play; it grants no evidence claims. */
+export function isPlaySourceContext(value: unknown, request?: WorldPlayAgentTurnRequestV1): value is WorldPlaySourceContextV1 {
+  if (!keys(value, ['schema','basis','basis_sha256','delivery_replay']) || value.schema !== 'dmb_agent_play_source_context_v1'
+    || !digest(value.basis_sha256) || typeof value.delivery_replay !== 'boolean') return false;
+  const b = value.basis;
+  if (!keys(b, ['schema','world_id','run_id','run_revision','runbook_object_id','runbook_object_revision',
+    'runbook_work_revision_id','runbook_revision_n','runbook_content_sha256','beat_id','scene_id','marker_grammar_version',
+    'edition_revision','edition_revision_id','content_sha256','scene_note_sha256'])
+    || b.schema !== 'dmb_agent_play_source_basis_v1' || !owner(b.world_id) || !owner(b.run_id) || !owner(b.runbook_object_id)
+    || !integer(b.run_revision,1) || !integer(b.runbook_object_revision,1) || !integer(b.runbook_revision_n,1)
+    || !uuid(b.runbook_work_revision_id) || !digest(b.runbook_content_sha256)
+    || !edition({edition_revision:b.edition_revision,edition_revision_id:b.edition_revision_id,content_sha256:b.content_sha256})
+    || (b.edition_revision === 0 && b.content_sha256 !== b.runbook_content_sha256)
+    || !marker(b.beat_id,'beat') || !(b.scene_id === null || marker(b.scene_id,'scene')) || b.marker_grammar_version !== 'v2'
+    || !(b.scene_note_sha256 === null || digest(b.scene_note_sha256)) || (b.scene_id === null && b.scene_note_sha256 !== null)) return false;
+  return !request || request.graph_request.mode === 'none' && request.owner_scope.world_id === b.world_id
+    && request.primary_work.object_id === b.run_id && request.primary_work.expected_revision === b.run_revision
+    && rulesCanonical(request.primary_work.play_content_basis) === rulesCanonical({edition_revision:b.edition_revision,
+      edition_revision_id:b.edition_revision_id,content_sha256:b.content_sha256})
+    && request.play_target.beat_id === b.beat_id && request.play_target.scene_id === b.scene_id
+    && request.play_target.marker_grammar_version === b.marker_grammar_version;
+}
+
+export async function playSourceContextDigestBound(value: unknown): Promise<boolean> {
+  return isPlaySourceContext(value) && bytes(rulesCanonical(value)) <= 4096
+    && await rulesDigest(rulesCanonical(value.basis)) === value.basis_sha256;
+}
+
+export function isPlaySourceProvenanceBound(context: unknown, provenance: unknown, worldId: string): boolean {
+  if (!isPlaySourceContext(context) || !record(provenance) || provenance.world_id !== worldId
+    || provenance.surface_id !== 'play' || provenance.surface_resolution !== 'resolved'
+    || !record(provenance.selected_object) || provenance.selected_object.resolution !== 'absent'
+    || !Array.isArray(provenance.supporting_work)) return false;
+  const b = context.basis;
+  const ref = (kind: string, object_id: string, revision: string, extra = {}) => ({ resolution:'resolved',kind,object_id,revision,
+    content_sha256:null,object_revision:null,work_revision_id:null,revision_n:null,...extra });
+  if (b.world_id !== worldId || rulesCanonical(provenance.primary_work) !== rulesCanonical(ref('run',b.run_id,String(b.run_revision)))) return false;
+  const expected = [ref('dmb_play_runbook_v1',b.runbook_object_id,String(b.runbook_object_revision), {
+    object_revision:b.runbook_object_revision,work_revision_id:b.runbook_work_revision_id,revision_n:b.runbook_revision_n,
+    content_sha256:b.runbook_content_sha256}),ref('dmb_play_current_beat_v1',b.beat_id,'v2'),
+    ...(b.scene_id === null ? [] : [ref('dmb_play_current_scene_v1',b.scene_id,'v2')])];
+  const reserved = new Set(['dmb_play_runbook_v1','dmb_play_current_beat_v1','dmb_play_current_scene_v1',
+    'dmb_play_graph_binding_v1','world_graph_revision','runbook']);
   const supplied = provenance.supporting_work.filter(r => record(r) && reserved.has(String(r.kind)));
   return supplied.length === expected.length && expected.every(e => supplied.filter(r => rulesCanonical(r) === rulesCanonical(e)).length === 1);
 }

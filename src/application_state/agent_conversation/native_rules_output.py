@@ -102,7 +102,7 @@ def _one(items, message):
 
 
 def verify_native_reply(
-    graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1,
+    graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1 | None,
     rules_execution: RulesExecutionV1,
     proof: NativeRulesOutputProofV1,
     capture,
@@ -161,61 +161,68 @@ def verify_native_reply(
     ):
         raise ValueError("Native Rules output differs from the exact captured bytes")
 
-    graph_auths = [
-        event
-        for event in graph_execution.events
-        if isinstance(
-            event,
-            (
-                ProviderAttemptAuthorizedEventV1,
-                ProviderAttemptAuthorizedEventV2,
-                ProviderAttemptAuthorizedEventV3,
-            ),
+    if graph_execution is None:
+        from .rules_authority_policy import rules_capability
+
+        if (rules_execution.scope.capability_policy_sha256 != rules_capability(graph=False).policy_sha256
+                or proof.graph_packets):
+            raise ValueError("Rules-only output requires its exact policy and no Graph packets")
+    else:
+        graph_auths = [
+            event
+            for event in graph_execution.events
+            if isinstance(
+                event,
+                (
+                    ProviderAttemptAuthorizedEventV1,
+                    ProviderAttemptAuthorizedEventV2,
+                    ProviderAttemptAuthorizedEventV3,
+                ),
+            )
+            and event.provider_attempt_id == proof.producing_provider_attempt_id
+        ]
+        graph_auth = _one(
+            graph_auths, "Native Rules output has no unique Graph authorization"
         )
-        and event.provider_attempt_id == proof.producing_provider_attempt_id
-    ]
-    graph_auth = _one(
-        graph_auths, "Native Rules output has no unique Graph authorization"
-    )
-    graph_authorizations = [
-        event
-        for event in graph_execution.events
-        if isinstance(
-            event,
-            (
-                ProviderAttemptAuthorizedEventV1,
-                ProviderAttemptAuthorizedEventV2,
-                ProviderAttemptAuthorizedEventV3,
-            ),
-        )
-    ]
-    if (
-        not graph_authorizations
-        or graph_authorizations[-1].provider_attempt_id
-        != proof.producing_provider_attempt_id
-    ):
-        raise ValueError(
-            "Native Rules output is not the final Graph-authorized provider response"
-        )
-    if (
-        graph_auth.envelope_sha256 != proof.request_envelope_sha256
-        or graph_auth.provider != getattr(capture, "provider", None)
-        or graph_auth.model != getattr(capture, "model", None)
-        or graph_auth.api_mode != getattr(capture, "api_mode", None)
-    ):
-        raise ValueError(
-            "Native Rules capture differs from its actual Graph provider authorization"
-        )
-    graph_outcomes = [
-        event.outcome
-        for event in graph_execution.events
-        if isinstance(event, ProviderOutcomeEventV1)
-        and event.provider_attempt_id == proof.producing_provider_attempt_id
-    ]
-    if not graph_outcomes or graph_outcomes[-1] != "response_received":
-        raise ValueError(
-            "Native Rules output lacks acknowledged Graph response lifecycle"
-        )
+        graph_authorizations = [
+            event
+            for event in graph_execution.events
+            if isinstance(
+                event,
+                (
+                    ProviderAttemptAuthorizedEventV1,
+                    ProviderAttemptAuthorizedEventV2,
+                    ProviderAttemptAuthorizedEventV3,
+                ),
+            )
+        ]
+        if (
+            not graph_authorizations
+            or graph_authorizations[-1].provider_attempt_id
+            != proof.producing_provider_attempt_id
+        ):
+            raise ValueError(
+                "Native Rules output is not the final Graph-authorized provider response"
+            )
+        if (
+            graph_auth.envelope_sha256 != proof.request_envelope_sha256
+            or graph_auth.provider != getattr(capture, "provider", None)
+            or graph_auth.model != getattr(capture, "model", None)
+            or graph_auth.api_mode != getattr(capture, "api_mode", None)
+        ):
+            raise ValueError(
+                "Native Rules capture differs from its actual Graph provider authorization"
+            )
+        graph_outcomes = [
+            event.outcome
+            for event in graph_execution.events
+            if isinstance(event, ProviderOutcomeEventV1)
+            and event.provider_attempt_id == proof.producing_provider_attempt_id
+        ]
+        if not graph_outcomes or graph_outcomes[-1] != "response_received":
+            raise ValueError(
+                "Native Rules output lacks acknowledged Graph response lifecycle"
+            )
 
     rules_auth = _one(
         [
@@ -250,6 +257,9 @@ def verify_native_reply(
         rules_auth.request_envelope_sha256 != proof.request_envelope_sha256
         or included.request_envelope_sha256 != proof.request_envelope_sha256
         or outcome.request_envelope_sha256 != proof.request_envelope_sha256
+        or outcome.provider != getattr(capture, "provider", None)
+        or outcome.model != getattr(capture, "model", None)
+        or outcome.api_mode != getattr(capture, "api_mode", None)
         or outcome.status != "answered"
         or outcome.authorization_id != proof.authorization_id
         or outcome.api_request_id != proof.api_request_id
@@ -319,7 +329,7 @@ class NativeRulesNormalizedOutputV1:
 
 def normalize_native_mixed_output(
     turn: Turn,
-    graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1,
+    graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1 | None,
     rules_execution: RulesExecutionV1,
     proof: NativeRulesOutputProofV1,
     capture,
@@ -349,9 +359,12 @@ def normalize_native_mixed_output(
     native_play = isinstance(receipt, PlayWorldGraphContextReceiptV1) and isinstance(
         graph_execution, PlayWorldGraphExecutionV1
     )
-    if not (native_plan or native_play):
+    rules_only = receipt is None and graph_execution is None
+    if rules_only:
+        _require_rules_only_owner(turn, rules_execution)
+    elif not (native_plan or native_play):
         raise ValueError("Native mixed output requires an owning Plan or Play Graph pair")
-    if receipt.context_receipt_sha256 != graph_execution.context_receipt_sha256:
+    if not rules_only and receipt.context_receipt_sha256 != graph_execution.context_receipt_sha256:
         raise ValueError("Native Rules Graph execution differs from its frozen receipt")
 
     answer = verify_native_output(graph_execution, rules_execution, proof, capture)
@@ -369,9 +382,11 @@ def normalize_native_mixed_output(
     base_completion = None
     bindings: dict[str, list[UUID]] = {}
     base_segments: tuple[str, ...] = ()
-    disposition = "unclaimed"
+    disposition = "absent" if rules_only else "unclaimed"
     graph_used = False
     if answer.base_output is not None:
+        if rules_only:
+            raise ValueError("Rules-only output cannot attach Plan, Play or Graph base claims")
         base_completion, bindings, base_text = normalize_native_answer(
             answer.base_output,
             turn,
@@ -383,7 +398,7 @@ def normalize_native_mixed_output(
             raise ValueError("Native Graph base text differs from its normalized segments")
         disposition = "approved"
         graph_used = "world_graph" in base_completion.answer_basis
-    elif turn.graph_context_receipt is None or turn.graph_context_execution is None:
+    elif not rules_only and (turn.graph_context_receipt is None or turn.graph_context_execution is None):
         raise ValueError("Native Rules without a base partition requires frozen Graph scope")
 
     composition = answer.composition(
@@ -412,20 +427,27 @@ def sealed_native_producer(turn, rules_execution, proof):
     if len(outcomes) != 1:
         raise ValueError("Native Rules completion has no unique sealed provider outcome")
     outcome = outcomes[0]
-    graph_auths = [event for event in turn.graph_context_execution.events
-        if isinstance(event, (ProviderAttemptAuthorizedEventV1,
-            ProviderAttemptAuthorizedEventV2, ProviderAttemptAuthorizedEventV3))
-        and event.provider_attempt_id == proof.producing_provider_attempt_id]
-    if len(graph_auths) != 1:
-        raise ValueError("Native Rules completion has no unique Graph provider authorization")
-    graph_auth = graph_auths[0]
+    graph_auth = None
+    if turn.graph_context_execution is None:
+        _require_rules_only_owner(turn, rules_execution)
+    else:
+        graph_auths = [event for event in turn.graph_context_execution.events
+            if isinstance(event, (ProviderAttemptAuthorizedEventV1,
+                ProviderAttemptAuthorizedEventV2, ProviderAttemptAuthorizedEventV3))
+            and event.provider_attempt_id == proof.producing_provider_attempt_id]
+        if len(graph_auths) != 1:
+            raise ValueError("Native Rules completion has no unique Graph provider authorization")
+        graph_auth = graph_auths[0]
+        if (outcome.provider, outcome.model, outcome.api_mode, outcome.request_envelope_sha256) != (
+                graph_auth.provider, graph_auth.model, graph_auth.api_mode, graph_auth.envelope_sha256):
+            raise ValueError("Native Rules sealed provider differs from Graph authorization")
     capture = SimpleNamespace(
         authorization_id=outcome.authorization_id,
         api_request_id=outcome.api_request_id,
-        provider=graph_auth.provider,
-        model=graph_auth.model,
-        api_mode=graph_auth.api_mode,
-        request_sha256=graph_auth.envelope_sha256,
+        provider=outcome.provider,
+        model=outcome.model,
+        api_mode=outcome.api_mode,
+        request_sha256=outcome.request_envelope_sha256,
         status=outcome.status,
         finish_reason=outcome.finish_reason,
         text=proof.raw_output_json,
@@ -433,6 +455,8 @@ def sealed_native_producer(turn, rules_execution, proof):
         text_utf8_bytes=outcome.output_utf8_bytes,
         tool_calls=(),
     )
+    if graph_auth is None:
+        return capture, None
     from .native_graph_input import producing_graph_closures
     closures = producing_graph_closures(turn, graph_auth, proof)
     receipt = turn.graph_context_receipt
@@ -458,5 +482,21 @@ def normalize_unused_native_output(turn, rules_execution, proof):
         raise ValueError("Used Rules requires mixed completion")
     capture, support = sealed_native_producer(turn, rules_execution, proof)
     verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture)
+    if turn.graph_context_execution is None:
+        return None, None, proof.raw_output_json
     return parse_native_answer(proof.raw_output_json, turn,
         proof.producing_provider_attempt_id, support=support)
+
+
+def _require_rules_only_owner(turn, execution):
+    """Rules-only is absent authority, never an escape from a frozen Graph pair."""
+    from .rules_authority_policy import rules_capability
+
+    from .types import PlayRunTurnContextReceiptV2
+    if (turn.provenance.surface_id == "play" and turn.provenance.primary_work.kind == "run"
+            and not isinstance(turn.play_context_receipt,PlayRunTurnContextReceiptV2)):
+        raise ValueError("Rules-only Play cannot drop its admitted source receipt")
+    if (turn.graph_context_receipt is not None or turn.graph_context_execution is not None
+            or turn.provenance.surface_id not in {"plan", "play"}
+            or execution.scope.capability_policy_sha256 != rules_capability(graph=False).policy_sha256):
+        raise ValueError("Rules-only completion requires its native owner and absent Graph scope")

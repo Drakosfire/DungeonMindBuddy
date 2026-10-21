@@ -885,6 +885,24 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
             raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
         return self
 
+class PlayRulesIntentV1(SubmittedTurnIntentV1):
+    """Current Graph-off Play intent; its own schema binds exact edition and target."""
+    schema_: Literal["dmb_play_rules_intent_v1"] = Field(default="dmb_play_rules_intent_v1", alias="schema")
+    surface_id: Literal["play"]
+    client_work_state: Literal["saved_clean"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    play_target: SubmittedPlayTargetV1
+    playable_target: None = None
+    selected_knowledge: None = None
+    graph_selection: None = None
+
+    @model_validator(mode="after")
+    def exact_rules_only_play_intent(self):
+        if self.graph_request.mode != "none" or self.primary_work.kind != "run" or self.primary_work.play_content_basis is None:
+            raise ValueError("Rules-only Play requires the exact Run edition, target and absent Graph")
+        return self
+
+
 class PlaySourceLocatorV1(ClosedRulesModel):
     world_id: OwnerId
     run_id: OwnerId
@@ -4710,7 +4728,7 @@ class TurnSubmission(StrictModel):
     expected_conversation_revision: int = Field(ge=1)
     user_text: str
     provenance: TurnProvenance
-    submitted_intent_v1: SubmittedTurnIntentV1 | None = None
+    submitted_intent_v1: PlayRulesIntentV1 | SubmittedTurnIntentV1 | None = None
     submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: GraphTurnExecution | None = None
@@ -4751,6 +4769,17 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if isinstance(self.submitted_intent_v1, PlayRulesIntentV1):
+            intent, receipt = self.submitted_intent_v1, self.play_context_receipt
+            if (not isinstance(receipt, PlayRunTurnContextReceiptV2)
+                    or self.graph_context_receipt is not None or self.graph_context_execution is not None
+                    or receipt.run_id != intent.primary_work.object_id
+                    or receipt.run_revision != intent.primary_work.expected_revision
+                    or receipt.beat_id != intent.play_target.beat_id
+                    or receipt.scene_id != intent.play_target.scene_id
+                    or receipt.marker_grammar_version != intent.play_target.marker_grammar_version):
+                raise ValueError("Rules-only Play requires its exact admitted source receipt")
+            return self
         if isinstance(self.submitted_intent_v2, BuildGraphIntentV1):
             _validate_build_submission(self)
             return self

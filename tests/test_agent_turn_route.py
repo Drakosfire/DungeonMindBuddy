@@ -43,6 +43,32 @@ class FakeRuntime:
             status="ok", final_text="A simple answer.", runtime_session_id="runtime-1"
         )
 
+    def run_with_provider_authorization(self, invocation, authorize, *, request_budget,
+            on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
+            native_rules_capture_required):
+        """Current ordinary native parent, with a captured no-lookup provider reply."""
+        from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+        body = json.dumps({"model":request_budget["model"],"input":[{"role":"user", "content":invocation.message}],
+            "max_output_tokens":request_budget["outputReserveTokens"]})
+        view = {"provider":request_budget["provider"], "model":request_budget["model"],
+            "apiMode":request_budget["apiMode"], "baseUrl":None, "payloadJson":body,
+            "payloadSha256":hashlib.sha256(body.encode()).hexdigest(), "payloadUtf8Bytes":len(body.encode())}
+        assert authorize(view)
+        assert on_provider_lifecycle({"transition":"sdk_entered"})
+        result = self.run(invocation)
+        if result.status == "ok" and result.final_text:
+            text = result.final_text
+            assert on_native_provider_reply(NativeProviderReply(
+                authorization_id="host:1", api_request_id=str(uuid4()), provider=view["provider"],
+                model=view["model"], api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+                finish_reason="stop", status="answered", text=text,
+                text_sha256=hashlib.sha256(text.encode()).hexdigest(), text_utf8_bytes=len(text.encode()), tool_calls=()))
+            assert on_provider_lifecycle({"transition":"response_received"})
+        else:
+            assert on_provider_lifecycle({"transition":"outcome_unknown"})
+        return result
+
 
 def _payload() -> dict[str, Any]:
     return {
@@ -75,6 +101,7 @@ def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
             },
         },
         "client_work_state": "saved_clean",
+        "play_target":{"beat_id":"beat:hold-the-gate","scene_id":"scene:gate-line","marker_grammar_version":"v2"},
     }
 
 
@@ -286,7 +313,7 @@ def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
         **native_play,
     }).graph_request.mode == "world"
     with pytest.raises(ValueError, match="exact saved edition and Beat/Scene target"):
-        AgentTurnRequest.model_validate({**payload, "graph_request": world_graph})
+        AgentTurnRequest.model_validate({**payload, "graph_request": world_graph, "play_target":None})
     for change in (
         {"owner_scope": None},
         {"surface": {"surface_id": "plan", "instance_id": "plan-main"}},
@@ -359,13 +386,11 @@ def test_world_play_turn_rejects_missing_or_stale_content_basis_before_runtime(
         patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
     )
     with common[0], common[1], common[2], common[3]:
-        request = AgentTurnRequest.model_validate({
-            **_play_turn_payload(),
-            "primary_work": {**_play_turn_payload()["primary_work"], "play_content_basis": None},
-        })
-        with pytest.raises(AgentTurnServiceError, match="Refresh Play") as missing:
-            route._work_resolver(request, {"kind": "world", "id": "world-a"})
-        assert missing.value.provider_dispatched is False
+        with pytest.raises(ValueError,match="exact saved edition and Beat/Scene target"):
+            AgentTurnRequest.model_validate({
+                **_play_turn_payload(),
+                "primary_work": {**_play_turn_payload()["primary_work"], "play_content_basis": None},
+            })
 
         original_snapshot = play.read_context_snapshot
         monkeypatch.setattr(play, "read_context_snapshot", lambda **kwargs: (

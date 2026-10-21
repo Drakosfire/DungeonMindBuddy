@@ -2,7 +2,7 @@ import { webcrypto } from 'node:crypto';
 import { beforeEach, expect, it, vi } from 'vitest';
 import wire from '../test/nativePlayReceipt.json';
 import type { WorldPlayAgentTurnRequestV1 } from '../api/types';
-import { isWorldPlayGraphReceipt, playReceiptDigestsBound } from './playContextProtocol';
+import { isWorldPlayGraphReceipt, playReceiptDigestsBound, isPlaySourceContext, playSourceContextDigestBound, isPlaySourceProvenanceBound } from './playContextProtocol';
 import { rulesCanonical, rulesDigest } from './rulesCanonical';
 
 // Generated from tests.test_play_graph_context.fixture(), then serialized by the APP type owner.
@@ -141,4 +141,24 @@ it.each(['valid', 'wrong-map', 'duplicate', 'opened-flag', 'old-map', 'revision'
   if (kind === 'old-map') Object.assign(completion.citation_map, { schema: 'dmb_graph_citation_map_v1' });
   if (kind === 'revision') claim.graph_revision = 'other';
   expect(isWorldPlayContextProjection(c, () => true)).toBe(kind === 'valid');
+});
+
+
+it('admits only a sealed Graph-off Play source identity without source text or Graph authority', async () => {
+  const {nativePlaySourceFixture} = await import('../test/nativePlayContextFixture');
+  const r: WorldPlayAgentTurnRequestV1 = {...request(),graph_request:{mode:'none'}};
+  const {context,provenance} = nativePlaySourceFixture(r);
+  expect(isPlaySourceContext(context,r)).toBe(true);
+  expect(await playSourceContextDigestBound(context)).toBe(true);
+  expect(isPlaySourceProvenanceBound(context,provenance,r.owner_scope.world_id)).toBe(true);
+  expect('scene_note' in context.basis).toBe(false);
+  expect(isPlaySourceContext({...context,basis:{...context.basis,scene_note:'private text'}},r)).toBe(false);
+  expect(isPlaySourceContext({...context,graph_authority:{}},r)).toBe(false);
+  expect(isPlaySourceContext({...context,basis:{...context.basis,scene_id:'scene:elsewhere'}},r)).toBe(false);
+  expect(isPlaySourceContext(context,{...r,graph_request:request().graph_request})).toBe(false);
+  expect(await playSourceContextDigestBound({...context,basis_sha256:'0'.repeat(64)})).toBe(false);
+  expect(isPlaySourceProvenanceBound(context,{...provenance,supporting_work:[...provenance.supporting_work,
+    {...provenance.supporting_work[0],kind:'world_graph_revision'}]},r.owner_scope.world_id)).toBe(false);
+  expect(isPlaySourceProvenanceBound(context,{...provenance,supporting_work:[...provenance.supporting_work,
+    provenance.supporting_work[0]]},r.owner_scope.world_id)).toBe(false);
 });

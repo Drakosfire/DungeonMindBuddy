@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { Editor } from "@tiptap/core";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
-import { webcrypto } from "node:crypto";
+import { webcrypto, createHash } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -173,10 +173,10 @@ function history(
   pointerRevision: number,
   turns: WorldAgentConversationHistoryTurnV1[],
   nextBeforeSequence: number | null = null,
-): WorldAgentConversationHistoryResponseV1 {
+): WorldAgentConversationHistoryResponse {
   const absent = conversationId === null;
   return {
-    schema: "dmb_agent_conversation_history_v1",
+    schema: turns.some(row => "idempotency_key" in row) ? "dmb_agent_conversation_history_v4" : "dmb_agent_conversation_history_v1",
     world_id: worldId,
     conversation_state: absent ? "absent" : "active",
     conversation_id: conversationId,
@@ -777,7 +777,7 @@ async function historyV2(
     conversation_id: conversationId,
     active_conversation_id: conversationId,
     pointer_revision: pointerRevision,
-    turns,
+    turns: turns.map(({ idempotency_key: _key, ...turn }: WorldAgentConversationHistoryTurnV2 & { idempotency_key?: string }) => turn),
     next_before_sequence: nextBeforeSequence,
   };
 }
@@ -1048,7 +1048,7 @@ function conversationElement(props: ConversationTestProps = {}) {
 function historyTurnForAsk(
   request: WorldPlanAgentTurnRequestV1,
   answer: string,
-): WorldAgentConversationHistoryTurnV1 {
+): WorldAgentConversationHistoryTurnV1 & { idempotency_key: string } {
   const turn = makeTurn(1, request.turn_id, request.message, answer);
   turn.provenance.surface_id = request.surface.surface_id;
   turn.provenance.surface_instance_id = request.surface.instance_id;
@@ -1070,7 +1070,11 @@ function historyTurnForAsk(
     work_revision_id: null,
     revision_n: null,
   }] : [];
-  return turn;
+  const hash = createHash('sha1').update(Buffer.from('6ba7b8119dad11d180b400c04fd430c8','hex'))
+    .update(`dmb-agent-turn:${worldId}:${request.turn_id}`).digest().subarray(0,16);
+  hash[6] = (hash[6] & 0x0f) | 0x50; hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.toString('hex');
+  return {...turn,idempotency_key:`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`};
 }
 
 function policyHistoryTurn(
@@ -1387,8 +1391,8 @@ async function leavePendingGraphAsk(
       .mockReturnValueOnce(requestIds.turnId);
   }
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-  expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-  expect(await screen.findByText(/Saved Graph Asks stay in browser storage/)).toBeInTheDocument();
+  expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
+  expect(await screen.findByText(/Saved Asks stay in browser storage/)).toBeInTheDocument();
   expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Who watches the western gate?");
   expect(screen.getByRole("button", { name: "Refresh World history" })).toBeEnabled();
   expect(postAsk).toHaveBeenCalledTimes(1);
@@ -3301,7 +3305,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask for a grounded answer." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
     expect(screen.queryByText("Unsupported answer.")).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -3320,7 +3324,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask with a malformed map." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/outcome (?:is uncertain|of this Graph-context Ask is uncertain)/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome (?:is uncertain|of this Ask is uncertain)/)).toBeInTheDocument();
     expect(screen.queryByText("Structurally unsupported answer.")).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -3356,7 +3360,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
     expect(screen.getByText(/provider_envelope_over_budget/)).toBeInTheDocument();
     expect(screen.getByText(/no answer was saved/)).toBeInTheDocument();
-    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/outcome of this Ask is uncertain/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     const turnCall = fetchSpy.mock.calls.find(([url]) => String(url) === "/api/live/agent/turn");
     expect(turnCall).toBeDefined();
@@ -3431,8 +3435,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-    expect(await screen.findByText(/Saved Graph Asks stay in browser storage/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved Asks stay in browser storage/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -3453,7 +3457,7 @@ describe("World Plan conversation consumer", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
     expect(screen.getByText(/Hermes runtime initialization failed\./)).toBeInTheDocument();
     expect(screen.queryByText(/provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(screen.queryByText(/no answer was saved/)).not.toBeInTheDocument();
@@ -3544,7 +3548,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
     expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
@@ -3564,7 +3568,7 @@ describe("World Plan conversation consumer", () => {
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "Check the north gate" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await screen.findByText(/outcome of this Graph-context Ask is uncertain/);
+    await screen.findByText(/outcome of this Ask is uncertain/);
     fireEvent.change(textarea, { target: { value: "Keep this newer draft" } });
     textarea.focus();
     const existingReply = screen.getByText("Verified existing reply");
@@ -3597,7 +3601,7 @@ describe("World Plan conversation consumer", () => {
     api.setCurrent(await historyV3("conversation-a", 10, [completed]));
     await waitFor(() => expect(pendingAskKeys()).toEqual([]), { timeout: 5000 });
     expect(await screen.findAllByText("The western gate is watched.")).not.toHaveLength(0);
-    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/outcome of this Ask is uncertain/)).not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Submitted message" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     const readCount = api.getHistory.mock.calls.length;
@@ -3761,14 +3765,14 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/awaiting exact completed history match/)).not.toBeInTheDocument();
     const failedSummary = screen.getByText(`Graph Ask · ${clientTurnId} · failure confirmed`);
     fireEvent.click(failedSummary);
-    expect(screen.getByText("Status · terminal failure confirmed in exact V3 World history")).toBeInTheDocument();
+    expect(screen.getByText("Status · terminal failure confirmed in saved World history")).toBeInTheDocument();
     for (const record of unknownRecords) fireEvent.click(screen.getByText(`Graph Ask · ${record.turnId}`));
-    expect(screen.getAllByText("Status · outcome not confirmed in exact V3 World history")).toHaveLength(3);
+    expect(screen.getAllByText("Status · outcome not confirmed in saved World history")).toHaveLength(3);
 
     fireEvent.click(screen.getByText(/Needs attention/));
     const pending = screen.getByRole("region", { name: "Saved Ask recovery records" });
-    expect(pending).toHaveTextContent("Ask recovery · 3 Graph outcomes unconfirmed · 1 recorded failure · 4 saved");
-    expect(pending).toHaveTextContent("3 Graph Ask outcomes remain unconfirmed in exact V3 World history; 1 failed turn is already recorded. All 4 Graph Ask records remain saved. Refresh never reposts them.");
+    expect(pending).toHaveTextContent("Ask recovery · 3 outcomes unconfirmed · 1 recorded failure · 4 saved");
+    expect(pending).toHaveTextContent("3 Ask outcomes remain unconfirmed in saved World history; 1 failed turn is already recorded. All 4 Ask records remain saved. Refresh never reposts them.");
     const body = screen.getByRole("region", { name: "Saved World Plan conversation" })
       .querySelector(".world-plan-agent-conversation__body");
     const composer = screen.getByRole("region", { name: "Conversation composer" });
@@ -4001,7 +4005,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText(/Needs attention/));
     fireEvent.click(screen.getByText(`Graph Ask · ${request.turn_id}`));
-    expect(screen.getByText("Status · outcome not confirmed in exact V3 World history")).toBeInTheDocument();
+    expect(screen.getByText("Status · outcome not confirmed in saved World history")).toBeInTheDocument();
     expect(localStorage.getItem(storageKey)).toBe(originalBytes);
     expect(pendingAskKeys()).toEqual([storageKey]);
     expect(postAsk).toHaveBeenCalledTimes(1);
@@ -4353,7 +4357,7 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText("The server confirmed this Ask. Refreshing World history.");
     await waitFor(() => expect(events).toHaveLength(1));
     const unrelatedTurn = historyTurnForAsk(request, "Original answer.");
-    if (mismatch === "request") unrelatedTurn.turn_id = "another-request";
+    if (mismatch === "request") { unrelatedTurn.turn_id = "another-request"; unrelatedTurn.idempotency_key = "00000000-0000-4000-8000-000000000099"; }
     api.setCurrent(history(mismatch === "conversation" ? "conversation-b" : "conversation-a", 12, [unrelatedTurn]));
     await act(async () => {
       window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, { detail: events[0]!.detail }));
@@ -4409,7 +4413,7 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     render(conversationElement());
     await openRecoveryDetails();
-    await screen.findByRole("button", { name: "Retry saved Ask" });
+    expect(await screen.findByText(/Saved World history has not confirmed this Ask/)).toBeInTheDocument();
     expect(pendingAskKeys()).toEqual([storageKey]);
     expect(postAsk).toHaveBeenCalledTimes(1);
 
@@ -4532,7 +4536,7 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     render(conversationElement());
     await openRecoveryDetails();
-    await screen.findByRole("button", { name: "Retry saved Ask" });
+    expect(await screen.findByText(/Saved World history has not confirmed this Ask/)).toBeInTheDocument();
     const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
     const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
     const canonicalConversationId = "00000000-0000-4000-8000-000000000223";
@@ -4549,7 +4553,7 @@ describe("World Plan conversation consumer", () => {
 
     expect(localStorage.getItem(storageKey)).toBe(replacementBytes);
     expect(pendingAskKeys()).toEqual([storageKey]);
-    expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(api.historyCalls).toHaveLength(historyCallsBeforeSettlement + 1);
     expect(postAsk).toHaveBeenCalledTimes(1);
@@ -4561,7 +4565,7 @@ describe("World Plan conversation consumer", () => {
   });
 
   it.each(["network rejection", "malformed response"])(
-    "keeps exact recovery after an unmounted %s and explicit retry",
+    "recovers an unmounted %s from exact history without reposting",
     async (firstOutcome) => {
       const api = setupApi(history("conversation-a", 10, []));
       const firstResponse = deferred<unknown>();
@@ -4592,7 +4596,7 @@ describe("World Plan conversation consumer", () => {
       mounted.unmount();
       render(conversationElement());
       await openRecoveryDetails();
-      await screen.findByRole("button", { name: "Retry saved Ask" });
+      expect(await screen.findByText(/Saved World history has not confirmed this Ask/)).toBeInTheDocument();
       const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
       const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
 
@@ -4611,12 +4615,15 @@ describe("World Plan conversation consumer", () => {
       expect(postAsk).toHaveBeenCalledTimes(1);
       expect(clearEvents).toHaveLength(0);
       expect(acceptedEvents).toHaveLength(0);
-      expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
+      const accepted = historyTurnForAsk(originalRequest,answer);
+      api.setCurrent(history("conversation-a",10,[accepted]));
+      fireEvent.click(screen.getByRole("button",{name:"Refresh World history"}));
       expect(await screen.findByText(answer)).toBeInTheDocument();
-      expect(postAsk).toHaveBeenCalledTimes(2);
-      expect(requests[1]).toEqual(originalRequest);
+      await waitFor(() => expect(pendingAskKeys()).toEqual([]));
+      expect(postAsk).toHaveBeenCalledTimes(1);
+      expect(requests).toEqual([originalRequest]);
       expect(pendingAskKeys()).toEqual([]);
       expect(localStorage.getItem(storageKey)).toBeNull();
       expect(clearEvents).toHaveLength(1);
@@ -5109,7 +5116,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText("Query the graph about Mirathorn.")).toBeInTheDocument();
     expect(screen.queryByText("No answer has been saved yet.")).not.toBeInTheDocument();
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
-    const deliveryDiagnostic = screen.getByText(/Delivery · The outcome of this Graph-context Ask is uncertain/);
+    const deliveryDiagnostic = screen.getByText(/Delivery · The outcome of this Ask is uncertain/);
     expect(deliveryDiagnostic).not.toBeVisible();
     fireEvent.click(screen.getByText("Debug"));
     expect(deliveryDiagnostic).toBeVisible();
@@ -5157,7 +5164,7 @@ describe("World Plan conversation consumer", () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:legacy-export");
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What is the plan?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();
 
     const storedKey = pendingAskKeys()[0]!;
     const storedRaw = localStorage.getItem(storedKey)!;
@@ -5194,7 +5201,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Needs attention · 1 outcome unconfirmed"));
     fireEvent.click(screen.getByText(`Graph Ask · ${sent[0]!.turn_id}`));
-    expect(await screen.findByText(/Exact V3 World history has not confirmed this Ask/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved World history has not confirmed this Ask/)).toBeInTheDocument();
     expect(screen.getByText(/Refresh checks its original conversation and Plan basis without reposting it/)).toBeInTheDocument();
     expect(api.getPlanBasis).toHaveBeenCalledTimes(3);
     expect(postAsk).toHaveBeenCalledTimes(1);
@@ -5539,7 +5546,7 @@ describe("World Plan conversation consumer", () => {
     expect(bridge.apply).not.toHaveBeenCalled();
   });
 
-  it("keeps an auth-rejected Ask pending until the operator reconnects and explicitly retries", async () => {
+  it("keeps an auth-rejected Ask pending while reconnecting and checking history without reposting", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const requests: WorldPlanAgentTurnRequestV1[] = [];
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -5568,12 +5575,13 @@ describe("World Plan conversation consumer", () => {
     vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("test-csrf");
     fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
     expect(await screen.findByText(/Local Agent and Graph session active/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
-
-    expect(await screen.findByText("Authorized retry answer")).toBeInTheDocument();
-    expect(postAsk).toHaveBeenCalledTimes(2);
-    expect(requests[1]).toEqual(savedRequest);
-    expect(pendingAskKeys()).toHaveLength(0);
+    const reads = api.historyCalls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await waitFor(() => expect(api.historyCalls.length).toBeGreaterThan(reads));
+    expect(screen.queryByRole("button",{name:"Retry saved Ask"})).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(requests).toEqual([savedRequest]);
+    expect(pendingAskKeys()).toHaveLength(1);
   });
 
   it("retries New Conversation with the same CAS command and hydrates the confirmed server state", async () => {
@@ -5616,7 +5624,7 @@ describe("World Plan conversation consumer", () => {
     expect(harness.agent.createThread).not.toHaveBeenCalled();
   });
 
-  it("keeps a delayed old Ask result out of a newly active World conversation", async () => {
+  it("does not repost an old pending Ask into a newly active World conversation", async () => {
     const api = setupApi(history("conversation-a", 10, []));
     const sent: WorldPlanAgentTurnRequestV1[] = [];
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -5639,16 +5647,15 @@ describe("World Plan conversation consumer", () => {
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this in conversation A" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    expect(await screen.findByText(/outcome (?:is uncertain|of this Graph-context Ask is uncertain)/)).toBeInTheDocument();
+    expect(await screen.findByText(/outcome (?:is uncertain|of this Ask is uncertain)/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await waitFor(() => expect(pendingCommandKeys()).toHaveLength(0));
     await waitForConversationReady();
-    fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
-
-    expect(await screen.findByText(/not inserted into the currently active conversation/)).toBeInTheDocument();
-    expect(sent[1]).toEqual(sent[0]);
-    expect(postAsk).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button",{name:"Refresh World history"}));
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
     expect(screen.queryByText("Old conversation answer")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Keep this in conversation A");
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep this in conversation A");
@@ -5671,7 +5678,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Do not accept this result" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/did not match this saved Plan|could not be verified/i);
+    expect(await screen.findByText(/The saved Plan identity or committed revision could not be verified/)).toBeInTheDocument();
     expect(requests).toHaveLength(1);
     expect(requests[0]?.message).toBe("Do not accept this result");
     expect(pendingAskKeys()).toHaveLength(1);

@@ -1,7 +1,7 @@
 import wire from './nativePlayReceipt.json';
 import { fixtureHash } from './rulesAnswerFixture';
 import { rulesCanonical } from '../rulesLookup/rulesCanonical';
-import type { AgentConversationTurnProvenanceV1, WorldPlayAgentContextV1, WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1 } from '../api/types';
+import type { AgentConversationTurnProvenanceV1, WorldPlayAgentContextV1, WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1, WorldPlaySourceContextV1 } from '../api/types';
 
 /** APP-serialized native receipt, rebound explicitly to the submitted synthetic Run fixture. */
 export function nativePlayContextFixture(request: WorldPlayAgentTurnRequestV1, answer = 'Original Play answer'): WorldPlayAgentContextV1 {
@@ -57,4 +57,17 @@ export function nativePlayRequestFixture(): WorldPlayAgentTurnRequestV1 {
     play_target: { beat_id: 'beat:crossing', scene_id: 'scene:west-gate', marker_grammar_version: 'v2' }, client_work_state: 'saved_clean',
     graph_request: { mode: 'world', world_id: 'world-one', campaign_id: null, revision_pin: null,
       focus: { kind: 'none', session_id: null, campaign_id: null } }, graph_selection: null, message: 'Question' };
+}
+
+
+export function nativePlaySourceFixture(request: WorldPlayAgentTurnRequestV1): {
+  context: WorldPlaySourceContextV1; provenance: AgentConversationTurnProvenanceV1;
+} {
+  const native = nativePlayContextFixture(request);
+  const { schema: _schema, scene_note: _note, ...identity } = native.receipt.play_basis;
+  const basis = { ...identity, schema:'dmb_agent_play_source_basis_v1' as const };
+  const provenance = nativePlayProvenanceFixture(native);
+  provenance.surface_instance_id = request.surface.instance_id;
+  provenance.supporting_work = provenance.supporting_work.filter(r => r.kind !== 'world_graph_revision' && r.kind !== 'dmb_play_graph_binding_v1');
+  return { context:{schema:'dmb_agent_play_source_context_v1',basis,basis_sha256:fixtureHash(rulesCanonical(basis)),delivery_replay:false},provenance };
 }

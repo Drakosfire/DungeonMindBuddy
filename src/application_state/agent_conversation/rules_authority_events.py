@@ -168,6 +168,9 @@ class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
     """Seal the exact uncapped native final reply without storing its body."""
 
     kind: Literal["native_provider_outcome"]
+    provider: Annotated[str, Field(min_length=1, max_length=256)]
+    model: Annotated[str, Field(min_length=1, max_length=256)]
+    api_mode: Literal["chat_completions", "codex_responses"]
     authorization_id: Annotated[str, Field(min_length=1, max_length=256)]
     api_request_id: Annotated[str, Field(min_length=1, max_length=256)]
     output_sha256: Digest
@@ -208,6 +211,7 @@ class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
             sequence=sequence,
             execution_id=execution_id,
             kind="native_provider_outcome",
+            provider=capture.provider, model=capture.model, api_mode=capture.api_mode,
             provider_attempt_id=provider_attempt_id,
             request_envelope_sha256=request_envelope_sha256,
             status="answered",

@@ -781,7 +781,8 @@ class AgentConversationService:
                 # Acquire the Run lock before the conversation/pointer locks,
                 # matching Trash's lock order. Existing receipts above remain
                 # replayable after Trash; only new admissions are refused.
-                if isinstance(submitted_intent_v2, PlayGraphIntentV1):
+                if isinstance(submitted_intent_v2, PlayGraphIntentV1) or (
+                        submitted_intent is not None and submitted_intent.schema_ == "dmb_play_rules_intent_v1"):
                     from .play_graph_persistence import lock_and_validate_native_play_basis
                     lock_and_validate_native_play_basis(conn, play_receipt)
                 else:
@@ -1718,7 +1719,8 @@ class AgentConversationService:
                         turn, current.execution, native_output_proof)
                     if (completion != result.completion or bindings != result.claim_graph_event_ids
                             or text != result.assistant_text or result.producing_provider_attempt_id
-                                != native_output_proof.producing_provider_attempt_id):
+                                != (native_output_proof.producing_provider_attempt_id
+                                    if completion is not None else None)):
                         raise ValueError("Native result differs from its actual captured output")
                 except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc

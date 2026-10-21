@@ -32,6 +32,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponseV3,
     AgentConversationHistoryResponseV4,
     AgentConversationHistoryMixedTurnV1,
+    AgentConversationHistoryPlayRulesTurnV1, AgentConversationHistoryPlaySourceTurnV1,
     AgentConversationHistoryPlanTurnV3,
     AgentConversationHistoryPlayTurnV2,
     AgentConversationHistoryPlayTurnV3,
@@ -1374,6 +1375,12 @@ def get_world_conversation_history(
             pointer_revision=pointer.revision,
             turns=[],
         )
+    from apps.live_control_server.services.play_source_presentation import project_play_source_context
+    def source_only_play(turn):
+        meta = turn.envelope if isinstance(turn,MixedCompletedTurnV1) else turn
+        return (meta.provenance.surface_id == "play" and meta.play_context_receipt is not None
+            and (turn.base_projection.kind == "absent" if isinstance(turn,MixedCompletedTurnV1) else turn.graph_context_receipt is None))
+    contains_play_source = any(source_only_play(turn) for turn in turns)
     contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
     contains_play_context = any(
         not isinstance(turn, MixedCompletedTurnV1)
@@ -1390,12 +1397,14 @@ def get_world_conversation_history(
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
             envelope = turn.envelope
-            history_turns.append(AgentConversationHistoryMixedTurnV1(
+            mixed_model = AgentConversationHistoryPlayRulesTurnV1 if source_only_play(turn) else AgentConversationHistoryMixedTurnV1
+            history_turns.append(mixed_model(
                 turn_id=envelope.turn_id, sequence=envelope.sequence,
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
                 idempotency_key=envelope.idempotency_key,
-                rules_context=project_rules_answer_context(turn, delivery_replay=True)))
+                rules_context=project_rules_answer_context(turn, delivery_replay=True),
+                **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
             "turn_id": turn.turn_id,
@@ -1405,7 +1414,7 @@ def get_world_conversation_history(
             "assistant_text": turn.assistant_text,
             "provenance": turn.provenance,
         }
-        if include_turn_correlation:
+        if include_turn_correlation or source_only_play(turn):
             persisted_key = getattr(turn, "idempotency_key", None)
             if not isinstance(persisted_key, UUID):
                 raise HTTPException(
@@ -1416,7 +1425,10 @@ def get_world_conversation_history(
                     },
                 )
             values["idempotency_key"] = persisted_key
-        if isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
+        if source_only_play(turn):
+            history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
+                play_source_context=project_play_source_context(turn,delivery_replay=True)))
+        elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
@@ -1452,7 +1464,7 @@ def get_world_conversation_history(
                 if include_turn_correlation else AgentConversationHistoryTurn
             )
             history_turns.append(turn_model(**values))
-    if contains_mixed:
+    if contains_mixed or contains_play_source:
         response_model = AgentConversationHistoryResponseV4
     elif include_turn_correlation:
         response_model = AgentConversationHistoryResponseV3

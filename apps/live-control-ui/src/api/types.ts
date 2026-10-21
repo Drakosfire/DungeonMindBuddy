@@ -828,7 +828,7 @@ export interface WorldPlayAgentTurnRequestV1 {
   primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis: WorldPlayContentBasis };
   play_target: WorldPlayTarget;
   client_work_state: "saved_clean";
-  graph_request: {
+  graph_request: { mode: "none" } | {
     mode: "world";
     world_id: string;
     campaign_id: null;
@@ -1278,10 +1278,25 @@ export interface WorldRulesAgentTurnResponseV1 extends Omit<WorldPlanAgentTurnRe
 export interface WorldPlayGraphTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, "schema" | "knowledge_context"> {
   schema: "dmb_agent_play_graph_turn_response_v1"; play_context: WorldPlayAgentContextV1;
 }
+export type WorldPlaySourceBasisV1 = Omit<WorldPlayGraphContextReceiptV1['play_basis'], 'schema' | 'scene_note'> & {
+  schema: 'dmb_agent_play_source_basis_v1';
+};
+export interface WorldPlaySourceContextV1 {
+  schema: 'dmb_agent_play_source_context_v1';
+  basis: WorldPlaySourceBasisV1; basis_sha256: string; delivery_replay: boolean;
+}
+export interface WorldPlaySourceTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, 'schema' | 'knowledge_context'> {
+  schema: 'dmb_agent_play_source_turn_response_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export interface WorldPlayRulesTurnResponseV1 extends Omit<WorldRulesAgentTurnResponseV1, 'schema'> {
+  schema: 'dmb_agent_play_rules_turn_response_v1'; play_source_context: WorldPlaySourceContextV1;
+}
 export type WorldPlanAgentTurnResponse =
   | WorldPlanAgentTurnResponseV1
   | WorldPlanAgentTurnResponseV2
   | WorldRulesAgentTurnResponseV1
+  | WorldPlaySourceTurnResponseV1
+  | WorldPlayRulesTurnResponseV1
   | WorldPlayGraphTurnResponseV1;
 
 export interface AgentConversationHistoryReferenceV1 {
@@ -1373,9 +1388,15 @@ export interface WorldAgentConversationHistoryMixedTurnV1 extends WorldAgentConv
   lifecycle_status: 'completed'; assistant_text: string;
   rules_context: import('./rulesLookupTypes').RulesAnswerContext;
 }
+export interface WorldAgentConversationHistoryPlaySourceTurnV1 extends WorldAgentConversationHistoryTurnV3 {
+  schema: 'dmb_agent_conversation_history_play_source_turn_v1'; play_source_context: WorldPlaySourceContextV1;
+}
+export interface WorldAgentConversationHistoryPlayRulesTurnV1 extends Omit<WorldAgentConversationHistoryMixedTurnV1, 'schema'> {
+  schema: 'dmb_agent_conversation_history_play_rules_turn_v1'; play_source_context: WorldPlaySourceContextV1;
+}
 export interface WorldAgentConversationHistoryResponseV4 extends Omit<WorldAgentConversationHistoryResponseV1, 'schema' | 'turns'> {
   schema: 'dmb_agent_conversation_history_v4';
-  turns: (WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlayTurnV2 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
+  turns: (WorldAgentConversationHistoryPlaySourceTurnV1 | WorldAgentConversationHistoryPlayRulesTurnV1 | WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlayTurnV2 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
 }
 
 export type WorldAgentConversationHistoryTurn =
@@ -1384,6 +1405,8 @@ export type WorldAgentConversationHistoryTurn =
   | WorldAgentConversationHistoryTurnV3
   | WorldAgentConversationHistoryPlanTurnV3
   | WorldAgentConversationHistoryMixedTurnV1
+  | WorldAgentConversationHistoryPlaySourceTurnV1
+  | WorldAgentConversationHistoryPlayRulesTurnV1
   | WorldAgentConversationHistoryPlayTurnV2
   | WorldAgentConversationHistoryPlayTurnV3;
 

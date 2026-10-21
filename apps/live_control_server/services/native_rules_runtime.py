@@ -1,7 +1,7 @@
 """Parent-owned native Plan/Play Rules broker and mixed-output owner.
 
 This adapter joins the native SDK capture to the durable Rules ledger. It is
-constructed only by the trusted governed-turn parent; it is not a route flag.
+constructed only by the trusted native-turn parent; it is not a route flag.
 """
 from __future__ import annotations
 
@@ -30,7 +30,9 @@ from application_state.agent_conversation.rules_authority_policy import (
 from application_state.agent_conversation.rules_authority_types import (
     RulesScopeV1,
 )
-from application_state.agent_conversation.types import submitted_turn_intent_fingerprint_v2
+from application_state.agent_conversation.types import (
+    submitted_turn_intent_fingerprint_v1, submitted_turn_intent_fingerprint_v2,
+)
 from . import rules_lookup_broker as broker
 
 
@@ -77,8 +79,9 @@ class NativeRulesRuntime:
         from .agent_turn_service import _turn_idempotency_key
 
         cap = RulesCapabilityV1.model_validate(capability)
-        if cap != rules_capability(graph=True) or adapter._is_build_turn():
-            raise ValueError("Native Rules requires the exact Plan/Play Graph capability")
+        self.graph_enabled = adapter.turn is not None and adapter.turn.graph_context_execution is not None
+        if cap != rules_capability(graph=self.graph_enabled) or adapter._is_build_turn():
+            raise ValueError("Native Rules requires the exact native Plan/Play capability")
         if adapter.rules_runtime is not None or adapter.fence is None:
             raise ValueError("Native Rules requires one current claimed provider attempt")
         # Provider authorization has already admitted and claimed this logical
@@ -92,7 +95,9 @@ class NativeRulesRuntime:
         adapter.expected_conversation_id = turn.conversation_id
         self.adapter, self.capability = adapter, cap
         self.conversation_id = turn.conversation_id
-        self.intent_sha = submitted_turn_intent_fingerprint_v2(adapter.submitted_intent)
+        self.intent_sha = (submitted_turn_intent_fingerprint_v1(adapter.submitted_intent)
+            if not self.graph_enabled
+            else submitted_turn_intent_fingerprint_v2(adapter.submitted_intent))
         self.idempotency_key = _turn_idempotency_key(adapter.world_id, adapter.request.turn_id)
         self.authorization_id = rules_submission_authorization_id(
             world_id=adapter.world_id, conversation_id=self.conversation_id,
@@ -112,7 +117,8 @@ class NativeRulesRuntime:
         turn = a.fence.renewer._turn
         if (turn.world_id != a.world_id or turn.conversation_id != self.conversation_id
                 or turn.idempotency_key != self.idempotency_key
-                or turn.submitted_intent_fingerprint_v2 != self.intent_sha):
+                or (turn.submitted_intent_fingerprint_v1 if not self.graph_enabled
+                    else turn.submitted_intent_fingerprint_v2) != self.intent_sha):
             raise ValueError("Native Rules scope differs from the locked logical submission")
         if self.record is None:
             cap = self.capability
@@ -134,6 +140,10 @@ class NativeRulesRuntime:
             PlayWorldGraphExecutionV1,
         )
         receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
+        if not self.graph_enabled:
+            if receipt is not None or graph is not None:
+                raise ValueError("Rules-only scope cannot inherit Graph context")
+            return turn
         if not (
             isinstance(receipt, PlanWorldGraphContextReceiptV1)
             and isinstance(graph, PlanWorldGraphExecutionV3)
@@ -372,40 +382,41 @@ class NativeRulesRuntime:
             rules_execution_id=self.record.execution.scope.execution_id,
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
         )
-        # Reuse the turn-local immutable result bytes; no Graph reacquisition.
-        auth = next(event for event in turn.graph_context_execution.events
-            if getattr(event, "provider_attempt_id", None) == proof.producing_provider_attempt_id
-            and hasattr(event, "included_graph_event_ids"))
-        from application_state.agent_conversation.source_writer_output import strict_json
-        candidate = strict_json(reply.text)
-        if not isinstance(candidate, dict):
-            raise ValueError("Native final answer is not an object")
-        base = candidate.get("base_output") if candidate.get("schema") == "dmb_rules_mixed_answer_v1" else candidate
-        if base is not None and not isinstance(base, dict):
-            raise ValueError("Native base answer is not an object")
-        segments = base.get("answer_segments", []) if base is not None else []
-        if not isinstance(segments, list):
-            raise ValueError("Native base segments are not a list")
-        targets = {(item.get("target_kind"), item.get("target_id"))
-            for item in segments if isinstance(item, dict) and item.get("kind") == "graph_claim"
-            and item.get("target_kind") in {"assertion", "relationship"}
-            and isinstance(item.get("target_id"), str)}
-        operations = {event.event_id: event for event in turn.graph_context_execution.events
-            if hasattr(event, "assertion_ids") and hasattr(event, "relationship_ids")}
-        packets = {}
-        for event_id in auth.included_graph_event_ids:
-            event = operations.get(event_id)
-            if event is None or not any(
-                    target in (event.assertion_ids if kind == "assertion" else event.relationship_ids)
-                    for kind, target in targets):
-                continue
-            raw = self.adapter.operation_payloads.get(event_id)
-            if raw is not None:
-                value = json.loads(raw)
-                packets[event_id] = json.dumps({key: item for key, item in value.items()
-                    if key not in {"retrievalSessionId", "addedClaimIds", "claimLedger"}},
-                    ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        proof = proof.model_copy(update={"graph_packets": packets})
+        if self.graph_enabled:
+            # Reuse the turn-local immutable result bytes; no Graph reacquisition.
+            auth = next(event for event in turn.graph_context_execution.events
+                if getattr(event, "provider_attempt_id", None) == proof.producing_provider_attempt_id
+                and hasattr(event, "included_graph_event_ids"))
+            from application_state.agent_conversation.source_writer_output import strict_json
+            candidate = strict_json(reply.text)
+            if not isinstance(candidate, dict):
+                raise ValueError("Native final answer is not an object")
+            base = candidate.get("base_output") if candidate.get("schema") == "dmb_rules_mixed_answer_v1" else candidate
+            if base is not None and not isinstance(base, dict):
+                raise ValueError("Native base answer is not an object")
+            segments = base.get("answer_segments", []) if base is not None else []
+            if not isinstance(segments, list):
+                raise ValueError("Native base segments are not a list")
+            targets = {(item.get("target_kind"), item.get("target_id"))
+                for item in segments if isinstance(item, dict) and item.get("kind") == "graph_claim"
+                and item.get("target_kind") in {"assertion", "relationship"}
+                and isinstance(item.get("target_id"), str)}
+            operations = {event.event_id: event for event in turn.graph_context_execution.events
+                if hasattr(event, "assertion_ids") and hasattr(event, "relationship_ids")}
+            packets = {}
+            for event_id in auth.included_graph_event_ids:
+                event = operations.get(event_id)
+                if event is None or not any(
+                        target in (event.assertion_ids if kind == "assertion" else event.relationship_ids)
+                        for kind, target in targets):
+                    continue
+                raw = self.adapter.operation_payloads.get(event_id)
+                if raw is not None:
+                    value = json.loads(raw)
+                    packets[event_id] = json.dumps({key: item for key, item in value.items()
+                        if key not in {"retrievalSessionId", "addedClaimIds", "claimLedger"}},
+                        ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            proof = proof.model_copy(update={"graph_packets": packets})
         if self.record.execution.budget_use.calls == 0:
             from application_state.agent_conversation.native_rules_output import normalize_unused_native_output
             completion, bindings, text = normalize_unused_native_output(
@@ -414,7 +425,8 @@ class NativeRulesRuntime:
                 world_id=turn.world_id, conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision,
                 assistant_text=text, completion=completion,
-                producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
+                producing_provider_attempt_id=(self.adapter.producing_provider_attempt_id
+                    if completion is not None else None),
                 claim_graph_event_ids=bindings,
             ), output_proof=proof, expected_rules_revision=self.record.revision)
         normalized = normalize_native_mixed_output(

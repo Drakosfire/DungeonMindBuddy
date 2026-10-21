@@ -255,8 +255,11 @@ class NativeRulesMixedTurnResultV1(MixedTurnResultV1):
     @model_validator(mode="after")
     def exact_native_proof(self):
         proof = self.output_proof
-        if self.composition.base_disposition not in {"approved", "unclaimed"}:
-            raise ValueError("Native mixed output requires an owning Plan/Play Graph scope")
+        from .rules_authority_policy import rules_capability
+
+        rules_only = self.scope.capability_policy_sha256 == rules_capability(graph=False).policy_sha256
+        if (self.composition.base_disposition == "absent") != rules_only:
+            raise ValueError("Native absent base requires the exact Rules-only policy")
         if (
             proof.rules_execution_id != self.scope.execution_id
             or proof.producing_provider_attempt_id

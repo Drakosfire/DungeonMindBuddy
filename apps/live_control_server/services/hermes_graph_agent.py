@@ -483,6 +483,10 @@ def _build_ephemeral_system_prompt(
             "the host expands the whole approved base block. Otherwise omit the base marker. "
             "A Rules lookup does not turn authored Plan/Play notes into rules evidence."
         )
+        if policy.mode == "rules":
+            parts.append("This is a Rules-only turn with Graph off. After any lookup, base_output must be null "
+                "and ordered_refs must contain no base marker. Do not claim Plan, Play or World facts as "
+                "Rules evidence. If no lookup is needed, answer in ordinary prose.")
     if "prepare_build_image" in policy.enabled_tool_names:
         parts.append(
             "Use prepare_build_image when asked for artwork, an image or a map of this document. "

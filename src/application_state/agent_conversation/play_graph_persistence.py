@@ -9,6 +9,7 @@ from .types import PlayRunTurnContextReceiptV2
 def lock_and_validate_native_play_basis(conn, receipt: PlayRunTurnContextReceiptV2) -> None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute("""SELECT r.world_id,r.lifecycle_status,r.run_revision,
+            r.progress->>'current_beat_id' AS current_beat_id, r.progress->>'current_scene_id' AS current_scene_id,
             jsonb_typeof(r.progress->'notes_by_element_id') AS notes_type,
             octet_length(r.progress->'notes_by_element_id'->>%s::text) AS note_bytes,
             CASE WHEN octet_length(r.progress->'notes_by_element_id'->>%s::text)<=32768
@@ -23,6 +24,8 @@ def lock_and_validate_native_play_basis(conn, receipt: PlayRunTurnContextReceipt
         run=cur.fetchone()
         if run is None or run['world_id']!=receipt.world_id:
             raise ApplicationStateNotFoundError('Play session is unavailable in this World')
+        if (run['current_beat_id'],run['current_scene_id']) != (receipt.beat_id,receipt.scene_id):
+            raise ApplicationStateConflictError('Native Play target changed before admission')
         if run['lifecycle_status']!='active':
             raise ApplicationStateConflictError('Play session is in Trash')
         if (run['source_revision_world']!=receipt.world_id or run['source_object_world']!=receipt.world_id

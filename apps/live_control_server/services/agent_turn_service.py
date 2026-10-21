@@ -39,7 +39,7 @@ from application_state.agent_conversation.types import (
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
-    PlayGraphIntentV1,
+    PlayGraphIntentV1, PlayRulesIntentV1,
     PlayGraphPolicyV1,
     SubmittedPlayTargetV1,
     BuildGraphIntentV1,
@@ -4541,6 +4541,12 @@ def _submitted_turn_intent(
     if _governed_build_turn(request):
         return BuildGraphIntentV1(**common, build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
+    if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
+        if request.play_target is None:
+            raise AgentTurnServiceError("Rules-only Play requires its exact current target.",
+                code="play_context_unavailable", status_code=422, provider_dispatched=False)
+        return PlayRulesIntentV1(**common, play_target=SubmittedPlayTargetV1.model_validate(
+            request.play_target.model_dump(mode="python", by_alias=True)))
     if request.surface.surface_id == "play" and request.graph_request.mode == "world":
         if primary_work is None or request.play_target is None:
             raise AgentTurnServiceError(
@@ -4690,6 +4696,11 @@ def _require_play_run_receipt_matches_request(
             "The stored Play Run receipt does not match the submitted intent.",
             code="turn_receipt_unverifiable", status_code=409,
         )
+    target = request.play_target
+    if target is None or (target.beat_id, target.scene_id, target.marker_grammar_version) != (
+            receipt.beat_id, receipt.scene_id, receipt.marker_grammar_version):
+        raise AgentTurnServiceError("The saved Play target differs from the submitted request.",
+            code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
     basis = request.primary_work.play_content_basis
     if (basis is None) != (session_receipt is None) or (basis is not None and session_receipt is not None and (
         session_receipt.world_id != provenance.world_id
@@ -4865,6 +4876,8 @@ def _completed_turn_replay(
         if primary.kind == "plan" and primary.object_revision is not None
         else primary.revision
     )
+    if primary.kind == "run" and isinstance(turn_meta.play_context_receipt, PlayRunTurnContextReceiptV2):
+        revision_used = turn_meta.play_context_receipt.run_revision
     completion = None if mixed else turn.completion
     answer_text = turn.assistant_text
     graph_grounded = False
@@ -4963,9 +4976,14 @@ def _completed_turn_replay(
     if mixed:
         from .rules_answer_presentation import project_rules_answer_context
         from apps.live_control_server.models.agent_turn import AgentRulesTurnResponseV1
-        return AgentRulesTurnResponseV1.model_validate({
+        from apps.live_control_server.models.agent_turn import AgentPlayRulesTurnResponseV1
+        from .play_source_presentation import project_play_source_context
+        play_rules = request.surface.surface_id == "play" and request.graph_request.mode == "none" and request.primary_work is not None
+        response_model = AgentPlayRulesTurnResponseV1 if play_rules else AgentRulesTurnResponseV1
+        return response_model.model_validate({
             **response.model_dump(mode="python", by_alias=True),
-            "schema": "dmb_agent_rules_turn_response_v1",
+            **({"play_source_context":project_play_source_context(turn,delivery_replay=True).model_dump(mode="python",by_alias=True)} if play_rules else {}),
+            "schema": "dmb_agent_play_rules_turn_response_v1" if play_rules else "dmb_agent_rules_turn_response_v1",
             "answer": {**response.answer.model_dump(mode="python"),
                 "graph_grounded": turn.accepted_binding.graph_used},
             "rules_context": project_rules_answer_context(turn, delivery_replay=True).model_dump(mode="python", by_alias=True),
@@ -4981,6 +4999,12 @@ def _completed_turn_replay(
             "schema": "dmb_agent_play_graph_turn_response_v1",
             "play_context": play_context.model_dump(mode="python", by_alias=True),
         })
+    if request.surface.surface_id == "play" and request.graph_request.mode == "none" and request.primary_work is not None:
+        from apps.live_control_server.models.agent_turn import AgentPlaySourceTurnResponseV1
+        from .play_source_presentation import project_play_source_context
+        return AgentPlaySourceTurnResponseV1.model_validate({**response.model_dump(mode="python",by_alias=True),
+            "schema":"dmb_agent_play_source_turn_response_v1",
+            "play_source_context":project_play_source_context(turn,delivery_replay=True).model_dump(mode="python",by_alias=True)})
     if request.plan_context_policy is None:
         return response
     return AgentTurnResponseV2.model_validate(
@@ -5713,6 +5737,8 @@ def _accept_world_turn(
             code="plan_graph_receipt_unavailable",
             status_code=503,
         )
+    if isinstance(submitted_intent, PlayRulesIntentV1):
+        _require_play_run_receipt_matches_request(request, provenance, play_context_receipt)
     idempotency_key = _turn_idempotency_key(world_id, request.turn_id)
     for _attempt in range(3):
         active = _active_or_create_conversation(
@@ -7103,6 +7129,7 @@ def execute_agent_turn(
             None if pointer_binding is None else pointer_binding.pointer_id
         )
         return AgentTurnResponseV2.model_validate(payload)
+    rules_only_adapter = None
     runtime_dispatch_span_id: str | None = None
     result = None
     replayed_completed_turn = (
@@ -7120,16 +7147,32 @@ def execute_agent_turn(
             invocation = replace(
                 assembly.invocation, plan_continuity_turn=plan_continuity
             )
-            result = run_with_private_evidence(
-                selected_runtime, invocation,
-                binding={
-                    "world_id": canonical_world_id,
-                    "turn_id": str(running_turn.turn_id) if running_turn else request.turn_id,
-                    "conversation_id": str(running_turn.conversation_id) if running_turn else None,
-                    "attempt": running_turn.attempt if running_turn else None,
-                    "trace_id": trace.trace_id,
-                },
-            )
+            if (request.surface.surface_id in {"plan", "play"} and request.graph_request.mode == "none"
+                    and running_turn is not None and conversation_service is not None and renewer is not None):
+                from .rules_only_runtime import RulesOnlyRuntime
+                rules_only_adapter = RulesOnlyRuntime(service=conversation_service, request=request,
+                    submitted_intent=submitted_intent, renewer=renewer, budget=_policy_request_budget())
+                guarded_run = getattr(selected_runtime, "run_with_provider_authorization", None)
+                if not callable(guarded_run):
+                    raise AgentTurnServiceError("Rules-only execution requires a guarded native runtime.",
+                        code="rules_execution_unavailable", status_code=503, provider_dispatched=False)
+                result = guarded_run(rules_only_adapter.invocation(invocation), rules_only_adapter.authorize,
+                    request_budget=rules_only_adapter.budget,
+                    on_graph_operation=rules_only_adapter.broker_operation,
+                    on_provider_lifecycle=rules_only_adapter.record_lifecycle,
+                    on_native_provider_reply=rules_only_adapter.capture_native_provider_reply,
+                    native_rules_capture_required=True)
+            else:
+                result = run_with_private_evidence(
+                    selected_runtime, invocation,
+                    binding={
+                        "world_id": canonical_world_id,
+                        "turn_id": str(running_turn.turn_id) if running_turn else request.turn_id,
+                        "conversation_id": str(running_turn.conversation_id) if running_turn else None,
+                        "attempt": running_turn.attempt if running_turn else None,
+                        "trace_id": trace.trace_id,
+                    },
+                )
             if plan_continuity and result.status == "ok":
                 if not result.runtime_session_id:
                     raise AgentTurnServiceError(
@@ -7211,39 +7254,53 @@ def execute_agent_turn(
 
         if running_turn is not None and conversation_service is not None:
             if result.status == "ok" and result.final_text:
-                completion = TurnResult(
-                    world_id=running_turn.world_id,
-                    conversation_id=running_turn.conversation_id,
-                    turn_id=running_turn.turn_id,
-                    expected_revision=running_turn.revision,
-                    assistant_text=result.final_text,
-                )
-                for attempt in range(3):
+                if rules_only_adapter is not None:
                     try:
-                        durable_turn = conversation_service.complete_turn(completion)
-                        break
-                    except ApplicationStateConflictError as exc:
-                        raise AgentTurnServiceError(
-                            "The provider returned, but the turn claim fence changed before its result was confirmed.",
-                            code="turn_persistence_indeterminate",
-                            status_code=409,
-                        ) from exc
+                        durable_turn = rules_only_adapter.complete(running_turn)
+                    except ValueError as exc:
+                        conversation_service.fail_turn(TurnFailure(world_id=running_turn.world_id,
+                            conversation_id=running_turn.conversation_id, turn_id=running_turn.turn_id,
+                            expected_revision=running_turn.revision, failure_code="rules_answer_unverifiable"))
+                        raise AgentTurnServiceError("The Rules-only response could not be verified.",
+                            code="rules_answer_unverifiable", status_code=502) from exc
                     except (ApplicationStateError, psycopg.OperationalError) as exc:
-                        transient = isinstance(exc, psycopg.OperationalError) or (
-                            isinstance(exc, ApplicationStateError)
-                            and exc.status_code >= 500
-                        )
-                        if not transient or attempt == 2:
+                        raise AgentTurnServiceError("The Rules-only completion could not be durably confirmed.",
+                            code="turn_persistence_indeterminate", status_code=503) from exc
+                    result = replace(result, final_text=durable_turn.assistant_text)
+                else:
+                    completion = TurnResult(
+                        world_id=running_turn.world_id,
+                        conversation_id=running_turn.conversation_id,
+                        turn_id=running_turn.turn_id,
+                        expected_revision=running_turn.revision,
+                        assistant_text=result.final_text,
+                    )
+                    for attempt in range(3):
+                        try:
+                            durable_turn = conversation_service.complete_turn(completion)
+                            break
+                        except ApplicationStateConflictError as exc:
                             raise AgentTurnServiceError(
-                                "The provider returned, but its stored result is indeterminate.",
+                                "The provider returned, but the turn claim fence changed before its result was confirmed.",
                                 code="turn_persistence_indeterminate",
-                                status_code=(
-                                    503
-                                    if transient
-                                    else getattr(exc, "status_code", 500)
-                                ),
+                                status_code=409,
                             ) from exc
-                        Event().wait(0.05 * (attempt + 1))
+                        except (ApplicationStateError, psycopg.OperationalError) as exc:
+                            transient = isinstance(exc, psycopg.OperationalError) or (
+                                isinstance(exc, ApplicationStateError)
+                                and exc.status_code >= 500
+                            )
+                            if not transient or attempt == 2:
+                                raise AgentTurnServiceError(
+                                    "The provider returned, but its stored result is indeterminate.",
+                                    code="turn_persistence_indeterminate",
+                                    status_code=(
+                                        503
+                                        if transient
+                                        else getattr(exc, "status_code", 500)
+                                    ),
+                                ) from exc
+                            Event().wait(0.05 * (attempt + 1))
             else:
                 try:
                     durable_turn = conversation_service.fail_turn(
@@ -7370,6 +7427,26 @@ def execute_agent_turn(
             hermes_session_id=result.runtime_session_id,
             require_new_thread=plan_continuity,
         )
+    if isinstance(durable_turn, MixedCompletedTurnV1):
+        response = _completed_turn_replay(request, owner=owner or {}, turn=durable_turn)
+        if rules_only_adapter is not None and request.surface.surface_id == "plan" and request.primary_work is not None:
+            basis = None if work is None else work.content_basis
+            primary = durable_turn.envelope.provenance.primary_work
+            if (basis is None or basis.world_id != durable_turn.envelope.world_id
+                    or (basis.document_id,basis.object_revision,basis.work_revision_id,basis.revision_n,basis.content_sha256) != (
+                        primary.object_id,primary.object_revision,str(primary.work_revision_id),primary.revision_n,primary.content_sha256)):
+                raise AgentTurnServiceError("The original Plan basis differs from its completed Rules-only turn.",
+                    code="turn_receipt_unverifiable",status_code=409)
+            response = response.model_copy(update={"primary_work":response.primary_work.model_copy(update={"content_basis":basis})})
+        return response.model_copy(update={
+            **({"play_source_context": response.play_source_context.model_copy(update={"delivery_replay":False})}
+                if hasattr(response,"play_source_context") else {}),
+            "answer": response.answer.model_copy(update={"trace": final_trace}),
+            "conversation": response.conversation.model_copy(update={
+                "pointer_status": "reused" if pointer.continuity_session_id else pointer.pointer_status,
+                "pointer_id": None if pointer_binding is None else pointer_binding.pointer_id,
+            }),
+        })
     if result is None:
         answer = {
             "status": "ok",
@@ -7403,7 +7480,7 @@ def execute_agent_turn(
             "graph_grounded": False,
         }
 
-    return AgentTurnResponse(
+    response = AgentTurnResponse(
         client_thread_id=request.client_thread_id,
         turn_id=request.turn_id,
         surface={
@@ -7452,6 +7529,14 @@ def execute_agent_turn(
         },
         answer={**answer, "trace": final_trace},
     )
+    if rules_only_adapter is not None and request.surface.surface_id == "play" and request.primary_work is not None:
+        from apps.live_control_server.models.agent_turn import AgentPlaySourceTurnResponseV1
+        from .play_source_presentation import project_play_source_context
+        return AgentPlaySourceTurnResponseV1.model_validate({**response.model_dump(mode="python",by_alias=True),
+            "schema":"dmb_agent_play_source_turn_response_v1",
+            "play_source_context":project_play_source_context(durable_turn,delivery_replay=False).model_dump(mode="python",by_alias=True)})
+    return response
+
 
 
 def build_existing_graph_context(
