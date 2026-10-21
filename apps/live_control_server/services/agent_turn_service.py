@@ -6859,8 +6859,23 @@ def execute_agent_turn(
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         if isinstance(selected_runtime, PlanJevHarness):
+            # Jev has no Hermes session memory. Read the canonical conversation
+            # once, then share the same reference-only snapshot with every
+            # decision and the writer. Client thread IDs never select history.
+            history = []
+            if policy_conversation_id is not None or durable_turn is not None:
+                conversation_id = (durable_turn.conversation_id if durable_turn is not None
+                    else policy_conversation_id)
+                previous_turns = conversation_service.list_turns(
+                    canonical_world_id, conversation_id,
+                    **({"before_sequence": durable_turn.sequence} if durable_turn is not None else {}),
+                )
+                for previous in previous_turns:
+                    if previous.status == "completed" and previous.assistant_text:
+                        history.extend([{"role": "user", "content": previous.user_text},
+                            {"role": "assistant", "content": previous.assistant_text}])
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace,
-                dialogue=assembly.invocation.conversation_history or ())
+                dialogue=history)
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(

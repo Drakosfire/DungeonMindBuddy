@@ -23,7 +23,7 @@ class WriterWire(httpx.AsyncBaseTransport):
         self.calls=[]; self.closed=False
     async def handle_async_request(self, request):
         self.calls.append(request)
-        fresh=AgentConversationService().list_turns(self.adapter.world_id,self.adapter.turn.conversation_id)[0]
+        fresh=AgentConversationService().list_turns(self.adapter.world_id,self.adapter.turn.conversation_id)[-1]
         assert fresh.graph_context_execution.events[-1].outcome == 'sdk_entered'
         body=json.loads(request.content)
         assert isinstance(body['input'],list) and body['tools'] == []

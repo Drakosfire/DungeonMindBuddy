@@ -65,3 +65,35 @@ def test_output_limit_failure_is_durable_with_prompt_and_usage_and_no_retry(plan
     trace=kwargs['conversation_service'].list_context_trace_attempts(world_id=plan_adapter.world_id,turn_id=turn.turn_id)[0]
     assert len([row for row in trace.observations if row.kind=='prompt_reference'])==2
     assert any(row.kind=='provider_call' and row.input_tokens==600 and row.output_tokens==100 for row in trace.observations)
+
+
+def test_owner_loads_completed_canonical_dialogue_once_for_followup(plan_adapter,tmp_path,monkeypatch):
+    from uuid import uuid4
+    harness,decisions,wire,kwargs=route_case(plan_adapter,tmp_path)
+    first=execute_agent_turn(plan_adapter.request,**kwargs)
+    assert first.answer.status == 'ok'
+    service=kwargs['conversation_service']
+    original=service.list_turns
+    reads=[]
+    def counted(*args,**kwargs):
+        reads.append((args,kwargs))
+        return original(*args,**kwargs)
+    monkeypatch.setattr(service,'list_turns',counted)
+    second=plan_adapter.request.model_copy(update={'turn_id':str(uuid4()),
+        'message':'Ground that location in the journal.'})
+    response=execute_agent_turn(second,**kwargs)
+    assert response.answer.status == 'ok'
+    assert len(reads)==1
+    expected=[{'role':'user','content':plan_adapter.request.message},
+              {'role':'assistant','content':first.answer.text}]
+    state=json.loads(decisions.calls[-1].content)['state']
+    assert state['question']==second.message
+    assert state['dialogue_reference']==expected
+    writer=json.loads(wire.calls[-1].content)
+    frame=json.loads(writer['input'][0]['content'])
+    assert frame['dialogue_reference']==expected
+    assert len(decisions.calls)==len(wire.calls)==2
+    # Replay exits before re-reading history or paying for another decision.
+    replay=execute_agent_turn(second,**kwargs)
+    assert replay.plan_context.delivery_replay and len(reads)==1
+    assert len(decisions.calls)==len(wire.calls)==2
