@@ -159,3 +159,28 @@ def test_supplement_pins_are_frozen_separately_from_external_recap_source(tmp_pa
     assert first["configuration_sha256"]!=second["configuration_sha256"]
     assert first["configuration"]["source"]==second["configuration"]["source"]
     assert load_registered_source_artifact_text(tmp_path,artifact.source_artifact_id)[1]==source[2]
+
+
+def test_build_sources_freeze_document_names_across_later_renames(tmp_path, source, context):
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_source_artifact_from_workspace_document, get_source_artifact,
+    )
+    from apps.live_control_server.services.workspace_document_registry import update_workspace_document_metadata
+    record, target, text, digest = source
+    recap = register(tmp_path, source, context)
+    worldbuilding = create_source_artifact_from_workspace_document(tmp_path,
+        document_id=record.document_id, expected_revision=record.revision)
+    for artifact in (recap, worldbuilding):
+        assert artifact.lineage['source_name'] == record.title
+    assert register(tmp_path, source, context) == recap
+    renamed = update_workspace_document_metadata(tmp_path, record.document_id,
+        title='The party reaches Willow Park', expected_revision=record.revision)
+    for artifact in (recap, worldbuilding):
+        assert get_source_artifact(tmp_path, artifact.source_artifact_id).lineage['source_name'] == record.title
+    new_recap = register(tmp_path, (renamed, target, text, digest), context)
+    new_worldbuilding = create_source_artifact_from_workspace_document(tmp_path,
+        document_id=renamed.document_id, expected_revision=renamed.revision)
+    assert new_recap.lineage['source_name'] == new_worldbuilding.lineage['source_name'] == renamed.title
+    assert new_recap.source_artifact_id != recap.source_artifact_id
+    assert new_worldbuilding.source_artifact_id != worldbuilding.source_artifact_id
+    assert target.read_text() == text
