@@ -1028,8 +1028,17 @@ def _plan_context_resolver(
             provider_dispatched=False,
         )
     use_bounded_index = stored_selection_policy == "parent_initial_retrieval_with_bounded_source_index_v1"
-    use_selected_index = stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1" or (
-        stored_selection_policy is None and bool(resolved_search.native_targets)
+    native_play_scope = body.surface.surface_id == "play" and work.kind == "run"
+    if native_play_scope and stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1":
+        raise AgentTurnServiceError(
+            "The stored Play source scope uses an unsupported selected-index policy.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    use_selected_index = not native_play_scope and (
+        stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1" or (
+            stored_selection_policy is None and bool(resolved_search.native_targets)
+        )
     )
     source_scope_anchors: list[dict[str, str]] = []
     source_index_commitment: dict[str, Any] | None = None
@@ -1376,7 +1385,7 @@ def get_world_conversation_history(
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
                 idempotency_key=envelope.idempotency_key,
-                rules_context=project_rules_answer_context(turn, delivery_replay=False)))
+                rules_context=project_rules_answer_context(turn, delivery_replay=True)))
             continue
         values = {
             "turn_id": turn.turn_id,
@@ -1400,7 +1409,7 @@ def get_world_conversation_history(
         if isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
-                knowledge_context=project_plan_turn_context(turn, delivery_replay=False)))
+                knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
         elif turn.graph_context_receipt is not None:
             history_turns.append(
                 (
@@ -1409,7 +1418,7 @@ def get_world_conversation_history(
                 )(
                     **values,
                     plan_context=project_plan_turn_context(
-                        turn, delivery_replay=False
+                        turn, delivery_replay=True
                     ),
                 )
             )

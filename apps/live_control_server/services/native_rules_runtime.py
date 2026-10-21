@@ -305,8 +305,11 @@ class NativeRulesRuntime:
                 for event in events
             ):
                 return
+            # The generic transport lifecycle cannot distinguish a final
+            # answer from an intermediate tool-call response. Exact SDK reply
+            # capture owns answered/tool_calls/failed; this records only
+            # terminal states that did not yield a capturable reply.
             status = {
-                "response_received": "answered",
                 "known_not_sent": "failed",
                 "outcome_unknown": "unknown",
             }.get(transition)
@@ -356,7 +359,7 @@ class NativeRulesRuntime:
             return {"resultJson": delivery.prepared.raw_output, "retrievalSession": None}
 
     def complete(self, turn, reply):
-        if self.record is None or not self.record.execution.budget_use.calls:
+        if self.record is None:
             return None
         from application_state.agent_conversation.native_rules_output import (
             NativeRulesOutputProofV1,

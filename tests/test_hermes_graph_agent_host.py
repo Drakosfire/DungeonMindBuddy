@@ -1731,12 +1731,18 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     },
                 )
                 response = decode_json_wire(request_queue.get(timeout=30.0))
-                return (
+                allowed = (
                     response.get("type") == "provider_authorization_response"
                     and response.get("requestId") == request_id
                     and response.get("authorizationId") == authorization_id
                     and response.get("allowOnce") is True
                 )
+                authorize_provider.last_authorization_id = (
+                    authorization_id if allowed else None
+                )
+                return allowed
+
+            authorize_provider.last_authorization_id = None
 
             def report_provider_lifecycle(event: Any) -> bool:
                 if not request.provider_authorization_required or not isinstance(
@@ -1762,6 +1768,23 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     response.get("type") == "provider_lifecycle_response"
                     and response.get("requestId") == request_id
                     and response.get("authorizationId") == authorization_id
+                    and response.get("acknowledged") is True
+                )
+
+            def capture_native_provider_reply(reply: Any) -> bool:
+                if not request.native_rules_capture_required:
+                    return False
+                from apps.live_control_server.services.native_rules_capture import (
+                    encode_native_reply_wire,
+                )
+
+                response_queue.put(encode_native_reply_wire(reply))
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                return (
+                    response.get("type") == "native_provider_reply_response"
+                    and response.get("requestId") == request_id
+                    and response.get("authorizationId") == reply.authorization_id
+                    and response.get("apiRequestId") == reply.api_request_id
                     and response.get("acknowledged") is True
                 )
 
@@ -1808,6 +1831,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     on_provider_authorization=authorize_provider,
                     on_provider_lifecycle=report_provider_lifecycle,
                     on_parent_graph_operation=parent_graph_operation,
+                    on_native_provider_reply=capture_native_provider_reply,
                 )
             _write_offline_witness(len(mocked_responses_requests))
             if network_attempts:

@@ -2,6 +2,7 @@
 
 import json
 from types import SimpleNamespace
+from threading import RLock
 from uuid import uuid4
 
 import pytest
@@ -13,6 +14,8 @@ from apps.live_control_server.services.native_rules_runtime import (
     _provider_lookup_arguments,
 )
 from application_state.agent_conversation.rules_authority_events import (
+    RulesProviderAuthorizedV1,
+    RulesProviderOutcomeV1,
     RulesQueryObservedV1,
     RulesToolAuthorizedV1,
 )
@@ -127,6 +130,92 @@ def test_provider_input_rejects_duplicate_lookup_argument_keys():
         assert "duplicate JSON keys" in str(exc)
     else:
         raise AssertionError("duplicate provider argument key was accepted")
+
+
+@pytest.mark.parametrize(
+    ("transition", "expected_status"),
+    [("known_not_sent", "failed"), ("outcome_unknown", "unknown")],
+)
+def test_native_rules_lifecycle_records_only_uncaptured_terminal_outcomes(
+    transition, expected_status,
+):
+    attempt_id = uuid4()
+    execution_id = uuid4()
+    authorization = RulesProviderAuthorizedV1(
+        kind="provider_authorized", event_id=uuid4(), sequence=0,
+        execution_id=execution_id, provider_attempt_id=attempt_id,
+        request_envelope_sha256="a" * 64, matched_outputs=(),
+        declared_support_refs=(),
+    )
+    execution = SimpleNamespace(
+        events=(authorization,), scope=SimpleNamespace(execution_id=execution_id)
+    )
+    record = SimpleNamespace(execution=execution, revision=1)
+    turn = SimpleNamespace(revision=4)
+
+    class Service:
+        def append_rules_provider_event(self, _scope, *, event, **_kwargs):
+            nonlocal record
+            record = SimpleNamespace(
+                execution=SimpleNamespace(
+                    events=(*record.execution.events, event),
+                    scope=record.execution.scope,
+                ),
+                revision=record.revision + 1,
+            )
+            return record
+
+    runtime = object.__new__(NativeRulesRuntime)
+    runtime.record = record
+    runtime.adapter = SimpleNamespace(
+        last_provider_attempt_id=attempt_id,
+        service=Service(),
+        fence=SimpleNamespace(
+            renewer=SimpleNamespace(_lock=RLock(), _turn=turn)
+        ),
+    )
+
+    runtime.outcome(transition)
+
+    outcome_events = [
+        event for event in runtime.record.execution.events
+        if isinstance(event, RulesProviderOutcomeV1)
+    ]
+    assert len(outcome_events) == 1
+    assert outcome_events[0].status == expected_status
+
+
+def test_native_rules_response_received_waits_for_exact_reply_capture():
+    attempt_id = uuid4()
+    execution_id = uuid4()
+    authorization = RulesProviderAuthorizedV1(
+        kind="provider_authorized", event_id=uuid4(), sequence=0,
+        execution_id=execution_id, provider_attempt_id=attempt_id,
+        request_envelope_sha256="a" * 64, matched_outputs=(),
+        declared_support_refs=(),
+    )
+    record = SimpleNamespace(
+        execution=SimpleNamespace(
+            events=(authorization,), scope=SimpleNamespace(execution_id=execution_id)
+        ),
+        revision=1,
+    )
+    runtime = object.__new__(NativeRulesRuntime)
+    runtime.record = record
+    runtime.adapter = SimpleNamespace(
+        last_provider_attempt_id=attempt_id,
+        service=SimpleNamespace(
+            append_rules_provider_event=lambda *_args, **_kwargs: pytest.fail(
+                "generic response lifecycle must not decide the Rules reply kind"
+            )
+        ),
+        fence=SimpleNamespace(renewer=SimpleNamespace(_lock=RLock())),
+    )
+
+    runtime.outcome("response_received")
+
+    assert runtime.record is record
+    assert len(runtime.record.execution.events) == 1
 
 
 @pytest.mark.parametrize("wire_shape", ["responses", "chat"])

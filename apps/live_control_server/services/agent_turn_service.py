@@ -68,6 +68,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentRelatedRecapContextOpenTargetV2,
     AgentRelatedRecapContextStatusV2,
     AgentPlanWorldGraphContextResponseV2,
+    AgentPlayWorldGraphContextResponseV1,
     AgentBuildGraphContextResponseV1,
     AgentBuildGraphTurnResponseV1,
     AgentPlanWorldGraphExecutionProjectionV1,
@@ -1597,6 +1598,7 @@ class _PolicyExecutionAdapter:
         self,
         *,
         service: AgentTurnExecutionPersistencePort,
+        root: Path = Path("."),
         request: AgentTurnRequest,
         world_id: str,
         work: AgentTurnResolvedWork,
@@ -1614,6 +1616,7 @@ class _PolicyExecutionAdapter:
         self.pending_native_rules_capability = None
         self.expected_conversation_id = expected_conversation_id
         self.service = service
+        self.root = root
         self.request = request
         self.world_id = world_id
         self.work = work
@@ -1679,7 +1682,13 @@ class _PolicyExecutionAdapter:
     def capture_native_provider_reply(self, reply: Any) -> bool:
         runtime = self.rules_runtime
         capture = getattr(runtime, "capture_reply", None)
-        return bool(callable(capture) and capture(reply))
+        authorization_id = getattr(runtime, "authorization_id", None)
+        if not callable(capture) or authorization_id is None:
+            return False
+        # The isolated host has already correlated the transport authorization
+        # ID with its exact provider request witness before calling this owner.
+        # Durable Rules receipts use the stable submission authorization ID.
+        return bool(capture(replace(reply, authorization_id=str(authorization_id))))
 
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
@@ -3342,6 +3351,7 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
+                root=self.root,
                 **({"native_services": self._build_native_acquisition_services}
                    if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )
@@ -4969,6 +4979,76 @@ def _completed_turn_replay(
     )
 
 
+def project_play_turn_context(
+    turn: Turn,
+    *,
+    delivery_replay: bool,
+) -> AgentPlayWorldGraphContextResponseV1:
+    """Project a native Play receipt after validating its own Run and ledger."""
+    receipt = turn.graph_context_receipt
+    execution = getattr(turn, "graph_context_execution", None)
+    if not isinstance(receipt, PlayWorldGraphContextReceiptV1) or not isinstance(
+        execution, PlayWorldGraphExecutionV1
+    ):
+        raise AgentTurnServiceError(
+            "The stored Play Graph receipt has no matching execution ledger.",
+            code="turn_receipt_unverifiable", status_code=409,
+        )
+    try:
+        Turn.model_validate(turn.model_dump(mode="python", by_alias=True))
+        from application_state.agent_conversation.play_graph_context import (
+            validate_play_graph_execution_binding,
+        )
+        validate_play_graph_execution_binding(receipt, execution)
+        provenance = turn.provenance
+        primary = provenance.primary_work
+        basis = receipt.play_basis
+        if (
+            turn.world_id != basis.world_id
+            or provenance.world_id != turn.world_id
+            or provenance.surface_resolution != "resolved"
+            or provenance.surface_id != "play"
+            or primary.resolution != "resolved"
+            or primary.kind != "run"
+            or primary.object_id != basis.run_id
+            or primary.revision != str(basis.run_revision)
+            or turn.completion is None
+        ):
+            raise ValueError("Play receipt differs from its resolved Run provenance")
+        bindings = [event for event in execution.events if getattr(event, "kind", None) == "completion_binding"]
+        if len(bindings) != 1:
+            raise ValueError("Play completion binding is missing or ambiguous")
+        from application_state.agent_conversation.types import validate_execution_completion
+        validate_execution_completion(
+            turn.completion, receipt, execution,
+            bindings[0].provider_attempt_id, bindings[0].claim_graph_event_ids,
+        )
+        expected_text = "\n".join(item.text for item in turn.completion.answer_segments)
+        if turn.status != "completed" or expected_text != turn.assistant_text:
+            raise ValueError("Play answer differs from its accepted completion")
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise AgentTurnServiceError(
+            "The stored Play Graph completion does not match its historical receipt.",
+            code="turn_receipt_unverifiable", status_code=409,
+        ) from exc
+    authorized = [event for event in execution.events if _is_provider_authorization(event)]
+    outcomes = [event for event in execution.events
+        if getattr(event, "kind", None) == "provider_outcome"]
+    authorization_state = "none"
+    if authorized:
+        last_id = authorized[-1].provider_attempt_id
+        latest = [event for event in outcomes if event.provider_attempt_id == last_id]
+        authorization_state = "authorized" if not latest else latest[-1].outcome
+    return AgentPlayWorldGraphContextResponseV1(
+        receipt=receipt,
+        completion=turn.completion,
+        execution=project_plan_graph_execution_state(
+            authorization_state, completed=turn.status == "completed",
+        ),
+        delivery_replay=delivery_replay,
+    )
+
+
 def _validate_policy_turn_record(
     turn: Turn,
     *,
@@ -5229,6 +5309,7 @@ def _related_recap_context_open_targets(
     turn: Turn,
     *,
     available_slots: int = 64,
+    allow_metadata_reads: bool = True,
 ) -> tuple[
     list[AgentRelatedRecapContextOpenTargetV2],
     list[AgentRelatedRecapContextStatusV2],
@@ -5309,6 +5390,10 @@ def _related_recap_context_open_targets(
             or selected.revision_id != authority.graph_revision
         ):
             return [], statuses(unavailable=True)
+    if not allow_metadata_reads:
+        # A durable replay projects the historical answer and its frozen
+        # source reads. Do not query mutable related-context metadata again.
+        return [], statuses(unavailable=True)
     try:
         from dungeonmind.application.world_graph_retrieval import (
             EvidenceTarget, SourceContextIndexRequest,
@@ -5498,7 +5583,9 @@ def project_plan_turn_context(
         )
     evidence_targets, evidence_statuses = _evidence_anchor_open_projection(turn)
     related_targets, related_statuses = _related_recap_context_open_targets(
-        turn, available_slots=64 - len(evidence_targets)
+        turn,
+        available_slots=64 - len(evidence_targets),
+        allow_metadata_reads=not delivery_replay,
     )
     context_type = AgentBuildGraphContextResponseV1 if isinstance(receipt, BuildGraphContextReceiptV1) else AgentPlanWorldGraphContextResponseV2
     from .agent_saved_sections import saved_section_targets
@@ -6575,6 +6662,7 @@ def execute_agent_turn(
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
+            root=root,
             request=request,
             world_id=canonical_world_id,
             work=work,
@@ -6838,7 +6926,6 @@ def execute_agent_turn(
                     native_rules_runtime.complete(policy_turn, native_rules_runtime.last_reply)
                     if native_rules_runtime is not None
                     and native_rules_runtime.record is not None
-                    and native_rules_runtime.record.execution.budget_use.calls
                     else None
                 )
             except ValueError as exc:
@@ -6913,23 +7000,37 @@ def execute_agent_turn(
             },
             observed_model_call_count=policy_result.observed_model_call_count,
         )
+        completed_turn_meta = (
+            completed_turn.envelope
+            if isinstance(completed_turn, MixedCompletedTurnV1)
+            else completed_turn
+        )
         pointer_binding = None
         if policy_result.runtime_session_id:
+            segment_thread_id = _provider_segment_thread_id(
+                completed_turn_meta.provenance,
+                conversation_id=completed_turn_meta.conversation_id,
+            )
             pointer_binding = pointer_store.upsert_structured_after_turn(
                 owner_kind="world", owner_id=canonical_world_id,
                 work_kind="agent_conversation_segment",
-                work_id=_provider_segment_thread_id(
-                    completed_turn.provenance,
-                    conversation_id=completed_turn.conversation_id,
-                ),
-                agent_thread_id=_provider_segment_thread_id(
-                    completed_turn.provenance,
-                    conversation_id=completed_turn.conversation_id,
-                ),
+                work_id=segment_thread_id,
+                agent_thread_id=segment_thread_id,
                 hermes_session_id=policy_result.runtime_session_id,
                 require_new_thread=plan_continuity,
             )
         response = _completed_turn_replay(request, owner=owner or {}, turn=completed_turn)
+        if isinstance(completed_turn, MixedCompletedTurnV1):
+            from apps.live_control_server.models.agent_turn import AgentRulesTurnResponseV1
+            payload = response.model_dump(mode="python", by_alias=True)
+            payload["answer"]["trace"] = final_trace
+            payload["conversation"]["pointer_status"] = (
+                "reused" if pointer.continuity_session_id else pointer.pointer_status
+            )
+            payload["conversation"]["pointer_id"] = (
+                None if pointer_binding is None else pointer_binding.pointer_id
+            )
+            return AgentRulesTurnResponseV1.model_validate(payload)
         payload = response.model_dump(mode="json", by_alias=True)
         if _governed_build_turn(request):
             payload["primary_work"]["revision_used"] = work.build_source.revision

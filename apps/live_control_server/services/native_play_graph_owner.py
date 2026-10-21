@@ -10,6 +10,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation.play_graph_authority import (
     play_graph_execution_policy_digest,
     play_source_frame,
+    validate_play_source_owner_join,
 )
 
 
@@ -49,7 +50,7 @@ def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, 
     if basis.scene_note is not None:
         sources.append(t.PlaySourcePayloadV1(source_kind="scene_note", locator=locator, text=basis.scene_note))
     frame = play_source_frame(tuple(sources))
-    t.validate_play_source_owner_join(
+    validate_play_source_owner_join(
         frame, basis, owner_resolved_current_moment_text=moment,
     )
     return frame, moment
@@ -165,7 +166,7 @@ def freeze_play_receipt(
         "context_receipt_sha256": t.canonical_sha256(provisional.model_dump(
             mode="json", by_alias=True, exclude={"context_receipt_sha256"},
         )),
-    }).model_dump(mode="json", by_alias=True))
+    }).model_dump(mode="python", by_alias=True))
     anchors = [t.GraphSourceScopeAnchorV2.model_validate(anchor)
         for anchor in bootstrap.source_scope_anchors]
     scope = t.GraphSourceReadScopeV2(

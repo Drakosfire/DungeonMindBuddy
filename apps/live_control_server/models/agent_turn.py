@@ -30,6 +30,8 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphCompletionV1,
     PlanWorldGraphCompletionV2,
     PlanWorldGraphContextReceiptV1,
+    PlayWorldGraphCompletionV1,
+    PlayWorldGraphContextReceiptV1,
     PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
     SubmittedPlayTargetV1,
@@ -656,6 +658,18 @@ class AgentPlanWorldGraphContextResponseV2(BaseModel):
     )
 
 
+class AgentPlayWorldGraphContextResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_play_world_graph_context_response_v1"] = Field(
+        default="dmb_agent_play_world_graph_context_response_v1", alias="schema"
+    )
+    receipt: PlayWorldGraphContextReceiptV1
+    completion: PlayWorldGraphCompletionV1 | None
+    execution: AgentPlanWorldGraphExecutionProjectionV1 | None
+    delivery_replay: bool
+
+
 class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
@@ -708,7 +722,7 @@ class AgentRulesAnswerContextV1(BaseModel):
         default="dmb_agent_rules_answer_context_v1", alias="schema")
     accepted_binding: RulesAcceptedBindingV1
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | None
+    base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
 
     @model_validator(mode="after")
     def validate_accepted_context(self):

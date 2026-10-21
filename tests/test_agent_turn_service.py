@@ -869,7 +869,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             "graph_context_execution": context_only_execution,
         })
         context_only_projection = project_plan_turn_context(
-            context_only_turn, delivery_replay=True
+            context_only_turn, delivery_replay=False
         )
         assert [item.kind for item in context_only_projection.source_open_targets] == [
             "related_recap_context"
@@ -884,20 +884,22 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         )
         assert [item["kind"] for item in context_only_history["turns"][0][
             "plan_context"
-        ]["source_open_targets"]] == ["related_recap_context"]
+        ]["source_open_targets"]] == []
         assert project_plan_turn_context(
             completed_turn, delivery_replay=True
-        ).source_open_targets == related.source_open_targets
+        ).source_open_targets == [related.source_open_targets[0]]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
         assert [(item.status, item.choice_count) for item in (
             related.related_recap_context_statuses
         )] == [("available", 1)]
         history = _serialized_card_a_history_body(
             related_scope, policy_turn_override=completed_turn
         )
-        assert history["turns"][0]["plan_context"]["source_open_targets"] == [
-            item.model_dump(mode="json", by_alias=True)
-            for item in related.source_open_targets
-        ]
+        assert [item["kind"] for item in history["turns"][0][
+            "plan_context"
+        ]["source_open_targets"]] == ["evidence_anchor"]
         assert history["turns"][0]["plan_context"]["evidence_anchor_statuses"] == [
             item.model_dump(mode="json", by_alias=True)
             for item in related.evidence_anchor_statuses
@@ -905,7 +907,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         descriptors.append(SimpleNamespace(
             **{**vars(descriptors[0]), "context_anchor_id": "dm-context-anchor:v2:two"}
         ))
-        choices = project_plan_turn_context(completed_turn, delivery_replay=True)
+        choices = project_plan_turn_context(completed_turn, delivery_replay=False)
         assert [
             item.context_anchor_id for item in choices.source_open_targets
             if item.kind == "related_recap_context"
@@ -917,10 +919,10 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         )
         descriptors.pop()
         assert [item.kind for item in project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).source_open_targets] == ["evidence_anchor"]
         assert project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).related_recap_context_statuses[0].status == "no_context"
         descriptors[0] = SimpleNamespace(
             **{
@@ -935,20 +937,20 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             }
         )
         assert [item.kind for item in project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).source_open_targets] == ["evidence_anchor"]
         assert project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).related_recap_context_statuses[0].status == "metadata_unavailable"
         descriptors[0] = good_descriptor
         metadata_state["evidence_complete"] = False
         assert project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).related_recap_context_statuses[0].status == "metadata_unavailable"
         metadata_state["evidence_complete"] = True
         metadata_state["index_complete"] = False
         assert project_plan_turn_context(
-            completed_turn, delivery_replay=True
+            completed_turn, delivery_replay=False
         ).related_recap_context_statuses[0].status == "metadata_unavailable"
 
     # Build validated V2 completion/scope fixtures at the projection boundary.
