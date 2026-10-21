@@ -26,6 +26,7 @@ class RulesOnlyRuntime:
         self.build_claim_evidence = {}
         self.failure = None
         self.rules_runtime = None
+        self.context_capture = None
         self.rules_runtime = NativeRulesRuntime(self, rules_capability(graph=False))
         self._entered = self._received = self._captured = False
 

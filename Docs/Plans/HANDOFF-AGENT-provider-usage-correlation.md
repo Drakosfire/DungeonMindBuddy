@@ -1,6 +1,6 @@
 # AGENT — per-call provider usage correlation
 
-ACTIVE by the operator’s revised goal and PRIME stewardship. Serial successor to Rules delivery; base845d898404518cb27afc9f42e6acb718e03af435, branch codex/provider-usage-correlation, existing buddy-context-loop checkout. No other open PR owns these paths. PRIME implements and merges after independent Bugbot review.
+DELIVERED as PR1527, merge87de8e48e1a4e8c057bf73faeb616f41f6d6ad52, after exact-head Bugbot review; API8000/UI5202 adopted and all stored rows preserved. Successor HANDOFF-AGENT-native-completion-trace-order.md owns the benchmark-discovered completion ordering defect. Originally authorized by the operator’s revised goal and PRIME stewardship. Serial successor to Rules delivery; base845d898404518cb27afc9f42e6acb718e03af435, branch codex/provider-usage-correlation, existing buddy-context-loop checkout. No other open PR owns these paths. PRIME implements and merges after independent Bugbot review.
 
 Invariant: Debug associates provider-reported actual usage with the exact authorized provider attempt using the SDK API request ID carried through acknowledged lifecycle messages. Never infer identity from list order, timing, model name or token estimates. Uncorrelated telemetry remains explicitly uncorrelated. This is observation only: it grants no execution, claim, retry or source authority. Preserve immutable historical traces.
 

@@ -6967,13 +6967,9 @@ def execute_agent_turn(
                 status_code=503,
             )
         try:
-            capture_error = None
             if adapter.context_capture is not None:
-                try:
-                    adapter.context_capture.answer_draft(policy_result.final_text,
-                        producing_provider_attempt_id=adapter.producing_provider_attempt_id)
-                except (ApplicationStateError, psycopg.OperationalError) as exc:
-                    capture_error = exc
+                adapter.context_capture.answer_draft(policy_result.final_text,
+                    producing_provider_attempt_id=adapter.producing_provider_attempt_id)
             native_rules_runtime = (
                 adapter.rules_runtime if native_rules_enabled else None
             )
@@ -6989,12 +6985,8 @@ def execute_agent_turn(
                     "Buddy could not verify the captured Rules-backed answer; no answer was accepted.",
                     code="native_rules_completion_invalid", status_code=422,
                 ) from exc
-            if capture_error is not None:
-                raise capture_error
             if mixed_completed is not None:
                 completed_turn = mixed_completed
-                if adapter.context_capture is not None:
-                    adapter.context_capture.answer_context(completed_turn.assistant_text)
             else:
                 completion, bindings, answer_text = _parse_policy_completion(
                     policy_result.final_text, policy_turn,

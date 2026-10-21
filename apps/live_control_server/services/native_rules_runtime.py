@@ -421,6 +421,8 @@ class NativeRulesRuntime:
             from application_state.agent_conversation.native_rules_output import normalize_unused_native_output
             completion, bindings, text = normalize_unused_native_output(
                 turn, self.record.execution, proof)
+            if self.adapter.context_capture is not None:
+                self.adapter.context_capture.answer_context(text)
             return self.adapter.service.complete_native_base_turn(TurnResult(
                 world_id=turn.world_id, conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision,
@@ -450,4 +452,6 @@ class NativeRulesRuntime:
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
             base_result=base, output_proof=proof,
         )
+        if self.adapter.context_capture is not None:
+            self.adapter.context_capture.answer_context(normalized.assistant_text)
         return self.adapter.service.complete_mixed_turn(result)
