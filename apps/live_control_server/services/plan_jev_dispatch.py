@@ -41,11 +41,11 @@ class PlanJevDispatch:
     No retries or fallback. The parent creates the candidate catalog; neither
     returned labels nor model choices create evidence or authorize a source read.
     """
-    def __init__(self, adapter, candidates, *, allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
+    def __init__(self, adapter, candidates, *, dialogue=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
         self.adapter = adapter
         self.parent = RetrievalDecisionInput(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             revision=adapter.bootstrap.world_scope.revision_id, question=adapter.request.message,
-            candidates=tuple(candidates), allowed_operations=tuple(allowed_operations))
+            dialogue=tuple(dialogue), candidates=tuple(candidates), allowed_operations=tuple(allowed_operations))
         self.prepared = None
         self.authorization = None
         self.selection = None
