@@ -836,7 +836,9 @@ def _admitted_initial_policy_bootstrap(
         ref.model_copy(update={"label": None, "match_reasons": []})
         for ref in session.referents
     ]
-    return replace(bootstrap, retrieval_session=session)
+    navigation = tuple((ref.id, ref.label) for ref in bootstrap.retrieval_session.referents
+        if ref.kind == "node" and isinstance(ref.label, str) and ref.label.strip())
+    return replace(bootstrap, retrieval_session=session, navigation_candidates=navigation)
 
 
 def _restore_v2_retry_bootstrap(
@@ -1406,6 +1408,7 @@ class AgentPlanWorldGraphBootstrap:
     source_index_commitment: Mapping[str, Any] | None = None
     assembler_version: str = "agent_harness_final_request_v1"
     build_source_discovery: Mapping[str, Any] | None = None
+    navigation_candidates: tuple[tuple[str, str], ...] = ()
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]

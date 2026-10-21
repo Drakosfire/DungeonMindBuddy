@@ -239,14 +239,14 @@ def test_dialogue_rejects_instruction_roles_and_host_metadata(row):
 
 
 @pytest.mark.parametrize('operation',['discover_more','finish_retrieval'])
-def test_independent_relevance_votes_do_not_authorize_reads_for_other_operations(operation):
+def test_independent_relevance_votes_take_priority_over_global_fallback(operation):
     req=request()
     actual=result(answers={'operation':ChoiceDecisionAnswer(selected=operation),
         'candidate_0':ChoiceDecisionAnswer(selected='include'),
         'candidate_1':ChoiceDecisionAnswer(selected='include')})
     selection=decode_selection(req,actual)
-    assert selection.operation==operation and selection.selected_handles==()
-    assert validate(req,selection)==()
+    assert selection.operation=='select_candidates'
+    assert validate(req,selection)==req.candidates
     # Keep the real response unchanged for exact capture/debug; this is parent
     # conditional interpretation, not a rewritten provider decision.
     assert actual.answers['candidate_0'].selected=='include'

@@ -173,3 +173,18 @@ def test_ordinary_plan_factory_failure_does_not_fallback_or_dispatch(plan_adapte
         execute_agent_turn(plan_adapter.request,**kwargs)
     assert failed.value.code=='runtime_unavailable'
     assert not decisions.calls and not wire.calls
+
+
+def test_owner_offers_navigation_labels_without_admitting_discovery_as_claims(plan_adapter,tmp_path):
+    from graph_memory.interaction.session import GraphReferent
+    plan_adapter.bootstrap.retrieval_session.referents=[GraphReferent(id='bridge',label='Footbridge')]
+    _,decisions,_,kwargs=route_case(plan_adapter,tmp_path)
+    result=execute_agent_turn(plan_adapter.request,**kwargs)
+    offered=json.loads(decisions.calls[0].content)['state']['candidates']
+    assert {'label':'Footbridge','kind':'World entity'} in offered
+    receipt=result.plan_context.receipt
+    assert receipt.graph_packet.candidate_assertion_ids==[]
+    assert receipt.graph_packet.candidate_relationship_ids==[]
+    assert receipt.assembled_input.dispatched_assertion_ids==[]
+    assert receipt.assembled_input.dispatched_evidence_ref_ids==[]
+    assert result.plan_context.completion.citation_map is None

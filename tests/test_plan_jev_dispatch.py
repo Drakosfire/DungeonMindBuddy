@@ -152,11 +152,11 @@ def test_unknown_previous_decision_blocks_new_sdk_send(plan_adapter):
     assert following.call is None
 
 
-def test_actual_app_admits_finish_without_consuming_independent_candidate_votes(plan_adapter):
+def test_actual_app_composes_relevant_candidate_before_global_finish(plan_adapter):
     dispatch=controller(plan_adapter)
     wire=Wire(plan_adapter,independent_includes=True)
     selected,result=asyncio.run(dispatch.run(transport=wire,api_key='synthetic-not-secret'))
-    assert selected.operation=='finish_retrieval' and selected.selected_handles==()
+    assert selected.operation=='select_candidates' and selected.selected_handles==('node:park-pond',)
     assert result.answers['candidate_0'].selected=='include'
     event=plan_adapter.fence.turn.graph_context_execution.events[-1]
-    assert event.operation=='finish_retrieval' and event.selected_handles==[]
+    assert event.operation=='select_candidates' and event.selected_handles==['node:park-pond']

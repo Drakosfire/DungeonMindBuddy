@@ -22,6 +22,8 @@ class PlanJevDriver:
         self.gaps = []
         self.current = None
         self._collect_candidates(adapter.bootstrap.retrieval_session.project_for_hermes())
+        self._collect_candidates({"candidates": [{"kind": "node", "id": node, "label": label}
+            for node, label in adapter.bootstrap.navigation_candidates]})
 
     def _collect_candidates(self, session):
         for row in session.get("candidates", []):
