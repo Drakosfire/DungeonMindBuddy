@@ -171,7 +171,7 @@ describe("BuildIngestToolbar", () => {
   it("launches extraction and enables Graph Review for a reviewable exact run", async () => {
     const user = userEvent.setup();
     const href =
-      `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`;
+      `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`;
     vi.mocked(liveApi.launchExtractionRun).mockResolvedValue({
       schema_version: "dmb_extraction_run_launch_v1",
       run: {
@@ -210,7 +210,8 @@ describe("BuildIngestToolbar", () => {
       profile_version: "0.1",
     });
     const link = await screen.findByTestId("build-open-graph-review");
-    expect(link).toHaveAttribute("href", href);
+    expect(link.tagName).toBe("BUTTON");
+    expect(link).not.toHaveAttribute("href");
   });
 
   it("keeps Graph Review disabled and shows diagnostics when launch fails model execution", async () => {
@@ -233,7 +234,7 @@ describe("BuildIngestToolbar", () => {
       failure_kind: "model",
       diagnostics: ["OPENAI_API_KEY missing after loading server env"],
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -269,7 +270,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -279,12 +280,9 @@ describe("BuildIngestToolbar", () => {
 
     render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
     const link = await screen.findByTestId("build-open-graph-review");
-    expect(link).toHaveAttribute(
-      "href",
-      expect.stringContaining(`extractionRunId=${RUN_ID}`),
-    );
-    expect(link).toHaveAttribute("href", expect.stringContaining(`documentId=${DOC_ID}`));
-    expect(link.getAttribute("href")).not.toContain("latest");
+    expect(link.tagName).toBe("BUTTON");
+    expect(link).toHaveTextContent("Review extracted knowledge");
+    expect(link).not.toHaveAttribute("href");
   });
 
   it("drops reviewable document A handoff when selection changes to B", async () => {
@@ -305,7 +303,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -337,7 +335,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 5,
       source_content_sha256: "sha-b",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=artifact:worldbuilding:b&documentId=${DOC_B}&revision=5`,
+        href: `/build?extractionRunId=${RUN_B}&sourceArtifactId=artifact:worldbuilding:b&documentId=${DOC_B}&revision=5`,
         extraction_run_id: RUN_B,
         source_artifact_id: "artifact:worldbuilding:b",
         document_id: DOC_B,
@@ -375,7 +373,7 @@ describe("BuildIngestToolbar", () => {
       document_revision: 2,
       source_content_sha256: "sha-2",
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -421,7 +419,7 @@ describe("BuildIngestToolbar", () => {
       source_content_sha256: "sha-2",
       diagnostics: [],
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        href: `/build?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_B,
         source_artifact_id: ARTIFACT,
         document_id: DOC_ID,
@@ -429,10 +427,7 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    expect(await screen.findByTestId("build-open-graph-review")).toHaveAttribute(
-      "href",
-      expect.stringContaining(`extractionRunId=${RUN_B}`),
-    );
+    expect((await screen.findByTestId("build-open-graph-review")).tagName).toBe("BUTTON");
     expect(screen.getByTestId("build-extraction-refresh")).not.toBeDisabled();
     expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_B);
   });

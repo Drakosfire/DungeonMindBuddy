@@ -734,3 +734,8 @@ body:has([data-document-surface="build"])
     left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
   }
 }
+
+.build-run-review-host:has(> :not([hidden])) { max-height: 60vh; min-height: 12rem; overflow: auto; border-top: 1px solid #59616f; }
+.build-run-review { padding: 1rem; }
+.build-run-review > header { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }
+.build-run-review > header h2 { margin: 0; font-size: 1.1rem; }

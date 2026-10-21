@@ -1,19 +1,29 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBuildExtraction } from "./useBuildExtraction";
 import { useBuildNativeWorldSourceEvidence } from "./useBuildNativeWorldSourceEvidence";
 
+const BuildRunReview = lazy(() => import("./BuildRunReview").then(module => ({default:module.BuildRunReview})));
+
 interface BuildIngestToolbarProps {
   documentId: string;
   target?: HTMLElement | null;
+  reviewTarget?: HTMLElement | null;
 }
 
-export function BuildIngestToolbar({ documentId, target }: BuildIngestToolbarProps) {
+export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIngestToolbarProps) {
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewMounted, setReviewMounted] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  useEffect(() => {
+    if (reviewOpen) reviewTarget?.scrollIntoView?.({block:"start"});
+  }, [reviewOpen, reviewTarget]);
   const [selection, setSelection] = useState<{ documentId: string; profile: "pilot" | "gazetteer" }>({ documentId, profile: "pilot" });
   if (selection.documentId !== documentId) setSelection({ documentId, profile: "pilot" });
   const profile = selection.documentId === documentId ? selection.profile : "pilot";
   const nativeSource = useBuildNativeWorldSourceEvidence(documentId);
   const {
+    document, snapshot, sourceContentSha256, adoptDerivedRun,
     statusLabel,
     error,
     canLaunch,
@@ -84,7 +94,7 @@ export function BuildIngestToolbar({ documentId, target }: BuildIngestToolbarPro
             onClick={() => {
               void launch();
             }}
-            disabled={!canLaunch}
+            disabled={!canLaunch || reviewBusy}
           >
             {launching ? "Extracting…" : "Extract"}
           </button>
@@ -94,19 +104,15 @@ export function BuildIngestToolbar({ documentId, target }: BuildIngestToolbarPro
             onClick={() => {
               void refresh();
             }}
-            disabled={!canRefresh}
+            disabled={!canRefresh || reviewBusy}
           >
             Refresh run
           </button>
           {canOpenGraphReview && handoff ? (
-            <a
-              data-testid="build-open-graph-review"
-              href={handoff.href}
-            >
-              Open in Graph Review
-            </a>
+            <button type="button" data-testid="build-open-graph-review" disabled={!reviewTarget || reviewBusy}
+              onClick={()=>{setReviewMounted(true);setReviewOpen(true);}}>Review extracted knowledge</button>
           ) : (
-            <span data-testid="build-open-graph-review-disabled">Open in Graph Review</span>
+            <span data-testid="build-open-graph-review-disabled">Review extracted knowledge</span>
           )}
         </div>
       </div>
@@ -123,11 +129,12 @@ export function BuildIngestToolbar({ documentId, target }: BuildIngestToolbarPro
 
   // Portal only presentation; hooks keep the owning document session/context.
   // Keeping content mounted while collapsed also preserves the selected profile.
-  if (target === undefined) return content;
-  return target ? createPortal(
-    <details className="build-extraction-menu">
-      <summary>Extraction</summary>
-      {content}
-    </details>, target,
+  const toolbar = target === undefined ? content : target ? createPortal(
+    <details className="build-extraction-menu"><summary>Extraction</summary>{content}</details>, target,
   ) : null;
+  return <>{toolbar}{reviewMounted && reviewTarget && canOpenGraphReview && document && snapshot && handoff && run && sourceContentSha256
+    ? createPortal(<div hidden={!reviewOpen}><Suspense fallback={<p role="status">Opening review…</p>}>
+      <BuildRunReview document={document} currentRevision={snapshot.loaded_revision} run={run} handoff={handoff}
+        sourceContentSha256={sourceContentSha256} onClose={()=>setReviewOpen(false)} onDerivedRun={adoptDerivedRun} onBusyChange={setReviewBusy} />
+    </Suspense></div>, reviewTarget) : null}</>;
 }

@@ -1,6 +1,6 @@
 # Design — Build document ingestion as one workflow
 
-**Status:** PLANNED DESIGN — implementation is not active
+**Status:** Worldbuilding inline-review slice ACTIVE under [its handoff](../Plans/HANDOFF-BUILD-inline-extraction-review.md); Recap mode and full recovery acceptance remain planned.
 **Repository anchor:** DungeonMindBuddy `main@63f96f948538bcb897d21a341795c756d0d2e80a`
 **Product authority:** [`ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md), Authoring/view continuity
 **Scope owner:** Buddy owns the Build experience and source-document interaction; the admitted knowledge and publication owners retain their current validation and write boundaries.
@@ -117,7 +117,7 @@ An optional future job adapter may expose honest named stages (for example, queu
 
 ## Proposed sequence and scope
 
-This is a planned product design, not an implementation handoff or active lease.
+The linked Worldbuilding review handoff is the active bounded lease. The remaining sequence is planned; this design alone grants no additional write ownership.
 
 1. **Build owns the whole existing Worldbuilding loop.** Keep the current saved Build document and exact extraction launch. Bring the exact-run candidate review, decisions, correction/recovery and publication receipt into the same Build work context. Do not open `/ingest` as the destination for newly launched runs. Keep the old route available for existing run links.
 2. **Add Recap as a frozen run mode.** Implement the exact-document adapter and provenance/configuration model above before making the Recap option available. Test source campaign/session and destination World independently, including supplemental evidence.

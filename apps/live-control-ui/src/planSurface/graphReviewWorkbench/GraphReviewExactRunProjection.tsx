@@ -10,6 +10,7 @@ import type {
 
 interface GraphReviewExactRunProjectionProps {
   review: ExactRunReviewPackage;
+  showSource?: boolean;
   correctionEnabled?: boolean;
   correctionPending?: boolean;
   correctionError?: string | null;
@@ -24,6 +25,7 @@ interface GraphReviewExactRunProjectionProps {
 
 export function GraphReviewExactRunProjection({
   review,
+  showSource = true,
   correctionEnabled = false,
   correctionPending = false,
   correctionError = null,
@@ -143,7 +145,7 @@ export function GraphReviewExactRunProjection({
           </button>
         </form>
       ) : null}
-      <section
+      {showSource ? <section
         className="graph-review-exact-run-source"
         data-testid="graph-review-exact-run-source"
         aria-label="Canonical source prose"
@@ -162,7 +164,7 @@ export function GraphReviewExactRunProjection({
         >
           {review.sourceProse}
         </pre>
-      </section>
+      </section> : null}
 
       <section
         className="graph-review-exact-run-assertions"

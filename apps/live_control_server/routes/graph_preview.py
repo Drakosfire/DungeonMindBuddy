@@ -337,7 +337,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
 
     handoff = {
         "href": (
-            "/ingest"
+            "/build"
             f"?extractionRunId={run.run_id}"
             f"&sourceArtifactId={artifact.source_artifact_id}"
             f"&documentId={document_id}"
@@ -509,7 +509,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         "diagnostics": result.diagnostics,
         "graph_review_handoff": {
             "href": (
-                "/ingest"
+                "/build"
                 f"?extractionRunId={result.run.run_id}"
                 f"&sourceArtifactId={artifact.source_artifact_id}"
                 f"&documentId={record.document_id}"

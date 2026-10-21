@@ -16,6 +16,7 @@ export function BuildSurfacePage() {
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   const controller = useBuildWorkspaceDocumentController();
   const [extractionTarget, setExtractionTarget] = useState<HTMLDivElement | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!controller.activeRecord || typeof window === "undefined") return;
@@ -36,8 +37,8 @@ export function BuildSurfacePage() {
         >
           <BuildSurfaceContext {...controller} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
-            <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} />
-            <BuildSurfaceShell onEditorTools={setEditorTools} />
+            <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />
+            <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>
       ) : (
