@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import stat
@@ -488,6 +489,74 @@ def _create_source_artifact_from_workspace_document_unlocked(
         document.records.append(candidate)
         _save_cas(root, document, expected_token=token)
         return candidate
+
+
+def create_recap_source_artifact_from_workspace_document(
+    root: Path, *, document_id: str, expected_revision: int,
+    expected_content_sha256: str, managed_world_id: str, native_world_id: str,
+    campaign_id: str, session_id: str,
+) -> GraphMemorySourceArtifact:
+    """Freeze an exact Build document as a separately scoped Recap source.
+
+    The caller supplies an already verified managed/native World context. Source
+    campaign/session describe the recap, not the workspace document's campaign.
+    """
+    if (isinstance(expected_revision, bool) or not isinstance(expected_revision, int)
+            or expected_revision < 1 or not isinstance(expected_content_sha256, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", expected_content_sha256)):
+        raise SourceArtifactRegistryError("an exact document revision and SHA-256 are required", status_code=422)
+    if not isinstance(session_id, str) or not re.fullmatch(r"session-[1-9][0-9]*", session_id):
+        raise SourceArtifactRegistryError("recap session must be session-N with N >= 1", status_code=422)
+    for field, value in (("managed_world_id", managed_world_id), ("native_world_id", native_world_id)):
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise SourceArtifactRegistryError(f"{field} is required", status_code=422)
+    if not isinstance(campaign_id, str) or _require_safe_path_segment(campaign_id, field_name="campaign_id") != campaign_id:
+        raise SourceArtifactRegistryError("source campaign must be an exact safe identity", status_code=422)
+    root = _artifact_root(root)
+    with workspace_document_mutation_lock(root, document_id):
+        try:
+            record = load_workspace_document_under_registry_lock(root, document_id)
+        except WorkspaceDocumentRegistryError as exc:
+            raise SourceArtifactRegistryError(str(exc), status_code=exc.status_code) from exc
+        if (record.kind != "worldbuilding_source" or record.status != "active"
+                or record.content_status != "committed"):
+            raise SourceArtifactRegistryError("Recap requires an active committed Build document", status_code=409)
+        if record.world_id != managed_world_id:
+            raise SourceArtifactRegistryError("Build document belongs to another managed World", status_code=409)
+        if record.revision != expected_revision:
+            raise SourceArtifactRegistryError("Build document revision changed", status_code=409)
+        _, content, content_sha256 = _read_committed_target_markdown(root, record)
+        if content_sha256 != expected_content_sha256:
+            raise SourceArtifactRegistryError("Build document content digest changed", status_code=409)
+        binding = {
+            "schema": "dmb_build_recap_source_v1", "mode": "recap",
+            "document_id": record.document_id, "document_revision": record.revision,
+            "content_sha256": content_sha256, "managed_world_id": managed_world_id,
+            "native_world_id": native_world_id, "campaign_id": campaign_id, "session_id": session_id,
+        }
+        binding_sha = hashlib.sha256(json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        artifact_id = f"artifact:recap:build:{record.document_id}:r{record.revision}:{binding_sha}"
+        # Keep document provenance distinct even if another document/session has equal bytes.
+        relpath = f"{_recap_content_root_relpath(root)}/build/{binding_sha}.md"
+        target = _resolve_registry_content_path(root, relpath)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            if target.read_text(encoding="utf-8") != content:
+                raise SourceArtifactRegistryError("immutable Build recap source bytes changed", status_code=409)
+        else:
+            target.write_text(content, encoding="utf-8")
+        now = _utc_now_iso()
+        candidate = GraphMemorySourceArtifact(
+            source_artifact_id=artifact_id, source_domain="recap", campaign_id=campaign_id,
+            session_id=session_id, world_id=native_world_id, uri=f"repo://{relpath}",
+            content_sha256=content_sha256, artifact_kind="recap_markdown", document_class="recap",
+            visibility_state=record.visibility_state, workspace_document_id=record.document_id,
+            workspace_document_revision=record.revision,
+            lineage={"build_recap_source": binding, "binding_sha256": binding_sha,
+                "source_span_index_uri": f"repo://{source_span_index_relpath(artifact_id)}"},
+            created_at=now, updated_at=now,
+        )
+        return _upsert_source_artifact(root, candidate=candidate, content=content)
 
 
 def _resolve_repo_contained_path(root: Path, path: Path) -> tuple[Path, str]:

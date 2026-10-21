@@ -1,6 +1,8 @@
 # BUILD — inline exact-run review
 
-ACTIVE serial implementation of the existing Build-ingestion design's Worldbuilding review loop under the operator's active goal. PRIME owns design, implementation, Bugbot review, merge and local5202 delivery. Base c1e846cf24d7f81c4d0ac7f9e05e8a9184b1b39d; branch codex/build-inline-ingestion-review; existing buddy-context-loop checkout. One PR. No overlapping open runtime/UI owner for these paths. Native Combat remains retained; Recap launch/configuration is the next independently owned slice, not claimed by this one.
+DELIVERED by PR1535, merge 53a171a2a58865f95f069355b6774c63d02fb52d. Bugbot approved f92e5caea686d6532ada064ce49abea207b7af03; 118 focused UI checks passed (one preexisting optional skipped), 20 route checks passed. Paired API8000/UI5202 adopted the merge with all1448 saved rows preserved. Rendered Edge exact-run review retained one editor, omitted duplicate full source prose, and retained Pell Orrow evidence selection across close/reopen. No real extraction/publication was dispatched.
+
+Completed serial implementation of the existing Build-ingestion design's Worldbuilding review loop under the operator's active goal. PRIME owns design, implementation, Bugbot review, merge and local5202 delivery. Base c1e846cf24d7f81c4d0ac7f9e05e8a9184b1b39d; branch codex/build-inline-ingestion-review; existing buddy-context-loop checkout. One PR. No overlapping open runtime/UI owner for these paths. Native Combat remains retained; Recap launch/configuration is the next independently owned slice, not claimed by this one.
 
 Navigation gate is satisfied by delivered PR1507/04e44374, not obsolete1510. Current live Plan/Play/Build/Ingest all measure identical header left20/right1385.5557/width1365.5557 at viewport1422, no horizontal overflow. Closed1510 as superseded; its unpushed integrated branch remains preserved. No narrower-width CSS is adopted.
 
