@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from src.graph_memory.party_context import (
+    CAMPAIGN_CORPUS,
     PARTY_REGISTRY_BASENAME,
     PartyContext,
     PartyMember,
@@ -305,6 +306,19 @@ def build_known_entity_registry(
     party_ctx: PartyContext | None = None,
     include_npc_registry_aliases: bool = True,
 ) -> KnownEntityRegistry:
+    if isinstance(session, bool):
+        raise TypeError("session must not be a bool")
+    if campaign_rel is None and campaign_id.strip() not in CAMPAIGN_CORPUS:
+        return KnownEntityRegistry(
+            campaign_id=campaign_id,
+            session_key=str(session).strip(),
+            roster_session_key=None,
+            roster_carry_forward=False,
+            registry_relpath=None,
+            entities=(),
+            warnings=("no local corpus registered for campaign",),
+            diagnostics={"entity_count": 0},
+        )
     root, rel = resolve_campaign_corpus(
         campaign_id,
         corpus_root=corpus_root,
@@ -312,8 +326,6 @@ def build_known_entity_registry(
     )
     registry = load_party_registry(root, rel)
     session_key = str(session).strip() if not isinstance(session, int) else str(session)
-    if isinstance(session, bool):
-        raise TypeError("session must not be a bool")
 
     roster_key, carried = resolve_roster_session_key(registry, session_key)
     if party_ctx is None:

@@ -192,3 +192,43 @@ def test_related_hub_slugs_harvested_from_readme_crosslinks():
     # Stafl's hub README cross-links Lysandra and Caelynn; self is excluded.
     assert "captain_lysandra_ironveil" in stafl.related_hub_slugs
     assert "stafl" not in stafl.related_hub_slugs
+
+
+def test_unmapped_campaign_has_no_local_identities_or_filesystem_reads(monkeypatch):
+    import pytest
+    from src.graph_memory.extraction import known_entity_registry as known
+    from src.graph_memory import session_graph_context as session
+    def forbidden(*args, **kwargs):
+        pytest.fail('unmapped campaign must not resolve or read a local corpus')
+    for module in (pc, known, session):
+        monkeypatch.setattr(module, 'resolve_campaign_corpus', forbidden)
+        monkeypatch.setattr(module, 'load_party_registry', forbidden)
+    campaign = 'a-new-native-campaign'
+    party = pc.build_party_context_for_campaign(campaign, 1)
+    registry = known.build_known_entity_registry(campaign, 1)
+    context = session.build_session_graph_context(campaign, 1)
+    assert party.campaign_id == registry.campaign_id == context.campaign_id == campaign
+    assert party.members == registry.entities == context.anchor_members == ()
+    assert registry.registry_relpath is context.registry_relpath is None
+    assert context.session_number == 1 and context.session_id == 'session-1'
+    assert registry.session_key == party.session == '1'
+    for build in (pc.build_party_context_for_campaign, known.build_known_entity_registry,
+                  session.build_session_graph_context):
+        with pytest.raises(TypeError):
+            build(campaign, True)
+
+
+def test_unmapped_campaign_explicit_registry_is_still_read(tmp_path):
+    import json
+    from src.graph_memory.extraction.known_entity_registry import build_known_entity_registry
+    target = tmp_path / 'custom' / pc.PARTY_REGISTRY_BASENAME
+    target.parent.mkdir()
+    target.write_text(json.dumps({'schema': pc.PARTY_REGISTRY_SCHEMA,
+        'campaign_id': 'new-campaign', 'pc_party_names': ['Park visitors']}))
+    party = pc.build_party_context_for_campaign('new-campaign', 1,
+        corpus_root=tmp_path, campaign_rel='custom')
+    registry = build_known_entity_registry('new-campaign', 1,
+        corpus_root=tmp_path, campaign_rel='custom')
+    assert party.party_names == ('Park visitors',)
+    assert registry.registry_relpath == 'custom/' + pc.PARTY_REGISTRY_BASENAME
+    assert 'no local corpus registered for campaign' not in registry.warnings
