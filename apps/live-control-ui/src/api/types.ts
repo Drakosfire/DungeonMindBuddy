@@ -825,11 +825,10 @@ export interface WorldPlayAgentTurnRequestV1 {
   turn_id: string;
   surface: { surface_id: "play"; instance_id: string };
   owner_scope: { kind: "world"; world_id: string };
-  primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis?: WorldPlayContentBasis };
-  play_target?: WorldPlayTarget;
+  primary_work: { kind: "run"; object_id: string; expected_revision: number; play_content_basis: WorldPlayContentBasis };
+  play_target: WorldPlayTarget;
   client_work_state: "saved_clean";
-  /** The graphless variant is retained for exact recovery of older saved requests. */
-  graph_request: { mode: "none" } | {
+  graph_request: {
     mode: "world";
     world_id: string;
     campaign_id: null;
@@ -850,7 +849,7 @@ export interface WorldBuildAgentTurnRequestV1 {
   owner_scope: { kind: "world"; world_id: string };
   primary_work: { kind: "build"; object_id: string; expected_revision: number; expected_content_sha256: string };
   client_work_state: "saved_clean" | "saved_dirty";
-  graph_request: WorldPlayAgentTurnRequestV1["graph_request"];
+  graph_request: { mode: "none" } | WorldPlayAgentTurnRequestV1["graph_request"];
   graph_selection: null;
   message: string;
 }
@@ -1035,6 +1034,21 @@ export interface WorldPlayGraphContextReceiptV1 {
     source_token_accounting: { source_kind: "play" | "history" | "graph" | "instructions" | "tools" | "message" | "rules"; source_id: string; input_tokens: number }[];
   };
   evidence_mode: "metadata_only"; source_opened: false;
+}
+
+export interface WorldPlayGraphCompletionV1 {
+  schema: "dmb_play_world_graph_completion_v1"; context_receipt_sha256: string;
+  answer_basis: "play_sources" | "world_graph" | "play_sources_plus_world_graph" | "nonfactual_context";
+  answer_context_status: "graph_grounded" | "graph_grounded_partial" | "play_only_insufficient_evidence" | "play_only_graph_unused";
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, { kind: "graph_claim" | "connective" }> | {
+    kind: "play_context_claim"; text: string; source_ids: string[];
+  })[];
+  citation_map: WorldPlanGraphCitationMapV2 | null;
+}
+export interface WorldPlayAgentContextV1 {
+  schema: "dmb_agent_play_world_graph_context_response_v1";
+  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | null;
+  execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
 }
 
 export type WorldPlanGraphAnswerSegmentV1 =
@@ -1261,10 +1275,14 @@ export interface WorldRulesAgentTurnResponseV1 extends Omit<WorldPlanAgentTurnRe
   schema: 'dmb_agent_rules_turn_response_v1';
   rules_context: import('./rulesLookupTypes').RulesAnswerContext;
 }
+export interface WorldPlayGraphTurnResponseV1 extends Omit<WorldPlanAgentTurnResponseV1, "schema" | "knowledge_context"> {
+  schema: "dmb_agent_play_graph_turn_response_v1"; play_context: WorldPlayAgentContextV1;
+}
 export type WorldPlanAgentTurnResponse =
   | WorldPlanAgentTurnResponseV1
   | WorldPlanAgentTurnResponseV2
-  | WorldRulesAgentTurnResponseV1;
+  | WorldRulesAgentTurnResponseV1
+  | WorldPlayGraphTurnResponseV1;
 
 export interface AgentConversationHistoryReferenceV1 {
   resolution: "resolved" | "absent" | "unresolved" | "unavailable";
@@ -1322,9 +1340,16 @@ export interface WorldAgentConversationHistoryTurnV2 extends WorldAgentConversat
   };
 }
 
+export interface WorldAgentConversationHistoryPlayTurnV2 extends WorldAgentConversationHistoryTurnV1 {
+  play_context: WorldPlayAgentContextV1;
+}
+export interface WorldAgentConversationHistoryPlayTurnV3 extends WorldAgentConversationHistoryTurnV3 {
+  play_context: WorldPlayAgentContextV1;
+}
+
 export interface WorldAgentConversationHistoryResponseV2 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
   schema: "dmb_agent_conversation_history_v2";
-  turns: WorldAgentConversationHistoryTurnV2[];
+  turns: (WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryPlayTurnV2)[];
 }
 
 /** Opt-in history projection carrying the persisted server idempotency key. */
@@ -1340,7 +1365,7 @@ export interface WorldAgentConversationHistoryPlanTurnV3 extends WorldAgentConve
 
 export interface WorldAgentConversationHistoryResponseV3 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
   schema: "dmb_agent_conversation_history_v3";
-  turns: (WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3)[];
+  turns: (WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryTurnV3)[];
 }
 
 export interface WorldAgentConversationHistoryMixedTurnV1 extends WorldAgentConversationHistoryTurnV3 {
@@ -1350,7 +1375,7 @@ export interface WorldAgentConversationHistoryMixedTurnV1 extends WorldAgentConv
 }
 export interface WorldAgentConversationHistoryResponseV4 extends Omit<WorldAgentConversationHistoryResponseV1, 'schema' | 'turns'> {
   schema: 'dmb_agent_conversation_history_v4';
-  turns: (WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
+  turns: (WorldAgentConversationHistoryMixedTurnV1 | WorldAgentConversationHistoryPlayTurnV2 | WorldAgentConversationHistoryPlayTurnV3 | WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3 | WorldAgentConversationHistoryTurnV2 | WorldAgentConversationHistoryTurnV1)[];
 }
 
 export type WorldAgentConversationHistoryTurn =
@@ -1358,7 +1383,9 @@ export type WorldAgentConversationHistoryTurn =
   | WorldAgentConversationHistoryTurnV2
   | WorldAgentConversationHistoryTurnV3
   | WorldAgentConversationHistoryPlanTurnV3
-  | WorldAgentConversationHistoryMixedTurnV1;
+  | WorldAgentConversationHistoryMixedTurnV1
+  | WorldAgentConversationHistoryPlayTurnV2
+  | WorldAgentConversationHistoryPlayTurnV3;
 
 export type WorldAgentConversationHistoryResponse =
   | WorldAgentConversationHistoryResponseV1

@@ -46,5 +46,5 @@ export interface RulesAcceptedBinding {
 }
 export interface RulesAnswerContext {
   schema: 'dmb_agent_rules_answer_context_v1'; accepted_binding: RulesAcceptedBinding; accepted_binding_sha256: string;
-  base_context: import('./types').WorldPlanAgentPlanContextV2 | import('./types').WorldBuildKnowledgeContextV1 | null;
+  base_context: import('./types').WorldPlanAgentPlanContextV2 | import('./types').WorldBuildKnowledgeContextV1 | import('./types').WorldPlayAgentContextV1 | null;
 }
