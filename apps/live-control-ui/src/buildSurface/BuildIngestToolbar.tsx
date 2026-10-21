@@ -34,7 +34,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
   const profile = selection.documentId === documentId ? selection.profile : "pilot";
   const nativeSource = useBuildNativeWorldSourceEvidence(documentId);
   const {
-    document, snapshot, sourceContentSha256, adoptDerivedRun,
+    document, snapshot, sourceContentSha256, adoptDerivedRun, adoptSemanticDecision,
     statusLabel,
     error,
     canLaunch,
@@ -160,6 +160,6 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
   return <>{toolbar}{reviewMounted && reviewTarget && canOpenGraphReview && document && snapshot && handoff && run && sourceContentSha256
     ? createPortal(<div hidden={!reviewOpen}><Suspense fallback={<p role="status">Opening review…</p>}>
       <BuildRunReview document={document} currentRevision={snapshot.loaded_revision} run={run} handoff={handoff}
-        sourceContentSha256={sourceContentSha256} onClose={()=>setReviewOpen(false)} onDerivedRun={adoptDerivedRun} onBusyChange={setReviewBusy} />
+        sourceContentSha256={sourceContentSha256} onClose={()=>setReviewOpen(false)} onDerivedRun={adoptDerivedRun} onSemanticDecision={adoptSemanticDecision} onBusyChange={setReviewBusy} />
     </Suspense></div>, reviewTarget) : null}</>;
 }

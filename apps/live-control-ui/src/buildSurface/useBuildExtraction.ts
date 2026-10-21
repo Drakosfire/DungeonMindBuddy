@@ -5,7 +5,6 @@ import {
   launchExtractionRun,
 } from "../api/liveApi";
 import type {
-  ExactRunEvidenceCorrectionResponse,
   ExtractionRunLaunchResponse,
   ExtractionRunRecord,
   ExtractionRunStatusResponse,
@@ -13,6 +12,8 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../api/types";
+import {assertRecapQuoteChild, type BuildCorrectionReceipt, quoteDigest, RECAP_QUOTE_DERIVATION} from './buildRecapCorrection';
+import type {RecapSemanticDecisionReceipt} from '../api/recapSemanticReviewApi';
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
 import { translateBuildDocumentCommandFailure } from "./buildAdmissionCopy";
@@ -206,7 +207,8 @@ export interface BuildExtractionState {
   run: ExtractionRunRecord | null;
   handoff: GraphReviewHandoffPayload | null;
   sourceContentSha256: string | null;
-  adoptDerivedRun: (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => Promise<void>;
+  adoptDerivedRun: (receipt: BuildCorrectionReceipt, expectedDigest: string, isCurrent: () => boolean) => Promise<() => void>;
+  adoptSemanticDecision: (receipt: RecapSemanticDecisionReceipt, isCurrent: () => boolean) => Promise<() => void>;
   statusLabel: string;
   error: string | null;
   launching: boolean;
@@ -520,10 +522,10 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     }catch(reason){setError(reason instanceof Error?reason.message:"Could not restore the saved request.");}
   },[pending,pendingKey,readHistory,documentId,worldId]);
 
-  const adoptDerivedRun = useCallback(async (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => {
+  const adoptDerivedRun = useCallback(async (receipt: BuildCorrectionReceipt, expectedDigest: string, isCurrent: () => boolean) => {
     const parent = run;
     const digest = (value: unknown) => typeof value === "string" && /^(?:sha256:)?[a-f0-9]{64}$/.test(value) ? value.replace(/^sha256:/, "") : null;
-    if (!isCurrent() || !parent || !handoff || !sourceContentSha256 || receipt.schema !== "dmb_exact_run_evidence_correction_response_v1"
+    if (!isCurrent() || !parent || !handoff || !sourceContentSha256 || receipt.schema !== (parent.source_domain==='recap'?'dmb_recap_evidence_correction_response_v1':'dmb_exact_run_evidence_correction_response_v1')
       || receipt.parentRunId !== parent.run_id || receipt.status !== "reviewable" || typeof receipt.runId !== "string" || !receipt.runId.trim() || receipt.runId === parent.run_id
       || !digest(expectedDigest) || digest(receipt.correctionDigest) !== digest(expectedDigest)
       || !digest(receipt.parentCandidateSha256) || !digest(receipt.candidateSha256) || !digest(receipt.correctionDigest)
@@ -543,9 +545,45 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       || digest(String(status.run.lineage?.correction_digest)) !== digest(receipt.correctionDigest)) {
       throw new Error("The corrected child run does not preserve this source and parent lineage.");
     }
-    setRun(status.run); setHandoff(validation.handoff); setSourceContentSha256(status.source_content_sha256); setError(null);
-    writeStoredRunId(documentId, status.run.run_id); setRunIdInLocationForDocument(documentId, status.run.run_id);
+    if(parent.source_domain==='recap'){
+      if(quoteDigest(sourceContentSha256)!==quoteDigest(parent.components?.source_artifact?.sha256))throw new Error('The Recap source differs from its committed Build document.');
+      assertRecapQuoteChild(parent,receipt as import('../api/types').RecapEvidenceCorrectionResponse,status.run);
+    }
+    return ()=>{
+      if(!isCurrent()||documentIdFromLocation()!==documentId||currentRunRef.current?.run_id!==parent.run_id)throw new Error('The selected correction changed before adoption.');
+      window.localStorage.setItem(`${RUN_STORAGE_PREFIX}${documentId}`,status.run.run_id);
+      setRunIdInLocationForDocument(documentId,status.run.run_id);
+      setRun(status.run);setHandoff(validation.handoff);setSourceContentSha256(status.source_content_sha256);setError(null);
+    };
   }, [documentId, handoff, run, sourceContentSha256]);
+
+  const adoptSemanticDecision = useCallback(async(receipt: RecapSemanticDecisionReceipt, isCurrent:()=>boolean)=>{
+    const parent=run;
+    if(!isCurrent()||!parent||!handoff||!sourceContentSha256||parent.run_id!==receipt.runId
+      ||parent.source_domain!=='recap'||parent.lineage?.derivation!==RECAP_QUOTE_DERIVATION
+      ||quoteDigest(parent.components?.candidate_graph?.sha256)!==receipt.candidateSha256
+      ||quoteDigest((parent.lineage?.semantic_disposition as Record<string,unknown>|undefined)?.basis_sha256)!==receipt.basisSha256)throw new Error('The selected Recap changed before decision adoption.');
+    const status=await getExtractionRunStatus(receipt.runId);
+    if(!isCurrent()||documentIdFromLocation()!==documentId||currentRunRef.current?.run_id!==parent.run_id)throw new Error('The selected document or run changed. Recover the original review decision.');
+    const validation=validateExactRunIdentity({selectedDocumentId:documentId,requestedRunId:receipt.runId,response:status,
+      expectedDocumentRevision:handoff.document_revision,expectedContentSha256:sourceContentSha256});
+    const decision=status.run.lineage?.semantic_disposition as Record<string,unknown>|undefined;
+    if(!validation.ok||status.run.source_domain!=='recap'||status.run.status!=='reviewable'
+      ||status.run.source_artifact_id!==parent.source_artifact_id||status.run.profile_id!==parent.profile_id
+      ||status.run.campaign_id!==parent.campaign_id||status.run.session_id!==parent.session_id
+      ||(status.run as ExtractionRunRecord & {revision?:unknown}).revision!==receipt.revision
+      ||status.run.lineage?.derivation!==RECAP_QUOTE_DERIVATION
+      ||quoteDigest(status.run.components?.candidate_graph?.sha256)!==receipt.candidateSha256
+      ||!decision||decision.state!==receipt.state||decision.basis_sha256!==receipt.basisSha256
+      ||decision.review_decision_ref!==receipt.reviewDecisionRef||decision.reviewer_id!==receipt.reviewerId||decision.decided_at!==receipt.decidedAt
+      ||JSON.stringify(status.run.lineage?.world_campaign_ingest_context)!==JSON.stringify(parent.lineage?.world_campaign_ingest_context)
+      ||['source_artifact','source_span_index'].some(key=>status.run.components?.[key]?.uri!==parent.components?.[key]?.uri
+        ||quoteDigest(status.run.components?.[key]?.sha256)!==quoteDigest(parent.components?.[key]?.sha256)))throw new Error('The exact Recap decision could not be verified from its current run.');
+    return ()=>{
+      if(!isCurrent()||documentIdFromLocation()!==documentId||currentRunRef.current?.run_id!==parent.run_id)throw new Error('The selected Recap changed before adopting its decision.');
+      setRun(status.run);setHandoff(validation.handoff);setSourceContentSha256(status.source_content_sha256);setError(null);
+    };
+  },[documentId,handoff,run,sourceContentSha256]);
 
   const canLaunch = Boolean(committedClean && !launching && pending===null);
   const canRefresh = !launching;
@@ -569,7 +607,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     run,
     handoff,
     sourceContentSha256,
-    adoptDerivedRun,
+    adoptDerivedRun, adoptSemanticDecision,
     statusLabel,
     error,
     launching,

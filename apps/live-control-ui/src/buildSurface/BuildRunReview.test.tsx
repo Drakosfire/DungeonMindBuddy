@@ -17,9 +17,10 @@ const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review
   sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+hash,worldId:'world-a',sourceProse:'Full source prose must not become a second surface',
   inspectionStatus:'ready',diagnostics:[],assertions:[{assertionId:'keeper',kind:'object',label:'Keeper',summary:'A keeper',
     evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'The keeper watches the gate.',anchorQuotes:['keeper']}]}]};
-function props(){return {document,currentRevision:3,run,handoff,sourceContentSha256:hash,onClose:vi.fn(),onDerivedRun:vi.fn().mockResolvedValue(undefined),onBusyChange:vi.fn()};}
+function props(){return {document,currentRevision:3,run,handoff,sourceContentSha256:hash,onClose:vi.fn(),onDerivedRun:vi.fn().mockResolvedValue(()=>undefined),onBusyChange:vi.fn(),onSemanticDecision:vi.fn().mockResolvedValue(()=>undefined)};}
 beforeEach(()=>{
   selection.worldId='world-a';localStorage.clear();
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>Promise.resolve(action())}});
   vi.spyOn(extract,'getExactRunReviewPackage').mockResolvedValue(structuredClone(review));
   vi.spyOn(extract,'correctExactRunEvidence').mockResolvedValue({schema:'dmb_exact_run_evidence_correction_response_v1',runId:'run-b',
     parentRunId:'run-a',parentCandidateSha256:candidate,candidateSha256:'c'.repeat(64),correctionDigest:'d'.repeat(64),status:'reviewable'});
@@ -83,7 +84,7 @@ it('keeps original recovery when World changes during awaited child adoption',as
   const invalid=structuredClone(review);invalid.inspectionStatus='invalid_evidence';
   invalid.assertions[0].evidence[0].anchorQuotes=['bad quote'];invalid.assertions[0].evidence[0].invalidAnchorQuotes=['bad quote'];
   vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(invalid);
-  let finish!:()=>void;const p=props();p.onDerivedRun.mockImplementation(()=>new Promise<void>(r=>{finish=r;}));
+  let finish!:()=>void;const p=props();p.onDerivedRun.mockImplementation(()=>new Promise<()=>void>(r=>{finish=()=>r(()=>undefined);}));
   const view=render(<BuildRunReview {...p}/>);
   fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
   fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
@@ -102,4 +103,61 @@ it('reviews a Recap against native World and frozen source session without World
   expect(await screen.findByRole('button',{name:'Prepare changes for review'})).toBeEnabled();
   expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();
   expect(screen.queryByLabelText('Canonical source prose')).not.toBeInTheDocument();
+});
+
+it('repairs Recap quotes through the Recap owner and retains the semantic hold for explicit review',async()=>{
+  const p=props();p.run={...run,source_domain:'recap',profile_id:'recap_category_v1@1.0',campaign_id:'longmont-c2',session_id:'session-30',
+    components:{...run.components,source_artifact:{kind:'source_artifact',uri:'source.md',exists:true,sha256:hash},
+      source_span_index:{kind:'source_span_index',uri:'spans.json',exists:true,sha256:'e'.repeat(64)}},
+    lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a',campaign_id:'longmont-c2'}}};
+  const invalid={...structuredClone(review),sourceDomain:'recap',campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a',inspectionStatus:'invalid_evidence' as const};
+  invalid.assertions[0].evidence[0].anchorQuotes=['bad quote'];invalid.assertions[0].evidence[0].invalidAnchorQuotes=['bad quote'];
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(invalid);
+  const corrected=vi.spyOn(extract,'correctRecapRunEvidence').mockImplementation(async request=>{
+    const {exactRunCorrectionDigest}=await import('../api/exactRunCorrectionIdentity');
+    expect(localStorage.getItem('dmb.buildRecapEvidenceCorrection.v1:'+JSON.stringify(['world-a','doc-a','run-a',candidate]))).not.toBeNull();
+    return {schema:'dmb_recap_evidence_correction_response_v1',runId:'run-b',parentRunId:'run-a',parentCandidateSha256:candidate,
+      candidateSha256:'c'.repeat(64),correctionDigest:await exactRunCorrectionDigest(request),status:'reviewable',semanticState:'held',semanticBasisSha256:'f'.repeat(64)};
+  });
+  render(<BuildRunReview {...p}/>);fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  await waitFor(()=>expect(p.onDerivedRun).toHaveBeenCalledOnce());
+  expect(corrected).toHaveBeenCalledOnce();expect(extract.correctExactRunEvidence).not.toHaveBeenCalled();
+  expect(p.onDerivedRun.mock.calls[0][0]).toMatchObject({semanticState:'held'});await waitFor(()=>expect(localStorage.length).toBe(0));
+  expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(publication.confirmWorldbuilding).not.toHaveBeenCalled();
+});
+
+
+it.each(['world change','unmount'])('preserves queued Recap abandonment recovery after %s',async transition=>{
+  const p=props();p.run={...run,source_domain:'recap',campaign_id:'longmont-c2',session_id:'session-30',
+    lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a'}}};
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue({...review,sourceDomain:'recap',
+    campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a'});
+  const key='dmb.buildRecapEvidenceCorrection.v1:'+JSON.stringify(['world-a','doc-a','run-a',candidate]);
+  localStorage.setItem(key,'malformed original request');
+  const view=render(<BuildRunReview {...p}/>);
+  const button=await screen.findByRole('button',{name:'Abandon saved request'});
+  let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>
+    new Promise((resolve,reject)=>{release=()=>{try{resolve(action());}catch(reason){reject(reason);}};})}});
+  fireEvent.click(button);
+  if(transition==='unmount')view.unmount();
+  else {selection.worldId='other';view.rerender(<BuildRunReview {...p}/>);}
+  await act(async()=>release());
+  expect(localStorage.getItem(key)).toBe('malformed original request');
+  expect(localStorage.length).toBe(1);
+  expect(extract.correctExactRunEvidence).not.toHaveBeenCalled();expect(p.onDerivedRun).not.toHaveBeenCalled();
+});
+
+it('retains the correction request when staged child persistence fails',async()=>{
+  const invalid=structuredClone(review);invalid.inspectionStatus='invalid_evidence';
+  invalid.assertions[0].evidence[0].anchorQuotes=['bad quote'];invalid.assertions[0].evidence[0].invalidAnchorQuotes=['bad quote'];
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(invalid);
+  const p=props();p.onDerivedRun.mockResolvedValue(()=>{throw new Error('run mapping storage failed');});
+  render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('run mapping storage failed');
+  expect(localStorage.getItem('dmb.buildEvidenceCorrection.v1:'+JSON.stringify(['world-a','doc-a','run-a',candidate]))).not.toBeNull();
+  expect(screen.getByRole('button',{name:'Retry saved quote corrections'})).toBeEnabled();
 });

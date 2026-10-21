@@ -70,6 +70,7 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    bidirectional synchronization.
 
    **Build document ingestion — delivered foundation and remaining acceptance:**
+   Existing-World Worldbuilding request recovery is delivered by PR1547 (merge3181282828969dbf35ac3e6a3e78620903f63f36). The active [Recap correction/review slice](../Plans/HANDOFF-BUILD-recap-correction-review.md) adds literal evidence repair followed by explicit interpretation review; it does not itself publish to the World. First-World recovery and real-corpus end-to-end acceptance remain open.
    [Build document ingestion as one workflow](../Design/DESIGN-build-ingestion-as-document-workflow.md)
    folds exact-run evidence review, candidate decisions, correction/recovery and
    accepted receipts into the existing Build document context. Recap is a frozen
