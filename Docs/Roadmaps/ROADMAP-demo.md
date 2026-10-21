@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product roadmap; reconciled 2026-10-19.
-**Evidence anchor:** remote main `74a604ce3542fbb0501ac0baf2ff9a32cdfa42a5` (PR #1458).
+**Status:** current product roadmap; reconciled 2026-10-21.
+**Evidence anchor:** accepted `origin/main` `60436ac9164cbc7c443822f17ea0c4a5ad17639b` (PR #1540).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -69,13 +69,14 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    document/session authority. Cross-surface availability is not arbitrary
    bidirectional synchronization.
 
-   **Planned follow-on — unify Build document ingestion (not active):**
+   **Delivered bounded slices — Build document ingestion (full acceptance remains open):**
    [Build document ingestion as one workflow](../Design/DESIGN-build-ingestion-as-document-workflow.md)
    folds exact-run evidence review, candidate decisions, correction/recovery and
    accepted receipts into the existing Build document context. Recap is a frozen
    run configuration over that exact saved Markdown; this does not add a second
-   editor or change an existing run when the mode selector changes. Re-anchor
-   against the delivered [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
+   editor or change an existing run when the mode selector changes. The source
+   design is no longer planned-only: bounded slices have merged through #1539.
+   Re-anchor against the delivered [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
    ([PR #1507](https://github.com/Drakosfire/DungeonMindBuddy/pull/1507)); superseded #1510 is closed.
    The [inline Worldbuilding review slice](../Plans/HANDOFF-BUILD-inline-extraction-review.md) is delivered by PR1535;
    its [exact-document Recap source adapter](../Plans/HANDOFF-BUILD-recap-source-adapter.md) is delivered by PR1536;
@@ -83,9 +84,9 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are delivered by PR1538;
    [Recap publication recovery](../Plans/HANDOFF-BUILD-recap-publication-recovery.md) is delivered by PR1539.
    Full live receipt/recovery acceptance and Worldbuilding publication recovery remain open. This does not replace the roadmap's
-   focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
-   ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
-   [Combat C0 PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367)).
+   focused-card/Play-adapter direction or PRIME's separately owned Rules and
+   Combat work. Rules lookup PR #1506 is delivered (see the [Rules handoff](../Plans/HANDOFF-RULES-runtime-lookup.md));
+   Combat C0 adoption remains under open [PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367).
    Do not dispatch this work in parallel with those owners. Remove Ingest from
    primary customer navigation only after Build supports both modes and old
    `/ingest` run links still recover the exact original run. Editing existing
@@ -156,6 +157,7 @@ These remain options, not a newly activated implementation sequence.
 |---|---|
 | Real session-to-memory continuation | Attach the next external recap, compare with saved notes, review/publish and use it in ordinary next-session planning |
 | Graph-aware authoring and continuity | Preserve authored table/map meaning; connect song/people/refugees and resurface ideas without turning proposals into facts |
+| Buddy’s work, explained | [Optional trace teaching and timing](../Design/DESIGN-agent-trace-teaching-and-timing.md): make a real run easier and more fun to understand, with truthful status and explanations anchored to recorded steps |
 | Rules/statblock/combat integration | Retrieve cited 2024 rules and use the prepared mechanics through actual table controls |
 | Hosted v1 | Authenticated laptop use of the retained World at buddy.dungeonmind.net, repeatable deploy/update, backup/restore and restart proof |
 
@@ -164,6 +166,15 @@ shared-authoring acceptance journey before expanding that UI;
 use the next external recap as the memory-loop witness when it exists. Hosted v1
 can be chosen independently, but needs its own bounded SERVER/platform contract.
 No provider-parity program or platform-wide rewrite is an automatic prerequisite.
+
+The trace-teaching row is a later candidate, not an activated sequence. Its
+design note sequences a small status-copy improvement first, then truthful live
+trace identity/click-through, optional authored explanations, and measured
+phase-duration ranges with sparse-data fallbacks. It starts bounded timing
+capture alongside instrumentation and keeps phase estimates distinct from
+whole-agent-loop completion estimates. Re-anchor its owner and path lease before
+any implementation; do not schedule it alongside PRIME-owned Rules or Combat
+work without those owners' release.
 
 ## Card adoption direction — operator decision, 2026-10-03
 
