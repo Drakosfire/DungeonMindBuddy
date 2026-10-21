@@ -689,6 +689,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
       "/api/live/world-graph/retrieval/complete-object",
       "/api/live/world-graph/retrieval/source-anchor/read",
       "/api/live/world-graph/retrieval/recap-context/v2/read",
+      "/api/live/graph-preview/existing-object-resolver/candidates",
     ].includes(pathname);
 }
 
