@@ -113,6 +113,18 @@ describe("BuildIngestToolbar", () => {
     );
   });
 
+  it("offers Recap source configuration without changing the existing document",async()=>{
+    const user=userEvent.setup();
+    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID}/></BuildCanvasTestProvider>);
+    await screen.findByRole('combobox',{name:'Run mode'});
+    await user.selectOptions(screen.getByRole('combobox',{name:'Run mode'}),'recap');
+    expect(screen.getByLabelText('Recap source campaign')).toBeInTheDocument();
+    expect(screen.getByLabelText('Recap source session')).toBeInTheDocument();
+    expect(screen.getByText('Select a verified World to extract this recap.')).toBeInTheDocument();
+    expect(screen.getByTestId('build-extract-button')).toBeDisabled();
+    expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+  });
+
   it("portals a single collapsed menu outside the session without resetting selection on close", async () => {
     const user = userEvent.setup();
     const target = document.createElement("div");

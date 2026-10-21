@@ -4,6 +4,7 @@ import type { ExactRunEvidenceCorrectionResponse, ExactRunEvidenceQuoteCorrectio
   ExtractionRunRecord, GraphReviewHandoffPayload, WorkspaceDocumentRecord } from '../api/types';
 import { GraphReviewExactRunProjection } from '../planSurface/graphReviewWorkbench/GraphReviewExactRunProjection';
 import { GraphReviewWorldbuildingPublication } from '../planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication';
+import {BuildRecapPublication} from './BuildRecapPublication';
 import { exactRunCorrectionDigest } from '../api/exactRunCorrectionIdentity';
 import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 
@@ -69,12 +70,16 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     let current = true; setReview(null); setError(null);
     void getExactRunReviewPackage(run.run_id).then(result => {
       if (!current) return;
-      if (run.status !== 'reviewable' || run.source_domain !== 'worldbuilding'
+      const recap=run.source_domain==='recap';
+      const context=run.lineage?.world_campaign_ingest_context as Record<string,unknown>|undefined;
+      if (run.status !== 'reviewable' || !['recap','worldbuilding'].includes(run.source_domain)
         || handoff.document_id !== document.document_id || handoff.extraction_run_id !== run.run_id
         || handoff.source_artifact_id !== run.source_artifact_id
         || result.schema !== 'dmb_extract_promote_exact_run_review_v1' || result.runId !== run.run_id
-        || result.sourceDomain !== 'worldbuilding' || result.sourceArtifactId !== run.source_artifact_id
-        || result.worldId !== worldId || !digest(sourceContentSha256) || digest(result.sourceRevisionId) !== digest(sourceContentSha256)
+        || result.sourceDomain !== run.source_domain || result.sourceArtifactId !== run.source_artifact_id
+        || result.worldId !== (recap?context?.native_world_id:worldId)
+        || (recap&&(context?.managed_world_id!==worldId||result.campaignId!==run.campaign_id||result.sessionId!==run.session_id))
+        || !digest(sourceContentSha256) || digest(result.sourceRevisionId) !== digest(sourceContentSha256)
         || (run.lineage?.parent_run_id && result.derivedFromRunId !== run.lineage.parent_run_id)) {
         throw new Error('The review does not match this saved document, run, source revision and World.');
       }
@@ -117,11 +122,13 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {review && <>
       {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
-        correctionEnabled={review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
+        correctionEnabled={run.source_domain==='worldbuilding' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
         correctionPending={correcting} recoveryPending={recovery !== null} correctionError={correctionError}
         correctionRecoveryAvailable={recoveryValid} recoveryChanges={recoveryValid ? (recovery as CorrectionRequest).corrections : []}
         onCorrectEvidence={changes=>void submit(changes)} onRetryCorrection={()=>void submit()} onAbandonCorrection={abandon} />
-      {review.inspectionStatus === 'ready' && <GraphReviewWorldbuildingPublication review={review} onConfirmInFlightChange={setConfirming} />}
+      {review.inspectionStatus === 'ready' && (run.source_domain==='recap'
+        ? <BuildRecapPublication review={review} worldId={worldId} run={run} onBusy={setConfirming}/>
+        : <GraphReviewWorldbuildingPublication review={review} onConfirmInFlightChange={setConfirming} />)}
     </>}
   </section>;
 }

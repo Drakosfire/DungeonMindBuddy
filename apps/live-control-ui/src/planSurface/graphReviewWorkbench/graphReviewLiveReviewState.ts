@@ -80,6 +80,8 @@ export interface UseGraphReviewLiveReviewStateOptions {
   sessionId: string;
   liveRun: GraphReviewCatalogRun | null;
   committedBinding?: GraphReviewCommittedBinding | null;
+  /** Exact native World from the admitted run, independent of source campaign aliases. */
+  committedWorldId?: string | null;
   hasGold?: boolean;
   compare?: GoldReviewCompareResponse | null;
   compareStatus?: "idle" | "loading" | "ready" | "error";
@@ -106,6 +108,7 @@ export function useGraphReviewLiveReviewState({
   sessionId,
   liveRun,
   committedBinding = null,
+  committedWorldId = null,
   hasGold = false,
   compare = null,
   goldLane = null,
@@ -322,6 +325,7 @@ export function useGraphReviewLiveReviewState({
           campaignId: trimmedCampaign,
           sessionId,
           receipt: adoption.receipt,
+          verifiedWorldId: committedWorldId,
         });
       if (!request) {
         if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
@@ -405,7 +409,7 @@ export function useGraphReviewLiveReviewState({
         throw error instanceof Error ? error : new Error(message);
       }
     },
-    [campaignId, sessionId],
+    [campaignId, sessionId, committedWorldId],
   );
 
   const adoptCommittedReceipt = useCallback(
