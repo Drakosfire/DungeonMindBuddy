@@ -177,6 +177,38 @@ describe("protected read acquisition",()=>{
   for(const body of [{worldId:"w",queryText:"a",revisionPin:"1"},{worldId:"w",queryText:"b",revisionPin:"1"},{worldId:"w",queryText:"a",revisionPin:"2"}])reads.push(api.authenticatedApiFetch("/api/live/world-graph/managed-projection",{method:"POST",body:JSON.stringify(body)}));
   await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(7));gate.resolve(Response.json({}));await Promise.all(reads);
  });
+ it.each([
+  "/api/live/world-graph/retrieval/complete-object",
+  "/api/live/world-graph/retrieval/source-anchor/read",
+  "/api/live/world-graph/retrieval/recap-context/v2/read",
+])("coalesces identical pending evidence reads at %s and keeps request variants distinct",async path=>{
+  api.setNativeGraphAccessToken("evidence-read-sharing");
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async (_url,init)=>{
+    const body=JSON.parse(String(init?.body));
+    return Response.json({revisionPin:body.revisionPin,worldId:body.worldId});
+  });
+  const base={schema:"read-request-v1",worldId:"elderwyld",revisionPin:"rev-1",anchorId:"anchor-1"};
+  const body=JSON.stringify(base);
+  const first=api.authenticatedApiFetch(path,{method:"POST",body});
+  const same=api.authenticatedApiFetch(path,{method:"POST",body});
+  const changedRevision=api.authenticatedApiFetch(path,{method:"POST",body:JSON.stringify({...base,revisionPin:"rev-2"})});
+  const changedWorld=api.authenticatedApiFetch(path,{method:"POST",body:JSON.stringify({...base,worldId:"other-world"})});
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));
+  expect(fetch.mock.calls.map(([,init])=>JSON.parse(String(init?.body)))).toEqual([
+    base,
+    {...base,revisionPin:"rev-2"},
+    {...base,worldId:"other-world"},
+  ]);
+  const [a,b,c,d]=await Promise.all([first,same,changedRevision,changedWorld]);
+  expect(await Promise.all([a.response.json(),b.response.json(),c.response.json(),d.response.json()])).toEqual([
+    {revisionPin:"rev-1",worldId:"elderwyld"},
+    {revisionPin:"rev-1",worldId:"elderwyld"},
+    {revisionPin:"rev-2",worldId:"elderwyld"},
+    {revisionPin:"rev-1",worldId:"other-world"},
+  ]);
+  await api.authenticatedApiFetch(path,{method:"POST",body});
+  expect(fetch).toHaveBeenCalledTimes(4);
+ });
  it("does not share a refresh across a command or coalesce command calls",async()=>{
   api.setNativeGraphAccessToken("test-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);
   const first=api.authenticatedApiFetch(historyPath);const command={method:"POST",body:JSON.stringify({turn_id:"one"})};
