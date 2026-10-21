@@ -163,6 +163,9 @@ def graph_read_profile_policy(profile: str) -> str:
     return (
         "World read capabilities: use search, object, neighborhood and support. "
         "Do not request observations or observationIds; those selectors belong to governed Build. "
+        "When the supplied initial candidates already identify a relevant subject, inspect that ID with object "
+        "and includeSources=true before repeating a search. Search is for missing or ambiguous subjects; "
+        "candidate names alone are not evidence. "
         "Follow discovered subjectNodeId with object and includeSources=true for reviewed source support. "
         "Reviewed source statements are attributed observations, not automatic current-world truth. "
         "Read admitted sources before grounding visual details; distinguish prepared material "

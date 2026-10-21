@@ -4214,3 +4214,27 @@ def test_native_rules_prompt_defines_both_unused_and_used_output_contracts():
     example = prompt.split("A rules-only evidence-gap answer has this exact shape: ", 1)[1].split(". A missing/partial", 1)[0]
     assert parse_answer(example).rules_segments[0].category == "gap"
     assert "domain:base,segment_index:null" in prompt
+
+
+def test_compact_scope_preserves_exact_initial_packet_and_parent_admission():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.hermes_graph_agent import _scope_block
+    from apps.live_control_server.services.agent_turn_service import _initial_claim_packet_from_view
+    policy = default_graph_only_capability_policy(_default_scope())
+    session = {
+        "candidates": [{"id": "subject:é", "label": "Swamp 中文", "qualifier": "quoted\nprose"}],
+        "claim_ledger": [{"claim_id": "claim:1", "text": "Attributed observation", "evidence_ref_ids": ["evidence:" + "a" * 200]}],
+        "intent_hint": {"kind": "navigation_only"}, "available_expansions": ["object", "search"],
+        "latest_recap_change": {"source_revision": "rev:1", "admitted_recap_excerpt": "Exact café source"},
+    }
+    rendered = _scope_block(policy, retrieval_session_id="session", retrieval_session=session)
+    raw = rendered.split("\n", 1)[1]
+    payload = json.loads(raw)
+    assert "\n" not in raw
+    assert len(raw.encode()) < len(json.dumps(payload, ensure_ascii=False, indent=2).encode())
+    assert payload["initialClaimPacket"]["candidates"] == session["candidates"]
+    assert payload["initialClaimPacket"]["claimLedger"] == session["claim_ledger"]
+    assert payload["initialClaimPacket"]["admittedRecapExcerpt"] == "Exact café source"
+    bootstrap = SimpleNamespace(retrieval_session=SimpleNamespace(project_for_hermes=lambda: session))
+    view = SimpleNamespace(api_mode="codex_responses", payload_json=json.dumps({"instructions": rendered}))
+    assert _initial_claim_packet_from_view(view, bootstrap) == payload["initialClaimPacket"]
