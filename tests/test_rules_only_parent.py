@@ -88,14 +88,14 @@ class RulesOnlyProvider(FakeRuntime):
         elif self.failure in {"unknown_outcome", "missing_capture"}:
             transition = "outcome_unknown" if self.failure == "unknown_outcome" else "response_received"
             accepted = on_provider_lifecycle({"transition":transition})
-            assert accepted is (self.failure == "unknown_outcome")
+            assert accepted is True
             return AgentRuntimeResult(status="error", error_code="provider_lifecycle_unavailable")
+        assert on_provider_lifecycle({"transition":"response_received"})
         assert on_native_provider_reply(NativeProviderReply(
             authorization_id="host:1", api_request_id=str(uuid4()), provider=view["provider"],
             model=view["model"], api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
             finish_reason="stop", status="answered", text=text, text_sha256=sha256(text.encode()).hexdigest(),
             text_utf8_bytes=len(text.encode()), tool_calls=()))
-        assert on_provider_lifecycle({"transition":"response_received"})
         return AgentRuntimeResult(status="ok", final_text=text, runtime_session_id="runtime-1")
 
 

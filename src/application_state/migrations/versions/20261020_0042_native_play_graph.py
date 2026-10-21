@@ -20,6 +20,10 @@ _NATIVE = """(surface_id='play' AND submitted_intent_fingerprint_v2 IS NOT NULL)
  OR completion->>'schema'='dmb_play_world_graph_completion_v1'"""
 
 
+# Graph-off Play has a distinct current intent in the v1 storage slot. It must
+# block rollback without entering the Graph-specific upgrade constraints.
+_DOWNGRADE_NATIVE = f"({_NATIVE}) OR submitted_intent_schema='dmb_play_rules_intent_v1'"
+
 def _closed(field, names):
     keys = "ARRAY["+",".join("'"+name+"'" for name in names.split())+"]"
     return f"jsonb_typeof({field})='object' AND ({field}) ?& {keys} AND (({field}) - {keys})='{{}}'::jsonb"
@@ -128,13 +132,23 @@ def _replace(name, expression):
 
 
 def upgrade():
+    op.execute("ALTER TABLE agent.turn ADD COLUMN submitted_intent_schema TEXT")
+    op.execute("""ALTER TABLE agent.turn ADD CONSTRAINT agent_turn_native_play_rules_intent_check CHECK (
+        submitted_intent_schema IS NULL OR COALESCE((
+            submitted_intent_schema='dmb_play_rules_intent_v1'
+            AND surface_resolution='resolved' AND surface_id='play'
+            AND submitted_intent_fingerprint_v1 IS NOT NULL AND submitted_intent_fingerprint_v2 IS NULL
+            AND play_context_receipt->>'schema'='dmb_play_run_turn_context_receipt_v2'
+            AND graph_context_receipt IS NULL AND graph_context_execution IS NULL AND completion IS NULL
+        ),FALSE))""")
     for name, old in _OLD.items():
         _replace(name, f"CASE WHEN COALESCE(({_NATIVE}),FALSE) THEN COALESCE(({_NEW[name]}),FALSE) ELSE ({old}) END")
 
 
 def downgrade():
     op.execute("LOCK TABLE agent.turn IN ACCESS EXCLUSIVE MODE")
-    if op.get_bind().exec_driver_sql(f"SELECT EXISTS(SELECT 1 FROM agent.turn WHERE COALESCE(({_NATIVE}),FALSE))").scalar_one():
+    if op.get_bind().exec_driver_sql(f"SELECT EXISTS(SELECT 1 FROM agent.turn WHERE COALESCE(({_DOWNGRADE_NATIVE}),FALSE))").scalar_one():
         raise RuntimeError("refusing to discard retained native Play intent/receipt/execution/completion")
     for name, old in _OLD.items():
         _replace(name, old)
+    op.execute("ALTER TABLE agent.turn DROP COLUMN submitted_intent_schema")

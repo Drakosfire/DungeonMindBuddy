@@ -25,6 +25,7 @@ from application_state.agent_conversation.types import (
     GraphTurnCompletion,
     GraphTurnExecution,
     PlanWorldGraphExecution,
+    PlayRulesIntentV1,
     Turn,
     TurnProvenance,
     WorldPointer,
@@ -954,7 +955,7 @@ def insert_turn(
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
-                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2,
+                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2, submitted_intent_schema,
                 graph_context_receipt, completion, graph_context_execution,
                 play_context_receipt,
                 attempt, claim_expires_at,
@@ -962,7 +963,7 @@ def insert_turn(
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
                 %s, NULL, %s, %s, %s
             )
             RETURNING {_TURN_COLS}
@@ -984,6 +985,7 @@ def insert_turn(
                 provenance.surface_instance_id,
                 submitted_intent_fingerprint_v1,
                 submitted_intent_fingerprint_v2,
+                ("dmb_play_rules_intent_v1" if isinstance(submission.submitted_intent_v1, PlayRulesIntentV1) else None),
                 (
                     None
                     if graph_context_receipt is None

@@ -27,7 +27,7 @@ class RulesOnlyRuntime:
         self.failure = None
         self.rules_runtime = None
         self.rules_runtime = NativeRulesRuntime(self, rules_capability(graph=False))
-        self._entered = self._received = False
+        self._entered = self._received = self._captured = False
 
     def _is_build_turn(self):
         return False
@@ -44,7 +44,7 @@ class RulesOnlyRuntime:
         try:
             if self.failure is not None or self.fence.renewer._error is not None:
                 return False
-            if self.last_provider_attempt_id is not None and not self._received:
+            if self.last_provider_attempt_id is not None and (not self._received or not self._captured):
                 raise ValueError("Previous provider outcome remains indeterminate")
             if self.rules_runtime.last_reply is not None and self.rules_runtime.last_reply.status == "answered":
                 raise ValueError("A final Rules-only answer cannot dispatch again")
@@ -82,19 +82,23 @@ class RulesOnlyRuntime:
                         raise ValueError("Rules-only input includes a foreign tool call")
             self.last_provider_attempt_id = uuid4()
             accepted = self.rules_runtime.authorize(view)
-            self._entered = self._received = False
+            self._entered = self._received = self._captured = False
             return accepted
         except Exception as exc:
             self.failure = exc
             return False
 
     def capture_native_provider_reply(self, reply):
-        if self.failure is not None or not self._entered:
+        if self.failure is not None or not self._entered or not self._received:
             return False
         accepted = self.rules_runtime.capture_reply(replace(reply,
             authorization_id=str(self.rules_runtime.authorization_id)))
         if not accepted:
             self.failure = ValueError("Rules-only provider reply was not durably captured")
+        else:
+            self._captured = True
+            if reply.status == "answered":
+                self.producing_provider_attempt_id = self.last_provider_attempt_id
         return accepted
 
     def record_lifecycle(self, lifecycle):
@@ -107,12 +111,11 @@ class RulesOnlyRuntime:
                     raise ValueError("Rules-only SDK entry was already acknowledged")
                 self._entered = True
             elif transition == "response_received":
-                reply = self.rules_runtime.last_reply
-                if not self._entered or self._received or reply is None:
-                    raise ValueError("Rules-only response has no unique captured reply")
+                # The SDK acknowledges receipt before its post_api_request hook
+                # publishes the parsed reply. Capture remains a separate required gate.
+                if not self._entered or self._received:
+                    raise ValueError("Rules-only response has no unique entered request")
                 self._received = True
-                if reply.status == "answered":
-                    self.producing_provider_attempt_id = self.last_provider_attempt_id
             elif transition in {"known_not_sent", "outcome_unknown"}:
                 self.rules_runtime.outcome(transition)
                 self.failure = ValueError("Rules-only provider delivery did not complete")

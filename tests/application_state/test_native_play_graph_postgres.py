@@ -206,7 +206,7 @@ def test_no_native_migration_roundtrip_preserves_exact_rows_and_old_constraints(
     turn=turn_fixture()
     def snapshot():
         with psycopg.connect(application_state_dsn) as conn:
-            row=conn.execute('SELECT row_to_json(t)::text FROM agent.turn t WHERE turn_id=%s',(turn.turn_id,)).fetchone()[0]
+            row=conn.execute("SELECT (to_jsonb(t)-'submitted_intent_schema')::text FROM agent.turn t WHERE turn_id=%s",(turn.turn_id,)).fetchone()[0]
             constraints=dict(conn.execute("SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass AND conname IN ('agent_turn_graph_context_receipt_check','agent_turn_graph_context_execution_check','agent_turn_graph_completion_check')").fetchall())
             return row,constraints
     command.downgrade(alembic_config(),'20261020_0041');row,old=snapshot()
@@ -252,3 +252,68 @@ def test_native_admission_binds_revision_to_its_exact_source_object(application_
         assert conn.execute('SELECT revision,next_turn_sequence FROM agent.conversation WHERE conversation_id=%s',
             (sub.conversation_id,)).fetchone()==before
         assert conn.execute('SELECT count(*) FROM agent.turn WHERE conversation_id=%s',(sub.conversation_id,)).fetchone()==(0,)
+
+
+@pytest.mark.parametrize('state', ['accepted', 'running', 'failed', 'interrupted'])
+def test_downgrade_refuses_genuine_graph_off_play_intent(application_state_dsn, state):
+    service, native, _ = make_submission()
+    wire = native.submitted_intent_v2.model_dump(mode='json', by_alias=True)
+    wire.pop('play_graph_policy')
+    wire.update(schema='dmb_play_rules_intent_v1', graph_request={'mode':'none'})
+    intent = t.PlayRulesIntentV1.model_validate_json(json.dumps(wire))
+    p = native.provenance.model_copy(update={'supporting_work': [ref for ref in native.provenance.supporting_work
+        if ref.kind not in {'world_graph_revision', 'dmb_play_graph_binding_v1'}]})
+    sub = t.TurnSubmission(world_id=native.world_id, conversation_id=native.conversation_id,
+        idempotency_key=native.idempotency_key, expected_conversation_revision=1, user_text=intent.message,
+        provenance=p, submitted_intent_v1=intent, play_context_receipt=native.play_context_receipt)
+    turn = service.accept_turn(sub)
+    if state != 'accepted':
+        turn = service.claim_turn(sub.world_id, sub.conversation_id, turn.turn_id, expected_revision=turn.revision).turn
+        if state in {'failed', 'interrupted'}:
+            turn = service.fail_turn(t.TurnFailure(world_id=sub.world_id, conversation_id=sub.conversation_id,
+                turn_id=turn.turn_id, expected_revision=turn.revision, failure_code='rules-only-fixture'),
+                interrupted=state == 'interrupted')
+    with pytest.raises(RuntimeError, match='retained native Play'):
+        command.downgrade(alembic_config(), '20261020_0041')
+    assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
+    reopened = service.reconcile_turn(sub.world_id, sub.idempotency_key, intent)
+    assert reopened.turn_id == turn.turn_id and reopened.status == state
+    assert reopened.graph_context_receipt is None and reopened.graph_context_execution is None
+
+
+@pytest.mark.parametrize('mode', ['supported', 'unused'])
+def test_downgrade_refuses_completed_graph_off_play(application_state_dsn, tmp_path, monkeypatch, mode):
+    from tests.test_rules_only_parent import case, RulesOnlyProvider
+    request, service, execute, retained, read_retained = case(tmp_path, monkeypatch, 'play')
+    response = execute(RulesOnlyProvider(mode))
+    assert response.answer.status == 'ok'
+    pointer = service.get_world_pointer(request.owner_scope.world_id)
+    before = service.list_turns(request.owner_scope.world_id, pointer.active_conversation_id)[-1]
+    assert (before.envelope.status if hasattr(before, 'envelope') else before.status) == 'completed'
+    with pytest.raises(RuntimeError, match='retained native Play'):
+        command.downgrade(alembic_config(), '20261020_0041')
+    assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
+    after = service.list_turns(request.owner_scope.world_id, pointer.active_conversation_id)[-1]
+    assert after == before and read_retained() == retained
+
+
+def test_predecessor_play_receipt_survives_0042_roundtrip(application_state_dsn):
+    service, native, _ = make_submission()
+    wire = native.submitted_intent_v2.model_dump(mode='json', by_alias=True)
+    wire.pop('play_graph_policy')
+    wire.pop('play_target')
+    wire.update(schema='dmb_agent_submitted_turn_intent_v1', graph_request={'mode':'none'})
+    intent = t.SubmittedTurnIntentV1.model_validate_json(json.dumps(wire))
+    p = native.provenance.model_copy(update={'supporting_work':[ref for ref in native.provenance.supporting_work
+        if ref.kind not in {'world_graph_revision','dmb_play_graph_binding_v1'}]})
+    sub = t.TurnSubmission(world_id=native.world_id, conversation_id=native.conversation_id,
+        idempotency_key=native.idempotency_key, expected_conversation_revision=1, user_text=intent.message,
+        provenance=p, submitted_intent_v1=intent, play_context_receipt=native.play_context_receipt)
+    before = service.accept_turn(sub)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT submitted_intent_schema FROM agent.turn WHERE turn_id=%s',
+            (before.turn_id,)).fetchone() == (None,)
+    command.downgrade(alembic_config(), '20261020_0041')
+    upgrade_to_head(dsn=application_state_dsn)
+    after = service.reconcile_turn(sub.world_id, sub.idempotency_key, intent)
+    assert after == before

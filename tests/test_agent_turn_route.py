@@ -59,12 +59,12 @@ class FakeRuntime:
         result = self.run(invocation)
         if result.status == "ok" and result.final_text:
             text = result.final_text
+            assert on_provider_lifecycle({"transition":"response_received"})
             assert on_native_provider_reply(NativeProviderReply(
                 authorization_id="host:1", api_request_id=str(uuid4()), provider=view["provider"],
                 model=view["model"], api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
                 finish_reason="stop", status="answered", text=text,
                 text_sha256=hashlib.sha256(text.encode()).hexdigest(), text_utf8_bytes=len(text.encode()), tool_calls=()))
-            assert on_provider_lifecycle({"transition":"response_received"})
         else:
             assert on_provider_lifecycle({"transition":"outcome_unknown"})
         return result
@@ -116,6 +116,7 @@ def _native_lookup_roundtrip(body, view, authorize, on_graph_operation, on_provi
     raw_args, packets = json.dumps(args), []
     for index in range(count):
         call_id = f"lookup-{index}"
+        assert on_provider_lifecycle({"transition": "response_received"})
         assert on_native_provider_reply(NativeProviderReply(
             authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
             api_request_id=str(uuid4()), provider=view["provider"], model=view["model"],
@@ -125,7 +126,6 @@ def _native_lookup_roundtrip(body, view, authorize, on_graph_operation, on_provi
             tool_calls=(NativeToolReply(call_id=call_id, name="lookup_rules",
                 arguments_json=raw_args, arguments_sha256=hashlib.sha256(raw_args.encode()).hexdigest()),),
         ))
-        assert on_provider_lifecycle({"transition": "response_received"})
         output = on_graph_operation({"toolName": "lookup_rules", "modelCallId": call_id, "arguments": args})
         packets.append(json.loads(output["resultJson"]))
         body["input"].extend([
