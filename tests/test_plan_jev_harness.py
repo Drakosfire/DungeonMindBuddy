@@ -97,3 +97,47 @@ def test_owner_loads_completed_canonical_dialogue_once_for_followup(plan_adapter
     replay=execute_agent_turn(second,**kwargs)
     assert replay.plan_context.delivery_replay and len(reads)==1
     assert len(decisions.calls)==len(wire.calls)==2
+
+
+@pytest.mark.parametrize('include_graph',[False,True])
+def test_owner_followup_retains_full_actual_rules_completion(plan_adapter,tmp_path,include_graph):
+    import asyncio
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+    from apps.live_control_server.services import agent_turn_service as owner
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from tests.test_plan_jev_driver import Decisions,fixture_reads
+    from tests.test_plan_jev_writer import graph_answer
+    from tests.test_rules_lookup_broker import args
+    from graph_memory.interaction.session import GraphReferent
+    a=plan_adapter
+    a.request=a.request.model_copy(update={'message':args().question})
+    a.submitted_intent=owner._submitted_turn_intent(a.request,world_id=a.world_id)
+    if include_graph:
+        a.bootstrap.retrieval_session.referents=[GraphReferent(id='pond',label='Park pond')]
+        fixture_reads(a)
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    driver=PlanJevDriver(a,rules=rules)
+    proof=asyncio.run(driver.run(transport=Decisions(),api_key='synthetic-not-secret'))
+    writer=PlanJevWriter(a,proof,rules)
+    support=rules.frame().supports[0]
+    answer={'schema':'dmb_rules_mixed_answer_v1',
+        'base_output':graph_answer() if include_graph else None,
+        'rules_segments':[{'kind':'rules_claim','text':support.excerpt_text,
+                           'support_ids':[str(support.support_id)]}],
+        'ordered_refs':([{'domain':'base','segment_index':None}] if include_graph else [])
+            +[{'domain':'rules','segment_index':0}]}
+    completed=asyncio.run(writer.run(transport=WriterWire(a,json.dumps(answer)),api_key='synthetic-not-secret'))
+    assert isinstance(completed,MixedCompletedTurnV1)
+    harness,decisions,wire,kwargs=route_case(a,tmp_path)
+    followup=a.request.model_copy(update={'turn_id':str(uuid4()),'message':'How does that apply here?'})
+    response=execute_agent_turn(followup,**kwargs)
+    assert response.answer.status=='ok'
+    expected=[{'role':'user','content':a.request.message},
+              {'role':'assistant','content':completed.assistant_text}]
+    assert json.loads(decisions.calls[0].content)['state']['dialogue_reference']==expected
+    assert json.loads(json.loads(wire.calls[0].content)['input'][0]['content'])['dialogue_reference']==expected
+    assert support.excerpt_text in expected[1]['content']

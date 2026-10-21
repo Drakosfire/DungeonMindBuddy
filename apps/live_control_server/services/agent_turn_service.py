@@ -6871,8 +6871,9 @@ def execute_agent_turn(
                     **({"before_sequence": durable_turn.sequence} if durable_turn is not None else {}),
                 )
                 for previous in previous_turns:
-                    if previous.status == "completed" and previous.assistant_text:
-                        history.extend([{"role": "user", "content": previous.user_text},
+                    envelope = previous.envelope if isinstance(previous, MixedCompletedTurnV1) else previous
+                    if envelope.status == "completed" and previous.assistant_text:
+                        history.extend([{"role": "user", "content": envelope.user_text},
                             {"role": "assistant", "content": previous.assistant_text}])
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace,
                 dialogue=history)
