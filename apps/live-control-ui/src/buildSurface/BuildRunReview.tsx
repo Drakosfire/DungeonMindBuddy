@@ -1,20 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import { correctExactRunEvidence, getExactRunReviewPackage } from '../api/extractPromoteApi';
-import type { ExactRunEvidenceCorrectionResponse, ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage,
+import { correctExactRunEvidence, correctRecapRunEvidence, getExactRunReviewPackage } from '../api/extractPromoteApi';
+import type { ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage,
   ExtractionRunRecord, GraphReviewHandoffPayload, WorkspaceDocumentRecord } from '../api/types';
 import { GraphReviewExactRunProjection } from '../planSurface/graphReviewWorkbench/GraphReviewExactRunProjection';
 import { GraphReviewWorldbuildingPublication } from '../planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication';
 import {BuildRecapPublication} from './BuildRecapPublication';
+import {assertRecapQuoteParent, type BuildCorrectionReceipt} from './buildRecapCorrection';
+import {BuildRecapSemanticReview} from './BuildRecapSemanticReview';
+import type {RecapSemanticDecisionReceipt} from '../api/recapSemanticReviewApi';
 import { exactRunCorrectionDigest } from '../api/exactRunCorrectionIdentity';
 import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 
 type CorrectionRequest = { parentRunId: string; parentCandidateSha256: string; corrections: ExactRunEvidenceQuoteCorrection[] };
 type Props = { document: WorkspaceDocumentRecord; currentRevision: number; run: ExtractionRunRecord;
   handoff: GraphReviewHandoffPayload; sourceContentSha256: string; onClose: () => void;
-  onDerivedRun: (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => Promise<void>; onBusyChange: (busy: boolean) => void };
+  onDerivedRun: (receipt: BuildCorrectionReceipt, expectedDigest: string, isCurrent: () => boolean) => Promise<() => void>; onBusyChange: (busy: boolean) => void;
+  onSemanticDecision: (receipt: RecapSemanticDecisionReceipt, isCurrent: () => boolean) => Promise<() => void> };
 const digest = (value: unknown) => typeof value === 'string' && /^(?:sha256:)?[a-f0-9]{64}$/.test(value)
   ? value.replace(/^sha256:/, '') : null;
 const message = (reason: unknown) => reason instanceof Error ? reason.message : 'This exact review could not be loaded.';
+async function recapStorage<T>(key:string,action:()=>T):Promise<T>{
+  if(!navigator.locks)throw new Error('This browser cannot safely retain Recap corrections across tabs.');
+  return navigator.locks.request(key,action);
+}
 
 function validCorrection(value: unknown, review: ExactRunReviewPackage, run: ExtractionRunRecord): value is CorrectionRequest {
   if (!value || typeof value !== 'object') return false;
@@ -23,7 +31,7 @@ function validCorrection(value: unknown, review: ExactRunReviewPackage, run: Ext
     || digest(request.parentCandidateSha256) !== digest(run.components?.candidate_graph?.sha256)
     || !Array.isArray(request.corrections) || !request.corrections.length) return false;
   const seen = new Set<string>();
-  return request.corrections.every(change => {
+  const matches=request.corrections.every(change => {
     if (!change || !Number.isInteger(change.evidenceIndex) || change.evidenceIndex < 0
       || !Number.isInteger(change.quoteIndex) || change.quoteIndex < 0 || typeof change.replacementQuote !== 'string'
       || !change.replacementQuote.trim()) return false;
@@ -32,8 +40,13 @@ function validCorrection(value: unknown, review: ExactRunReviewPackage, run: Ext
     if (seen.has(key) || !evidence || evidence.sourceArtifactId !== review.sourceArtifactId
       || evidence.sourceSpanRefId !== change.sourceSpanRefId || evidence.anchorQuotes[change.quoteIndex] !== change.originalQuote
       || !evidence.invalidAnchorQuotes?.includes(change.originalQuote)) return false;
+    if(run.source_domain==='recap'&&(change.replacementQuote!==change.replacementQuote.trim()
+      ||change.replacementQuote===change.originalQuote||!evidence.paragraphText.includes(change.replacementQuote)))return false;
     seen.add(key); return true;
   });
+  const invalidCount=review.assertions.reduce((total,item)=>total+item.evidence.reduce((sum,evidence)=>sum
+    +evidence.anchorQuotes.filter(quote=>evidence.invalidAnchorQuotes?.includes(quote)).length,0),0);
+  return matches&&(run.source_domain!=='recap'||request.corrections.length===invalidCount);
 }
 
 /** Reuses the owners' review/mutation components while the Build editor stays mounted. */
@@ -48,7 +61,7 @@ export function BuildRunReview(props: Props) {
     {...props} worldId={world.worldId} isScopeCurrent={() => currentScope.current === scope} />;
 }
 
-function ExactReview({ document, currentRevision, run, handoff, sourceContentSha256, worldId, onClose, onDerivedRun, onBusyChange, isScopeCurrent }: Props & {worldId:string; isScopeCurrent: () => boolean}) {
+function ExactReview({ document, currentRevision, run, handoff, sourceContentSha256, worldId, onClose, onDerivedRun, onBusyChange, isScopeCurrent, onSemanticDecision }: Props & {worldId:string; isScopeCurrent: () => boolean}) {
   const [review, setReview] = useState<ExactRunReviewPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -56,9 +69,10 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
   const [confirming, setConfirming] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const alive = useRef(true), lock = useRef(false);
-  const key = 'dmb.buildEvidenceCorrection.v1:' + JSON.stringify([worldId,document.document_id,run.run_id,run.components?.candidate_graph?.sha256]);
+  const key = (run.source_domain==='recap'?'dmb.buildRecapEvidenceCorrection.v1:':'dmb.buildEvidenceCorrection.v1:') + JSON.stringify([worldId,document.document_id,run.run_id,run.components?.candidate_graph?.sha256]);
+  const recoveryRaw=useRef<string|null>(null);
   const [recovery, setRecovery] = useState<unknown>(() => {
-    try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) : null; }
+    try { const saved = localStorage.getItem(key); recoveryRaw.current=saved; return saved ? JSON.parse(saved) : null; }
     catch { return {unavailable:true}; }
   });
   useEffect(() => {
@@ -94,24 +108,50 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     const request: unknown = corrections ? {parentRunId:run.run_id,parentCandidateSha256:run.components?.candidate_graph?.sha256,corrections} : recovery;
     if (!validCorrection(request, review, run)) {setCorrectionError('The saved correction does not match this exact source. No request was sent.'); return;}
     let encoded: string;
-    try { encoded = JSON.stringify(request); localStorage.setItem(key, encoded); }
-    catch {setCorrectionError('The correction could not be saved for recovery. No request was sent.'); return;}
-    setRecovery(request); lock.current = true; setCorrecting(true); setCorrectionError(null);
+    lock.current=true;setCorrecting(true);setCorrectionError(null);
+    try {
+      if(run.source_domain==='recap')assertRecapQuoteParent(run,review);
+      encoded=JSON.stringify(request);
+      const persist=()=>{
+        if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before persistence.');
+        const current=localStorage.getItem(key);
+        if(run.source_domain==='recap'&&current!==null&&current!==encoded)throw new Error('Another Recap correction is retained. Reopen this review to recover it.');
+        localStorage.setItem(key,encoded);
+      };
+      if(run.source_domain==='recap')await recapStorage(key,persist);else persist();
+    } catch(reason){lock.current=false;if(alive.current){setCorrecting(false);setCorrectionError(`${message(reason)} The correction could not be saved for recovery. No request was sent.`);}return;}
+    if(!alive.current||!isScopeCurrent()){lock.current=false;return;}
+    recoveryRaw.current=encoded;setRecovery(request);
     try {
       const expectedDigest = await exactRunCorrectionDigest(request);
       if (!alive.current || !isScopeCurrent()) return;
-      const result = await correctExactRunEvidence(request);
+      const result = run.source_domain==='recap' ? await correctRecapRunEvidence(request) : await correctExactRunEvidence(request);
       if (!alive.current) return;
-      await onDerivedRun(result, expectedDigest, () => alive.current && isScopeCurrent());
-      if (!alive.current || !isScopeCurrent()) return;
-      if (localStorage.getItem(key) === encoded) localStorage.removeItem(key);
+      const commit=await onDerivedRun(result, expectedDigest, () => alive.current && isScopeCurrent());
+      const adopt=()=>{
+        if(!alive.current||!isScopeCurrent()||localStorage.getItem(key)!==encoded)throw new Error('The selected correction changed. Recover its original request.');
+        commit();localStorage.removeItem(key);recoveryRaw.current=null;
+      };
+      if(run.source_domain==='recap')await recapStorage(key,adopt);else adopt();
       if (alive.current) setRecovery(null);
     } catch(reason) {if (alive.current) setCorrectionError(`${message(reason)} The source is unchanged; retry the saved correction to recover its child run.`);}
     finally {lock.current = false; if(alive.current) setCorrecting(false);}
   }
-  function abandon() {
-    try {localStorage.removeItem(key);setRecovery(null);setCorrectionError(null);}
-    catch {setCorrectionError('The saved correction could not be cleared.');}
+  async function abandon() {
+    if(lock.current)return;
+    lock.current=true;setCorrecting(true);
+    try {
+      const retain=()=>{
+        if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before abandonment.');
+        const raw=localStorage.getItem(key);
+        if(raw!==recoveryRaw.current)throw new Error('The saved correction changed. Reopen its review.');
+        if(run.source_domain==='recap'&&raw!==null)localStorage.setItem(key+':retained:'+crypto.randomUUID(),raw);
+        localStorage.removeItem(key);
+      };
+      if(run.source_domain==='recap')await recapStorage(key,retain);else retain();
+      if(alive.current&&isScopeCurrent()){setRecovery(null);setCorrectionError(null);}
+    }catch {if(alive.current)setCorrectionError('The saved correction could not be retained and cleared.');}
+    finally {lock.current=false;if(alive.current)setCorrecting(false);}
   }
   return <section className="build-run-review" aria-label="Review extracted knowledge">
     <header><h2>Review extracted knowledge · {document.title}</h2><button type="button" disabled={correcting || confirming} onClick={onClose}>Close review</button></header>
@@ -122,10 +162,12 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {review && <>
       {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
-        correctionEnabled={run.source_domain==='worldbuilding' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
+        correctionEnabled={['worldbuilding','recap'].includes(run.source_domain) && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
         correctionPending={correcting} recoveryPending={recovery !== null} correctionError={correctionError}
         correctionRecoveryAvailable={recoveryValid} recoveryChanges={recoveryValid ? (recovery as CorrectionRequest).corrections : []}
         onCorrectEvidence={changes=>void submit(changes)} onRetryCorrection={()=>void submit()} onAbandonCorrection={abandon} />
+      {run.source_domain==='recap' && <BuildRecapSemanticReview run={run} review={review} worldId={worldId}
+        onBusy={setConfirming} isCurrent={()=>alive.current&&isScopeCurrent()} onDecided={onSemanticDecision}/>}
       {review.inspectionStatus === 'ready' && (run.source_domain==='recap'
         ? <BuildRecapPublication review={review} worldId={worldId} run={run} onBusy={setConfirming}/>
         : <GraphReviewWorldbuildingPublication review={review} onConfirmInFlightChange={setConfirming} />)}

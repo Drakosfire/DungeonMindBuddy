@@ -1,3 +1,4 @@
+import {recapRun as heldRecapRun,quoteReceipt as recapQuoteReceipt,decisionReceipt as semanticReceipt,sourceHash as recapSourceHash} from './buildRecapCorrection.testSupport';
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
@@ -1342,7 +1343,7 @@ describe("Build corrected child adoption", () => {
     vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
     const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A}),{wrapper:extractionWrapper(DOC_A)});
     await waitFor(()=>expect(result.current.handoff).not.toBeNull());
-    await act(async()=>{await result.current.adoptDerivedRun(receipt,correctionHash,()=>true);});
+    await act(async()=>{const commit=await result.current.adoptDerivedRun(receipt,correctionHash,()=>true);commit();});
     expect(result.current.run?.run_id).toBe(RUN_B);
     expect(liveApi.getExtractionRunStatus).toHaveBeenCalledTimes(2);
     expect(new URLSearchParams(location.search).get("extractionRunId")).toBe(RUN_B);
@@ -1379,5 +1380,88 @@ describe("Build corrected child adoption", () => {
     expect(await outcome).toBeInstanceOf(Error);
     expect(result.current.run?.run_id).toBe(RUN_A);
     expect(new URLSearchParams(location.search).get("extractionRunId")).toBe(RUN_A);
+  });
+});
+
+
+describe('Build Recap correction and semantic decision adoption',()=>{
+  beforeEach(()=>{
+    vi.clearAllMocks();localStorage.clear();window.history.pushState({},'',`/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    writeCleanLocal(DOC_A,2,recapSourceHash);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFor(DOC_A,2,recapSourceHash));
+  });
+  function pair(){
+    const parent=statusEnvelope({runId:RUN_A,artifactId:ARTIFACT_A,documentId:DOC_A,revision:2,sha:recapSourceHash});
+    const child=statusEnvelope({runId:RUN_B,artifactId:ARTIFACT_A,documentId:DOC_A,revision:2,sha:recapSourceHash});
+    parent.run={...structuredClone(heldRecapRun),run_id:RUN_A,source_artifact_id:ARTIFACT_A};
+    parent.run.components!.candidate_graph.sha256=recapQuoteReceipt.parentCandidateSha256;
+    child.run={...structuredClone(heldRecapRun),run_id:RUN_B,source_artifact_id:ARTIFACT_A};
+    child.run.lineage!.parent_run_id=RUN_A;
+    const receipt={...recapQuoteReceipt,parentRunId:RUN_A,runId:RUN_B};
+    return {parent,child,receipt};
+  }
+  it('stages only the exact held child with one status read before committing URL adoption',async()=>{
+    const {parent,child,receipt}=pair();vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:'world-a'}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    const commit=await result.current.adoptDerivedRun(receipt,receipt.correctionDigest,()=>true);
+    expect(result.current.run?.run_id).toBe(RUN_A);expect(liveApi.getExtractionRunStatus).toHaveBeenCalledTimes(2);
+    act(()=>commit());expect(result.current.run?.run_id).toBe(RUN_B);
+    expect((result.current.run!.lineage!.semantic_disposition as Record<string,unknown>).state).toBe('held');
+  });
+  it('preserves parent run and URL when only corrected run mapping storage fails',async()=>{
+    const {parent,child,receipt}=pair();vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:'world-a'}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    const commit=await result.current.adoptDerivedRun(receipt,receipt.correctionDigest,()=>true);
+    const original=Storage.prototype.setItem;
+    const write=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(key===`dmb.buildExtractionRun.${DOC_A}`)throw new Error('mapping quota failure');
+      return original.call(this,key,value);
+    });
+    try {
+      expect(()=>act(()=>commit())).toThrow('mapping quota failure');
+      expect(result.current.run?.run_id).toBe(RUN_A);
+      expect(new URLSearchParams(location.search).get('extractionRunId')).toBe(RUN_A);
+      expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
+    } finally {write.mockRestore();}
+  });
+  it.each(['source','index','session','world','basis','derivation'] as const)('rejects a foreign Recap child %s before URL adoption',async field=>{
+    const {parent,child,receipt}=pair();
+    if(field==='source')child.run.components!.source_artifact.uri='different.md';
+    if(field==='index')child.run.components!.source_span_index.sha256='f'.repeat(64);
+    if(field==='session')child.run.session_id='session-31';
+    if(field==='world')(child.run.lineage!.world_campaign_ingest_context as Record<string,unknown>).managed_world_id='other';
+    if(field==='basis')(child.run.lineage!.semantic_disposition as Record<string,unknown>).basis_sha256='f'.repeat(64);
+    if(field==='derivation')child.run.lineage!.derivation='different';
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:'world-a'}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    await expect(result.current.adoptDerivedRun(receipt,receipt.correctionDigest,()=>true)).rejects.toThrow();
+    expect(new URLSearchParams(location.search).get('extractionRunId')).toBe(RUN_A);
+  });
+  function decided(){
+    const {parent}=pair();parent.run={...structuredClone(heldRecapRun),run_id:RUN_A,source_artifact_id:ARTIFACT_A};
+    const next=structuredClone(parent);Object.assign(next.run,{revision:4});
+    const receipt={...semanticReceipt,runId:RUN_A};
+    Object.assign(next.run.lineage!.semantic_disposition as Record<string,unknown>,{state:receipt.state,
+      review_decision_ref:receipt.reviewDecisionRef,reviewer_id:receipt.reviewerId,decided_at:receipt.decidedAt,from_revision:3});
+    return {parent,next,receipt};
+  }
+  it('verifies the exact semantic decision with one status read and stages its adoption',async()=>{
+    const {parent,next,receipt}=decided();vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(next);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:'world-a'}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    const commit=await result.current.adoptSemanticDecision(receipt,()=>true);
+    expect((result.current.run!.lineage!.semantic_disposition as Record<string,unknown>).state).toBe('held');
+    act(()=>commit());expect((result.current.run!.lineage!.semantic_disposition as Record<string,unknown>).state).toBe('accepted');
+    expect(liveApi.getExtractionRunStatus).toHaveBeenCalledTimes(2);
+  });
+  it.each(['state','basis_sha256','review_decision_ref','reviewer_id','decided_at'] as const)('refuses a different current semantic %s',async field=>{
+    const {parent,next,receipt}=decided();(next.run.lineage!.semantic_disposition as Record<string,unknown>)[field]='different';
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(next);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:'world-a'}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    await expect(result.current.adoptSemanticDecision(receipt,()=>true)).rejects.toThrow('decision could not be verified');
   });
 });
