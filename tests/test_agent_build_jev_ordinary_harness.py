@@ -160,8 +160,8 @@ def ordinary_case(build_case, monkeypatch, *, authoring=False):
     monkeypatch.setattr(reviewed_source_wave, "reviewed_source_wave", synthetic_wave)
     original_source_read = expansion_executor.execute_read_graph_source
 
-    def synthetic_source_read(arguments, *, receipt_version, native_services=None):
-        return original_source_read(arguments, receipt_version=receipt_version)
+    def synthetic_source_read(arguments, *, receipt_version, root, native_services=None):
+        return original_source_read(arguments, receipt_version=receipt_version, root=root)
 
     monkeypatch.setattr(expansion_executor, "execute_read_graph_source", synthetic_source_read)
     # The native selected-observation adapter, with all host admission/persistence
@@ -265,10 +265,15 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
     assert response.knowledge_context.delivery_replay is False
 
 
+@pytest.mark.parametrize("long_instruction", [False, True])
 def test_ordinary_selected_proposal_is_persisted_in_same_conversation(
-    build_case, monkeypatch, tmp_path
+    build_case, monkeypatch, tmp_path, long_instruction
 ):
     case, calls = ordinary_case(build_case, monkeypatch, authoring=True)
+    if long_instruction:
+        source, request, bootstrap = case
+        case = (source, request.model_copy(update={"message": request.message * 140}), bootstrap)
+        assert len(case[1].message) > 4000
     decisions, writer = DecisionWire(operation="propose_build_insertion"), WriterWire()
     response = execute(
         case,
@@ -284,6 +289,7 @@ def test_ordinary_selected_proposal_is_persisted_in_same_conversation(
     assert isinstance(completion, ledger.BuildAuthoringCompletionV1)
     action = BuildProposalService().get("elderwyld", completion.action_id)
     assert action.state == "proposed" and not action.inserted_in_draft
+    assert action.reservation.instruction == case[1].message
     assert action.proposal.assumptions == ["Nia is invented."]
     assert action.authorization.provider_attempt_id == completion.provider_attempt_id
 
@@ -294,7 +300,9 @@ def test_default_ordinary_route_selects_jev_without_a_test_runtime_override(
     case, _ = ordinary_case(build_case, monkeypatch)
     from apps.live_control_server.services import build_jev_harness as module
 
-    decisions, writer = DecisionWire(), WriterWire()
+    from tests.test_rules_build_parent import RulesDecisionWire
+
+    decisions, writer = RulesDecisionWire(query=False), WriterWire()
     decision_provider, writer_provider = (
         module.TypeSafeDecisionProvider,
         module.OpenAITextProvider,

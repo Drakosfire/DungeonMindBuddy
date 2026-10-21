@@ -44,7 +44,8 @@ def _lock_current_claim(
     # Lock the owning turn first in every writer, matching normal completion.
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """SELECT status,revision,attempt,claim_expires_at
+            """SELECT status,revision,attempt,claim_expires_at,idempotency_key,
+                   submitted_intent_fingerprint_v1,submitted_intent_fingerprint_v2
             FROM agent.turn WHERE world_id=%s AND conversation_id=%s AND turn_id=%s FOR UPDATE""",
             (scope.world_id, scope.conversation_id, scope.turn_id),
         )
@@ -64,6 +65,17 @@ def _lock_current_claim(
         raise ApplicationStateConflictError(
             "Rules operation is fenced by a stale or expired turn claim"
         )
+    from .rules_authority_policy import capability_for_policy_sha256, rules_submission_authorization_id
+    capability = capability_for_policy_sha256(scope.capability_policy_sha256)
+    if capability is not None:
+        intents = [row[key] for key in ("submitted_intent_fingerprint_v1", "submitted_intent_fingerprint_v2") if row[key] is not None]
+        if len(intents) != 1:
+            raise ApplicationStateConflictError("Rules runtime requires one verified submitted-intent identity")
+        expected = rules_submission_authorization_id(world_id=scope.world_id,
+            conversation_id=scope.conversation_id, idempotency_key=row["idempotency_key"],
+            submitted_intent_sha256=intents[0], capability=capability)
+        if scope.authorization_id != expected:
+            raise ApplicationStateConflictError("Rules correlation differs from the actual logical submission")
 
 
 def _read_record_locked(conn, turn_id, product_attempt):
@@ -234,7 +246,7 @@ def append_lookup_event_locked(
             data = current.execution.model_dump(mode="json", by_alias=True)
             data["events"].append(event.model_dump(mode="json", by_alias=True))
             calls = [
-                item for item in data["events"] if item["kind"] == "tool_authorized"
+                item for item in data["events"] if item["kind"] in {"tool_authorized", "build_tool_authorized"}
             ]
             data["budget_use"]["calls"] = len(calls)
             data["budget_use"]["distinct_questions"] = len(

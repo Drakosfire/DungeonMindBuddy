@@ -11,7 +11,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
+from application_state.agent_conversation.types import BuildGraphContextReceiptV1, PlayWorldGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -28,7 +30,12 @@ from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryBuildTurnV3,
     AgentConversationHistoryResponseV2,
     AgentConversationHistoryResponseV3,
+    AgentConversationHistoryResponseV4,
+    AgentConversationHistoryMixedTurnV1,
+    AgentConversationHistoryPlayRulesTurnV1, AgentConversationHistoryPlaySourceTurnV1,
     AgentConversationHistoryPlanTurnV3,
+    AgentConversationHistoryPlayTurnV2,
+    AgentConversationHistoryPlayTurnV3,
     AgentConversationHistoryTurn,
     AgentConversationHistoryTurnV2,
     AgentConversationHistoryTurnV3,
@@ -64,6 +71,7 @@ from apps.live_control_server.services.agent_turn_service import (
     build_existing_graph_context,
     execute_agent_turn,
     project_plan_turn_context,
+    project_play_turn_context,
 )
 from apps.live_control_server.services.agent_runtime import AgentWorldScope
 from apps.live_control_server.services.agent_world_graph_query_context import (
@@ -764,12 +772,17 @@ def _plan_context_resolver(
         or owner.get("kind") != "world"
         or not managed_world_id
         or work is None
-        or work.kind not in {"plan", "build"}
+        or work.kind not in {"plan", "build", "run"}
         or (work.kind == "build" and work.build_source is None)
+        or (work.kind == "run" and (
+            body.surface.surface_id != "play"
+            or body.play_target is None
+            or work.play_context_receipt is None
+        ))
         or work.world_id != managed_world_id
     ):
         raise AgentTurnServiceError(
-            "auto_plan_world requires a saved Plan owned by the verified World.",
+            "The governed Graph turn requires saved work owned by the verified World.",
             code="plan_context_scope_rejected",
             status_code=403,
         )
@@ -828,8 +841,12 @@ def _plan_context_resolver(
                 "plan_graph_seed_selection", parent_span_id=parent_span_id,
             ) if trace else nullcontext()
         ):
-            candidates = selected_plan_graph_seed_candidates(
-                body.playable_target, work.plan_markdown or ""
+            candidates = (
+                ()
+                if work.kind == "run"
+                else selected_plan_graph_seed_candidates(
+                    body.playable_target, work.plan_markdown or ""
+                )
             )
     except AgentPlanPlayableTargetError as exc:
         raise AgentTurnServiceError(
@@ -1015,8 +1032,19 @@ def _plan_context_resolver(
             provider_dispatched=False,
         )
     use_bounded_index = stored_selection_policy == "parent_initial_retrieval_with_bounded_source_index_v1"
-    use_selected_index = stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1" or (
-        stored_selection_policy is None and bool(resolved_search.native_targets)
+    # Run work was already admitted with its Play surface/target above. Plan
+    # Action search intents intentionally carry no conversational surface.
+    native_play_scope = work.kind == "run"
+    if native_play_scope and stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1":
+        raise AgentTurnServiceError(
+            "The stored Play source scope uses an unsupported selected-index policy.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    use_selected_index = not native_play_scope and (
+        stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1" or (
+            stored_selection_policy is None and bool(resolved_search.native_targets)
+        )
     )
     source_scope_anchors: list[dict[str, str]] = []
     source_index_commitment: dict[str, Any] | None = None
@@ -1097,14 +1125,19 @@ def _plan_context_resolver(
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
     request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
-    if use_bounded_index or use_selected_index:
-        request_identity += b"\x00" + (work.plan_markdown or "").encode("utf-8")
+    native_play = native_play_scope
+    if use_bounded_index or use_selected_index or native_play:
+        request_identity += b"\x00" + (
+            (work.plan_markdown or "").encode("utf-8")
+            if work.kind != "run"
+            else work.play_context_receipt.model_dump_json(by_alias=True).encode("utf-8")
+        )
     source_session_id, initial_operation_id = (
         _source_session_handles(
             managed_world_id, body.turn_id, revision_id,
             sha256(request_identity).hexdigest(),
         )
-        if source_scope_anchors else (None, f"op:{uuid4().hex[:12]}")
+        if source_scope_anchors or native_play else (None, f"op:{uuid4().hex[:12]}")
     )
     session = GraphRetrievalSession(
         **({"id": source_session_id} if source_session_id is not None else {}),
@@ -1271,6 +1304,7 @@ def _verified_world_id(world_id: str) -> str:
         AgentConversationHistoryResponse
         | AgentConversationHistoryResponseV2
         | AgentConversationHistoryResponseV3
+        | AgentConversationHistoryResponseV4
     ),
 )
 def get_world_conversation_history(
@@ -1283,6 +1317,7 @@ def get_world_conversation_history(
     AgentConversationHistoryResponse
     | AgentConversationHistoryResponseV2
     | AgentConversationHistoryResponseV3
+    | AgentConversationHistoryResponseV4
 ):
     # Authenticate before managed World lookup and every APP-STATE read.
     enforce_native_graph_gm(request)
@@ -1342,11 +1377,37 @@ def get_world_conversation_history(
             pointer_revision=pointer.revision,
             turns=[],
         )
+    from apps.live_control_server.services.play_source_presentation import project_play_source_context
+    def source_only_play(turn):
+        meta = turn.envelope if isinstance(turn,MixedCompletedTurnV1) else turn
+        return (meta.provenance.surface_id == "play" and meta.play_context_receipt is not None
+            and (turn.base_projection.kind == "absent" if isinstance(turn,MixedCompletedTurnV1) else turn.graph_context_receipt is None))
+    contains_play_source = any(source_only_play(turn) for turn in turns)
+    contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
+    contains_play_context = any(
+        not isinstance(turn, MixedCompletedTurnV1)
+        and isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+        for turn in turns
+    )
     contains_plan_context = any(
-        turn.graph_context_receipt is not None for turn in turns
+        not isinstance(turn, MixedCompletedTurnV1)
+        and turn.graph_context_receipt is not None
+        and not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+        for turn in turns
     )
     history_turns = []
     for turn in turns:
+        if isinstance(turn, MixedCompletedTurnV1):
+            envelope = turn.envelope
+            mixed_model = AgentConversationHistoryPlayRulesTurnV1 if source_only_play(turn) else AgentConversationHistoryMixedTurnV1
+            history_turns.append(mixed_model(
+                turn_id=envelope.turn_id, sequence=envelope.sequence,
+                lifecycle_status=envelope.status, user_text=envelope.user_text,
+                assistant_text=turn.assistant_text, provenance=envelope.provenance,
+                idempotency_key=envelope.idempotency_key,
+                rules_context=project_rules_answer_context(turn, delivery_replay=True),
+                **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
+            continue
         values = {
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,
@@ -1355,7 +1416,7 @@ def get_world_conversation_history(
             "assistant_text": turn.assistant_text,
             "provenance": turn.provenance,
         }
-        if include_turn_correlation:
+        if include_turn_correlation or source_only_play(turn):
             persisted_key = getattr(turn, "idempotency_key", None)
             if not isinstance(persisted_key, UUID):
                 raise HTTPException(
@@ -1366,10 +1427,27 @@ def get_world_conversation_history(
                     },
                 )
             values["idempotency_key"] = persisted_key
-        if isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
+        if source_only_play(turn):
+            history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
+                play_source_context=project_play_source_context(turn,delivery_replay=True)))
+        elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
-                knowledge_context=project_plan_turn_context(turn, delivery_replay=False)))
+                knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
+        elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
+            play_model = (
+                AgentConversationHistoryPlayTurnV3
+                if include_turn_correlation
+                else AgentConversationHistoryPlayTurnV2
+            )
+            history_turns.append(
+                play_model(
+                    **values,
+                    play_context=project_play_turn_context(
+                        turn, delivery_replay=True
+                    ),
+                )
+            )
         elif turn.graph_context_receipt is not None:
             history_turns.append(
                 (
@@ -1378,7 +1456,7 @@ def get_world_conversation_history(
                 )(
                     **values,
                     plan_context=project_plan_turn_context(
-                        turn, delivery_replay=False
+                        turn, delivery_replay=True
                     ),
                 )
             )
@@ -1388,9 +1466,11 @@ def get_world_conversation_history(
                 if include_turn_correlation else AgentConversationHistoryTurn
             )
             history_turns.append(turn_model(**values))
-    if include_turn_correlation:
+    if contains_mixed or contains_play_source:
+        response_model = AgentConversationHistoryResponseV4
+    elif include_turn_correlation:
         response_model = AgentConversationHistoryResponseV3
-    elif contains_plan_context:
+    elif contains_plan_context or contains_play_context:
         response_model = AgentConversationHistoryResponseV2
     else:
         response_model = AgentConversationHistoryResponse
@@ -1404,7 +1484,8 @@ def get_world_conversation_history(
         # before_sequence is exclusive; using the first visible sequence gives
         # the caller the next older page without exposing repository ordering.
         next_before_sequence=(
-            turns[0].sequence if len(turns) == limit and turns else None
+            (turns[0].envelope.sequence if isinstance(turns[0], MixedCompletedTurnV1) else turns[0].sequence)
+            if len(turns) == limit and turns else None
         ),
     )
 
@@ -1491,6 +1572,51 @@ def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: s
         raise HTTPException(status_code=exc.status_code, detail={"code": "historical_passage_unavailable"}) from exc
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=409, detail={"code": "historical_passage_binding_invalid"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}")
+def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: str,
+        request: Request):
+    """One persisted cited capsule; historical identity never resolves current rules."""
+    from fastapi.responses import Response
+    from application_state.agent_conversation.rules_authority_passages import (
+        RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1,
+    )
+    from application_state.agent_conversation.rules_authority_types import canonical_bytes
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    try:
+        selectors = list(request.query_params.multi_items())
+        keys = {"conversation_id", "attempt", "support_sha256"}
+        if len(selectors) != len(keys) or {key for key, _ in selectors} != keys:
+            raise ValueError("Rules passage requires exact selectors")
+        query = dict(selectors)
+        if any(str(UUID(value)) != value for value in (turn_id, support_id, query["conversation_id"])):
+            raise ValueError("Rules passage requires canonical identifiers")
+        attempt = int(query["attempt"])
+        if str(attempt) != query["attempt"] or not 1 <= attempt <= 2147483647:
+            raise ValueError("Rules passage attempt is invalid")
+        reference = RulesHistoricalPassageRequestV1(world_id=verified,
+            conversation_id=UUID(query["conversation_id"]), turn_id=UUID(turn_id),
+            attempt=attempt, support_id=UUID(support_id), support_sha256=query["support_sha256"])
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail={"code": "rules_passage_selector_invalid"}) from exc
+    try:
+        stored = _conversation_service(request).inspect_rules_passage(reference)
+        # Revalidate the outward boundary, including injected service implementations.
+        passage = RulesHistoricalPassageV1.model_validate_json(stored.model_dump_json(by_alias=True))
+        if (passage.world_id, passage.conversation_id, passage.turn_id,
+            passage.accepted_attempt, passage.support.support_id, passage.support_sha256) != (
+            reference.world_id, reference.conversation_id, reference.turn_id,
+            reference.attempt, reference.support_id, reference.support_sha256):
+            raise ValueError("Rules passage differs from requested accepted identity")
+        return Response(content=canonical_bytes(passage), media_type="application/json",
+            headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "rules_passage_unavailable"}) from exc
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "rules_passage_binding_invalid"}) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)

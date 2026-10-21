@@ -1,3 +1,4 @@
+import { useRulesLookupProjection } from "../../rulesLookup/rulesLookupProjection";
 import {
   useCallback,
   useEffect,
@@ -615,6 +616,7 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   );
 
   usePublishSurfaceInteraction(publication);
+  useRulesLookupProjection("build", true);
 
   const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
 

@@ -1,3 +1,6 @@
+import { nativePlayContextFixture, nativePlayProvenanceFixture, nativePlayRequestFixture, nativePlaySourceFixture } from '../test/nativePlayContextFixture';
+import { rulesAnswerFixture, rulesUnclaimedFixture, fixtureHash } from '../test/rulesAnswerFixture';
+import { rulesCanonical } from '../rulesLookup/rulesEvidence';
 import { listPlaySceneEdits, proposePlaySceneEdit, type PlaySceneEditRecord } from "../api/playSceneEditApi";
 import { getWorldPlayRunContent, getWorldPlayRunContentCommand, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
 import { PlaySessionContentEditor } from "../playSurface/content/PlaySessionContentEditor";
@@ -10,7 +13,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -39,6 +42,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   listWorkspaceDocuments: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
+  getHistoricalRulesPassage: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
   })),
@@ -120,7 +124,7 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   const run = useMemo(() => admitted && !sessionCopy ? ({ worldId: WORLD, runId: editContent?.run_id ?? RUN,
     runRevision: 3, surfaceInstanceId: "play-instance",
     contentBasis: { edition_revision: 0, edition_revision_id: null, content_sha256: editContent?.content_sha256 ?? SHA },
-    beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy, editContent]);
+    beatId: "beat:crossing", sceneId: "scene:west-gate", beatTitle: "The Crossing", sceneTitle: "West Gate" }) : null, [admitted, sessionCopy, editContent]);
   usePublishAgentSurfaceContext(context);
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
@@ -204,8 +208,9 @@ function RealBuildPageHarness() {
 }
 
 function playResponse(request: WorldPlayAgentTurnRequestV1) {
+  const context = nativePlayContextFixture(request);
   return {
-    schema: "dmb_agent_turn_response_v1" as const, client_thread_id: request.client_thread_id, turn_id: request.turn_id,
+    schema: "dmb_agent_play_graph_turn_response_v1" as const, play_context: context, client_thread_id: request.client_thread_id, turn_id: request.turn_id,
     surface: { surface_id: "play", instance_id: "play-instance", status: "resolved" as const },
     owner_scope: { status: "resolved" as const, kind: "world" as const, owner_id: WORLD, name: "Test World" },
     primary_work: { status: "resolved" as const, kind: "run", object_id: RUN, revision_used: 3,
@@ -215,8 +220,8 @@ function playResponse(request: WorldPlayAgentTurnRequestV1) {
       ? { status: "not_requested" as const, world_id: null, campaign_id: null, scope_mode: null,
         revision_id: null, focus: null, selection_node_id: null, selection_found: null, head_revision_id: null, is_head: null }
       : { status: "ready" as const, world_id: "native-world-one", campaign_id: "", scope_mode: "world" as const,
-        revision_id: "native-revision-one", focus: { kind: "none" }, selection_node_id: null,
-        selection_found: null, head_revision_id: "native-revision-one", is_head: true },
+        revision_id: context.receipt.graph_authority.graph_revision, focus: { kind: "none" }, selection_node_id: null,
+        selection_found: null, head_revision_id: context.receipt.graph_authority.graph_revision, is_head: true },
     conversation: { client_thread_id: request.client_thread_id, turn_id: request.turn_id,
       pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "conversation-one" },
     answer: { status: "ok" as const, text: "Original Play answer", code: null, message: null,
@@ -687,7 +692,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(within(options).getByText("Conversation options", { selector: "summary" }));
     expect(within(options).getByText("World Graph and sources")).toBeVisible();
     expect(within(options).getByText("Generate images")).toBeVisible();
-    expect(within(options).getByText(/Not exposed to this conversation/)).toBeVisible();
+    expect(within(options).getByText("Open an editable saved page first.")).toBeVisible();
     expect(within(options).getByText("Enter to send · Shift+Enter for a new line.")).toBeVisible();
     expect(screen.queryByText("Conversation", { selector: "strong" })).not.toBeInTheDocument();
   });
@@ -775,7 +780,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
     fireEvent.change(sourceSelector, { target: { value: BUILD_SOURCE_ID } });
     await screen.findByTestId("build-markdown-editor");
-    fireEvent.click(screen.getByRole("button", { name: /What Buddy sees/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Show context" }));
     expect(await screen.findByText(/Buddy uses the saved source “City of Mirathorn”/)).toBeVisible();
     const savedComposer = screen.getByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(savedComposer).toBeEnabled());
@@ -783,7 +788,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     window.history.pushState({}, "", `/build?world=${WORLD}`);
     fireEvent(window, new PopStateEvent("popstate"));
     await screen.findByTestId("build-surface-empty");
-    fireEvent.click(screen.getByRole("button", { name: /What Buddy sees/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Show context" }));
     expect(await screen.findByText(/Buddy needs a saved source before you can ask about your lore/)).toBeVisible();
     expect(screen.queryByText(/Buddy uses the saved source “City of Mirathorn”/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
@@ -870,7 +875,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(composer, { target: { value: "Rewrite this Plan scene" } });
     fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
     expect(await screen.findByTestId("world-agent-conversation-host")).toBeInTheDocument();
-    expect(screen.getByText("Test World · Play · The Crossing · West Gate")).toBeInTheDocument();
+    expect(screen.getByTitle("Show Test World · Play · The Crossing · West Gate")).toBeInTheDocument();
     expect(await screen.findByLabelText("Message DungeonBuddy")).toHaveValue("");
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     expect(screen.getByText("Original Plan answer")).toBeInTheDocument();
@@ -882,16 +887,29 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
-  it("reconciles an uncertain Play turn after switching to Plan without reposting it", async () => {
+  it.each(['exact', 'other-edition', 'other-scene', 'failed', 'interrupted'] as const)("reconciles an uncertain Play turn after switching to Plan only for its exact basis: %s", async mode => {
     let phase: "initial" | "pending" | "completed" = "initial";
     let playTurnId = "";
-    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => history([
+    let submitted: WorldPlayAgentTurnRequestV1 | null = null;
+    function contextForHistory() {
+      const r = structuredClone(submitted!);
+      if (mode === 'other-edition') r.primary_work.play_content_basis = { edition_revision: 1,
+        edition_revision_id: '00000000-0000-4000-8000-000000000044', content_sha256: 'b'.repeat(64) };
+      if (mode === 'other-scene') r.play_target.scene_id = 'scene:other';
+      return nativePlayContextFixture(r, "Recovered Play answer");
+    }
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => ({ ...history(), schema: "dmb_agent_conversation_history_v2", turns: [
       turn("plan", 1, "Original Plan answer"),
       ...(phase === "initial" ? [] : [{ ...turn("play", 2, "Recovered Play answer"),
-        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" ? null : "Recovered Play answer",
-        lifecycle_status: phase === "pending" ? "pending" as const : "completed" as const }]),
-    ]));
+        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
+        lifecycle_status: phase === "pending" ? "running" as const : mode === 'failed' || mode === 'interrupted' ? mode : "completed" as const,
+        ...(submitted ? { play_context: { ...contextForHistory(), delivery_replay: true,
+          ...(phase === "pending" || mode === 'failed' || mode === 'interrupted' ? { completion: null,
+            execution: { schema: 'dmb_agent_plan_world_graph_execution_projection_v1' as const,
+              claimability: 'safe_to_reclaim_without_dispatch' as const, authorization_state: 'none' as const, automatic_redispatch: false as const } } : {}) }, provenance: nativePlayProvenanceFixture(contextForHistory()) } : {}) }]),
+    ] }));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
+      submitted = request;
       playTurnId = request.turn_id;
       phase = "pending";
       throw new Error("Connection lost after submit");
@@ -908,9 +926,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
     phase = "completed";
-    await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
-    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
-    expect(screen.queryByText(/Connection lost after submit/)).not.toBeInTheDocument();
+    if (mode === 'failed' || mode === 'interrupted') {
+      await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled(), { timeout: 7000 });
+      expect(screen.queryByText("Recovered Play answer")).not.toBeInTheDocument();
+      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
+    } else if (mode === 'exact') {
+      await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
+      await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+      expect(screen.queryByText(/Connection lost after submit/)).not.toBeInTheDocument();
+    } else {
+      await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull();
+    }
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 
@@ -938,6 +966,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const frozen = window.localStorage.getItem(storageKey);
     expect(JSON.parse(frozen ?? "null").request.graph_request).toEqual({ mode: "world", world_id: WORLD,
       campaign_id: null, revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } });
+    expect(JSON.parse(frozen ?? "null").request.play_target).toEqual({ beat_id: "beat:crossing",
+      scene_id: "scene:west-gate", marker_grammar_version: "v2" });
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -959,7 +989,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
       schema: "dmb_agent_turn_request_v1", client_thread_id: "00000000-0000-4000-8000-000000000021", turn_id: "00000000-0000-4000-8000-000000000022",
       surface: { surface_id: "play", instance_id: "play-instance" }, owner_scope: { kind: "world", world_id: WORLD },
       primary_work: { kind: "run", object_id: RUN, expected_revision: 3, play_content_basis: basis },
-      client_work_state: "saved_clean", graph_request: { mode: "none" }, graph_selection: null, message: "Saved edition question",
+      play_target: { beat_id: "beat:crossing", scene_id: "scene:west-gate", marker_grammar_version: "v2" },
+      client_work_state: "saved_clean", graph_request: { mode: "world", world_id: WORLD, campaign_id: null,
+        revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } }, graph_selection: null, message: "Saved edition question",
     };
     const key = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
     window.localStorage.setItem(key, JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request }));
@@ -971,8 +1003,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0].primary_work.play_content_basis).toEqual(basis);
   });
 
-  it("recovers an actual saved legacy graphless Play turn without changing its request", async () => {
-    const request: WorldPlayAgentTurnRequestV1 = {
+  it("retains and refuses a retired graphless Play request without dispatch", async () => {
+    const request = {
       schema: "dmb_agent_turn_request_v1",
       client_thread_id: "00000000-0000-4000-8000-000000000021",
       turn_id: "00000000-0000-4000-8000-000000000022",
@@ -988,11 +1020,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (posted) => playResponse(posted));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    const retry = await screen.findByRole("button", { name: "Retry exact saved turn" });
+    await screen.findByText(/saved Play request is malformed/i);
     expect(window.localStorage.getItem(storageKey)).toBe(serialized);
-    fireEvent.click(retry);
-    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
-    await waitFor(() => expect(window.localStorage.getItem(storageKey)).toBeNull());
+    expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
   it("accepts a replayed native Graph receipt for a saved managed World Play request", async () => {
@@ -1002,7 +1033,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
       turn_id: "00000000-0000-4000-8000-000000000032",
       surface: { surface_id: "play", instance_id: "play-instance" },
       owner_scope: { kind: "world", world_id: WORLD },
-      primary_work: { kind: "run", object_id: RUN, expected_revision: 3 },
+      primary_work: { kind: "run", object_id: RUN, expected_revision: 3, play_content_basis: { edition_revision: 0, edition_revision_id: null, content_sha256: SHA } },
+      play_target: { beat_id: "beat:one", scene_id: "scene:gate", marker_grammar_version: "v2" },
       client_work_state: "saved_clean",
       graph_request: { mode: "world", world_id: WORLD, campaign_id: null,
         revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },
@@ -1372,6 +1404,319 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByLabelText("Message DungeonBuddy")).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: /retry.*request/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['plan','play','build'] as const)('renders sealed Rules history and source controls on %s without losing the composer', async initial => {
+    const { context, answer, capsule } = rulesAnswerFixture();
+    const b = context.accepted_binding;
+    const row = { ...turn('play', 1, answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context };
+    const page = { ...history(), schema: 'dmb_agent_conversation_history_v4' as const,
+      conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(page);
+    vi.mocked(getHistoricalRulesPassage).mockResolvedValue(capsule);
+    render(<Harness initial={initial} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await screen.findAllByText(answer);
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(composer, { target: { value: 'Keep this unsent draft' } });
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
+    expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(capsule.support.excerpt_text);
+    expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
+    expect(composer).toHaveValue('Keep this unsent draft');
+    fireEvent.click(screen.getByRole('button', { name: /^(Close conversation|Close chat|Collapse)$/ }));
+    expect(screen.queryByRole('region', { name: 'Cited rules passage' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent draft');
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it('keeps Rules text alongside an independently approved Build base answer', async () => {
+    const base = await buildGraphContext();
+    const { context, answer, ruleText } = rulesAnswerFixture(base), b = context.accepted_binding;
+    const authority = base.receipt.graph_authority;
+    const ref = (kind: string, object_id: string, revision: string) => ({ resolution: 'resolved' as const, kind, object_id, revision,
+      content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
+    const original = turn('plan', 1, answer);
+    const row = { ...original, schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context,
+      provenance: { ...original.provenance, surface_id: 'build', surface_instance_id: 'build-instance',
+        supporting_work: [ref('dmb_build_source_visibility_v1', base.receipt.source_basis.visibility, '1'),
+          ref('dmb_build_graph_binding_v1', authority.native_world_id, String(authority.binding_version)),
+          ref('world_graph_revision', authority.native_world_id, authority.graph_revision)],
+        primary_work: { resolution: 'resolved' as const, kind: 'build', object_id: 'source-one', revision: '2', content_sha256: SHA,
+          object_revision: null, work_revision_id: null, revision_n: null } } };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+      conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
+    render(<Harness initial='plan' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await waitFor(() => expect(document.querySelector('.world-plan-agent-conversation__message--assistant .world-plan-agent-answer')).toHaveTextContent(ruleText));
+    const visibleAnswer = document.querySelector('.world-plan-agent-conversation__message--assistant .world-plan-agent-answer');
+    expect(visibleAnswer).toBeVisible();
+    expect(visibleAnswer).toHaveTextContent(base.completion!.answer_segments[0].text);
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['text','world','conversation','seal'] as const)('rejects mismatched mixed history %s before displaying source controls', async kind => {
+    const { context, answer } = rulesAnswerFixture(), b = context.accepted_binding;
+    const row = { ...turn('play', 1, answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: context };
+    if (kind === 'text') row.assistant_text += ' changed';
+    if (kind === 'world') b.world_id = 'other-world';
+    if (kind === 'conversation') b.conversation_id = b.turn_id;
+    if (kind === 'seal') context.accepted_binding_sha256 = '0'.repeat(64);
+    else context.accepted_binding_sha256 = fixtureHash(rulesCanonical(b));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+      conversation_id: '11111111-1111-4111-8111-111111111111', active_conversation_id: '11111111-1111-4111-8111-111111111111', turns: [row] });
+    render(<Harness initial='play' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText(/history.*(invalid|match|verified)|could not.*history|history.*unavailable/i)).toBeInTheDocument());
+    expect(screen.queryByText('Rules references')).not.toBeInTheDocument();
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['approved','unclaimed','bad_seal','bad_owner'] as const)('validates a live mixed Build reply before settling recovery: %s', async mode => {
+    const base = await buildGraphContext();
+    const fixture = mode === 'approved' ? rulesAnswerFixture(base) : rulesUnclaimedFixture(base), context = fixture.context, b = context.accepted_binding;
+    const current: WorldAgentConversationHistoryResponse = history();
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request => {
+      const { play_context: _unusedNativeContext, ...reply } = playResponse({ ...nativePlayRequestFixture(), client_thread_id: request.client_thread_id, turn_id: request.turn_id });
+      const contextForReply = structuredClone(context);
+      if (mode === 'bad_seal') contextForReply.accepted_binding_sha256 = '0'.repeat(64);
+      const conversation = { ...reply.conversation, conversation_id: mode === 'bad_owner' ? b.turn_id : b.conversation_id };
+      return { ...reply, schema: 'dmb_agent_rules_turn_response_v1', surface: { ...reply.surface, surface_id: 'build', instance_id: 'build-instance' },
+        primary_work: { ...reply.primary_work, kind: 'build', object_id: 'source-one', revision_used: 2, expected_revision: 2 },
+        client_work_state_reported: request.client_work_state, conversation,
+        graph: base ? { ...reply.graph, world_id: base.receipt.graph_authority.native_world_id, revision_id: base.receipt.graph_authority.graph_revision } : reply.graph,
+        answer: { ...reply.answer, text: fixture.answer, graph_grounded: b.graph_used }, rules_context: contextForReply };
+    });
+    render(<Harness initial='build' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: 'Discuss the source and occupied space.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const storageKey = 'dmb:world-play-pending-turn:v1:' + WORLD;
+    if (mode === 'bad_seal' || mode === 'bad_owner') {
+      await screen.findByText('The Rules reply did not match its accepted answer and sources. Check World history or explicitly retry the saved request with its original IDs.');
+      expect(localStorage.getItem(storageKey)).not.toBeNull();
+    } else {
+      await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
+      expect(screen.queryByText(/Rules reply did not match/)).not.toBeInTheDocument();
+    }
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['plan', 'play', 'build'] as const)('hosts native Play mixed evidence on %s without source reads or composer replacement', async initial => {
+    const base = nativePlayContextFixture(nativePlayRequestFixture(), 'The saved scene note describes the crossing.');
+    const f = rulesAnswerFixture(base), b = f.context.accepted_binding;
+    const row = { ...turn('play', 1, f.answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+      turn_id: b.turn_id, idempotency_key: '66666666-6666-4666-8666-666666666666', rules_context: f.context,
+      provenance: nativePlayProvenanceFixture(base) };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+      conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
+    vi.mocked(getHistoricalRulesPassage).mockResolvedValue(f.capsule);
+    render(<Harness initial={initial} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await screen.findByText(/saved scene note describes the crossing/);
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(composer, { target: { value: 'Keep this surface draft' } });
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
+    expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(f.capsule.support.excerpt_text);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
+    expect(composer).toHaveValue('Keep this surface draft');
+    expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['ordinary', 'mixed', 'unclaimed', 'unclaimed-edition', 'unclaimed-scene', 'edition', 'scene', 'world', 'note', 'text'] as const)('admits only the exact native Play live reply before settling recovery: %s', async mode => {
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async request => {
+      const sourceRequest = structuredClone(request);
+      if (mode === 'edition' || mode === 'unclaimed-edition') sourceRequest.primary_work.play_content_basis = { edition_revision: 2,
+        edition_revision_id: '00000000-0000-4000-8000-000000000044', content_sha256: 'b'.repeat(64) };
+      if (mode === 'scene' || mode === 'unclaimed-scene') sourceRequest.play_target.scene_id = 'scene:other';
+      if (mode === 'world') sourceRequest.owner_scope.world_id = 'other-world';
+      const base = nativePlayContextFixture(sourceRequest), response = { ...playResponse(request), play_context: base };
+      if (mode === 'note') base.receipt.play_basis.scene_note += ' changed';
+      if (mode === 'text') response.answer.text = 'An uncommitted answer';
+      if (mode === 'mixed' || mode.startsWith('unclaimed')) {
+        const f = mode === 'mixed' ? rulesAnswerFixture(base) : rulesUnclaimedFixture(base), b = f.context.accepted_binding;
+        const row = { ...turn('play', 1, f.answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+          turn_id: b.turn_id, user_text: request.message, idempotency_key: '66666666-6666-4666-8666-666666666666',
+          provenance: nativePlayProvenanceFixture(base), rules_context: f.context };
+        if (mode === 'mixed' || mode === 'unclaimed') vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+          conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
+        const { play_context: _unusedNativeContext, ...mixedResponse } = response;
+        return { ...mixedResponse, schema: 'dmb_agent_rules_turn_response_v1',
+          conversation: { ...response.conversation, conversation_id: b.conversation_id },
+          answer: { ...response.answer, text: f.answer }, rules_context: f.context };
+      }
+      if (mode === 'ordinary') vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v2',
+        turns: [{ ...turn('play', 1, response.answer.text), turn_id: request.turn_id, user_text: request.message,
+          play_context: base, provenance: nativePlayProvenanceFixture(base) }] });
+      return response;
+    });
+    render(<Harness initial='play' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: 'What rules apply at this crossing?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    const key = 'dmb:world-play-pending-turn:v1:' + WORLD;
+    if (mode === 'ordinary' || mode === 'mixed' || mode === 'unclaimed') {
+      await waitFor(() => expect(window.localStorage.getItem(key)).toBeNull());
+      if (mode !== 'unclaimed') await screen.findByText(/Original Play answer/);
+      if (mode === 'mixed' || mode === 'unclaimed') await screen.findByText('Rules references', { selector: 'summary' });
+    } else {
+      await screen.findByText(/reply did not match.*(Run edition|accepted answer)/);
+      expect(window.localStorage.getItem(key)).not.toBeNull();
+      expect(screen.queryByText('An uncommitted answer')).not.toBeInTheDocument();
+    }
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['live','lost'] as const)('settles a Graph-off Plan Rules reply with the original saved Plan: %s', async mode => {
+    const f = rulesAnswerFixture(), conversationId = f.context.accepted_binding.conversation_id;
+    let current: WorldAgentConversationHistoryResponse = {...history(),conversation_id:conversationId,active_conversation_id:conversationId};
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(async request => {
+      expect(request.graph_request).toEqual({mode:'none'});
+      expect(request.plan_context_policy).toBeUndefined();
+      const row = {...turn('plan',1,f.answer),schema:'dmb_agent_conversation_history_mixed_turn_v1' as const,
+        turn_id:f.context.accepted_binding.turn_id,user_text:request.message,
+        idempotency_key:await expectedHistoryCorrelationKey(WORLD,request.turn_id),rules_context:f.context,
+        provenance:{...turn('plan',1,f.answer).provenance,primary_work:{resolution:'resolved' as const,kind:'plan',object_id:'plan-one',
+          revision:'7',content_sha256:SHA,object_revision:7,work_revision_id:WORK_REVISION,revision_n:2}}};
+      current = {...current,schema:'dmb_agent_conversation_history_v4',turns:[row]};
+      if (mode === 'lost') throw new Error('Connection lost after accepted Plan Rules reply');
+      const reply = planResponse(request);
+      return {...reply,schema:'dmb_agent_rules_turn_response_v1',conversation:{...reply.conversation,conversation_id:conversationId},
+        answer:{...reply.answer,text:f.answer},rules_context:f.context};
+    });
+    render(<Harness initial='plan' />);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.click(screen.getByRole('button',{name:'Use Test World facts · On'}));
+    fireEvent.change(composer,{target:{value:'What occupancy rule applies?'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(() => expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(Object.keys(localStorage).filter(k => k.startsWith('dmb:world-plan-pending-ask:v1:'))).toEqual([]),{timeout:7000});
+    await screen.findByText(f.answer);
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['live','lost','ordinary','edition','scene','seal','note-body'] as const)('settles Graph-off Play only with its exact source identity: %s', async mode => {
+    const seed = rulesAnswerFixture(), conversationId = seed.context.accepted_binding.conversation_id;
+    let current: WorldAgentConversationHistoryResponse = { ...history(), conversation_id:conversationId, active_conversation_id:conversationId };
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async request => {
+      expect(request.graph_request).toEqual({mode:'none'});
+      const sourceRequest = structuredClone(request);
+      if (mode === 'edition') sourceRequest.primary_work.play_content_basis = {edition_revision:2,
+        edition_revision_id:'00000000-0000-4000-8000-000000000044',content_sha256:'b'.repeat(64)};
+      if (mode === 'scene') sourceRequest.play_target.scene_id = 'scene:other';
+      const source = nativePlaySourceFixture(sourceRequest), f = rulesAnswerFixture();
+      if (mode === 'seal') source.context.basis_sha256 = '0'.repeat(64);
+      if (mode === 'note-body') Object.assign(source.context.basis,{scene_note:'Private note bytes must not be in this projection.'});
+      const {play_context:_graph,...reply} = playResponse(request);
+      const ordinary = mode === 'ordinary';
+      if (mode === 'live' || mode === 'lost' || ordinary) {
+        const row = { ...turn('play',1,ordinary ? 'Ordinary Graph-off answer' : f.answer),
+          turn_id:f.context.accepted_binding.turn_id,user_text:request.message,
+          provenance:source.provenance,idempotency_key:await expectedHistoryCorrelationKey(WORLD,request.turn_id),
+          play_source_context:{...source.context,delivery_replay:true} };
+        current = { ...current,schema:'dmb_agent_conversation_history_v4',turns:[ordinary
+          ? {...row,schema:'dmb_agent_conversation_history_play_source_turn_v1'}
+          : {...row,schema:'dmb_agent_conversation_history_play_rules_turn_v1',lifecycle_status:'completed',assistant_text:f.answer,rules_context:f.context}] };
+      }
+      if (mode === 'lost') throw new Error('Connection lost after accepted Graph-off Play answer');
+      const common = {...reply,conversation:{...reply.conversation,conversation_id:conversationId},play_source_context:source.context};
+      return ordinary ? {...common,schema:'dmb_agent_play_source_turn_response_v1',answer:{...reply.answer,text:'Ordinary Graph-off answer'}}
+        : {...common,schema:'dmb_agent_play_rules_turn_response_v1',answer:{...reply.answer,text:f.answer},rules_context:f.context};
+    });
+    render(<Harness initial='play' />);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    if (!screen.queryByRole('button',{name:'Use Test World facts · On'})) {
+      fireEvent.click(screen.getByRole('button',{name:/^Show .*Play/}));
+    }
+    fireEvent.click(screen.getByRole('button',{name:'Use Test World facts · On'}));
+    fireEvent.change(composer,{target:{value:'What occupancy rule applies?'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    const pendingKey = 'dmb:world-play-pending-turn:v1:'+WORLD;
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+    if (mode === 'live' || mode === 'lost' || mode === 'ordinary') {
+      await waitFor(() => expect(localStorage.getItem(pendingKey)).toBeNull(),{timeout:7000});
+      await screen.findByText(mode === 'ordinary' ? 'Ordinary Graph-off answer' : fText());
+      fireEvent.change(composer,{target:{value:'Keep this next thought'}});
+      expect(composer).toHaveValue('Keep this next thought');
+    } else {
+      await screen.findByText(/reply did not match the saved Run edition/);
+      expect(localStorage.getItem(pendingKey)).not.toBeNull();
+    }
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    function fText() { return seed.answer; }
+  });
+
+  it.each(['live', 'lost', 'foreign-work', 'lost-foreign-work'] as const)('settles unclaimed Plan Rules replies only with the original frozen receipt: %s', async mode => {
+    const seed = rulesAnswerFixture();
+    let current: WorldAgentConversationHistoryResponse = { ...history(), conversation_id: seed.context.accepted_binding.conversation_id,
+      active_conversation_id: seed.context.accepted_binding.conversation_id };
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(async request => {
+      const base = await planGraphContext('plan_only_graph_unused', { request });
+      if (mode.includes('foreign-work')) {
+        base.receipt.plan_basis.work_revision_id = '00000000-0000-4000-8000-000000000099';
+        const { context_receipt_sha256: _, ...body } = base.receipt;
+        base.receipt.context_receipt_sha256 = fixtureHash(rulesCanonical(body));
+      }
+      const f = rulesUnclaimedFixture(base), b = f.context.accepted_binding;
+      if (mode.startsWith('lost')) {
+        const row = { ...turn('plan', 1, f.answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+          turn_id: b.turn_id, idempotency_key: await expectedHistoryCorrelationKey(WORLD, request.turn_id),
+          user_text: request.message, rules_context: f.context,
+          provenance: { ...turn('plan', 1, f.answer).provenance,
+            primary_work: { resolution: 'resolved' as const, kind: 'plan', object_id: 'plan-one', revision: '7', content_sha256: SHA,
+              object_revision: 7, work_revision_id: base.receipt.plan_basis.work_revision_id, revision_n: 2 } } };
+        current = { ...current, schema: 'dmb_agent_conversation_history_v4', turns: [row] };
+        throw new Error('Connection lost after the accepted Rules answer');
+      }
+      const response = planResponse(request);
+      return { ...response, schema: 'dmb_agent_rules_turn_response_v1',
+        conversation: { ...response.conversation, conversation_id: b.conversation_id },
+        answer: { ...response.answer, text: f.answer }, rules_context: f.context };
+    });
+    render(<Harness initial='plan' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: 'What occupancy rules apply here?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    const pending = () => Object.keys(localStorage).filter(k => k.startsWith('dmb:world-plan-pending-ask:v1:'));
+    if (mode === 'live' || mode === 'lost') {
+      await waitFor(() => expect(pending()).toHaveLength(0), { timeout: 7000 });
+    } else {
+      if (mode.startsWith('lost')) await screen.findByText(seed.ruleText, {}, { timeout: 7000 });
+      else await screen.findByText(/durable Ask result did not identify/);
+      expect(pending()).toHaveLength(1);
+    }
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
   });
 
 });

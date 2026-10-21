@@ -105,11 +105,16 @@ def setup(build_case, monkeypatch, **wire_options):
     return (source, request, bootstrap), reads, runtime, decision, wire
 
 
+@pytest.mark.parametrize("long_instruction", [False, True])
 @pytest.mark.parametrize("purpose", ["map", "illustration"])
 def test_image_operation_prepares_one_writer_and_reopens_without_generation(
-    build_case, monkeypatch, tmp_path, purpose
+    build_case, monkeypatch, tmp_path, purpose, long_instruction
 ):
     case, reads, runtime, decisions, wire = setup(build_case, monkeypatch, purpose=purpose)
+    if long_instruction:
+        source, request, bootstrap = case
+        case = (source, request.model_copy(update={"message": request.message * 70}), bootstrap)
+        assert len(case[1].message) > 4000
     response = execute(case, tmp_path, runtime, operator_subject="local_operator")
     completion = response.knowledge_context.completion
     assert isinstance(completion, ledger.BuildImagePreparationCompletionV1)
@@ -121,6 +126,7 @@ def test_image_operation_prepares_one_writer_and_reopens_without_generation(
     image = BuildImageService().get(completion.action_id, "local_operator")
     assert image.prompt == json.loads(wire.text)["prompt"] and image.asset_id is None
     assert image.purpose == purpose
+    assert image.reservation.instruction == case[1].message
     assert image.writer_proof.raw_response == wire.text
     assert (
         image.writer_proof.authorization.payload_sha256

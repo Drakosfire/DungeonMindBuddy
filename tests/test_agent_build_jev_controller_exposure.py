@@ -52,7 +52,8 @@ def _native_reads(adapter, monkeypatch, *, truncated=False, large=False, unrelat
     monkeypatch.setattr(direct,'direct_services_from_config',lambda _: SimpleNamespace())
     monkeypatch.setattr(direct,'get_object_with_reviewed_sources_direct_v3',graph)
     monkeypatch.setattr(owner._PolicyExecutionAdapter,'_related_recap_offers',lambda *_:[])
-    def read(arguments, *, receipt_version):
+    def read(arguments, *, receipt_version, root):
+        assert root is not None
         assert receipt_version == 2 and arguments['anchorIds'] == ['anchor-one']
         calls['source'] += 1
         digest = sha256(text.encode()).hexdigest()

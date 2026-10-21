@@ -93,8 +93,8 @@ def _validate_request(request: dict, receipt: PlayRunTurnContextReceiptV2) -> No
     if scene_id != receipt.scene_id or not isinstance(scene_id, str) or not _SCENE_ID.fullmatch(scene_id):
         raise ValueError("request Scene differs from its frozen context receipt")
     instruction = request["instruction"]
-    if not isinstance(instruction, str) or not instruction.strip() or len(instruction) > 8000:
-        raise ValueError("instruction must be non-empty and at most 8000 characters")
+    if not isinstance(instruction, str) or not instruction.strip():
+        raise ValueError("instruction must be non-empty")
 
 
 def validate_result(result: dict) -> None:

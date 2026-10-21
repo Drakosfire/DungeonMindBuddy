@@ -78,8 +78,7 @@ def prepare_image(harness, adapter, driver):
     owner = getattr(adapter, "build_image_owner", None)
     selection = driver.selection
     if (
-        len(adapter.request.message) > 4000
-        or cap is None
+        cap is None
         or not owner
         or selection.operation != "prepare_build_image"
         or digest(cap.model_dump(mode="json")) != selection.capability_sha256

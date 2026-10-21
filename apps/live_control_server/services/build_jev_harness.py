@@ -52,8 +52,9 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None):
         self.accounting = accounting
+        self.rules_capability = rules_capability
         self.decision_transport, self.writer_transport = (
             decision_transport,
             writer_transport,
@@ -115,15 +116,16 @@ class BuildJevHarness:
             _interrupt_policy_delivery,
         )
         from apps.live_control_server.models.agent_turn import (
-            AgentBuildGraphTurnResponseV1,
+            AgentBuildGraphTurnResponseV1, AgentRulesTurnResponseV1,
         )
+        from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 
         span = trace.start_phase("runtime_dispatch")
         try:
             completed = self.execute(adapter)
         except Exception as exc:
             trace.complete_phase(span, status="error")
-            if adapter.turn is not None and adapter.turn.status == "running":
+            if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
                 _interrupt_policy_delivery(adapter.service, adapter.turn)
             trace.finalize_and_log(
                 status="error",
@@ -148,6 +150,14 @@ class BuildJevHarness:
         payload = response.model_dump(mode="json", by_alias=True)
         payload["primary_work"]["revision_used"] = adapter.work.build_source.revision
         payload["answer"]["trace"] = final_trace
+        if isinstance(response, AgentRulesTurnResponseV1):
+            base_context = payload["rules_context"]["base_context"]
+            if base_context is not None:
+                base_context["delivery_replay"] = False
+            unclaimed_context = payload["rules_context"]["unclaimed_context"]
+            if unclaimed_context is not None:
+                unclaimed_context["delivery_replay"] = False
+            return AgentRulesTurnResponseV1.model_validate_json(json.dumps(payload))
         payload["knowledge_context"]["delivery_replay"] = False
         return AgentBuildGraphTurnResponseV1.model_validate(payload)
 
@@ -155,6 +165,8 @@ class BuildJevHarness:
         self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
+        if self.rules_capability is not None:
+            adapter.enable_rules_lookup(self.rules_capability)
         driver = adapter.create_build_jev_driver(with_actions=True)
         adapter.build_frozen_history = driver._interaction["history"]
         adapter.build_history_for_inclusion = tuple(
@@ -163,6 +175,8 @@ class BuildJevHarness:
         )
         try:
             asyncio.run(self._decide(adapter, driver))
+            if adapter.rules_runtime is not None:
+                adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":
                 from .build_image_writer import prepare_image
                 return prepare_image(self, adapter, driver)
@@ -218,6 +232,8 @@ class BuildJevHarness:
                     or (isinstance(terminal, FrontierDisposition)
                         and terminal.coverage_status != "catalog_exhausted")):
                 candidate = json.loads(result.text)
+                if candidate.get("schema") == "dmb_rules_mixed_answer_v1":
+                    candidate = candidate.get("base_output") or {}
                 if candidate.get("answer_context_status") in {
                     "source_grounded",
                     "graph_grounded",
@@ -333,7 +349,7 @@ class BuildJevHarness:
             if isinstance(driver, WriterSelectionDriver):
                 driver.accept_response(result)
             else:
-                driver.accept_decision(decision_policy.MODEL, sdk_answers(result))
+                driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
         except Exception as exc:
             self._failed(exc, started, "controller")
             raise
@@ -460,7 +476,7 @@ class BuildJevHarness:
 
     def _proposal(self, adapter, driver):
         capability = adapter.request.build_write_capability
-        if capability is None or len(adapter.request.message) > 4000:
+        if capability is None:
             raise ValueError(
                 "The selected proposal has no valid captured instruction/capability"
             )

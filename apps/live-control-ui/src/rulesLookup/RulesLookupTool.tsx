@@ -1,3 +1,4 @@
+import { RulesPassageView } from './RulesPassageView';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, getNativeGraphAccessGeneration, getRulesCatalog, getRulesPassage, queryRulesEvidence } from '../api/liveApi';
 import type { RulesCatalog, RulesHit, RulesLookupPacket, RulesPassage } from '../api/rulesLookupTypes';
@@ -132,12 +133,8 @@ export default function RulesLookupTool() {
       {!hit.excerpt_complete && <p>Excerpt; open the passage for full text.</p>}
       <button type="button" disabled={busy} onClick={() => void inspect(hit)}>Inspect cited passage</button>
     </article>)}
-    {passage && <section aria-label="Cited rules passage"><h3>{passage.section}</h3>
-      <p>{passage.source_title} · {rulesPageLabel(passage)}</p>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{passage.text}</p>
-      <p>{passage.attribution}</p>
-      <details><summary>Source identity</summary><p>Source: {passage.source_uri}</p><p>Corpus: {passage.corpus}</p><p>Passage SHA-256: {passage.text_sha256}</p></details>
-      <button type="button" onClick={() => setPassage(null)}>Close cited passage</button>
-    </section>}
+    {passage && <RulesPassageView section={passage.section} title={passage.source_title} page={rulesPageLabel(passage)}
+      text={passage.text} attribution={passage.attribution} sourceUri={passage.source_uri} corpus={passage.corpus}
+      textSha256={passage.text_sha256} onClose={() => setPassage(null)} />}
   </section>;
 }

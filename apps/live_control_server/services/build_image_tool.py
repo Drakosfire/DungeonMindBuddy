@@ -70,7 +70,7 @@ class BuildImageTool:
                     }
                 ),
                 idempotency_key=uuid5(self.capability.idempotency_key, "image"),
-                instruction=args["prompt"][:4000],
+                instruction=args["prompt"],
                 origin=BuildProposalOrigin(
                     client_turn_id=self.client_turn_id,
                     durable_turn_id=turn.turn_id,

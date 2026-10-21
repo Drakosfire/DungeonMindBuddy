@@ -10,6 +10,8 @@ from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
+from .rules_authority_policy import rules_capability
+
 from .rules_authority_types import (
     AnswerCompositionV1,
     ClosedRulesModel,
@@ -76,6 +78,29 @@ class RulesToolAuthorizedV1(RulesEventBaseV1):
         return self
 
 
+def build_rules_operation_id(origin: UUID, request_id: str, operation_index: int, query_id: str) -> str:
+    return "build-rules:" + canonical_sha256([str(origin), request_id, operation_index, query_id])
+
+
+class RulesBuildToolAuthorizedV1(RulesToolAuthorizedV1):
+    kind: Literal["build_tool_authorized"]
+    origin_provider_attempt_id: UUID
+    origin_request_envelope_sha256: Digest
+    decision_request_id: Identity
+    operation_index: Annotated[int, Field(ge=0, le=5)]
+
+    @model_validator(mode="after")
+    def exact_operation_identity(self):
+        if self.call_id != build_rules_operation_id(self.origin_provider_attempt_id,
+                self.decision_request_id, self.operation_index, self.query_id):
+            raise ValueError("Build Rules operation differs from its authorized decision identity")
+        return self
+
+
+BuildRulesCarrierV1 = Literal["dmb_build_jev_driver_decision_v2", "dmb_build_jev_driver_continuation_v1",
+    "dmb_build_jev_phase_controller_v1", "dmb_build_source_passage_writer_v1", "dmb_build_jev_writer_packet_v1"]
+
+
 class RulesQueryObservedV1(RulesEventBaseV1):
     kind: Literal["query_observed"]
     call_id: Identity
@@ -116,11 +141,87 @@ class RulesProviderIncludedV1(RulesEventBaseV1):
     support_refs: Annotated[tuple[RulesSupportRefV1, ...], Field(max_length=16)]
 
 
+class RulesBuildProviderAuthorizedV1(RulesProviderAuthorizedV1):
+    kind: Literal["build_provider_authorized"]
+    role: Literal["controller", "writer"]
+    carrier_schema: BuildRulesCarrierV1
+    request_id: Identity
+    prior_provider_attempt_id: UUID | None
+
+
+class RulesBuildProviderIncludedV1(RulesProviderIncludedV1):
+    kind: Literal["build_provider_included"]
+    role: Literal["controller", "writer"]
+    carrier_schema: BuildRulesCarrierV1
+    request_id: Identity
+    prior_provider_attempt_id: UUID | None
+
+
 class RulesProviderOutcomeV1(RulesEventBaseV1):
     kind: Literal["provider_outcome"]
     provider_attempt_id: UUID
     request_envelope_sha256: Digest
     status: Literal["tool_calls", "answered", "failed", "unknown"]
+
+
+class RulesNativeProviderOutcomeV1(RulesProviderOutcomeV1):
+    """Seal the exact uncapped native final reply without storing its body."""
+
+    kind: Literal["native_provider_outcome"]
+    provider: Annotated[str, Field(min_length=1, max_length=256)]
+    model: Annotated[str, Field(min_length=1, max_length=256)]
+    api_mode: Literal["chat_completions", "codex_responses"]
+    authorization_id: Annotated[str, Field(min_length=1, max_length=256)]
+    api_request_id: Annotated[str, Field(min_length=1, max_length=256)]
+    output_sha256: Digest
+    output_utf8_bytes: Annotated[int, Field(ge=1, le=262144)]
+    finish_reason: Literal["stop"]
+    tool_call_count: Literal[0]
+
+    @classmethod
+    def from_capture(
+        cls,
+        capture,
+        *,
+        event_id: UUID,
+        sequence: int,
+        execution_id: UUID,
+        provider_attempt_id: UUID,
+        request_envelope_sha256: str,
+    ) -> "RulesNativeProviderOutcomeV1":
+        text = getattr(capture, "text", None)
+        if not isinstance(text, str):
+            raise ValueError("Native Rules outcome requires complete captured text")
+        encoded = text.encode("utf-8")
+        output_sha256 = sha256(encoded).hexdigest()
+        if (
+            getattr(capture, "request_sha256", None)
+            != request_envelope_sha256
+            or getattr(capture, "text_sha256", None) != output_sha256
+            or getattr(capture, "text_utf8_bytes", None) != len(encoded)
+            or getattr(capture, "status", None) != "answered"
+            or getattr(capture, "finish_reason", None) != "stop"
+            or getattr(capture, "tool_calls", ())
+            or not encoded
+            or len(encoded) > 262144
+        ):
+            raise ValueError("Native Rules outcome requires a complete final reply")
+        return cls(
+            event_id=event_id,
+            sequence=sequence,
+            execution_id=execution_id,
+            kind="native_provider_outcome",
+            provider=capture.provider, model=capture.model, api_mode=capture.api_mode,
+            provider_attempt_id=provider_attempt_id,
+            request_envelope_sha256=request_envelope_sha256,
+            status="answered",
+            authorization_id=capture.authorization_id,
+            api_request_id=capture.api_request_id,
+            output_sha256=output_sha256,
+            output_utf8_bytes=len(encoded),
+            finish_reason="stop",
+            tool_call_count=0,
+        )
 
 
 class RulesCompletionBoundV1(RulesEventBaseV1):
@@ -137,10 +238,14 @@ class RulesCompletionBoundV1(RulesEventBaseV1):
 
 RulesEventV1 = Annotated[
     RulesToolAuthorizedV1
+    | RulesBuildToolAuthorizedV1
     | RulesQueryObservedV1
     | RulesProviderAuthorizedV1
     | RulesProviderIncludedV1
+    | RulesBuildProviderAuthorizedV1
+    | RulesBuildProviderIncludedV1
     | RulesProviderOutcomeV1
+    | RulesNativeProviderOutcomeV1
     | RulesCompletionBoundV1,
     Field(discriminator="kind"),
 ]
@@ -247,6 +352,14 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError(
                         "Rules tool capability exhausted its admission budget"
                     )
+                if isinstance(event, RulesBuildToolAuthorizedV1):
+                    origin = providers.get(event.origin_provider_attempt_id)
+                    outcome = outcomes.get(event.origin_provider_attempt_id)
+                    if (not isinstance(origin, RulesBuildProviderAuthorizedV1) or origin.role != "controller"
+                            or origin.request_envelope_sha256 != event.origin_request_envelope_sha256
+                            or origin.request_id != event.decision_request_id
+                            or outcome is None or outcome.status not in {"answered", "tool_calls"}):
+                        raise ValueError("Build Rules lookup lacks its acknowledged originating controller")
                 if event.call_id in calls or event.query_id != query_identity(
                     self.scope, event.normalized_question
                 ):
@@ -301,6 +414,27 @@ class RulesExecutionV1(ClosedRulesModel):
                     )
                 observations[event.call_id] = event
             elif isinstance(event, RulesProviderAuthorizedV1):
+                if isinstance(event, RulesBuildProviderAuthorizedV1):
+                    cap = rules_capability(graph=True)
+                    if (self.scope.capability_policy_sha256 != cap.policy_sha256
+                            or self.scope.corpus_sha256 != cap.corpus_sha256 or self.scope.ruleset_id != cap.ruleset_id):
+                        raise ValueError("Build Rules provider lacks its frozen typed policy")
+                    previous = list(providers.values())[-1] if providers else None
+                    if previous is None and (event.sequence != 0 or event.role != "controller"
+                            or event.carrier_schema != "dmb_build_jev_driver_decision_v2"
+                            or event.matched_outputs or event.declared_support_refs):
+                        raise ValueError("First Build Rules request must be a source-free initial controller")
+                    if event.prior_provider_attempt_id != (previous.provider_attempt_id if previous else None):
+                        raise ValueError("Build Rules provider has a stale prior attempt")
+                    if previous is not None and (not isinstance(previous, RulesBuildProviderAuthorizedV1)
+                            or outcomes.get(previous.provider_attempt_id) is None
+                            or outcomes[previous.provider_attempt_id].status not in {"answered", "tool_calls"}):
+                        raise ValueError("Build Rules provider lacks an acknowledged prior attempt")
+                    if any(isinstance(item, RulesBuildProviderAuthorizedV1) and item.request_id == event.request_id for item in providers.values()):
+                        raise ValueError("Build Rules decision request identity was reused")
+                    controller = event.carrier_schema in {"dmb_build_jev_driver_decision_v2", "dmb_build_jev_driver_continuation_v1", "dmb_build_jev_phase_controller_v1"}
+                    if controller != (event.role == "controller"):
+                        raise ValueError("Build Rules role differs from its carrier")
                 if event.provider_attempt_id in providers:
                     raise ValueError("Rules provider authorization identity was reused")
                 self._check_output_refs(event.matched_outputs, observations)
@@ -321,6 +455,12 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError(
                         "Rules inclusion has no matching current provider authorization"
                     )
+                if isinstance(auth, RulesBuildProviderAuthorizedV1) != isinstance(event, RulesBuildProviderIncludedV1):
+                    raise ValueError("Rules provider inclusion changed its input carrier")
+                if isinstance(auth, RulesBuildProviderAuthorizedV1) and any(
+                        getattr(event, key) != getattr(auth, key) for key in (
+                            "role", "carrier_schema", "request_id", "prior_provider_attempt_id")):
+                    raise ValueError("Build Rules inclusion differs from its authorized role/request")
                 self._check_output_refs(event.matched_outputs, observations)
                 if event.matched_outputs != auth.matched_outputs or ref_map(
                     event.support_refs
@@ -345,6 +485,14 @@ class RulesExecutionV1(ClosedRulesModel):
                 ):
                     raise ValueError(
                         "Rules provider outcome has no unique authorization"
+                    )
+                if isinstance(event, RulesNativeProviderOutcomeV1) and (
+                    isinstance(auth, RulesBuildProviderAuthorizedV1)
+                    or event.status != "answered"
+                    or event.provider_attempt_id not in inclusions
+                ):
+                    raise ValueError(
+                        "Native Rules outcome lacks its final included non-Build input"
                     )
                 outcomes[event.provider_attempt_id] = event
             else:
@@ -406,6 +554,8 @@ class RulesExecutionV1(ClosedRulesModel):
             or outcome.status != "answered"
         ):
             raise ValueError("Rules answer lacks an acknowledged producing input")
+        if isinstance(auth, RulesBuildProviderAuthorizedV1) and auth.role != "writer":
+            raise ValueError("A Build controller cannot produce an accepted Rules answer")
         if (
             completion.execution_id != self.scope.execution_id
             or completion.request_envelope_sha256 != auth.request_envelope_sha256

@@ -113,7 +113,7 @@ class PlanActionContinuation(StrictModel):
     continuation_of_action_id: UUID
     clarification_id: UUID
     previous_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    previous_instruction: str = Field(min_length=1, max_length=4000)
+    previous_instruction: str = Field(min_length=1)
 
 
 class PlanActionConsultationReceipt(StrictModel):
@@ -135,7 +135,7 @@ class PlanActionConsultationReceipt(StrictModel):
     draft_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     target_kind: Literal["replace_selection"]
     selected_text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1)
     action_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     authority_status: Literal["resolved", "unavailable"] = "resolved"
     authority_failure_code: str | None = Field(default=None, min_length=1, max_length=128)
@@ -396,7 +396,7 @@ class PlanActionReservation(StrictModel):
     selected_text_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     playable_target_receipt: PlanActionPlayableTargetReceipt | None = None
     selection_anchor: PlanActionSelectionAnchorV1 | None = None
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_target_witness(self):

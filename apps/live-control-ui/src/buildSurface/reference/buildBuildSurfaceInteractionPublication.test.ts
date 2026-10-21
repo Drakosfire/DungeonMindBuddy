@@ -1,3 +1,4 @@
+import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION } from "../../rulesLookup/rulesLookupProjection";
 import { describe, expect, it, vi } from "vitest";
 
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
@@ -39,7 +40,7 @@ const sampleContext: BuildReferenceContextBinding = {
 };
 
 describe("buildBuildSurfaceInteractionPublication", () => {
-  it("returns empty inventory when documentId is null", () => {
+  it("publishes only Rules when documentId is null", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: null,
       acceptedDocument: null,
@@ -47,16 +48,16 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
     expect(publication.editCommands).toEqual([]);
-    expect(publication.projections).toEqual([]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
     expect(publication.projectionBindings).toEqual([]);
     expect(publication.canvas).toBeNull();
     expect(publication.identity.surfaceId).toBe("build");
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
-  it("returns empty inventory when accepted document is missing", () => {
+  it("publishes only Rules when accepted document is missing", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: null,
@@ -64,12 +65,12 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([]);
-    expect(publication.projections).toEqual([]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
-  it("fails closed when accepted document id mismatches route documentId", () => {
+  it("retains no document authority when accepted document id mismatches route documentId", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: { documentId: "other-doc", campaignId: "longmont-c1" },
@@ -77,12 +78,12 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
     expect(publication.canvas).toBeNull();
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
-  it("fails closed when reference context is missing for an accepted document", () => {
+  it("retains no document authority when reference context is missing for an accepted document", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
@@ -90,8 +91,8 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([]);
-    expect(publication.projections).toEqual([]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
@@ -119,8 +120,8 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       canvasId: "markdown-canvas",
       workObject: { kind: "document", id: DOC_ID },
     });
-    expect(publication.tools).toHaveLength(1);
-    expect(publication.tools[0]).toMatchObject({
+    expect(publication.tools).toHaveLength(2);
+    expect(publication.tools[1]).toMatchObject({
       id: BUILD_FIND_EXISTING_TOOL_ID,
       label: "Find existing object",
       eyebrow: "World Graph",
@@ -137,6 +138,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       },
     });
     expect(publication.projections).toEqual([
+      RULES_LOOKUP_PROJECTION,
       {
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         kind: "tool",
@@ -183,7 +185,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools[0]?.availability).toEqual({
+    expect(publication.tools[1]?.availability).toEqual({
       status: "disabled",
       disabledReason:
         "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
@@ -214,6 +216,6 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools[0]?.availability).toEqual({ status: "enabled" });
+    expect(publication.tools[1]?.availability).toEqual({ status: "enabled" });
   });
 });

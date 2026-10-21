@@ -55,6 +55,7 @@ RULES_BUDGET_V1 = RulesBudgetV1(calls=6, distinct_questions=4, hits_per_query=4,
 
 
 class RulesScopeV1(ClosedRulesModel):
+    """Full claim authority; authorization_id is logical correlation, never a bearer token."""
     schema_: Literal["dmb_rules_scope_v1"] = Field(alias="schema")
     execution_id: UUID
     world_id: Annotated[str, Field(min_length=1, max_length=256)]

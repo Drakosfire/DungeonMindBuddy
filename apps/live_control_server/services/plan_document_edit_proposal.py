@@ -114,8 +114,6 @@ preserve the exact card body safely. Never claim that you wrote or saved the Pla
 """
 
 _PROPOSAL_CONTEXT_PAIR_LIMIT = 6
-_PROPOSAL_CONTEXT_MESSAGE_LIMIT = 4000
-_PROPOSAL_CONTEXT_TRUNCATION_SUFFIX = " …[truncated]"
 
 
 def _digest(text: str) -> str:
@@ -395,15 +393,6 @@ def _raise_for_action_status(action: Any) -> None:
     raise PlanDocumentEditProposalError(code, message, status_code=409)
 
 
-def _bounded_context_text(text: str) -> str:
-    if len(text) <= _PROPOSAL_CONTEXT_MESSAGE_LIMIT:
-        return text
-    prefix_length = (
-        _PROPOSAL_CONTEXT_MESSAGE_LIMIT - len(_PROPOSAL_CONTEXT_TRUNCATION_SUFFIX)
-    )
-    return text[:prefix_length] + _PROPOSAL_CONTEXT_TRUNCATION_SUFFIX
-
-
 def _context_timestamp_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("completed context timestamp must include a timezone")
@@ -513,10 +502,10 @@ def _server_owned_proposal_history(
         messages.extend(
             (
                 PlanEditHistoryMessage(
-                    role="user", content=_bounded_context_text(question_or_instruction)
+                    role="user", content=question_or_instruction
                 ),
                 PlanEditHistoryMessage(
-                    role="assistant", content=_bounded_context_text(answer_or_summary)
+                    role="assistant", content=answer_or_summary
                 ),
             )
         )

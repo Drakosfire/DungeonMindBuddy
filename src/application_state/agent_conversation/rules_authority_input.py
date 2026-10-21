@@ -14,7 +14,8 @@ from .rules_authority_events import (
     RulesProviderAuthorizedV1,
     RulesProviderIncludedV1,
     RulesQueryObservedV1,
-    RulesToolAuthorizedV1,
+    RulesToolAuthorizedV1, RulesBuildToolAuthorizedV1,
+    RulesBuildProviderAuthorizedV1, RulesBuildProviderIncludedV1,
     normalized_question,
     ref_map,
 )
@@ -88,7 +89,13 @@ def verify_prepared_input(
             elif message.get("role") == "tool":
                 admit_output(message.get("tool_call_id"), message.get("content"))
     else:
-        raise ValueError("Unknown or ambiguous Rules provider input representation")
+        if not isinstance(event, (RulesBuildProviderAuthorizedV1, RulesBuildProviderIncludedV1)):
+            raise ValueError("Unknown or ambiguous Rules provider input representation")
+        from .rules_authority_build_input import verify_build_prepared_input
+        verify_build_prepared_input(execution, event, body)
+        return
+    if isinstance(event, (RulesBuildProviderAuthorizedV1, RulesBuildProviderIncludedV1)):
+        raise ValueError("Build Rules provider cannot use a synthetic function transcript")
     authorizations = {
         item.call_id: item
         for item in execution.events
@@ -109,6 +116,7 @@ def verify_prepared_input(
         observed = observations.get(call_id)
         if (
             auth is None
+            or isinstance(auth, RulesBuildToolAuthorizedV1)
             or observed is None
             or not isinstance(arguments, str)
             or not isinstance(raw, str)

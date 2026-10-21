@@ -1,6 +1,6 @@
 # Shared navigation width
 
-Status: ACTIVE. Explicit operator request on 2026-10-20 to examine and standardize the navigation across Plan, Play, Ingest and Build.
+Status: DELIVERED. Source review cycle1 approved exact32f7c5a7707c846b875b76ed71511fdeb5e70eb7; merged04e44374300a985e247941fb03de6bdaa01662b3 (identical tree). UI5202 adopted index-CKtaN8p7.js, index SHA719006fd22f101ddd9f4044660f1ae6a33decf33ec3cd57f41a45a49f300d5b4; prior assets/index retained, API unchanged. Author live four-surface measurements share left20/right1385.5557/width1365.5557 with no horizontal overflow; narrow preview also matched. Independent17 shell/notes tests passed; typecheck/build author verified. Temporary5213 and redundant preview output removed after live byte comparison. Explicit operator request on 2026-10-20 to examine and standardize the navigation across Plan, Play, Ingest and Build.
 
 ## Decision and boundary
 

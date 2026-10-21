@@ -1,3 +1,4 @@
+import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION } from "../../rulesLookup/rulesLookupProjection";
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
 import type {
   GraphReferenceResolution,
@@ -75,16 +76,16 @@ function buildBuildIdentity(documentId: string | null) {
   });
 }
 
-function buildEmptyInventoryPublication(documentId: string | null): SurfaceInteractionPublication {
+function buildRulesOnlyPublication(documentId: string | null): SurfaceInteractionPublication {
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,
     identity: buildBuildIdentity(documentId),
     canvas: null,
     agentContext: null,
-    tools: [],
+    tools: [RULES_LOOKUP_TOOL],
     editCommands: [],
-    projections: [],
+    projections: [RULES_LOOKUP_PROJECTION],
     projectionBindings: [],
   };
 }
@@ -128,7 +129,7 @@ export function buildBuildSurfaceInteractionPublication(
   const { documentId, acceptedDocument, referenceContext, worldGraphChannel, documentSave = null } = input;
 
   if (!isAcceptedDocument(documentId, acceptedDocument) || referenceContext == null) {
-    return buildEmptyInventoryPublication(documentId);
+    return buildRulesOnlyPublication(documentId);
   }
 
   const admittedDocumentId = acceptedDocument.documentId;
@@ -154,6 +155,7 @@ export function buildBuildSurfaceInteractionPublication(
     },
     agentContext: null,
     tools: [
+      RULES_LOOKUP_TOOL,
       {
         id: BUILD_FIND_EXISTING_TOOL_ID,
         label: "Find existing object",
@@ -173,6 +175,7 @@ export function buildBuildSurfaceInteractionPublication(
     ],
     editCommands,
     projections: [
+      RULES_LOOKUP_PROJECTION,
       {
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         kind: "tool",

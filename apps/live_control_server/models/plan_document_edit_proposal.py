@@ -13,7 +13,7 @@ class PlanEditHistoryMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=4000)
+    content: str = Field(min_length=1)
 
 
 class WorldPlanPlayableTarget(BaseModel):
@@ -41,7 +41,7 @@ class PlanDocumentEditProposalRequest(BaseModel):
     draft_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     target_kind: Literal["replace_selection", "insert_at_caret"]
     selected_text: str = Field(max_length=8000)
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1)
     conversation_history: list[PlanEditHistoryMessage] = Field(default_factory=list, max_length=12)
 
 
@@ -67,7 +67,7 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
     body_serialization_version: Literal["plan-playable-body-markdown-v1"] | None = None
     target_body_markdown: str | None = Field(default=None, max_length=8000)
     target_body_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1)
     conversation_history: list[PlanEditHistoryMessage] = Field(default_factory=list, max_length=12)
 
     @model_validator(mode="before")

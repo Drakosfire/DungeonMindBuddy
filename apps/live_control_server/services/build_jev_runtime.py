@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 
+from application_state.agent_conversation.rules_authority_policy import rules_capability
+
 from .build_jev_accounting import ExperimentalAccounting
 from .build_jev_harness import BuildJevHarness
 
@@ -97,7 +99,9 @@ class PreparedBuildJevRuntime:
             raise BuildJevRuntimeUnavailable(
                 self.unavailable_reason or "tokenizer_not_prepared"
             )
-        return BuildJevHarness(accounting=self.accounting)
+        return BuildJevHarness(
+            accounting=self.accounting, rules_capability=rules_capability(graph=True)
+        )
 
 
 def prepare_default_build_runtime() -> PreparedBuildJevRuntime:

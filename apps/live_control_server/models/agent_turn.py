@@ -16,8 +16,11 @@ from application_state.agent_conversation.context_trace import TurnContextTraceV
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
 
+from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV1, canonical_sha256
+
 from application_state.agent_conversation.types import (
-    PlayContentBasis,
+    PlayContentBasis, PlayRunTurnContextReceiptV1,
+    GraphContextReceipt,
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
@@ -28,8 +31,11 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphCompletionV1,
     PlanWorldGraphCompletionV2,
     PlanWorldGraphContextReceiptV1,
+    PlayWorldGraphCompletionV1,
+    PlayWorldGraphContextReceiptV1,
     PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
+    SubmittedPlayTargetV1,
     TurnProvenance,
     CommandResolutionRecordV1,
 )
@@ -233,13 +239,14 @@ class AgentTurnRequest(BaseModel):
     owner_scope: AgentTurnOwner | None
     primary_work: AgentTurnPrimaryWork | None
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
+    play_target: SubmittedPlayTargetV1 | None = None
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
     selected_knowledge: AgentKnowledgeSelection | None = None
     build_write_capability: BuildWriteCapability | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
     @classmethod
@@ -348,6 +355,17 @@ class AgentTurnRequest(BaseModel):
                 raise ValueError("Play Run Graph requires the current owner World without narrative focus")
             if self.graph_request.mode not in {"none", "world"}:
                 raise ValueError("Play Run Graph requires World scope")
+            if self.primary_work.play_content_basis is None or self.play_target is None:
+                raise ValueError("Native Play turns require an exact saved edition and Beat/Scene target")
+        if self.play_target is not None and (
+            self.surface.surface_id != "play"
+            or self.primary_work is None
+            or self.primary_work.kind != "run"
+            or self.client_work_state != "saved_clean"
+            or self.graph_request.mode not in {"none", "world"}
+            or self.graph_selection is not None
+        ):
+            raise ValueError("Play target requires an exact saved Run with current World or no Graph scope")
         if (
             self.surface.surface_id == "play"
             and self.graph_request.mode != "none"
@@ -639,11 +657,30 @@ class AgentPlanWorldGraphContextResponseV2(BaseModel):
     )
 
 
+class AgentPlayWorldGraphContextResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_play_world_graph_context_response_v1"] = Field(
+        default="dmb_agent_play_world_graph_context_response_v1", alias="schema"
+    )
+    receipt: PlayWorldGraphContextReceiptV1
+    completion: PlayWorldGraphCompletionV1 | None
+    execution: AgentPlanWorldGraphExecutionProjectionV1 | None
+    delivery_replay: bool
+
+
 class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
     )
     plan_context: AgentPlanWorldGraphContextResponseV2
+
+
+class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
+    schema_: Literal["dmb_agent_play_graph_turn_response_v1"] = Field(
+        default="dmb_agent_play_graph_turn_response_v1", alias="schema"
+    )
+    play_context: AgentPlayWorldGraphContextResponseV1
 
 
 class AgentSavedBuildSectionTargetV1(BaseModel):
@@ -684,6 +721,129 @@ class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
     knowledge_context: AgentBuildGraphContextResponseV1
 
 
+class AgentPlaySourceBasisV1(PlayRunTurnContextReceiptV1):
+    """Immutable Play identity only, without note text or Graph authority."""
+    schema_: Literal["dmb_agent_play_source_basis_v1"] = Field(default="dmb_agent_play_source_basis_v1", alias="schema")
+    world_id: str = Field(min_length=1, max_length=128)
+    edition_revision: int = Field(strict=True, ge=0)
+    edition_revision_id: UUID | None
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    scene_note_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_edition(self):
+        PlayContentBasis(edition_revision=self.edition_revision,
+            edition_revision_id=self.edition_revision_id,content_sha256=self.content_sha256)
+        if self.edition_revision == 0 and self.content_sha256 != self.runbook_content_sha256:
+            raise ValueError("Initial Play source digest differs from its origin")
+        if self.scene_id is None and self.scene_note_sha256 is not None:
+            raise ValueError("Play source without a Scene cannot have a saved-note digest")
+        return self
+
+
+class AgentPlaySourceContextV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_play_source_context_v1"] = Field(default="dmb_agent_play_source_context_v1", alias="schema")
+    basis: AgentPlaySourceBasisV1
+    basis_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    delivery_replay: bool
+
+    @model_validator(mode="after")
+    def exact_basis_seal(self):
+        if canonical_sha256(self.basis) != self.basis_sha256:
+            raise ValueError("Play source identity differs from its canonical seal")
+        return self
+
+
+class AgentPlaySourceTurnResponseV1(AgentTurnResponse):
+    schema_: Literal["dmb_agent_play_source_turn_response_v1"] = Field(default="dmb_agent_play_source_turn_response_v1", alias="schema")
+    play_source_context: AgentPlaySourceContextV1
+
+    @model_validator(mode="after")
+    def exact_play_source(self):
+        _validate_play_source_response(self)
+        return self
+
+
+def _validate_play_source_response(response):
+    basis = response.play_source_context.basis
+    if (response.surface.surface_id != "play" or response.owner_scope.owner_id != basis.world_id
+            or response.primary_work.kind != "run" or response.primary_work.object_id != basis.run_id
+            or response.primary_work.revision_used != basis.run_revision
+            or response.graph.status != "not_requested" or response.answer.graph_grounded
+            or any(value is not None for key,value in response.graph.model_dump().items() if key != "status")):
+
+        raise ValueError("Play source response differs from its owning Run or absent Graph")
+
+
+class AgentRulesUnclaimedContextV1(BaseModel):
+    """Frozen execution identity only; it grants no base answer/source claims."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_rules_unclaimed_context_v1"] = Field(default="dmb_agent_rules_unclaimed_context_v1", alias="schema")
+    receipt: GraphContextReceipt
+    execution: AgentPlanWorldGraphExecutionProjectionV1
+    delivery_replay: bool
+
+    @model_validator(mode="after")
+    def terminal_execution(self):
+        if (self.execution.claimability != "completed"
+                or self.execution.authorization_state != "response_received"):
+            raise ValueError("Unclaimed Rules context requires its acknowledged completed execution")
+        return self
+
+
+class AgentRulesAnswerContextV1(BaseModel):
+    """Sealed answer attribution; source bytes require a separate admitted read."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_rules_answer_context_v1"] = Field(
+        default="dmb_agent_rules_answer_context_v1", alias="schema")
+    accepted_binding: RulesAcceptedBindingV1
+    accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    unclaimed_context: AgentRulesUnclaimedContextV1 | None
+
+    @model_validator(mode="after")
+    def validate_accepted_context(self):
+        if canonical_sha256(self.accepted_binding) != self.accepted_binding_sha256:
+            raise ValueError("Rules context differs from accepted seal")
+        approved = self.accepted_binding.base_disposition == "approved"
+        if (self.accepted_binding.base_disposition == "unclaimed") != (self.unclaimed_context is not None):
+            raise ValueError("Only an unclaimed base has execution-only context")
+        if self.unclaimed_context is not None:
+            receipt = self.unclaimed_context.receipt
+            if receipt.graph_authority.managed_world_id != self.accepted_binding.world_id:
+                raise ValueError("Unclaimed Rules context belongs to another World")
+        if approved != (self.base_context is not None):
+            raise ValueError("Only an independently approved base has answer context")
+        if self.base_context is not None:
+            completion = self.base_context.completion
+            if completion is None or self.accepted_binding.graph_used != ("world_graph" in completion.answer_basis):
+                raise ValueError("Rules context cannot relabel base Graph grounding")
+        return self
+
+    def validate_answer(self, text: str):
+        segments = () if self.base_context is None else tuple(
+            item.text for item in self.base_context.completion.answer_segments)
+        self.accepted_binding.validate_text(text, segments)
+
+
+class AgentRulesTurnResponseV1(AgentTurnResponse):
+    schema_: Literal["dmb_agent_rules_turn_response_v1"] = Field(
+        default="dmb_agent_rules_turn_response_v1", alias="schema")
+    rules_context: AgentRulesAnswerContextV1
+
+    @model_validator(mode="after")
+    def validate_accepted_answer(self):
+        binding = self.rules_context.accepted_binding
+        if (self.owner_scope.kind != "world" or self.owner_scope.owner_id != binding.world_id
+            or self.conversation.conversation_id != binding.conversation_id
+            or self.answer.status != "ok" or self.answer.text is None
+            or self.answer.graph_grounded != binding.graph_used):
+            raise ValueError("Rules response differs from accepted owner or answer grounding")
+        self.rules_context.validate_answer(self.answer.text)
+        return self
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -707,6 +867,26 @@ class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
     plan_context: AgentPlanWorldGraphContextResponseV2
+
+
+class AgentPlayRulesTurnResponseV1(AgentRulesTurnResponseV1):
+    schema_: Literal["dmb_agent_play_rules_turn_response_v1"] = Field(default="dmb_agent_play_rules_turn_response_v1", alias="schema")
+    play_source_context: AgentPlaySourceContextV1
+
+    @model_validator(mode="after")
+    def exact_play_rules_source(self):
+        _validate_play_source_response(self)
+        if self.rules_context.accepted_binding.base_disposition != "absent":
+            raise ValueError("Rules-only Play cannot acquire a Graph base")
+        return self
+
+
+class AgentConversationHistoryPlayTurnV2(AgentConversationHistoryTurn):
+    play_context: AgentPlayWorldGraphContextResponseV1
+
+
+class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
+    play_context: AgentPlayWorldGraphContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
@@ -752,14 +932,93 @@ class AgentConversationHistoryResponseV2(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v2"] = Field(
         default="dmb_agent_conversation_history_v2", alias="schema"
     )
-    turns: list[AgentConversationHistoryBuildTurnV2 | AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+    turns: list[
+        AgentConversationHistoryBuildTurnV2
+        | AgentConversationHistoryPlayTurnV2
+        | AgentConversationHistoryTurnV2
+        | AgentConversationHistoryTurn
+    ]
 
 
 class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v3"] = Field(
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
-    turns: list[AgentConversationHistoryBuildTurnV3 | AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+    turns: list[
+        AgentConversationHistoryBuildTurnV3
+        | AgentConversationHistoryPlanTurnV3
+        | AgentConversationHistoryPlayTurnV3
+        | AgentConversationHistoryTurnV3
+    ]
+
+
+class AgentConversationHistoryMixedTurnV1(AgentConversationHistoryTurnV3):
+    schema_: Literal["dmb_agent_conversation_history_mixed_turn_v1"] = Field(
+        default="dmb_agent_conversation_history_mixed_turn_v1", alias="schema")
+    lifecycle_status: Literal["completed"]
+    assistant_text: str = Field(min_length=1, max_length=32000)
+    rules_context: AgentRulesAnswerContextV1
+
+    @model_validator(mode="after")
+    def validate_mixed_history_answer(self):
+        binding = self.rules_context.accepted_binding
+        if self.turn_id != binding.turn_id or self.provenance.world_id != binding.world_id:
+            raise ValueError("Mixed history answer differs from accepted owner")
+        self.rules_context.validate_answer(self.assistant_text)
+        return self
+
+
+class AgentConversationHistoryPlaySourceTurnV1(AgentConversationHistoryTurnV3):
+    schema_: Literal["dmb_agent_conversation_history_play_source_turn_v1"] = Field(default="dmb_agent_conversation_history_play_source_turn_v1", alias="schema")
+    play_source_context: AgentPlaySourceContextV1
+
+    @model_validator(mode="after")
+    def exact_play_source_owner(self):
+        _validate_play_source_history(self)
+        return self
+
+
+class AgentConversationHistoryPlayRulesTurnV1(AgentConversationHistoryMixedTurnV1):
+    schema_: Literal["dmb_agent_conversation_history_play_rules_turn_v1"] = Field(default="dmb_agent_conversation_history_play_rules_turn_v1", alias="schema")
+    play_source_context: AgentPlaySourceContextV1
+
+    @model_validator(mode="after")
+    def exact_play_rules_owner(self):
+        _validate_play_source_history(self)
+        if self.rules_context.accepted_binding.base_disposition != "absent":
+            raise ValueError("Rules-only Play history cannot carry a Graph base")
+        return self
+
+
+def _validate_play_source_history(row):
+    from application_state.agent_conversation.types import decode_play_run_turn_context_references
+    provenance, basis = row.provenance, row.play_source_context.basis
+    structural = decode_play_run_turn_context_references(provenance.primary_work,provenance.supporting_work)
+    if (provenance.world_id != basis.world_id or provenance.surface_id != "play"
+            or provenance.surface_resolution != "resolved" or provenance.selected_object.resolution != "absent"
+            or structural is None or any(ref.kind in {"world_graph_revision","dmb_play_graph_binding_v1"} for ref in provenance.supporting_work)
+            or any(getattr(structural,key) != getattr(basis,key) for key in type(structural).model_fields if key != "schema_")):
+        raise ValueError("Graph-off Play history source differs from its frozen provenance")
+
+
+class AgentConversationHistoryResponseV4(AgentConversationHistoryResponse):
+    schema_: Literal["dmb_agent_conversation_history_v4"] = Field(
+        default="dmb_agent_conversation_history_v4", alias="schema")
+    turns: list[AgentConversationHistoryPlayRulesTurnV1 | AgentConversationHistoryPlaySourceTurnV1 |
+        AgentConversationHistoryMixedTurnV1 | AgentConversationHistoryBuildTurnV3 |
+        AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryPlayTurnV3 |
+        AgentConversationHistoryTurnV3 | AgentConversationHistoryBuildTurnV2 |
+        AgentConversationHistoryPlayTurnV2 | AgentConversationHistoryTurnV2 |
+        AgentConversationHistoryTurn]
+
+    @model_validator(mode="after")
+    def validate_mixed_page_owner(self):
+        for turn in self.turns:
+            if isinstance(turn, AgentConversationHistoryMixedTurnV1):
+                binding = turn.rules_context.accepted_binding
+                if (binding.world_id, binding.conversation_id) != (self.world_id, self.conversation_id):
+                    raise ValueError("Mixed history answer belongs to another conversation")
+        return self
 
 
 class AgentHistoricalSourcePassageResponseV1(BaseModel):

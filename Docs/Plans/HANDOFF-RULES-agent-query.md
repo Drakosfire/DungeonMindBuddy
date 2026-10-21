@@ -1,6 +1,6 @@
 # R2 — Buddy rules tool, deduplicated exposure and durable citations
 
-**Status:** ACCEPTED overarching R2 design after1503 merge49e319b820814cd3351165ee74fc6fe0d40df1e4. Closed decision1504 merged6d8d340fc23e2e4b25aea0341b74eb7ae2c42808; persistence prerequisite R2A is separately ACTIVE, R2B tool activation remains blocked. R1 limited user seam is accepted after1502 (0468e6c92051af319a47966ff8f70bfe6bb34f92). Operator authorized Agent-queryable rules lookup. Buddy owns runtime/policy/broker/history/answer presentation; no sibling repo edits, dependency downgrade, new corpus ingestion, graph experiment or Combat scope in this slice.
+**Status:** ACCEPTED overarching R2 design after1503 merge49e319b820814cd3351165ee74fc6fe0d40df1e4. Closed decision1504 merged6d8d340fc23e2e4b25aea0341b74eb7ae2c42808; persistence prerequisite R2A is accepted after1505 merge55ab48ebce184ac5fe2d952c0bdf1e0a03eb8532 and verified local0041 adoption. R2B runtime contract closure/activation is next under HANDOFF-RULES-runtime-lookup.md; no tool activation is inherited. R1 limited user seam is accepted after1502 (0468e6c92051af319a47966ff8f70bfe6bb34f92). Operator authorized Agent-queryable rules lookup. Buddy owns runtime/policy/broker/history/answer presentation; no sibling repo edits, dependency downgrade, new corpus ingestion, graph experiment or Combat scope in this slice.
 
 ## Capability and request boundary
 

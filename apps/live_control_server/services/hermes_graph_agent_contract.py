@@ -17,6 +17,10 @@ from graph_memory.hermes_graph_plugin import (
     HermesGraphScope,
     HermesPluginActivation,
     HermesToolCapabilityRule,
+    validate_capability_policy_structure,
+)
+from application_state.agent_conversation.rules_authority_policy import (
+    RulesCapabilityV1,
 )
 
 HermesGraphAgentStatus = Literal["ok", "error"]
@@ -29,11 +33,11 @@ PROCESS_ISOLATION_MODE: ProcessIsolationMode = "process_exclusive"
 MAX_WIRE_BYTES = 262144
 MAX_PROVIDER_REQUEST_BYTES = 1_050_000
 DEFAULT_PROVIDER_REQUEST_BYTES = 256_000
-MAX_QUESTION_CHARS = 8000
+MAX_QUESTION_CHARS = MAX_WIRE_BYTES
 MAX_ID_CHARS = 256
 MAX_SESSION_ID_CHARS = 256
 MAX_HISTORY_MESSAGES = 32
-MAX_MESSAGE_CHARS = 8000
+MAX_MESSAGE_CHARS = MAX_WIRE_BYTES
 MAX_FOCUS_KEYS = 8
 MAX_FOCUS_VALUE_CHARS = 256
 ALLOWED_FOCUS_KEYS = frozenset({"kind", "sessionId", "campaignId"})
@@ -76,6 +80,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "inputKind",
         "requestBudget",
         "providerAuthorizationRequired",
+        "nativeRulesCaptureRequired",
         "parentGraphBrokerRequired",
         "graphReadProfile",
     }
@@ -89,6 +94,7 @@ _POLICY_ALLOWED_KEYS = frozenset(
         "enabledToolsets",
         "enabledToolNames",
         "graphScope",
+        "rulesCapability",
         "pluginActivations",
         "toolRules",
     }
@@ -98,7 +104,13 @@ _SCOPE_ALLOWED_KEYS = frozenset(
 )
 _ACTIVATION_ALLOWED_KEYS = frozenset({"pluginId", "toolsets"})
 _RULE_ALLOWED_KEYS = frozenset(
-    {"toolName", "toolset", "requireGraphScope", "allowedEffects"}
+    {
+        "toolName",
+        "toolset",
+        "requireGraphScope",
+        "requireRulesAuthority",
+        "allowedEffects",
+    }
 )
 _RESULT_ALLOWED_KEYS = frozenset(
     {
@@ -145,7 +157,9 @@ _SAFE_TRANSPORT_EXCEPTION_CLASSES = frozenset(
     {"RemoteProtocolError", "ReadTimeout", "ConnectError", "ConnectionError"}
 )
 _SAFE_PROVIDER_RESPONSE_STATUSES = frozenset({"incomplete", "failed", "other"})
-_SAFE_INCOMPLETE_REASONS = frozenset({"max_output_tokens", "length", "content_filter", "unspecified", "other"})
+_SAFE_INCOMPLETE_REASONS = frozenset(
+    {"max_output_tokens", "length", "content_filter", "unspecified", "other"}
+)
 _MODEL_CALL_ALLOWED_KEYS = frozenset(
     {
         "call_id",
@@ -293,18 +307,25 @@ class HermesGraphAgentTurnRequest:
     retrieval_session: Mapping[str, Any] | None = None
     surface_context_block: str | None = None
     plan_continuity_turn: bool = False
-    input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = "ordinary_question"
+    input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = (
+        "ordinary_question"
+    )
     request_budget: Mapping[str, Any] | None = None
     provider_authorization_required: bool = False
+    native_rules_capture_required: bool = False
     parent_graph_broker_required: bool = False
     graph_read_profile: Literal["world_graph", "governed_build"] = "world_graph"
 
     def __post_init__(self) -> None:
-        if not isinstance(self.graph_read_profile, str) or self.graph_read_profile not in ("world_graph", "governed_build"):
+        if not isinstance(
+            self.graph_read_profile, str
+        ) or self.graph_read_profile not in ("world_graph", "governed_build"):
             raise ValueError("invalid internal Graph read profile")
 
 
-def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
+def _reject_unknown_keys(
+    payload: Mapping[str, Any], allowed: frozenset[str], *, label: str
+) -> None:
     unknown = set(payload.keys()) - allowed
     if unknown:
         raise ValueError(f"{label} contains unknown keys: {sorted(unknown)}")
@@ -338,8 +359,13 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         "maxGraphOperations",
     }
     _reject_unknown_keys(value, frozenset(allowed), label="requestBudget")
-    schema = _require_str(value.get("schema"), label="requestBudget.schema", max_chars=64)
-    if schema not in {"dmb_hermes_request_budget_policy_v1", "dmb_agent_request_budget_uncapped_v1"}:
+    schema = _require_str(
+        value.get("schema"), label="requestBudget.schema", max_chars=64
+    )
+    if schema not in {
+        "dmb_hermes_request_budget_policy_v1",
+        "dmb_agent_request_budget_uncapped_v1",
+    }:
         raise ValueError("requestBudget.schema is unsupported")
     result: dict[str, Any] = {"schema": schema}
     for key in ("provider", "model", "apiMode"):
@@ -350,26 +376,44 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
             raise ValueError(f"requestBudget.{key} must be non-empty")
     if result["provider"] != "openai-api":
         raise ValueError("requestBudget.provider is unsupported")
-    estimator = _require_str(value.get("estimator"), label="requestBudget.estimator", max_chars=64)
+    estimator = _require_str(
+        value.get("estimator"), label="requestBudget.estimator", max_chars=64
+    )
     if estimator != "utf8_json_bytes_plus_64_per_node_v1":
         raise ValueError("requestBudget.estimator is unsupported")
     result["estimator"] = estimator
-    for key, maximum in (("contextLimitTokens", 10_000_000), ("outputReserveTokens", 1_000_000)):
+    for key, maximum in (
+        ("contextLimitTokens", 10_000_000),
+        ("outputReserveTokens", 1_000_000),
+    ):
         raw = value.get(key)
-        if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0 or raw > maximum:
+        if (
+            isinstance(raw, bool)
+            or not isinstance(raw, int)
+            or raw <= 0
+            or raw > maximum
+        ):
             raise ValueError(f"requestBudget.{key} is outside its supported range")
         result[key] = raw
     if result["outputReserveTokens"] >= result["contextLimitTokens"]:
         raise ValueError("requestBudget output reserve must be below the context limit")
     if "graphToolPageBytes" in value:
         page_bytes = value["graphToolPageBytes"]
-        if isinstance(page_bytes, bool) or not isinstance(page_bytes, int) or not 8_000 <= page_bytes <= 32_000:
-            raise ValueError("requestBudget.graphToolPageBytes is outside its supported range")
+        if (
+            isinstance(page_bytes, bool)
+            or not isinstance(page_bytes, int)
+            or not 8_000 <= page_bytes <= 32_000
+        ):
+            raise ValueError(
+                "requestBudget.graphToolPageBytes is outside its supported range"
+            )
         result["graphToolPageBytes"] = page_bytes
     if "maxProviderRequestBytes" in value:
         result["maxProviderRequestBytes"] = provider_request_byte_limit(value)
     reservation_keys = (
-        "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+        "maxProviderAttempts",
+        "maxToolCapableAttempts",
+        "maxGraphOperations",
     )
     if schema == "dmb_agent_request_budget_uncapped_v1":
         if not all(key in value and value[key] is None for key in reservation_keys):
@@ -385,7 +429,11 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
             ("maxGraphOperations", 128),
         ):
             raw = value[key]
-            if isinstance(raw, bool) or not isinstance(raw, int) or not 1 <= raw <= maximum:
+            if (
+                isinstance(raw, bool)
+                or not isinstance(raw, int)
+                or not 1 <= raw <= maximum
+            ):
                 raise ValueError(f"requestBudget.{key} is outside its supported range")
             result[key] = raw
         if result["maxToolCapableAttempts"] >= result["maxProviderAttempts"]:
@@ -395,8 +443,11 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
 
 def _require_final_answer_reservation(budget: Mapping[str, Any] | None) -> None:
     if budget is None or not all(
-        key in budget for key in (
-            "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+        key in budget
+        for key in (
+            "maxProviderAttempts",
+            "maxToolCapableAttempts",
+            "maxGraphOperations",
         )
     ):
         raise ValueError("parent Graph broker requires final-answer reservation limits")
@@ -456,7 +507,9 @@ def _serialize_focus(focus: Mapping[str, Any] | None) -> dict[str, str | None] |
             bounded[key] = None
         elif isinstance(raw, str):
             if len(raw) > MAX_FOCUS_VALUE_CHARS:
-                raise ValueError(f"focus.{key} exceeds max length {MAX_FOCUS_VALUE_CHARS}")
+                raise ValueError(
+                    f"focus.{key} exceeds max length {MAX_FOCUS_VALUE_CHARS}"
+                )
             bounded[key] = raw
         else:
             raise ValueError(f"focus.{key} must be a string or null")
@@ -484,7 +537,9 @@ def _require_nonempty_str(value: Any, *, label: str, max_chars: int) -> str:
 
 def _validate_history_pairs(items: Sequence[Mapping[str, Any]]) -> None:
     if len(items) % 2 != 0:
-        raise ValueError("conversationHistory must contain complete user/assistant pairs")
+        raise ValueError(
+            "conversationHistory must contain complete user/assistant pairs"
+        )
     for index, item in enumerate(items):
         expected_role = "user" if index % 2 == 0 else "assistant"
         role = item.get("role")
@@ -508,12 +563,16 @@ def _serialize_history(
         return None
     items = list(history)
     if len(items) > MAX_HISTORY_MESSAGES:
-        raise ValueError(f"conversationHistory exceeds max messages {MAX_HISTORY_MESSAGES}")
+        raise ValueError(
+            f"conversationHistory exceeds max messages {MAX_HISTORY_MESSAGES}"
+        )
     bounded: list[dict[str, str]] = []
     for index, item in enumerate(items):
         if not isinstance(item, Mapping):
             raise ValueError("conversationHistory entries must be mappings")
-        _reject_unknown_keys(item, frozenset({"role", "content"}), label="conversationHistory entry")
+        _reject_unknown_keys(
+            item, frozenset({"role", "content"}), label="conversationHistory entry"
+        )
         role = _require_str(
             item.get("role"),
             label="conversationHistory.role",
@@ -526,7 +585,9 @@ def _serialize_history(
             label="conversationHistory.content",
             max_chars=MAX_MESSAGE_CHARS,
         )
-        bounded.append({"role": role, "content": _clip_str(content, max_chars=MAX_MESSAGE_CHARS)})
+        bounded.append(
+            {"role": role, "content": _clip_str(content, max_chars=MAX_MESSAGE_CHARS)}
+        )
     _validate_history_pairs(bounded)
     return bounded
 
@@ -575,11 +636,18 @@ def decode_json_wire(raw: bytes | bytearray | memoryview | str) -> dict[str, Any
     return parsed
 
 
-
 def provider_request_byte_limit(budget: Mapping[str, Any] | None) -> int:
-    value = (budget or {}).get("maxProviderRequestBytes", DEFAULT_PROVIDER_REQUEST_BYTES)
-    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= MAX_PROVIDER_REQUEST_BYTES:
-        raise ValueError("requestBudget.maxProviderRequestBytes is outside its supported range")
+    value = (budget or {}).get(
+        "maxProviderRequestBytes", DEFAULT_PROVIDER_REQUEST_BYTES
+    )
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 1 <= value <= MAX_PROVIDER_REQUEST_BYTES
+    ):
+        raise ValueError(
+            "requestBudget.maxProviderRequestBytes is outside its supported range"
+        )
     return value
 
 
@@ -593,17 +661,39 @@ def _provider_frame_limit(body_limit: int) -> int:
 def _validate_provider_frame(message: dict[str, Any], body_limit: int) -> None:
     import hashlib
 
-    if set(message) != {"type", "requestId", "authorizationId", "view"} or message.get("type") != "provider_authorization_request":
+    if (
+        set(message) != {"type", "requestId", "authorizationId", "view"}
+        or message.get("type") != "provider_authorization_request"
+    ):
         raise ValueError("provider authorization frame has invalid fields")
     view = message.get("view")
     if not isinstance(view, dict) or set(view) != {
-        "provider", "model", "apiMode", "baseUrl", "payloadJson", "payloadSha256", "payloadUtf8Bytes",
+        "provider",
+        "model",
+        "apiMode",
+        "baseUrl",
+        "payloadJson",
+        "payloadSha256",
+        "payloadUtf8Bytes",
     }:
         raise ValueError("provider authorization view has invalid fields")
-    for value in (message["requestId"], message["authorizationId"], view["provider"], view["model"], view["apiMode"]):
-        if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > MAX_ID_CHARS * 4:
+    for value in (
+        message["requestId"],
+        message["authorizationId"],
+        view["provider"],
+        view["model"],
+        view["apiMode"],
+    ):
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value.encode("utf-8")) > MAX_ID_CHARS * 4
+        ):
             raise ValueError("provider authorization metadata is invalid")
-    if view["baseUrl"] is not None and (not isinstance(view["baseUrl"], str) or len(view["baseUrl"].encode("utf-8")) > MAX_ROOT_CHARS * 4):
+    if view["baseUrl"] is not None and (
+        not isinstance(view["baseUrl"], str)
+        or len(view["baseUrl"].encode("utf-8")) > MAX_ROOT_CHARS * 4
+    ):
         raise ValueError("provider authorization base URL is invalid")
     payload = view["payloadJson"]
     if not isinstance(payload, str):
@@ -612,34 +702,73 @@ def _validate_provider_frame(message: dict[str, Any], body_limit: int) -> None:
     if len(raw) > body_limit:
         raise ValueError("provider_request_bytes_exceeded")
     size = view["payloadUtf8Bytes"]
-    if isinstance(size, bool) or not isinstance(size, int) or size != len(raw) or view["payloadSha256"] != hashlib.sha256(raw).hexdigest():
+    if (
+        isinstance(size, bool)
+        or not isinstance(size, int)
+        or size != len(raw)
+        or view["payloadSha256"] != hashlib.sha256(raw).hexdigest()
+    ):
         raise ValueError("provider authorization payload integrity mismatch")
 
 
-def encode_provider_authorization_wire(message: dict[str, Any], *, body_limit: int) -> bytes:
+def encode_provider_authorization_wire(
+    message: dict[str, Any], *, body_limit: int
+) -> bytes:
     _validate_provider_frame(message, body_limit)
-    raw = json.dumps(message, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    raw = json.dumps(
+        message, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
     if len(raw) > _provider_frame_limit(body_limit):
         raise ValueError("provider_authorization_frame_bytes_exceeded")
     return raw
 
 
-def decode_worker_wire(raw: bytes | bytearray | memoryview | str, *, body_limit: int) -> dict[str, Any]:
+def decode_worker_wire(
+    raw: bytes | bytearray | memoryview | str, *, body_limit: int
+) -> dict[str, Any]:
     limit = _provider_frame_limit(body_limit)
     if not isinstance(raw, (bytes, bytearray, memoryview, str)):
         raise ValueError("wire payload must be bytes or str")
     text = raw if isinstance(raw, str) else bytes(raw).decode("utf-8")
     size = len(text.encode("utf-8"))
-    if size > limit:
-        raise ValueError("provider_authorization_frame_bytes_exceeded")
+    # Native exact-response capture is the only other large worker frame. Its
+    # own closed decoder enforces the expanded JSON-escape ceiling; ordinary
+    # worker messages remain under MAX_WIRE_BYTES.
+    if size > MAX_WIRE_BYTES:
+        try:
+            candidate = json.loads(text)
+        except (TypeError, ValueError, RecursionError):
+            candidate = None
+        if (
+            isinstance(candidate, dict)
+            and candidate.get("type") == "native_provider_reply"
+        ):
+            from apps.live_control_server.services.native_rules_capture import (
+                MAX_CAPTURE_FRAME_BYTES,
+                decode_native_reply_wire,
+            )
+
+            if size > MAX_CAPTURE_FRAME_BYTES:
+                raise ValueError("native capture frame exceeds byte bound")
+            decode_native_reply_wire(text)
+            return candidate
+        if size > limit:
+            raise ValueError("provider_authorization_frame_bytes_exceeded")
     message = json.loads(text)
     if not isinstance(message, dict):
         raise ValueError("wire payload must be a JSON object")
     if message.get("type") == "provider_authorization_request":
         _validate_provider_frame(message, body_limit)
+    elif message.get("type") == "native_provider_reply":
+        from apps.live_control_server.services.native_rules_capture import (
+            decode_native_reply_wire,
+        )
+
+        decode_native_reply_wire(text)
     elif size > MAX_WIRE_BYTES:
         raise ValueError("non-provider wire payload exceeds max bytes")
     return message
+
 
 def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any]:
     """Serialize a capability policy to a bounded JSON-compatible dict."""
@@ -655,26 +784,48 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
         raise ValueError(f"pluginActivations exceeds max {MAX_PLUGIN_ACTIVATIONS}")
     if len(rules) > MAX_TOOL_RULES:
         raise ValueError(f"toolRules exceeds max {MAX_TOOL_RULES}")
+    error = validate_capability_policy_structure(policy)
+    if error is not None:
+        raise ValueError(error)
     if policy.mode == "conversation_only":
-        if policy.graph_scope is not None or toolsets or tool_names or activations or rules:
-            raise ValueError("conversation-only capability policy must contain no graph scope or tools")
+        if (
+            policy.graph_scope is not None
+            or toolsets
+            or tool_names
+            or activations
+            or rules
+        ):
+            raise ValueError(
+                "conversation-only capability policy must contain no graph scope or tools"
+            )
         return {
             "mode": "conversation_only",
             "enabledToolsets": [],
             "enabledToolNames": [],
             "graphScope": None,
+            "rulesCapability": None,
             "pluginActivations": [],
             "toolRules": [],
         }
-    if policy.mode != "graph" or policy.graph_scope is None:
-        raise ValueError("graph capability policy requires a graph scope")
-    scope_mode = _scope_mode(policy.graph_scope.scope_mode)
+    scope_mode = (
+        None
+        if policy.graph_scope is None
+        else _scope_mode(policy.graph_scope.scope_mode)
+    )
     if scope_mode == "campaign" and not policy.graph_scope.campaign_id.strip():
         raise ValueError("campaignId is required when scopeMode is campaign")
     return {
-        "enabledToolsets": [_require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets],
+        "mode": policy.mode,
+        "rulesCapability": None
+        if policy.rules_capability is None
+        else policy.rules_capability.model_dump(mode="json", by_alias=True),
+        "enabledToolsets": [
+            _require_str(item, label="toolset", max_chars=MAX_ID_CHARS)
+            for item in toolsets
+        ],
         "enabledToolNames": [
-            _require_str(item, label="toolName", max_chars=MAX_ID_CHARS) for item in tool_names
+            _require_str(item, label="toolName", max_chars=MAX_ID_CHARS)
+            for item in tool_names
         ],
         "graphScope": {
             "worldId": _require_str(
@@ -699,15 +850,22 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
                 label="revisionPin",
                 max_chars=MAX_ID_CHARS,
             ),
-        },
+        }
+        if policy.graph_scope is not None
+        else None,
         "pluginActivations": [
             _serialize_plugin_activation(activation) for activation in activations
         ],
         "toolRules": [
             {
-                "toolName": _require_str(rule.tool_name, label="toolName", max_chars=MAX_ID_CHARS),
-                "toolset": _require_str(rule.toolset, label="toolset", max_chars=MAX_ID_CHARS),
-                "requireGraphScope": bool(rule.require_graph_scope),
+                "toolName": _require_str(
+                    rule.tool_name, label="toolName", max_chars=MAX_ID_CHARS
+                ),
+                "toolset": _require_str(
+                    rule.toolset, label="toolset", max_chars=MAX_ID_CHARS
+                ),
+                "requireGraphScope": rule.require_graph_scope,
+                "requireRulesAuthority": rule.require_rules_authority,
                 "allowedEffects": sorted(
                     _serialize_allowed_effects(rule.allowed_effects)
                 ),
@@ -754,7 +912,15 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
     if not isinstance(payload, Mapping):
         raise ValueError("capability policy payload must be a mapping")
     _reject_unknown_keys(payload, _POLICY_ALLOWED_KEYS, label="capability policy")
-    mode = payload.get("mode", "graph")
+    if set(payload) != _POLICY_ALLOWED_KEYS:
+        raise ValueError("capability policy must use the complete current wire form")
+    mode = payload["mode"]
+    cap_raw = payload["rulesCapability"]
+    capability = (
+        None
+        if cap_raw is None
+        else RulesCapabilityV1.model_validate_json(json.dumps(cap_raw))
+    )
     if mode == "conversation_only":
         if any(
             payload.get(key) != expected
@@ -762,11 +928,14 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
                 ("enabledToolsets", []),
                 ("enabledToolNames", []),
                 ("graphScope", None),
+                ("rulesCapability", None),
                 ("pluginActivations", []),
                 ("toolRules", []),
             )
         ):
-            raise ValueError("conversation-only capability policy cannot carry graph authority or tools")
+            raise ValueError(
+                "conversation-only capability policy cannot carry graph authority or tools"
+            )
         return HermesCapabilityPolicy(
             enabled_toolsets=(),
             enabled_tool_names=(),
@@ -775,12 +944,16 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
             plugin_activations=(),
             mode="conversation_only",
         )
-    if mode != "graph":
-        raise ValueError("capability policy mode must be graph or conversation_only")
+    if mode not in {"graph", "rules", "graph_rules"}:
+        raise ValueError("invalid capability policy mode")
     scope_raw = payload.get("graphScope")
-    if not isinstance(scope_raw, Mapping):
-        raise ValueError("capability policy graphScope must be a mapping")
-    _reject_unknown_keys(scope_raw, _SCOPE_ALLOWED_KEYS, label="graphScope")
+    if mode == "rules":
+        if scope_raw is not None:
+            raise ValueError("Rules-only policy cannot carry Graph scope")
+    else:
+        if not isinstance(scope_raw, Mapping):
+            raise ValueError("capability policy graphScope must be a mapping")
+        _reject_unknown_keys(scope_raw, _SCOPE_ALLOWED_KEYS, label="graphScope")
     toolsets_raw = payload.get("enabledToolsets")
     names_raw = payload.get("enabledToolNames")
     if not isinstance(toolsets_raw, list) or not isinstance(names_raw, list):
@@ -812,14 +985,18 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
             raise ValueError(
                 f"plugin activation toolsets exceeds max {MAX_TOOLSETS_PER_ACTIVATION}"
             )
-        plugin_id = _require_str(item.get("pluginId"), label="pluginId", max_chars=MAX_ID_CHARS)
+        plugin_id = _require_str(
+            item.get("pluginId"), label="pluginId", max_chars=MAX_ID_CHARS
+        )
         if not plugin_id.strip():
             raise ValueError("plugin activation pluginId must be a non-empty string")
         activations.append(
             HermesPluginActivation(
                 plugin_id=plugin_id.strip(),
                 toolsets=tuple(
-                    _require_str(toolset, label="activation.toolset", max_chars=MAX_ID_CHARS)
+                    _require_str(
+                        toolset, label="activation.toolset", max_chars=MAX_ID_CHARS
+                    )
                     for toolset in toolsets
                 ),
             )
@@ -830,6 +1007,11 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
         if not isinstance(item, Mapping):
             raise ValueError("tool rule must be a mapping")
         _reject_unknown_keys(item, _RULE_ALLOWED_KEYS, label="tool rule")
+        if set(item) != _RULE_ALLOWED_KEYS or any(
+            type(item.get(key)) is not bool
+            for key in ("requireGraphScope", "requireRulesAuthority")
+        ):
+            raise ValueError("tool rule requires exact current boolean authority flags")
         effects_raw = item.get("allowedEffects")
         if not isinstance(effects_raw, list):
             raise ValueError("tool rule allowedEffects must be a list")
@@ -837,40 +1019,44 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
             raise ValueError(f"allowedEffects exceeds max {MAX_ALLOWED_EFFECTS}")
         effects: set[str] = set()
         for effect in effects_raw:
-            effect_str = _require_str(effect, label="allowedEffect", max_chars=MAX_ID_CHARS)
+            effect_str = _require_str(
+                effect, label="allowedEffect", max_chars=MAX_ID_CHARS
+            )
             if effect_str not in ALLOWED_EFFECTS:
                 raise ValueError(f"unsupported tool effect: {effect_str!r}")
             effects.add(effect_str)
         rules.append(
             HermesToolCapabilityRule(
-                tool_name=_require_str(item.get("toolName"), label="toolName", max_chars=MAX_ID_CHARS),
-                toolset=_require_str(item.get("toolset"), label="toolset", max_chars=MAX_ID_CHARS),
-                require_graph_scope=bool(item.get("requireGraphScope", True)),
+                tool_name=_require_str(
+                    item.get("toolName"), label="toolName", max_chars=MAX_ID_CHARS
+                ),
+                toolset=_require_str(
+                    item.get("toolset"), label="toolset", max_chars=MAX_ID_CHARS
+                ),
+                require_graph_scope=item["requireGraphScope"],
+                require_rules_authority=item["requireRulesAuthority"],
                 allowed_effects=frozenset(effects),  # type: ignore[arg-type]
             )
         )
 
-    focus = _deserialize_focus(scope_raw.get("focus"))
-    scope_mode = _scope_mode(scope_raw.get("scopeMode"))
-    campaign_id = _require_str(
-        scope_raw.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS
-    ).strip()
-    if scope_mode == "campaign" and not campaign_id:
-        raise ValueError("campaignId is required when scopeMode is campaign")
-    return HermesCapabilityPolicy(
-        enabled_toolsets=tuple(
-            _require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets_raw
-        ),
-        enabled_tool_names=tuple(
-            _require_str(item, label="toolName", max_chars=MAX_ID_CHARS) for item in names_raw
-        ),
-        graph_scope=HermesGraphScope(
-            world_id=_require_str(scope_raw.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS).strip(),
+    graph_scope = None
+    if scope_raw is not None:
+        focus = _deserialize_focus(scope_raw.get("focus"))
+        scope_mode = _scope_mode(scope_raw.get("scopeMode"))
+        campaign_id = _require_str(
+            scope_raw.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS
+        ).strip()
+        if scope_mode == "campaign" and not campaign_id:
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        graph_scope = HermesGraphScope(
+            world_id=_require_str(
+                scope_raw.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS
+            ).strip(),
             campaign_id=campaign_id,
             scope_mode=scope_mode,
             focus=focus or {},
             admissibility=_require_str(
-                scope_raw.get("admissibility") or "gm",
+                scope_raw.get("admissibility"),
                 label="admissibility",
                 max_chars=MAX_ID_CHARS,
             ),
@@ -879,14 +1065,36 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
                 label="revisionPin",
                 max_chars=MAX_ID_CHARS,
             ),
+        )
+    policy = HermesCapabilityPolicy(
+        enabled_toolsets=tuple(
+            _require_str(item, label="toolset", max_chars=MAX_ID_CHARS)
+            for item in toolsets_raw
         ),
+        enabled_tool_names=tuple(
+            _require_str(item, label="toolName", max_chars=MAX_ID_CHARS)
+            for item in names_raw
+        ),
+        graph_scope=graph_scope,
+        mode=mode,
+        rules_capability=capability,
         plugin_activations=tuple(activations),
         tool_rules=tuple(rules),
     )
 
+    error = validate_capability_policy_structure(policy)
+    if error is not None:
+        raise ValueError(error)
+    return policy
 
-def _input_kind(value: Any) -> Literal["ordinary_question", "server_assembled_saved_work"]:
-    if type(value) is not str or value not in {"ordinary_question", "server_assembled_saved_work"}:
+
+def _input_kind(
+    value: Any,
+) -> Literal["ordinary_question", "server_assembled_saved_work"]:
+    if type(value) is not str or value not in {
+        "ordinary_question",
+        "server_assembled_saved_work",
+    }:
         raise ValueError("inputKind must name a supported internal input kind")
     return value
 
@@ -896,20 +1104,24 @@ def serialize_hermes_graph_agent_turn_request(
 ) -> dict[str, Any]:
     """Serialize a Rung 3 turn request for host IPC (no callables)."""
     # A trusted saved-work assembly carries exact committed text in this field.
-    # The public user question remains bounded by AgentTurnRequest; the host
-    # wire limit and final provider-envelope budget bound the assembled input.
+    # The host wire limit and final provider-envelope budget bound input;
+    # do not impose a separate conversational character allowance.
     input_kind = _input_kind(request.input_kind)
     question = _require_str(
         request.question,
         label="question",
         max_chars=(
             MAX_WIRE_BYTES
-            if request.plan_continuity_turn or input_kind == "server_assembled_saved_work"
+            if request.plan_continuity_turn
+            or input_kind == "server_assembled_saved_work"
             else MAX_QUESTION_CHARS
         ),
     )
     policy = request.capability_policy
-    conversation_only = policy is not None and policy.mode == "conversation_only"
+    conversation_only = policy is not None and policy.mode in {
+        "conversation_only",
+        "rules",
+    }
     if conversation_only:
         if any(
             value is not None
@@ -924,14 +1136,24 @@ def serialize_hermes_graph_agent_turn_request(
                 request.retrieval_session,
             )
         ):
-            raise ValueError("conversation-only turn cannot carry graph scope or retrieval")
+            raise ValueError(
+                "conversation-only turn cannot carry graph scope or retrieval"
+            )
         world_id = campaign_id = scope_mode = None
         focus = None
     else:
-        if request.world_id is None or request.campaign_id is None or request.scope_mode is None:
+        if (
+            request.world_id is None
+            or request.campaign_id is None
+            or request.scope_mode is None
+        ):
             raise ValueError("graph turn requires worldId, campaignId, and scopeMode")
-        world_id = _require_str(request.world_id, label="worldId", max_chars=MAX_ID_CHARS)
-        campaign_id = _require_str(request.campaign_id, label="campaignId", max_chars=MAX_ID_CHARS)
+        world_id = _require_str(
+            request.world_id, label="worldId", max_chars=MAX_ID_CHARS
+        )
+        campaign_id = _require_str(
+            request.campaign_id, label="campaignId", max_chars=MAX_ID_CHARS
+        )
         scope_mode = _scope_mode(request.scope_mode)
         if scope_mode == "campaign" and not campaign_id.strip():
             raise ValueError("campaignId is required when scopeMode is campaign")
@@ -962,27 +1184,56 @@ def serialize_hermes_graph_agent_turn_request(
         raise ValueError("planContinuityTurn must be a boolean")
     if not isinstance(request.provider_authorization_required, bool):
         raise ValueError("providerAuthorizationRequired must be a boolean")
+    if not isinstance(request.native_rules_capture_required, bool):
+        raise ValueError("nativeRulesCaptureRequired must be a boolean")
+    if request.native_rules_capture_required and not (
+        request.provider_authorization_required
+        and request.parent_graph_broker_required
+        and policy is not None
+        and policy.rules_capability is not None
+    ):
+        raise ValueError(
+            "native Rules capture requires Rules capability and authorized parent broker"
+        )
     if not isinstance(request.parent_graph_broker_required, bool):
         raise ValueError("parentGraphBrokerRequired must be a boolean")
+    if (
+        policy is not None
+        and policy.rules_capability is not None
+        and not (
+            request.parent_graph_broker_required
+            and request.provider_authorization_required
+        )
+    ):
+        raise ValueError(
+            "Rules capability requires parent provider authorization and broker"
+        )
     if request.parent_graph_broker_required and (
         not request.provider_authorization_required
-        or request.retrieval_session_id is None
-        or request.retrieval_session is None
+        or (
+            (policy is None or policy.mode != "rules")
+            and (
+                request.retrieval_session_id is None
+                or request.retrieval_session is None
+            )
+        )
     ):
         raise ValueError(
             "parent Graph broker requires provider authorization and a retrieval session"
         )
-    if not isinstance(request.graph_read_profile, str) or request.graph_read_profile not in ("world_graph", "governed_build"):
+    if not isinstance(
+        request.graph_read_profile, str
+    ) or request.graph_read_profile not in ("world_graph", "governed_build"):
         raise ValueError("invalid Graph read profile")
     if request.graph_read_profile == "governed_build" and not (
         request.parent_graph_broker_required and request.provider_authorization_required
     ):
-        raise ValueError("Build read profile requires an authorized parent Graph broker")
+        raise ValueError(
+            "Build read profile requires an authorized parent Graph broker"
+        )
     request_budget = _serialize_request_budget(request.request_budget)
     if request.provider_authorization_required and request_budget is None:
-        raise ValueError(
-            "provider authorization requires an explicit request budget"
-        )
+        raise ValueError("provider authorization requires an explicit request budget")
     if request.parent_graph_broker_required:
         _require_final_answer_reservation(request_budget)
     payload = {
@@ -1023,6 +1274,8 @@ def serialize_hermes_graph_agent_turn_request(
         payload["requestBudget"] = request_budget
     if request.provider_authorization_required:
         payload["providerAuthorizationRequired"] = True
+    if request.native_rules_capture_required:
+        payload["nativeRulesCaptureRequired"] = True
     if request.parent_graph_broker_required:
         payload["parentGraphBrokerRequired"] = True
     if request.graph_read_profile != "world_graph":
@@ -1045,54 +1298,88 @@ def deserialize_hermes_graph_agent_turn_request(
     history = _deserialize_history(payload.get("conversationHistory"))
     focus = _deserialize_focus(payload.get("focus"))
     retrieval_session_raw = payload.get("retrievalSession")
-    if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
+    if retrieval_session_raw is not None and not isinstance(
+        retrieval_session_raw, Mapping
+    ):
         raise ValueError("retrievalSession must be a mapping or null")
     input_kind = _input_kind(payload.get("inputKind", "ordinary_question"))
     plan_continuity_turn = payload.get("planContinuityTurn", False)
     if not isinstance(plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
-    provider_authorization_required = payload.get("providerAuthorizationRequired", False)
+    provider_authorization_required = payload.get(
+        "providerAuthorizationRequired", False
+    )
     if not isinstance(provider_authorization_required, bool):
         raise ValueError("providerAuthorizationRequired must be a boolean")
+    native_rules_capture_required = payload.get("nativeRulesCaptureRequired", False)
+    if not isinstance(native_rules_capture_required, bool):
+        raise ValueError("nativeRulesCaptureRequired must be a boolean")
+    if native_rules_capture_required and not (
+        provider_authorization_required
+        and payload.get("parentGraphBrokerRequired") is True
+        and policy is not None
+        and policy.rules_capability is not None
+    ):
+        raise ValueError(
+            "native Rules capture requires Rules capability and authorized parent broker"
+        )
     parent_graph_broker_required = payload.get("parentGraphBrokerRequired", False)
     if not isinstance(parent_graph_broker_required, bool):
         raise ValueError("parentGraphBrokerRequired must be a boolean")
     graph_read_profile = payload.get("graphReadProfile", "world_graph")
-    if not isinstance(graph_read_profile, str) or graph_read_profile not in ("world_graph", "governed_build"):
+    if not isinstance(graph_read_profile, str) or graph_read_profile not in (
+        "world_graph",
+        "governed_build",
+    ):
         raise ValueError("invalid Graph read profile")
     if graph_read_profile == "governed_build" and not (
         parent_graph_broker_required and provider_authorization_required
     ):
-        raise ValueError("Build read profile requires an authorized parent Graph broker")
+        raise ValueError(
+            "Build read profile requires an authorized parent Graph broker"
+        )
     request_budget = _serialize_request_budget(payload.get("requestBudget"))
     if provider_authorization_required and request_budget is None:
+        raise ValueError("provider authorization requires an explicit request budget")
+    if (
+        policy is not None
+        and policy.rules_capability is not None
+        and not (parent_graph_broker_required and provider_authorization_required)
+    ):
         raise ValueError(
-            "provider authorization requires an explicit request budget"
+            "Rules capability requires parent provider authorization and broker"
         )
     if parent_graph_broker_required:
         _require_final_answer_reservation(request_budget)
     if parent_graph_broker_required and (
         not provider_authorization_required
-        or not payload.get("retrievalSessionId")
-        or retrieval_session_raw is None
+        or (
+            (policy is None or policy.mode != "rules")
+            and (not payload.get("retrievalSessionId") or retrieval_session_raw is None)
+        )
     ):
         raise ValueError(
             "parent Graph broker requires provider authorization and a retrieval session"
         )
-    conversation_only = policy is not None and policy.mode == "conversation_only"
+    conversation_only = policy is not None and policy.mode in {
+        "conversation_only",
+        "rules",
+    }
     if conversation_only:
         graph_keys = (
-                "worldId",
-                "campaignId",
-                "scopeMode",
-                "focus",
-                "admissibility",
-                "revisionPin",
-                "retrievalSessionId",
-                "retrievalSession",
-            )
+            "worldId",
+            "campaignId",
+            "scopeMode",
+            "focus",
+            "admissibility",
+            "revisionPin",
+            "retrievalSessionId",
+            "retrievalSession",
+        )
         if any(key not in payload or payload[key] is not None for key in graph_keys):
-            raise ValueError("conversation-only turn cannot carry graph scope or retrieval")
+            raise ValueError(
+                "conversation-only turn cannot carry graph scope or retrieval"
+            )
         world_id = campaign_id = scope_mode = None
     else:
         scope_mode = _scope_mode(payload.get("scopeMode"))
@@ -1101,7 +1388,9 @@ def deserialize_hermes_graph_agent_turn_request(
         )
         if scope_mode == "campaign" and not campaign_id.strip():
             raise ValueError("campaignId is required when scopeMode is campaign")
-        world_id = _require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS)
+        world_id = _require_str(
+            payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS
+        )
     return HermesGraphAgentTurnRequest(
         question=_require_str(
             payload.get("question") or "",
@@ -1139,7 +1428,9 @@ def deserialize_hermes_graph_agent_turn_request(
             label="retrievalSessionId",
             max_chars=MAX_SESSION_ID_CHARS,
         ),
-        retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        retrieval_session=None
+        if retrieval_session_raw is None
+        else dict(retrieval_session_raw),
         surface_context_block=_optional_str(
             payload.get("surfaceContextBlock"),
             label="surfaceContextBlock",
@@ -1149,6 +1440,7 @@ def deserialize_hermes_graph_agent_turn_request(
         input_kind=input_kind,
         request_budget=request_budget,
         provider_authorization_required=provider_authorization_required,
+        native_rules_capture_required=native_rules_capture_required,
         parent_graph_broker_required=parent_graph_broker_required,
         graph_read_profile=graph_read_profile,
     )
@@ -1233,11 +1525,19 @@ def _serialize_tool_event(event: HermesGraphToolEvent) -> dict[str, Any]:
             else _clip_str(event.retrieval_schema, max_chars=MAX_ID_CHARS)
         ),
         "outcome": (
-            None if event.outcome is None else _clip_str(event.outcome, max_chars=MAX_ID_CHARS)
+            None
+            if event.outcome is None
+            else _clip_str(event.outcome, max_chars=MAX_ID_CHARS)
         ),
-        "matchedNodeIds": _serialize_id_list(event.matched_node_ids, label="matchedNodeIds"),
-        "relationshipIds": _serialize_id_list(event.relationship_ids, label="relationshipIds"),
-        "sourceAnchorIds": _serialize_id_list(event.source_anchor_ids, label="sourceAnchorIds"),
+        "matchedNodeIds": _serialize_id_list(
+            event.matched_node_ids, label="matchedNodeIds"
+        ),
+        "relationshipIds": _serialize_id_list(
+            event.relationship_ids, label="relationshipIds"
+        ),
+        "sourceAnchorIds": _serialize_id_list(
+            event.source_anchor_ids, label="sourceAnchorIds"
+        ),
         "diagnosticCodes": _serialize_id_list(
             event.diagnostic_codes,
             label="diagnosticCodes",
@@ -1351,7 +1651,9 @@ def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
         ),
         "sequence": int(sequence),
         "status": status,
-        "provider": _optional_str(call.get("provider"), label="provider", max_chars=MAX_ID_CHARS),
+        "provider": _optional_str(
+            call.get("provider"), label="provider", max_chars=MAX_ID_CHARS
+        ),
         "requested_model": _optional_str(
             call.get("requested_model"),
             label="requested_model",
@@ -1362,8 +1664,12 @@ def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
             label="response_model",
             max_chars=MAX_ID_CHARS,
         ),
-        "api_mode": _optional_str(call.get("api_mode"), label="api_mode", max_chars=MAX_ID_CHARS),
-        "started_at": _optional_str(call.get("started_at"), label="started_at", max_chars=MAX_ID_CHARS),
+        "api_mode": _optional_str(
+            call.get("api_mode"), label="api_mode", max_chars=MAX_ID_CHARS
+        ),
+        "started_at": _optional_str(
+            call.get("started_at"), label="started_at", max_chars=MAX_ID_CHARS
+        ),
         "completed_at": _optional_str(
             call.get("completed_at"),
             label="completed_at",
@@ -1395,7 +1701,9 @@ def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
         "retry_count": (
             None if call.get("retry_count") is None else int(call.get("retry_count"))
         ),
-        "retryable": None if call.get("retryable") is None else bool(call.get("retryable")),
+        "retryable": None
+        if call.get("retryable") is None
+        else bool(call.get("retryable")),
         "status_code": (
             None if call.get("status_code") is None else int(call.get("status_code"))
         ),
@@ -1418,7 +1726,10 @@ def _serialize_terminal_failure(value: Any) -> dict[str, Any]:
     if not isinstance(reason, str) or reason not in _TERMINAL_FAILURE_REASONS:
         raise ValueError("terminalFailure.reason is unsupported")
     transition = value.get("transition")
-    if not isinstance(transition, str) or transition not in _PROVIDER_LIFECYCLE_TRANSITIONS:
+    if (
+        not isinstance(transition, str)
+        or transition not in _PROVIDER_LIFECYCLE_TRANSITIONS
+    ):
         raise ValueError("terminalFailure.transition is unsupported")
     acknowledged = value.get("acknowledged")
     if not isinstance(acknowledged, bool):
@@ -1452,23 +1763,41 @@ def _serialize_terminal_failure(value: Any) -> dict[str, Any]:
 
     incomplete_reason = value.get("incompleteReason")
     if incomplete_reason is not None:
-        if (not isinstance(incomplete_reason, str)
-                or incomplete_reason not in _SAFE_INCOMPLETE_REASONS
-                or reason != "provider_response_incomplete"
-                or response_status != "incomplete"):
+        if (
+            not isinstance(incomplete_reason, str)
+            or incomplete_reason not in _SAFE_INCOMPLETE_REASONS
+            or reason != "provider_response_incomplete"
+            or response_status != "incomplete"
+        ):
             raise ValueError("terminalFailure.incompleteReason is unsupported")
         result["incompleteReason"] = incomplete_reason
 
     if reason == "provider_response_incomplete" and response_status is None:
         raise ValueError("terminalFailure.responseStatus is required")
     if reason != "provider_response_incomplete" and response_status is not None:
-        raise ValueError("terminalFailure.responseStatus is only valid for incomplete responses")
+        raise ValueError(
+            "terminalFailure.responseStatus is only valid for incomplete responses"
+        )
     if reason != "provider_transport_ambiguous" and exception_class is not None:
-        raise ValueError("terminalFailure.transportExceptionClass is only valid for transport failures")
+        raise ValueError(
+            "terminalFailure.transportExceptionClass is only valid for transport failures"
+        )
     if reason == "lifecycle_ack_denied" and acknowledged:
-        raise ValueError("terminalFailure acknowledgement-denied reason requires a false acknowledgement")
-    if reason in {"provider_transport_ambiguous", "provider_exception_ambiguous", "provider_response_incomplete"} and transition != "outcome_unknown":
-        raise ValueError("terminalFailure ambiguous outcome requires outcome_unknown transition")
+        raise ValueError(
+            "terminalFailure acknowledgement-denied reason requires a false acknowledgement"
+        )
+    if (
+        reason
+        in {
+            "provider_transport_ambiguous",
+            "provider_exception_ambiguous",
+            "provider_response_incomplete",
+        }
+        and transition != "outcome_unknown"
+    ):
+        raise ValueError(
+            "terminalFailure ambiguous outcome requires outcome_unknown transition"
+        )
     return result
 
 
@@ -1545,7 +1874,9 @@ def serialize_hermes_graph_agent_turn_result(
         "finalResponse": final_response,
         # Host IPC omits Hermes transcript; keep the key for schema stability.
         "messages": [],
-        "hermesSessionId": _clip_str(result.hermes_session_id, max_chars=MAX_SESSION_ID_CHARS),
+        "hermesSessionId": _clip_str(
+            result.hermes_session_id, max_chars=MAX_SESSION_ID_CHARS
+        ),
         "toolEvents": [_serialize_tool_event(event) for event in result.tool_events],
         "errorCode": (
             None
@@ -1567,7 +1898,9 @@ def serialize_hermes_graph_agent_turn_result(
     if terminal_failure is not None:
         payload["terminalFailure"] = terminal_failure
     # Explicit zero is proof of no call; truncation also requires the full count.
-    if result.observed_model_call_count is not None or observed_model_call_count > len(model_calls):
+    if result.observed_model_call_count is not None or observed_model_call_count > len(
+        model_calls
+    ):
         payload["observedModelCallCount"] = observed_model_call_count
     return payload
 
@@ -1585,13 +1918,19 @@ def _deserialize_tool_event(item: Mapping[str, Any]) -> HermesGraphToolEvent:
     if len(bounded_raw) > MAX_BOUNDED_ID_MAP_KEYS:
         raise ValueError(f"boundedIds exceeds max keys {MAX_BOUNDED_ID_MAP_KEYS}")
     return HermesGraphToolEvent(
-        tool_name=_require_str(item.get("toolName") or "", label="toolName", max_chars=MAX_ID_CHARS),
+        tool_name=_require_str(
+            item.get("toolName") or "", label="toolName", max_chars=MAX_ID_CHARS
+        ),
         state=state,  # type: ignore[arg-type]
         duration_ms=(
             None if item.get("durationMs") is None else float(item.get("durationMs"))
         ),
-        world_id=_optional_str(item.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS),
-        campaign_id=_optional_str(item.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS),
+        world_id=_optional_str(
+            item.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS
+        ),
+        campaign_id=_optional_str(
+            item.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS
+        ),
         focus=focus,
         admissibility=_optional_str(
             item.get("admissibility"),
@@ -1609,7 +1948,9 @@ def _deserialize_tool_event(item: Mapping[str, Any]) -> HermesGraphToolEvent:
             label="retrievalSchema",
             max_chars=MAX_ID_CHARS,
         ),
-        outcome=_optional_str(item.get("outcome"), label="outcome", max_chars=MAX_ID_CHARS),
+        outcome=_optional_str(
+            item.get("outcome"), label="outcome", max_chars=MAX_ID_CHARS
+        ),
         matched_node_ids=_serialize_id_list(
             item.get("matchedNodeIds") or [],
             label="matchedNodeIds",
@@ -1651,7 +1992,9 @@ def deserialize_hermes_graph_agent_turn_result(
         _reject_unknown_keys(item, frozenset({"role", "content"}), label="message")
         messages.append(
             {
-                "role": _require_str(item.get("role"), label="message.role", max_chars=MAX_ID_CHARS),
+                "role": _require_str(
+                    item.get("role"), label="message.role", max_chars=MAX_ID_CHARS
+                ),
                 "content": _require_str(
                     item.get("content"),
                     label="message.content",
@@ -1664,7 +2007,11 @@ def deserialize_hermes_graph_agent_turn_result(
         raise ValueError("toolEvents must be a list")
     if len(events_raw) > MAX_TOOL_EVENTS:
         raise ValueError(f"toolEvents exceeds max {MAX_TOOL_EVENTS}")
-    events = [_deserialize_tool_event(item) for item in events_raw if isinstance(item, Mapping)]
+    events = [
+        _deserialize_tool_event(item)
+        for item in events_raw
+        if isinstance(item, Mapping)
+    ]
     if len(events) != len(events_raw):
         raise ValueError("toolEvents entries must be mappings")
     final_response = payload.get("finalResponse")
@@ -1685,7 +2032,9 @@ def deserialize_hermes_graph_agent_turn_result(
     if process_isolation not in {None, PROCESS_ISOLATION_MODE}:
         raise ValueError("processIsolation must be process_exclusive")
     retrieval_session_raw = payload.get("retrievalSession")
-    if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
+    if retrieval_session_raw is not None and not isinstance(
+        retrieval_session_raw, Mapping
+    ):
         raise ValueError("retrievalSession must be a mapping or null")
     answer_scope_raw = payload.get("answerScope")
     if answer_scope_raw is not None and answer_scope_raw not in {
@@ -1713,9 +2062,13 @@ def deserialize_hermes_graph_agent_turn_result(
         if observed_model_call_count is None:
             observed_model_call_count = raw_model_call_count
         else:
-            observed_model_call_count = max(observed_model_call_count, raw_model_call_count)
+            observed_model_call_count = max(
+                observed_model_call_count, raw_model_call_count
+            )
     model_calls = [
-        _serialize_model_call(item) for item in model_calls_raw if isinstance(item, Mapping)
+        _serialize_model_call(item)
+        for item in model_calls_raw
+        if isinstance(item, Mapping)
     ]
     if len(model_calls) != len(model_calls_raw):
         raise ValueError("modelCalls entries must be mappings")
@@ -1739,7 +2092,9 @@ def deserialize_hermes_graph_agent_turn_result(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         tool_events=events,
-        error_code=_optional_str(payload.get("errorCode"), label="errorCode", max_chars=MAX_ID_CHARS),
+        error_code=_optional_str(
+            payload.get("errorCode"), label="errorCode", max_chars=MAX_ID_CHARS
+        ),
         error_message=error_message,
         process_isolation=PROCESS_ISOLATION_MODE,
         retrieval_session_id=_optional_str(
@@ -1747,7 +2102,9 @@ def deserialize_hermes_graph_agent_turn_result(
             label="retrievalSessionId",
             max_chars=MAX_SESSION_ID_CHARS,
         ),
-        retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        retrieval_session=None
+        if retrieval_session_raw is None
+        else dict(retrieval_session_raw),
         answer_scope=answer_scope_raw,  # type: ignore[arg-type]
         model_calls=model_calls,
         telemetry_warnings=telemetry_warnings,
@@ -1760,7 +2117,9 @@ def encode_turn_request_wire(request: HermesGraphAgentTurnRequest) -> bytes:
     return encode_json_wire(serialize_hermes_graph_agent_turn_request(request))
 
 
-def decode_turn_request_wire(raw: bytes | bytearray | memoryview | str) -> HermesGraphAgentTurnRequest:
+def decode_turn_request_wire(
+    raw: bytes | bytearray | memoryview | str,
+) -> HermesGraphAgentTurnRequest:
     return deserialize_hermes_graph_agent_turn_request(decode_json_wire(raw))
 
 
@@ -1768,7 +2127,9 @@ def encode_turn_result_wire(result: HermesGraphAgentTurnResult) -> bytes:
     return encode_json_wire(serialize_hermes_graph_agent_turn_result(result))
 
 
-def decode_turn_result_wire(raw: bytes | bytearray | memoryview | str) -> HermesGraphAgentTurnResult:
+def decode_turn_result_wire(
+    raw: bytes | bytearray | memoryview | str,
+) -> HermesGraphAgentTurnResult:
     return deserialize_hermes_graph_agent_turn_result(decode_json_wire(raw))
 
 

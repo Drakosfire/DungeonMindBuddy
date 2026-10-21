@@ -28,7 +28,7 @@ def payload(turn_id, **overrides):
 
 def test_empty_migration_downgrade_and_upgrade_preserve_existing_turn(application_state_dsn):
     turn = turn_fixture()
-    assert _current_and_head(application_state_dsn) == ('20261020_0041','20261020_0041')
+    assert _current_and_head(application_state_dsn) == ('20261020_0042','20261020_0042')
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT answer_composition_kind FROM agent.turn WHERE turn_id=%s',(turn.turn_id,)).fetchone()==('base',)
     command.downgrade(alembic_config(),'20261019_0040')
@@ -46,7 +46,7 @@ def test_downgrade_refuses_any_retained_rules_row(application_state_dsn):
         conn.execute('INSERT INTO agent.turn_rules_execution(turn_id,product_attempt,revision,payload) VALUES(%s,1,1,%s)',(turn.turn_id,Jsonb(payload(turn.turn_id))))
     with pytest.raises(RuntimeError,match='refusing to discard'):
         command.downgrade(alembic_config(),'20261019_0040')
-    assert _current_and_head(application_state_dsn)[0]=='20261020_0041'
+    assert _current_and_head(application_state_dsn)[0]=='20261020_0042'
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM agent.turn_rules_execution').fetchone()==(1,)
 

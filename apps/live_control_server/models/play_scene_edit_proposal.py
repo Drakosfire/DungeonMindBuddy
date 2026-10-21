@@ -9,7 +9,7 @@ class PlaySceneEditProposalRequest(BaseModel):
     run_revision: int = Field(strict=True, ge=1)
     content_basis: PlayContentBasis
     scene_id: str = Field(pattern=r"^scene:[a-z0-9][a-z0-9._-]{0,127}$")
-    instruction: str = Field(min_length=1, max_length=8000)
+    instruction: str = Field(min_length=1)
 
 
     @field_validator("instruction")

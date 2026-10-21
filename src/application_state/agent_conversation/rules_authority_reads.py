@@ -23,7 +23,8 @@ from .types import (
     PlanAskHistoryAttributionV1,
     TurnProvenance,
     GraphContextReceipt,
-    PlanWorldGraphExecution,
+    GraphTurnExecution,
+    PlayWorldGraphContextReceiptV1,
     PlayRunTurnContextReceiptV2,
     CompletionBindingEventV1,
     ProviderAttemptAuthorizedEventV1,
@@ -84,7 +85,7 @@ class RulesAbsentBaseV1(ClosedRulesModel):
 class RulesUnclaimedBaseV1(ClosedRulesModel):
     kind: Literal["unclaimed"]
     graph_context_receipt: GraphContextReceipt
-    graph_context_execution: PlanWorldGraphExecution
+    graph_context_execution: GraphTurnExecution
 
 
 RulesBaseProjectionV1 = Annotated[
@@ -96,6 +97,14 @@ RulesBaseProjectionV1 = Annotated[
 def validate_unclaimed_receipt_owner(
     envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
+    if isinstance(receipt, PlayWorldGraphContextReceiptV1):
+        from .play_graph_context import validate_play_graph_provenance
+        if (receipt.play_basis.world_id != envelope.world_id
+                or receipt.graph_authority.managed_world_id != envelope.world_id
+                or envelope.play_context_receipt != receipt.play_basis):
+            raise ValueError("Unclaimed native Play receipt differs from its owning turn")
+        validate_play_graph_provenance(receipt, envelope.provenance)
+        return
     if isinstance(receipt, BuildGraphContextReceiptV1):
         # The shared Graph validator checks Build source/provenance exactly.
         if (
@@ -145,7 +154,7 @@ def validate_unclaimed_receipt_owner(
 
 
 def validate_graph_producer_join(
-    execution: PlanWorldGraphExecution, binding: RulesAcceptedBindingV1
+    execution: GraphTurnExecution, binding: RulesAcceptedBindingV1
 ) -> None:
     authorizations = [
         item

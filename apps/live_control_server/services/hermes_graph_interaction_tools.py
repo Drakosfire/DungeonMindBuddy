@@ -270,7 +270,7 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
 def propose_build_insertion_definition() -> dict[str, Any]:
     return {"type": "function", "function": {"name": PROPOSE_BUILD_INSERTION,
         "description": "Prepare an addition to the currently mounted Build page ONLY when the user asks to put content on the page. Use the discussed content and their requested changes in instruction. The host chooses the document and insertion point. Returns a durable Markdown preview awaiting approval; never inserts, saves or publishes. Never say applied or saved. No document IDs, paths, or Graph authority arguments.",
-        "parameters": {"type": "object", "properties": {"instruction": {"type": "string", "minLength": 1, "maxLength": 4000}},
+        "parameters": {"type": "object", "properties": {"instruction": {"type": "string", "minLength": 1}},
                        "required": ["instruction"], "additionalProperties": False}}}
 
 

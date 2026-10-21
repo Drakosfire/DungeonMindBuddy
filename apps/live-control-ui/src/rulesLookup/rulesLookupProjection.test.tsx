@@ -19,7 +19,7 @@ function Publisher({id='A',surface='plan',enabled=true,registered=true}:{id?:str
  return <><input aria-label="Source draft" defaultValue="retain"/><ToolHost/><LegacyProjectionHostAdapter/></>;
 }
 const fixture=(props:Parameters<typeof Publisher>[0])=><AgentInteractionProvider><Publisher {...props}/></AgentInteractionProvider>;
-it.each(['plan','build'])('uses the shared current published host for explicit %s Rules capability',async surface=>{
+it.each(['plan','play','build'])('uses the shared current published host for explicit %s Rules capability',async surface=>{
  render(fixture({surface}));expect(screen.queryByRole('region',{name:'Rules body'})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Tools',exact:true}));fireEvent.click(screen.getByRole('button',{name:'Rules Lookup',exact:true}));
  expect(await screen.findByRole('region',{name:'Rules body'})).toHaveTextContent('Current Rules renderer');

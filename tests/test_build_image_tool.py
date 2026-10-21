@@ -72,6 +72,19 @@ def test_durable_preparation_reload_and_no_provider(request_case, monkeypatch):
         BuildImageService().get(record.action_id, "foreign-owner")
 
 
+def test_long_image_prompt_is_preserved_in_the_durable_reservation(request_case, monkeypatch):
+    tool, message, wire, _ = image_tool(request_case[0], monkeypatch)
+    prompt = "Swamp road and broken boardwalk. " * 200
+    assert len(prompt) > 4000
+    message["arguments"]["prompt"] = prompt
+    reply = json.loads(tool.dispatch(message)["resultJson"])
+    assert reply["status"] == "prepared" and wire.calls == []
+    record = BuildImageService().get(UUID(reply["action_id"]), "local_operator")
+    assert record.prompt == prompt
+    assert record.reservation.instruction == prompt
+    assert record.reservation.origin.arguments_sha256 == arguments_digest(message["arguments"])
+
+
 @pytest.mark.parametrize("failure", ["expired", "attempt", "foreign", "arguments"])
 def test_no_preparation_for_lost_claim_or_forged_target(
     request_case, monkeypatch, application_state_dsn, failure

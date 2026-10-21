@@ -115,6 +115,7 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
   return {
     ...actual,
+    getRulesCatalog: vi.fn().mockResolvedValue({ schema: "dmb_rules_catalog_v1", sources: [] }),
     getWorkspaceDocumentSnapshot: vi.fn(),
     postWorldGraphProjection: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
@@ -271,15 +272,25 @@ describe("BuildReferenceCapability", () => {
     window.history.replaceState({}, "", `/build?documentId=${DOC_ID}`);
   });
 
-  it("publishes empty tools without a markdown canvas session", () => {
+  it("opens shared Rules without granting a document or Graph capability", async () => {
+    const user = userEvent.setup();
     render(
       <AgentInteractionProvider>
         <BuildReferenceCapability documentId={null} />
         <PublicationProbe />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProvider>,
     );
-
-    expect(document.querySelector('[data-testid="build-publication-tools"]')).toHaveTextContent("none");
+    expect(screen.getByTestId("build-publication-tools")).toHaveTextContent("rules-lookup");
+    expect(liveApi.getRulesCatalog).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Tools", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Rules Lookup", exact: true }));
+    expect(await screen.findByText("No rules source is available.")).toBeInTheDocument();
+    expect(liveApi.getRulesCatalog).toHaveBeenCalledTimes(1);
+    expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
   it("publishes Find existing tool when session is accepted", async () => {

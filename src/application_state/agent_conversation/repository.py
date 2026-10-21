@@ -23,7 +23,9 @@ from application_state.agent_conversation.types import (
     PlanAskHistoryAttributionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
+    GraphTurnExecution,
     PlanWorldGraphExecution,
+    PlayRulesIntentV1,
     Turn,
     TurnProvenance,
     WorldPointer,
@@ -216,6 +218,23 @@ def _turn_from_row(
             "rules_summary",
         }
     } | {"provenance": provenance}
+    # psycopg returns JSON arrays as Python lists. Decode the native JSON columns
+    # in JSON mode so strict immutable tuple fields retain their wire semantics.
+    from .types import (
+        PlayWorldGraphContextReceiptV1,
+        PlayWorldGraphExecutionV1,
+        PlayWorldGraphCompletionV1,
+    )
+    import json
+
+    for key, model in (
+        ("graph_context_receipt", PlayWorldGraphContextReceiptV1),
+        ("graph_context_execution", PlayWorldGraphExecutionV1),
+        ("completion", PlayWorldGraphCompletionV1),
+    ):
+        value = fields.get(key)
+        if isinstance(value, dict) and value.get("schema") == model.model_fields["schema_"].default:
+            fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
     marker = row["answer_composition_kind"]
     summary = row["rules_summary"]
     # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
@@ -936,7 +955,7 @@ def insert_turn(
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
-                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2,
+                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2, submitted_intent_schema,
                 graph_context_receipt, completion, graph_context_execution,
                 play_context_receipt,
                 attempt, claim_expires_at,
@@ -944,7 +963,7 @@ def insert_turn(
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
                 %s, NULL, %s, %s, %s
             )
             RETURNING {_TURN_COLS}
@@ -966,6 +985,7 @@ def insert_turn(
                 provenance.surface_instance_id,
                 submitted_intent_fingerprint_v1,
                 submitted_intent_fingerprint_v2,
+                ("dmb_play_rules_intent_v1" if isinstance(submission.submitted_intent_v1, PlayRulesIntentV1) else None),
                 (
                     None
                     if graph_context_receipt is None
@@ -1093,7 +1113,7 @@ def complete_claimed_turn(
     expected_attempt: int,
     assistant_text: str,
     completion: GraphTurnCompletion | None,
-    graph_context_execution: PlanWorldGraphExecution | None = None,
+    graph_context_execution: GraphTurnExecution | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -1199,7 +1219,7 @@ def update_graph_execution(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
-    execution: PlanWorldGraphExecution,
+    execution: GraphTurnExecution,
 ) -> Turn | None:
     """Persist one validated execution append under the caller's locked row."""
     with conn.cursor(row_factory=dict_row) as cur:
@@ -1230,7 +1250,7 @@ def interrupt_expired_graph_execution(
     turn_id: UUID,
     expected_revision: int,
     expected_attempt: int,
-    execution: PlanWorldGraphExecution,
+    execution: GraphTurnExecution,
     failure_code: str,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:

@@ -1,3 +1,6 @@
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
+import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { createHash, webcrypto } from "node:crypto";
 import { getWorldPlayRunContent, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
 import type { PlayRunContent } from "./playRunContentTypes";
@@ -40,7 +43,7 @@ function playDetails(testId: string) {
 }
 
 function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
-  return rtlRender(ui, { ...options, wrapper: ({ children }) => <SurfaceContextProvider><SurfaceContextHost />{children}</SurfaceContextProvider> });
+  return rtlRender(ui, { ...options, wrapper: ({ children }) => <AgentInteractionProvider><SurfaceContextProvider><SurfaceContextHost />{children}<ToolHost /><LegacyProjectionHostAdapter /></SurfaceContextProvider></AgentInteractionProvider> });
 }
 
 vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
@@ -51,6 +54,7 @@ const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b", legacy: fal
 
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
+  getRulesCatalog: vi.fn().mockResolvedValue({ schema: "dmb_rules_catalog_v1", sources: [] }),
   getPlayActiveRun: vi.fn(),
   getWorldPlayActiveRun: vi.fn(),
   getPlayRun: vi.fn(),
@@ -79,7 +83,6 @@ vi.mock("../selectedWorld/SelectedWorldContext", () => ({
 }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
-vi.mock("../agentInteraction/usePublishSurfaceInteraction", () => ({ usePublishSurfaceInteraction: () => undefined }));
 vi.mock("../graphLens", () => ({ useOptionalWorldGraphLens: () => null }));
 vi.mock("./review/SessionReviewPanel",()=>({SessionReviewPanel:()=>null}));
 vi.mock("./review/sessionReviewApi",()=>({readSessionReview:vi.fn().mockResolvedValue({review:null})}));
@@ -214,6 +217,20 @@ describe("Play selected-World admission", () => {
       records: [],
     });
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+  });
+
+  it("opens the shared Rules tool only on request without selecting or changing a Run", async () => {
+    const { getRulesCatalog } = await import("../api/liveApi");
+    window.history.replaceState({}, "", "/play?world=world-b&choose=1");
+    render(<PlaySurfacePage />);
+    expect(getRulesCatalog).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Tools", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Rules Lookup", exact: true }));
+    expect(await screen.findByText("No rules source is available.")).toBeInTheDocument();
+    expect(getRulesCatalog).toHaveBeenCalledTimes(1);
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(putWorldPlayRunContentCommand).not.toHaveBeenCalled();
   });
 
   it.each(["<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\n\n<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->\n### Approach\nLegacy scene.\n", "# Unmarked old source\n"])("rejects v1 manifest before content, active-pointer, rebase, progress or Agent publication (%#)", async markdown => {
