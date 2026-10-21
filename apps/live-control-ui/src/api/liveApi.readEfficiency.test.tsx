@@ -199,7 +199,7 @@ describe("protected read acquisition",()=>{
   "/api/live/world-graph/retrieval/complete-object",
   "/api/live/world-graph/retrieval/source-anchor/read",
   "/api/live/world-graph/retrieval/recap-context/v2/read",
-])("coalesces identical pending evidence reads at %s and keeps request variants distinct",async path=>{
+])("coalesces identical pending graph evidence reads at %s and keeps request variants distinct",async path=>{
   api.setNativeGraphAccessToken("evidence-read-sharing");
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async (_url,init)=>{
     const body=JSON.parse(String(init?.body));
@@ -225,6 +225,36 @@ describe("protected read acquisition",()=>{
     {revisionPin:"rev-1",worldId:"other-world"},
   ]);
   await api.authenticatedApiFetch(path,{method:"POST",body});
+  expect(fetch).toHaveBeenCalledTimes(4);
+ });
+ it("coalesces identical existing-object candidate reads with resolver-shaped requests",async()=>{
+  api.setNativeGraphAccessToken("candidate-read-sharing");
+  const gate=deferred<Response>();
+  let calls=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(()=>
+    ++calls===1 ? gate.promise : Promise.resolve(Response.json({fixture:true})));
+  const request={
+   schema:"dmb_graph_review_existing_object_resolver_request_v1" as const,
+   campaign_id:"longmont-c2",
+   session_id:"session-1",
+   lane_role:"live" as const,
+   selected_node:{node_id:"edge",label:"Edge",kind:"location"},
+   projection_graph_id:"graph-1",
+   live_run_manifest_path:null,
+   query:"Edge",
+   node_views:null,
+   scopes:null,
+   include_gm_private:true,
+  };
+  const first=api.resolveGraphReviewExistingObjectCandidates(request);
+  const same=api.resolveGraphReviewExistingObjectCandidates(request);
+  const otherSession=api.resolveGraphReviewExistingObjectCandidates({...request,session_id:"session-2"});
+  const otherQuery=api.resolveGraphReviewExistingObjectCandidates({...request,query:"Edge town"});
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));
+  expect(String(fetch.mock.calls[0][0])).toBe("/api/live/graph-preview/existing-object-resolver/candidates");
+  gate.resolve(Response.json({fixture:true}));
+  await Promise.all([first,same,otherSession,otherQuery]);
+  await api.resolveGraphReviewExistingObjectCandidates(request);
   expect(fetch).toHaveBeenCalledTimes(4);
  });
  it("does not share a refresh across a command or coalesce command calls",async()=>{
