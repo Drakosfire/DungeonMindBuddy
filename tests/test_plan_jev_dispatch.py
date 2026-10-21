@@ -48,9 +48,10 @@ def plan_adapter(application_state_dsn, monkeypatch):
 
 
 class Wire(httpx2.AsyncBaseTransport):
-    def __init__(self, adapter, *, timeout=False, operation='finish_retrieval', missing_usage=False):
+    def __init__(self, adapter, *, timeout=False, operation='finish_retrieval', missing_usage=False, independent_includes=False):
         self.adapter, self.timeout, self.calls = adapter, timeout, []
         self.operation, self.missing_usage = operation, missing_usage
+        self.independent_includes = independent_includes
     async def handle_async_request(self, request):
         self.calls.append(request)
         current = self.adapter.service.list_turns('world:one', self.adapter.turn.conversation_id)[0]
@@ -62,7 +63,7 @@ class Wire(httpx2.AsyncBaseTransport):
         if self.timeout: raise httpx2.ReadTimeout('synthetic ambiguous response', request=request)
         answers = {}
         for name, entry in body['questions'].items():
-            choice = self.operation if name == 'operation' else ('include' if self.operation == 'select_candidates' else 'exclude')
+            choice = self.operation if name == 'operation' else ('include' if self.operation == 'select_candidates' or self.independent_includes else 'exclude')
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
@@ -149,3 +150,13 @@ def test_unknown_previous_decision_blocks_new_sdk_send(plan_adapter):
         asyncio.run(following.run(transport=following_wire, api_key='synthetic-not-secret'))
     assert len(first_wire.calls) == 1 and following_wire.calls == []
     assert following.call is None
+
+
+def test_actual_app_admits_finish_without_consuming_independent_candidate_votes(plan_adapter):
+    dispatch=controller(plan_adapter)
+    wire=Wire(plan_adapter,independent_includes=True)
+    selected,result=asyncio.run(dispatch.run(transport=wire,api_key='synthetic-not-secret'))
+    assert selected.operation=='finish_retrieval' and selected.selected_handles==()
+    assert result.answers['candidate_0'].selected=='include'
+    event=plan_adapter.fence.turn.graph_context_execution.events[-1]
+    assert event.operation=='finish_retrieval' and event.selected_handles==[]

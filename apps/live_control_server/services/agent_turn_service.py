@@ -6765,16 +6765,19 @@ def execute_agent_turn(
     try:
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
-            from .plan_jev_harness import PlanJevHarness
+            from .plan_jev_harness import PlanJevHarness, default_plan_jev_runtime
             from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
             # Saved Build and Rules remain usable before source ingestion. The
             # current driver validates discovery status; never silently switch to
             # a different runtime without its Rules capability.
             default_build_jev = _governed_build_turn(request) and policy_bootstrap is not None
+            default_plan_jev = (request.surface.surface_id == "plan"
+                and request.plan_context_policy is not None and policy_bootstrap is not None)
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
             ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()
-                if default_build_jev else default_hermes_agent_runtime())
+                if default_build_jev else default_plan_jev_runtime()
+                if default_plan_jev else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)

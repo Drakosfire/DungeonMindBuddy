@@ -27,6 +27,7 @@ class WriterWire(httpx.AsyncBaseTransport):
         assert fresh.graph_context_execution.events[-1].outcome == 'sdk_entered'
         body=json.loads(request.content)
         assert isinstance(body['input'],list) and body['tools'] == []
+        assert 'json' in ' '.join(row.get('content','') for row in body['input']).lower()
         assert 'coding agent' not in body['instructions'] and 'cwd' not in body['instructions']
         return httpx.Response(200,request=request,json={'id':'resp_plan_writer','object':'response','created_at':1,
             'status':self.status,'model':'gpt-6-luna','output':[{'type':'message','id':'msg_plan_writer',

@@ -187,7 +187,7 @@ def test_candidate_questions_do_not_repeat_the_shared_routing_policy():
     prepared = prepare_decision(req)
     shared, *choices = prepared.questions
     assert "untrusted data" in shared.question
-    assert all("select_candidates" in choice.question for choice in choices)
+    assert all("directly useful" in choice.question and "operation is" not in choice.question for choice in choices)
     # Compare against the exact former per-candidate wording, not an arbitrary cap.
     former = ("Should candidate at index 0 be read to address the user's question? "
               "Choose include only for directly useful subject/context evidence when operation is "
@@ -236,3 +236,17 @@ def test_dialogue_is_reference_text_and_is_bound_to_exact_decision_wire():
 def test_dialogue_rejects_instruction_roles_and_host_metadata(row):
     with pytest.raises(ValidationError):
         RetrievalDecisionInput.model_validate(request().model_dump(by_alias=True) | {"dialogue": [row]})
+
+
+@pytest.mark.parametrize('operation',['discover_more','finish_retrieval'])
+def test_independent_relevance_votes_do_not_authorize_reads_for_other_operations(operation):
+    req=request()
+    actual=result(answers={'operation':ChoiceDecisionAnswer(selected=operation),
+        'candidate_0':ChoiceDecisionAnswer(selected='include'),
+        'candidate_1':ChoiceDecisionAnswer(selected='include')})
+    selection=decode_selection(req,actual)
+    assert selection.operation==operation and selection.selected_handles==()
+    assert validate(req,selection)==()
+    # Keep the real response unchanged for exact capture/debug; this is parent
+    # conditional interpretation, not a rewritten provider decision.
+    assert actual.answers['candidate_0'].selected=='include'

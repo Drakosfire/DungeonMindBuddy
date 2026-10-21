@@ -141,3 +141,35 @@ def test_owner_followup_retains_full_actual_rules_completion(plan_adapter,tmp_pa
     assert json.loads(decisions.calls[0].content)['state']['dialogue_reference']==expected
     assert json.loads(json.loads(wire.calls[0].content)['input'][0]['content'])['dialogue_reference']==expected
     assert support.excerpt_text in expected[1]['content']
+
+
+def test_ordinary_governed_plan_selects_jev_and_replay_skips_factory(plan_adapter,tmp_path,monkeypatch):
+    from apps.live_control_server.services import plan_jev_harness,agent_turn_service
+    harness,decisions,wire,kwargs=route_case(plan_adapter,tmp_path)
+    kwargs.pop('runtime')
+    constructions=[]
+    def factory():
+        constructions.append(True)
+        return harness
+    monkeypatch.setattr(plan_jev_harness,'default_plan_jev_runtime',factory)
+    monkeypatch.setattr(agent_turn_service,'default_hermes_agent_runtime',lambda:pytest.fail('Unexpected Plan fallback'))
+    result=execute_agent_turn(plan_adapter.request,**kwargs)
+    assert result.answer.status=='ok' and len(constructions)==1
+    assert len(decisions.calls)==len(wire.calls)==1
+    replay=execute_agent_turn(plan_adapter.request,**kwargs)
+    assert replay.plan_context.delivery_replay and len(constructions)==1
+    assert len(decisions.calls)==len(wire.calls)==1
+
+
+def test_ordinary_plan_factory_failure_does_not_fallback_or_dispatch(plan_adapter,tmp_path,monkeypatch):
+    from apps.live_control_server.services import plan_jev_harness,agent_turn_service
+    _,decisions,wire,kwargs=route_case(plan_adapter,tmp_path)
+    kwargs.pop('runtime')
+    def unavailable():
+        raise RuntimeError('Synthetic unavailable runtime')
+    monkeypatch.setattr(plan_jev_harness,'default_plan_jev_runtime',unavailable)
+    monkeypatch.setattr(agent_turn_service,'default_hermes_agent_runtime',lambda:pytest.fail('Unexpected Plan fallback'))
+    with pytest.raises(AgentTurnServiceError) as failed:
+        execute_agent_turn(plan_adapter.request,**kwargs)
+    assert failed.value.code=='runtime_unavailable'
+    assert not decisions.calls and not wire.calls

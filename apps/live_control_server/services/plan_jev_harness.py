@@ -71,3 +71,8 @@ class PlanJevHarness:
             for key in ('base_context','unclaimed_context'):
                 if payload['rules_context'].get(key) is not None: payload['rules_context'][key]['delivery_replay']=False
         return type(response).model_validate_json(json.dumps(payload))
+
+
+def default_plan_jev_runtime():
+    """Ordinary governed Plan factory; the parent owns dispatch authorization."""
+    return PlanJevHarness()

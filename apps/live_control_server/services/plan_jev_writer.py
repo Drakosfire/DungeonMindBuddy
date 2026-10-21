@@ -89,7 +89,8 @@ class PlanJevWriter:
         self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
         rule_frame = rules.frame()
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
-                         {'role': 'user', 'content': canonical_bytes(rule_frame).decode()}]
+                         {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
+                         {'role': 'user', 'content': 'Return JSON.'}]
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS,
             RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
