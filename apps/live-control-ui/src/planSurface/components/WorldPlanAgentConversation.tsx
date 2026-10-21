@@ -4463,12 +4463,10 @@ export function WorldPlanAgentConversation({
     let number = 0;
     return context.completion.answer_segments.flatMap((segment, segmentIndex) => {
       if (segment.kind !== "graph_claim") return [];
-      const citation = entries.find(entry => entry.claim_id === segment.claim_id && entry.source_opened);
-      const target = context.source_open_targets?.find(item => item.claim_id === segment.claim_id
-        && item.kind === "evidence_anchor" && item.source_read_id !== null
-        && citation && "source_read_ids" in citation && citation.source_read_ids.includes(item.source_read_id));
-      if (!target) return [];
-      return [{ segmentIndex, label: String(++number), title: sourceCitationTitle(target), onOpen: () => {
+      const citation = entries.find(entry => entry.claim_id === segment.claim_id);
+      const targets = context.source_open_targets?.filter(item => item.claim_id === segment.claim_id
+        && item.kind === "evidence_anchor" && citation?.evidence_ref_ids.includes(item.evidence_ref_id)) ?? [];
+      return targets.map(target => ({ segmentIndex, label: String(++number), title: sourceCitationTitle(target), onOpen: () => {
         const panel = document.getElementById(`buddy-evidence-${turn.turn_id}`);
         if (panel instanceof HTMLDetailsElement) {
           panel.open = true;
@@ -4476,7 +4474,7 @@ export function WorldPlanAgentConversation({
           panel.scrollIntoView?.({ block: "nearest" });
         }
         void openSourcePassage(turn, target);
-      } }];
+      } }));
     });
   }
 
