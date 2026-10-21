@@ -300,7 +300,9 @@ def test_default_ordinary_route_selects_jev_without_a_test_runtime_override(
     case, _ = ordinary_case(build_case, monkeypatch)
     from apps.live_control_server.services import build_jev_harness as module
 
-    decisions, writer = DecisionWire(), WriterWire()
+    from tests.test_rules_build_parent import RulesDecisionWire
+
+    decisions, writer = RulesDecisionWire(query=False), WriterWire()
     decision_provider, writer_provider = (
         module.TypeSafeDecisionProvider,
         module.OpenAITextProvider,
