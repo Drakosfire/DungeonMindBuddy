@@ -7,6 +7,7 @@ from already persisted parent operations and receipts, never caller paths.
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
@@ -134,6 +135,41 @@ class EvidenceBundleRefusal(ValueError):
         self.message = message
 
 
+def _source_batch_identity(raw: str, pins: dict[str, Any], scope: tuple[str, ...], receipts: list[Any]) -> tuple | None:
+    """Identify a whole validated, complete batch; never reuse a partial receipt."""
+    value = json.loads(raw)
+    rows = value.get("reads", [value])
+    if not rows or not isinstance(rows, list):
+        return None
+    admitted = {receipt.anchor_id: receipt for receipt in receipts}
+    identities = []
+    for row in rows:
+        anchor = row.get("anchorId")
+        pin = pins.get(anchor)
+        if pin is None:
+            return None
+        fields = pin if isinstance(pin, dict) else pin.model_dump(mode="json")
+        content = row.get("content")
+        receipt = admitted.get(anchor)
+        if (receipt is None or receipt.outcome != "enough" or receipt.truncated
+                or receipt.source_artifact_id != fields.get("source_artifact_id")
+                or receipt.source_revision_id != fields.get("source_revision_id")
+                or receipt.evidence_ref_id != fields.get("evidence_ref_id")
+                or row.get("outcome") != "enough" or row.get("truncated", False)
+                or not isinstance(content, str) or not content
+                or row.get("sourceArtifactId") != fields.get("source_artifact_id")
+                or row.get("evidenceRefId") != fields.get("evidence_ref_id")
+                or receipt.content_sha256 != sha256(content.encode()).hexdigest()
+                or receipt.returned_chars != len(content)
+                or receipt.line_start != row.get("lineStart")
+                or receipt.line_end != row.get("lineEnd")):
+            return None
+        identities.append((anchor, json.dumps(fields, sort_keys=True, separators=(",", ":"))))
+    if len({anchor for anchor, _ in identities}) != len(identities):
+        return None
+    return scope, tuple(identities)
+
+
 def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, Any]:
     """Follow admitted pointers using the same guarded parent operations."""
     from graph_memory.interaction.expansion_executor import (
@@ -235,6 +271,19 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
     )
     latest_session_packet = reply.get("retrievalSession")
     source_events = []
+    source_scope = (request.retrieval_session_id, scope.world_id, scope.graph_revision,
+                    authority.native_world_id, authority.managed_world_id, str(authority.binding_version))
+    receipts_by_event = {event.event_id: event.receipts for event in adapter._broker_execution().events
+                         if event.kind == "validated_source_read_v2"}
+    reusable = getattr(adapter, "evidence_source_batches", {})
+    remaining = set(anchor_ids)
+    for sid, (raw, identity) in reusable.items():
+        batch_anchors = {anchor for anchor, _ in identity[1]}
+        if (batch_anchors.issubset(remaining)
+                and _source_batch_identity(raw, pins, source_scope, receipts_by_event.get(sid, [])) == identity):
+            source_events.append((sid, raw))
+            remaining.difference_update(batch_anchors)
+    anchor_ids = sorted(remaining)
     stop_code = None
     for offset in range(0, len(anchor_ids), 8):
         before_sources = set(adapter.source_payloads)
@@ -276,5 +325,15 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
         source_pins=pins,
     )
     result = {"resultJson": payload, "retrievalSession": latest_session_packet}
+    # Publish reuse only after successful presentation. Original event IDs remain
+    # the authority; presentation still demands the exact current-envelope donor.
+    if not hasattr(adapter, "evidence_source_batches"):
+        adapter.evidence_source_batches = {}
+    receipts_by_event = {event.event_id: event.receipts for event in adapter._broker_execution().events
+                         if event.kind == "validated_source_read_v2"}
+    for sid, raw in source_events:
+        identity = _source_batch_identity(raw, pins, source_scope, receipts_by_event.get(sid, []))
+        if identity is not None:
+            adapter.evidence_source_batches[sid] = (raw, identity)
     adapter.evidence_bundle_cache[cache_key] = result
     return result
