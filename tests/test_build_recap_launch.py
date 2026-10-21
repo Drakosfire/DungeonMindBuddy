@@ -142,3 +142,56 @@ def test_failed_model_run_is_recovered_without_retry(tmp_path,request_body,conte
     assert first.status.value=='failed'
     monkeypatch.setattr(service,'run_recap_production_extraction',lambda **k:pytest.fail('failed request must not execute again'))
     assert service.launch_build_recap(tmp_path,request_body)==first
+
+
+def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
+    tmp_path, source, context, monkeypatch,
+):
+    """Native campaign membership does not require a historical corpus mapping."""
+    from dataclasses import replace
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document, mark_workspace_document_committed,
+    )
+    import hashlib
+    campaign = 'public-park-new-campaign'
+    snapshot = replace(context, campaign_id=campaign)
+    monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: snapshot)
+    record = create_workspace_document(tmp_path, title='Public park recap',
+        campaign_id=campaign, world_id='managed-a', kind='worldbuilding_source',
+        source_domain='worldbuilding', document_class='lore',
+        authority_state='draft', visibility_state='internal')
+    target = tmp_path / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    text = 'Mirathorn crossed the public park footbridge.\n'
+    target.write_text(text)
+    record = mark_workspace_document_committed(tmp_path, record.document_id)
+    request = BuildRecapLaunchRequest(request_id=uuid4(), document_id=record.document_id,
+        expected_revision=record.revision, expected_content_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        managed_world_id='managed-a', campaign_id=campaign, session=1)
+    # Exercise the ordinary identity snapshot before any provider call.
+    identity = wrapper._recap_identity_snapshot(campaign, 'session-1', None)
+    assert identity['campaign_id'] == campaign and identity['entities'] == ()
+    calls = []
+    actual = wrapper.run_recap_production_extraction
+    def execute(**kwargs):
+        normalized = wrapper._normalized_from_registered(tmp_path, kwargs['build_source_artifact_id'])
+        class ActorClient(FixtureClient):
+            def run_pass(self, pass_name, **options):
+                answer = super().run_pass(pass_name, **options)
+                if pass_name == 'actor_pass':
+                    answer['parsed']['observation_nodes'][0]['node_type'] = 'character'
+                elif 'observation_nodes' in answer['parsed']:
+                    answer['parsed']['observation_nodes'] = []
+                return answer
+        kwargs['category_client'] = ActorClient(span_ref=_first_paragraph_span_id(normalized))
+        calls.append(kwargs['reserved_run'].run_id)
+        return actual(**kwargs)
+    monkeypatch.setattr(service, 'run_recap_production_extraction', execute)
+    result = service.launch_build_recap(tmp_path, request)
+    assert result.status.value == 'reviewable', result.diagnostics.errors
+    import json
+    graph = json.loads((tmp_path / result.components['candidate_graph'].uri.removeprefix('repo://')).read_text())
+    assert any(node['label'] == 'Mirathorn' and node['node_type'] == 'character' for node in graph['nodes'])
+    monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: pytest.fail('replay read'))
+    assert service.launch_build_recap(tmp_path, request) == result
+    assert calls == [result.run_id]

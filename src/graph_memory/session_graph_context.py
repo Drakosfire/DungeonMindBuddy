@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.party_context import (
+    CAMPAIGN_CORPUS,
     DEFAULT_CAMPAIGN_REL,
     DEFAULT_CORPUS_ROOT,
     PARTY_REGISTRY_BASENAME,
@@ -153,6 +154,21 @@ def build_session_graph_context(
     corpus_root: Path | None = None,
     campaign_rel: str | None = None,
 ) -> SessionGraphContext:
+    if campaign_rel is None and campaign_id.strip() not in CAMPAIGN_CORPUS:
+        party_ctx = build_party_context_for_campaign(campaign_id, session)
+        session_id = _session_id_from_number(session)
+        return SessionGraphContext(
+            schema=SESSION_GRAPH_CONTEXT_SCHEMA,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            session_number=_session_number_from_id(session_id),
+            party_names=(),
+            anchor_members=(),
+            notable_npc_slugs=(),
+            registry_schema=None,
+            registry_relpath=None,
+            warnings=party_ctx.warnings,
+        )
     root, rel = resolve_campaign_corpus(
         campaign_id,
         corpus_root=corpus_root,

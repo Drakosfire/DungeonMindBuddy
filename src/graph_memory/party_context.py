@@ -195,6 +195,16 @@ def build_party_context_for_campaign(
     corpus_root: Path | None = None,
     campaign_rel: str | None = None,
 ) -> PartyContext:
+    if campaign_rel is None and campaign_id.strip() not in CAMPAIGN_CORPUS:
+        # Native campaigns need not have an optional local party registry.
+        # Do not invent a path or borrow another campaign's identities.
+        return PartyContext(
+            campaign_id=campaign_id,
+            session=_session_key(session),
+            party_names=(),
+            members=(),
+            warnings=("no local corpus registered for campaign",),
+        )
     root, rel = resolve_campaign_corpus(
         campaign_id,
         corpus_root=corpus_root,
