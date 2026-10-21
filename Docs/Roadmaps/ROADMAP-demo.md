@@ -75,9 +75,10 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    accepted receipts into the existing Build document context. Recap is a frozen
    run configuration over that exact saved Markdown; this does not add a second
    editor or change an existing run when the mode selector changes. Re-anchor
-   after the active [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
-   ([PR #1510](https://github.com/Drakosfire/DungeonMindBuddy/pull/1510)) settles
-   before choosing its activation point. This does not replace the roadmap's
+   against the delivered [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
+   ([PR #1507](https://github.com/Drakosfire/DungeonMindBuddy/pull/1507)); superseded #1510 is closed.
+   The [inline Worldbuilding review slice](../Plans/HANDOFF-BUILD-inline-extraction-review.md) is active serially;
+   frozen Recap launch/configuration and durable receipt/recovery acceptance remain open. This does not replace the roadmap's
    focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
    ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
    [Combat C0 PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367)).

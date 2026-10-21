@@ -328,6 +328,7 @@ def test_launch_ignores_client_allow_llm_false_and_executes(
     assert f"sourceArtifactId={payload['source_artifact_id']}" in href
     assert f"documentId={committed.document_id}" in href
     assert f"revision={committed.revision}" in href
+    assert href.startswith("/build?")
     assert "latest" not in href
 
 
@@ -360,7 +361,7 @@ def test_launch_reaches_reviewable_with_exact_handoff(
     assert (
         handoff["href"]
         == (
-            "/ingest"
+            "/build"
             f"?extractionRunId={run_id}"
             f"&sourceArtifactId={payload['source_artifact_id']}"
             f"&documentId={committed.document_id}"

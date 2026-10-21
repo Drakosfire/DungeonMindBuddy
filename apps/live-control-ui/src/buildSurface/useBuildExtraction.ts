@@ -5,6 +5,7 @@ import {
   launchExtractionRun,
 } from "../api/liveApi";
 import type {
+  ExactRunEvidenceCorrectionResponse,
   ExtractionRunLaunchResponse,
   ExtractionRunRecord,
   ExtractionRunStatusResponse,
@@ -199,6 +200,8 @@ export interface BuildExtractionState {
   snapshot: WorkspaceDocumentSnapshot | null;
   run: ExtractionRunRecord | null;
   handoff: GraphReviewHandoffPayload | null;
+  sourceContentSha256: string | null;
+  adoptDerivedRun: (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => Promise<void>;
   statusLabel: string;
   error: string | null;
   launching: boolean;
@@ -214,6 +217,9 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const canvas = useMarkdownCanvasSession();
   const [run, setRun] = useState<ExtractionRunRecord | null>(null);
   const [handoff, setHandoff] = useState<GraphReviewHandoffPayload | null>(null);
+  const [sourceContentSha256, setSourceContentSha256] = useState<string | null>(null);
+  const currentRunRef = useRef(run);
+  currentRunRef.current = run;
   const [error, setError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
 
@@ -233,6 +239,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const clearAdoptedRunState = useCallback(() => {
     setRun(null);
     setHandoff(null);
+    setSourceContentSha256(null);
     setError(null);
     launchingRef.current = false;
     setLaunching(false);
@@ -284,6 +291,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
       writeStoredRunId(selectedDocumentId, status.run.run_id);
       setHandoff(validation.handoff);
+      setSourceContentSha256(status.source_content_sha256);
       setError(null);
     } catch (loadError) {
       if (generation !== refreshGenerationRef.current) return;
@@ -389,6 +397,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
       setRun(response.run);
       setHandoff(validation.handoff);
+      setSourceContentSha256(response.source_content_sha256);
       setRunIdInLocationForDocument(selectedDocumentId, response.run.run_id);
       writeStoredRunId(selectedDocumentId, response.run.run_id);
       if (response.failure_kind) {
@@ -406,6 +415,33 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
     }
   }, [canvas, documentId, profile]);
+
+  const adoptDerivedRun = useCallback(async (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => {
+    const parent = run;
+    const digest = (value: unknown) => typeof value === "string" && /^(?:sha256:)?[a-f0-9]{64}$/.test(value) ? value.replace(/^sha256:/, "") : null;
+    if (!isCurrent() || !parent || !handoff || !sourceContentSha256 || receipt.schema !== "dmb_exact_run_evidence_correction_response_v1"
+      || receipt.parentRunId !== parent.run_id || receipt.status !== "reviewable" || typeof receipt.runId !== "string" || !receipt.runId.trim() || receipt.runId === parent.run_id
+      || !digest(expectedDigest) || digest(receipt.correctionDigest) !== digest(expectedDigest)
+      || !digest(receipt.parentCandidateSha256) || !digest(receipt.candidateSha256) || !digest(receipt.correctionDigest)
+      || digest(receipt.parentCandidateSha256) !== digest(parent.components?.candidate_graph?.sha256)) {
+      throw new Error("The correction receipt does not match the selected source run.");
+    }
+    const status = await getExtractionRunStatus(receipt.runId);
+    if (!isCurrent() || documentIdFromLocation() !== documentId || currentRunRef.current?.run_id !== parent.run_id) {
+      throw new Error("The selected document or run changed. Reopen the original correction to recover it.");
+    }
+    const validation = validateExactRunIdentity({ selectedDocumentId: documentId, requestedRunId: receipt.runId,
+      response: status, expectedDocumentRevision: handoff.document_revision, expectedContentSha256: sourceContentSha256 });
+    if (!validation.ok || status.run.status !== "reviewable" || status.run.source_domain !== parent.source_domain || status.source_artifact_id !== parent.source_artifact_id
+      || status.run.profile_id !== parent.profile_id || status.run.lineage?.parent_run_id !== parent.run_id
+      || digest(String(status.run.lineage?.parent_candidate_sha256)) !== digest(receipt.parentCandidateSha256)
+      || digest(status.run.components?.candidate_graph?.sha256) !== digest(receipt.candidateSha256)
+      || digest(String(status.run.lineage?.correction_digest)) !== digest(receipt.correctionDigest)) {
+      throw new Error("The corrected child run does not preserve this source and parent lineage.");
+    }
+    setRun(status.run); setHandoff(validation.handoff); setSourceContentSha256(status.source_content_sha256); setError(null);
+    writeStoredRunId(documentId, status.run.run_id); setRunIdInLocationForDocument(documentId, status.run.run_id);
+  }, [documentId, handoff, run, sourceContentSha256]);
 
   const canLaunch = Boolean(committedClean && !launching);
   const canRefresh = !launching;
@@ -428,6 +464,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     snapshot,
     run,
     handoff,
+    sourceContentSha256,
+    adoptDerivedRun,
     statusLabel,
     error,
     launching,

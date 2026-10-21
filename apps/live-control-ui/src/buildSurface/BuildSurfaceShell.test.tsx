@@ -1,5 +1,7 @@
+import {useState} from "react";
+import {createPortal} from "react-dom";
 import type { ComponentProps } from "react";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
 import { chromium } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
@@ -156,13 +158,19 @@ function AuthoringStatusProbe() {
   );
 }
 
-function BuildDocumentHarness({ documentId }: { documentId: string }) {
+function ReviewHostProbe() {
+  const [target,setTarget]=useState<HTMLDivElement|null>(null),[open,setOpen]=useState(false);
+  return <><button onClick={()=>setOpen(v=>!v)}>Toggle contextual review</button>
+    <BuildSurfaceShell onReviewTarget={setTarget}/>
+    {target && createPortal(<section hidden={!open}>Contextual review witness</section>,target)}</>;
+}
+function BuildDocumentHarness({ documentId, reviewHost=false }: { documentId: string; reviewHost?:boolean }) {
   return (
     <AgentInteractionProvider>
       <ScopeProbe />
       <BuildCanvasTestProvider documentId={documentId}>
         <AuthoringStatusProbe />
-        <BuildSurfaceShell />
+        {reviewHost ? <ReviewHostProbe/> : <BuildSurfaceShell />}
       </BuildCanvasTestProvider>
     </AgentInteractionProvider>
   );
@@ -232,6 +240,21 @@ afterAll(()=>{
 });
 
 describe("BuildSurfaceShell", () => {
+  it("keeps the actual editor draft, selection and undo history across contextual review toggles",async()=>{
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    render(<BuildDocumentHarness documentId={DOC_ID} reviewHost/>);
+    await waitFor(()=>expect(buildShellTestEditor?.getText()).toContain("Build Source"));
+    const editor=buildShellTestEditor!;
+    await act(async()=>{editor.commands.insertContentAt(1,"Unsaved review continuity ");editor.commands.setTextSelection(8);});
+    const content=editor.getJSON(),selection=editor.state.selection.toJSON();
+    for(let i=0;i<4;i++)fireEvent.click(screen.getByRole('button',{name:'Toggle contextual review'}));
+    expect(buildShellTestEditor).toBe(editor);expect(editor.getJSON()).toEqual(content);
+    expect(editor.state.selection.toJSON()).toEqual(selection);
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    await act(async()=>{expect(editor.commands.undo()).toBe(true);});
+    expect(editor.getText()).not.toContain('Unsaved review continuity');
+  });
+
   it("applies an explicitly queued starter only as an unsaved edit", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({ ...buildWorldbuildingSnapshot(DOC_ID), markdown: "" });
     sessionStorage.setItem(`dmb.build.starter.${DOC_ID}`, "worldbuilding");

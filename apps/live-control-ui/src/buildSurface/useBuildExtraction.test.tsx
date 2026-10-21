@@ -105,7 +105,7 @@ function statusEnvelope(args: {
     document_revision: args.revision,
     source_content_sha256: args.sha,
     graph_review_handoff: {
-      href: `/ingest?extractionRunId=${args.runId}&sourceArtifactId=${args.artifactId}&documentId=${args.documentId}&revision=${args.revision}`,
+      href: `/build?extractionRunId=${args.runId}&sourceArtifactId=${args.artifactId}&documentId=${args.documentId}&revision=${args.revision}`,
       extraction_run_id: args.runId,
       source_artifact_id: args.artifactId,
       document_id: args.documentId,
@@ -203,7 +203,7 @@ describe("validateExactRunIdentity", () => {
       sha: "sha-a",
     });
     response.graph_review_handoff.href =
-      `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=2`;
+      `/build?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=2`;
     const result = validateExactRunIdentity({
       selectedDocumentId: DOC_A,
       requestedRunId: RUN_A,
@@ -222,9 +222,9 @@ describe("validateExactRunIdentity", () => {
       sha: "sha-a",
     });
     for (const href of [
-      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_B}&documentId=${DOC_A}&revision=2`,
-      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_B}&revision=2`,
-      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=9`,
+      `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_B}&documentId=${DOC_A}&revision=2`,
+      `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_B}&revision=2`,
+      `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=9`,
     ]) {
       const response = {
         ...base,
@@ -268,7 +268,7 @@ describe("validateHandoffHref", () => {
       sha: "sha-a",
     }).graph_review_handoff;
     handoff.href =
-      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
+      `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
     const result = validateHandoffHref(handoff);
     expect(result.ok).toBe(false);
   });
@@ -525,7 +525,7 @@ describe("useBuildExtraction", () => {
       }),
       document_id: DOC_B,
       graph_review_handoff: {
-        href: `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_B}&revision=2`,
+        href: `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_B}&revision=2`,
         extraction_run_id: RUN_A,
         source_artifact_id: ARTIFACT_A,
         document_id: DOC_B,
@@ -596,7 +596,7 @@ describe("useBuildExtraction", () => {
       sha: "sha-a",
     });
     envelope.graph_review_handoff.href =
-      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
+      `/build?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
     vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(envelope);
 
     const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
@@ -1316,5 +1316,68 @@ describe("Build save/extract command arbitration", () => {
       }));
       await launchPromise;
     });
+  });
+});
+
+
+describe("Build corrected child adoption", () => {
+  const parentHash = "a".repeat(64), childHash = "c".repeat(64), correctionHash = "d".repeat(64);
+  beforeEach(() => {
+    vi.clearAllMocks(); localStorage.clear();
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    writeCleanLocal(DOC_A, 2, "sha-a");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFor(DOC_A, 2, "sha-a"));
+  });
+  function envelopes() {
+    const parent = {...statusEnvelope({runId:RUN_A,artifactId:ARTIFACT_A,documentId:DOC_A,revision:2,sha:"sha-a"})};
+    const child = {...statusEnvelope({runId:RUN_B,artifactId:ARTIFACT_A,documentId:DOC_A,revision:2,sha:"sha-a"})};
+    Object.assign(parent.run, {components:{candidate_graph:{sha256:parentHash}}});
+    Object.assign(child.run, {components:{candidate_graph:{sha256:childHash}},lineage:{parent_run_id:RUN_A,parent_candidate_sha256:parentHash,correction_digest:correctionHash}});
+    const receipt = {schema:"dmb_exact_run_evidence_correction_response_v1" as const,runId:RUN_B,parentRunId:RUN_A,
+      parentCandidateSha256:parentHash,candidateSha256:childHash,correctionDigest:correctionHash,status:"reviewable" as const};
+    return {parent,child,receipt};
+  }
+  it("adopts only the validated child with one status read",async()=>{
+    const {parent,child,receipt}=envelopes();
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    await act(async()=>{await result.current.adoptDerivedRun(receipt,correctionHash,()=>true);});
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(liveApi.getExtractionRunStatus).toHaveBeenCalledTimes(2);
+    expect(new URLSearchParams(location.search).get("extractionRunId")).toBe(RUN_B);
+  });
+  it("rejects a different valid correction before reading or adopting its child",async()=>{
+    const {parent,receipt}=envelopes();vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(parent);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    await expect(result.current.adoptDerivedRun(receipt,"e".repeat(64),()=>true)).rejects.toThrow("receipt");
+    expect(liveApi.getExtractionRunStatus).toHaveBeenCalledTimes(1);
+    expect(result.current.run?.run_id).toBe(RUN_A);
+  });
+  it.each(["document","revision","digest","profile","lineage","candidate"])("rejects a foreign child %s",async field=>{
+    const {parent,child,receipt}=envelopes();
+    if(field==="document")child.document_id=DOC_B;
+    if(field==="revision")child.document_revision=3;
+    if(field==="digest")child.source_content_sha256="other";
+    if(field==="profile")child.run.profile_id="other";
+    if(field==="lineage")Object.assign(child.run,{lineage:{parent_run_id:"other"}});
+    if(field==="candidate")Object.assign(child.run,{components:{candidate_graph:{sha256:"e".repeat(64)}}});
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockResolvedValueOnce(child);
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    await expect(result.current.adoptDerivedRun(receipt,correctionHash,()=>true)).rejects.toThrow("child");
+    expect(result.current.run?.run_id).toBe(RUN_A);
+  });
+  it("rejects World invalidation while child status is in flight",async()=>{
+    const {parent,child,receipt}=envelopes();let resolve!:(v:typeof child)=>void, current=true;
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValueOnce(parent).mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));
+    const {result}=renderHook(()=>useBuildExtraction({documentId:DOC_A}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(result.current.handoff).not.toBeNull());
+    const outcome=result.current.adoptDerivedRun(receipt,correctionHash,()=>current).catch(e=>e);
+    current=false;await act(async()=>{resolve(child);});
+    expect(await outcome).toBeInstanceOf(Error);
+    expect(result.current.run?.run_id).toBe(RUN_A);
+    expect(new URLSearchParams(location.search).get("extractionRunId")).toBe(RUN_A);
   });
 });

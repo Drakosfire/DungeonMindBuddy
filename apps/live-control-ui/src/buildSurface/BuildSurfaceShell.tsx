@@ -310,7 +310,7 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  * Saved evidence remains separate from the directly editable working document.
  */
-export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void }) {
+export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void }) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
@@ -585,6 +585,7 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
           onEditorTools={onEditorTools}
         />
       )}
+      <div className="build-run-review-host" ref={onReviewTarget} />
     </div>
   );
   return <div className="build-workspace-projection">
