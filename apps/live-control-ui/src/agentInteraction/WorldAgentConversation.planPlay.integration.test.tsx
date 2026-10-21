@@ -887,7 +887,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
-  it.each(['exact', 'other-edition', 'other-scene'] as const)("reconciles an uncertain Play turn after switching to Plan only for its exact basis: %s", async mode => {
+  it.each(['exact', 'other-edition', 'other-scene', 'failed', 'interrupted'] as const)("reconciles an uncertain Play turn after switching to Plan only for its exact basis: %s", async mode => {
     let phase: "initial" | "pending" | "completed" = "initial";
     let playTurnId = "";
     let submitted: WorldPlayAgentTurnRequestV1 | null = null;
@@ -901,10 +901,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => ({ ...history(), schema: "dmb_agent_conversation_history_v2", turns: [
       turn("plan", 1, "Original Plan answer"),
       ...(phase === "initial" ? [] : [{ ...turn("play", 2, "Recovered Play answer"),
-        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" ? null : "Recovered Play answer",
-        lifecycle_status: phase === "pending" ? "running" as const : "completed" as const,
-        ...(submitted ? { play_context: { ...contextForHistory(),
-          ...(phase === "pending" ? { completion: null } : {}) }, provenance: nativePlayProvenanceFixture(contextForHistory()) } : {}) }]),
+        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
+        lifecycle_status: phase === "pending" ? "running" as const : mode === 'failed' || mode === 'interrupted' ? mode : "completed" as const,
+        ...(submitted ? { play_context: { ...contextForHistory(), delivery_replay: true,
+          ...(phase === "pending" || mode === 'failed' || mode === 'interrupted' ? { completion: null,
+            execution: { schema: 'dmb_agent_plan_world_graph_execution_projection_v1' as const,
+              claimability: 'safe_to_reclaim_without_dispatch' as const, authorization_state: 'none' as const, automatic_redispatch: false as const } } : {}) }, provenance: nativePlayProvenanceFixture(contextForHistory()) } : {}) }]),
     ] }));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
       submitted = request;
@@ -924,11 +926,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
     phase = "completed";
-    await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
-    if (mode === 'exact') {
+    if (mode === 'failed' || mode === 'interrupted') {
+      await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled(), { timeout: 7000 });
+      expect(screen.queryByText("Recovered Play answer")).not.toBeInTheDocument();
+      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
+    } else if (mode === 'exact') {
+      await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
       expect(screen.queryByText(/Connection lost after submit/)).not.toBeInTheDocument();
     } else {
+      await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
       expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull();
     }

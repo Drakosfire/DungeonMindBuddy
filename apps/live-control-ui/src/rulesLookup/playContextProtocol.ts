@@ -154,7 +154,7 @@ export function isWorldPlayContextProjection(value: unknown, validateExecution: 
   if (!keys(value, ['schema', 'receipt', 'completion', 'execution', 'delivery_replay'])
     || value.schema !== 'dmb_agent_play_world_graph_context_response_v1' || !isWorldPlayGraphReceipt(value.receipt, request)
     || typeof value.delivery_replay !== 'boolean' || (value.execution !== null && !validateExecution(value.execution))
-    || (value.completion === null ? !history || value.delivery_replay : !isWorldPlayGraphCompletion(value.completion, value.receipt))) return false;
+    || (value.completion === null ? !history : !isWorldPlayGraphCompletion(value.completion, value.receipt))) return false;
   return true;
 }
 

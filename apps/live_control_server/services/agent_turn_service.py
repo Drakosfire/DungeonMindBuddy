@@ -4997,7 +4997,7 @@ def project_play_turn_context(
     *,
     delivery_replay: bool,
 ) -> AgentPlayWorldGraphContextResponseV1:
-    """Project a native Play receipt after validating its own Run and ledger."""
+    """Project the frozen native Run/ledger, including evidence-free terminal recovery."""
     receipt = turn.graph_context_receipt
     execution = getattr(turn, "graph_context_execution", None)
     if not isinstance(receipt, PlayWorldGraphContextReceiptV1) or not isinstance(
@@ -5010,9 +5010,10 @@ def project_play_turn_context(
     try:
         Turn.model_validate(turn.model_dump(mode="python", by_alias=True))
         from application_state.agent_conversation.play_graph_context import (
-            validate_play_graph_execution_binding,
+            validate_play_graph_execution_binding, validate_play_graph_provenance,
         )
         validate_play_graph_execution_binding(receipt, execution)
+        validate_play_graph_provenance(receipt, turn.provenance)
         provenance = turn.provenance
         primary = provenance.primary_work
         basis = receipt.play_basis
@@ -5025,20 +5026,22 @@ def project_play_turn_context(
             or primary.kind != "run"
             or primary.object_id != basis.run_id
             or primary.revision != str(basis.run_revision)
-            or turn.completion is None
         ):
             raise ValueError("Play receipt differs from its resolved Run provenance")
         bindings = [event for event in execution.events if getattr(event, "kind", None) == "completion_binding"]
-        if len(bindings) != 1:
-            raise ValueError("Play completion binding is missing or ambiguous")
-        from application_state.agent_conversation.types import validate_execution_completion
-        validate_execution_completion(
-            turn.completion, receipt, execution,
-            bindings[0].provider_attempt_id, bindings[0].claim_graph_event_ids,
-        )
-        expected_text = "\n".join(item.text for item in turn.completion.answer_segments)
-        if turn.status != "completed" or expected_text != turn.assistant_text:
-            raise ValueError("Play answer differs from its accepted completion")
+        if turn.status == "completed":
+            if turn.completion is None or len(bindings) != 1:
+                raise ValueError("Play completion binding is missing or ambiguous")
+            from application_state.agent_conversation.types import validate_execution_completion
+            validate_execution_completion(
+                turn.completion, receipt, execution,
+                bindings[0].provider_attempt_id, bindings[0].claim_graph_event_ids,
+            )
+            expected_text = "\n".join(item.text for item in turn.completion.answer_segments)
+            if expected_text != turn.assistant_text:
+                raise ValueError("Play answer differs from its accepted completion")
+        elif turn.completion is not None or bindings:
+            raise ValueError("Uncompleted Play execution cannot project answer claims")
     except (ValueError, AttributeError, TypeError) as exc:
         raise AgentTurnServiceError(
             "The stored Play Graph completion does not match its historical receipt.",

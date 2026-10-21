@@ -1378,7 +1378,6 @@ def get_world_conversation_history(
     contains_play_context = any(
         not isinstance(turn, MixedCompletedTurnV1)
         and isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
-        and turn.status == "completed"
         for turn in turns
     )
     contains_plan_context = any(
@@ -1421,10 +1420,7 @@ def get_world_conversation_history(
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
-        elif (
-            isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
-            and turn.status == "completed"
-        ):
+        elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
             play_model = (
                 AgentConversationHistoryPlayTurnV3
                 if include_turn_correlation
@@ -1438,13 +1434,6 @@ def get_world_conversation_history(
                     ),
                 )
             )
-        elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
-            turn_model = (
-                AgentConversationHistoryTurnV3
-                if include_turn_correlation
-                else AgentConversationHistoryTurn
-            )
-            history_turns.append(turn_model(**values))
         elif turn.graph_context_receipt is not None:
             history_turns.append(
                 (
