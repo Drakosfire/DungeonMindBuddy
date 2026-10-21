@@ -476,6 +476,12 @@ def _build_ephemeral_system_prompt(
             "whose support_capsules excerpts are actually in this producing input. "
             "Use {kind:rules_context,text:...,category:interpretation|gap|connective} for explicit "
             "reasoning or missing evidence; never use it to smuggle uncited rule facts. "
+            "rules_context has exactly kind, text and category: omit support_ids entirely, even when empty. "
+            "rules_claim has exactly kind, text and support_ids: omit category. "
+            'A rules-only evidence-gap answer has this exact shape: '
+            '{"schema":"dmb_rules_mixed_answer_v1","base_output":null,'
+            '"rules_segments":[{"kind":"rules_context","text":"The admitted source does not contain this rule.",'
+            '"category":"gap"}],"ordered_refs":[{"domain":"rules","segment_index":0}]}. '
             "A missing/partial source answer must state its evidence limits. Each text is at most4000 characters; "
             "at most32 Rules segments and16 Rules claims. Do not supply source URLs, digests or durable IDs. "
             "ordered_refs contains {domain:rules,segment_index:N} once per Rules segment in reading order. "

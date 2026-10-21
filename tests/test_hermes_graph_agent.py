@@ -4209,4 +4209,8 @@ def test_native_rules_prompt_defines_both_unused_and_used_output_contracts():
     assert "base_output is null for a rules-only answer" in prompt
     assert "support_capsules excerpts are actually in this producing input" in prompt
     assert "category:interpretation|gap|connective" in prompt
+    assert "omit support_ids entirely, even when empty" in prompt
+    from application_state.agent_conversation.rules_authority_output import parse_answer
+    example = prompt.split("A rules-only evidence-gap answer has this exact shape: ", 1)[1].split(". A missing/partial", 1)[0]
+    assert parse_answer(example).rules_segments[0].category == "gap"
     assert "domain:base,segment_index:null" in prompt
