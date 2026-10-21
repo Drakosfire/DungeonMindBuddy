@@ -2716,7 +2716,9 @@ class _PolicyExecutionAdapter:
         arguments = driver.action_arguments(graph_actions[0].id)
         source = self.bootstrap.build_source_discovery
         scope = self.bootstrap.world_scope
-        if (not source or source.get("status") != "complete"
+        from .build_jev_transitions import SourceScope
+        if (not source or source.get("status") not in {"complete", "partial"}
+                or not isinstance(driver._scope, SourceScope)
                 or source.get("world_id") != scope.world_id
                 or source.get("graph_revision") != scope.revision_id
                 or source.get("source_artifact_id") != driver._scope.source_artifact_id
@@ -6649,9 +6651,10 @@ def execute_agent_turn(
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
             from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
-            default_build_jev = (_governed_build_turn(request) and policy_bootstrap is not None
-                and isinstance(policy_bootstrap.build_source_discovery, Mapping)
-                and policy_bootstrap.build_source_discovery.get("status") == "complete")
+            # Saved Build and Rules remain usable before source ingestion. The
+            # current driver validates discovery status; never silently switch to
+            # a different runtime without its Rules capability.
+            default_build_jev = _governed_build_turn(request) and policy_bootstrap is not None
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
             ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()

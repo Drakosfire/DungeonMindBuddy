@@ -416,3 +416,17 @@ def test_coverage_exclusion_never_inflates_rounded_or_inconsistent_scores(
     )
     if excluded:
         assert result.excluded_unread_ids == ("a0",)
+
+
+def test_saved_reference_scope_cannot_claim_admitted_graph_evidence():
+    from apps.live_control_server.services.build_jev_transitions import SavedBuildSourceScope
+
+    saved = SavedBuildSourceScope(kind="saved_build_source", world_id="world:test",
+        graph_revision="rev:1", document_id="saved-document", registry_revision=1,
+        source_sha256="f" * 64)
+    data = unit("u", "An observation").model_dump()
+    data["scope"] = saved
+    with pytest.raises(ValueError, match="admitted source revision"):
+        AcquiredEvidence.model_validate(data)
+    data["source_class"] = "saved_build_world_reference"
+    assert AcquiredEvidence.model_validate(data).scope == saved

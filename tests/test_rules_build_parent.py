@@ -356,3 +356,46 @@ def test_real_build_mixed_api_response_and_replay_without_current_reads(
             work_resolver=forbidden, graph_resolver=forbidden, runtime_factory=forbidden,
             conversation_service=AgentConversationService())
     assert denied.value.code == "turn_idempotency_conflict"
+
+
+@pytest.mark.parametrize("discovery_status", ["complete", "partial", "source_not_admitted"])
+def test_default_build_rules_does_not_require_source_ingestion(
+    application_state_dsn, build_case, tmp_path, monkeypatch, discovery_status,
+):
+    from dataclasses import replace
+    from apps.live_control_server.services import build_jev_runtime as prepared
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+
+    case, reads = ordinary_case(build_case, monkeypatch)
+    source, request, bootstrap = case
+    request = request.model_copy(update={"message": "Use lookup_rules for ending movement in an occupied space."})
+    discovery = dict(bootstrap.build_source_discovery)
+    discovery["status"] = discovery_status
+    if discovery_status == "partial":
+        discovery.update(eligible_count=len(discovery["entries"]) + 1, next_page_token="more-reviewed-observations")
+    elif discovery_status == "source_not_admitted":
+        discovery.update(entries=[], eligible_count=None, next_page_token=None, coverage=None)
+        discovery.pop("source_revision_id", None)
+    bootstrap = replace(bootstrap, build_source_discovery=discovery)
+    decisions, writer = RulesDecisionWire(dsn=application_state_dsn), RulesWriterWire(base=False, dsn=application_state_dsn)
+    monkeypatch.setattr(prepared, "BuildJevHarness", lambda **kwargs: BuildJevHarness(
+        decision_transport=decisions, writer_transport=writer, **kwargs,
+    ))
+    factory = PreparedBuildJevRuntime(accounting=counter(), unavailable_reason=None)
+    result = execute((source, request, bootstrap), tmp_path, None, build_runtime_factory=factory)
+    assert result.schema_ == "dmb_agent_rules_turn_response_v1"
+    assert result.rules_context.accepted_binding.support_table
+    assert len(writer.calls) == 1
+    if discovery_status == "source_not_admitted":
+        assert reads == {"graph": 0, "source": 0}
+        scopes = [json.loads(call.content)["state"].get("decision", {}).get("state", {}).get("scope")
+                  for call in decisions.calls]
+        scopes = [scope for scope in scopes if scope is not None]
+        assert scopes and all(scope["kind"] == "saved_build_source" for scope in scopes)
+        assert all("source_revision_id" not in scope for scope in scopes)
+    calls_before = len(decisions.calls)
+    monkeypatch.setattr(PreparedBuildJevRuntime, "create", lambda self: pytest.fail("replay constructed runtime"))
+    replay = execute((source, request, bootstrap), tmp_path, None, build_runtime_factory=factory)
+    assert replay.rules_context.accepted_binding == result.rules_context.accepted_binding
+    assert replay.answer.text == result.answer.text
+    assert len(decisions.calls) == calls_before and len(writer.calls) == 1

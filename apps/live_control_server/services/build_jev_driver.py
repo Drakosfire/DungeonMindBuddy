@@ -27,6 +27,7 @@ from .build_jev_transitions import (
     OpenedPassage,
     ReadAction,
     SourceScope,
+    SavedBuildSourceScope,
 )
 
 
@@ -197,16 +198,32 @@ class BuildJevDriver:
             ),
         )
         discovery = self._base["discovery"]
-        if not isinstance(discovery, dict) or discovery.get("status") != "complete":
-            raise ValueError("Driver requires complete exact-source discovery")
+        if not isinstance(discovery, dict) or discovery.get("status") not in {
+            "complete", "partial", "source_not_admitted",
+        }:
+            raise ValueError("Driver requires exact-source discovery status")
+        status = discovery["status"]
+        entries = discovery.get("entries")
         if (
-            discovery.get("world_id") != self._base["graph_scope"]["native_world_id"]
-            or discovery.get("graph_revision")
-            != self._base["graph_scope"]["graph_revision"]
-            or discovery.get("next_page_token") is not None
-            or len(discovery.get("entries", [])) != discovery.get("eligible_count")
+            discovery.get("schema") != "dmb_build_source_discovery_v1"
+            or discovery.get("discovery_only") is not True
+            or discovery.get("world_id") != self._base["graph_scope"]["native_world_id"]
+            or discovery.get("graph_revision") != self._base["graph_scope"]["graph_revision"]
+            or not isinstance(entries, list)
         ):
-            raise ValueError("Driver discovery scope/coverage differs")
+            raise ValueError("Driver discovery scope differs")
+        if status == "source_not_admitted":
+            if (entries or discovery.get("eligible_count") is not None
+                    or discovery.get("next_page_token") is not None
+                    or discovery.get("source_revision_id") is not None
+                    or discovery.get("coverage") is not None):
+                raise ValueError("Unadmitted source discovery carries Graph source data")
+        elif (type(discovery.get("eligible_count")) is not int
+                or len(entries) > discovery["eligible_count"]
+                or (status == "complete" and (
+                    discovery.get("next_page_token") is not None
+                    or len(entries) != discovery["eligible_count"]))):
+            raise ValueError("Driver discovery coverage differs")
         from graph_memory.evidence.source_artifact import (
             build_worldbuilding_source_artifact_id,
         )
@@ -219,12 +236,18 @@ class BuildJevDriver:
         )
         if discovery.get("source_artifact_id") != expected_artifact:
             raise ValueError("Discovery artifact does not bind the exact saved source")
-        self._scope = SourceScope(
-            world_id=discovery["world_id"],
-            graph_revision=discovery["graph_revision"],
-            source_artifact_id=discovery["source_artifact_id"],
-            source_revision_id=discovery["source_revision_id"],
-            source_sha256=self._base["source_basis"]["content_sha256"],
+        self._scope = (
+            SavedBuildSourceScope(
+                kind="saved_build_source", world_id=discovery["world_id"],
+                graph_revision=discovery["graph_revision"],
+                document_id=basis["document_id"], registry_revision=basis["registry_revision"],
+                source_sha256=basis["content_sha256"],
+            ) if status == "source_not_admitted" else SourceScope(
+                world_id=discovery["world_id"], graph_revision=discovery["graph_revision"],
+                source_artifact_id=discovery["source_artifact_id"],
+                source_revision_id=discovery["source_revision_id"],
+                source_sha256=basis["content_sha256"],
+            )
         )
         self._catalog = {}
         self._observations = {}
@@ -370,7 +393,8 @@ class BuildJevDriver:
                 ),
             )
         if (
-            binding.section_read_id
+            not isinstance(self._scope, SourceScope)
+            or binding.section_read_id
             or not binding.graph_payloads
             or not binding.source_event_ids
         ):

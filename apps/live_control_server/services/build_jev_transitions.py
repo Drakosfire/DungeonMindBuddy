@@ -11,7 +11,7 @@ import json
 import math
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .build_jev_accounting import ExperimentalAccounting
 from .build_jev_dispatch import MODEL, PHASE_POLICY
@@ -26,6 +26,17 @@ class SourceScope(_Frozen):
     graph_revision: str = Field(min_length=1)
     source_artifact_id: str = Field(min_length=1)
     source_revision_id: str = Field(min_length=1)
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SavedBuildSourceScope(_Frozen):
+    """Exact saved reference without an admitted Graph source revision."""
+
+    kind: Literal["saved_build_source"]
+    world_id: str = Field(min_length=1)
+    graph_revision: str = Field(min_length=1)
+    document_id: str = Field(min_length=1)
+    registry_revision: int = Field(strict=True, ge=1)
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
@@ -47,7 +58,7 @@ class OpenedPassage(_Frozen):
 
 class AcquiredEvidence(_Frozen):
     id: str = Field(min_length=1)
-    scope: SourceScope
+    scope: SourceScope | SavedBuildSourceScope
     subject: str = Field(min_length=1)
     text: str = Field(min_length=1)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -61,6 +72,13 @@ class AcquiredEvidence(_Frozen):
     temporal_scope: dict | str | None = None
     observation_text: str | None = Field(default=None, min_length=1)
     opened_passages: tuple[OpenedPassage, ...] = ()
+
+    @model_validator(mode="after")
+    def graph_evidence_requires_admitted_source(self):
+        if (self.source_class == "admitted_graph_observation_and_opened_passages"
+                and not isinstance(self.scope, SourceScope)):
+            raise ValueError("Graph observation requires an admitted source revision")
+        return self
 
 
 class DecisionQuestion(_Frozen):
@@ -166,7 +184,7 @@ class BuildJevTransitions:
     def __init__(
         self,
         question: str,
-        scope: SourceScope,
+        scope: SourceScope | SavedBuildSourceScope,
         actions: tuple[ReadAction, ...],
         *,
         relevant_min: float = 0.5,
