@@ -2282,6 +2282,17 @@ class ControllerWriterGraphExecutionPolicyV3(SettledGraphExecutionPolicyV3):
     provider_roles: GraphControllerWriterRolesV1
 
 
+class PlanJevRetrievalPolicyV1(ControllerWriterGraphExecutionPolicyV3):
+    """Plan-owned semantic-only retrieval decisions, followed by one writer."""
+    driver_schema: Literal["dmb_plan_jev_retrieval_v1"]
+
+    @model_validator(mode="after")
+    def exact_decision_controller(self):
+        if self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
+            raise ValueError("Plan retrieval requires the exact Jev decision controller")
+        return self
+
+
 class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV3):
     saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
 
@@ -3178,7 +3189,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextProviderInclusionEventV2,
                 BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1,
+                BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
         ):
             continue
@@ -3209,6 +3220,9 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 payload["input_accounting_kind"] = execution.policy.provider_input_accounting.kind
                 payload["input_estimator"] = execution.policy.provider_input_accounting.estimator
             provider_index += 1
+        if isinstance(event, PlanJevProviderAuthorizedV1):
+            payload.pop("decision_request_id", None)
+            payload.pop("parent_request_sha256", None)
         if isinstance(event, ProviderAttemptAuthorizedEventV2):
             payload["kind"] = "provider_attempt_authorized"
             payload.pop("included_source_read_event_ids", None)
@@ -3332,6 +3346,36 @@ class BuildSectionAnswerBindingV1(GraphExecutionEventBaseV1):
         return self
 
 
+class PlanJevProviderAuthorizedV1(ProviderAttemptAuthorizedEventV3):
+    """Actual Jev request plus host-only parent binding, never model context."""
+    kind: Literal["plan_jev_provider_authorized_v1"]
+    decision_request_id: UUID
+    parent_request_sha256: Digest
+
+
+class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["plan_jev_retrieval_selected_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    decision_request_id: UUID
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    parent_request_sha256: Digest
+    operation: Literal["select_candidates", "discover_more", "finish_retrieval"]
+    selected_handles: list[str]
+    actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
+    actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_selection_shape(self):
+        if (len(set(self.selected_handles)) != len(self.selected_handles)
+                or any(not handle.strip() for handle in self.selected_handles)
+                or (self.operation == "select_candidates") != bool(self.selected_handles)):
+            raise ValueError("Plan decision handles differ from its operation")
+        return self
+
+
 class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["build_jev_action_selected_v1"]
     controller_attempt_id: UUID
@@ -3373,14 +3417,14 @@ class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | PlanJevProviderAuthorizedV1
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
-    | BuildWriterEvidenceSelectionV1,
+    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1,
     Field(discriminator="kind"),
 ]
 
@@ -3390,12 +3434,14 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: PlanJevRetrievalPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
     def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
         if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
+            if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1)) for event in self.events):
+                raise ValueError("Plan decision requires its frozen Plan policy")
             return self
         roles = self.policy.provider_roles
         latest_attempt: UUID | None = None
@@ -3498,6 +3544,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                 if writer_attempt is None or event.provider_attempt_id != writer_attempt:
                     raise ValueError("completion must bind the authorized writer attempt")
         validate_build_section_inclusions(self)
+        from .plan_jev_decision import validate_decision_phases
+        validate_decision_phases(self)
         return self
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
@@ -3909,6 +3957,9 @@ def validate_selected_source_binding(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+        if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
+            raise ValueError("Plan Jev policy requires its actual Plan receipt")
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):
         from .play_graph_context import validate_play_graph_execution_binding
         if not isinstance(execution, PlayWorldGraphExecutionV1):
@@ -3961,6 +4012,9 @@ def validate_related_recap_context_scope(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+        if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
+            raise ValueError("Plan Jev policy requires its actual Plan receipt")
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):
         from .play_graph_context import validate_play_graph_execution_binding
         if not isinstance(execution, PlayWorldGraphExecutionV1):

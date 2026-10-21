@@ -157,6 +157,11 @@ def validate_prepared_decision(request: RetrievalDecisionInput, prepared) -> Non
             or sha256(prepared.body).hexdigest() != prepared.body_sha256):
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
+    validate_wire_body(request, prepared.body)
+
+
+def validate_wire_body(request: RetrievalDecisionInput, raw: bytes) -> None:
+    """Recheck semantic-only request bytes at the owning durable append."""
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -164,7 +169,7 @@ def validate_prepared_decision(request: RetrievalDecisionInput, prepared) -> Non
                 raise ValueError("Duplicate decision request key")
             result[key] = value
         return result
-    body = json.loads(prepared.body, object_pairs_hook=unique,
+    body = json.loads(raw, object_pairs_hook=unique,
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite decision request")))
     expected = prepare_decision(request)
     questions = {q.name: {"type": "choice", "instructions": q.question,

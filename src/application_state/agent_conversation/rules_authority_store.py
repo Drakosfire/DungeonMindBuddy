@@ -199,6 +199,21 @@ def open_execution_locked(
     return RulesLedgerRecordV1(revision=1, execution=execution)
 
 
+def require_open_plan_jev_acquisition_locked(conn, scope):
+    """Caller owns the Turn lock; shared Rules reads obey Plan's final phase."""
+    from . import repository
+    from .types import PlanJevRetrievalPolicyV1, PlanJevRetrievalSelectionV1, ProviderAttemptAuthorizedEventV1
+    turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
+    execution = getattr(turn, "graph_context_execution", None)
+    if execution is None or not isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+        return
+    selections = [event for event in execution.events if isinstance(event, PlanJevRetrievalSelectionV1)]
+    providers = [event for event in execution.events if isinstance(event, ProviderAttemptAuthorizedEventV1)]
+    if (not selections or not providers or selections[-1].operation == "finish_retrieval"
+            or selections[-1].controller_attempt_id != providers[-1].provider_attempt_id):
+        raise ApplicationStateValidationError("Rules read requires an open Plan Jev acquisition phase")
+
+
 def append_lookup_event_locked(
     conn: psycopg.Connection,
     scope: RulesScopeV1,
@@ -244,6 +259,7 @@ def append_lookup_event_locked(
                         "Rules event identity was reused with different content"
                     )
                 return current, False
+            require_open_plan_jev_acquisition_locked(conn, scope)
             data = current.execution.model_dump(mode="json", by_alias=True)
             data["events"].append(event.model_dump(mode="json", by_alias=True))
             calls = [

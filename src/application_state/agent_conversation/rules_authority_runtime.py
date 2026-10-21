@@ -11,6 +11,7 @@ from .rules_authority_events import RulesExecutionV1, RulesToolAuthorizedV1, Rul
 from .rules_authority_packet import RulesPacketV1, RulesBudgetDiagnosticV1, verify_output_proof
 from .rules_authority_store import (
     RulesLedgerRecordV1, _lock_current_claim, _locked_record, append_lookup_event_locked,
+    require_open_plan_jev_acquisition_locked,
 )
 from .rules_authority_types import ClosedRulesModel, RulesScopeV1, RulesSupportV1, canonical_bytes
 
@@ -72,6 +73,7 @@ def execute_local_lookup_locked(conn, scope: RulesScopeV1, *, expected_turn_revi
     observed = next((e for e in execution.events if isinstance(e, RulesQueryObservedV1) and e.call_id == call_id), None)
     if observed is not None:
         return RulesLookupDeliveryV1(record=current, prepared=_replay(execution, auth, observed), replayed=True)
+    require_open_plan_jev_acquisition_locked(conn, scope)
     prepared = RulesLookupPreparedV1.model_validate(local_reader(execution))
     if prepared.observation.call_id != call_id or prepared.observation.query_id != auth.query_id:
         raise ApplicationStateValidationError("Rules local read differs from its authorized call")
