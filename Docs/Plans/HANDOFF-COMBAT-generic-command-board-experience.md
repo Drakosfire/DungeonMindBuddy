@@ -210,3 +210,7 @@ Original implementation head `a7132abb0d53a07718813c66355c023853a1789b` is prese
 - Re-anchored C0 by composing those eight exact main-tree file contents with the existing C0 tree. The new merge commit has the previous C0 head `66d420fc414d33d1577e38f188168072dbbbfefd` and current main `b99ac337ebde6c4aad7cf01fe381a5e42bdc2ed9` as parents. The C0 cumulative path set remains the same 20 leased paths.
 - Fresh review of `66d420fc414d33d1577e38f188168072dbbbfefd` is superseded by this re-anchor. Request a new exact-head judgment after publishing and rerunning the C0 checks.
 - No runtime, live database, server, 5202 output, or files outside §8 were changed by this re-anchor.
+
+## Current product-route successor — 2026-10-21
+
+The C0 implementation is merged and its API/schema are already serving (API4a2c8249, APP0042). The product /combat route still points at the prototype in dev and resolves Index in preview. The active [native surface composition handoff](HANDOFF-COMBAT-native-surface.md) mounts this same CombatRosterModule in shared AppChrome and removes that product alias. It grants only a UI route/navigation lease, with no migration, real encounter writes or C1–C4 claims. The earlier PR1367 blocked adoption proposal's old0030 migration/process assumptions are superseded by this current evidence; isolated full persistence/rendered acceptance remains a separate gate.

@@ -79,9 +79,9 @@ describe("appNavigation helpers", () => {
     expect(isPrimaryAppPathname("/play/")).toBe(true);
     expect(isPrimaryAppPathname("/ingest")).toBe(true);
     expect(isPrimaryAppPathname("/build")).toBe(true);
-    expect(isPrimaryAppPathname("/combat")).toBe(false);
+    expect(isPrimaryAppPathname("/combat")).toBe(true);
     expect(isPrimaryAppPathname("/surface")).toBe(false);
-    expect(isPrimaryAppHref("/combat")).toBe(false);
+    expect(isPrimaryAppHref("/combat")).toBe(true);
     expect(isPrimaryAppHref("/plan")).toBe(true);
   });
 
@@ -90,6 +90,7 @@ describe("appNavigation helpers", () => {
     expect(appRouteFromPathname("/live-control")).toBe("surface");
     expect(appRouteFromPathname("/tiptap-callout-spike")).toBe("tiptap-callout-spike");
     expect(appRouteFromPathname("/unknown")).toBe("index");
+    expect(appRouteFromPathname("/combat/")).toBe("combat");
     expect(normalizeAppPathname("/plan/")).toBe("/plan");
   });
 
@@ -105,7 +106,7 @@ describe("appNavigation helpers", () => {
     ).toBe(false);
     expect(
       shouldInterceptPrimaryNavigationClick(clickLike(), anchorFor("/combat")),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldInterceptPrimaryNavigationClick(clickLike(), anchorFor("/plan", { target: "_blank" })),
     ).toBe(false);
@@ -132,9 +133,9 @@ describe("appNavigation helpers", () => {
     pushSpy.mockRestore();
   });
 
-  it("leaves combat hrefs outside the intercept contract", () => {
-    expect(shouldInterceptPrimaryNavigationClick(clickLike(), anchorFor("/combat"))).toBe(false);
-    expect(isPrimaryAppHref("/combat")).toBe(false);
+  it("treats native Combat as a primary route", () => {
+    expect(shouldInterceptPrimaryNavigationClick(clickLike(), anchorFor("/combat"))).toBe(true);
+    expect(isPrimaryAppHref("/combat")).toBe(true);
   });
 });
 
@@ -242,7 +243,7 @@ describe("App same-document primary navigation", () => {
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Index" }));
     expect(await screen.findByRole("heading", { name: "Command Board" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
-    expect(screen.getByRole("link", { name: /North Reach Gate tracker/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Combat Tracker Encounters/i })).toHaveAttribute(
       "href",
       "/combat",
     );
@@ -311,7 +312,7 @@ describe("App same-document primary navigation", () => {
     pushSpy.mockRestore();
   });
 
-  it("does not intercept Combat Tracker or modifier-click primary links", async () => {
+  it("does not intercept right-click Combat or modifier-click primary links", async () => {
     const user = userEvent.setup();
     render(<App />);
     const nav = commandBoardNav();

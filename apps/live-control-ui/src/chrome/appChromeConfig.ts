@@ -5,7 +5,8 @@ export type AppRouteKey =
   | "plan"
   | "play"
   | "ingest"
-  | "build";
+  | "build"
+  | "combat";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -13,11 +14,7 @@ export interface AppNavItem {
   label: string;
 }
 
-/**
- * Primary product surfaces. Combat Tracker opens the mature Mireward command-board
- * tracker (`evals/c2_live_prep/mireward-prep/combat.html`), not the Live Control
- * React roster module. Full `/surface` board stays URL-reachable only.
- */
+/** Native product surfaces share AppChrome and selected-World navigation. */
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     route: "index",
@@ -45,6 +42,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Build",
   },
   {
+    route: "combat",
     href: "/combat",
     label: "Combat Tracker",
   },
@@ -57,6 +55,7 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   play: "Play",
   ingest: "Memory Ingest",
   build: "Build",
+  combat: "Combat",
   "tiptap-callout-spike": "Tiptap callout bridge",
 };
 
