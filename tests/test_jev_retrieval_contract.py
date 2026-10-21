@@ -143,6 +143,10 @@ def test_actual_ge_sdk_request_is_checked_before_mock_transport_dispatch():
             sent.append(wire)
             body = json.loads(wire.content)
             assert body["state"] == prepare_decision(req).state
+            transmitted = wire.content.decode()
+            for host_value in (str(req.request_id), str(req.parent_attempt_id), req.scope_sha256,
+                               req.revision, *(candidate.handle for candidate in req.candidates)):
+                assert host_value not in transmitted
             answers = {}
             for name, q in body["questions"].items():
                 choice = "select_candidates" if name == "operation" else "include"
