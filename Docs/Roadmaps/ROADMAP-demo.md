@@ -79,7 +79,8 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    ([PR #1507](https://github.com/Drakosfire/DungeonMindBuddy/pull/1507)); superseded #1510 is closed.
    The [inline Worldbuilding review slice](../Plans/HANDOFF-BUILD-inline-extraction-review.md) is delivered by PR1535;
    its [exact-document Recap source adapter](../Plans/HANDOFF-BUILD-recap-source-adapter.md) is delivered by PR1536;
-   [recoverable Recap launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is active serially;
+   [recoverable Recap launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537;
+   [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are active serially;
    frozen Recap launch/configuration and durable receipt/recovery acceptance remain open. This does not replace the roadmap's
    focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
    ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);

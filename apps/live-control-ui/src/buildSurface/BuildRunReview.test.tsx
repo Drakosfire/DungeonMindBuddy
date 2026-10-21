@@ -93,3 +93,13 @@ it('keeps original recovery when World changes during awaited child adoption',as
   expect(guard()).toBe(false);
   await act(async()=>finish());expect(localStorage.length).toBe(1);
 });
+
+it('reviews a Recap against native World and frozen source session without Worldbuilding publication',async()=>{
+  const p=props();p.run={...run,source_domain:'recap',campaign_id:'longmont-c2',session_id:'session-30',lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a'}}};
+  const recap={...review,sourceDomain:'recap',campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a'};
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(recap);
+  render(<BuildRunReview {...p}/>);
+  expect(await screen.findByRole('button',{name:'Prepare changes for review'})).toBeEnabled();
+  expect(publication.prepareWorldbuilding).not.toHaveBeenCalled();expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText('Canonical source prose')).not.toBeInTheDocument();
+});

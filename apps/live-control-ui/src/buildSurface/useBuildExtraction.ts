@@ -20,6 +20,9 @@ import {
   BUILD_EXTRACT_COMMAND_ID,
 } from "./buildDocumentCommands";
 
+import {assertRecapLaunchBinding, launchBuildRecap, recoverBuildRecap, recapRecoveryKey, recapHistoryKey, validRecapRequest,
+  type BuildRecapLaunchRequest, type BuildRecapSettings} from "../api/buildRecapApi";
+
 const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 
 /** Bounded BLD-08 worldbuilding profile (Build product default). */
@@ -193,6 +196,8 @@ export function validateExactRunIdentity(args: {
 export interface UseBuildExtractionArgs {
   documentId: string;
   profile?: "pilot" | "gazetteer";
+  recap?: BuildRecapSettings | null;
+  worldId?: string | null;
 }
 
 export interface BuildExtractionState {
@@ -210,11 +215,42 @@ export interface BuildExtractionState {
   canOpenGraphReview: boolean;
   refresh: () => Promise<void>;
   launch: () => Promise<void>;
+  savedRecapRequests: {index: number; label: string}[];
+  setAsideRecap: () => void;
+  restoreRecap: (index: number) => void;
+  pendingRecap: boolean;
+  recoverRecap: (retry?: boolean) => Promise<void>;
 }
 
 export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractionState {
   const { documentId, profile = "pilot" } = args;
   const canvas = useMarkdownCanvasSession();
+  const worldId=args.worldId??null, recap=args.recap??null;
+  const operationScope=JSON.stringify([documentId,worldId]);
+  const scopeRef=useRef(operationScope);scopeRef.current=operationScope;
+  const pendingKey=recapRecoveryKey(worldId??"",documentId);
+  const [pendingState,setPendingState]=useState<{key:string;value:unknown}>(()=>{
+    try{return {key:pendingKey,value:JSON.parse(localStorage.getItem(pendingKey)??"null")};}
+    catch{return {key:pendingKey,value:{unavailable:true}};}
+  });
+  const pending=pendingState.key===pendingKey?pendingState.value:null;
+  const historyKey=recapHistoryKey(worldId??"",documentId);
+  const readHistory=useCallback(():unknown[]=>{
+    const stored=JSON.parse(localStorage.getItem(historyKey)??"[]");
+    if(!Array.isArray(stored))throw new Error("Saved extraction history is unavailable.");
+    return stored;
+  },[historyKey]);
+  const [historyState,setHistoryState]=useState<{key:string;values:unknown[]}>(()=>{
+    try{return {key:historyKey,values:readHistory()};}catch{return {key:historyKey,values:[]};}
+  });
+  useEffect(()=>{try{setHistoryState({key:historyKey,values:readHistory()});}
+    catch{setHistoryState({key:historyKey,values:[]});}},[historyKey,readHistory]);
+  const savedRecapRequests=(historyState.key===historyKey?historyState.values:[]).map((value,index)=>({index,
+    label:validRecapRequest(value)?`${value.campaign_id} · Session ${value.session}`:"Unavailable saved request"}));
+  useEffect(()=>{
+    try{setPendingState({key:pendingKey,value:JSON.parse(localStorage.getItem(pendingKey)??"null")});}
+    catch{setPendingState({key:pendingKey,value:{unavailable:true}});}
+  },[pendingKey]);
   const [run, setRun] = useState<ExtractionRunRecord | null>(null);
   const [handoff, setHandoff] = useState<GraphReviewHandoffPayload | null>(null);
   const [sourceContentSha256, setSourceContentSha256] = useState<string | null>(null);
@@ -265,7 +301,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     try {
       if (generation !== refreshGenerationRef.current) return;
       if (launchingRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
+      if (documentIdFromLocation() !== selectedDocumentId || scopeRef.current!==operationScope) return;
 
       if (!exactRunId) {
         setRun(null);
@@ -276,8 +312,11 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       const status: ExtractionRunStatusResponse = await getExtractionRunStatus(exactRunId);
       if (generation !== refreshGenerationRef.current) return;
       if (launchingRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
+      if (documentIdFromLocation() !== selectedDocumentId || scopeRef.current!==operationScope) return;
 
+      if(status.run.source_domain==="recap" && (status.run.lineage?.world_campaign_ingest_context as Record<string,unknown>|undefined)?.managed_world_id!==worldId){
+        throw new Error("This Recap extraction belongs to another selected World.");
+      }
       const validation = validateExactRunIdentity({
         selectedDocumentId,
         requestedRunId: exactRunId,
@@ -296,7 +335,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     } catch (loadError) {
       if (generation !== refreshGenerationRef.current) return;
       if (launchingRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
+      if (documentIdFromLocation() !== selectedDocumentId || scopeRef.current!==operationScope) return;
       setHandoff(null);
       setError(loadError instanceof Error ? loadError.message : "Failed to load extraction state");
       setRun((current) => {
@@ -304,7 +343,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return exactRunId ? diagnosticRun(exactRunId) : null;
       });
     }
-  }, [clearAdoptedRunState, documentId]);
+  }, [clearAdoptedRunState, documentId, worldId, operationScope]);
 
   useEffect(() => {
     // Invalidate any in-flight refresh/launch belonging to a prior selection.
@@ -319,12 +358,12 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     };
     // refresh is recreated when documentId changes; keying the effect on documentId is enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId]);
+  }, [documentId,worldId]);
 
   const launch = useCallback(async () => {
     const selectedDocumentId = documentId;
     // Reject synchronous re-entry before React re-renders the disabled button.
-    if (launchingRef.current) return;
+    if (launchingRef.current || pending !== null) return;
 
     // Invalidate every pre-existing refresh before the first await so a stale
     // refresh cannot adopt R1 after this launch adopts R2.
@@ -351,7 +390,20 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
             throw new Error("Admitted envelope does not match the selected Build document.");
           }
           // Plugins may not manufacture envelopes; use only the command-host capture.
-          const response: ExtractionRunLaunchResponse = await launchExtractionRun({
+          let savedRecapRequest: BuildRecapLaunchRequest|null=null;
+          let response: ExtractionRunLaunchResponse;
+          if(recap){
+            savedRecapRequest={request_id:crypto.randomUUID(),document_id:selectedDocumentId,
+              expected_revision:envelope.revision,expected_content_sha256:envelope.contentSha256.replace(/^sha256:/,""),
+              managed_world_id:recap.worldId,campaign_id:recap.campaignId,session:recap.session,
+              session_evidence:structuredClone(recap.evidence)};
+            if(recap.worldId!==worldId||!validRecapRequest(savedRecapRequest))throw new Error("Choose a verified World, source campaign and session for this Recap.");
+            localStorage.setItem(pendingKey,JSON.stringify(savedRecapRequest));
+            setPendingState({key:pendingKey,value:savedRecapRequest});
+            const status=await launchBuildRecap(savedRecapRequest);
+            assertRecapLaunchBinding(savedRecapRequest,status);
+            response={...status,schema_version:"dmb_extraction_run_launch_v1",failure_kind:status.run.status==="failed"?"extraction":null,diagnostics:status.run.diagnostics?.messages??[]};
+          }else response = await launchExtractionRun({
             document_id: selectedDocumentId,
             expected_revision: envelope.revision,
             expected_content_sha256: envelope.contentSha256,
@@ -361,12 +413,12 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
           if (signal.aborted) {
             throw new Error("Extraction launch aborted.");
           }
-          return { response, envelope };
+          return { response, envelope, savedRecapRequest };
         },
       );
 
       if (generation !== launchGenerationRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
+      if (documentIdFromLocation() !== selectedDocumentId || scopeRef.current!==operationScope) return;
 
       if (!commandResult.ok) {
         if (commandResult.code === "duplicate_command") return;
@@ -374,8 +426,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return;
       }
 
-      const { response, envelope } = commandResult.value;
-      const expectedProfile = profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
+      const { response, envelope, savedRecapRequest } = commandResult.value;
+      const expectedProfile = recap ? "recap_category_v1@1.0" : profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
       if (response.run.profile_id !== expectedProfile) {
         setHandoff(null);
         setError("Extraction returned a different or missing profile. Review is unavailable; refresh server configuration before trying again.");
@@ -395,6 +447,9 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return;
       }
 
+      if(savedRecapRequest && ["reviewable","failed","rejected","promoted"].includes(response.run.status)){
+        localStorage.removeItem(pendingKey);setPendingState({key:pendingKey,value:null});
+      }
       setRun(response.run);
       setHandoff(validation.handoff);
       setSourceContentSha256(response.source_content_sha256);
@@ -405,7 +460,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
     } catch (launchError) {
       if (generation !== launchGenerationRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
+      if (documentIdFromLocation() !== selectedDocumentId || scopeRef.current!==operationScope) return;
       setHandoff(null);
       setError(launchError instanceof Error ? launchError.message : "Extraction launch failed");
     } finally {
@@ -414,7 +469,56 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         setLaunching(false);
       }
     }
-  }, [canvas, documentId, profile]);
+  }, [canvas, documentId, profile, recap, worldId, pending, pendingKey, operationScope]);
+
+  const recoverRecap = useCallback(async(retry=false)=>{
+    if(launchingRef.current)return;
+    if(!validRecapRequest(pending)||pending.document_id!==documentId||pending.managed_world_id!==worldId){
+      setError("The saved Recap request is unavailable or belongs to another document/World.");return;
+    }
+    launchingRef.current=true;setLaunching(true);setError(null);
+    const generation=++launchGenerationRef.current;refreshGenerationRef.current+=1;
+    try{
+      const status=await (retry?launchBuildRecap(pending):recoverBuildRecap(pending));
+      if(scopeRef.current!==operationScope||generation!==launchGenerationRef.current||documentIdFromLocation()!==documentId)return;
+      assertRecapLaunchBinding(pending,status);
+      const validation=validateExactRunIdentity({selectedDocumentId:documentId,requestedRunId:status.run.run_id,response:status,
+        expectedDocumentRevision:pending.expected_revision,expectedContentSha256:pending.expected_content_sha256});
+      if(!validation.ok)throw new Error(validation.reason);
+      setRun(status.run);setHandoff(validation.handoff);setSourceContentSha256(status.source_content_sha256);
+      writeStoredRunId(documentId,status.run.run_id);setRunIdInLocationForDocument(documentId,status.run.run_id);
+      if(["reviewable","failed","rejected","promoted"].includes(status.run.status)){
+        localStorage.removeItem(pendingKey);setPendingState({key:pendingKey,value:null});
+      }
+    }catch(reason){if(scopeRef.current===operationScope)setError(reason instanceof Error?reason.message:"Recap recovery unavailable");}
+    finally{if(generation===launchGenerationRef.current){launchingRef.current=false;setLaunching(false);}}
+  },[documentId,worldId,pending,pendingKey,operationScope]);
+
+  // GET404 is not cancellation: an earlier POST may still be validating.
+  // Retain its exact body before permitting a separate extraction.
+  const setAsideRecap=useCallback(()=>{
+    if(launchingRef.current||pending===null)return;
+    try{
+      const values=readHistory();
+      const raw=localStorage.getItem(pendingKey);
+      if(raw===null)throw new Error("The saved request changed. Reload before continuing.");
+      let retained:unknown;try{retained=JSON.parse(raw);}catch{retained={unavailable:true,raw};}
+      if(!values.some(value=>JSON.stringify(value)===JSON.stringify(retained)))values.push(retained);
+      localStorage.setItem(historyKey,JSON.stringify(values));
+      localStorage.removeItem(pendingKey);
+      setHistoryState({key:historyKey,values});setPendingState({key:pendingKey,value:null});setError(null);
+    }catch(reason){setError(reason instanceof Error?reason.message:"Could not retain the saved request.");}
+  },[pending,pendingKey,historyKey,readHistory]);
+  const restoreRecap=useCallback((index:number)=>{
+    if(launchingRef.current||pending!==null)return;
+    try{
+      const value=readHistory()[index];
+      if(!validRecapRequest(value)||value.document_id!==documentId||value.managed_world_id!==worldId)
+        throw new Error("The saved Recap request is unavailable or belongs to another document/World.");
+      localStorage.setItem(pendingKey,JSON.stringify(value));
+      setPendingState({key:pendingKey,value});setError(null);
+    }catch(reason){setError(reason instanceof Error?reason.message:"Could not restore the saved request.");}
+  },[pending,pendingKey,readHistory,documentId,worldId]);
 
   const adoptDerivedRun = useCallback(async (receipt: ExactRunEvidenceCorrectionResponse, expectedDigest: string, isCurrent: () => boolean) => {
     const parent = run;
@@ -443,7 +547,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     writeStoredRunId(documentId, status.run.run_id); setRunIdInLocationForDocument(documentId, status.run.run_id);
   }, [documentId, handoff, run, sourceContentSha256]);
 
-  const canLaunch = Boolean(committedClean && !launching);
+  const canLaunch = Boolean(committedClean && !launching && pending===null);
   const canRefresh = !launching;
   const canOpenGraphReview = Boolean(
     !launching
@@ -469,6 +573,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     statusLabel,
     error,
     launching,
+    pendingRecap:pending!==null, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
     canLaunch,
     canRefresh,
     canOpenGraphReview,

@@ -231,3 +231,10 @@ describe("worldGraphSurfaceContext", () => {
     });
   });
 });
+
+it('uses an admitted native World independently of a campaign alias and rejects conflicting/empty bindings',()=>{
+  const input={campaignId:'unmapped-campaign',sessionId:'session-30',receipt:{worldId:'native-a',committedRevisionId:'rev:2'}};
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:'native-a'})).toMatchObject({worldId:'native-a',campaignId:'unmapped-campaign',revisionPin:'rev:2'});
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:'native-b'})).toBeNull();
+  expect(buildGraphReviewCommittedProjectionRequest({...input,verifiedWorldId:''})).toBeNull();
+});

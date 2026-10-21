@@ -1,6 +1,8 @@
 # BUILD — recoverable exact Recap launch
 
-ACTIVE serial successor to PR1536 under the operator's full Build-ingestion goal. PRIME owns this bounded launch/recovery protocol, implementation, Bugbot review, merge and API8000 delivery behind existing5202 UI. Branch codex/build-recap-launch-recovery; base origin/main@7fd101d1f43002c18c8f0b4bc576fa601384a74f; reuse buddy-context-loop. One PR. Existing open #1235 UI review lane is excluded.
+DELIVERED by PR1537, merge0a61c77bd7d637f0c1b4f7d83265ebd6d9615263. Bugbot approved90220bdb56a5dfdfd0ba3b995fc9c6104ced6754; independent18launch tests passed. Author cohort101passed/1inherited0041 schema expectation while unchanged main is0042. API8000 adopted behind UI5202 with all1448rows preserved, no migration or real inference/World mutation.
+
+Completed serial successor to PR1536 under the operator's full Build-ingestion goal. PRIME owns this bounded launch/recovery protocol, implementation, Bugbot review, merge and API8000 delivery behind existing5202 UI. Branch codex/build-recap-launch-recovery; base origin/main@7fd101d1f43002c18c8f0b4bc576fa601384a74f; reuse buddy-context-loop. One PR. Existing open #1235 UI review lane is excluded.
 
 Invariant: a client request UUID binds immutable exact document/revision/digest, source campaign/session, destination managed World and exact optional session-evidence pins. Repeating the request recovers the original registered ExtractionRun; changing its meaning conflicts. Reserve that run durably in APP-STATE before inference. Exactly the winner of unique run reservation may execute; duplicate/lost-response requests never replay inference. Recovery reads the frozen run even if the current document or World head changed. Unknown/interrupted executions remain honestly unfinished; no browser cancellation or automatic model restart claim.
 
