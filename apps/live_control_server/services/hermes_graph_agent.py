@@ -393,10 +393,6 @@ def _scope_block(
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revisionPin": scope.revision_pin,
-        "enabledPluginIds": list(policy.enabled_plugin_ids),
-        "enabledToolsets": list(policy.enabled_toolsets),
-        "enabledToolNames": list(policy.enabled_tool_names),
-        "processIsolation": PROCESS_ISOLATION_MODE,
         "retrievalSessionId": retrieval_session_id,
     }
     if retrieval_session is not None:
