@@ -2949,19 +2949,21 @@ describe("World Plan conversation consumer", () => {
         revisionId:"graph-revision-test",headRevisionId:"graph-revision-test",isHead:true,
         focus:{kind:"none",sessionId:null,campaignId:null},admissibility:"gm"},
       anchorId:"anchor-test",evidenceRefId:"evidence-internal-test",sourceArtifactId:"artifact-test",
-      sourceDomain:"recap",locatorKind:"heading",mediaType:"text/markdown",content:"Exact inline source passage",
+      sourceDomain:"recap",sourceName:"Session 29 recap",locatorKind:"heading",mediaType:"text/markdown",content:"Exact inline source passage",
       contentSha256:"f".repeat(64),lineStart:1,lineEnd:2,truncated:false,diagnostics:[],
     });
     render(conversationElement());
     const citation = await screen.findByRole("button",{name:"Open source 1"});
-    expect(citation).toHaveAttribute("title",expect.stringContaining("source-revision-test"));
+    expect(citation).toHaveAttribute("title","Open cited source");
     expect(read).not.toHaveBeenCalled();
     fireEvent.click(citation);
     expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact inline source passage");
     expect(document.getElementById("buddy-evidence-inline-source-turn")).toHaveAttribute("open");
     expect(read).toHaveBeenCalledOnce();
     expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
-    expect(screen.getByText("source-revision-test")).toBeInTheDocument();
+    expect(screen.getAllByText("Session 29 recap").length).toBeGreaterThan(0);
+    expect(screen.queryByText("source-revision-test")).not.toBeInTheDocument();
+    expect(screen.queryByText("artifact-test")).not.toBeInTheDocument();
     expect(ask).not.toHaveBeenCalled();
   });
 

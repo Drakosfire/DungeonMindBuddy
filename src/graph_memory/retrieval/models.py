@@ -355,6 +355,7 @@ class WorldGraphSourceAnchorReadResult(_RetrievalResponseModel):
     anchor_id: str
     evidence_ref_id: str | None = None
     source_artifact_id: str | None = None
+    source_name: str | None = None
     source_domain: str | None = None
     source_span_ref_id: str | None = None
     locator_kind: LocatorKind | None = None

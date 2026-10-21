@@ -3976,6 +3976,7 @@ export interface WorldGraphSourceAnchorReadResponse {
   anchorId: string;
   evidenceRefId: string | null;
   sourceArtifactId: string | null;
+  sourceName: string | null;
   sourceDomain: string | null;
   locatorKind: "heading" | "json_pointer" | "unsupported" | string | null;
   mediaType: string | null;
