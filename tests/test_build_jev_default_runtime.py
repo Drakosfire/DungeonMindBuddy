@@ -122,7 +122,11 @@ def test_verified_loader_matches_upstream_unicode_and_markdown_without_fetch(
     factory = prepared.PreparedBuildJevRuntime(
         accounting=counter, unavailable_reason=None
     )
-    assert factory.create().accounting is counter
+    runtime = factory.create()
+    assert runtime.accounting is counter
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+
+    assert runtime.rules_capability == rules_capability(graph=True)
     assert counter.estimate({"question": texts[1]}) > 4096
 
 
@@ -153,7 +157,16 @@ def test_actual_http_default_freezes_prepared_policy_completes_and_replays(
 ):
     case, reads = ordinary_case(build_case, monkeypatch)
     _, request, bootstrap = case
-    decisions, writer = DecisionWire(), WriterWire()
+    from tests.test_rules_build_parent import RulesDecisionWire
+
+    decisions, writer = RulesDecisionWire(query=False), WriterWire()
+    from apps.live_control_server.services import rules_lookup
+
+    def no_rules_read(*_args, **_kwargs):
+        pytest.fail("ordinary Build must not read the Rules corpus")
+
+    monkeypatch.setattr(rules_lookup, "admitted_bundle", no_rules_read)
+    monkeypatch.setattr(rules_lookup, "query_rules", no_rules_read)
     monkeypatch.setenv(prepared.ASSET_ENV, str(verified_asset))
     monkeypatch.setattr(
         prepared,

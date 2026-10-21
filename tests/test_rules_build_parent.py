@@ -12,9 +12,8 @@ import psycopg
 import pytest
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.rules_authority_policy import rules_capability
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
-from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+from apps.live_control_server.services.build_jev_runtime import PreparedBuildJevRuntime
 from apps.live_control_server.services.rules_build_runtime import QUERY_CHOICE
 from tests.test_agent_build_jev_ordinary_harness import (
     DecisionWire, WriterWire, ordinary_case, build_case as _build_case,
@@ -84,8 +83,8 @@ def run_parent(build_case, tmp_path, monkeypatch, *, base=True, question=None, q
     request = request.model_copy(update={"message": question or "What do we know about Frank, and can I end my move in an occupied space?"})
     decision = decision or RulesDecisionWire(query=query, dsn=dsn)
     writer = writer or (RulesWriterWire(base=base, dsn=dsn) if query else WriterWire())
-    harness = BuildJevHarness(decision_transport=decision, writer_transport=writer,
-        accounting=counter(), rules_capability=rules_capability(graph=True))
+    harness = PreparedBuildJevRuntime(accounting=counter(), unavailable_reason=None).create()
+    harness.decision_transport, harness.writer_transport = decision, writer
     holder = {}
     original_response = harness.execute_response
     def internal_response(adapter, **kwargs):
@@ -166,19 +165,19 @@ def test_no_rules_choice_finishes_ordinary_and_closes_unused_scope(application_s
     assert "rules_projection" not in json.loads(json.loads(writer.calls[0].content)["input"])
 
 
-@pytest.mark.parametrize("unavailable", [False, True])
-def test_missing_or_unavailable_rules_stays_an_explicit_uncited_gap(application_state_dsn, build_case, tmp_path, monkeypatch, unavailable):
+@pytest.mark.parametrize("failure", [None, "query_rules", "admitted_bundle"])
+def test_missing_or_unavailable_rules_stays_an_explicit_uncited_gap(application_state_dsn, build_case, tmp_path, monkeypatch, failure):
     from apps.live_control_server.services import rules_lookup
-    if unavailable:
+    if failure:
         def fail(*args, **kwargs):
             raise rules_lookup.RulesCorpusUnavailable("fixture unavailable source")
-        monkeypatch.setattr(rules_lookup, "query_rules", fail)
+        monkeypatch.setattr(rules_lookup, failure, fail)
     completed, _, _, writer, _ = run_parent(build_case, tmp_path, monkeypatch, base=False,
         question="How fast can the party travel?", dsn=application_state_dsn)
     assert completed.accepted_binding.support_table == ()
     assert completed.accepted_binding.segment_map[0].domain == "rules_context"
     packet = json.loads(json.loads(json.loads(writer.calls[0].content)["input"])["rules_projection"]["operations"][0]["packet_json"])
-    assert packet["status"] == ("unavailable" if unavailable else "no_evidence")
+    assert packet["status"] == ("unavailable" if failure else "no_evidence")
     assert packet["support_capsules"] == []
 
 

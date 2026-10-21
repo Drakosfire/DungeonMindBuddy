@@ -19,7 +19,7 @@ from application_state.agent_conversation.rules_authority_output import POLICY, 
 from application_state.agent_conversation.rules_authority_policy import RulesCapabilityV1, rules_capability, rules_submission_authorization_id
 from application_state.agent_conversation.rules_authority_types import RulesScopeV1
 from application_state.agent_conversation.types import submitted_turn_intent_fingerprint_v2
-from . import rules_lookup as reader, rules_lookup_broker as broker
+from . import rules_lookup_broker as broker
 
 QUERY_CHOICE = "rules_query"
 
@@ -34,7 +34,6 @@ class RulesBuildRuntime:
             raise ValueError("Rules capability must be frozen before first preparation")
         if (adapter.budget.get("buildJevActions") or {}).get("source_writer_output_policy") != "cited_facts_host_limitations_v1":
             raise ValueError("Build Rules requires the current cited writer profile")
-        reader.admitted_bundle(capability.corpus_sha256)
         active = _active_or_create_conversation(adapter.service, world_id=adapter.world_id, turn_id=adapter.request.turn_id)
         expected = adapter.expected_conversation_id
         if expected is not None and expected != active.conversation_id:
