@@ -68,6 +68,24 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    Agent edits, autosave/reopen, navigation and conflict recovery. Preserve each
    document/session authority. Cross-surface availability is not arbitrary
    bidirectional synchronization.
+
+   **Planned follow-on — unify Build document ingestion (not active):**
+   [Build document ingestion as one workflow](../Design/DESIGN-build-ingestion-as-document-workflow.md)
+   folds exact-run evidence review, candidate decisions, correction/recovery and
+   accepted receipts into the existing Build document context. Recap is a frozen
+   run configuration over that exact saved Markdown; this does not add a second
+   editor or change an existing run when the mode selector changes. Re-anchor
+   after the active [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
+   ([PR #1510](https://github.com/Drakosfire/DungeonMindBuddy/pull/1510)) settles
+   before choosing its activation point. This does not replace the roadmap's
+   focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
+   ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
+   [Combat C0 PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367)).
+   Do not dispatch this work in parallel with those owners. Remove Ingest from
+   primary customer navigation only after Build supports both modes and old
+   `/ingest` run links still recover the exact original run. Editing existing
+   accepted World facts remains a separate follow-on.
+
 2. **Cards:** the reviewed design distinguishes scene navigation from bounded card
    presentation; Plan navigation/view continuity has delivered. Direct focused-scene
    editing, dense-content acceptance, visible boundaries, reorder/create/remove and
