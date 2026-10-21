@@ -2924,6 +2924,23 @@ class _PolicyExecutionAdapter:
                     _safe_graph_request_validation_message(exc),
                     arguments=arguments,
                 )
+            if isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1):
+                from application_state.agent_conversation.plan_jev_decision import current_selection
+                try:
+                    selection = current_selection(self.fence.turn)
+                    if request.operation == "object":
+                        if (selection.operation != "select_candidates" or len(request.targets) != 1
+                                or f"node:{request.targets[0].id}" not in selection.selected_handles
+                                or request.observation_ids or request.query_text is not None):
+                            raise ValueError("Plan object was not selected by its current decision")
+                    elif request.operation == "search":
+                        if (selection.operation != "discover_more" or request.targets
+                                or request.observation_ids or request.query_text != self.request.message):
+                            raise ValueError("Plan discovery differs from its selected full question")
+                    else:
+                        raise ValueError("Plan decision does not authorize this Graph operation")
+                except ValueError:
+                    return denied("plan_jev_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
             if request.retrieval_session_id != session.id or (
                 request.historical_revision_id is not None

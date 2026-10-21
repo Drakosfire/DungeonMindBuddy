@@ -13,7 +13,7 @@ from uuid import UUID
 from .plan_jev_decision import _owner
 from .source_writer_output import strict_json
 from .rules_authority_types import canonical_bytes, canonical_sha256
-from .context_trace import TraceSourcePassage
+from .context_trace import TraceSourcePassage, TraceFailure
 
 SCHEMA = "dmb_plan_jev_writer_frame_v1"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
@@ -143,11 +143,16 @@ def project(turn, proof, trace):
             "evidence_sufficiency": read.evidence_sufficiency_status})
     if not set(names) <= seen:
         raise ValueError("Plan source display label has no included captured passage")
+    gaps = sorted({(failure.phase, failure.code)
+        for row in trace.get("observations", []) if row.get("kind") == "failure"
+        for failure in (TraceFailure.model_validate(row),)
+        if failure.phase in {"graph_retrieval", "source_read"}})
     frame = {"schema": SCHEMA, "user_question": turn.user_text, "committed_plan_markdown": markdown,
         "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at") if key in session}
             | {"sources": [{key: source[key] for key in ("kind", "element_id", "text") if key in source}
                 for source in session.get("sources", [])]} for session in sessions],
-        "dialogue_reference": dialogue, "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
+        "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
+        "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
         "unopened_evidence": [handles[ref] for ref in sorted(refs - present)]}
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
