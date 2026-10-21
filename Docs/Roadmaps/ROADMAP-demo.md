@@ -83,10 +83,10 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    [recoverable Recap launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537;
    [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are delivered by PR1538;
    [Recap publication recovery](../Plans/HANDOFF-BUILD-recap-publication-recovery.md) is delivered by PR1539.
-   Full live receipt/recovery acceptance remains open; [existing-World Worldbuilding publication recovery](../Plans/HANDOFF-BUILD-worldbuilding-publication-recovery.md) is active, with first-World recovery separate. This does not replace the roadmap's
+   Publication request recovery is delivered for Recap (#1539), existing-World Worldbuilding (#1547), and [first-World creation](../Plans/HANDOFF-BUILD-first-world-recovery.md) (#1549). Real-corpus receipt/recovery acceptance remains open. This does not replace the roadmap's
    focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
    ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
-   [Combat C0 PR #1367](https://github.com/Drakosfire/DungeonMindBuddy/pull/1367)).
+   [native Combat surface composition](../Plans/HANDOFF-COMBAT-native-surface.md)).
    Do not dispatch this work in parallel with those owners. Remove Ingest from
    primary customer navigation only after Build supports both modes and old
    `/ingest` run links still recover the exact original run. Editing existing
@@ -116,7 +116,7 @@ with source links and no Plan or Graph mutation. Its campaign content remains pr
    statblock/combat/recorded-roll journeys remain acceptance work; the prepared
    rules text and a standalone statblock do not prove those tools. The cleanup smoke
    confirmed that5202 `/combat` currently resolves Index; the unchanged preview/static
-   serving gap remains under Combat C0/PR1367. Build Find also reports
+   serving gap is the active native Combat surface composition slice; native C0 persistence is already serving. Build Find also reports
    `authority_receipt_missing` for Elderwyld. Neither is a successful tool-adoption
    witness; #1481 did not change those owners or restore retired paths.
 7. **Full local acceptance:** first-World preparation and J1–J6 twice without

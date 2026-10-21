@@ -299,7 +299,7 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("link", { name: /play runbook table deck/i })).toHaveAttribute("href", "/play");
     expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
     expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
-    expect(screen.getByRole("link", { name: /combat tracker north reach gate tracker/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /combat tracker encounters/i })).toHaveAttribute(
       "href",
       "/combat",
     );

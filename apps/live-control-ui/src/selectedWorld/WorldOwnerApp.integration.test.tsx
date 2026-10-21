@@ -3,6 +3,8 @@ import {useEffect,useMemo,useState} from 'react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {App} from '../App';
 import * as api from '../api/liveApi';
+import * as combatApi from '../combat/combatApi';
+import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import {WorldPlanConversationRegistration} from '../agentInteraction/WorldAgentConversation';
 import {useSelectedWorld} from './SelectedWorldContext';
 import type {WorldPlanAgentConversationProps} from '../planSurface/components/WorldPlanAgentConversation';
@@ -27,7 +29,7 @@ vi.mock('../planSurface/PlanSurfacePage',()=>({PlanSurfacePage:()=>{
 vi.mock('../playSurface/PlaySurfacePage',()=>({PlaySurfacePage:()=> <main data-testid="play-page">Play route</main>}));
 vi.mock('../buildSurface/BuildSurfacePage',()=>({BuildSurfacePage:()=> <main data-testid="build-page">Build route</main>}));
 vi.mock('../agentInteraction/AgentInteractionChrome',()=>({AgentInteractionChrome:()=> <div data-testid="agent-chrome"/>}));
-vi.mock('../surfaceInteraction/toolHost/ToolHost',()=>({ToolHost:()=> <div data-testid="tools"/>}));
+vi.mock('../surfaceInteraction/toolHost/ToolHost',()=>({ToolHost:()=>{const state=useAgentInteraction();return <div data-testid="tools" data-surface={state.surfaceInteractionPublication?.surfaceId??''}/>;}}));
 vi.mock('../planSurface/projection/LegacyProjectionHostAdapter',()=>({LegacyProjectionHostAdapter:()=> <div data-testid="projections"/>}));
 
 const worlds=['A','B'].map(id=>({schema_version:'dmb_world_container_record_v1' as const,world_id:id,name:id,source_root_relpath:`corpus/${id}`,created_at:'2026-01-01'}));
@@ -104,4 +106,26 @@ it('never retains the previous private owner for an unknown requested World',asy
  await start();navigate('/plan?world=unknown');
  expect(screen.queryByTestId('world-controller')).not.toBeInTheDocument();
  await screen.findByRole('alert');expect(screen.queryByTestId('world-controller')).not.toBeInTheDocument();expect(screen.queryByTestId('plan-page')).not.toBeInTheDocument();
+});
+
+it('boots native Combat through the actual App with a verified World and no automatic write',async()=>{
+ const list=vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
+ const create=vi.spyOn(combatApi,'createWorldCombatEncounter');const save=vi.spyOn(combatApi,'saveWorldCombatEncounter');
+ window.history.replaceState({},'','/combat?world=A');render(<App/>);
+ expect(await screen.findByRole('main',{name:'Combat encounters'})).toBeInTheDocument();
+ expect(await screen.findByText(/No encounters yet/)).toBeInTheDocument();
+ expect(list).toHaveBeenCalledExactlyOnceWith('A');expect(create).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
+ expect(screen.getByTestId('tools')).toHaveAttribute('data-surface','combat');
+ expect(screen.queryByRole('heading',{name:'Command Board'})).not.toBeInTheDocument();
+});
+it('retains World dialogue across Plan→native Combat→Plan while suspending its Plan edit bridge',async()=>{
+ vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
+ await start();const controller=screen.getByTestId('world-controller');
+ fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Unsent planning thought'}});
+ navigate('/combat?world=A');await screen.findByRole('main',{name:'Combat encounters'});
+ expect(screen.getByTestId('world-controller')).toBe(controller);expect(owner.last?.editBridge).toBeNull();
+ expect(screen.queryByRole('button',{name:'Use current Plan bridge'})).not.toBeInTheDocument();
+ navigate('/plan?world=A&documentId=doc-A');await screen.findByTestId('plan-page');
+ expect(screen.getByTestId('world-controller')).toBe(controller);
+ expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Unsent planning thought');
 });

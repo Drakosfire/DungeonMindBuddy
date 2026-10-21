@@ -22,7 +22,7 @@ describe("compact command-board navigation", () => {
     const nav = screen.getByRole("navigation", { name: "Command board navigation" });
     expect(within(nav).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan?world=elderwyld");
     expect(within(nav).getByRole("link", { name: "Plan" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute("href", "/combat");
+    expect(within(nav).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute("href", "/combat?world=elderwyld");
     fireEvent.keyDown(within(nav).getByRole("link", { name: "Build" }), { key: "Escape" });
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
     expect(screen.queryByRole("link", { name: "Build" })).not.toBeInTheDocument();

@@ -58,6 +58,7 @@ const SurfaceShell = deferredComponent(() => import("./surface/SurfaceShell").th
 const PlanSurfacePage = deferredComponent(() => import("./planSurface/PlanSurfacePage").then(module => ({ default: module.PlanSurfacePage })), "Plan");
 const PlaySurfacePage = deferredComponent(() => import("./playSurface/PlaySurfacePage").then(module => ({ default: module.PlaySurfacePage })), "Play");
 const BuildSurfacePage = deferredComponent(() => import("./buildSurface/BuildSurfacePage").then(module => ({ default: module.BuildSurfacePage })), "Build");
+const CombatSurfacePage = deferredComponent(() => import("./combat/CombatSurfacePage").then(module => ({ default: module.CombatSurfacePage })), "Combat");
 const MemoryIngestPage = deferredComponent(() => import("./ingestSurface/MemoryIngestPage").then(module => ({ default: module.MemoryIngestPage })), "Ingest");
 const TiptapCalloutBridgeSpike = deferredComponent(() => import("./tiptap/TiptapCalloutBridgeSpike").then(module => ({ default: module.TiptapCalloutBridgeSpike })), "editor");
 const InspectorPane = deferredComponent(() => import("./surface/InspectorPane").then(module => ({ default: module.InspectorPane })), "inspector");
@@ -139,12 +140,12 @@ function MirewardIndex() {
           <strong>Worldbuilding source</strong>
           <span>Create and edit worldbuilding workspace documents.</span>
         </a>
-        <a className="launcher-card" href="/combat">
+        <a className="launcher-card" href={worldScopedSurfaceHref("/combat", worldId)} onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Combat Tracker</span>
-          <strong>North Reach Gate tracker</strong>
+          <strong>Encounters</strong>
           <span>
-            Mature command-board combat: circular initiative, HP, statblock
-            drilldown, import/export.
+            Create and reopen World-owned encounters. Track turns, HP and notes
+            with explicit saves.
           </span>
         </a>
       </section>
@@ -349,6 +350,8 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
       params.get("documentId") ?? "",
       params.get("revision") ?? "",
     ].join("::")} />;
+  } else if (route === "combat") {
+    content = <CombatSurfacePage />;
   } else if (route === "build") {
     content = <BuildSurfacePage />;
   } else {

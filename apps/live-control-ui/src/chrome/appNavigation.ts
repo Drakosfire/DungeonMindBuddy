@@ -3,7 +3,7 @@
  *
  * `window.location` remains source of truth. React observes popstate.
  * Eligible unmodified same-tab clicks on primary in-app hrefs push history
- * instead of loading a new document. Combat and modified/native gestures
+ * instead of loading a new document. Modified/native gestures
  * stay with the browser.
  */
 
@@ -16,9 +16,10 @@ export type AppLocationRoute =
   | "plan"
   | "play"
   | "ingest"
-  | "build";
+  | "build"
+  | "combat";
 
-const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build"]);
+const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build", "/combat"]);
 
 export interface NavigationClickLike {
   defaultPrevented: boolean;
@@ -60,6 +61,7 @@ export function appRouteFromPathname(pathname: string): AppLocationRoute {
   if (path === "/play") return "play";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
+  if (path === "/combat") return "combat";
   return "index";
 }
 
