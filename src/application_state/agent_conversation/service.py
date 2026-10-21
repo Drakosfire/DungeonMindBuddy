@@ -1215,6 +1215,8 @@ class AgentConversationService:
         build_source_markdown: str | None = None,
         writer_selection_proof: dict | None = None,
         native_play_prepared_request_json: str | None = None,
+        plan_jev_input_proof: dict | None = None,
+        plan_jev_selection_proof: dict | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1231,6 +1233,17 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
+            if isinstance(event, PlanJevProviderAuthorizedV1):
+                from .plan_jev_decision import verify_input
+                try:
+                    verify_input(turn, event, plan_jev_input_proof)
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif (isinstance(execution.policy, PlanJevRetrievalPolicyV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
+                raise ApplicationStateValidationError("Plan Jev controller requires its own prepared-input admission")
             if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
                 receipt = turn.graph_context_receipt
                 if (not isinstance(receipt, BuildGraphContextReceiptV1)
@@ -1317,6 +1330,26 @@ class AgentConversationService:
                     raise ApplicationStateValidationError(
                         "Plan packet final writer forbids later Graph reads or providers"
                     )
+            from .types import PlanJevRetrievalSelectionV1
+            if isinstance(event, PlanJevRetrievalSelectionV1):
+                from .plan_jev_decision import verify_selection
+                try:
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
+                    verify_selection(turn, event, plan_jev_selection_proof, captured[0] if captured else None)
+                    if event.operation == "finish_retrieval":
+                        from .rules_authority_store import load_turn_rules_locked
+                        from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                        rules = load_turn_rules_locked(conn, turn)
+                        if rules is not None:
+                            calls = {item.call_id for item in rules.execution.events if isinstance(item, RulesToolAuthorizedV1)}
+                            observed = {item.call_id for item in rules.execution.events if isinstance(item, RulesQueryObservedV1)}
+                            if calls != observed:
+                                raise ValueError("Plan retrieval cannot finish with an unresolved Rules read")
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             native_inclusion = None
             if native_play_prepared_request_json is not None:
                 from .types import PlayWorldGraphContextReceiptV1
@@ -1442,6 +1475,24 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
         )
+
+    def authorize_plan_jev_provider(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, producer_proof):
+        from .types import PlanJevProviderAuthorizedV1
+        if not isinstance(authorization, PlanJevProviderAuthorizedV1):
+            raise ApplicationStateValidationError("Typed Plan Jev authorization required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="provider_attempt_id", plan_jev_input_proof=producer_proof)
+
+    def record_plan_jev_retrieval_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import PlanJevRetrievalSelectionV1
+        if not isinstance(selection, PlanJevRetrievalSelectionV1):
+            raise ApplicationStateValidationError("Typed Plan Jev selection required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", plan_jev_selection_proof=producer_proof)
 
     def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):

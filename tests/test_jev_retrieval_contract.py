@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 from generationengine.observation import InferenceObservation
 from generationengine.types import ChoiceDecisionAnswer, DecisionResult, BinaryDecisionAnswer
-from apps.live_control_server.services.jev_retrieval_contract import (
+from application_state.agent_conversation.jev_retrieval_contract import (
     MODEL, PROVIDER, RetrievalCandidate, RetrievalDecisionInput, RetrievalSelection,
     prepare_decision, decode_selection, validate_selection,
 )
@@ -136,7 +136,7 @@ def test_actual_ge_sdk_request_is_checked_before_mock_transport_dispatch():
     from generationengine import GenerationClient
     from generationengine.decision_dispatch import DecisionDispatchGate
     from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
-    from apps.live_control_server.services.jev_retrieval_contract import validate_prepared_decision
+    from application_state.agent_conversation.jev_retrieval_contract import validate_prepared_decision
     req = request(); events = []; sent = []
     class Wire(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, wire):
