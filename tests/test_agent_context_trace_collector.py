@@ -531,3 +531,25 @@ def test_conflicting_request_identity_is_never_correlated_again():
     capture.bind_provider_request("same", first)
     capture.provider_usage([{"provider": "openai-api", "requested_model": "same", "runtime_api_request_id": "same", "status": "ok"}])
     assert store.trace.observations[0].provider_attempt_id is None
+
+
+@pytest.mark.parametrize("title", ["Longmont C2 · Session 24", "Edge — Café 中文"])
+def test_source_capture_retains_registered_title_without_changing_evidence(title):
+    capture, store, _ = collector()
+    text = "Exact source passage."
+    event = source_event(text)
+    passage = capture.source_passages(event, [{"content": text, "sourceName": title}],
+        world_id="world", graph_revision="revision")[0]
+    assert passage.source_name == title
+    assert passage.source_artifact_id == event.receipts[0].source_artifact_id
+    assert passage.content_sha256 == event.receipts[0].content_sha256
+    assert passage.text == text
+    assert store.trace.observations == []
+
+
+@pytest.mark.parametrize("title", [None, "", "  ", 42, {"name": "untrusted shape"}])
+def test_source_capture_does_not_fabricate_unavailable_names(title):
+    capture, _, _ = collector()
+    passage = capture.source_passages(source_event("Exact text"), [{"content": "Exact text", "sourceName": title}],
+        world_id="world", graph_revision="revision")[0]
+    assert passage.source_name is None

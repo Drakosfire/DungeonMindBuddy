@@ -33,6 +33,7 @@ export function BuddyHistoricalSourcePassage({ reference, load = getWorldAgentHi
         || identity(data.reference) !== identity(reference) || !passage || passage.kind !== 'source_passage'
         || passage.world_id !== reference.world_id || passage.source_read_event_id !== reference.source_read_event_id
         || passage.source_read_id !== reference.source_read_id || passage.content_sha256 !== reference.content_sha256
+        || (passage.source_name != null && typeof passage.source_name !== 'string')
         || typeof passage.text !== 'string' || [...passage.text].length !== passage.returned_chars
         || passage.returned_chars < 1 || passage.returned_chars > 12000
         || new TextEncoder().encode(JSON.stringify(data)).byteLength > 65536) throw new Error('provenance')
@@ -46,8 +47,15 @@ export function BuddyHistoricalSourcePassage({ reference, load = getWorldAgentHi
   // A new access/read wave hides already displayed private bytes before effect cleanup.
   return <details className="buddy-context-trace__source" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>Source memory from an earlier turn</summary>
-    {saved?.key === key ? <><p>{saved.passage.source_artifact_id}</p><blockquote>{saved.passage.text}</blockquote>
-      <p>Exact earlier passage retained in context before compaction. Historical memory grants no current-turn citation authority.</p></>
+    {saved?.key === key ? <><p>{saved.passage.source_name?.trim() || 'Source name unavailable'}</p>
+      {saved.passage.line_start != null && <p>{saved.passage.line_start === saved.passage.line_end
+        ? `Line ${saved.passage.line_start}` : `Lines ${saved.passage.line_start}–${saved.passage.line_end}`}</p>}
+      <blockquote>{saved.passage.text}</blockquote>
+      <p>Exact earlier passage retained in context before compaction. Historical memory grants no current-turn citation authority.</p>
+      <details><summary>Pinned source reference</summary><pre>{JSON.stringify({
+        source_artifact: saved.passage.source_artifact_id, source_revision: saved.passage.source_revision_id,
+        content_sha256: saved.passage.content_sha256,
+      }, null, 2)}</pre></details></>
       : failure === key ? <><p role="alert">Earlier captured passage is unavailable.</p><button type="button" onClick={()=>setRetry(value=>value+1)}>Retry passage read</button></>
       : <p role="status">Reading the original source capture…</p>}
   </details>

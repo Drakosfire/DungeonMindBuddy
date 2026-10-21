@@ -16,9 +16,9 @@ function JsonDetails({ label, value }: { label: string; value: unknown }) {
 }
 
 function Passage({ passage }: { passage: BuddyTraceSourcePassage }) {
-  return <details className="buddy-context-trace__source"><summary>{passage.source_artifact_id}{passage.line_start == null ? '' : ` · lines ${passage.line_start}–${passage.line_end}`} · {passage.outcome}</summary>
+  return <details className="buddy-context-trace__source"><summary>{passage.source_name?.trim() || 'Source name unavailable'}{passage.line_start == null ? '' : ` · lines ${passage.line_start}–${passage.line_end}`} · {passage.outcome}</summary>
     <blockquote>{passage.text}</blockquote><p>Exact passage read during this attempt. Historical observation; it does not grant new evidence authority.</p>
-    <JsonDetails label="Pinned source reference" value={{ world: passage.world_id, graph_revision: passage.graph_revision, anchor: passage.anchor_id,
+    <JsonDetails label="Pinned source reference" value={{ world: passage.world_id, graph_revision: passage.graph_revision, anchor: passage.anchor_id, source_artifact: passage.source_artifact_id,
       evidence: passage.evidence_ref_id, source_revision: passage.source_revision_id, content_sha256: passage.content_sha256, returned_chars: passage.returned_chars }} />
   </details>
 }

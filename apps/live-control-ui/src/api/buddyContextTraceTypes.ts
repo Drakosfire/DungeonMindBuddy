@@ -49,7 +49,7 @@ export interface BuddyTraceGraphResult {
 export interface BuddyTraceSourcePassage extends Observation {
   kind: 'source_passage'; source_read_event_id: string; read_call_id: string
   world_id: string; graph_revision: string; source_read_id: string; anchor_id: string
-  evidence_ref_id: string; source_artifact_id: string; source_revision_id: string
+  evidence_ref_id: string; source_artifact_id: string; source_revision_id: string; source_name?: string | null
   line_start: number | null; line_end: number | null; outcome: 'enough' | 'partial' | 'truncated'
   returned_chars: number; content_sha256: string; text: string
 }

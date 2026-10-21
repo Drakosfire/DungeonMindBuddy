@@ -271,6 +271,7 @@ class TraceSourcePassage(TraceEvent):
     anchor_id: str = Field(min_length=1, max_length=256)
     evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_name: str | None = None  # Display metadata, never source/evidence authority.
     source_revision_id: str = Field(min_length=1, max_length=256)
     line_start: int | None = Field(default=None, strict=True, ge=1)
     line_end: int | None = Field(default=None, strict=True, ge=1)
