@@ -270,17 +270,24 @@ class BuildJevHarness:
         if index is None:
             self.calls.append(call)
         else:
+            call["runtime_api_request_id"] = self.calls[index]["runtime_api_request_id"]
             self.calls[index] = call
         if self.adapter.context_capture:
             self.adapter.context_capture.provider_usage([call])
 
     def _entered(self, event, phase):
         if event.outcome == "sending":
+            # GE's immutable prepared attempt is the request identity. Register
+            # only after the parent acknowledged its exact sending lifecycle.
+            request_id = f"generationengine:{event.request.attempt_id}"
+            if self.adapter.context_capture:
+                self.adapter.context_capture.bind_provider_request(request_id, UUID(event.request.attempt_id))
             self._inflight[phase] = len(self.calls)
             self.calls.append(
                 dict(
                     provider=event.request.provider,
                     requested_model=event.request.model,
+                    runtime_api_request_id=request_id,
                     status="error",
                     usage={"status": "unavailable"},
                     outcome="unknown",

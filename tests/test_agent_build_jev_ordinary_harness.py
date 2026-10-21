@@ -709,6 +709,14 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
     assert runtime.calls[-1]["usage"]["total_tokens"] == 140
     assert runtime.calls[-1]["usage"]["status"] == "reported"
+    service = AgentConversationService()
+    turn = service.list_turns("elderwyld", case[1].build_write_capability.conversation_id)[0]
+    traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+    usage = [item for trace in traces for item in trace.observations
+             if item.kind == "provider_call" and item.duration_ms is not None]
+    assert len(usage) == 2 and all(item.provider_attempt_id is not None for item in usage)
+    assert usage[-1].outcome == "failed"
+    assert (usage[-1].input_tokens, usage[-1].output_tokens) == (100, 40)
 
 
 def test_compact_first_sdk_keeps_nonempty_logical_membership_and_wire_hash(

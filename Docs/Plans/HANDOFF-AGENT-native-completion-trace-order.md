@@ -1,6 +1,6 @@
 # AGENT — native completion trace ordering
 
-ACTIVE serial successor under the operator’s grounding/image delivery goal. PRIME owns design, implementation, review dispatch and merge; existing buddy-context-loop checkout, branch codex/native-completion-trace-order, base87de8e48e1a4e8c057bf73faeb616f41f6d6ad52. No overlapping active PR. One implementation PR after independent Bugbot review.
+DELIVERED as PR1528, mergead046956eb4655cbda7a200ecb219f531df85a99, after Bugbot review,80 owner tests and configured exact query success. API8000 adopted with every stored row preserved. Successor HANDOFF-AGENT-build-provider-usage-correlation.md owns the measured GE telemetry identity gap. Originally authorized as a serial successor under the operator’s grounding/image delivery goal. PRIME owns design, implementation, review dispatch and merge; existing buddy-context-loop checkout, branch codex/native-completion-trace-order, base87de8e48e1a4e8c057bf73faeb616f41f6d6ad52. No overlapping active PR. One implementation PR after independent Bugbot review.
 
 Measured defect: exact cold-conversation swamp/Edge benchmark on the adopted runtime reaches native completion, then calls answer_context after the APP Turn is completed. Trace append correctly rejects the no-longer-running claim and the client receives turn_persistence_indeterminate despite accepted output. This is a stale completed-claim write, not evidence of a timeout. The failed disposable experiment/log remains private; its database was removed. No live request was reposted.
 
