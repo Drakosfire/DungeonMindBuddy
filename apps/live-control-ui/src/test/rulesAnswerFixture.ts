@@ -29,8 +29,18 @@ export function rulesAnswerFixture(base: RulesAnswerContext['base_context'] = nu
     base_text_sha256: base === null ? null : fixtureHash(baseTexts.join('\n')), base_disposition: base === null ? 'absent' : 'approved',
     segment_map: map, support_table: [{ ...ref, source_label: 'Public SRD · Page 14' }], graph_used: base?.completion?.answer_basis.includes('world_graph') ?? false };
   const context: RulesAnswerContext = { schema: 'dmb_agent_rules_answer_context_v1', accepted_binding: binding,
-    accepted_binding_sha256: fixtureHash(rulesCanonical(binding)), base_context: base };
+    accepted_binding_sha256: fixtureHash(rulesCanonical(binding)), base_context: base, unclaimed_context: null };
   const capsule: RulesHistoricalPassage = { schema: 'dmb_rules_historical_passage_v1', world_id: world, conversation_id: conversation, turn_id: turn,
     accepted_attempt: 1, support, support_sha256: ref.support_sha256 };
   return { context, answer, ruleText, capsule };
+}
+
+export function rulesUnclaimedFixture(base: NonNullable<RulesAnswerContext['base_context']>) {
+  const f = rulesAnswerFixture();
+  f.context.accepted_binding.base_disposition = 'unclaimed';
+  f.context.accepted_binding_sha256 = fixtureHash(rulesCanonical(f.context.accepted_binding));
+  f.context.unclaimed_context = { schema: 'dmb_agent_rules_unclaimed_context_v1', receipt: base.receipt,
+    execution: { schema: 'dmb_agent_plan_world_graph_execution_projection_v1', claimability: 'completed',
+      authorization_state: 'response_received', automatic_redispatch: false }, delivery_replay: false };
+  return f;
 }

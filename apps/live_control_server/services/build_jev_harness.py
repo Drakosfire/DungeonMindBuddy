@@ -154,6 +154,9 @@ class BuildJevHarness:
             base_context = payload["rules_context"]["base_context"]
             if base_context is not None:
                 base_context["delivery_replay"] = False
+            unclaimed_context = payload["rules_context"]["unclaimed_context"]
+            if unclaimed_context is not None:
+                unclaimed_context["delivery_replay"] = False
             return AgentRulesTurnResponseV1.model_validate_json(json.dumps(payload))
         payload["knowledge_context"]["delivery_replay"] = False
         return AgentBuildGraphTurnResponseV1.model_validate(payload)

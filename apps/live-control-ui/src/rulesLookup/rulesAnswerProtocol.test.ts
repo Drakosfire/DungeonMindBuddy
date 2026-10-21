@@ -50,3 +50,27 @@ it('accepts an explicit evidence gap with no claim source controls', async () =>
   expect(isRulesAnswerContext(context, answer, 'world-one', () => false)).toBe(true);
   expect(await rulesAnswerDigestsBound(context, answer)).toBe(true);
 });
+
+it('keeps unclaimed execution identity separate from the base answer and requires owning receipt admission', async () => {
+  const { nativePlayContextFixture, nativePlayRequestFixture } = await import('../test/nativePlayContextFixture');
+  const { rulesUnclaimedFixture } = await import('../test/rulesAnswerFixture');
+  const f = rulesUnclaimedFixture(nativePlayContextFixture(nativePlayRequestFixture()));
+  expect(isRulesAnswerContext(f.context, f.answer, 'world-one', () => false)).toBe(false);
+  expect(isRulesAnswerContext(f.context, f.answer, 'world-one', () => false, undefined, c => c === f.context.unclaimed_context)).toBe(true);
+  expect(f.context.base_context).toBeNull();
+  expect(f.context.accepted_binding.segment_map.every(s => s.domain !== 'base')).toBe(true);
+  expect(await rulesAnswerDigestsBound(f.context, f.answer)).toBe(true);
+});
+it.each(['missing', 'claims', 'execution', 'outcome', 'redispatch', 'absent', 'approved'])('refuses malformed or misclassified execution-only context: %s', async kind => {
+  const { nativePlayContextFixture, nativePlayRequestFixture } = await import('../test/nativePlayContextFixture');
+  const { rulesUnclaimedFixture } = await import('../test/rulesAnswerFixture');
+  const f = rulesUnclaimedFixture(nativePlayContextFixture(nativePlayRequestFixture())), c = f.context.unclaimed_context!;
+  if (kind === 'missing') f.context.unclaimed_context = null;
+  if (kind === 'claims') Object.assign(c, { completion: { answer_segments: [{ kind: 'plan_claim', text: 'Forged claim' }] } });
+  if (kind === 'execution') c.execution.claimability = 'blocked_unknown_or_sent';
+  if (kind === 'outcome') c.execution.authorization_state = 'outcome_unknown';
+  if (kind === 'redispatch') Object.assign(c.execution, { automatic_redispatch: true });
+  if (kind === 'absent') f.context.accepted_binding.base_disposition = 'absent';
+  if (kind === 'approved') f.context.accepted_binding.base_disposition = 'approved';
+  expect(isRulesAnswerContext(f.context, f.answer, 'world-one', () => true, undefined, () => true)).toBe(false);
+});

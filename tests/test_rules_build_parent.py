@@ -297,8 +297,12 @@ def test_real_build_mixed_api_response_and_replay_without_current_reads(
     assert response.answer.text == stored.assistant_text
     assert response.answer.graph_grounded == binding.graph_used
     assert (response.rules_context.base_context is not None) == base
+    assert (response.rules_context.unclaimed_context is not None) != base
     if base:
         assert not response.rules_context.base_context.delivery_replay
+    else:
+        assert not response.rules_context.unclaimed_context.delivery_replay
+        assert response.rules_context.unclaimed_context.receipt == stored.base_projection.graph_context_receipt
     initial_calls = len(decisions.calls), len(writer.calls)
     def forbidden(*args, **kwargs):
         pytest.fail("A completed mixed replay must not resolve current work, graph, corpus or runtime")
@@ -315,6 +319,9 @@ def test_real_build_mixed_api_response_and_replay_without_current_reads(
     assert replay.answer.trace["usage"]["model_call_count"] == 0
     if base:
         assert replay.rules_context.base_context.delivery_replay
+    else:
+        assert replay.rules_context.unclaimed_context.delivery_replay
+        assert replay.rules_context.unclaimed_context.receipt == response.rules_context.unclaimed_context.receipt
     assert (len(decisions.calls), len(writer.calls)) == initial_calls
     # Exercise the mounted native route's JSON serialization and auth boundary.
     import asyncio

@@ -809,6 +809,14 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
         else:
             assert first_turn.json()["schema"] == "dmb_agent_rules_turn_response_v1"
             assert first_turn.json()["rules_context"]["base_context"] is None
+            execution_context = first_turn.json()["rules_context"]["unclaimed_context"]
+            assert execution_context["schema"] == "dmb_agent_rules_unclaimed_context_v1"
+            assert "completion" not in execution_context
+            assert execution_context["execution"]["claimability"] == "completed"
+            assert execution_context["execution"]["authorization_state"] == "response_received"
+            assert execution_context["receipt"] == saved_turn.base_projection.graph_context_receipt.model_dump(mode="json", by_alias=True)
+            # Native Rules delivery projects the already accepted stored record.
+            assert execution_context["delivery_replay"] is True
             assert saved_turn.base_projection.kind == "unclaimed"
             authority = saved_turn.base_projection.graph_context_receipt.graph_authority.model_dump(mode="json")
             from application_state.agent_conversation.rules_authority_reads import validate_unclaimed_receipt_owner
@@ -1211,9 +1219,9 @@ def test_policy_unproven_or_unmapped_failure_stays_generic(
     assert "plan_context_failure" not in caught.value.detail
 
 
-@pytest.mark.parametrize("use_rules", [False, True])
+@pytest.mark.parametrize("rules_mode", ["unused", "approved", "unclaimed"])
 def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id(
-    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, use_rules: bool,
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str, rules_mode: str,
 ) -> None:
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -1936,7 +1944,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                 }],
                 "citation_map": None,
             })
-            if use_rules:
+            if rules_mode != "unused":
                 followup_view, packets = _native_lookup_roundtrip(followup_body, followup_view,
                     authorize, on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
                     question="Can I willingly end my move in a prone ally space?")
@@ -1945,11 +1953,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                 assert packets[1]["previous_support_ids"] == packets[0]["emitted_support_ids"]
                 assert not packets[1]["emitted_support_ids"]
                 final_text = json.dumps({"schema": "dmb_rules_mixed_answer_v1",
-                    "base_output": json.loads(final_text), "rules_segments": [{
+                    "base_output": json.loads(final_text) if rules_mode == "approved" else None, "rules_segments": [{
                         "kind": "rules_claim", "text": capsule["excerpt_text"],
                         "support_ids": [capsule["support_id"]]}],
-                    "ordered_refs": [{"domain": "base", "segment_index": None},
-                                     {"domain": "rules", "segment_index": 0}]})
+                    "ordered_refs": ([{"domain": "base", "segment_index": None}] if rules_mode == "approved" else [])
+                        + [{"domain": "rules", "segment_index": 0}]})
             if native_rules_capture_required:
                 from hashlib import sha256
                 from uuid import uuid4
@@ -1989,13 +1997,20 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         runtime=runtime,
         conversation_service=AgentConversationService(),
     )
-    if use_rules:
+    if rules_mode != "unused":
         assert runtime.calls == 4 and len(plan_rules_reads) == 1
         assert response.schema_ == "dmb_agent_rules_turn_response_v1"
-        assert response.rules_context.base_context.completion is not None
-        assert response.rules_context.base_context.receipt.plan_basis.document_id == "plan-1"
+        if rules_mode == "approved":
+            assert response.rules_context.base_context.completion is not None
+            assert response.rules_context.base_context.receipt.plan_basis.document_id == "plan-1"
+            assert response.answer.text.startswith("The keeper waits by the tavern.\n")
+            assert response.rules_context.unclaimed_context is None
+        else:
+            assert response.rules_context.base_context is None
+            assert response.rules_context.unclaimed_context.receipt.plan_basis.document_id == "plan-1"
+            assert not response.answer.text.startswith("The keeper waits by the tavern.")
+            assert "completion" not in response.rules_context.unclaimed_context.model_dump(by_alias=True)
         assert len(response.rules_context.accepted_binding.support_table) == 1
-        assert response.answer.text.startswith("The keeper waits by the tavern.\n")
         replay = execute_agent_turn(body, root=tmp_path,
             pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
             owner_resolver=lambda _body: {"kind": "world", "id": managed.world_id, "name": managed.name},
@@ -2004,7 +2019,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             plan_graph_resolver=lambda *_args: pytest.fail("mixed Plan replay bootstrapped Graph"),
             runtime=runtime, conversation_service=AgentConversationService())
         assert replay.answer.text == response.answer.text
-        assert replay.rules_context.base_context.delivery_replay is True
+        projection = replay.rules_context.base_context or replay.rules_context.unclaimed_context
+        assert projection.delivery_replay is True
         assert runtime.calls == 4 and len(plan_rules_reads) == 1
         return
     assert runtime.calls == 2

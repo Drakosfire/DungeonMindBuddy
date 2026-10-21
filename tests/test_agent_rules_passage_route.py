@@ -143,6 +143,19 @@ def test_mixed_history_round_trip_and_pagination_preserve_full_text_and_sealed_a
         assert mixed.idempotency_key == first.envelope.idempotency_key
         assert mixed.rules_context.accepted_binding == first.accepted_binding
         assert (mixed.rules_context.base_context is not None) == base
+        assert (mixed.rules_context.unclaimed_context is not None) != base
+        if not base:
+            unclaimed = mixed.rules_context.unclaimed_context
+            assert unclaimed.receipt == first.base_projection.graph_context_receipt
+            assert unclaimed.delivery_replay is True
+            assert "completion" not in unclaimed.model_dump(by_alias=True)
+            assert set(unclaimed.model_dump(by_alias=True)) == {"schema", "receipt", "execution", "delivery_replay"}
+            # Projection must recheck injected typed records, without trusting model_copy.
+            from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
+            foreign = first.base_projection.graph_context_receipt.model_copy(update={"context_receipt_sha256": "0" * 64})
+            poisoned = first.model_copy(update={"base_projection": first.base_projection.model_copy(update={"graph_context_receipt": foreign})})
+            with pytest.raises(ValueError):
+                project_rules_answer_context(poisoned, delivery_replay=True)
         serialized = mixed.rules_context.model_dump_json(by_alias=True)
         assert "excerpt_text" not in serialized and "packet_json" not in serialized
         assert "support_capsules" not in serialized

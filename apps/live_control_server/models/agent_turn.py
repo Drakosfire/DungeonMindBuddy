@@ -20,6 +20,7 @@ from application_state.agent_conversation.rules_authority_types import RulesAcce
 
 from application_state.agent_conversation.types import (
     PlayContentBasis,
+    GraphContextReceipt,
     BuildGraphCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
@@ -722,6 +723,22 @@ class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
     knowledge_context: AgentBuildGraphContextResponseV1
 
 
+class AgentRulesUnclaimedContextV1(BaseModel):
+    """Frozen execution identity only; it grants no base answer/source claims."""
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_rules_unclaimed_context_v1"] = Field(default="dmb_agent_rules_unclaimed_context_v1", alias="schema")
+    receipt: GraphContextReceipt
+    execution: AgentPlanWorldGraphExecutionProjectionV1
+    delivery_replay: bool
+
+    @model_validator(mode="after")
+    def terminal_execution(self):
+        if (self.execution.claimability != "completed"
+                or self.execution.authorization_state != "response_received"):
+            raise ValueError("Unclaimed Rules context requires its acknowledged completed execution")
+        return self
+
+
 class AgentRulesAnswerContextV1(BaseModel):
     """Sealed answer attribution; source bytes require a separate admitted read."""
     model_config = ConfigDict(extra="forbid")
@@ -730,12 +747,19 @@ class AgentRulesAnswerContextV1(BaseModel):
     accepted_binding: RulesAcceptedBindingV1
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    unclaimed_context: AgentRulesUnclaimedContextV1 | None
 
     @model_validator(mode="after")
     def validate_accepted_context(self):
         if canonical_sha256(self.accepted_binding) != self.accepted_binding_sha256:
             raise ValueError("Rules context differs from accepted seal")
         approved = self.accepted_binding.base_disposition == "approved"
+        if (self.accepted_binding.base_disposition == "unclaimed") != (self.unclaimed_context is not None):
+            raise ValueError("Only an unclaimed base has execution-only context")
+        if self.unclaimed_context is not None:
+            receipt = self.unclaimed_context.receipt
+            if receipt.graph_authority.managed_world_id != self.accepted_binding.world_id:
+                raise ValueError("Unclaimed Rules context belongs to another World")
         if approved != (self.base_context is not None):
             raise ValueError("Only an independently approved base has answer context")
         if self.base_context is not None:

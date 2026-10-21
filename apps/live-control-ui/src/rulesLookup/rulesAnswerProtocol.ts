@@ -10,8 +10,8 @@ const identity = (v: unknown): v is string => typeof v === 'string' && Array.fro
 
 /** Shape/map checks do not replace the owning Plan/Build receipt validators or hashes. */
 export function isRulesAnswerContext(value: unknown, text: unknown, worldId: string,
-  validateBase: (base: unknown) => boolean, owner?: { conversationId?: string; turnId?: string }): value is RulesAnswerContext {
-  if (!exact(value, ['schema','accepted_binding','accepted_binding_sha256','base_context'])
+  validateBase: (base: unknown) => boolean, owner?: { conversationId?: string; turnId?: string }, validateUnclaimed: (context: unknown) => boolean = () => false): value is RulesAnswerContext {
+  if (!exact(value, ['schema','accepted_binding','accepted_binding_sha256','base_context','unclaimed_context'])
     || value.schema !== 'dmb_agent_rules_answer_context_v1' || !sha(value.accepted_binding_sha256)
     || typeof text !== 'string' || !text || Array.from(text).length > 32000) return false;
   const b = value.accepted_binding;
@@ -32,6 +32,15 @@ export function isRulesAnswerContext(value: unknown, text: unknown, worldId: str
   const approved = b.base_disposition === 'approved';
   if (approved !== (value.base_context !== null) || approved !== sha(b.base_text_sha256)
     || (!approved && (b.base_text_sha256 !== null || b.graph_used))) return false;
+  if (b.base_disposition === 'unclaimed') {
+    const c = value.unclaimed_context;
+    if (!exact(c, ['schema', 'receipt', 'execution', 'delivery_replay']) || c.schema !== 'dmb_agent_rules_unclaimed_context_v1'
+      || typeof c.delivery_replay !== 'boolean' || !rec(c.receipt)
+      || !exact(c.execution, ['schema', 'claimability', 'authorization_state', 'automatic_redispatch'])
+      || c.execution.schema !== 'dmb_agent_plan_world_graph_execution_projection_v1'
+      || c.execution.claimability !== 'completed' || c.execution.authorization_state !== 'response_received'
+      || c.execution.automatic_redispatch !== false || !validateUnclaimed(c)) return false;
+  } else if (value.unclaimed_context !== null) return false;
   let baseSegments: string[] = [];
   if (approved) {
     const base = value.base_context;

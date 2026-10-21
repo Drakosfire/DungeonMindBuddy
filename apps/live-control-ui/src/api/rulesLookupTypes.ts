@@ -46,5 +46,14 @@ export interface RulesAcceptedBinding {
 }
 export interface RulesAnswerContext {
   schema: 'dmb_agent_rules_answer_context_v1'; accepted_binding: RulesAcceptedBinding; accepted_binding_sha256: string;
+  unclaimed_context: RulesUnclaimedContext | null;
   base_context: import('./types').WorldPlanAgentPlanContextV2 | import('./types').WorldBuildKnowledgeContextV1 | import('./types').WorldPlayAgentContextV1 | null;
+}
+
+/** Frozen execution identity for a completed Rules answer with no base claims. */
+export interface RulesUnclaimedContext {
+  schema: 'dmb_agent_rules_unclaimed_context_v1';
+  receipt: import('./types').WorldPlanGraphContextReceiptV1 | import('./types').WorldBuildGraphReceiptV1 | import('./types').WorldPlayGraphContextReceiptV1;
+  execution: import('./types').WorldPlanGraphExecutionProjectionV1;
+  delivery_replay: boolean;
 }

@@ -1,5 +1,5 @@
 import { nativePlayContextFixture, nativePlayProvenanceFixture, nativePlayRequestFixture } from '../test/nativePlayContextFixture';
-import { rulesAnswerFixture, fixtureHash } from '../test/rulesAnswerFixture';
+import { rulesAnswerFixture, rulesUnclaimedFixture, fixtureHash } from '../test/rulesAnswerFixture';
 import { rulesCanonical } from '../rulesLookup/rulesEvidence';
 import { listPlaySceneEdits, proposePlaySceneEdit, type PlaySceneEditRecord } from "../api/playSceneEditApi";
 import { getWorldPlayRunContent, getWorldPlayRunContentCommand, putWorldPlayRunContentCommand } from "../api/playRunContentApi";
@@ -1483,16 +1483,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each(['approved','unclaimed','bad_seal','bad_owner'] as const)('validates a live mixed Build reply before settling recovery: %s', async mode => {
-    const base = mode === 'approved' ? await buildGraphContext() : null;
-    const fixture = rulesAnswerFixture(base), context = fixture.context, b = context.accepted_binding;
-    if (mode !== 'approved') {
-      b.base_disposition = 'unclaimed';
-      context.accepted_binding_sha256 = fixtureHash(rulesCanonical(b));
-    }
+    const base = await buildGraphContext();
+    const fixture = mode === 'approved' ? rulesAnswerFixture(base) : rulesUnclaimedFixture(base), context = fixture.context, b = context.accepted_binding;
     const current: WorldAgentConversationHistoryResponse = history();
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request => {
-      const reply = playResponse({ ...nativePlayRequestFixture(), client_thread_id: request.client_thread_id, turn_id: request.turn_id });
+      const { play_context: _unusedNativeContext, ...reply } = playResponse({ ...nativePlayRequestFixture(), client_thread_id: request.client_thread_id, turn_id: request.turn_id });
       const contextForReply = structuredClone(context);
       if (mode === 'bad_seal') contextForReply.accepted_binding_sha256 = '0'.repeat(64);
       const conversation = { ...reply.conversation, conversation_id: mode === 'bad_owner' ? b.turn_id : b.conversation_id };
@@ -1544,24 +1540,25 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['ordinary', 'mixed', 'edition', 'scene', 'world', 'note', 'text'] as const)('admits only the exact native Play live reply before settling recovery: %s', async mode => {
+  it.each(['ordinary', 'mixed', 'unclaimed', 'unclaimed-edition', 'unclaimed-scene', 'edition', 'scene', 'world', 'note', 'text'] as const)('admits only the exact native Play live reply before settling recovery: %s', async mode => {
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async request => {
       const sourceRequest = structuredClone(request);
-      if (mode === 'edition') sourceRequest.primary_work.play_content_basis = { edition_revision: 2,
+      if (mode === 'edition' || mode === 'unclaimed-edition') sourceRequest.primary_work.play_content_basis = { edition_revision: 2,
         edition_revision_id: '00000000-0000-4000-8000-000000000044', content_sha256: 'b'.repeat(64) };
-      if (mode === 'scene') sourceRequest.play_target.scene_id = 'scene:other';
+      if (mode === 'scene' || mode === 'unclaimed-scene') sourceRequest.play_target.scene_id = 'scene:other';
       if (mode === 'world') sourceRequest.owner_scope.world_id = 'other-world';
       const base = nativePlayContextFixture(sourceRequest), response = { ...playResponse(request), play_context: base };
       if (mode === 'note') base.receipt.play_basis.scene_note += ' changed';
       if (mode === 'text') response.answer.text = 'An uncommitted answer';
-      if (mode === 'mixed') {
-        const f = rulesAnswerFixture(base), b = f.context.accepted_binding;
+      if (mode === 'mixed' || mode.startsWith('unclaimed')) {
+        const f = mode === 'mixed' ? rulesAnswerFixture(base) : rulesUnclaimedFixture(base), b = f.context.accepted_binding;
         const row = { ...turn('play', 1, f.answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
           turn_id: b.turn_id, user_text: request.message, idempotency_key: '66666666-6666-4666-8666-666666666666',
           provenance: nativePlayProvenanceFixture(base), rules_context: f.context };
-        vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
+        if (mode === 'mixed' || mode === 'unclaimed') vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(), schema: 'dmb_agent_conversation_history_v4',
           conversation_id: b.conversation_id, active_conversation_id: b.conversation_id, turns: [row] });
-        return { ...response, schema: 'dmb_agent_rules_turn_response_v1',
+        const { play_context: _unusedNativeContext, ...mixedResponse } = response;
+        return { ...mixedResponse, schema: 'dmb_agent_rules_turn_response_v1',
           conversation: { ...response.conversation, conversation_id: b.conversation_id },
           answer: { ...response.answer, text: f.answer }, rules_context: f.context };
       }
@@ -1577,10 +1574,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(composer, { target: { value: 'What rules apply at this crossing?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     const key = 'dmb:world-play-pending-turn:v1:' + WORLD;
-    if (mode === 'ordinary' || mode === 'mixed') {
+    if (mode === 'ordinary' || mode === 'mixed' || mode === 'unclaimed') {
       await waitFor(() => expect(window.localStorage.getItem(key)).toBeNull());
-      await screen.findByText(/Original Play answer/);
-      if (mode === 'mixed') await screen.findByText('Rules references', { selector: 'summary' });
+      if (mode !== 'unclaimed') await screen.findByText(/Original Play answer/);
+      if (mode === 'mixed' || mode === 'unclaimed') await screen.findByText('Rules references', { selector: 'summary' });
     } else {
       await screen.findByText(/reply did not match.*(Run edition|accepted answer)/);
       expect(window.localStorage.getItem(key)).not.toBeNull();
@@ -1588,6 +1585,53 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+  });
+
+  it.each(['live', 'lost', 'foreign-work', 'lost-foreign-work'] as const)('settles unclaimed Plan Rules replies only with the original frozen receipt: %s', async mode => {
+    const seed = rulesAnswerFixture();
+    let current: WorldAgentConversationHistoryResponse = { ...history(), conversation_id: seed.context.accepted_binding.conversation_id,
+      active_conversation_id: seed.context.accepted_binding.conversation_id };
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(async request => {
+      const base = await planGraphContext('plan_only_graph_unused', { request });
+      if (mode.includes('foreign-work')) {
+        base.receipt.plan_basis.work_revision_id = '00000000-0000-4000-8000-000000000099';
+        const { context_receipt_sha256: _, ...body } = base.receipt;
+        base.receipt.context_receipt_sha256 = fixtureHash(rulesCanonical(body));
+      }
+      const f = rulesUnclaimedFixture(base), b = f.context.accepted_binding;
+      if (mode.startsWith('lost')) {
+        const row = { ...turn('plan', 1, f.answer), schema: 'dmb_agent_conversation_history_mixed_turn_v1' as const,
+          turn_id: b.turn_id, idempotency_key: await expectedHistoryCorrelationKey(WORLD, request.turn_id),
+          user_text: request.message, rules_context: f.context,
+          provenance: { ...turn('plan', 1, f.answer).provenance,
+            primary_work: { resolution: 'resolved' as const, kind: 'plan', object_id: 'plan-one', revision: '7', content_sha256: SHA,
+              object_revision: 7, work_revision_id: base.receipt.plan_basis.work_revision_id, revision_n: 2 } } };
+        current = { ...current, schema: 'dmb_agent_conversation_history_v4', turns: [row] };
+        throw new Error('Connection lost after the accepted Rules answer');
+      }
+      const response = planResponse(request);
+      return { ...response, schema: 'dmb_agent_rules_turn_response_v1',
+        conversation: { ...response.conversation, conversation_id: b.conversation_id },
+        answer: { ...response.answer, text: f.answer }, rules_context: f.context };
+    });
+    render(<Harness initial='plan' />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    const composer = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: 'What occupancy rules apply here?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    const pending = () => Object.keys(localStorage).filter(k => k.startsWith('dmb:world-plan-pending-ask:v1:'));
+    if (mode === 'live' || mode === 'lost') {
+      await waitFor(() => expect(pending()).toHaveLength(0), { timeout: 7000 });
+    } else {
+      if (mode.startsWith('lost')) await screen.findByText(seed.ruleText, {}, { timeout: 7000 });
+      else await screen.findByText(/durable Ask result did not identify/);
+      expect(pending()).toHaveLength(1);
+    }
+    expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
+    expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
   });
 
 });
