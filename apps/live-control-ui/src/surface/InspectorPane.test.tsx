@@ -73,6 +73,23 @@ describe("InspectorPane", () => {
     expect(screen.getByRole("button", { name: "Patch artifact" })).toBeInTheDocument();
   });
 
+  it("does not repeat reads when the parent recreates the same open state", async () => {
+    const { rerender } = render(
+      <InspectorPane state={{ status: "open", target }} onClose={vi.fn()} />,
+    );
+
+    expect(await screen.findByText(/Weather resolved to 16\./i)).toBeInTheDocument();
+    expect(liveApi.getArtifact).toHaveBeenCalledTimes(1);
+    expect(liveApi.getCapabilities).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <InspectorPane state={{ status: "open", target: { ...target } }} onClose={vi.fn()} />,
+    );
+
+    expect(liveApi.getArtifact).toHaveBeenCalledTimes(1);
+    expect(liveApi.getCapabilities).toHaveBeenCalledTimes(1);
+  });
+
   it("does not fetch unsupported target types and shows unsupported message", async () => {
     render(<InspectorPane state={{ status: "open", target: { ...target, target_type: "npc" } }} onClose={vi.fn()} />);
     expect(await screen.findByText(/Read renderer not implemented for this target type yet/i)).toBeInTheDocument();

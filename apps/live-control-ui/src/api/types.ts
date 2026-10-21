@@ -3223,20 +3223,6 @@ export interface GraphPreviewSurfaceResponse {
   candidates: GraphPreviewCandidateRow[];
 }
 
-export interface GraphPreviewRunSummary {
-  run_dir: string;
-  model_id?: string | null;
-  run_index?: number | null;
-  canonical_ir_valid?: boolean | null;
-  scenario_estimated_cost_usd?: number | null;
-}
-
-export interface GraphPreviewRunsResponse {
-  schema_version: "dmb_graph_preview_surface_v1";
-  version: string;
-  runs: GraphPreviewRunSummary[];
-}
-
 export interface RecapGraphRunRef {
   run_uri: string;
   model_id?: string | null;

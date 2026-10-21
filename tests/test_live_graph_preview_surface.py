@@ -57,6 +57,11 @@ def test_discover_graph_preview_runs_empty_when_session_has_no_graph_runs() -> N
     assert runs == []
 
 
+def test_unbounded_graph_preview_run_catalog_route_is_removed(client: TestClient) -> None:
+    response = client.get("/api/live/graph-preview/runs")
+    assert response.status_code == 404
+
+
 def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
     fallback_run = (
         "evals/graph_memory_layer/artifacts/category_graph_model_study/"
@@ -129,14 +134,6 @@ def test_get_graph_preview_latest(client: TestClient) -> None:
     assert body["schema_version"] == "dmb_graph_preview_surface_v1"
     assert body["health"]["node_count"] >= 1
     assert isinstance(body["candidates"], list)
-
-
-def test_get_graph_preview_runs(client: TestClient) -> None:
-    response = client.get("/api/live/graph-preview/runs")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema_version"] == "dmb_graph_preview_surface_v1"
-    assert isinstance(body["runs"], list)
 
 
 def test_get_graph_preview_by_run_dir(client: TestClient) -> None:

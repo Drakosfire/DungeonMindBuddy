@@ -16,7 +16,6 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
   enabled: boolean; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
-  const historyVersion = history?.turns.map(turn => `${turn.turn_id}:${turn.lifecycle_status}`).join('|') ?? '';
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
   if (generation.current.scope !== scope) generation.current = { scope, epoch: generation.current.epoch + 1 };
@@ -45,7 +44,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
           .sort((a, b) => a.created_at.localeCompare(b.created_at)) })); })
       .catch(() => { if (active) setError('Earlier page proposals could not be loaded.'); });
     return () => { active = false; controller.abort(); };
-  }, [scope, worldId, enabled, history?.conversation_id, historyVersion, refreshNonce]);
+  }, [scope, worldId, enabled, history?.conversation_id, refreshNonce]);
   function put(record: BuildProposalRecord, ownerScope: string, epoch = current.current.epoch, previousScope?: string) {
     if (mounted.current && ((current.current.scope === ownerScope && current.current.epoch === epoch)
       || (previousScope !== undefined && current.current.scope === previousScope && current.current.epoch === epoch - 1))) setRecords(previous => ({ scope: ownerScope,

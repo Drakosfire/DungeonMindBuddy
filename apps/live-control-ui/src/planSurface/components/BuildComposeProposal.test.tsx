@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import * as api from '../../api/buildDocumentProposalApi';
 import * as live from '../../api/liveApi';
+import * as media from '../../media/PreparedBuildImage';
 import type { WorldAgentConversationHistoryResponse } from '../../api/types';
 import type { CapturedBuildInsertion, BuildComposeBridge } from '../../buildSurface/buildComposeBridge';
 import { BuildComposeProposal, useBuildCompose } from './BuildComposeProposal';
@@ -25,8 +26,34 @@ let bridge: BuildComposeBridge;
 beforeEach(() => {
   vi.resetAllMocks(); bridge = { capture: vi.fn().mockResolvedValue(captured), insert: vi.fn() };
   vi.mocked(api.listBuildProposals).mockResolvedValue([]);
+  vi.spyOn(media, 'listPreparedImages').mockResolvedValue([]);
   vi.mocked(api.composeBuildProposal).mockImplementation(async request => receipt(request));
   vi.mocked(api.reportBuildInsertion).mockImplementation(async (_world, record) => ({ ...record, inserted_in_draft: true }));
+});
+it('does not refetch conversation sidecars for turn lifecycle changes, but refreshes on explicit request or conversation change', async () => {
+  const firstHistory = { ...history, turns: [{ turn_id: 'turn-1', sequence: 1, lifecycle_status: 'running' }] } as WorldAgentConversationHistoryResponse;
+  const hook = renderHook(({ snapshot }) => useBuildCompose({ worldId: 'world', history: snapshot, bridge, enabled: true, onHistory: vi.fn() }),
+    { initialProps: { snapshot: firstHistory } });
+  await waitFor(() => {
+    expect(api.listBuildProposals).toHaveBeenCalledTimes(1);
+    expect(media.listPreparedImages).toHaveBeenCalledTimes(1);
+  });
+
+  act(() => hook.rerender({ snapshot: { ...firstHistory, turns: [{ ...firstHistory.turns[0], lifecycle_status: 'completed' }] } }));
+  expect(api.listBuildProposals).toHaveBeenCalledTimes(1);
+  expect(media.listPreparedImages).toHaveBeenCalledTimes(1);
+
+  act(() => hook.result.current.refresh());
+  await waitFor(() => {
+    expect(api.listBuildProposals).toHaveBeenCalledTimes(2);
+    expect(media.listPreparedImages).toHaveBeenCalledTimes(2);
+  });
+
+  act(() => hook.rerender({ snapshot: { ...firstHistory, conversation_id: 'conversation-next', active_conversation_id: 'conversation-next' } }));
+  await waitFor(() => {
+    expect(api.listBuildProposals).toHaveBeenCalledTimes(3);
+    expect(media.listPreparedImages).toHaveBeenCalledTimes(3);
+  });
 });
 it('keeps one write request, reviews inline and inserts only once', async () => {
   const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));

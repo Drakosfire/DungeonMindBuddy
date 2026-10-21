@@ -1636,7 +1636,6 @@ workflows; they are not UnionSupergraphStore loads):
 
 ```text
 GET  /api/live/graph-preview/artifacts
-GET  /api/live/graph-preview/runs
 GET  /api/live/graph-preview/latest
 GET  /api/live/graph-preview/graph-ingest/runs
 GET  /api/live/graph-preview/graph-ingest/latest
@@ -1656,6 +1655,8 @@ GET  /api/live/graph-preview/manual-review/beds
 GET  /api/live/graph-preview/manual-review/beds/{bed_id}
 GET  /api/live/graph-preview/recap
 ```
+
+The unbounded `GET /api/live/graph-preview/runs` catalog is removed by the 2026-10-20 read-efficiency slice (Buddy PR #1520): no current UI client consumes it, and exact-run review plus `/latest` remain available. This supersedes the earlier keep-list entry; do not restore the catalog.
 
 Required module splits so the retained router is import-block-safe:
 
