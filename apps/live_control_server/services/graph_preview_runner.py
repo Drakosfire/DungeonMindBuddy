@@ -198,7 +198,8 @@ def run_recap_production_extraction(
     repo_root: Path,
     campaign_id: str,
     session_id: str,
-    recap_path: Path,
+    recap_path: Path | None = None,
+    build_source_artifact_id: str | None = None,
     profile: str | None = None,
     model_id: str | None = None,
     allow_llm: bool = False,
@@ -219,6 +220,17 @@ def run_recap_production_extraction(
     )
     if supplemental_evidence is not None and supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:
         raise ValueError("Session supplement belongs to another managed World")
+    if (recap_path is None) == (build_source_artifact_id is None):
+        raise SourceArtifactRegistryError("select exactly one Recap source: corpus path or registered Build document", status_code=422)
+    build_lineage = {}
+    if build_source_artifact_id is not None:
+        from apps.live_control_server.services.build_recap_source import frozen_build_recap_configuration
+        selected_id, selected_version = resolve_legacy_graph_extraction_profile(profile)
+        build_lineage = {"build_document_ingest": frozen_build_recap_configuration(repo_root,
+            source_artifact_id=build_source_artifact_id, campaign_id=campaign_id, session_id=session_id,
+            context=frozen_context, profile_id=selected_id, profile_version=selected_version,
+            supplemental_evidence=supplemental_evidence)}
+
     if output_dir is not None:
         output_dir = (
             output_dir if output_dir.is_absolute() else repo_root / output_dir
@@ -284,14 +296,15 @@ def run_recap_production_extraction(
         if not default_ge:
             bounded = BoundedRecapPassClient(execution_limits)
             category_client = bounded
-    artifact = create_recap_source_artifact(
-        repo_root,
-        world_id=native_world_id,
-        campaign_id=campaign_id,
-        session_id=session_id,
-        recap_path=recap_path,
-    )
-    source = _normalized_from_registered(repo_root, artifact.source_artifact_id)
+    if build_source_artifact_id is None:
+        artifact = create_recap_source_artifact(
+            repo_root, world_id=native_world_id, campaign_id=campaign_id,
+            session_id=session_id, recap_path=recap_path,
+        )
+        source_artifact_id = artifact.source_artifact_id
+    else:
+        source_artifact_id = build_source_artifact_id
+    source = _normalized_from_registered(repo_root, source_artifact_id)
     supplement_context=None
     supplement_lineage={}
     if supplemental_evidence is not None:
@@ -349,7 +362,7 @@ def run_recap_production_extraction(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-                initial_lineage={"world_campaign_ingest_context": frozen_context,**supplement_lineage},
+                initial_lineage={"world_campaign_ingest_context": frozen_context,**supplement_lineage,**build_lineage},
             )
         )
         return result
