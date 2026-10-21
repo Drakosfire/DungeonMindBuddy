@@ -16,6 +16,7 @@ from .rules_authority_events import (
     RulesQueryObservedV1,
     RulesToolAuthorizedV1, RulesBuildToolAuthorizedV1,
     RulesBuildProviderAuthorizedV1, RulesBuildProviderIncludedV1,
+    RulesPlanPacketProviderAuthorizedV1, RulesPlanPacketProviderIncludedV1,
     normalized_question,
     ref_map,
 )
@@ -26,6 +27,7 @@ def verify_prepared_input(
     execution: RulesExecutionV1,
     event: RulesProviderAuthorizedV1 | RulesProviderIncludedV1,
     prepared_request_json: str,
+    *, plan_turn=None,
 ) -> None:
     """Verify matched call/output bytes and exact emitted source identity.
 
@@ -44,6 +46,17 @@ def verify_prepared_input(
     body = json.loads(prepared_request_json, object_pairs_hook=_unique_object)
     if not isinstance(body, dict):
         raise ValueError("Rules prepared request is not an object")
+    if isinstance(event, (RulesPlanPacketProviderAuthorizedV1, RulesPlanPacketProviderIncludedV1)):
+        from .rules_authority_plan_packet import verify_plan_rules_packet_input
+        exposure = verify_plan_rules_packet_input(execution, plan_turn, prepared_request_json,
+            expected_envelope_sha256=event.request_envelope_sha256)
+        declared = (event.declared_support_refs if isinstance(event, RulesProviderAuthorizedV1)
+                    else event.support_refs)
+        if (event.plan_context_receipt_sha256 != exposure.plan_context_receipt_sha256
+                or event.matched_outputs != exposure.matched_outputs
+                or ref_map(declared) != ref_map(exposure.support_refs)):
+            raise ValueError("Plan Rules provider declarations differ from actual packet exposure")
+        return
     calls = {}
     outputs = {}
 

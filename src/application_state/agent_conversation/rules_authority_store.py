@@ -25,6 +25,7 @@ from .rules_authority_events import (
     RulesProviderAuthorizedV1,
     RulesProviderIncludedV1,
     RulesProviderOutcomeV1,
+    RulesPlanPacketProviderAuthorizedV1, RulesPlanPacketProviderIncludedV1,
     RulesQueryObservedV1,
     RulesToolAuthorizedV1,
     empty_execution,
@@ -318,7 +319,27 @@ def append_provider_event_locked(
                 raise ValueError(
                     "Rules provider authorization/inclusion requires actual prepared input"
                 )
-            verify_prepared_input(current.execution, event, prepared_request_json)
+            plan_turn = None
+            if isinstance(event, (RulesPlanPacketProviderAuthorizedV1, RulesPlanPacketProviderIncludedV1)):
+                # _lock_current_claim already owns this row lock; join the full
+                # current owner before accepting the new Plan-only carrier.
+                from . import repository
+                plan_turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
+                from .types import ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1
+                graph_execution = getattr(plan_turn, "graph_context_execution", None)
+                attempts = [item for item in getattr(graph_execution, "events", ())
+                            if isinstance(item, ProviderAttemptAuthorizedEventV3)]
+                graph_auth = attempts[-1] if attempts else None
+                body = json.loads(prepared_request_json)
+                if (not isinstance(body, dict) or graph_auth is None or graph_auth.provider_attempt_id != event.provider_attempt_id
+                        or graph_auth.envelope_sha256 != event.request_envelope_sha256
+                        or graph_auth.api_mode != "codex_responses" or body.get("model") != graph_auth.model):
+                    raise ValueError("Plan packet provider lacks its actual current Graph authorization")
+                if prior is None and any(isinstance(item, ProviderOutcomeEventV1)
+                        and item.provider_attempt_id == graph_auth.provider_attempt_id
+                        for item in graph_execution.events):
+                    raise ValueError("Plan packet admission must finish before Graph SDK entry")
+            verify_prepared_input(current.execution, event, prepared_request_json, plan_turn=plan_turn)
         elif prepared_request_json is not None:
             raise ValueError(
                 "Rules provider outcome cannot change the authorized input"
