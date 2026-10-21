@@ -3254,6 +3254,53 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
   });
 
+  it.each(["accepted", "running", "failed", "interrupted"] as const)(
+    "shows the exact frozen Plan context for %s history without a completed answer", async (status) => {
+      const context = await planGraphContext("graph_grounded");
+      context.completion = null;
+      context.delivery_replay = true;
+      context.source_open_targets = [];
+      context.evidence_anchor_statuses = [];
+      context.related_recap_context_statuses = [];
+      context.execution = {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "blocked_unknown_or_sent", authorization_state: "outcome_unknown", automatic_redispatch: false,
+      };
+      const turn = policyHistoryTurn(1, "unfinished-plan-turn", "Keep this saved question", "", context);
+      turn.lifecycle_status = status;
+      turn.assistant_text = null;
+      setupApi(await historyV2("conversation-a", 12, [turn]));
+      render(conversationElement());
+      expect(await screen.findByText("Keep this saved question")).toBeInTheDocument();
+      expect(screen.queryByText(/World conversation response did not match/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Grounded in World Graph evidence.")).not.toBeInTheDocument();
+    },
+  );
+
+  it("rejects a failed Plan history row carrying completed claims", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.delivery_replay = true;
+    const turn = policyHistoryTurn(1, "invalid-failed-plan", "Must not appear", "", context);
+    turn.lifecycle_status = "failed";
+    setupApi(await historyV2("conversation-a", 12, [turn]));
+    render(conversationElement());
+    expect(await screen.findByText(/World conversation response did not match/)).toBeInTheDocument();
+    expect(screen.queryByText("Must not appear")).not.toBeInTheDocument();
+  });
+
+  it("rejects a completed Plan history row without its completed answer", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.completion = null;
+    context.source_open_targets = [];
+    context.evidence_anchor_statuses = [];
+    context.related_recap_context_statuses = [];
+    const turn = policyHistoryTurn(1, "invalid-completed-plan", "Must not appear", "", context);
+    setupApi(await historyV2("conversation-a", 12, [turn]));
+    render(conversationElement());
+    expect(await screen.findByText(/World conversation response did not match/)).toBeInTheDocument();
+    expect(screen.queryByText("Must not appear")).not.toBeInTheDocument();
+  });
+
   it("rejects internally valid history receipts for a foreign World or mismatched Plan revision", async () => {
     const foreignContext = await planGraphContext("graph_grounded");
     foreignContext.receipt.plan_basis.world_id = "foreign-world-test";

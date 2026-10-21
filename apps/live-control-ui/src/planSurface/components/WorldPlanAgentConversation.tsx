@@ -1274,7 +1274,6 @@ function isWorldPlanContextProjection(
     || (Object.prototype.hasOwnProperty.call(value, "delivery_replay") && typeof value.delivery_replay !== "boolean")) return false;
   if (!historyTurn && (!Object.prototype.hasOwnProperty.call(value, "delivery_replay")
     || value.completion === null)) return false;
-  if (value.delivery_replay === true && value.completion === null) return false;
   return true;
 }
 
