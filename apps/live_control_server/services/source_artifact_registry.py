@@ -447,6 +447,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
         workspace_document_id=record.document_id,
         workspace_document_revision=record.revision,
         lineage={
+            "source_name": record.title,
             "workspace_document_id": record.document_id,
             "workspace_document_revision": record.revision,
             "source_span_index_uri": f"repo://{source_span_index_relpath(source_artifact_id)}",
@@ -552,7 +553,7 @@ def create_recap_source_artifact_from_workspace_document(
             content_sha256=content_sha256, artifact_kind="recap_markdown", document_class="recap",
             visibility_state=record.visibility_state, workspace_document_id=record.document_id,
             workspace_document_revision=record.revision,
-            lineage={"build_recap_source": binding, "binding_sha256": binding_sha,
+            lineage={"source_name": record.title, "build_recap_source": binding, "binding_sha256": binding_sha,
                 "source_span_index_uri": f"repo://{source_span_index_relpath(artifact_id)}"},
             created_at=now, updated_at=now,
         )

@@ -728,7 +728,7 @@ def _span_candidate(*, artifact_id: str, span_id: str, node_id: str, campaign_id
     node = candidate["nodes"][0]
     node["node_id"] = node_id
     node["label"] = node_id.rsplit(":", 1)[-1].replace("-", " ").title()
-    node["node_type"] = "location" if "mireward" in node_id else "character"
+    node["node_type"] = "location" if ":location:" in node_id else "character"
     ref = node["evidence_refs"][0]
     ref["source_artifact_id"] = artifact_id
     ref["source_span_ref_id"] = span_id
@@ -818,6 +818,7 @@ def _prepare_session(
     recap_text: str,
     parent_revision_id: str | None = None,
     genesis: SimpleNamespace | None = None,
+    source_name: str | None = None,
 ) -> SimpleNamespace:
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
@@ -939,6 +940,8 @@ def _prepare_session(
         session_id=session_id,
         world_id=world_id,
     )
+    if source_name is not None:
+        recap.lineage["source_name"] = source_name
     result = prepare_candidate_graph_admission(
         candidate_graph=candidate,
         source_uri=uri,
@@ -1316,3 +1319,39 @@ def test_recap_context_v2_empty_canonical_body(tmp_path):
     assert page.selected_form == "canonical_h1"
     assert (page.content, page.line_start, page.line_end) == ("", 2, 1)
     assert page.section_sha256 == hashlib.sha256(b"").hexdigest()
+
+
+def test_native_recap_source_read_keeps_registered_document_name(
+    tmp_path, monkeypatch, application_state_dsn,
+):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        build_direct_world_graph_read_services, get_evidence_direct, read_source_anchor_direct,
+    )
+    from graph_memory.retrieval.models import (
+        RETRIEVAL_EVIDENCE_REQUEST_SCHEMA, WorldGraphEvidenceRequest,
+    )
+    title = "The party reaches Willow Park — external recap"
+    world = "world:registered-source-name"
+    prepared = _prepare_session(tmp_path, monkeypatch, application_state_dsn,
+        world_id=world, campaign_id="longmont-c2", session_id="session-22",
+        node_id="node:location:willow-park", recap_text="The party reaches Willow Park.\n",
+        source_name=title)
+    assert prepared.result.confirmable
+    published = _confirm_via_product_seam(prepared)
+    revision = published["committed_revision_id"]
+    published_node = prepared.package["effect"]["node_id_map"][prepared.node_id]
+    # Reopen services after publication: the name must survive native catalog
+    # admission, not just be copied from a prepare-time Python object.
+    services = build_direct_world_graph_read_services(prepared.dsn, world)
+    scope = {"worldId": world, "campaignId": "longmont-c2", "revisionPin": revision, "scopeMode": "world"}
+    evidence = get_evidence_direct(services, WorldGraphEvidenceRequest.model_validate({
+        "schema": RETRIEVAL_EVIDENCE_REQUEST_SCHEMA, **scope,
+        "target": {"kind": "node", "id": published_node}}))
+    anchor = next(a for a in evidence.source_anchors if a.source_artifact_id == prepared.artifact_id)
+    opened = read_source_anchor_direct(services, WorldGraphSourceAnchorReadRequest.model_validate({
+        "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA, **scope, "anchorId": anchor.anchor_id}),
+        repo_root=prepared.repo)
+    assert opened.source_name == title
+    assert opened.outcome == "enough"
+    assert opened.content_sha256 == prepared.digest
+    assert opened.content == "The party reaches Willow Park."
