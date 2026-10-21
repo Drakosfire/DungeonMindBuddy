@@ -8,6 +8,27 @@ const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 export const firstWorldScope=(review:ExactRunReviewPackage)=>JSON.stringify([review.worldId,review.runId,review.sourceArtifactId,review.sourceRevisionId]);
 export const firstWorldRecoveryKey=(review:ExactRunReviewPackage)=>'dmb.firstWorldPublication.v1:'+firstWorldScope(review);
 
+function assertFirstWorldEffect(plan:FirstWorldGraphPlan,review:ExactRunReviewPackage){
+  const effect=plan.reviewedEffect,meta=effect?.contribution_meta as Record<string,unknown>|undefined;
+  const accepted=effect?.accepted_proposals,rejected=effect?.rejected_assertions,map=effect?.candidate_effect_map;
+  const check=(rows:unknown,ids:string[],state:string)=>Array.isArray(rows)&&rows.length===ids.length
+    &&new Set(rows.map(row=>row?.assertion_id)).size===ids.length&&rows.every(row=>row&&ids.includes(row.assertion_id)
+      &&row.source_artifact_id===plan.sourceArtifactId&&row.source_revision_id===plan.sourceRevisionId
+      &&row.campaign_scope===plan.worldId&&row.acceptance_state===state);
+  if(plan.campaignScope!==plan.worldId||plan.sessionScope!==null
+    ||!meta||meta.source_kind!=='source_extraction'||meta.source_artifact_id!==plan.sourceArtifactId
+    ||meta.source_revision_id!==plan.sourceRevisionId||meta.extraction_profile!==plan.extractionProfile||meta.campaign_scope!==plan.worldId
+    ||!check(accepted,plan.acceptedAssertionIds,'accepted')||!check(rejected,plan.rejectedAssertionIds,'rejected')
+    ||!map||typeof map!=='object'||Array.isArray(map)||Object.keys(map).length!==review.assertions.length
+    ||Object.entries(map).some(([candidate,ids])=>{
+      const decision=(effect.decision_snapshot as {assertion_id:string;decision:string}[]).find(row=>row.assertion_id===candidate);
+      const allowed=decision?.decision==='reject'?plan.rejectedAssertionIds:plan.acceptedAssertionIds;
+      return !decision||!strings(ids)||ids.length===0||ids.some(id=>!allowed.includes(id));
+    })||new Set(Object.values(map).flat()).size!==plan.acceptedAssertionIds.length+plan.rejectedAssertionIds.length){
+    throw new Error('The creation plan contains a foreign scope, source or materialized effect.');
+  }
+}
+
 export function assertFirstWorldPlan(plan:FirstWorldGraphPlan,review:ExactRunReviewPackage,decisions?:FirstWorldDisposition[]){
   const snapshot=plan?.reviewedEffect?.decision_snapshot;
   if(!plan||plan.schema!=='dmb_first_world_graph_plan_v1'||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
@@ -34,6 +55,7 @@ export function assertFirstWorldPlan(plan:FirstWorldGraphPlan,review:ExactRunRev
     })|| (decisions&&(decisions.length!==snapshot.length||new Set(decisions.map(row=>row.assertionId)).size!==snapshot.length))){
     throw new Error('The creation plan does not match this exact source, World and reviewed choices.');
   }
+  assertFirstWorldEffect(plan,review);
 }
 export function firstWorldDecisions(plan:FirstWorldGraphPlan):FirstWorldDisposition[]{
   return (plan.reviewedEffect.decision_snapshot as {assertion_id:string;decision:FirstWorldDisposition['decision']}[])

@@ -8,6 +8,7 @@ import type {
   FirstWorldGraphConfirmReceipt,
   FirstWorldGraphPlan,
 } from "../../api/types";
+import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
 import {firstWorldRecoveryKey,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import {
   buildFirstWorldDecisions,
@@ -89,7 +90,7 @@ const baseReview: ExactRunReviewPackage = {
 function sealedPlan(
   overrides: Partial<FirstWorldGraphPlan> = {},
 ): FirstWorldGraphPlan {
-  return {
+  return withFirstWorldEffect({
     schema: "dmb_first_world_graph_plan_v1",
     planId: "first-world-graph-plan:abc123",
     planDigest: "sha256:"+"b".repeat(64),
@@ -116,7 +117,7 @@ function sealedPlan(
     confirmable: true,
     diagnostics: [],
     ...overrides,
-  };
+  },baseReview);
 }
 
 function confirmReceipt(
@@ -293,6 +294,29 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     await screen.findByTestId('graph-review-first-world-retry-exact-confirm');
     expect(screen.queryByTestId('graph-review-first-world-receipt')).not.toBeInTheDocument();
     expect(readFirstWorldRecovery(baseReview)?.submitted).toBe(true);
+  });
+  it.each(['campaign','nested_source','decisions'] as const)('refuses foreign prepare %s before retaining or confirming',async field=>{
+    const plan=sealedPlan();
+    if(field==='campaign')plan.campaignScope='foreign';
+    if(field==='nested_source')(plan.reviewedEffect.contribution_meta as Record<string,unknown>).source_artifact_id='foreign';
+    if(field==='decisions')(plan.reviewedEffect.decision_snapshot as Record<string,unknown>[])[0].decision='reject';
+    vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(plan);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    await screen.findByRole('alert');expect(extractPromoteApi.confirmFirstWorldGraph).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+  });
+  it('recovers the same prepared plan after submission persistence fails',async()=>{
+    const plan=sealedPlan();vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(plan);
+    vi.mocked(extractPromoteApi.confirmFirstWorldGraph).mockResolvedValue(confirmReceipt());
+    const original=Storage.prototype.setItem;let calls=0;
+    const write=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(++calls===2)throw new Error('submission quota');return original.call(this,key,value);
+    });
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);fireEvent.click(screen.getByTestId('graph-review-first-world-create-cta'));
+    await screen.findByTestId('graph-review-first-world-retry-exact-confirm');
+    expect(extractPromoteApi.confirmFirstWorldGraph).not.toHaveBeenCalled();expect(readFirstWorldRecovery(baseReview)).toMatchObject({plan,submitted:false});
+    write.mockRestore();fireEvent.click(screen.getByTestId('graph-review-first-world-retry-exact-confirm'));
+    await screen.findByTestId('graph-review-first-world-receipt');expect(extractPromoteApi.prepareFirstWorldGraph).toHaveBeenCalledTimes(1);
+    expect(extractPromoteApi.confirmFirstWorldGraph).toHaveBeenCalledExactlyOnceWith({plan});
   });
   it('blocks confirm when request persistence fails',async()=>{
     vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(sealedPlan());
