@@ -1,6 +1,6 @@
 # PERF — grounding packet serialization and candidate-first routing
 
-ACTIVE serial successor under the operator’s exact swamp/Edge≤10second goal. PRIME owns design, implementation, Bugbot review, merge and local delivery. Basee04c70ff1da347fdcf208224e273878cefa5c828; branch codex/grounding-prompt-serialization; existing buddy-context-loop checkout. One implementation PR; no overlapping open owner for the listed paths.
+DELIVERED as PR1530, merge dc7a3fa08dce09893a4dd5ae262c68fb6abbd0e6; exact-head Bugbot approved and API adopted with all1448rows preserved. Successor HANDOFF-PERF-reuse-validated-bundle-reads.md owns source acquisition reuse. Originally an ACTIVE serial successor under the operator’s exact swamp/Edge≤10second goal. PRIME owns design, implementation, Bugbot review, merge and local delivery. Basee04c70ff1da347fdcf208224e273878cefa5c828; branch codex/grounding-prompt-serialization; existing buddy-context-loop checkout. One implementation PR; no overlapping open owner for the listed paths.
 
 Measured input: successful36.696second cold query contains52,953UTF8 bytes of system instructions:10,796 generic harness prefix,6,712 owned Graph policy,35,445 further owned material. The scope JSON alone is31,686bytes pretty printed versus23,432bytes compact, preserving identical values (8,254bytes removable whitespace). Four provider calls consumed29.559seconds; first repeats search despite relevant initial candidates. This slice does not claim all latency comes from formatting or that it alone proves≤10seconds.
 

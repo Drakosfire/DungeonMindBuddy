@@ -718,3 +718,82 @@ def test_partial_source_page_cannot_donate_hidden_bodies():
     parent.cache = GraphToolPageCache(page_bytes=32000)
     later = parent.present_bundle(json.dumps(graph), uuid4(), [(uuid4(), json.dumps(source))], source_pins=pins)
     assert json.loads(later)["sources"][0]["content"] == source["content"]
+
+
+def reusable_acquisition_fixture():
+    from hashlib import sha256
+    acquire, adapter, message, calls = acquisition_fixture()
+    original = adapter.broker_source_read
+
+    def validated_read(message, **kwargs):
+        reply = original(message, **kwargs)
+        sid = next(reversed(adapter.source_payloads))
+        value = json.loads(adapter.source_payloads[sid])
+        value.update(sourceArtifactId="artifact", contentSha256=sha256(value["content"].encode()).hexdigest())
+        adapter.source_payloads[sid] = json.dumps(value)
+        from application_state.agent_conversation.types import SourceReadAnchorReceiptV2, ValidatedSourceReadEventV2
+        receipt = SourceReadAnchorReceiptV2(source_read_id="read-one", anchor_id="a0", evidence_ref_id="e0",
+            source_artifact_id="artifact", source_revision_id="source-rev", outcome="enough",
+            content_sha256=sha256(value["content"].encode()).hexdigest(), line_start=3, line_end=3,
+            returned_chars=len(value["content"]), truncated=False, evidence_sufficiency_status="sufficient")
+        execution = adapter._broker_execution()
+        execution.events.append(ValidatedSourceReadEventV2(event_id=sid, sequence=len(execution.events),
+            kind="validated_source_read_v2", read_call_id=uuid4(), receipts=[receipt]))
+        return {**reply, "resultJson": json.dumps(value)}
+
+    adapter.broker_source_read = validated_read
+    return acquire, adapter, message, calls
+
+
+def test_overlapping_object_bundles_reuse_original_validated_source_receipt():
+    acquire, adapter, message, calls = reusable_acquisition_fixture()
+    first = acquire(adapter, message)["resultJson"]
+    original_event = next(iter(adapter.source_payloads))
+    message = deepcopy(message)
+    message["arguments"]["targets"][0]["id"] = "another-subject"
+    second = acquire(adapter, message)["resultJson"]
+    assert calls == ["graph", "source", "graph"]
+    assert list(adapter.source_payloads) == [original_event]
+    presenter = adapter._tool_presentation()
+    assert json.loads(second)["sources"][0]["content"] is None
+    assert "contentRef" in json.loads(second)["sources"][0]
+    assert {item.event_id for item in presenter.bundled_source_inclusion([first, second])} == {original_event}
+    with pytest.raises(ValueError, match="literal donor"):
+        presenter.bundled_source_inclusion([second])
+
+
+@pytest.mark.parametrize("changed", ["revision", "truncated", "digest"])
+def test_source_reuse_requires_unchanged_pins_and_complete_validated_bytes(changed):
+    acquire, adapter, message, calls = reusable_acquisition_fixture()
+    if changed in {"truncated", "digest"}:
+        original = adapter.broker_source_read
+        def incomplete(message, **kwargs):
+            reply = original(message, **kwargs)
+            sid = next(reversed(adapter.source_payloads))
+            value = json.loads(adapter.source_payloads[sid])
+            value.update({"truncated": True} if changed == "truncated" else {"content": "tampered returned text"})
+            adapter.source_payloads[sid] = json.dumps(value)
+            return reply
+        adapter.broker_source_read = incomplete
+    acquire(adapter, message)
+    if changed == "revision":
+        execution = adapter._broker_execution()
+        execution.policy.source_read_scope.admitted_anchors[0].source_revision_id = "changed-revision"
+    else:
+        assert adapter.evidence_source_batches == {}
+    message = deepcopy(message)
+    message["arguments"]["targets"][0]["id"] = "another-subject"
+    acquire(adapter, message)
+    assert calls == ["graph", "source", "graph", "source"]
+
+
+def test_failed_bundle_presentation_cannot_publish_reusable_reads():
+    acquire, adapter, message, calls = reusable_acquisition_fixture()
+    presenter = adapter._tool_presentation()
+    def fail(*args, **kwargs):
+        raise ValueError("presentation failed")
+    presenter.present_bundle = fail
+    with pytest.raises(ValueError, match="presentation failed"):
+        acquire(adapter, message)
+    assert not getattr(adapter, "evidence_source_batches", {})
+    assert calls == ["graph", "source"]

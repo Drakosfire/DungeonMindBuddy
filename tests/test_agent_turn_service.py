@@ -6545,7 +6545,19 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     'includeSources':True,
                 }})
                 assert cached['resultJson'] == graph_reply['resultJson'] and len(core_reads) == before_count
-                replies = [('bundle','expand_graph_retrieval',graph_reply)]
+                # A distinct object request with overlapping support must retain
+                # the first durable read receipt instead of reopening its anchors.
+                overlapping = on_graph_operation({'toolName':'expand_graph_retrieval', 'arguments': {
+                    'retrievalSessionId': session.id, 'operation': operation,
+                    'queryText':'The keeper of The Prancing Tavern',
+                    'targets':[{'kind':'node','id':'obj:tavern'}], 'includeSources':True,
+                }})
+                assert len(core_reads) == before_count
+                assert any(row.get('content') == ANCHOR_CONTENT.rstrip() or row.get('contentRef')
+                           for row in json.loads(overlapping['resultJson'])['sources'])
+                assert sum(e.kind == 'validated_source_read_v2' for e in adapter._broker_execution().events) == 1
+                replies = [('bundle','expand_graph_retrieval',graph_reply),
+                           ('overlapping-bundle','expand_graph_retrieval',overlapping)]
             else:
                 response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
                     'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
