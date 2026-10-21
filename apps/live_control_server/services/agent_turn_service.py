@@ -2665,6 +2665,10 @@ class _PolicyExecutionAdapter:
                 if (roles is not None and (auth.provider, auth.model, auth.api_mode) == roles.writer.identity()
                         or roles is None and self.budget.get("apiMode") != "typesafe_decision"):
                     self.producing_provider_attempt_id = self.last_provider_attempt_id
+            if self.context_capture is not None and transition == "sdk_entered":
+                self.context_capture.bind_provider_request(
+                    lifecycle.get("runtimeApiRequestId"), self.last_provider_attempt_id,
+                )
             if self.context_capture is not None and transition != "sdk_entered":
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,

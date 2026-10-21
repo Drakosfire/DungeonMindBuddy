@@ -1,0 +1,11 @@
+# AGENT — per-call provider usage correlation
+
+ACTIVE by the operator’s revised goal and PRIME stewardship. Serial successor to Rules delivery; base845d898404518cb27afc9f42e6acb718e03af435, branch codex/provider-usage-correlation, existing buddy-context-loop checkout. No other open PR owns these paths. PRIME implements and merges after independent Bugbot review.
+
+Invariant: Debug associates provider-reported actual usage with the exact authorized provider attempt using the SDK API request ID carried through acknowledged lifecycle messages. Never infer identity from list order, timing, model name or token estimates. Uncorrelated telemetry remains explicitly uncorrelated. This is observation only: it grants no execution, claim, retry or source authority. Preserve immutable historical traces.
+
+Expected write lease: this handoff; factual predecessor settlement in HANDOFF-RULES-runtime-lookup.md; services hermes_graph_agent.py, hermes_graph_agent_host.py, agent_turn_service.py, agent_context_trace_collector.py; shared BuddyContextTrace.tsx; their focused tests. No APP schema, model allocation, output/token limits, source/read routing, database data or provider changes.
+
+Verify SDK guard → child/parent lifecycle transport → durable attempt correlation; multiple same-model calls, failed/unknown calls, missing/conflicting IDs, no order fallback; exact reported counts separate from admission estimate and provider duration displayed. Test owning layers and cumulative diff, typecheck and UI build. Live delivery uses established API8000/UI5202 with protected data and pending image request preserved; no automatic repost. One implementation PR.
+
+Predecessor: Rules PR1506 merged5756ee3fd590de21a6ab228bb97370c9875ddf6b, adopted API/schema0042. Retained-history PR1526 merged845d898404518cb27afc9f42e6acb718e03af435 after Bugbot review; UI5202 adopted this merge while API remains5756. Rendered Build conversation now shows the original swamp/Edge answer; source Edge rev12 retained and no new message sent. Rules delivery is no longer held by that history guard.

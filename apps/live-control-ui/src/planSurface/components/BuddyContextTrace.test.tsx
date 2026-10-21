@@ -45,6 +45,15 @@ describe('Buddy context trace', () => {
     expect(screen.getByText(/Actual token usage was not captured/)).toBeInTheDocument()
     expect(screen.queryByText(/Provider-reported usage/)).not.toBeInTheDocument()
   })
+  it('identifies actual usage by provider call and displays measured duration', () => {
+    render(<BuddyContextTrace ownerActive={false} trace={trace([{kind:'provider_call', sequence:0, elapsed_ms:64000,
+      provider_attempt_id:'exact-call-id', provider:'openai-api', model:'same-model', outcome:'response_received',
+      input_tokens:42, output_tokens:7, duration_ms:1234}])} />)
+    expect(screen.getByText('Provider call exact-call-id')).toBeInTheDocument()
+    expect(screen.getByText('Provider duration: 1.23s')).toBeInTheDocument()
+    expect(screen.getByText('Provider-reported usage: 42 input · 7 output')).toBeInTheDocument()
+    expect(screen.queryByText(/Input ceiling/)).not.toBeInTheDocument()
+  })
   it('keeps a retained route distinct from context prose', () => {
     render(<BuddyContextTrace ownerActive={true} trace={trace([{kind:'context_snapshot', stage:'after', sequence:0,
       elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route', role:'source', source_reads:[],

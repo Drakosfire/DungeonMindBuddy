@@ -1,6 +1,6 @@
 # R2B — Buddy rules lookup runtime and shared citations
 
-**Status:** PR1506 merged as5756ee3fd590de21a6ab228bb97370c9875ddf6b after Bugbot source review, owner checks and configured-provider/replay acceptance. Its immutable API8000/UI5202 artifact is adopted with schema0042; protected migration preserved29 tables/1436 rows. ACTIVE serial delivery repair: Plan history UI rejects valid unfinished frozen contexts. Completion still requires that repair, exact review and rendered5202 retained-state verification.
+**Status:** DELIVERED. PR1506 merged5756ee3fd590de21a6ab228bb97370c9875ddf6b after Bugbot review and configured-provider/replay acceptance. API8000 adopted schema0042 preserving29 tables/1436 rows. History repair PR1526 merged845d898404518cb27afc9f42e6acb718e03af435 after independent Bugbot review,223 history tests/typecheck/UI build; UI5202 adopted and rendered retained swamp/Edge conversation verified. The original source and pending request were preserved. The serial successor HANDOFF-AGENT-provider-usage-correlation.md owns per-call Debug accounting; remaining full-goal work stays open.
 
 ## 1. Capability and boundaries
 

@@ -3819,8 +3819,17 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     ] == plan_markdown
     assert fake.accepted_count == 1
     assert fake.authorize_count == 1
-    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
-    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    from types import SimpleNamespace
+    prior_capture = adapter.context_capture
+    correlated_requests = []
+    adapter.context_capture = SimpleNamespace(
+        bind_provider_request=lambda request_id, attempt_id: correlated_requests.append((request_id, attempt_id)),
+        observe=lambda fields: None,
+    )
+    assert adapter.record_lifecycle({"transition": "sdk_entered", "runtimeApiRequestId": "sdk-request-exact"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received", "runtimeApiRequestId": "sdk-request-exact"}) is True
+    assert correlated_requests == [("sdk-request-exact", adapter.last_provider_attempt_id)]
+    adapter.context_capture = prior_capture
     assert adapter.fence is not None
     def unavailable_graph(_world: str) -> Any:
         raise RuntimeError("private Graph admission failure")
