@@ -137,6 +137,59 @@ def _play_payload_for_record(record, **overrides: Any) -> dict[str, Any]:
     return payload
 
 
+@pytest.mark.parametrize("include_turn_correlation", [False, True])
+def test_play_graph_history_uses_play_context_projection(
+    monkeypatch: Any, include_turn_correlation: bool,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+    from starlette.requests import Request
+    from apps.live_control_server.models.agent_turn import (
+        AgentConversationHistoryResponseV2,
+        AgentConversationHistoryResponseV3,
+    )
+    from tests.test_play_graph_records import retained as retained_play_turn
+
+    turn = retained_play_turn(completed=True)
+    pointer = SimpleNamespace(revision=4, active_conversation_id=turn.conversation_id)
+    conversation = SimpleNamespace(conversation_id=turn.conversation_id)
+
+    class HistoryService:
+        def get_world_pointer(self, _world_id: str):
+            return pointer
+
+        def get_active_conversation(self, _world_id: str):
+            return conversation
+
+        def list_turns(self, _world_id: str, _conversation_id: UUID, **_kwargs: Any):
+            return [turn]
+
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: HistoryService())
+    request = Request({
+        "type": "http", "method": "GET", "path": "/",
+        "headers": [], "query_string": b"",
+    })
+    response = route.get_world_conversation_history(
+        "world-one", request, limit=50, before_sequence=None,
+        include_turn_correlation=include_turn_correlation,
+    )
+
+    expected_response = (
+        AgentConversationHistoryResponseV3
+        if include_turn_correlation
+        else AgentConversationHistoryResponseV2
+    )
+    assert isinstance(response, expected_response)
+    history_turn = response.turns[0]
+    assert hasattr(history_turn, "play_context")
+    assert not hasattr(history_turn, "plan_context")
+    assert history_turn.play_context.receipt.schema_ == (
+        "dmb_play_world_graph_context_receipt_v1"
+    )
+    assert history_turn.play_context.delivery_replay is True
+
+
 @pytest.fixture
 def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
     """Route tests bind the typed atomic snapshot to their existing read fakes."""

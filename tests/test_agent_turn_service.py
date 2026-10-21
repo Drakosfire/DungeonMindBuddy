@@ -1193,6 +1193,53 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only(monkeypatch
     assert response.answer.graph_grounded is False
 
 
+def test_completed_play_graph_replay_uses_play_projection_not_plan_projection() -> None:
+    from apps.live_control_server.models.agent_turn import AgentPlayGraphTurnResponseV1
+    from tests.test_play_graph_records import retained as retained_play_turn
+
+    turn = retained_play_turn(completed=True)
+    request = _request(
+        client_thread_id="client-one",
+        turn_id=str(turn.turn_id),
+        surface={"surface_id": "play", "instance_id": "play:run-one"},
+        owner_scope={"kind": "world", "world_id": "world-one"},
+        primary_work={
+            "kind": "run",
+            "object_id": "run-one",
+            "expected_revision": 3,
+            "play_content_basis": {
+                "edition_revision": 0,
+                "edition_revision_id": None,
+                "content_sha256": "a" * 64,
+            },
+        },
+        client_work_state="saved_clean",
+        graph_request={
+            "mode": "world",
+            "world_id": "world-one",
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        play_target={
+            "beat_id": "beat:north",
+            "scene_id": "scene:boardwalk",
+            "marker_grammar_version": "v2",
+        },
+        message=turn.user_text,
+    )
+
+    response = _completed_turn_replay(
+        request, owner={"kind": "world", "id": "world-one", "name": "One"}, turn=turn
+    )
+
+    assert isinstance(response, AgentPlayGraphTurnResponseV1)
+    assert response.play_context.receipt == turn.graph_context_receipt
+    assert response.play_context.completion == turn.completion
+    assert response.play_context.delivery_replay is True
+    assert response.answer.text == turn.assistant_text
+
+
 def _serialized_card_a_history_body(
     monkeypatch: Any, *, include_turn_correlation: bool = False,
     policy_turn_override: Turn | None = None,

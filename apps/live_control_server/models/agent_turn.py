@@ -677,6 +677,13 @@ class AgentTurnResponseV2(AgentTurnResponse):
     plan_context: AgentPlanWorldGraphContextResponseV2
 
 
+class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
+    schema_: Literal["dmb_agent_play_graph_turn_response_v1"] = Field(
+        default="dmb_agent_play_graph_turn_response_v1", alias="schema"
+    )
+    play_context: AgentPlayWorldGraphContextResponseV1
+
+
 class AgentSavedBuildSectionTargetV1(BaseModel):
     """Historical authored-source selector; it grants no native Graph authority."""
     model_config = ConfigDict(extra="forbid")
@@ -785,6 +792,14 @@ class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
     plan_context: AgentPlanWorldGraphContextResponseV2
 
 
+class AgentConversationHistoryPlayTurnV2(AgentConversationHistoryTurn):
+    play_context: AgentPlayWorldGraphContextResponseV1
+
+
+class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
+    play_context: AgentPlayWorldGraphContextResponseV1
+
+
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
     knowledge_context: AgentBuildGraphContextResponseV1
 
@@ -828,14 +843,24 @@ class AgentConversationHistoryResponseV2(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v2"] = Field(
         default="dmb_agent_conversation_history_v2", alias="schema"
     )
-    turns: list[AgentConversationHistoryBuildTurnV2 | AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+    turns: list[
+        AgentConversationHistoryBuildTurnV2
+        | AgentConversationHistoryPlayTurnV2
+        | AgentConversationHistoryTurnV2
+        | AgentConversationHistoryTurn
+    ]
 
 
 class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v3"] = Field(
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
-    turns: list[AgentConversationHistoryBuildTurnV3 | AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+    turns: list[
+        AgentConversationHistoryBuildTurnV3
+        | AgentConversationHistoryPlanTurnV3
+        | AgentConversationHistoryPlayTurnV3
+        | AgentConversationHistoryTurnV3
+    ]
 
 
 class AgentConversationHistoryMixedTurnV1(AgentConversationHistoryTurnV3):
@@ -858,8 +883,10 @@ class AgentConversationHistoryResponseV4(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v4"] = Field(
         default="dmb_agent_conversation_history_v4", alias="schema")
     turns: list[AgentConversationHistoryMixedTurnV1 | AgentConversationHistoryBuildTurnV3 |
-        AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3 |
-        AgentConversationHistoryBuildTurnV2 | AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+        AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryPlayTurnV3 |
+        AgentConversationHistoryTurnV3 | AgentConversationHistoryBuildTurnV2 |
+        AgentConversationHistoryPlayTurnV2 | AgentConversationHistoryTurnV2 |
+        AgentConversationHistoryTurn]
 
     @model_validator(mode="after")
     def validate_mixed_page_owner(self):

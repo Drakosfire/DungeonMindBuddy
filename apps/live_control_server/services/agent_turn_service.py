@@ -71,6 +71,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentPlayWorldGraphContextResponseV1,
     AgentBuildGraphContextResponseV1,
     AgentBuildGraphTurnResponseV1,
+    AgentPlayGraphTurnResponseV1,
     AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
@@ -4866,11 +4867,15 @@ def _completed_turn_replay(
     answer_text = turn.assistant_text
     graph_grounded = False
     plan_context = None
+    play_context = None
     if _governed_graph_turn(request) and not mixed:
-        plan_context = project_plan_turn_context(turn, delivery_replay=True)
+        if request.surface.surface_id == "play":
+            play_context = project_play_turn_context(turn, delivery_replay=True)
+        else:
+            plan_context = project_plan_turn_context(turn, delivery_replay=True)
         if turn_meta.status != "completed":
             raise AgentTurnServiceError(
-                "Only a completed Plan Graph turn can be delivered as a replay.",
+                "Only a completed governed Graph turn can be delivered as a replay.",
                 code="turn_receipt_unverifiable",
                 status_code=409,
             )
@@ -4967,6 +4972,12 @@ def _completed_turn_replay(
         return AgentBuildGraphTurnResponseV1.model_validate({
             **response.model_dump(mode="json", by_alias=True),
             "knowledge_context": plan_context.model_dump(mode="json", by_alias=True),
+        })
+    if play_context is not None:
+        return AgentPlayGraphTurnResponseV1.model_validate({
+            **response.model_dump(mode="python", by_alias=True),
+            "schema": "dmb_agent_play_graph_turn_response_v1",
+            "play_context": play_context.model_dump(mode="python", by_alias=True),
         })
     if request.plan_context_policy is None:
         return response
@@ -7031,6 +7042,20 @@ def execute_agent_turn(
                 None if pointer_binding is None else pointer_binding.pointer_id
             )
             return AgentRulesTurnResponseV1.model_validate(payload)
+        if request.surface.surface_id == "play" and _governed_graph_turn(request):
+            assert isinstance(response, AgentPlayGraphTurnResponseV1)
+            return response.model_copy(update={
+                "play_context": response.play_context.model_copy(update={
+                    "delivery_replay": False,
+                }),
+                "answer": response.answer.model_copy(update={"trace": final_trace}),
+                "conversation": response.conversation.model_copy(update={
+                    "pointer_status": (
+                        "reused" if pointer.continuity_session_id else pointer.pointer_status
+                    ),
+                    "pointer_id": None if pointer_binding is None else pointer_binding.pointer_id,
+                }),
+            })
         payload = response.model_dump(mode="json", by_alias=True)
         if _governed_build_turn(request):
             payload["primary_work"]["revision_used"] = work.build_source.revision

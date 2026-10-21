@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
-from application_state.agent_conversation.types import BuildGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.agent_conversation.types import BuildGraphContextReceiptV1, PlayWorldGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -33,6 +33,8 @@ from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponseV4,
     AgentConversationHistoryMixedTurnV1,
     AgentConversationHistoryPlanTurnV3,
+    AgentConversationHistoryPlayTurnV2,
+    AgentConversationHistoryPlayTurnV3,
     AgentConversationHistoryTurn,
     AgentConversationHistoryTurnV2,
     AgentConversationHistoryTurnV3,
@@ -68,6 +70,7 @@ from apps.live_control_server.services.agent_turn_service import (
     build_existing_graph_context,
     execute_agent_turn,
     project_plan_turn_context,
+    project_play_turn_context,
 )
 from apps.live_control_server.services.agent_runtime import AgentWorldScope
 from apps.live_control_server.services.agent_world_graph_query_context import (
@@ -1372,8 +1375,16 @@ def get_world_conversation_history(
             turns=[],
         )
     contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
+    contains_play_context = any(
+        not isinstance(turn, MixedCompletedTurnV1)
+        and isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+        and turn.status == "completed"
+        for turn in turns
+    )
     contains_plan_context = any(
-        not isinstance(turn, MixedCompletedTurnV1) and turn.graph_context_receipt is not None
+        not isinstance(turn, MixedCompletedTurnV1)
+        and turn.graph_context_receipt is not None
+        and not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
         for turn in turns
     )
     history_turns = []
@@ -1410,6 +1421,30 @@ def get_world_conversation_history(
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
+        elif (
+            isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+            and turn.status == "completed"
+        ):
+            play_model = (
+                AgentConversationHistoryPlayTurnV3
+                if include_turn_correlation
+                else AgentConversationHistoryPlayTurnV2
+            )
+            history_turns.append(
+                play_model(
+                    **values,
+                    play_context=project_play_turn_context(
+                        turn, delivery_replay=True
+                    ),
+                )
+            )
+        elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
+            turn_model = (
+                AgentConversationHistoryTurnV3
+                if include_turn_correlation
+                else AgentConversationHistoryTurn
+            )
+            history_turns.append(turn_model(**values))
         elif turn.graph_context_receipt is not None:
             history_turns.append(
                 (
@@ -1432,7 +1467,7 @@ def get_world_conversation_history(
         response_model = AgentConversationHistoryResponseV4
     elif include_turn_correlation:
         response_model = AgentConversationHistoryResponseV3
-    elif contains_plan_context:
+    elif contains_plan_context or contains_play_context:
         response_model = AgentConversationHistoryResponseV2
     else:
         response_model = AgentConversationHistoryResponse
