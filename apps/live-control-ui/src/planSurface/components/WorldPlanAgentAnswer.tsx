@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from "react";
+import { Fragment, memo, useMemo, type ReactNode } from "react";
 import type { Root, RootContent } from "mdast";
 import { parseMarkdownAst } from "../../tiptap/markdown/parseMarkdownAst";
 import { classifyLinkUrl } from "../../markdownReader/markdownReaderUrlPolicy";
@@ -6,17 +6,51 @@ import "./WorldPlanAgentAnswer.css";
 
 type MarkdownNode = Root | RootContent | { type: string; value?: string; children?: MarkdownNode[]; position?: { start: { offset?: number }; end: { offset?: number } } };
 
+export type InlineAnswerCitation = { segmentIndex: number; label: string; title: string; onOpen: () => void };
+
 /** Conversation is read-only: editor round-trip admission must not flatten replies. */
-function renderMarkdown(root: Root, source: string, allowedInternalLinks: ReadonlySet<string>): ReactNode {
+function renderMarkdown(root: Root, source: string, allowedInternalLinks: ReadonlySet<string>, citations: readonly (InlineAnswerCitation & { offset: number })[]): ReactNode {
+  const placed = new Set<number>();
+  let suppressCitations = 0;
+  function citation(index: number) {
+    placed.add(index);
+    const item = citations[index];
+    return <button key={`citation-${index}`} type="button" className="world-plan-agent-answer__citation"
+      aria-label={`Open source ${item.label}`} title={item.title} onClick={item.onOpen}>[{item.label}]</button>;
+  }
   function literal(node: MarkdownNode): string {
     const start = node.position?.start.offset;
     const end = node.position?.end.offset;
     return start !== undefined && end !== undefined ? source.slice(start, end) : "value" in node ? node.value ?? "" : "";
   }
-  function children(node: MarkdownNode): ReactNode {
-    return "children" in node ? node.children?.map((child, index) => render(child as MarkdownNode, index)) : null;
+  function children(node: MarkdownNode, inertCitations = false): ReactNode {
+    if (inertCitations) suppressCitations += 1;
+    try { return "children" in node ? node.children?.map((child, index) => render(child as MarkdownNode, index)) : null; }
+    finally { if (inertCitations) suppressCitations -= 1; }
   }
   function render(node: MarkdownNode, key: number): ReactNode {
+    if (suppressCitations) return renderNode(node, key);
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    if (node.type === "text" && "value" in node && literal(node) === node.value && start !== undefined && end !== undefined) {
+      const matching = citations.flatMap((item, index) => !placed.has(index) && item.offset > start && item.offset <= end ? [{ ...item, index }] : []);
+      if (matching.length) {
+        let cursor = 0;
+        const pieces: ReactNode[] = [];
+        for (const item of matching.sort((a, b) => a.offset - b.offset)) {
+          const cut = item.offset - start;
+          pieces.push(node.value!.slice(cursor, cut), citation(item.index));
+          cursor = cut;
+        }
+        pieces.push(node.value!.slice(cursor));
+        return <Fragment key={key}>{pieces}</Fragment>;
+      }
+    }
+    const rendered = renderNode(node, key);
+    const markers = node.type === "root" ? [] : citations.flatMap((item, index) => !placed.has(index) && item.offset === end ? [citation(index)] : []);
+    return markers.length ? <Fragment key={key}>{rendered}{markers}</Fragment> : rendered;
+  }
+  function renderNode(node: MarkdownNode, key: number): ReactNode {
     switch (node.type) {
       case "root": return children(node);
       case "text": return "value" in node ? node.value : null;
@@ -58,7 +92,10 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
           const Cell = index === 0 ? "th" : "td";
           return <tr key={index}>{"children" in item && item.children?.map((cell, column) => (
             <Cell key={column} scope={index === 0 ? "col" : undefined} data-compact-column={compact.has(column) || undefined}
-              style={{ textAlign: "align" in node ? node.align?.[column] ?? undefined : undefined }}>{children(cell as MarkdownNode)}</Cell>
+              style={{ textAlign: "align" in node ? node.align?.[column] ?? undefined : undefined }}>{children(cell as MarkdownNode)}
+              {column === ("children" in item ? item.children!.length - 1 : -1)
+                ? citations.flatMap((citationItem, citationIndex) => !placed.has(citationIndex)
+                  && citationItem.offset === item.position?.end.offset ? [citation(citationIndex)] : []) : null}</Cell>
           ))}</tr>;
         };
         return <div key={key} className="world-plan-agent-answer__table"><table>
@@ -71,7 +108,7 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
         if (node.url.startsWith("dmb-node:")) return <span key={key} className="graph-node-reference-pill recap-node-token" data-plan-card-reference="graph">{children(node)}</span>;
         const kind = classifyLinkUrl(node.url);
         return kind === "safe_external" || kind === "safe_mailto" || kind === "fragment" || (node.url.startsWith("/play?") && allowedInternalLinks.has(node.url))
-          ? <a key={key} href={node.url.trim()} rel="noopener noreferrer">{children(node)}</a>
+          ? <a key={key} href={node.url.trim()} rel="noopener noreferrer">{children(node, true)}</a>
           : <span key={key}>{literal(node)}</span>;
       }
       // Raw HTML, embedded media, unresolved references and unknown extensions stay inert.
@@ -81,17 +118,27 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
   return render(root, 0);
 }
 
-export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ answer, className, allowedInternalLinks = [] }: {
+export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ answer, className, allowedInternalLinks = [], displaySegments, inlineCitations = [] }: {
   answer: string;
   className?: string;
   /** Exact server-validated session citations; other relative links stay inert. */
   allowedInternalLinks?: readonly string[];
   /** Evidence boundaries are metadata; parse the whole answer to preserve Markdown blocks. */
   displaySegments?: readonly string[];
+  inlineCitations?: readonly InlineAnswerCitation[];
 }) {
+  const root = useMemo(() => {
+    try { return parseMarkdownAst(answer); } catch { return null; }
+  }, [answer]);
   const content = useMemo(() => {
-    try { return renderMarkdown(parseMarkdownAst(answer), answer, new Set(allowedInternalLinks)); }
-    catch { return <p style={{ whiteSpace: "pre-wrap" }}>{answer}</p>; }
-  }, [answer, allowedInternalLinks]);
+    const offsets: number[] = [];
+    if (displaySegments?.join("\n") === answer) {
+      let offset = 0;
+      for (const text of displaySegments) { offset += text.length; offsets.push(offset); offset += 1; }
+    }
+    const citations = inlineCitations.flatMap(item => Number.isInteger(item.segmentIndex) && offsets[item.segmentIndex] !== undefined
+      ? [{ ...item, offset: offsets[item.segmentIndex] }] : []);
+    return root ? renderMarkdown(root, answer, new Set(allowedInternalLinks), citations) : <p style={{ whiteSpace: "pre-wrap" }}>{answer}</p>;
+  }, [root, answer, allowedInternalLinks, displaySegments, inlineCitations]);
   return <div className={["world-plan-agent-answer", className].filter(Boolean).join(" ")}>{content}</div>;
-}, (previous, next) => previous.answer === next.answer && previous.className === next.className && previous.allowedInternalLinks?.join("\n") === next.allowedInternalLinks?.join("\n"));
+});

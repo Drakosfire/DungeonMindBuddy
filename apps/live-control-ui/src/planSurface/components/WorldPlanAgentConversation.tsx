@@ -81,7 +81,8 @@ import {
   worldPlanSectionUnavailableReason,
 } from "../agentEdit/planAgentEditProposal";
 import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSectionTarget";
-import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
+import { WorldPlanAgentAnswer, type InlineAnswerCitation } from "./WorldPlanAgentAnswer";
+import { BuddySourceProvenance, sourceCitationTitle } from "./BuddySourceProvenance";
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
@@ -2459,6 +2460,7 @@ export function WorldPlanAgentConversation({
     turnId: string; claimId: string; targetId: string;
     status: "loading" | "open" | "unavailable"; content: string | null; message: string | null; partial: boolean;
     page?: WorldGraphRecapContextReadResponseV2; pages?: number; loadingMore?: boolean;
+    lines?: { start: number; end: number };
   } | null>(null);
   const sourceReadEpochRef = useRef(0);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -4201,6 +4203,7 @@ export function WorldPlanAgentConversation({
     try {
       let content: string | null = null;
       let partial = false;
+      let lines: { start: number; end: number } | undefined;
       let recapPage: WorldGraphRecapContextReadResponseV2 | undefined;
       if (target.kind === "evidence_anchor") {
         const result = await postWorldGraphSourceAnchorRead({
@@ -4260,13 +4263,16 @@ export function WorldPlanAgentConversation({
             : result.offsetChars === 0)
           && typeof result.content === "string" && result.content && [...result.content].length <= 12000) {
           content = result.content;
+          if (Number.isInteger(result.lineStart) && Number.isInteger(result.lineEnd) && result.lineStart! >= 1 && result.lineEnd! >= result.lineStart!) {
+            lines = { start: result.lineStart!, end: result.lineEnd! };
+          }
           partial = result.truncated;
           recapPage = result;
         }
       }
       if (!stillCurrent()) return;
       setSourcePassage(content
-        ? { ...identity, status: "open", content: (previous?.content ?? "") + content, message: null, partial, page: recapPage, pages: (previous?.pages ?? 0) + 1, loadingMore: false }
+        ? { ...identity, status: "open", content: (previous?.content ?? "") + content, message: null, partial, lines, page: recapPage, pages: (previous?.pages ?? 0) + 1, loadingMore: false }
         : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation.", partial: false });
     } catch {
       if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage.", partial: false });
@@ -4450,6 +4456,30 @@ export function WorldPlanAgentConversation({
     </article>;
   };
 
+  function inlineSourceCitations(turn: WorldAgentConversationHistoryTurn): InlineAnswerCitation[] {
+    const context = graphContextForTurn(turn);
+    if (!context?.completion || !("source_open_targets" in context) || rulesContextForTurn(turn)) return [];
+    const entries = context.completion.citation_map?.entries ?? [];
+    let number = 0;
+    return context.completion.answer_segments.flatMap((segment, segmentIndex) => {
+      if (segment.kind !== "graph_claim") return [];
+      const citation = entries.find(entry => entry.claim_id === segment.claim_id && entry.source_opened);
+      const target = context.source_open_targets?.find(item => item.claim_id === segment.claim_id
+        && item.kind === "evidence_anchor" && item.source_read_id !== null
+        && citation && "source_read_ids" in citation && citation.source_read_ids.includes(item.source_read_id));
+      if (!target) return [];
+      return [{ segmentIndex, label: String(++number), title: sourceCitationTitle(target), onOpen: () => {
+        const panel = document.getElementById(`buddy-evidence-${turn.turn_id}`);
+        if (panel instanceof HTMLDetailsElement) {
+          panel.open = true;
+          panel.querySelector<HTMLButtonElement>('[role="tab"]')?.click();
+          panel.scrollIntoView?.({ block: "nearest" });
+        }
+        void openSourcePassage(turn, target);
+      } }];
+    });
+  }
+
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const planContext = graphContextForTurn(turn);
     const savedEvidence = planContext?.schema === "dmb_build_graph_context_response_v1" && planContext.completion
@@ -4518,11 +4548,12 @@ export function WorldPlanAgentConversation({
           {target.kind === "evidence_anchor" ? "Graph evidence" : `Session ${target.expected_session_id} recap`}
         </span>
         <strong>{label}</strong>
+        <span title={sourceCitationTitle(target)}>{target.source_artifact_id}</span>
         <span>Read source passage <span aria-hidden="true">→</span></span>
       </button>;
     };
 
-    return <details className="world-plan-agent-conversation__evidence-trail">
+    return <details id={`buddy-evidence-${turn.turn_id}`} className="world-plan-agent-conversation__evidence-trail">
       <summary aria-label={`Explore evidence for this answer: ${summary}`}>
         <span className="world-plan-agent-conversation__evidence-trail-title">Evidence trail</span>
         <span className="world-plan-agent-conversation__evidence-trail-summary">{summary}</span>
@@ -4577,6 +4608,7 @@ export function WorldPlanAgentConversation({
                     : `Evidence passage${evidenceChoices.length > 1 ? ` ${evidenceChoices.findIndex((target) => target.kind === "evidence_anchor" && target.anchor_id === activeTarget.anchor_id) + 1}` : ""} supporting this claim`}</strong></div>
                 <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
               </header>
+              <BuddySourceProvenance target={activeTarget} lines={sourcePassage.lines ?? (sourcePassage.page ? { start: sourcePassage.page.lineStart!, end: sourcePassage.page.lineEnd! } : undefined)} />
               {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
               {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
               {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
@@ -5441,6 +5473,7 @@ export function WorldPlanAgentConversation({
             </div>
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
+              inlineCitations={inlineSourceCitations(turn)}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
               displaySegments={rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
