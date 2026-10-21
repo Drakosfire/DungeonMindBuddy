@@ -481,6 +481,7 @@ def hermes_graph_agent_worker_main(
                                 "requestId": request_id,
                                 "authorizationId": f"{request_id}:{sequence}",
                                 "transition": transition,
+                                "runtimeApiRequestId": event.get("runtimeApiRequestId"),
                             }
                         )
                     )
@@ -1180,6 +1181,7 @@ class HermesGraphAgentHost:
                                 {
                                     "authorizationId": authorization_id,
                                     "transition": transition,
+                                    "runtimeApiRequestId": message.get("runtimeApiRequestId"),
                                 }
                             )
                             is True

@@ -1590,7 +1590,11 @@ def _request_budget_guard(
     allow.bind_agent = agent_ref  # type: ignore[attr-defined]
 
     def provider_lifecycle(event: Mapping[str, Any]) -> bool:
-        if on_provider_lifecycle is None or on_provider_lifecycle(event) is not True:
+        # The SDK request ID joins observer usage to this authorization. It is
+        # observation metadata only, never a dispatch or execution selector.
+        request_id = getattr(agent_ref[0], "_current_api_request_id", None) if agent_ref else None
+        correlated_event = {**event, "runtimeApiRequestId": request_id}
+        if on_provider_lifecycle is None or on_provider_lifecycle(correlated_event) is not True:
             return False
         if (
             event.get("transition") == "response_received"

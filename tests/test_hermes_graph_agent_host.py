@@ -1761,6 +1761,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                         "requestId": request_id,
                         "authorizationId": authorization_id,
                         "transition": transition,
+                        "runtimeApiRequestId": event.get("runtimeApiRequestId"),
                     },
                 )
                 response = decode_json_wire(request_queue.get(timeout=30.0))
@@ -3419,6 +3420,12 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
     ]
     assert lifecycle[0]["authorizationId"].endswith(":1")
     assert lifecycle[2]["authorizationId"].endswith(":2")
+    request_ids = [event["runtimeApiRequestId"] for event in lifecycle]
+    assert all(isinstance(value, str) and value for value in request_ids)
+    assert request_ids[0] == request_ids[1]
+    assert request_ids[2] == request_ids[3]
+    assert request_ids[0] != request_ids[2]
+    assert [call["runtime_api_request_id"] for call in result.model_calls] == request_ids[::2]
     assert [view["provider"] for view in authorizations] == ["openai-api"] * 2
     assert len(graph_requests) == 1
     assert graph_requests[0]["toolName"] == "expand_graph_retrieval"

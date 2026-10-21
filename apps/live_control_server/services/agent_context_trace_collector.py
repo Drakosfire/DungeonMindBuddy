@@ -53,6 +53,8 @@ class ContextTraceCollector:
         self.fence = fence
         self.current_provider_materials: list[dict[str, Any]] = []
         self.started = monotonic()
+        self.provider_attempts_by_request: dict[str, Any] = {}
+        self.ambiguous_provider_requests: set[str] = set()
         with fence.renewer._lock:
             turn = fence.renewer._turn
             self.bound_context_receipt_sha256 = getattr(getattr(turn, "graph_context_receipt", None),
@@ -175,6 +177,20 @@ class ContextTraceCollector:
             ))
         return passages
 
+    def bind_provider_request(self, request_id: Any, provider_attempt_id: Any) -> None:
+        """Correlate acknowledged SDK entry, never infer a join from call order."""
+        if not isinstance(request_id, str) or not request_id.strip():
+            return
+        with self.fence.renewer._lock:
+            if request_id in self.ambiguous_provider_requests:
+                return
+            previous = self.provider_attempts_by_request.get(request_id)
+            if previous is not None and previous != provider_attempt_id:
+                self.provider_attempts_by_request.pop(request_id)
+                self.ambiguous_provider_requests.add(request_id)
+                return
+            self.provider_attempts_by_request[request_id] = provider_attempt_id
+
     def provider_usage(self, calls: list[Mapping[str, Any]]) -> None:
         """Use already-canonical provider telemetry without estimating actuals."""
         for call in calls:
@@ -190,8 +206,11 @@ class ContextTraceCollector:
                 value = usage.get(name) if reported else None
                 return value if type(value) is int and value >= 0 else None
 
+            request_id = call.get("runtime_api_request_id")
+            attempt_id = self.provider_attempts_by_request.get(request_id) if isinstance(request_id, str) else None
             self.observe({
                 "kind": "provider_call", "provider": provider, "model": model,
+                "provider_attempt_id": attempt_id,
                 "outcome": "response_received" if call.get("status") == "ok" else "failed",
                 "input_tokens": actual("input_tokens"),
                 "output_tokens": actual("output_tokens"),

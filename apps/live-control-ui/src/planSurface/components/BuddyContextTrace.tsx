@@ -72,6 +72,8 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
       {['denied', 'unavailable'].includes(event.result.outcome) && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
     case 'source_passage': return <Passage passage={event} />
     case 'provider_call': return <><strong>{event.model}</strong> <span>{event.outcome}</span>
+      <p className="buddy-context-trace__muted">{event.provider_attempt_id ? `Provider call ${event.provider_attempt_id}` : 'Provider call identity was not captured.'}</p>
+      {event.duration_ms != null && <p>Provider duration: {(event.duration_ms / 1000).toFixed(2)}s</p>}
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}
       {event.input_upper_bound != null && <p className="buddy-context-trace__muted">Input ceiling: {number(event.input_upper_bound)} · conservative estimate, not actual token usage.</p>}
       {event.input_tokens == null && event.output_tokens == null && <p className="buddy-context-trace__muted">Actual token usage was not captured for this observation.</p>}</>

@@ -174,6 +174,8 @@ def test_producer_observations_survive_real_postgres_terminal_failure(applicatio
     fence = _ClaimFence(service, turn)
     capture = ContextTraceCollector.__new__(ContextTraceCollector)
     capture.fence, capture.trace, capture.started = fence, trace, monotonic()
+    capture.provider_attempts_by_request = {}
+    capture.ambiguous_provider_requests = set()
     try:
         capture.provider_usage([{"provider": "openai-api", "response_model": "test-model",
                                 "status": "ok", "duration_ms": 12,
@@ -493,3 +495,39 @@ def test_prompt_capture_is_strict_even_when_trace_append_returns_only_incomplete
     store.append_context_trace = lambda **_:store.trace
     with pytest.raises(ApplicationStateValidationError, match="not durably captured"):
         capture.capture_prompt(view, authorization)
+
+
+def test_usage_correlates_exact_requests_with_same_model_even_when_reported_out_of_order():
+    capture, store, _ = collector()
+    first, second = uuid4(), uuid4()
+    capture.bind_provider_request("sdk-first", first)
+    capture.bind_provider_request("sdk-second", second)
+    capture.provider_usage([
+        {"provider": "openai-api", "requested_model": "same", "runtime_api_request_id": request,
+         "status": status, "duration_ms": 20, "usage": {"status": "reported", "input_tokens": tokens, "output_tokens": 7}}
+        for request, status, tokens in [("sdk-second", "error", 52), ("sdk-first", "ok", 42)]
+    ])
+    assert [item.provider_attempt_id for item in store.trace.observations] == [second, first]
+    assert [item.input_tokens for item in store.trace.observations] == [52, 42]
+    assert [item.outcome for item in store.trace.observations] == ["failed", "response_received"]
+
+
+@pytest.mark.parametrize("request_id", [None, "", "missing", [], True])
+def test_usage_never_guesses_unavailable_request_identity(request_id):
+    capture, store, _ = collector()
+    capture.bind_provider_request("known", uuid4())
+    capture.provider_usage([{"provider": "openai-api", "requested_model": "same", "runtime_api_request_id": request_id,
+        "status": "ok", "usage": {"status": "reported", "input_tokens": 42}}])
+    assert store.trace.observations[0].provider_attempt_id is None
+    assert store.trace.observations[0].input_tokens == 42
+
+
+def test_conflicting_request_identity_is_never_correlated_again():
+    capture, store, _ = collector()
+    first, second = uuid4(), uuid4()
+    capture.bind_provider_request("same", first)
+    capture.bind_provider_request("same", first)
+    capture.bind_provider_request("same", second)
+    capture.bind_provider_request("same", first)
+    capture.provider_usage([{"provider": "openai-api", "requested_model": "same", "runtime_api_request_id": "same", "status": "ok"}])
+    assert store.trace.observations[0].provider_attempt_id is None
