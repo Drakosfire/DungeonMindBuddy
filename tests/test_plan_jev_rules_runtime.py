@@ -30,7 +30,7 @@ def test_actual_selected_plan_rules_read_is_one_question_and_one_packet(plan_ada
     assert len([event for event in execution.events if isinstance(event, RulesPlanJevToolAuthorizedV1)]) == 1
     assert len([event for event in execution.events if isinstance(event, RulesQueryObservedV1)]) == 1
     first = rules.frame(); second = rules.frame()
-    assert first == second and len(first.packets) == 1 and first.packets[0].status == 'evidence'
+    assert first == second and len(first.lookups) == 1 and first.lookups[0].status == 'evidence'
     assert proof['graph_packets'] == {} and proof['source_names'] == {}
     with pytest.raises(ValueError, match='repeat'): rules.lookup_selected('changed request')
     assert calls == [a.request.message]
@@ -44,7 +44,7 @@ def test_unused_rules_offer_binds_empty_frame_without_corpus_read(plan_adapter, 
     asyncio.run(controller(plan_adapter).run(transport=Wire(plan_adapter), api_key='synthetic-not-secret'))
     monkeypatch.setattr(broker, 'prepare_plan_lookup', lambda *_args, **_kwargs: pytest.fail('unused offer read corpus'))
     assert rules.native is None
-    assert rules.frame().packets == () and not rules.selected
+    assert rules.frame().lookups == () and not rules.selected
     assert rules.native.record.execution.events == ()
 
 

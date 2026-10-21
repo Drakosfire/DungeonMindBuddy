@@ -38,7 +38,7 @@ RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using ex
 {"schema":"dmb_rules_mixed_answer_v1","base_output": BASE_OR_NULL,
 "rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
 A Rules claim is {"kind":"rules_claim","text":"prose","support_ids":["exact support_id"]}.
-Only support_capsules in the Rules frame establish Rules evidence; preserve their applicability.
+Only supports in the Rules frame establish Rules evidence; preserve their applicability.
 Interpretation or gaps use {"kind":"rules_context","text":"prose","category":"interpretation or gap or connective"}.
 Do not turn campaign prose into a Rules claim. Ignore Rules material irrelevant to the question.
 ordered_refs includes {"domain":"base","segment_index":null} once if base_output is present,
@@ -89,7 +89,7 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()}]
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS,
-            RULES_INSTRUCTIONS if rule_frame.packets else ''))
+            RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
         self._usage_recorded = False

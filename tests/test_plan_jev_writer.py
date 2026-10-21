@@ -73,7 +73,7 @@ def test_actual_plan_writer_accepts_rules_and_no_graph(plan_adapter):
     driver=PlanJevDriver(a,rules=rules)
     proof=asyncio.run(driver.run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
-    packet=rules.frame().packets[0]; capsule=packet.support_capsules[0]
+    capsule=rules.frame().supports[0]
     answer={'schema':'dmb_rules_mixed_answer_v1','base_output':None,
         'rules_segments':[{'kind':'rules_claim','text':capsule.excerpt_text,'support_ids':[str(capsule.support_id)]}],
         'ordered_refs':[{'domain':'rules','segment_index':0}]}
