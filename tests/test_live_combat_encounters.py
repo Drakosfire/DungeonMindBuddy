@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from application_state.combat_encounters.types import (
+    AddGeneratedStatblockRequest,
     CombatEncounterDraft,
     SaveCombatEncounterRequest,
 )
@@ -322,3 +323,45 @@ def test_generated_statblock_errors_keep_their_http_status(client, monkeypatch) 
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "generated statblock not found"
+
+
+def test_real_generated_statblock_uses_configured_artifact_root_through_save_reopen(client, tmp_path, monkeypatch):
+    from apps.live_control_server.services import combat_encounters as service
+    from apps.live_control_server.services.statblock_draft_store import store_statblock_draft
+    from apps.live_control_server.services.statblock_workbench import build_statblock_workbench_sample_response
+    from tests.test_statblock_view import _promote_record
+    from hashlib import sha256
+    test_client, _ = client
+    code, artifacts, session = tmp_path/'code', tmp_path/'artifacts', tmp_path/'session'
+    for path in (code, artifacts, session):
+        path.mkdir()
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(artifacts))
+    monkeypatch.setattr(service, 'repo_root', lambda: code)
+    monkeypatch.setattr(service, 'session_dir', lambda: session)
+    artifact = build_statblock_workbench_sample_response().artifact
+    stored = store_statblock_draft(base=session,campaign_id='synthetic',session=1,artifact=artifact)
+    promoted = _promote_record(session, artifacts, stored.model_dump(mode='json'))
+    created = _create(test_client, 'Isolated artifact-root acceptance')
+    added = test_client.post(f"/api/live/combat/encounters/{created['encounter_id']}/statblocks/{artifact.artifact_id}",
+        params={'world_id':'elderwyld'}, json={'expected_revision':1,'count':1,'team':'enemy'})
+    assert added.status_code == 200, added.text
+    encounter = added.json()['encounter']
+    row = encounter['draft']['entities'][0]
+    source = artifacts/'corpus/eldyrwild-markdown'/promoted.corpus_relpath
+    assert row['corpus_fingerprint'] == sha256(source.read_bytes()).hexdigest()[:32]
+    draft = encounter['draft']
+    draft['entities'][0]['notes'] = 'Retained after reopen'
+    saved = test_client.put(f"/api/live/combat/encounters/{created['encounter_id']}", params={'world_id':'elderwyld'},
+        json={'expected_revision':2,'draft':draft})
+    assert saved.status_code == 200, saved.text
+    reopened = test_client.get(f"/api/live/combat/encounters/{created['encounter_id']}",params={'world_id':'elderwyld'})
+    assert reopened.json() == saved.json()
+    assert reopened.json()['draft']['entities'][0]['notes'] == 'Retained after reopen'
+    # A missing configured repository cannot be repaired from a code-local file.
+    decoy = code/'corpus/eldyrwild-markdown'/promoted.corpus_relpath
+    decoy.parent.mkdir(parents=True)
+    decoy.write_text('Wrong checkout copy',encoding='utf-8')
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path/'missing'))
+    with pytest.raises(RuntimeError):
+        service.add_generated_statblock_to_world_combat_encounter(world_id='elderwyld', encounter_id=created['encounter_id'],
+            artifact_id=artifact.artifact_id,request=AddGeneratedStatblockRequest(expected_revision=3,count=1,team='enemy'))

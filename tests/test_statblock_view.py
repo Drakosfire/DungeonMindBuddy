@@ -216,3 +216,29 @@ def test_generated_statblock_view_does_not_expose_internal_key(
         assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in response.text
         assert "DUNGEONMIND_SERVER_URL" not in response.text
         assert "X-DungeonBuddy-Internal-Key" not in response.text
+
+
+def test_view_list_and_detail_use_explicit_artifact_repository(tmp_path, monkeypatch):
+    from hashlib import sha256
+    session = _temp_live_session(tmp_path, monkeypatch)
+    code, artifacts = tmp_path/'code', tmp_path/'artifacts'
+    code.mkdir()
+    artifacts.mkdir()
+    monkeypatch.setattr('apps.live_control_server.routes.live.repo_root',lambda: code)
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(artifacts))
+    client = TestClient(create_app())
+    record = _store_sample(client)
+    promoted = _promote_record(session,artifacts,record,body='# Real artifact source\nArmor Class 15')
+    decoy = code/'corpus/eldyrwild-markdown'/promoted.corpus_relpath
+    decoy.parent.mkdir(parents=True)
+    decoy.write_text('Wrong checkout copy',encoding='utf-8')
+    detail = client.get(f"/api/live/statblocks/view/generated/{record['artifact_id']}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()['corpus_markdown'].startswith('# Real artifact source')
+    assert detail.json()['corpus_file_fingerprint'] == sha256((artifacts/'corpus/eldyrwild-markdown'/promoted.corpus_relpath).read_bytes()).hexdigest()[:32]
+    listed = client.get('/api/live/statblocks/view/generated')
+    assert listed.status_code == 200, listed.text
+    assert record['artifact_id'] in listed.text
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path/'missing'))
+    assert client.get(f"/api/live/statblocks/view/generated/{record['artifact_id']}").status_code == 500
+    assert client.get('/api/live/statblocks/view/generated').status_code == 500
