@@ -424,7 +424,7 @@ def _scope_block(
         payload["initialClaimPacket"] = initial_packet
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls):\n"
-        f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
+        f"{json.dumps(payload, ensure_ascii=False, separators=(',', ':'))}"
     )
 
 

@@ -1,6 +1,6 @@
 # AGENT — Build prepared-call usage correlation
 
-ACTIVE serial successor under the operator’s per-call accounting goal. PRIME owns implementation, Bugbot review, merge and owned API8000 delivery. Basead046956eb4655cbda7a200ecb219f531df85a99, branch codex/build-provider-usage-correlation, existing buddy-context-loop checkout. No overlapping open lease. One implementation PR.
+DELIVERED as PR1529, mergee04c70ff1da347fdcf208224e273878cefa5c828, after Bugbot and60SDK/APP/default checks; API8000 adopted with all saved rows preserved. Successor HANDOFF-PERF-grounding-prompt-serialization.md owns the next measured input/roundtrip optimization. Originally authorized as a serial successor under the operator’s per-call accounting goal. PRIME owns implementation, Bugbot review, merge and owned API8000 delivery. Basead046956eb4655cbda7a200ecb219f531df85a99, branch codex/build-provider-usage-correlation, existing buddy-context-loop checkout. No overlapping open lease. One implementation PR.
 
 Measured gap: the real recovered image request completed in6seconds with two exact captured requests visible in The Prompt, but controller/writer actual usage entries have no attempt identity. GE uses explicit prepared dispatch IDs, distinct from native Hermes SDK API request IDs.
 
