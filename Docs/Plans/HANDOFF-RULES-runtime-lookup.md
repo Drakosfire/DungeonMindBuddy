@@ -301,3 +301,9 @@ The real SDK acknowledges response_received before post_api_request publishes it
 Real saved Play assembly can exceed the public 8000-character question limit. Mark verified Plan/Play source assembly with the existing server_assembled_saved_work discriminator before actual host serialization; retain the public question bound, IPC ceiling, exact source proof and final provider-envelope guard. Verify the real serializer/deserializer with a saved note above8000 characters.
 
 For current native Play, the exact source frame owns Beat/Scene/note text once. The hermes_agent_runtime.py adapter renders the descriptive surface hint with surface/World identity without repeating those source bodies, while retaining rich typed context internally; public source-context inspection and frozen receipts retain their own meaning.
+
+### Operator correction: conversational input limits
+
+The operator explicitly rejects arbitrary character and token limits, to be tuned only when measured friction warrants them. Extend this serial lane to remove composer/message/instruction character checks and preserve the full Build image prompt in its reservation. This source-only correction changes no provider output allocation, runtime, database or deployed artifact. Lease the affected proposal/instruction models and owners plus focused tests. Remaining provider/output and transport policy must be examined separately; do not silently truncate user content.
+
+The same input correction includes the actual default Build Jev image/proposal owners and Plan server-owned follow-up context: preserve full instructions through selection, reservation and subsequent context; remove their separate 4000-character rejection/clipping. Lease build_image_writer.py/build_jev_harness.py/plan_document_edit_proposal.py and focused default-runtime/follow-up tests. Transport/provider budgets remain unchanged.

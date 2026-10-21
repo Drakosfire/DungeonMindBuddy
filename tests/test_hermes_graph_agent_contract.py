@@ -193,14 +193,11 @@ def test_exact_committed_plan_message_survives_host_round_trip() -> None:
         decode_turn_request_wire(encode_turn_request_wire(request)).question == message
     )
 
-    with pytest.raises(ValueError, match="question"):
-        serialize_hermes_graph_agent_turn_request(
-            replace(request, plan_continuity_turn=False)
-        )
-    with pytest.raises(ValueError, match="question"):
-        deserialize_hermes_graph_agent_turn_request(
-            {**payload, "planContinuityTurn": False}
-        )
+    ordinary = replace(request, plan_continuity_turn=False)
+    assert decode_turn_request_wire(encode_turn_request_wire(ordinary)).question == message
+    assert deserialize_hermes_graph_agent_turn_request(
+        {**payload, "planContinuityTurn": False}
+    ).question == message
 
 
 def test_parent_graph_source_policy_is_additive_to_legacy_expansion_only() -> None:

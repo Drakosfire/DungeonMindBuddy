@@ -2429,6 +2429,20 @@ describe("World Plan conversation consumer", () => {
     expect(within(earlier).getByText("Earlier answer")).toBeInTheDocument();
   });
 
+  it("accepts a question beyond the retired character allowance", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement());
+    await waitForConversationReady();
+    const input = screen.getByRole("textbox", { name: "Message DungeonBuddy" });
+    const message = "Discuss the swamp road. ".repeat(400);
+    expect(message.length).toBeGreaterThan(8000);
+    expect(input).not.toHaveAttribute("maxlength");
+    fireEvent.change(input, { target: { value: message } });
+    expect(input).toHaveValue(message);
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    expect(screen.queryByText(/Shorten this message/)).not.toBeInTheDocument();
+  });
+
   it("uses the selected card as the Propose target without showing overridden section controls", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({

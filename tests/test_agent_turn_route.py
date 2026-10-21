@@ -1203,13 +1203,10 @@ def test_policy_predispatch_failure_has_strict_typed_projection(
     }
 
 
-def test_real_user_question_still_has_the_public_8000_character_limit() -> None:
-    from pydantic import ValidationError
-
+def test_user_question_preserves_text_beyond_the_retired_character_limit() -> None:
     payload = _payload()
     payload["message"] = "x" * 8_001
-    with pytest.raises(ValidationError, match="message"):
-        AgentTurnRequest.model_validate(payload)
+    assert AgentTurnRequest.model_validate(payload).message == payload["message"]
 
 
 @pytest.mark.parametrize(

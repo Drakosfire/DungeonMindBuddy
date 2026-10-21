@@ -476,7 +476,7 @@ class BuildJevHarness:
 
     def _proposal(self, adapter, driver):
         capability = adapter.request.build_write_capability
-        if capability is None or len(adapter.request.message) > 4000:
+        if capability is None:
             raise ValueError(
                 "The selected proposal has no valid captured instruction/capability"
             )

@@ -33,11 +33,11 @@ PROCESS_ISOLATION_MODE: ProcessIsolationMode = "process_exclusive"
 MAX_WIRE_BYTES = 262144
 MAX_PROVIDER_REQUEST_BYTES = 1_050_000
 DEFAULT_PROVIDER_REQUEST_BYTES = 256_000
-MAX_QUESTION_CHARS = 8000
+MAX_QUESTION_CHARS = MAX_WIRE_BYTES
 MAX_ID_CHARS = 256
 MAX_SESSION_ID_CHARS = 256
 MAX_HISTORY_MESSAGES = 32
-MAX_MESSAGE_CHARS = 8000
+MAX_MESSAGE_CHARS = MAX_WIRE_BYTES
 MAX_FOCUS_KEYS = 8
 MAX_FOCUS_VALUE_CHARS = 256
 ALLOWED_FOCUS_KEYS = frozenset({"kind", "sessionId", "campaignId"})
@@ -1104,8 +1104,8 @@ def serialize_hermes_graph_agent_turn_request(
 ) -> dict[str, Any]:
     """Serialize a Rung 3 turn request for host IPC (no callables)."""
     # A trusted saved-work assembly carries exact committed text in this field.
-    # The public user question remains bounded by AgentTurnRequest; the host
-    # wire limit and final provider-envelope budget bound the assembled input.
+    # The host wire limit and final provider-envelope budget bound input;
+    # do not impose a separate conversational character allowance.
     input_kind = _input_kind(request.input_kind)
     question = _require_str(
         request.question,

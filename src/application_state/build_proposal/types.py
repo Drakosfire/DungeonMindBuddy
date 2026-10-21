@@ -44,7 +44,7 @@ class BuildProposalReservation(StrictModel):
     conversation_id: UUID
     expected_pointer_revision: int = Field(strict=True, ge=1)
     basis: BuildProposalBasis
-    instruction: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(min_length=1)
     origin: BuildProposalOrigin | None = None
 
     @property

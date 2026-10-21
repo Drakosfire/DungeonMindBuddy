@@ -6770,10 +6770,9 @@ def execute_agent_turn(
                 recent = conversation_service.list_turns(capability.basis.world_id, capability.conversation_id, limit=6)
                 dialogue = []
                 adapter.build_history_for_inclusion = tuple((previous.turn_id, previous.assistant_text)
-                    for previous in recent if previous.status == "completed" and previous.assistant_text
-                    and len(previous.user_text) <= 8000 and len(previous.assistant_text) <= 8000)
+                    for previous in recent if previous.status == "completed" and previous.assistant_text)
                 for previous in recent:
-                    if previous.status == "completed" and len(previous.user_text) <= 8000 and len(previous.assistant_text or "") <= 8000:
+                    if previous.status == "completed":
                         dialogue.extend([{"role": "user", "content": previous.user_text},
                                          {"role": "assistant", "content": previous.assistant_text or ""}])
                 from application_state.build_proposal.service import BuildProposalService

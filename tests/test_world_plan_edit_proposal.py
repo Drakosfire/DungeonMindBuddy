@@ -919,7 +919,7 @@ def test_server_context_merge_uses_deterministic_ties_and_utc_timestamps(
     ]
 
 
-def test_server_context_bounds_each_visible_message_with_unicode_suffix(
+def test_server_context_preserves_each_full_unicode_message(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _authority(monkeypatch)
@@ -955,9 +955,9 @@ def test_server_context_bounds_each_visible_message_with_unicode_suffix(
     history = service._server_owned_proposal_history(store, basis)
 
     assert len(history) == 4
-    for item in history:
-        assert len(item.content) == 4_000
-        assert item.content.endswith(" …[truncated]")
+    assert [item.content for item in history] == [
+        plan_instruction, plan_summary, ask_question, ask_answer,
+    ]
     assert store.plan_context[0].instruction == plan_instruction
     assert ask_reader.pairs[0].question == ask_question
 

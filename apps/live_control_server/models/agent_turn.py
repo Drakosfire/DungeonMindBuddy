@@ -246,7 +246,7 @@ class AgentTurnRequest(BaseModel):
     selected_knowledge: AgentKnowledgeSelection | None = None
     build_write_capability: BuildWriteCapability | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
     @classmethod

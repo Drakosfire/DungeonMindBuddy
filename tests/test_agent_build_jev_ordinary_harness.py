@@ -265,10 +265,15 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
     assert response.knowledge_context.delivery_replay is False
 
 
+@pytest.mark.parametrize("long_instruction", [False, True])
 def test_ordinary_selected_proposal_is_persisted_in_same_conversation(
-    build_case, monkeypatch, tmp_path
+    build_case, monkeypatch, tmp_path, long_instruction
 ):
     case, calls = ordinary_case(build_case, monkeypatch, authoring=True)
+    if long_instruction:
+        source, request, bootstrap = case
+        case = (source, request.model_copy(update={"message": request.message * 140}), bootstrap)
+        assert len(case[1].message) > 4000
     decisions, writer = DecisionWire(operation="propose_build_insertion"), WriterWire()
     response = execute(
         case,
@@ -284,6 +289,7 @@ def test_ordinary_selected_proposal_is_persisted_in_same_conversation(
     assert isinstance(completion, ledger.BuildAuthoringCompletionV1)
     action = BuildProposalService().get("elderwyld", completion.action_id)
     assert action.state == "proposed" and not action.inserted_in_draft
+    assert action.reservation.instruction == case[1].message
     assert action.proposal.assumptions == ["Nia is invented."]
     assert action.authorization.provider_attempt_id == completion.provider_attempt_id
 

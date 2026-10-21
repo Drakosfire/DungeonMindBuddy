@@ -340,7 +340,7 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       || value.request.play_target.marker_grammar_version !== "v2"))
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
-    || !value.request.message.trim() || value.request.message.length > 8000) {
+    || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
   }
   return { storageKey, serialized, request: value.request as unknown as WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1 };
@@ -3827,14 +3827,14 @@ export function WorldPlanAgentConversation({
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
     if (!isBuild && playMode && playEditMode) {
-      if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message || message.length > 8000
+      if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message
         || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
       if (await playCompose.submit(message)) setComposerMessage(current => current === message ? "" : current);
       return;
     }
     if (isBuild) {
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
-        || historyLoading || historyError || !message || message.length > 8000 || sending
+        || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       const request: WorldBuildAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1", client_thread_id: crypto.randomUUID(), turn_id: crypto.randomUUID(),
@@ -3872,7 +3872,7 @@ export function WorldPlanAgentConversation({
     }
 
     if (!visible || !isReadOnly || !admittedRun || admittedRun.worldId !== verifiedWorldId
-      || !historySnapshotRef.current || historyLoading || historyError || !message || message.length > 8000
+      || !historySnapshotRef.current || historyLoading || historyError || !message
       || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
     if (!admittedRun.beatId || !admittedRun.contentBasis) {
       setError("Select a saved Run edition and scene before asking Buddy.");
@@ -5254,8 +5254,6 @@ export function WorldPlanAgentConversation({
       || pendingPlayRecoveryHydrating
       || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
-  const messageLimit = isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
-  const messageTooLong = composerMessage.length > messageLimit;
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
     : null;
@@ -5266,7 +5264,7 @@ export function WorldPlanAgentConversation({
     if (composerBusy || requestRef.current !== null || proposalRequestRef.current !== null) return;
 
     event.preventDefault();
-    if (!composerMessage.trim() || messageTooLong
+    if (!composerMessage.trim()
       || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)) return;
     event.currentTarget.form?.requestSubmit();
   }
@@ -6016,7 +6014,6 @@ export function WorldPlanAgentConversation({
             setEditError(null);
           }}
           onKeyDown={handleComposerKeyDown}
-          maxLength={8000}
           disabled={(isReadOnly ? !currentReadOnlyContext : !scopeMatches)
             || pendingPlayRecoveryHydrating
             || Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError)}
@@ -6056,16 +6053,13 @@ export function WorldPlanAgentConversation({
             type="submit"
             aria-label={!isReadOnly && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
             aria-describedby={buildSourceMissing ? BUILD_SOURCE_REQUIRED_DESCRIPTION_ID : undefined}
-            disabled={composerBusy || !composerMessage.trim() || messageTooLong
+            disabled={composerBusy || !composerMessage.trim()
             || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)
             || (!isReadOnly && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
           >
             {sending || composing || buildCompose.busy || playCompose.busy ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
         </div>
-        {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"
-          ? "Changes can be up to 4,000 characters. Shorten this request to continue."
-          : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
         {error && !authorizationBlocked && !hasUncertainPlanNotice && !hasUncertainPlayNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !editBridge ? (

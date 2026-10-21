@@ -46,7 +46,7 @@ class BuildInsertionTool:
         try:
             if (message.get("toolName") != TOOL_NAME or not isinstance(args, dict)
                     or set(args) != {"instruction"} or not isinstance(args["instruction"], str)
-                    or not args["instruction"].strip() or len(args["instruction"]) > 4000
+                    or not args["instruction"].strip()
                     or not isinstance(operation_id, str) or not 0 < len(operation_id) <= 256):
                 raise ValueError("build_insertion_arguments_invalid")
             turn = self.current_turn()

@@ -771,7 +771,7 @@ class SubmittedTurnIntentV1(StrictModel):
     )
     world_id: str = Field(min_length=1, max_length=128)
     client_thread_id: str = Field(min_length=1, max_length=128)
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(min_length=1)
     surface_id: str = Field(min_length=1, max_length=64)
     surface_instance_id: str = Field(min_length=1, max_length=128)
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
@@ -1037,7 +1037,7 @@ class SubmittedTurnIntentV2(StrictModel):
     )
     world_id: str = Field(min_length=1, max_length=128)
     client_thread_id: str = Field(min_length=1, max_length=128)
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(min_length=1)
     surface_id: Literal["plan"]
     surface_instance_id: str = Field(min_length=1, max_length=128)
     client_work_state: Literal["saved_clean", "saved_dirty"]
