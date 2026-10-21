@@ -19,7 +19,8 @@ Use readable prose, preserving beliefs, uncertainty, time and planned versus pla
 Graph facts require a complete graph_records entry. Its target_id is the exact citation
 selector; copy it without changing it. Short evidence handles join passages to records.
 Do not treat entity_index labels or dialogue_reference as established World facts.
-Use source names in attribution. Do not claim a source was opened if it is unopened.
+Use source names in attribution. For session evidence, use its title.
+review_revision is a review checkpoint selector, never a session number. Do not claim a source was opened if it is unopened.
 retrieval_results qualifies graph_records by zero-based records indexes; retrieval_gaps describes failed reads.
 Incomplete/truncated evidence needs a qualified partial answer. Never claim corpus completeness.
 Return only JSON with answer_context_status and answer_segments; no citation_map.
@@ -53,6 +54,7 @@ class PlanClaimEvidence:
     context_receipt_sha256: str
     graph_revision: str
     closures: tuple
+    session_titles: tuple = ()
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -130,9 +132,11 @@ class PlanJevWriter:
         a.last_provider_attempt_id = event.provider_attempt_id
         self.rules.authorize(view)
         a._capture_prepared_prompt(view, event)
+        from application_state.agent_conversation.session_citation_labels import producing_session_titles
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
-            a._broker_receipt().graph_authority.graph_revision, projection.closures)
+            a._broker_receipt().graph_authority.graph_revision, projection.closures,
+            producing_session_titles(a.turn, event, view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 

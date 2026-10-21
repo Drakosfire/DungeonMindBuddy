@@ -186,3 +186,33 @@ def test_plan_writer_refuses_completion_when_renewal_error_is_reported(plan_adap
     assert error.value.code=='turn_claim_indeterminate' and len(wire.calls)==1 and wire.closed
     turn=plan_adapter.service.list_turns(plan_adapter.world_id,plan_adapter.turn.conversation_id)[0]
     assert turn.status!='completed'
+
+
+@pytest.mark.parametrize('existing_link',[False,True])
+def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,existing_link):
+    from dataclasses import replace
+    from uuid import uuid4
+    from urllib.parse import urlencode
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    a=plan_adapter
+    run=str(uuid4())
+    packet={'title':'Approach to Edge — Session Prep','world_id':a.world_id,'run_id':run,
+        'review_revision':54,'ended_at':'2026-10-18T12:51:00Z',
+        'sources':[{'kind':'scene_note','element_id':'crossing','text':'The boardwalk was pulled under.'}]}
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
+    writer=PlanJevWriter(a,proof,rules)
+    url='/play?'+urlencode({'world':a.world_id,'run':run,'evidence_revision':54})
+    text=(f'[Session 54 scene notes]( {url} ) describe a submerged boardwalk.' if existing_link
+        else 'Scene notes describe a submerged boardwalk.')
+    candidate={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
+        {'kind':'session_evidence_claim','text':text,'run_id':run,'review_revision':54}]}
+    completed=asyncio.run(writer.run(transport=WriterWire(a,json.dumps(candidate)),api_key='synthetic-not-secret'))
+    assert 'Session 54' not in completed.assistant_text
+    assert completed.assistant_text.count(url)==1
+    assert '[Approach to Edge — Session Prep — notes and reflections]' in completed.assistant_text
+    assert completed.completion.answer_segments[0].evidence_sha256==packet['sha256']
+    saved=AgentConversationService().list_turns(a.world_id,completed.conversation_id)[-1]
+    assert saved.assistant_text==completed.assistant_text
