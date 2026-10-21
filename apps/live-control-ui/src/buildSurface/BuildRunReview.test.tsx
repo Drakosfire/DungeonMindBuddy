@@ -161,3 +161,126 @@ it('retains the correction request when staged child persistence fails',async()=
   expect(localStorage.getItem('dmb.buildEvidenceCorrection.v1:'+JSON.stringify(['world-a','doc-a','run-a',candidate]))).not.toBeNull();
   expect(screen.getByRole('button',{name:'Retry saved quote corrections'})).toBeEnabled();
 });
+
+function correctionCase(domain:'worldbuilding'|'recap') {
+  const p=props();
+  const invalid=structuredClone(review);invalid.inspectionStatus='invalid_evidence';
+  invalid.assertions[0].evidence[0].anchorQuotes=['bad quote'];
+  invalid.assertions[0].evidence[0].invalidAnchorQuotes=['bad quote'];
+  if(domain==='recap') {
+    p.run={...run,source_domain:'recap',profile_id:'recap_category_v1@1.0',campaign_id:'longmont-c2',session_id:'session-30',
+      components:{...run.components,source_artifact:{kind:'source_artifact',uri:'source.md',exists:true,sha256:hash},
+        source_span_index:{kind:'source_span_index',uri:'spans.json',exists:true,sha256:'e'.repeat(64)}},
+      lineage:{world_campaign_ingest_context:{managed_world_id:'world-a',native_world_id:'native-a',campaign_id:'longmont-c2'}}};
+    Object.assign(invalid,{sourceDomain:'recap',campaignId:'longmont-c2',sessionId:'session-30',worldId:'native-a'});
+  }
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(invalid);
+  const api=domain==='recap'?vi.spyOn(extract,'correctRecapRunEvidence'):vi.mocked(extract.correctExactRunEvidence);
+  const key=(domain==='recap'?'dmb.buildRecapEvidenceCorrection.v1:':'dmb.buildEvidenceCorrection.v1:')
+    +JSON.stringify(['world-a','doc-a','run-a',candidate]);
+  return {p,key,api};
+}
+
+it.each(['worldbuilding','recap'] as const)('refuses a competing %s request persisted by another review before dispatch',async domain=>{
+  const {p,key,api}=correctionCase(domain);
+  render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  const original=JSON.stringify({parentRunId:'run-a',parentCandidateSha256:candidate,corrections:[{
+    assertionId:'keeper',evidenceIndex:0,quoteIndex:0,sourceSpanRefId:'span-a',originalQuote:'bad quote',replacementQuote:'gate'}]});
+  localStorage.setItem(key,original);
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Another correction is retained');
+  expect(localStorage.getItem(key)).toBe(original);expect(api).not.toHaveBeenCalled();
+});
+
+it.each(['worldbuilding','recap'] as const)('serializes two %s review views before either can overwrite the request',async domain=>{
+  const {p,key,api}=correctionCase(domain);
+  const queue:Array<()=>void>=[];
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>
+    new Promise((resolve,reject)=>queue.push(()=>{try{resolve(action());}catch(reason){reject(reason);}}))}});
+  api.mockImplementation(()=>new Promise(()=>{}));
+  render(<><BuildRunReview {...p}/><BuildRunReview {...p}/></>);
+  const inputs=await screen.findAllByLabelText('Literal replacement for Keeper quote 1');
+  fireEvent.change(inputs[0],{target:{value:'keeper'}});fireEvent.change(inputs[1],{target:{value:'gate'}});
+  const buttons=screen.getAllByRole('button',{name:'Create reviewed child candidate'});
+  fireEvent.click(buttons[0]);fireEvent.click(buttons[1]);expect(queue).toHaveLength(2);
+  expect(api).not.toHaveBeenCalled();
+  await act(async()=>queue.shift()!());await waitFor(()=>expect(api).toHaveBeenCalledOnce());
+  const original=localStorage.getItem(key);expect(original).toContain('keeper');
+  await act(async()=>queue.shift()!());
+  expect(await screen.findByRole('alert')).toHaveTextContent('Another correction is retained');
+  expect(api).toHaveBeenCalledOnce();expect(localStorage.getItem(key)).toBe(original);
+});
+
+it.each(['worldbuilding','recap'] as const)('blocks %s correction dispatch without cross-tab locking',async domain=>{
+  const {p,api}=correctionCase(domain);
+  Object.defineProperty(navigator,'locks',{configurable:true,value:undefined});
+  render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('cannot safely retain evidence corrections across tabs');
+  expect(api).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+});
+
+it.each(['world change','unmount'])('preserves Worldbuilding recovery after queued abandonment and %s',async transition=>{
+  const {p,key,api}=correctionCase('worldbuilding');
+  localStorage.setItem(key,'original malformed request');
+  const view=render(<BuildRunReview {...p}/>);
+  const button=await screen.findByRole('button',{name:'Abandon saved request'});
+  let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>
+    new Promise((resolve,reject)=>{release=()=>{try{resolve(action());}catch(reason){reject(reason);}};})}});
+  fireEvent.click(button);
+  if(transition==='unmount')view.unmount();else{selection.worldId='other';view.rerender(<BuildRunReview {...p}/>);}
+  await act(async()=>release());
+  expect(localStorage.getItem(key)).toBe('original malformed request');expect(localStorage.length).toBe(1);
+  expect(api).not.toHaveBeenCalled();
+});
+
+it('retains abandoned Worldbuilding request bytes before clearing the active key',async()=>{
+  const {p,key,api}=correctionCase('worldbuilding');
+  localStorage.setItem(key,'original malformed request');render(<BuildRunReview {...p}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Abandon saved request'}));
+  await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+  const retained=Object.keys(localStorage).filter(name=>name.startsWith(key+':retained:'));
+  expect(retained).toHaveLength(1);expect(localStorage.getItem(retained[0])).toBe('original malformed request');
+  expect(api).not.toHaveBeenCalled();
+});
+
+it('recovers the exact Worldbuilding correction after remount without automatic dispatch',async()=>{
+  const {p,key,api}=correctionCase('worldbuilding');api.mockRejectedValueOnce(new Error('lost response'));
+  const view=render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('lost response');
+  const request=api.mock.calls[0][0],retained=localStorage.getItem(key);
+  expect(retained).not.toBeNull();view.unmount();render(<BuildRunReview {...p}/>);
+  const retry=await screen.findByRole('button',{name:'Retry saved quote corrections'});
+  expect(api).toHaveBeenCalledOnce();expect(localStorage.getItem(key)).toBe(retained);
+  fireEvent.click(retry);await waitFor(()=>expect(p.onDerivedRun).toHaveBeenCalledOnce());
+  expect(api).toHaveBeenNthCalledWith(2,request);await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+});
+
+it.each(['world change','unmount'])('does not persist or dispatch queued Worldbuilding correction after %s',async transition=>{
+  const {p,key,api}=correctionCase('worldbuilding');let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>
+    new Promise((resolve,reject)=>{release=()=>{try{resolve(action());}catch(reason){reject(reason);}};})}});
+  const view=render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create reviewed child candidate'}));
+  if(transition==='unmount')view.unmount();else{selection.worldId='other';view.rerender(<BuildRunReview {...p}/>);}
+  await act(async()=>release());expect(localStorage.getItem(key)).toBeNull();expect(api).not.toHaveBeenCalled();
+});
+
+it('keeps Worldbuilding recovery when abandonment retention fails',async()=>{
+  const {p,key,api}=correctionCase('worldbuilding');localStorage.setItem(key,'original malformed request');
+  render(<BuildRunReview {...p}/>);const button=await screen.findByRole('button',{name:'Abandon saved request'});
+  const setItem=Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(name,value){
+    if(name.startsWith(key+':retained:'))throw new Error('storage quota');
+    return setItem.call(this,name,value);
+  });
+  fireEvent.click(button);
+  await waitFor(()=>expect(screen.getAllByRole('alert').some(el=>el.textContent?.includes('could not be retained'))).toBe(true));
+  expect(localStorage.getItem(key)).toBe('original malformed request');expect(api).not.toHaveBeenCalled();
+});

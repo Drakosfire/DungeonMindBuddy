@@ -19,8 +19,8 @@ type Props = { document: WorkspaceDocumentRecord; currentRevision: number; run: 
 const digest = (value: unknown) => typeof value === 'string' && /^(?:sha256:)?[a-f0-9]{64}$/.test(value)
   ? value.replace(/^sha256:/, '') : null;
 const message = (reason: unknown) => reason instanceof Error ? reason.message : 'This exact review could not be loaded.';
-async function recapStorage<T>(key:string,action:()=>T):Promise<T>{
-  if(!navigator.locks)throw new Error('This browser cannot safely retain Recap corrections across tabs.');
+async function correctionStorage<T>(key:string,action:()=>T):Promise<T>{
+  if(!navigator.locks)throw new Error('This browser cannot safely retain evidence corrections across tabs.');
   return navigator.locks.request(key,action);
 }
 
@@ -115,10 +115,10 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
       const persist=()=>{
         if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before persistence.');
         const current=localStorage.getItem(key);
-        if(run.source_domain==='recap'&&current!==null&&current!==encoded)throw new Error('Another Recap correction is retained. Reopen this review to recover it.');
+        if(current!==null&&current!==encoded)throw new Error('Another correction is retained. Reopen this review to recover it.');
         localStorage.setItem(key,encoded);
       };
-      if(run.source_domain==='recap')await recapStorage(key,persist);else persist();
+      await correctionStorage(key,persist);
     } catch(reason){lock.current=false;if(alive.current){setCorrecting(false);setCorrectionError(`${message(reason)} The correction could not be saved for recovery. No request was sent.`);}return;}
     if(!alive.current||!isScopeCurrent()){lock.current=false;return;}
     recoveryRaw.current=encoded;setRecovery(request);
@@ -132,7 +132,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
         if(!alive.current||!isScopeCurrent()||localStorage.getItem(key)!==encoded)throw new Error('The selected correction changed. Recover its original request.');
         commit();localStorage.removeItem(key);recoveryRaw.current=null;
       };
-      if(run.source_domain==='recap')await recapStorage(key,adopt);else adopt();
+      await correctionStorage(key,adopt);
       if (alive.current) setRecovery(null);
     } catch(reason) {if (alive.current) setCorrectionError(`${message(reason)} The source is unchanged; retry the saved correction to recover its child run.`);}
     finally {lock.current = false; if(alive.current) setCorrecting(false);}
@@ -145,10 +145,10 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
         if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before abandonment.');
         const raw=localStorage.getItem(key);
         if(raw!==recoveryRaw.current)throw new Error('The saved correction changed. Reopen its review.');
-        if(run.source_domain==='recap'&&raw!==null)localStorage.setItem(key+':retained:'+crypto.randomUUID(),raw);
+        if(raw!==null)localStorage.setItem(key+':retained:'+crypto.randomUUID(),raw);
         localStorage.removeItem(key);
       };
-      if(run.source_domain==='recap')await recapStorage(key,retain);else retain();
+      await correctionStorage(key,retain);
       if(alive.current&&isScopeCurrent()){setRecovery(null);setCorrectionError(null);}
     }catch {if(alive.current)setCorrectionError('The saved correction could not be retained and cleared.');}
     finally {lock.current=false;if(alive.current)setCorrecting(false);}
@@ -160,7 +160,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {error && <><p role="alert">{error}</p><button type="button" onClick={()=>setReload(n=>n+1)}>Retry review read</button></>}
     {!review && !error && <p role="status">Reading this exact extraction run…</p>}
     {review && <>
-      {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
+      {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={['worldbuilding','recap'].includes(run.source_domain) && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
         correctionPending={correcting} recoveryPending={recovery !== null} correctionError={correctionError}
