@@ -672,6 +672,8 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || pathname === "/api/live/play-active-run"
     || pathname === "/api/live/world-play-runs/v2"
     || pathname === "/api/live/world-play-runs/v2/active"
+    || pathname === "/api/live/world-plan-edit/actions"
+    || pathname === "/api/live/world-plan-edit/conversation-actions"
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)

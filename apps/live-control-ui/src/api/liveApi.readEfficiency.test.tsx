@@ -27,6 +27,24 @@ describe("protected read acquisition",()=>{
   gate.resolve(Response.json({schema:"dmb_agent_conversation_history_v4",turns:[]}));
   unmount();
  });
+ it.each([
+  ["Plan action history",()=>api.getWorldPlanDocumentEditActions("elderwyld","doc-1"),"/api/live/world-plan-edit/actions?world_id=elderwyld&document_id=doc-1"],
+  ["Plan conversation action history",()=>api.getWorldPlanConversationActions("elderwyld","conversation-1"),"/api/live/world-plan-edit/conversation-actions?world_id=elderwyld&conversation_id=conversation-1"],
+])("coalesces concurrent %s refreshes and fetches fresh data after settlement",async(_label,read,path)=>{
+  api.setNativeGraphAccessToken("action-history-read-sharing");
+  const gate=deferred<Response>();
+  let calls=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(()=>
+    ++calls===1 ? gate.promise : Promise.resolve(Response.json({actions:[]})));
+  const first=read();
+  const repeated=read();
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));
+  expect(String(fetch.mock.calls[0][0])).toBe(path);
+  gate.resolve(Response.json({actions:[]}));
+  await Promise.all([first,repeated]);
+  await read();
+  expect(fetch).toHaveBeenCalledTimes(2);
+ });
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
