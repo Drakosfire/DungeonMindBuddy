@@ -2930,6 +2930,41 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
   });
 
+  it("opens a saved claim's exact source from its inline citation without posting an Ask", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const completion = context.completion! as unknown as Record<string, any>;
+    completion.schema = "dmb_plan_world_graph_completion_v2";
+    completion.citation_map.schema = "dmb_graph_citation_map_v2";
+    completion.citation_map.entries[0].source_opened = true;
+    completion.citation_map.entries[0].source_read_ids = ["read-exact"];
+    context.source_open_targets = sourceOpenTargets().filter(target => target.kind === "evidence_anchor")
+      .map(target => ({...target, source_read_id:"read-exact", read_outcome:"enough"}));
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "inline-source-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+    const read = vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead").mockResolvedValue({
+      schema:"dmb_world_graph_source_anchor_read_v1",outcome:"enough",
+      snapshot:{worldId:"native-world-internal-test",campaignId:"",scopeMode:"world",
+        revisionId:"graph-revision-test",headRevisionId:"graph-revision-test",isHead:true,
+        focus:{kind:"none",sessionId:null,campaignId:null},admissibility:"gm"},
+      anchorId:"anchor-test",evidenceRefId:"evidence-internal-test",sourceArtifactId:"artifact-test",
+      sourceDomain:"recap",locatorKind:"heading",mediaType:"text/markdown",content:"Exact inline source passage",
+      contentSha256:"f".repeat(64),lineStart:1,lineEnd:2,truncated:false,diagnostics:[],
+    });
+    render(conversationElement());
+    const citation = await screen.findByRole("button",{name:"Open source 1"});
+    expect(citation).toHaveAttribute("title",expect.stringContaining("source-revision-test"));
+    expect(read).not.toHaveBeenCalled();
+    fireEvent.click(citation);
+    expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact inline source passage");
+    expect(document.getElementById("buddy-evidence-inline-source-turn")).toHaveAttribute("open");
+    expect(read).toHaveBeenCalledOnce();
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
+    expect(screen.getByText("source-revision-test")).toBeInTheDocument();
+    expect(ask).not.toHaveBeenCalled();
+  });
+
   it("opens exact evidence and related recap targets from saved World history without a provider repost", async () => {
     const context = await planGraphContext("graph_grounded");
     context.source_open_targets = sourceOpenTargets();

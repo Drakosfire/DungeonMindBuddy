@@ -144,3 +144,52 @@ describe("stable Buddy answer rendering", () => {
     expect(screen.getByText("Updated second paragraph.")).toBeInTheDocument();
   });
 });
+
+it('places verified citations beside repeated claims without splitting Markdown blocks', () => {
+  const first = vi.fn(), second = vi.fn();
+  const segments = ['**Same fact.**', 'Same fact.', '', '- Final fact.'];
+  const { container } = render(<WorldPlanAgentAnswer answer={segments.join('\n')} displaySegments={segments}
+    inlineCitations={[{segmentIndex:0,label:'1',title:'Source one · revision one',onOpen:first},
+      {segmentIndex:1,label:'2',title:'Source two · revision two',onOpen:second},
+      {segmentIndex:3,label:'3',title:'Source three',onOpen:vi.fn()}]} />);
+  expect(container.querySelectorAll('strong')).toHaveLength(1);
+  expect(container.querySelectorAll('ul > li')).toHaveLength(1);
+  screen.getByRole('button',{name:'Open source 2'}).click();
+  expect(second).toHaveBeenCalledOnce(); expect(first).not.toHaveBeenCalled();
+  expect(screen.getByRole('button',{name:'Open source 1'}).closest('p')).not.toBeNull();
+  expect(screen.getByRole('button',{name:'Open source 3'}).closest('li')).not.toBeNull();
+});
+
+it('does not infer citation placement from mismatched or absent complete segments', () => {
+  const props = {answer:'A fact. Another fact.',inlineCitations:[{segmentIndex:0,label:'1',title:'Exact source',onOpen:vi.fn()}]};
+  const view = render(<WorldPlanAgentAnswer {...props} displaySegments={['A fact.']} />);
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  view.rerender(<WorldPlanAgentAnswer {...props} />);
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  expect(screen.getByText(props.answer)).toBeInTheDocument();
+});
+
+it('keeps citation controls outside links and code while preserving the original answer', () => {
+  const segments = ['[Verified source](https://example.org)', '', '`literal`'];
+  const {container} = render(<WorldPlanAgentAnswer answer={segments.join('\n')} displaySegments={segments}
+    inlineCitations={[{segmentIndex:0,label:'1',title:'Exact source',onOpen:vi.fn()},
+      {segmentIndex:2,label:'2',title:'Other source',onOpen:vi.fn()}]} />);
+  expect(container.querySelector('a button, code button')).toBeNull();
+  expect(screen.getByRole('link',{name:'Verified source'})).toHaveAttribute('href','https://example.org');
+  expect(screen.getAllByRole('button')).toHaveLength(2);
+});
+
+it('places first and final repeated table-row citations inside their exact last cells', () => {
+  const first = vi.fn(), final = vi.fn();
+  const segments = ['| Place | Fact |', '| --- | --- |', '| Edge | Road crosses swamp |', '| Edge | Road crosses swamp |'];
+  const {container} = render(<WorldPlanAgentAnswer answer={segments.join('\n')} displaySegments={segments}
+    inlineCitations={[{segmentIndex:2,label:'1',title:'First passage',onOpen:first},
+      {segmentIndex:3,label:'2',title:'Later passage',onOpen:final}]} />);
+  const rows = container.querySelectorAll('tbody > tr');
+  expect(rows).toHaveLength(2);
+  expect(screen.getByRole('button',{name:'Open source 1'}).closest('tr')).toBe(rows[0]);
+  expect(screen.getByRole('button',{name:'Open source 2'}).closest('tr')).toBe(rows[1]);
+  expect(container.querySelector('tr > button, table > button')).toBeNull();
+  screen.getByRole('button',{name:'Open source 2'}).click();
+  expect(final).toHaveBeenCalledOnce(); expect(first).not.toHaveBeenCalled();
+});
