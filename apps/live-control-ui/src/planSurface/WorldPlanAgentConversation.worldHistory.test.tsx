@@ -2591,10 +2591,11 @@ describe("World Plan conversation consumer", () => {
     expect(await within(transcript).findByText("Saved Plan:", { selector: "strong" })).toBeInTheDocument();
     expect(within(transcript).getByText("Evidence:", { selector: "strong" })).toBeInTheDocument();
     expect(within(transcript).getByText("Next:", { selector: "strong" })).toBeInTheDocument();
-    expect(within(transcript).getByText("Keep A sealed gate and a watchful guard on duty.")).toBeInTheDocument();
+    expect(transcript.querySelector(".world-plan-agent-answer")).toHaveTextContent("Next: Keep A sealed gate and a watchful guard on duty.");
     const renderedAnswer = transcript.querySelector(".world-plan-agent-answer")!;
     expect(renderedAnswer).not.toHaveTextContent("**Saved Plan:**");
-    expect(renderedAnswer.querySelectorAll(":scope > div")).toHaveLength(3);
+    expect(renderedAnswer.querySelectorAll(":scope > p")).toHaveLength(1);
+    expect(renderedAnswer.querySelectorAll("strong")).toHaveLength(3);
     expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
     fireEvent.click(evidenceSummary);
@@ -3365,7 +3366,11 @@ describe("World Plan conversation consumer", () => {
     );
     expect(pendingAskKeys()).toEqual([]);
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/turn", "POST"],
+    ]);
   });
 
   it("allows a fresh Graph Ask after clearing a definitive pre-dispatch failure", async () => {
@@ -3542,7 +3547,11 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
     expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/turn", "POST"],
+    ]);
   });
 
   it("keeps verified messages and typing focus during a pending history check without reposting", async () => {
