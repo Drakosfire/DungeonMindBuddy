@@ -30,6 +30,8 @@ from apps.live_control_server.services.recap_graph_preview_ingest import (
     materialize_recap_preview_supergraph,
 )
 
+from apps.live_control_server.models.session_evidence import SessionEvidenceRef
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
@@ -42,13 +44,6 @@ RecapIngestOperation = Literal[
 ]
 
 _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
-
-
-class SessionEvidenceRef(BaseModel):
-    model_config=ConfigDict(extra="forbid",strict=True)
-    run_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-    review_revision: int = Field(ge=1,strict=True)
-    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class RecapIngestRequest(BaseModel):

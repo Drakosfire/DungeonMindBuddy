@@ -212,6 +212,7 @@ def run_recap_production_extraction(
     ingest_context: Any | None = None,
     extra_known_entities: tuple[KnownEntity, ...] | None = None,
     supplemental_evidence: dict | None = None,
+    reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _verified_ingest_context_lineage(
@@ -362,7 +363,9 @@ def run_recap_production_extraction(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-                initial_lineage={"world_campaign_ingest_context": frozen_context,**supplement_lineage,**build_lineage},
+                initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
+                    "world_campaign_ingest_context": frozen_context,**supplement_lineage,**build_lineage},
+                reserved_run=reserved_run,
             )
         )
         return result
