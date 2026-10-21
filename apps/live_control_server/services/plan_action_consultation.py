@@ -804,6 +804,7 @@ def _source_open_targets(action: PlanActionRecord) -> list[dict[str, Any]]:
                     "anchor_id": pin.anchor_id,
                     "evidence_ref_id": evidence_id,
                     "source_artifact_id": pin.source_artifact_id,
+                    "source_name": None,
                     "source_revision_id": pin.source_revision_id,
                     "managed_world_id": authority.managed_world_id,
                     "native_world_id": authority.native_world_id,

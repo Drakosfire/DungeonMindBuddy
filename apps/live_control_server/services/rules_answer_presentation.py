@@ -3,7 +3,7 @@ from application_state.agent_conversation.rules_authority_reads import MixedComp
 from apps.live_control_server.models.agent_turn import AgentRulesAnswerContextV1, AgentRulesUnclaimedContextV1
 
 
-def project_rules_answer_context(turn: MixedCompletedTurnV1, *, delivery_replay: bool) -> AgentRulesAnswerContextV1:
+def project_rules_answer_context(turn: MixedCompletedTurnV1, *, delivery_replay: bool, source_names: list[dict] | None = None) -> AgentRulesAnswerContextV1:
     from application_state.agent_conversation.types import PlayWorldGraphContextReceiptV1
     from .agent_turn_service import project_plan_turn_context, project_play_turn_context
 
@@ -15,7 +15,7 @@ def project_rules_answer_context(turn: MixedCompletedTurnV1, *, delivery_replay:
     ):
         base_context = project_play_turn_context(base.turn, delivery_replay=delivery_replay)
     elif base.kind == "approved":
-        base_context = project_plan_turn_context(base.turn, delivery_replay=delivery_replay)
+        base_context = project_plan_turn_context(base.turn, delivery_replay=delivery_replay, source_names=source_names)
     else:
         base_context = None
     unclaimed_context = None

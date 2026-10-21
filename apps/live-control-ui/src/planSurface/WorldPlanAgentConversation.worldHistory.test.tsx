@@ -735,7 +735,7 @@ function currentRecapPage(): Awaited<ReturnType<typeof liveApi.postWorldGraphRec
 
 function sourceOpenTargets(): WorldPlanSourceOpenTargetV2[] {
   const authority = {
-    claim_id: "claim-internal-test", source_artifact_id: "artifact-test", source_revision_id: "source-revision-test",
+    claim_id: "claim-internal-test", source_artifact_id: "artifact-test", source_revision_id: "source-revision-test", source_name: null,
     managed_world_id: worldId, native_world_id: "native-world-internal-test", binding_version: 3,
     scope_mode: "world" as const, campaign_id: null,
     focus: { kind: "none" as const, session_id: null, campaign_id: null },
@@ -1516,7 +1516,7 @@ describe("World Plan conversation consumer", () => {
       kind: "evidence_anchor" as const,
       claim_id: "claim:owner", anchor_id: "anchor:owner",
       evidence_ref_id: "evidence:owner", source_artifact_id: "artifact:owner",
-      source_revision_id: "source-r1", managed_world_id: worldId,
+      source_revision_id: "source-r1", source_name: null, managed_world_id: worldId,
       native_world_id: "native-test", binding_version: 1,
       graph_revision: "graph-r1", source_read_id: "read:owner",
       read_outcome: "enough" as const,
@@ -2938,7 +2938,7 @@ describe("World Plan conversation consumer", () => {
     completion.citation_map.entries[0].source_opened = previouslyRead;
     completion.citation_map.entries[0].source_read_ids = previouslyRead ? ["read-exact"] : [];
     context.source_open_targets = sourceOpenTargets().filter(target => target.kind === "evidence_anchor")
-      .map(target => ({...target, source_read_id:previouslyRead ? "read-exact" : null, read_outcome:previouslyRead ? "enough" : null}));
+      .map(target => ({...target, source_name:"Session 29 recap", source_read_id:previouslyRead ? "read-exact" : null, read_outcome:previouslyRead ? "enough" : null}));
     setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
       1, "inline-source-turn", "What is known?", "The western gate is watched.", context,
     )]));
@@ -2954,7 +2954,7 @@ describe("World Plan conversation consumer", () => {
     });
     render(conversationElement());
     const citation = await screen.findByRole("button",{name:"Open source 1"});
-    expect(citation).toHaveAttribute("title","Open cited source");
+    expect(citation).toHaveAttribute("title","Session 29 recap");
     expect(read).not.toHaveBeenCalled();
     fireEvent.click(citation);
     expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact inline source passage");

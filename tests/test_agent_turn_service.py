@@ -741,6 +741,15 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         receipt.graph_authority.graph_revision,
     )
     assert (target.source_read_id, target.read_outcome) == ("source-read:one", "enough")
+    opened = read_event.receipts[0]
+    labels = [{"turn_id": str(completed_turn.turn_id), "source_read_event_id": str(read_event_id),
+        **{key: getattr(opened, key) for key in ("source_read_id", "anchor_id", "evidence_ref_id",
+            "source_artifact_id", "source_revision_id", "content_sha256")},
+        "graph_revision": receipt.graph_authority.graph_revision,
+        "source_name": "Longmont C2 · Session 29"}]
+    named = service_module.project_plan_turn_context(completed_turn, delivery_replay=False, source_names=labels)
+    assert named.source_open_targets[0].source_name == "Longmont C2 · Session 29"
+
     descriptors = [SimpleNamespace(
         context_anchor_id="dm-context-anchor:v2:one",
         world_id=receipt.graph_authority.native_world_id,
