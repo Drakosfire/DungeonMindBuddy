@@ -1,6 +1,8 @@
 # BUILD — Recap configuration and exact review in the document
 
-ACTIVE serial UI consumer of PR1537 under the full operator Build-ingestion goal. PRIME owns implementation/Bugbot/merge/paired8000-5202 delivery. Branch codex/build-recap-controls, base origin/main@0a61c77bd7d637f0c1b4f7d83265ebd6d9615263; reuse buddy-context-loop, one PR. Open #1235 observation UI files remain excluded. No real model/source/World mutation used to verify.
+DELIVERED by PR1538, merge376745ed55206de583ab6c9ed366299b7b2680a7. Bugbot approved16cb142da0ef44c88accf2d995856b6db9edd7d6 with106 independently passed tests; author161passed/1existing optional skipped, typecheck/build passed. UI5202 adopted with all1448rows retained; rendered single-editor/current-run continuity and Recap fields verified without real extraction/publication.
+
+Completed serial UI consumer of PR1537 under the full operator Build-ingestion goal. PRIME owns implementation/Bugbot/merge/paired8000-5202 delivery. Branch codex/build-recap-controls, base origin/main@0a61c77bd7d637f0c1b4f7d83265ebd6d9615263; reuse buddy-context-loop, one PR. Open #1235 observation UI files remain excluded. No real model/source/World mutation used to verify.
 
 Expose Worldbuilding/Recap as next-run configuration in Build, retaining one existing editor/document and exact current-run review. Recap explicitly asks source campaign/session, selected World remains separate, and uses the existing optional SessionEvidencePicker. Persist the exact admitted request before sending; unknown response retains it for deliberate check/retry with original IDs. Recovery never manufactures a new request or uses newer source text. Reject wrong document/World/run/source/configuration responses and discard late asynchronous adoption across navigation. Mode/profile changes affect only later launches. Opening/closing/changing controls preserves mounted editor drafts and current run's frozen interpretation.
 

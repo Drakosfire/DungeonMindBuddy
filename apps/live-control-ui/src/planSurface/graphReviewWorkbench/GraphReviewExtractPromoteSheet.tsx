@@ -21,6 +21,12 @@ import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 export interface GraphReviewExtractPromoteSheetProps {
   prepared: ExtractPromotePrepareResponse;
   onClose: () => void;
+  /** Host persists the exact package/selection synchronously before any POST. */
+  onBeforeConfirm?: (assertionIds: string[]) => void;
+  recoveryAssertionIds?: string[] | null;
+  initialSelectionIds?: string[] | null;
+  onSelectionChange?: (ids: string[]) => void;
+  onConfirmRejected?: (code: string | null) => void;
   onConfirmInFlightChange?: (inFlight: boolean) => void;
 }
 
@@ -97,22 +103,27 @@ export function GraphReviewExtractPromoteSheet({
   prepared,
   onClose,
   onConfirmInFlightChange,
+  onBeforeConfirm,
+  recoveryAssertionIds,
+  initialSelectionIds,
+  onSelectionChange,
+  onConfirmRejected,
 }: GraphReviewExtractPromoteSheetProps) {
   const { adoptCommittedReceipt, reloadCommittedAuthority, committedBinding } =
     useGraphReviewLiveState();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
-    initialPromoteSelection(prepared.reviewItems),
+    initialSelectionIds ? new Set(initialSelectionIds) : initialPromoteSelection(prepared.reviewItems),
   );
-  const [confirmPhase, setConfirmPhase] = useState<ConfirmPhase>("idle");
-  const [frozenIds, setFrozenIds] = useState<string[] | null>(null);
+  const [confirmPhase, setConfirmPhase] = useState<ConfirmPhase>(recoveryAssertionIds ? "unknown_result" : "idle");
+  const [frozenIds, setFrozenIds] = useState<string[] | null>(recoveryAssertionIds ?? null);
   const [receipt, setReceipt] = useState<ExtractPromoteConfirmReceipt | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const [reloadingRevision, setReloadingRevision] = useState(false);
 
   const confirming = confirmPhase === "confirming";
-  const selectionLocked = confirming || confirmPhase === "receipt";
+  const selectionLocked = confirmPhase !== "idle";
   const hasTerminalReceipt = receipt != null;
 
   useEffect(() => {
@@ -138,9 +149,11 @@ export function GraphReviewExtractPromoteSheet({
 
   const toggle = (item: ExtractPromotionReviewItem) => {
     if (!item.selectable || selectionLocked) return;
-    setSelectedIds((prev) =>
-      togglePromoteSelection(prepared.reviewItems, prev, item.sliceQualifiedId),
-    );
+    const next=togglePromoteSelection(prepared.reviewItems,selectedIds,item.sliceQualifiedId);
+    try {
+      onSelectionChange?.(selectedPromoteAssertionIds(prepared.reviewItems,next));
+      setSelectedIds(next);setConfirmError(null);
+    } catch(error) { setConfirmError(confirmErrorMessage(error)); }
   };
 
   const adoptTerminalReceipt = useCallback(
@@ -172,6 +185,13 @@ export function GraphReviewExtractPromoteSheet({
       setConfirmError(null);
       setReloadError(null);
 
+      // A failed local save is known to precede dispatch, not an unknown commit.
+      try { onBeforeConfirm?.(assertionIds); }
+      catch (error) {
+        setConfirmPhase("pre_commit_error");
+        setConfirmError(confirmErrorMessage(error));
+        return;
+      }
       let nextReceipt: ExtractPromoteConfirmReceipt;
       try {
         nextReceipt = await confirmExtractPromote({
@@ -180,6 +200,7 @@ export function GraphReviewExtractPromoteSheet({
         });
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
+          onConfirmRejected?.(error.code);
           setConfirmPhase("pre_commit_error");
           setConfirmError(confirmErrorMessage(error));
           return;
@@ -209,7 +230,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [adoptTerminalReceipt, committedBinding, prepared.reviewPackage],
+    [adoptTerminalReceipt, committedBinding, prepared.reviewPackage, onBeforeConfirm, onConfirmRejected],
   );
 
   const onMergeClick = () => {

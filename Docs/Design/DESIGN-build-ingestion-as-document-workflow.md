@@ -1,6 +1,6 @@
 # Design — Build document ingestion as one workflow
 
-**Status:** Worldbuilding inline review delivered by PR1535 under [its handoff](../Plans/HANDOFF-BUILD-inline-extraction-review.md). The [exact-document Recap source adapter](../Plans/HANDOFF-BUILD-recap-source-adapter.md) is delivered by PR1536; [recoverable launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537; [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are ACTIVE; Recap launch/configuration and full recovery acceptance remain open.
+**Status:** Worldbuilding inline review delivered by PR1535 under [its handoff](../Plans/HANDOFF-BUILD-inline-extraction-review.md). The [exact-document Recap source adapter](../Plans/HANDOFF-BUILD-recap-source-adapter.md) is delivered by PR1536; [recoverable launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537; [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are delivered by PR1538; [Recap publication recovery](../Plans/HANDOFF-BUILD-recap-publication-recovery.md) is ACTIVE. Full recovery acceptance remains open.
 **Repository anchor:** DungeonMindBuddy `main@63f96f948538bcb897d21a341795c756d0d2e80a`
 **Product authority:** [`ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md), Authoring/view continuity
 **Scope owner:** Buddy owns the Build experience and source-document interaction; the admitted knowledge and publication owners retain their current validation and write boundaries.
