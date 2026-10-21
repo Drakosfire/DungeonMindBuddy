@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { BuddyPromptInspector } from './BuddyPromptInspector'
+import { BuddyPromptInspector as PromptInspector } from './BuddyPromptInspector'
+import { startReadWave } from '../../api/inFlightReads'
+import { BuddyTurnInspection } from './BuddyTurnInspection'
 import { ResponseEvidenceTabs } from './ResponseEvidenceTabs'
 import type { BuddyPromptEvidence, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { getWorldAgentTurnPrompt } from '../../api/liveApi'
 import { PreparedRequestInspector } from './PreparedRequestInspector'
-vi.mock('../../api/liveApi', () => ({ getWorldAgentTurnPrompt: vi.fn() }))
+vi.mock('../../api/liveApi', () => ({ getWorldAgentTurnPrompt: vi.fn(), getWorldAgentTurnContextTrace: vi.fn() }))
 const load = vi.mocked(getWorldAgentTurnPrompt)
 const reference = (id: string, sequence = 0): BuddyTracePromptReference => ({ kind: 'prompt_reference', sequence, elapsed_ms: 0,
   provider_attempt_id: id, evidence_id: `evidence-${id}`, provider: 'synthetic', model: `model-${id}`, api_mode: 'responses',
@@ -19,6 +21,10 @@ function payload(t: BuddyTurnContextTrace, ref: BuddyTracePromptReference, instr
   return { schema: 'dmb_agent_prompt_evidence_v1', world_id: t.world_id, conversation_id: t.conversation_id,
     turn_id: t.turn_id, trace_id: t.trace_id, attempt: t.attempt, reference: ref,
     payload_json: JSON.stringify({ model: ref.model, instructions, input: [{ role: 'user', content: '<script>Literal text</script>' }], tools: [{ type: 'function', name: 'read_graph' }] }) }
+}
+function BuddyPromptInspector({ trace: t }: { trace: BuddyTurnContextTrace | null }) {
+  return <BuddyTurnInspection worldId={t?.world_id ?? 'world'} conversationId={t?.conversation_id ?? 'conversation'}
+    turnId={t?.turn_id ?? 'turn'} lifecycle="completed"><PromptInspector trace={t} /></BuddyTurnInspection>
 }
 beforeEach(() => { load.mockReset() })
 describe('The Prompt in response evidence', () => {
@@ -95,4 +101,45 @@ describe('The Prompt in response evidence', () => {
     await act(async () => reject(new Error('integrity failure')))
     expect(screen.getByRole('alert')).toHaveTextContent('No reconstructed request')
   })
+})
+
+describe('turn-owned captured request reuse', () => {
+  it('reuses validated bytes when Debug and Evidence Trail inspect the same call sequentially', async () => {
+    const t = trace()
+    load.mockResolvedValue(payload(t, reference('one')))
+    const owner = (show: boolean) => <BuddyTurnInspection worldId="world" conversationId="conversation" turnId="turn" lifecycle="completed">
+      {show ? <PromptInspector trace={t} /> : null}</BuddyTurnInspection>
+    const view = render(owner(true))
+    await screen.findByRole('heading', { name: 'Full composed request' })
+    expect(load).toHaveBeenCalledTimes(1)
+    view.rerender(owner(false))
+    view.rerender(owner(true))
+    await screen.findByRole('heading', { name: 'Full composed request' })
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+  it('does not retain a rejected body and reacquires on an explicit new inspection', async () => {
+    const t = trace()
+    load.mockResolvedValueOnce({...payload(t, reference('one')), turn_id:'foreign'}).mockResolvedValue(payload(t, reference('one')))
+    const owner = (show: boolean) => <BuddyTurnInspection worldId="world" conversationId="conversation" turnId="turn" lifecycle="completed">
+      {show ? <PromptInspector trace={t} /> : null}</BuddyTurnInspection>
+    const view = render(owner(true))
+    await screen.findByRole('alert')
+    view.rerender(owner(false))
+    view.rerender(owner(true))
+    await screen.findByRole('heading', { name: 'Full composed request' })
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+})
+
+it('fences the previous prompt synchronously when a new read wave retires its owner', async () => {
+  const t = trace()
+  load.mockResolvedValueOnce(payload(t, reference('one'), 'Old private request')).mockReturnValue(new Promise(() => {}))
+  render(<BuddyTurnInspection worldId="world" conversationId="conversation" turnId="turn" lifecycle="completed">
+    <PromptInspector trace={t} /></BuddyTurnInspection>)
+  await screen.findByRole('heading', { name: 'Full composed request' })
+  fireEvent.click(screen.getByRole('button', { name: /System instructions/ }))
+  expect(screen.getByLabelText('Captured request')).toHaveTextContent('Old private request')
+  act(() => startReadWave())
+  expect(screen.queryByLabelText('Captured request')).not.toBeInTheDocument()
+  expect(load).toHaveBeenCalledTimes(2)
 })
