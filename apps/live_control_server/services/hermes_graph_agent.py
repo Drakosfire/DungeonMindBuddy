@@ -2376,7 +2376,8 @@ def run_hermes_graph_agent_turn(
                     ) as lookup_succeeded:
                         with hermes_import_namespace():
                             module = importlib.import_module("run_agent")
-                            factory = module.AIAgent
+                            from .hermes_product_prompt import buddy_agent_class
+                            factory = buddy_agent_class(module.AIAgent)
                         lookup_succeeded()
                 except Exception:
                     return observed_error(
