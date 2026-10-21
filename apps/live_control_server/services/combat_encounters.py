@@ -23,7 +23,7 @@ from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateValidationError,
 )
-from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.config import artifact_data_root, repo_root, session_dir
 from apps.live_control_server.services.statblock_view import (
     StatblockViewError,
     read_generated_statblock,
@@ -67,7 +67,7 @@ def add_generated_statblock_to_world_combat_encounter(
             "Combat encounter changed since it was selected; reload before adding a statblock"
         )
     detail = read_generated_statblock(
-        base=session_dir(), root=repo_root(), artifact_id=artifact_id
+        base=session_dir(), root=artifact_data_root(repo_root()), artifact_id=artifact_id
     )
     combat = detail.combat_defaults
     if combat is None:

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 from apps.live_control_server.routes.agent import router as agent_turn_router
 from apps.live_control_server.config import (
     ManagedWorldDataRootError,
+    artifact_data_root,
     managed_world_data_root,
     repo_root,
     session_dir,
@@ -423,7 +424,7 @@ def get_statblock_corpus_index() -> dict[str, Any]:
 )
 def get_generated_statblock_view_list() -> dict[str, Any]:
     try:
-        response = list_generated_statblocks(base=session_dir(), root=repo_root())
+        response = list_generated_statblocks(base=session_dir(), root=artifact_data_root(repo_root()))
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="generated statblock list failed"
@@ -440,7 +441,7 @@ def get_generated_statblock_view_detail(
 ) -> dict[str, Any]:
     try:
         response = read_generated_statblock(
-            base=session_dir(), root=repo_root(), artifact_id=artifact_id
+            base=session_dir(), root=artifact_data_root(repo_root()), artifact_id=artifact_id
         )
     except UnsafeArtifactIdError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
