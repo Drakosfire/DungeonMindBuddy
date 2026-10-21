@@ -1304,6 +1304,19 @@ class AgentConversationService:
                     if prior == event:
                         return turn, False
                     raise ApplicationStateConflictError("Graph execution event ID was reused with changed content")
+            if isinstance(execution, PlanWorldGraphExecutionV3):
+                from .rules_authority_store import load_turn_rules_locked
+                from .rules_authority_events import RulesPlanPacketProviderAuthorizedV1
+                rules = load_turn_rules_locked(conn, turn)
+                writer = next((item for item in rules.execution.events
+                    if isinstance(item, RulesPlanPacketProviderAuthorizedV1)), None) if rules else None
+                if writer is not None and not (
+                    isinstance(event, ProviderOutcomeEventV1)
+                    and event.provider_attempt_id == writer.provider_attempt_id
+                ):
+                    raise ApplicationStateValidationError(
+                        "Plan packet final writer forbids later Graph reads or providers"
+                    )
             native_inclusion = None
             if native_play_prepared_request_json is not None:
                 from .types import PlayWorldGraphContextReceiptV1

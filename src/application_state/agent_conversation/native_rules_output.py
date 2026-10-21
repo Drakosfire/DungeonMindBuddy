@@ -106,6 +106,7 @@ def verify_native_reply(
     rules_execution: RulesExecutionV1,
     proof: NativeRulesOutputProofV1,
     capture,
+    *, plan_turn: Turn | None = None,
 ) -> None:
     """Revalidate the exact captured reply against both durable producer ledgers."""
     if not isinstance(proof, NativeRulesOutputProofV1):
@@ -274,8 +275,8 @@ def verify_native_reply(
             "Native Rules output differs from its exact included Rules evidence"
         )
     try:
-        verify_prepared_input(rules_execution, rules_auth, proof.prepared_request_json)
-        verify_prepared_input(rules_execution, included, proof.prepared_request_json)
+        verify_prepared_input(rules_execution, rules_auth, proof.prepared_request_json, plan_turn=plan_turn)
+        verify_prepared_input(rules_execution, included, proof.prepared_request_json, plan_turn=plan_turn)
     except (ValueError, TypeError, KeyError, RecursionError) as exc:
         raise ValueError("Native Rules prepared input differs from its recorded evidence") from exc
     latest = [
@@ -293,9 +294,9 @@ def verify_native_reply(
         )
 
 
-def verify_native_output(graph_execution, rules_execution, proof, capture) -> RulesWriterAnswerV1:
+def verify_native_output(graph_execution, rules_execution, proof, capture, *, plan_turn: Turn | None = None) -> RulesWriterAnswerV1:
     """Verify the actual producer, then parse its closed mixed answer."""
-    verify_native_reply(graph_execution, rules_execution, proof, capture)
+    verify_native_reply(graph_execution, rules_execution, proof, capture, plan_turn=plan_turn)
     answer = parse_answer(proof.raw_output_json)
     included = _one(
         [event for event in rules_execution.events
@@ -367,7 +368,7 @@ def normalize_native_mixed_output(
     if not rules_only and receipt.context_receipt_sha256 != graph_execution.context_receipt_sha256:
         raise ValueError("Native Rules Graph execution differs from its frozen receipt")
 
-    answer = verify_native_output(graph_execution, rules_execution, proof, capture)
+    answer = verify_native_output(graph_execution, rules_execution, proof, capture, plan_turn=turn)
     included = _one(
         [
             event
@@ -481,7 +482,7 @@ def normalize_unused_native_output(turn, rules_execution, proof):
     if rules_execution.budget_use.calls or rules_execution.supports:
         raise ValueError("Used Rules requires mixed completion")
     capture, support = sealed_native_producer(turn, rules_execution, proof)
-    verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture)
+    verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture, plan_turn=turn)
     if turn.graph_context_execution is None:
         return None, None, proof.raw_output_json
     return parse_native_answer(proof.raw_output_json, turn,

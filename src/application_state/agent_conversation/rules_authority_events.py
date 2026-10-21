@@ -141,6 +141,17 @@ class RulesProviderIncludedV1(RulesEventBaseV1):
     support_refs: Annotated[tuple[RulesSupportRefV1, ...], Field(max_length=16)]
 
 
+class RulesPlanPacketProviderAuthorizedV1(RulesProviderAuthorizedV1):
+    """One final tool-free Plan producer; actual Plan join is claim-locked."""
+    kind: Literal["plan_packet_provider_authorized"]
+    plan_context_receipt_sha256: Digest
+
+
+class RulesPlanPacketProviderIncludedV1(RulesProviderIncludedV1):
+    kind: Literal["plan_packet_provider_included"]
+    plan_context_receipt_sha256: Digest
+
+
 class RulesBuildProviderAuthorizedV1(RulesProviderAuthorizedV1):
     kind: Literal["build_provider_authorized"]
     role: Literal["controller", "writer"]
@@ -242,6 +253,8 @@ RulesEventV1 = Annotated[
     | RulesQueryObservedV1
     | RulesProviderAuthorizedV1
     | RulesProviderIncludedV1
+    | RulesPlanPacketProviderAuthorizedV1
+    | RulesPlanPacketProviderIncludedV1
     | RulesBuildProviderAuthorizedV1
     | RulesBuildProviderIncludedV1
     | RulesProviderOutcomeV1
@@ -335,6 +348,7 @@ class RulesExecutionV1(ClosedRulesModel):
         bound = None
         presentation = 0
         retired = False
+        plan_packet_writer = None
         for index, event in enumerate(self.events):
             if (
                 event.sequence != index
@@ -345,6 +359,9 @@ class RulesExecutionV1(ClosedRulesModel):
             if bound is not None:
                 raise ValueError("Accepted Rules execution is immutable")
             event_ids.add(event.event_id)
+            if plan_packet_writer is not None and isinstance(event, (
+                    RulesToolAuthorizedV1, RulesQueryObservedV1, RulesProviderAuthorizedV1)):
+                raise ValueError("Rules reads/providers cannot continue after final Plan packet writer")
             if isinstance(event, RulesToolAuthorizedV1):
                 # Reaching a hard threshold retires further tool admissions; the
                 # current admitted output and final provider response may settle.
@@ -414,6 +431,17 @@ class RulesExecutionV1(ClosedRulesModel):
                     )
                 observations[event.call_id] = event
             elif isinstance(event, RulesProviderAuthorizedV1):
+                if isinstance(event, RulesPlanPacketProviderAuthorizedV1):
+                    cap = rules_capability(graph=True)
+                    if (self.scope.capability_policy_sha256 != cap.policy_sha256
+                            or self.scope.corpus_sha256 != cap.corpus_sha256
+                            or self.scope.ruleset_id != cap.ruleset_id
+                            or set(calls) != set(observations)
+                            or any(isinstance(prior, RulesBuildProviderAuthorizedV1) for prior in providers.values())
+                            or any(outcomes.get(key) is None or outcomes[key].status not in {"answered", "tool_calls"}
+                                   for key in providers)):
+                        raise ValueError("Plan packet writer lacks resolved native Rules authority")
+                    plan_packet_writer = event.provider_attempt_id
                 if isinstance(event, RulesBuildProviderAuthorizedV1):
                     cap = rules_capability(graph=True)
                     if (self.scope.capability_policy_sha256 != cap.policy_sha256
@@ -455,6 +483,11 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError(
                         "Rules inclusion has no matching current provider authorization"
                     )
+                if isinstance(auth, RulesPlanPacketProviderAuthorizedV1) != isinstance(event, RulesPlanPacketProviderIncludedV1):
+                    raise ValueError("Rules inclusion changed the Plan packet carrier")
+                if (isinstance(auth, RulesPlanPacketProviderAuthorizedV1)
+                        and auth.plan_context_receipt_sha256 != event.plan_context_receipt_sha256):
+                    raise ValueError("Rules inclusion changed the frozen Plan receipt")
                 if isinstance(auth, RulesBuildProviderAuthorizedV1) != isinstance(event, RulesBuildProviderIncludedV1):
                     raise ValueError("Rules provider inclusion changed its input carrier")
                 if isinstance(auth, RulesBuildProviderAuthorizedV1) and any(
@@ -486,6 +519,10 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError(
                         "Rules provider outcome has no unique authorization"
                     )
+                if (isinstance(auth, RulesPlanPacketProviderAuthorizedV1)
+                        and event.status in {"answered", "tool_calls"}
+                        and not isinstance(event, RulesNativeProviderOutcomeV1)):
+                    raise ValueError("Final Plan packet writer requires a byte-sealed native answer")
                 if isinstance(event, RulesNativeProviderOutcomeV1) and (
                     isinstance(auth, RulesBuildProviderAuthorizedV1)
                     or event.status != "answered"
