@@ -1635,7 +1635,8 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
 
     services = build_direct_world_graph_read_services(dsn, world_id)
     child_view = graph_authority.read_revision(world_id, child)
-    assert "candidate:brin" in child_view.objects
+    published_node_id = prepared.package["effect"]["node_id_map"]["candidate:brin"]
+    assert published_node_id in child_view.objects
     projection = project_world_graph_direct(
         services,
         WorldGraphProjectionRequest(
@@ -1647,7 +1648,7 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
         ),
     )
     node_ids = [item.node_id for item in projection.nodes]
-    assert "candidate:brin" in node_ids
+    assert published_node_id in node_ids
     found = get_object_direct(
         services,
         WorldGraphObjectRequest.model_validate(
@@ -1657,12 +1658,12 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
                 "campaignId": CAMPAIGN_ID,
                 "revisionPin": child,
                 "scopeMode": "world",
-                "nodeId": "candidate:brin",
+                "nodeId": published_node_id,
             }
         ),
     )
     assert found.outcome != "empty"
-    assert found.resolved_node_id == "candidate:brin"
+    assert found.resolved_node_id == published_node_id
     search = search_world_graph_direct(
         services,
         WorldGraphSearchRequest.model_validate(
@@ -1676,7 +1677,7 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
             }
         ),
     )
-    assert "candidate:brin" in search.matched_node_ids
+    assert published_node_id in search.matched_node_ids
     neighborhood = get_neighborhood_direct(
         services,
         WorldGraphNeighborhoodRequest.model_validate(
@@ -1686,12 +1687,12 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
                 "campaignId": CAMPAIGN_ID,
                 "revisionPin": child,
                 "scopeMode": "world",
-                "seedNodeIds": ["candidate:brin"],
+                "seedNodeIds": [published_node_id],
             }
         ),
     )
     assert neighborhood.outcome != "empty"
-    assert "candidate:brin" in [item.node_id for item in neighborhood.nodes]
+    assert published_node_id in [item.node_id for item in neighborhood.nodes]
     evidence = get_evidence_direct(
         services,
         WorldGraphEvidenceRequest.model_validate(
@@ -1701,7 +1702,7 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
                 "campaignId": CAMPAIGN_ID,
                 "revisionPin": child,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "candidate:brin"},
+                "target": {"kind": "node", "id": published_node_id},
             }
         ),
     )

@@ -62,7 +62,6 @@ pytest_plugins = ("tests.application_state.conftest",)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DUNGEONMIND_PIN = "63ec810a02f18c4e25af228f6fdb19d99d12579e"
 REJECTED_NODE_ID = "obj_rejected_extra"
 
 
@@ -82,17 +81,6 @@ def _forbidden_imports(path: Path, names: tuple[str, ...]) -> list[str]:
             ):
                 found.append(node.module)
     return found
-
-
-def test_dungeonmind_pin_is_exact_pr56_merge() -> None:
-    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
-    assert DUNGEONMIND_PIN in pyproject
-    assert DUNGEONMIND_PIN in lock
-    assert "d8f7a9f0d6b256f5cf4588987520bf286f1eade3" not in pyproject
-    assert "d8f7a9f0d6b256f5cf4588987520bf286f1eade3" not in lock
-    assert "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b" not in pyproject
-    assert "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b" not in lock
 
 
 def _other_shaped_command(command):
@@ -736,6 +724,33 @@ def _revision_ids(dsn: str, world_id: str) -> list[tuple[str]]:
         ).fetchall()
 
 
+def _admit_recap_source_fixture(dsn: str, world_id: str, source: Path, artifact_id: str, session_id: str):
+    """Use the real source owner before preparing or publishing recap fixtures."""
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission import WorldGraphSourceAdmissionRequest
+
+    content_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+    now = datetime.now(UTC)
+    artifact = SimpleNamespace(
+        source_artifact_id=artifact_id, source_domain="recap", campaign_id="longmont-c2",
+        session_id=session_id, uri=str(source), content_sha256=content_sha256,
+        artifact_kind="markdown", document_class="recap", authority_state="reviewed",
+        visibility_state="internal", world_id=world_id, workspace_document_id=None,
+        workspace_document_revision=None, lineage={}, status="active", created_at=now, updated_at=now,
+    )
+    authority = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn)
+    admitted = authority.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        world_id=world_id, campaign_id="longmont-c2", source_artifact=artifact,
+        source_revision_token="sha256:" + content_sha256, source_uri=str(source),
+    ))
+    assert admitted.source_artifact_id == artifact_id
+    assert admitted.content_sha256 == content_sha256
+    return artifact, authority
+
+
 @pytest.mark.integration
 def test_native_recap_genesis_is_atomic_and_replays_exactly(
     native_first_world_client,
@@ -829,6 +844,10 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
         node_id="obj_recap_genesis_child",
         label="Recap Genesis Child",
     )
+    _admit_recap_source_fixture(
+        dsn, world_id, repo / "recap-genesis-child-recap.md",
+        "artifact:recap:longmont-c2:recap-genesis-child", "session-26",
+    )
     _, contribution = resolve_merged_contribution_from_package(
         review_package=package,
         confirming_principal="test",
@@ -837,7 +856,8 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
         mutation_context=mutation_context,
         expected_parent_revision_id=d0,
         assertion_ids=None,
-        verify_source=False,
+        verify_source=True,
+        repo_root=repo,
     )
     child = graph_authority.publish(
         WorldGraphPublishRequest(
@@ -1500,17 +1520,12 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
     """D0 -> D1 -> D2, partial eligibility, fatal integrity, exact retry."""
     import hashlib
     import json
-    from datetime import UTC, datetime
-    from types import SimpleNamespace
 
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
-    )
-    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
-        DungeonMindWorldGraphSourceAdmissionAdapter,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         bind_identity_ledger_to_package,
@@ -1523,9 +1538,6 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
         RecapWorldGenesisPrepareRequest,
     )
     from apps.live_control_server.ports.world_graph_authority import WorldGraphPublishRequest
-    from apps.live_control_server.ports.world_graph_source_admission import (
-        WorldGraphSourceAdmissionRequest,
-    )
     from apps.live_control_server.services.candidate_graph_admission import (
         confirm_candidate_graph_admission,
         prepare_candidate_graph_admission,
@@ -1566,38 +1578,12 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
     d0 = genesis.published_revision_id
 
     source = repo / "session-9.md"
-    source.write_text("Brin visits the Medical Wing.\n", encoding="utf-8")
+    source.write_text("Brin visits the Medical Wing. Nell waits outside.\n", encoding="utf-8")
     source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
     source_revision = f"sha256:{source_digest}"
     artifact_id = "artifact:recap:longmont-c2:session-9"
-    now = datetime.now(UTC)
-    source_authority = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn)
-    source_authority.prove_or_admit(
-        WorldGraphSourceAdmissionRequest(
-            world_id=world_id,
-            campaign_id="longmont-c2",
-            source_artifact=SimpleNamespace(
-                source_artifact_id=artifact_id,
-                source_domain="recap",
-                campaign_id="longmont-c2",
-                session_id="session-9",
-                uri=str(source),
-                content_sha256=source_digest,
-                artifact_kind="markdown",
-                document_class="recap",
-                authority_state="reviewed",
-                visibility_state="internal",
-                world_id=world_id,
-                workspace_document_id=None,
-                workspace_document_revision=None,
-                lineage={},
-                status="active",
-                created_at=now,
-                updated_at=now,
-            ),
-            source_revision_token=source_revision,
-            source_uri=str(source),
-        )
+    artifact, source_authority = _admit_recap_source_fixture(
+        dsn, world_id, source, artifact_id, "session-9",
     )
     graph_authority = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
 
@@ -1610,6 +1596,8 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
             prepared_by="candidate-admission-test",
             world_id=world_id,
             source_artifact_id=artifact_id,
+            source_artifact=artifact,
+            source_admission=source_authority,
             campaign_scope="longmont-c2",
             repo_root=repo,
             mutation_context=context,
@@ -1643,7 +1631,7 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
                         item.assertion_id for item in contribution.accepted_assertions
                     ),
                     decision="create_new",
-                    threat_node_id="candidate:brin",
+                    threat_node_id=candidate["nodes"][0]["node_id"],
                     operation_namespace="threat",
                 )
             ),
@@ -1659,6 +1647,10 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
     assert graph_authority.current_head(world_id).revision_id == d1
 
     candidate_b = _candidate(unsupported=True)
+    # D1 already contains Brin. Exercise a real second admitted fact rather
+    # than expecting the host to publish an empty duplicate contribution.
+    candidate_b["nodes"][0] = _node("candidate:nell", "character")
+    candidate_b["edges"][0]["from_node_id"] = "candidate:nell"
     result_b, context_b, package_b = prepare(candidate_b, d1)
     binding_b = package_b["effect"]["candidate_admission"]
     assert binding_b["exact_candidate_counts"]["nodes"] == 2

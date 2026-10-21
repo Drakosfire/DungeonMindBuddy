@@ -1,6 +1,8 @@
 # BUILD — correction recovery across run modes
 
-ACTIVE serial implementation under the operator's ingestion-in-Build goal. PRIME designs/implements/merges; Bugbot independently reviews exact head. Base950700f0fb324c3177bfebc394f1aa05cca9a8c4; branch codex/build-correction-recovery-parity in existing buddy-context-loop checkout. One independently useful UI capability. Open1235 owns shared API/types/exact review components; held1546 owns agent/Jev paths. Both are read-only and disjoint. No new checkout/environment or real World mutation.
+DELIVERED by PR1551, merge5a78cfba79751a91570102fb9a017091c1ccebbe. Bugbot approved3ed8f5f60f187e7e21b0be9a20b266615b5c3420 with149independent tests; author26owning+112related tests/typecheck/build passed. UI5202 serving5a78cfba, API4a2c8249/APP0042/all1448rows preserved; actual saved Edge review opens with one editor/no alerts/no second source reader. No real correction/publication or cross-tab browser acceptance claimed.
+
+Original serial implementation under the operator's ingestion-in-Build goal. PRIME designs/implements/merges; Bugbot independently reviews exact head. Base950700f0fb324c3177bfebc394f1aa05cca9a8c4; branch codex/build-correction-recovery-parity in existing buddy-context-loop checkout. One independently useful UI capability. Open1235 owns shared API/types/exact review components; held1546 owns agent/Jev paths. Both are read-only and disjoint. No new checkout/environment or real World mutation.
 
 Measured gap: BuildRunReview applies Web Locks, conflicting-request refusal and abandonment retention only to Recap. Worldbuilding evidence correction uses the same persisted request lifecycle but can overwrite another tab's unresolved request or delete it on abandonment. Apply one correction persistence interaction across both run modes. Keep their separate correction endpoints, exact source/candidate validation, semantic-review rules and publication authorities.
 
