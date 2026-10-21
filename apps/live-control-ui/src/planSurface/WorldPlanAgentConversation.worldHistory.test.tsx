@@ -2930,15 +2930,15 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
   });
 
-  it("opens a saved claim's exact source from its inline citation without posting an Ask", async () => {
+  it.each([true, false])("opens a saved claim's exact source inline without posting an Ask (previously read: %s)", async previouslyRead => {
     const context = await planGraphContext("graph_grounded");
     const completion = context.completion! as unknown as Record<string, any>;
     completion.schema = "dmb_plan_world_graph_completion_v2";
     completion.citation_map.schema = "dmb_graph_citation_map_v2";
-    completion.citation_map.entries[0].source_opened = true;
-    completion.citation_map.entries[0].source_read_ids = ["read-exact"];
+    completion.citation_map.entries[0].source_opened = previouslyRead;
+    completion.citation_map.entries[0].source_read_ids = previouslyRead ? ["read-exact"] : [];
     context.source_open_targets = sourceOpenTargets().filter(target => target.kind === "evidence_anchor")
-      .map(target => ({...target, source_read_id:"read-exact", read_outcome:"enough"}));
+      .map(target => ({...target, source_read_id:previouslyRead ? "read-exact" : null, read_outcome:previouslyRead ? "enough" : null}));
     setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
       1, "inline-source-turn", "What is known?", "The western gate is watched.", context,
     )]));
