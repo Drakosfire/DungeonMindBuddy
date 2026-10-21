@@ -13,7 +13,7 @@ function trace(observations: BuddyTurnContextTrace['observations']): BuddyTurnCo
 function passage(text: string): BuddyTraceSourcePassage {
   return {kind:'source_passage', sequence:0, elapsed_ms:2, source_read_event_id:'read-event', read_call_id:'call',
     world_id:'world', graph_revision:'rev', source_read_id:'read', anchor_id:'anchor', evidence_ref_id:'evidence',
-    source_artifact_id:'Session source', source_revision_id:'source-rev', line_start:1, line_end:2,
+    source_artifact_id:'artifact:opaque', source_name:'Session source', source_revision_id:'source-rev', line_start:1, line_end:2,
     outcome:'enough', returned_chars:text.length, content_sha256:'a'.repeat(64), text}
 }
 const emptyResult: BuddyTraceGraphResult = {outcome:'denied', graph_revision:'rev', coverage_status:'incomplete', projection_status:'complete',
@@ -121,3 +121,12 @@ describe('Buddy context trace', () => {
     }
   })
 })
+
+ it('names an unavailable source honestly without using its artifact ID as the title',()=>{
+   const row=passage('Exact source text');delete row.source_name;
+   render(<BuddyContextTrace ownerActive={true} trace={trace([row])}/>);
+   const summary=screen.getByText('Source name unavailable · lines 1–2 · enough');
+   expect(summary).not.toHaveTextContent('artifact:opaque');
+   fireEvent.click(summary);fireEvent.click(screen.getByText('Pinned source reference'));
+   expect(screen.getByText(/"source_artifact": "artifact:opaque"/)).toBeInTheDocument();
+ });

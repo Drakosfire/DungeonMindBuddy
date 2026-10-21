@@ -108,7 +108,7 @@ def _captured_passage_fixture(dsn):
     text = 'Earlier 🦉 source.'
     passage = TraceSourcePassage(sequence=0, elapsed_ms=1, source_read_event_id=uuid4(), read_call_id=uuid4(),
         world_id=turn.world_id, graph_revision='revision', source_read_id='source/a ?&=', anchor_id='anchor',
-        evidence_ref_id='evidence', source_artifact_id='artifact', source_revision_id='revision',
+        evidence_ref_id='evidence', source_artifact_id='artifact', source_name='Longmont C2 · Session 24', source_revision_id='revision',
         outcome='enough', returned_chars=len(text), content_sha256=sha256(text.encode()).hexdigest(), text=text)
     payload = trace.model_dump(mode='json', by_alias=True)
     payload['observations'] = [passage.model_dump(mode='json')]
@@ -133,7 +133,9 @@ def test_exact_historical_read_loads_only_one_attempt(application_state_dsn, mon
         seen.append(payload['attempt'])
         return load(payload)
     monkeypatch.setattr(context_trace_store, '_load_trace', record)
-    assert service.read_historical_source_passage(reference) == passage
+    read = service.read_historical_source_passage(reference)
+    assert read == passage
+    assert read.source_name == "Longmont C2 · Session 24"
     assert seen == [1]
 
 

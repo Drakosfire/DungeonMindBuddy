@@ -170,6 +170,7 @@ class ContextTraceCollector:
                 source_read_id=receipt.source_read_id, anchor_id=receipt.anchor_id,
                 evidence_ref_id=receipt.evidence_ref_id,
                 source_artifact_id=receipt.source_artifact_id,
+                source_name=result.get("sourceName") if isinstance(result.get("sourceName"), str) and result["sourceName"].strip() else None,
                 source_revision_id=receipt.source_revision_id,
                 line_start=receipt.line_start, line_end=receipt.line_end,
                 outcome=receipt.outcome, returned_chars=receipt.returned_chars,
