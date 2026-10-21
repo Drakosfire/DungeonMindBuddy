@@ -97,6 +97,25 @@ class RulesBuildToolAuthorizedV1(RulesToolAuthorizedV1):
         return self
 
 
+def plan_jev_rules_operation_id(decision_event_id: UUID, query_id: str) -> str:
+    return "plan-rules:" + canonical_sha256([str(decision_event_id), query_id])
+
+
+class RulesPlanJevToolAuthorizedV1(RulesToolAuthorizedV1):
+    """Host read chosen by an actual Plan decision; no synthetic tool transcript."""
+    kind: Literal["plan_jev_tool_authorized"]
+    decision_event_id: UUID
+    origin_provider_attempt_id: UUID
+    decision_request_id: UUID
+    parent_request_sha256: Digest
+
+    @model_validator(mode="after")
+    def exact_decision_operation(self):
+        if self.call_id != plan_jev_rules_operation_id(self.decision_event_id, self.query_id):
+            raise ValueError("Plan Rules operation differs from its exact Jev decision")
+        return self
+
+
 BuildRulesCarrierV1 = Literal["dmb_build_jev_driver_decision_v2", "dmb_build_jev_driver_continuation_v1",
     "dmb_build_jev_phase_controller_v1", "dmb_build_source_passage_writer_v1", "dmb_build_jev_writer_packet_v1"]
 
@@ -250,6 +269,7 @@ class RulesCompletionBoundV1(RulesEventBaseV1):
 RulesEventV1 = Annotated[
     RulesToolAuthorizedV1
     | RulesBuildToolAuthorizedV1
+    | RulesPlanJevToolAuthorizedV1
     | RulesQueryObservedV1
     | RulesProviderAuthorizedV1
     | RulesProviderIncludedV1
@@ -369,6 +389,11 @@ class RulesExecutionV1(ClosedRulesModel):
                     raise ValueError(
                         "Rules tool capability exhausted its admission budget"
                     )
+                if isinstance(event, RulesPlanJevToolAuthorizedV1):
+                    cap = rules_capability(graph=True)
+                    if (self.scope.capability_policy_sha256 != cap.policy_sha256
+                            or self.scope.corpus_sha256 != cap.corpus_sha256 or self.scope.ruleset_id != cap.ruleset_id):
+                        raise ValueError("Plan Jev Rules read lacks its current frozen capability")
                 if isinstance(event, RulesBuildToolAuthorizedV1):
                     origin = providers.get(event.origin_provider_attempt_id)
                     outcome = outcomes.get(event.origin_provider_attempt_id)

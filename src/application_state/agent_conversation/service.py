@@ -901,6 +901,18 @@ class AgentConversationService:
                 expected_ledger_revision=expected_ledger_revision, event=event)
         return record
 
+    def authorize_plan_jev_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+            expected_ledger_revision: int, event, parent_request_json: str) -> RulesLedgerRecordV1:
+        from .rules_authority_events import RulesPlanJevToolAuthorizedV1
+        from .rules_authority_store import append_lookup_event_locked
+        if not isinstance(event, RulesPlanJevToolAuthorizedV1):
+            raise ApplicationStateValidationError("Plan Jev Rules lookup requires its typed decision operation")
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_lookup_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision, expected_ledger_revision=expected_ledger_revision,
+                event=event, plan_jev_parent_request_json=parent_request_json)
+        return record
+
     def execute_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
                              call_id: str, local_reader: RulesLocalReader) -> RulesLookupDeliveryV1:
         """Serialize/reload/read/seal; return source bytes only after commit.

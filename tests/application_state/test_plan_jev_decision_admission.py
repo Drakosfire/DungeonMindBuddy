@@ -28,11 +28,13 @@ from tests.application_state.test_agent_conversation_postgres import _accepted_e
 def digest(raw): return sha256(raw.encode()).hexdigest()
 
 
-def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unknown=False, capture=True):
-    question = "Ask about this Plan Graph context."
+def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unknown=False, capture=True,
+                 question="Ask about this Plan Graph context."):
     candidate = RetrievalCandidate(handle="synthetic:pond", label="Park pond", kind="location")
+    from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
+    offered_rules = rules_candidate()
     host = RetrievalDecisionInput(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="a" * 64,
-        revision="synthetic:1", question=question, candidates=(candidate,),
+        revision="synthetic:1", question=question, candidates=(candidate, offered_rules),
         allowed_operations=("select_candidates", "discover_more", "finish_retrieval"))
     case = SimpleNamespace(dsn=dsn, host=host, sent=[], lifecycles=[], trace_id=uuid4())
 
@@ -55,7 +57,8 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
             execution = t.PlanWorldGraphExecutionV3(context_receipt_sha256=receipt.context_receipt_sha256,
                 policy=policy, events=[], execution_policy_sha256=t.graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy))
             return super().accept_turn(submission.model_copy(update={"graph_context_receipt": receipt,
-                "graph_context_execution": execution}))
+                "graph_context_execution": execution, "user_text": question,
+                "submitted_intent_v2": submission.submitted_intent_v2.model_copy(update={"message": question})}))
     case.service = Service()
 
     class Transport(httpx2.AsyncBaseTransport):
@@ -63,7 +66,7 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
             case.sent.append(wire)
             body = json.loads(wire.content)
             assert set(body["state"]) == {"question", "candidates"}
-            assert body["state"]["candidates"] == [{"label": candidate.label, "kind": candidate.kind}]
+            assert body["state"]["candidates"] == [{"label": c.label, "kind": c.kind} for c in (candidate, offered_rules)]
             answers = {}
             for name, entry in body["questions"].items():
                 choice = operation if name == "operation" else ("include" if operation == "select_candidates" else "exclude")
@@ -75,13 +78,14 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
 
     async def authorize(prepared):
         case.prepared = prepared
-        _, _, _, case.turn = _accepted_execution_turn(case.service, "plan-jev-owner", execution_version=3, uncapped=True)
+        if not hasattr(case, "turn"):
+            _, _, _, case.turn = _accepted_execution_turn(case.service, "plan-jev-owner", execution_version=3, uncapped=True)
         execution = case.turn.graph_context_execution
         case.host = host.model_copy(update={"parent_attempt_id": UUID(prepared.attempt_id),
             "scope_sha256": scope_digest(case.turn),
             "revision": case.turn.graph_context_receipt.graph_authority.graph_revision})
         validate_prepared_decision(case.host, prepared)
-        base = _provider_authorization_event(attempt_id=UUID(prepared.attempt_id), sequence=0)
+        base = _provider_authorization_event(attempt_id=UUID(prepared.attempt_id), sequence=len(case.turn.graph_context_execution.events))
         case.auth = t.PlanJevProviderAuthorizedV1.model_validate(base.model_dump(mode="json", by_alias=True) | {
             "kind": "plan_jev_provider_authorized_v1", "api_mode": "decision", "provider": PROVIDER,
             "model": MODEL, "serializer_version": "typesafe-sdk-json-v1", "envelope_sha256": prepared.body_sha256,
@@ -93,9 +97,11 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
             case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
             authorization=case.auth, producer_proof=case.proof)
         assert fresh
-        case.service.start_context_trace(world_id=case.turn.world_id, conversation_id=case.turn.conversation_id,
-            turn_id=case.turn.turn_id, expected_revision=case.turn.revision, attempt=case.turn.attempt,
-            trace_id=case.trace_id, started_at=datetime.now(UTC))
+        if not hasattr(case, "trace_sequence"):
+            case.trace_sequence = 0
+            case.service.start_context_trace(world_id=case.turn.world_id, conversation_id=case.turn.conversation_id,
+                turn_id=case.turn.turn_id, expected_revision=case.turn.revision, attempt=case.turn.attempt,
+                trace_id=case.trace_id, started_at=datetime.now(UTC))
         return True
 
     async def record(event):
@@ -113,22 +119,29 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
         client = GenerationClient(decision_providers={PROVIDER: provider})
         try: case.result = await client.decide(prepare_decision(host))
         finally: await client.aclose()
-    asyncio.run(run())
-    raw = case.result.model_dump_json()
-    case.proof = case.proof | {"response_json": raw}
-    selected = decode_selection(case.host, case.result)
-    case.selection = t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1", event_id=uuid4(),
-        sequence=len(case.turn.graph_context_execution.events), context_receipt_sha256=case.turn.graph_context_receipt.context_receipt_sha256,
-        execution_policy_sha256=case.turn.graph_context_execution.execution_policy_sha256,
-        decision_request_id=case.host.request_id, controller_attempt_id=case.auth.provider_attempt_id,
-        controller_envelope_sha256=case.auth.envelope_sha256, controller_response_sha256=digest(raw),
-        parent_request_sha256=case.host.digest, operation=selected.operation, selected_handles=list(selected.selected_handles),
-        actual_input_tokens=case.result.observation.input_tokens, actual_output_tokens=case.result.observation.output_tokens)
-    if capture:
-        case.service.append_context_trace(world_id=case.turn.world_id, conversation_id=case.turn.conversation_id,
-            turn_id=case.turn.turn_id, expected_revision=case.turn.revision, attempt=case.turn.attempt, trace_id=case.trace_id,
-            observation=TraceContextSnapshot(sequence=0, elapsed_ms=1, stage="after", materials=[TraceContextMaterial(
-                item_id=f"unvalidated-plan-jev-result:{case.auth.provider_attempt_id}", state="model_context", role="fact", text=raw)]))
+    def next_decision(next_operation):
+        nonlocal operation, host
+        operation = next_operation
+        host = host.model_copy(update={"request_id": uuid4()})
+        asyncio.run(run())
+        raw = case.result.model_dump_json()
+        case.proof = case.proof | {"response_json": raw}
+        selected = decode_selection(case.host, case.result)
+        case.selection = t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1", event_id=uuid4(),
+            sequence=len(case.turn.graph_context_execution.events), context_receipt_sha256=case.turn.graph_context_receipt.context_receipt_sha256,
+            execution_policy_sha256=case.turn.graph_context_execution.execution_policy_sha256,
+            decision_request_id=case.host.request_id, controller_attempt_id=case.auth.provider_attempt_id,
+            controller_envelope_sha256=case.auth.envelope_sha256, controller_response_sha256=digest(raw),
+            parent_request_sha256=case.host.digest, operation=selected.operation, selected_handles=list(selected.selected_handles),
+            actual_input_tokens=case.result.observation.input_tokens, actual_output_tokens=case.result.observation.output_tokens)
+        if capture:
+            case.service.append_context_trace(world_id=case.turn.world_id, conversation_id=case.turn.conversation_id,
+                turn_id=case.turn.turn_id, expected_revision=case.turn.revision, attempt=case.turn.attempt, trace_id=case.trace_id,
+                observation=TraceContextSnapshot(sequence=case.trace_sequence, elapsed_ms=1, stage="after", materials=[TraceContextMaterial(
+                    item_id=f"unvalidated-plan-jev-result:{case.auth.provider_attempt_id}", state="model_context", role="fact", text=raw)]))
+        if capture: case.trace_sequence += 1
+    case.redecide = next_decision
+    next_decision(operation)
     return case
 
 
@@ -303,16 +316,24 @@ def test_rules_ledger_begun_after_decision_obeys_plan_phase(application_state_ds
     case = prepare_case(application_state_dsn, operation=operation); append(case)
     scope = rules_scope(case)
     record = case.service.begin_rules_execution(scope, expected_turn_revision=case.turn.revision)
-    auth = broker.prepare_authorization(record.execution, "rules:phase", args())
+    from application_state.agent_conversation.plan_jev_rules_lookup import prepare_authorization
+    if not allowed:
+        # The old unbound native carrier cannot bypass a completed Plan phase.
+        auth = broker.prepare_authorization(record.execution, "rules:phase", args())
+    else:
+        auth = prepare_authorization(record.execution, case.turn, case.proof["parent_request_json"])
     def authorize():
-        return case.service.authorize_rules_lookup(scope, expected_turn_revision=case.turn.revision,
-            expected_ledger_revision=record.revision, event=auth)
+        if not allowed:
+            return case.service.authorize_rules_lookup(scope, expected_turn_revision=case.turn.revision,
+                expected_ledger_revision=record.revision, event=auth)
+        return case.service.authorize_plan_jev_rules_lookup(scope, expected_turn_revision=case.turn.revision,
+            expected_ledger_revision=record.revision, event=auth, parent_request_json=case.proof["parent_request_json"])
     if not allowed:
         with pytest.raises(ApplicationStateValidationError, match="open Plan Jev"): authorize()
         return
     record = authorize()
     delivered = case.service.execute_rules_lookup(scope, expected_turn_revision=case.turn.revision,
-        call_id=auth.call_id, local_reader=lambda current: broker.prepare_lookup(current, auth.call_id, args()))
+        call_id=auth.call_id, local_reader=lambda current: broker.prepare_plan_lookup(current, auth.call_id, case.turn.user_text))
     assert not delivered.replayed
     replay = case.service.execute_rules_lookup(scope, expected_turn_revision=case.turn.revision,
         call_id=auth.call_id, local_reader=lambda _: pytest.fail("replay must not perform a fresh Rules read"))
