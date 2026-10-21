@@ -31,5 +31,3 @@
 }
 .world-plan-agent-answer__citation:focus-visible { outline: 2px solid currentColor; }
 .buddy-source-provenance { font-size: .8rem; overflow-wrap: anywhere; }
-.buddy-source-provenance dt { font-weight: 600; }
-.buddy-source-provenance dd { margin: 0 0 .5em; }

@@ -2460,7 +2460,7 @@ export function WorldPlanAgentConversation({
     turnId: string; claimId: string; targetId: string;
     status: "loading" | "open" | "unavailable"; content: string | null; message: string | null; partial: boolean;
     page?: WorldGraphRecapContextReadResponseV2; pages?: number; loadingMore?: boolean;
-    lines?: { start: number; end: number };
+    lines?: { start: number; end: number }; sourceName?: string | null;
   } | null>(null);
   const sourceReadEpochRef = useRef(0);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -4204,6 +4204,7 @@ export function WorldPlanAgentConversation({
       let content: string | null = null;
       let partial = false;
       let lines: { start: number; end: number } | undefined;
+      let sourceName: string | null = null;
       let recapPage: WorldGraphRecapContextReadResponseV2 | undefined;
       if (target.kind === "evidence_anchor") {
         const result = await postWorldGraphSourceAnchorRead({
@@ -4219,6 +4220,7 @@ export function WorldPlanAgentConversation({
           && result.sourceArtifactId === target.source_artifact_id
           && typeof result.content === "string" && result.content) {
           content = result.content;
+          sourceName = typeof result.sourceName === "string" && result.sourceName.trim() ? result.sourceName : null;
           partial = result.truncated || result.outcome === "partial" || result.outcome === "truncated";
         }
       } else {
@@ -4272,7 +4274,7 @@ export function WorldPlanAgentConversation({
       }
       if (!stillCurrent()) return;
       setSourcePassage(content
-        ? { ...identity, status: "open", content: (previous?.content ?? "") + content, message: null, partial, lines, page: recapPage, pages: (previous?.pages ?? 0) + 1, loadingMore: false }
+        ? { ...identity, status: "open", content: (previous?.content ?? "") + content, message: null, partial, lines, sourceName, page: recapPage, pages: (previous?.pages ?? 0) + 1, loadingMore: false }
         : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation.", partial: false });
     } catch {
       if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage.", partial: false });
@@ -4545,8 +4547,7 @@ export function WorldPlanAgentConversation({
         <span className="world-plan-agent-conversation__source-choice-kind">
           {target.kind === "evidence_anchor" ? "Graph evidence" : `Session ${target.expected_session_id} recap`}
         </span>
-        <strong>{label}</strong>
-        <span title={sourceCitationTitle(target)}>{target.source_artifact_id}</span>
+        <strong>{sourcePassage?.turnId === turn.turn_id && sourcePassage.targetId === targetId && sourcePassage.sourceName || label}</strong>
         <span>Read source passage <span aria-hidden="true">→</span></span>
       </button>;
     };
@@ -4567,7 +4568,6 @@ export function WorldPlanAgentConversation({
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           const claimTargets = targets.filter((target) => target.claim_id === claim.claim_id);
-          const evidenceChoices = claimTargets.filter((target) => target.kind === "evidence_anchor");
           const evidenceStatus = evidenceStatuses.find((row) => row.claim_id === claim.claim_id);
           const recapStatus = recapStatuses.find((row) => row.claim_id === claim.claim_id);
           const activeTarget = claimTargets.find((target) => sourcePassage?.turnId === turn.turn_id
@@ -4601,12 +4601,10 @@ export function WorldPlanAgentConversation({
             {activeTarget && sourcePassage ? <section className="world-plan-agent-conversation__source-reader">
               <header className="world-plan-agent-conversation__source-reader-header">
                 <div><span className="world-plan-agent-conversation__source-reader-eyebrow">{activeTarget.kind === "evidence_anchor" ? "Graph evidence" : `Session ${activeTarget.expected_session_id} recap`}</span>
-                  <strong>{activeTarget.kind === "related_recap_context"
-                    ? activeTarget.canonical_heading.replace(/^#{1,6}\s*/, "") || `Session ${activeTarget.expected_session_id} recap`
-                    : `Evidence passage${evidenceChoices.length > 1 ? ` ${evidenceChoices.findIndex((target) => target.kind === "evidence_anchor" && target.anchor_id === activeTarget.anchor_id) + 1}` : ""} supporting this claim`}</strong></div>
+                  <BuddySourceProvenance target={activeTarget} name={sourcePassage.status === "loading" ? "Opening source…" : sourcePassage.sourceName}
+                    lines={sourcePassage.lines ?? (sourcePassage.page ? { start: sourcePassage.page.lineStart!, end: sourcePassage.page.lineEnd! } : undefined)} /></div>
                 <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
               </header>
-              <BuddySourceProvenance target={activeTarget} lines={sourcePassage.lines ?? (sourcePassage.page ? { start: sourcePassage.page.lineStart!, end: sourcePassage.page.lineEnd! } : undefined)} />
               {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
               {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
               {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"

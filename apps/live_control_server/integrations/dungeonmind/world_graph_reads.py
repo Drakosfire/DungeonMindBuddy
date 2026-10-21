@@ -3315,6 +3315,18 @@ def _read_admitted_repo_span(
     )
 
 
+def _registered_source_name(artifact: Any) -> str | None:
+    """Human presentation from registered provenance, never opaque IDs or paths."""
+    domain = getattr(artifact, "source_domain_key", None) or getattr(artifact, "source_domain", None)
+    domain = getattr(domain, "value", domain)
+    session = getattr(artifact, "session_id", None)
+    if domain in {"recap", "session_recap"} and isinstance(session, str):
+        match = re.fullmatch(r"session-([1-9][0-9]*)", session)
+        if match:
+            return f"Session {match.group(1)} recap"
+    return None
+
+
 def _anchor_read_view(
     services: DirectWorldGraphReadServices,
     resolution: SourceAnchorResolution,
@@ -3353,6 +3365,7 @@ def _anchor_read_view(
         anchor_id=request.anchor_id,
         evidence_ref_id=anchor.evidence_ref_id,
         source_artifact_id=anchor.source_artifact_id,
+        source_name=_registered_source_name(anchor.artifact),
         source_domain=anchor.evidence.source_domain,
         source_span_ref_id=product_span,
         locator_kind=locator_kind,
