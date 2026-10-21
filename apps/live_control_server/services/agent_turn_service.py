@@ -6585,7 +6585,10 @@ def execute_agent_turn(
                                        selected_knowledge_context=selected_knowledge_context),
                 input_kind="server_assembled_saved_work",
             ))
-        if work is not None and work.build_source is not None:
+        if work is not None and (work.build_source is not None or work.plan_markdown is not None
+                or request.surface.surface_id == "play" and request.play_target is not None):
+            # This field contains verified saved-work assembly, not only the
+            # public question. IPC and final provider budgets bound its full bytes.
             assembly = replace(assembly, invocation=replace(
                 assembly.invocation, input_kind="server_assembled_saved_work",
             ))

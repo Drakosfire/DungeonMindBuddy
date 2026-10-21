@@ -34,6 +34,14 @@ class RulesOnlyProvider(FakeRuntime):
             native_rules_capture_required):
         self.invocations.append(invocation)
         mapped = map_invocation_to_hermes_request(invocation)
+        self.mapped = mapped
+        from apps.live_control_server.services.hermes_graph_agent_contract import (
+            serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request)
+        assert mapped.input_kind == "server_assembled_saved_work"
+        wire = serialize_hermes_graph_agent_turn_request(replace(mapped, request_budget=request_budget,
+            provider_authorization_required=True, parent_graph_broker_required=True,
+            native_rules_capture_required=True))
+        assert deserialize_hermes_graph_agent_turn_request(wire).question == mapped.question
         assert mapped.capability_policy.mode == "rules"
         assert mapped.capability_policy.graph_scope is None
         assert mapped.capability_policy.enabled_tool_names == ("lookup_rules",)
@@ -99,7 +107,7 @@ class RulesOnlyProvider(FakeRuntime):
         return AgentRuntimeResult(status="ok", final_text=text, runtime_session_id="runtime-1")
 
 
-def case(tmp_path, monkeypatch, surface):
+def case(tmp_path, monkeypatch, surface, *, note="Preserve my saved note."):
     managed = create_world_container(tmp_path, name="Rules-only World")
     world = managed.world_id
     plan = create_world_plan(title="Keep this Plan", world_id=world)
@@ -111,7 +119,7 @@ def case(tmp_path, monkeypatch, surface):
             expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)
         replace_world_play_run_progress(world_id=world, run_id=run.run.run_id, expected_run_revision=run.run.run_revision,
             progress={"current_beat_id":"beat:arrival", "current_scene_id":"scene:gate", "resolved_beat_ids":[],
-                "selections":{}, "notes_by_element_id":{"scene:gate":"Preserve my saved note."}})
+                "selections":{}, "notes_by_element_id":{"scene:gate":note}})
         current, content = read_context_snapshot(world_id=world, run_id=str(run.run.run_id))
         primary = {"kind":"run", "object_id":str(current.run_id), "expected_revision":current.run_revision,
             "play_content_basis":{"edition_revision":content.edition_revision,
@@ -283,3 +291,14 @@ def test_rules_only_play_forged_or_changed_source_refuses_before_provider(
     pointer = service.get_world_pointer(request.owner_scope.world_id)
     if pointer.active_conversation_id:
         assert service.list_turns(request.owner_scope.world_id,pointer.active_conversation_id) == []
+
+
+def test_large_saved_play_source_crosses_actual_ipc_without_truncation(application_state_dsn, tmp_path, monkeypatch):
+    note = "Retain this exact saved scene detail. " * 400
+    _, _, execute, retained, read_retained = case(tmp_path, monkeypatch, 'play', note=note)
+    runtime = RulesOnlyProvider('unused')
+    response = execute(runtime)
+    assert response.answer.status == 'ok'
+    assert len(runtime.mapped.question) > 8000 and note in runtime.mapped.question
+    assert note not in (runtime.mapped.surface_context_block or "")
+    assert read_retained() == retained

@@ -666,6 +666,16 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             from apps.live_control_server.services.native_rules_capture import NativeProviderReply
 
             assert callable(on_graph_operation)
+            from dataclasses import replace
+            from apps.live_control_server.services.hermes_agent_runtime import map_invocation_to_hermes_request
+            from apps.live_control_server.services.hermes_graph_agent_contract import (
+                serialize_hermes_graph_agent_turn_request, deserialize_hermes_graph_agent_turn_request)
+            mapped = map_invocation_to_hermes_request(invocation)
+            assert mapped.input_kind == "server_assembled_saved_work"
+            wire = serialize_hermes_graph_agent_turn_request(replace(mapped,request_budget=request_budget,
+                provider_authorization_required=True,parent_graph_broker_required=True,
+                native_rules_capture_required=native_rules_capture_required))
+            assert deserialize_hermes_graph_agent_turn_request(wire).question == mapped.question
             packet = _expected_initial_claim_packet(
                 authorize.__self__.bootstrap,
                 authorize.__self__.initial_session_projection,

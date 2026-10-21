@@ -181,9 +181,13 @@ def map_invocation_to_hermes_request(
     root = (
         execution_root.resolve() if isinstance(execution_root, Path) else execution_root
     )
-    surface_context_block = render_agent_surface_context(
-        invocation.context_packet.surface_context
-    )
+    surface_context = invocation.context_packet.surface_context
+    if (invocation.input_kind == "server_assembled_saved_work" and surface_context is not None
+            and surface_context.surface_id == "play" and surface_context.current_play is not None):
+        # The native question already carries the exact Play source frame. Keep
+        # rich typed context internally, but do not send the source text twice.
+        surface_context = replace(surface_context, current_play=None)
+    surface_context_block = render_agent_surface_context(surface_context)
     question = invocation.message
     selection = invocation.context_packet.selected_knowledge_context
     if selection is not None:
