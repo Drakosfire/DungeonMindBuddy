@@ -139,6 +139,17 @@ def test_image_operation_prepares_one_writer_and_reopens_without_generation(
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", image.reservation.conversation_id)[0]
     assert turn.completion == completion
+    traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+    observed = [item for trace in traces for item in trace.observations
+                if item.kind == "provider_call" and item.duration_ms is not None]
+    assert len(observed) == 2
+    assert {item.provider_attempt_id for item in observed} == {
+        event.provider_attempt_id for event in turn.graph_context_execution.events
+        if event.kind == "provider_attempt_authorized_v3"
+    }
+    assert all(item.provider_attempt_id is not None for item in observed)
+    assert [(item.input_tokens, item.output_tokens) for item in observed] == [(23, 4), (100, 35)]
+    assert all(call["runtime_api_request_id"].startswith("generationengine:") for call in runtime.calls)
     replay = execute(case, tmp_path, runtime, operator_subject="local_operator")
     assert replay.knowledge_context.delivery_replay is True
     assert len(decisions.calls) == len(wire.calls) == 1
