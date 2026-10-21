@@ -282,3 +282,48 @@ def test_parent_matches_provider_input_question_to_durable_lookup(monkeypatch, w
     changed = {**arguments(), "question": "How fast can they travel?"}
     with pytest.raises(ValueError, match="differ from the authorized query"):
         runtime._actual_lookup_material(request_body(changed))
+
+
+@pytest.mark.parametrize("unused", [True, False])
+@pytest.mark.parametrize("capture_mode", ["enabled", "disabled", "fails"])
+def test_native_completion_captures_validated_answer_before_closing_claim(unused, capture_mode):
+    from tests.application_state.test_native_rules_output import native_case
+    from tests.test_native_answer_output import plan_turn
+    from application_state.errors import ApplicationStateConflictError
+    turn, _ = plan_turn()
+    base = {"answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [{"kind": "plan_claim", "text": "The party reaches Edge."}], "citation_map": None}
+    _, rules, proof, reply, _, turn = native_case(graph_turn=turn, base_output=base, unused=unused)
+    calls = []
+    state = {"running": True}
+    def capture(text):
+        assert state["running"], "trace cannot append after completion"
+        calls.append(("capture", text))
+        if capture_mode == "fails":
+            raise ApplicationStateConflictError("trace capture was fenced")
+    def complete(result, **kwargs):
+        assert state["running"]
+        calls.append(("complete", result.assistant_text))
+        state["running"] = False
+        return result
+    runtime = object.__new__(NativeRulesRuntime)
+    runtime.record = SimpleNamespace(execution=rules, revision=1)
+    runtime.graph_enabled = True
+    runtime.last_provider = {"providerAttemptId": str(proof.producing_provider_attempt_id)}
+    runtime.last_prepared_json = proof.prepared_request_json
+    runtime.adapter = SimpleNamespace(
+        producing_provider_attempt_id=proof.producing_provider_attempt_id,
+        operation_payloads={}, build_claim_evidence={},
+        context_capture=None if capture_mode == "disabled" else SimpleNamespace(answer_context=capture),
+        service=SimpleNamespace(complete_native_base_turn=complete, complete_mixed_turn=complete),
+    )
+    if capture_mode == "fails":
+        with pytest.raises(ApplicationStateConflictError, match="trace capture was fenced"):
+            runtime.complete(turn, reply)
+        assert state["running"] and [kind for kind, _ in calls] == ["capture"]
+    else:
+        result = runtime.complete(turn, reply)
+        expected = "The party reaches Edge." + ("" if unused else "\nThe rule applies.")
+        assert result.assistant_text == expected
+        assert [kind for kind, _ in calls] == (["complete"] if capture_mode == "disabled" else ["capture", "complete"])
+        assert all(text == expected for _, text in calls)
