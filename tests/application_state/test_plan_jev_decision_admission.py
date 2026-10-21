@@ -29,14 +29,14 @@ def digest(raw): return sha256(raw.encode()).hexdigest()
 
 
 def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unknown=False, capture=True,
-                 question="Ask about this Plan Graph context."):
+                 question="Ask about this Plan Graph context.", plan_markdown="# Synthetic Plan\nPreserve the current scene.\n"):
     candidate = RetrievalCandidate(handle="synthetic:pond", label="Park pond", kind="location")
     from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
     offered_rules = rules_candidate()
     host = RetrievalDecisionInput(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="a" * 64,
         revision="synthetic:1", question=question, candidates=(candidate, offered_rules),
         allowed_operations=("select_candidates", "discover_more", "finish_retrieval"))
-    case = SimpleNamespace(dsn=dsn, host=host, sent=[], lifecycles=[], trace_id=uuid4())
+    case = SimpleNamespace(dsn=dsn, host=host, sent=[], lifecycles=[], trace_id=uuid4(), plan_markdown=plan_markdown)
 
     class Service(AgentConversationService):
         def accept_turn(self, submission):
@@ -45,12 +45,14 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
             assembled = original.assembled_input.model_copy(update={"assembled_input_sha256": case.prepared.body_sha256,
                 "provider_envelope_input_tokens": 12, "output_token_reserve": 10,
                 "tokenizer_name": "synthetic-tokenizer"})
-            receipt = original.model_copy(update={"assembled_input": assembled})
+            plan_sha = digest(plan_markdown)
+            receipt = original.model_copy(update={"assembled_input": assembled,
+                "plan_basis": original.plan_basis.model_copy(update={"content_sha256": plan_sha})})
             receipt = t.PlanWorldGraphContextReceiptV1.model_validate(receipt.model_dump(mode="json", by_alias=True) |
                 {"context_receipt_sha256": t.plan_world_graph_context_receipt_digest(receipt)})
             old = submission.graph_context_execution
             policy = t.PlanJevRetrievalPolicyV1.model_validate(old.policy.model_dump(mode="json", by_alias=True) | {
-                "source_read_accounting": "settled_receipts_v1",
+                "source_read_accounting": "settled_receipts_v1", "max_source_read_chars": 96000,
                 "driver_schema": "dmb_plan_jev_retrieval_v1", "provider_roles": {
                     "controller": {"provider": PROVIDER, "model": MODEL, "api_mode": "decision"},
                     "writer": {"provider": "test-provider", "model": "synthetic-model", "api_mode": "codex_responses"}}})
@@ -58,7 +60,9 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
                 policy=policy, events=[], execution_policy_sha256=t.graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy))
             return super().accept_turn(submission.model_copy(update={"graph_context_receipt": receipt,
                 "graph_context_execution": execution, "user_text": question,
-                "submitted_intent_v2": submission.submitted_intent_v2.model_copy(update={"message": question})}))
+                "provenance": submission.provenance.model_copy(update={"primary_work": submission.provenance.primary_work.model_copy(update={"content_sha256": plan_sha})}),
+                "submitted_intent_v2": submission.submitted_intent_v2.model_copy(update={"message": question,
+                    "primary_work": submission.submitted_intent_v2.primary_work.model_copy(update={"expected_content_sha256": plan_sha})})}))
     case.service = Service()
 
     class Transport(httpx2.AsyncBaseTransport):
@@ -224,22 +228,12 @@ def test_writer_requires_explicit_finish_and_stays_one_shot(application_state_ds
             provider_attempt_event=writer)
     before = snapshot(case)
     if not allowed:
-        with pytest.raises(ApplicationStateValidationError, match="retrieval finish"): authorize()
+        with pytest.raises(ApplicationStateValidationError): authorize()
         assert snapshot(case) == before
         return
-    case.turn, fresh = authorize(); assert fresh
-    # Native Graph lifecycle remains valid for the final foundation writer.
-    for outcome in ("sdk_entered", "response_received"):
-        case.turn, _ = case.service.record_provider_outcome(case.turn.world_id, case.turn.conversation_id,
-            case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
-            outcome=t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(),
-                sequence=len(case.turn.graph_context_execution.events), provider_attempt_id=writer.provider_attempt_id, outcome=outcome))
-    later = writer.model_copy(update={"event_id": uuid4(), "provider_attempt_id": uuid4(),
-        "sequence": len(case.turn.graph_context_execution.events)})
-    with pytest.raises(ApplicationStateValidationError):
-        case.service.authorize_provider_attempt(case.turn.world_id, case.turn.conversation_id,
-            case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
-            provider_attempt_event=later)
+    with pytest.raises(ApplicationStateValidationError, match="projection admission"):
+        authorize()
+    assert snapshot(case) == before
 
 
 @pytest.mark.parametrize("field", ["parent_request_sha256", "decision_request_id"])

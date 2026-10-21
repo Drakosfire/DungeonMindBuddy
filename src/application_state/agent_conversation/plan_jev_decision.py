@@ -119,7 +119,7 @@ def validate_decision_phases(execution):
     from . import types as t
     active = isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)
     if not active:
-        if any(isinstance(e, (t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1)) for e in execution.events):
+        if any(isinstance(e, (t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1, t.PlanJevWriterAuthorizedV1)) for e in execution.events):
             raise ValueError("Plan Jev events require their frozen Plan policy")
         return
     auth = None
@@ -141,7 +141,7 @@ def validate_decision_phases(execution):
                 request_ids.add(event.decision_request_id)
                 auth, outcome, selected = event, None, None
             else:
-                if selected is None or selected.operation != "finish_retrieval":
+                if selected is None or selected.operation != "finish_retrieval" or not isinstance(event, t.PlanJevWriterAuthorizedV1):
                     raise ValueError("Plan writer requires an explicit completed retrieval finish")
                 writer = event.provider_attempt_id
         elif isinstance(event, t.ProviderOutcomeEventV1) and auth is not None and event.provider_attempt_id == auth.provider_attempt_id:

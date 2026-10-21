@@ -3223,6 +3223,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         if isinstance(event, PlanJevProviderAuthorizedV1):
             payload.pop("decision_request_id", None)
             payload.pop("parent_request_sha256", None)
+        if isinstance(event, PlanJevWriterAuthorizedV1):
+            payload.pop("frame_sha256", None)
         if isinstance(event, ProviderAttemptAuthorizedEventV2):
             payload["kind"] = "provider_attempt_authorized"
             payload.pop("included_source_read_event_ids", None)
@@ -3353,6 +3355,12 @@ class PlanJevProviderAuthorizedV1(ProviderAttemptAuthorizedEventV3):
     parent_request_sha256: Digest
 
 
+class PlanJevWriterAuthorizedV1(ProviderAttemptAuthorizedEventV3):
+    """One tool-free Plan writer with exact host-verified evidence projection."""
+    kind: Literal["plan_jev_writer_authorized_v1"]
+    frame_sha256: Digest
+
+
 class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["plan_jev_retrieval_selected_v1"]
     context_receipt_sha256: Digest
@@ -3417,7 +3425,7 @@ class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | PlanJevProviderAuthorizedV1
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
@@ -3440,7 +3448,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     @model_validator(mode="after")
     def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
         if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
-            if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1)) for event in self.events):
+            if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, PlanJevWriterAuthorizedV1)) for event in self.events):
                 raise ValueError("Plan decision requires its frozen Plan policy")
             return self
         roles = self.policy.provider_roles

@@ -84,9 +84,8 @@ def test_complete_jev_rules_native_answer_accepts_atomically(application_state_d
     case.record, case.packet = delivery.record, delivery.prepared
     case.redecide("finish_retrieval"); append(case)
     frame = build_plan_rules_frame(case.record.execution, (lookup.call_id,))
-    case.raw = json.dumps({"model": "synthetic-model", "tools": [], "input": [
-        {"role": "user", "content": canonical_bytes(frame).decode()}]}, ensure_ascii=False)
-    case.producer = uuid4(); graph_authorize(case, case.producer, digest(case.raw))
+    from tests.application_state.test_plan_jev_writer_packet import admit_writer
+    admit_writer(case, extra_messages=({"role": "user", "content": canonical_bytes(frame).decode()},))
     auth = authorization(case)
     auth = type(auth).model_validate_json(json.dumps(auth.model_dump(mode="json", by_alias=True) | {"matched_outputs": [
         {"call_id": lookup.call_id, "packet_sha256": case.packet.observation.packet_sha256}]}))
