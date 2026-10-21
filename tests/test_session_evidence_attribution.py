@@ -29,23 +29,39 @@ def test_session_claim_cannot_cite_mutable_current_review():
     with pytest.raises(ValueError,match='exact pinned citation'):Turn.model_validate(payload)
 
 
-def test_provider_session_claim_omits_digest_and_server_binds_exact_revision():
+def test_hermes_session_title_is_bound_to_exact_producing_request():
     import json
-    from application_state.agent_conversation import types as graph_types
-    from apps.live_control_server.services import agent_turn_service as service
-    turn=_policy_turn();run_id=str(uuid4());attempt=uuid4()
-    provenance=turn.provenance.model_copy(update={"supporting_work":[graph_types.HistoricalReference(resolution="resolved",kind="session_evidence_v1",object_id=run_id,revision="54",content_sha256="a"*64)]})
-    auth=graph_types.ProviderAttemptAuthorizedEventV1(event_id=uuid4(),sequence=0,kind="provider_attempt_authorized",provider_attempt_id=attempt,envelope_sha256="b"*64,serializer_version="canonical-json-utf8-v1",provider="synthetic",model="synthetic",api_mode="synthetic",tool_schema_sha256="c"*64,input_accounting_kind="exact_token_count",input_estimator="synthetic",input_tokens=1,output_token_reserve=1,included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],included_graph_event_ids=[])
-    outcome=graph_types.ProviderOutcomeEventV1(event_id=uuid4(),sequence=2,kind="provider_outcome",provider_attempt_id=attempt,outcome="response_received")
-    entered=graph_types.ProviderOutcomeEventV1(event_id=uuid4(),sequence=1,kind="provider_outcome",provider_attempt_id=attempt,outcome="sdk_entered")
-    policy=graph_types.GraphExecutionPolicyV1(policy_version="synthetic",allowed_graph_operations=["expand_graph_retrieval"],max_provider_attempts=1,max_graph_operations=0,max_results_per_operation=0,max_total_provider_input_tokens=100,max_total_provider_output_tokens=100,provider_input_accounting=graph_types.GraphExecutionAccountingV1(kind="exact_token_count",estimator="synthetic"),source_opened=False)
-    execution=graph_types.PlanWorldGraphExecutionV1(context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,policy=policy,events=[auth,entered,outcome])
-    turn=turn.model_copy(update={"provenance":provenance,"graph_context_execution":execution})
-    candidate={"answer_context_status":"plan_only_graph_unused","answer_segments":[{"kind":"session_evidence_claim","text":"Closing reflections: players want more combat.","run_id":run_id,"review_revision":54}],"citation_map":None}
-    completion,bindings,answer=service._parse_policy_completion(json.dumps(candidate),turn,attempt)
-    assert completion.answer_basis=="committed_plan_plus_session_evidence"
-    assert completion.answer_segments[0].evidence_sha256=="a"*64
-    assert "evidence_revision=54" in answer and bindings=={}
-    assert "Do not supply evidence_sha256" in service._PLAN_GRAPH_ANSWER_INSTRUCTIONS
-    candidate["answer_segments"][0]["evidence_sha256"]="d"*64
-    with pytest.raises(service._AnswerValidationFailure):service._parse_policy_completion(json.dumps(candidate),turn,attempt)
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.services.session_evidence import render_session_evidence
+    from application_state.agent_conversation.session_citation_labels import producing_session_titles, PREFIX
+    from application_state.agent_conversation import types as t
+    run=str(uuid4())
+    session={'title':'Approach to Edge — Session Prep','run_id':run,'review_revision':54,
+             'sha256':'a'*64,'sources':[{'kind':'closing_reflections','text':'More combat next time.'}]}
+    rendered=render_session_evidence({'sessions':[session]})
+    # Hermes wraps the question; source text is embedded in a model message.
+    raw=json.dumps({'model':'gpt-6-luna','input':[{'role':'user','content':rendered+'\n\nUser question: What next?'}]})
+    auth=SimpleNamespace(envelope_sha256=sha256(raw.encode()).hexdigest())
+    turn=SimpleNamespace(provenance=SimpleNamespace(supporting_work=[
+        t.HistoricalReference(resolution='resolved',kind='session_evidence_v1',object_id=run,revision='54',content_sha256='a'*64)]))
+    assert producing_session_titles(turn,auth,raw)==((run,'54',session['title']),)
+    # Actual Hermes history retains older user messages and tool outputs. Only
+    # the current host-rendered user question supplies display labels.
+    older=rendered.replace('54','53').replace(session['title'],'Earlier source')
+    body=json.loads(raw)
+    body['input']=[{'role':'user','content':older},
+        {'role':'assistant','content':'Earlier answer'},*body['input'],
+        {'type':'function_call_output','call_id':'old','output':PREFIX+'not JSON'}]
+    resumed=json.dumps(body)
+    resumed_auth=SimpleNamespace(envelope_sha256=sha256(resumed.encode()).hexdigest())
+    assert producing_session_titles(turn,resumed_auth,resumed)==((run,'54',session['title']),)
+    quoted=json.dumps({'input':[{'role':'user','content':'Please discuss '+PREFIX+'not JSON'}]})
+    assert producing_session_titles(turn,SimpleNamespace(envelope_sha256=sha256(quoted.encode()).hexdigest()),quoted)==()
+    assert 'review checkpoint, never a session number' in rendered
+    with pytest.raises(ValueError,match='actual producing request'):
+        producing_session_titles(turn,auth,raw.replace('Session Prep','New title'))
+    turn.provenance.supporting_work=[t.HistoricalReference(resolution='resolved',kind='session_evidence_v1',object_id=str(uuid4()),revision='54',content_sha256='b'*64)]
+    with pytest.raises(ValueError,match='frozen producing source'):
+        producing_session_titles(turn,auth,raw)

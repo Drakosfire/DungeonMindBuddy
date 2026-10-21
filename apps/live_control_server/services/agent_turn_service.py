@@ -762,6 +762,7 @@ class _BuildClaimEvidence:
     context_receipt_sha256: str
     graph_revision: str
     closures: tuple[tuple[str, str, tuple[str, ...]], ...]
+    session_titles: tuple = ()
 
 
 def _build_initial_claim_evidence(
@@ -2265,11 +2266,13 @@ class _PolicyExecutionAdapter:
                         code="prompt_capture_unavailable", status_code=503, provider_dispatched=False,
                     ) from exc
             if capture_target_support:
+                from application_state.agent_conversation.session_citation_labels import producing_session_titles
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
                     updated.graph_context_receipt.context_receipt_sha256,
                     updated.graph_context_receipt.graph_authority.graph_revision,
                     tuple(sorted(set(build_closures))),
+                    producing_session_titles(updated, event, view["payloadJson"]),
                 )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body)
