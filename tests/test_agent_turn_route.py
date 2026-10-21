@@ -621,13 +621,8 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 raise AssertionError(getattr(authorize.__self__.failure, "code", None))
             assert on_provider_lifecycle({"transition": "sdk_entered"})
             final_text = json.dumps({
-                "schema": "dmb_rules_mixed_answer_v1",
-                "base_output": {
-                    "answer_context_status": "play_only_graph_unused",
-                    "answer_segments": [{"kind": "connective", "text": "The scene is ready for play."}],
-                },
-                "rules_segments": [],
-                "ordered_refs": [{"domain": "base", "segment_index": None}],
+                "answer_context_status": "play_only_graph_unused",
+                "answer_segments": [{"kind": "connective", "text": "The scene is ready for play."}],
             })
             if native_rules_capture_required:
                 assert callable(on_native_provider_reply)
@@ -649,6 +644,33 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
 
     runtime = NativePlayRuntime()
     app = create_app()
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+
+    rejected_proofs = []
+
+    class ProofCheckingService(AgentConversationService):
+        def complete_native_base_turn(self, result, *, output_proof, expected_rules_revision):
+            # These refusals run against the same live locked PostgreSQL row.
+            with pytest.raises(ApplicationStateValidationError, match="producing-output proof"):
+                self.complete_turn(result)
+            rejected_proofs.append("missing")
+            with pytest.raises(ApplicationStateConflictError, match="Rules ledger"):
+                super().complete_native_base_turn(result, output_proof=output_proof,
+                    expected_rules_revision=expected_rules_revision + 1)
+            rejected_proofs.append("stale")
+            raw = output_proof.raw_output_json.replace("ready", "forged")
+            forged = output_proof.model_copy(update={"raw_output_json": raw,
+                "raw_output_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+                "raw_output_utf8_bytes": len(raw.encode())})
+            with pytest.raises(ApplicationStateValidationError, match="captured bytes"):
+                super().complete_native_base_turn(result, output_proof=forged,
+                    expected_rules_revision=expected_rules_revision)
+            rejected_proofs.append("forged")
+            return super().complete_native_base_turn(result, output_proof=output_proof,
+                expected_rules_revision=expected_rules_revision)
+
+    service = ProofCheckingService()
+    app.state.agent_conversation_service = service
     app.state.agent_turn_runtime = runtime
     run_record, committed_record, manifest_record = _persisted_world_play_fixture(managed.world_id)
     payload = {
@@ -699,7 +721,16 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
         first_turn = asyncio.run(post(payload))
         assert first_turn.status_code == 200, first_turn.text
         assert first_turn.json()["graph"]["revision_id"] == first.revision_id
-        authority = first_turn.json()["rules_context"]["base_context"]["receipt"]["graph_authority"]
+        saved_turn = service.list_turns(managed.world_id,
+            service.get_active_conversation(managed.world_id).conversation_id)[0]
+        from application_state.agent_conversation.rules_authority_store import load_turn_rules_locked
+        from application_state.agent_conversation.service import unit_of_work
+        with unit_of_work(application_state_dsn) as conn:
+            rules_record = load_turn_rules_locked(conn, saved_turn)
+            assert rules_record.execution.state == "unused"
+            assert rules_record.execution.budget_use.calls == 0
+            assert not rules_record.execution.supports
+        authority = first_turn.json()["play_context"]["receipt"]["graph_authority"]
         assert authority["native_world_id"] == NATIVE_ID and authority["binding_version"] == 1
         assert runtime.invocations[0].context_packet.world_scope.world_id == NATIVE_ID
         assert runtime.invocations[0].context_packet.world_scope.revision_id == first.revision_id
@@ -732,6 +763,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
         assert replay.status_code == 200, replay.text
         assert replay.json()["graph"]["revision_id"] == first.revision_id
         assert len(native_reads) == reads_before and len(runtime.invocations) == 2
+        assert rejected_proofs == ["missing", "stale", "forged"] * 2
         altered = asyncio.run(post({**payload, "message": "Altered intent"}))
         assert altered.status_code == 409
         monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
@@ -1771,16 +1803,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             self.calls += 1
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
             final_text = json.dumps({
-                "schema": "dmb_rules_mixed_answer_v1",
-                "base_output": {
-                    "answer_context_status": "plan_only_graph_unused",
-                    "answer_segments": [{
-                        "kind": "plan_claim", "text": "The keeper waits by the tavern.",
-                    }],
-                    "citation_map": None,
-                },
-                "rules_segments": [],
-                "ordered_refs": [{"domain": "base", "segment_index": None}],
+                "answer_context_status": "plan_only_graph_unused",
+                "answer_segments": [{
+                    "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+                }],
+                "citation_map": None,
             })
             if native_rules_capture_required:
                 from hashlib import sha256
@@ -1822,19 +1849,17 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         conversation_service=AgentConversationService(),
     )
     assert runtime.calls == 2
-    assert response.schema_ == "dmb_agent_rules_turn_response_v1"
+    assert response.schema_ == "dmb_agent_turn_response_v2"
     assert response.answer.text == "The keeper waits by the tavern."
-    assert response.rules_context.base_context is not None
-    assert response.rules_context.base_context.completion is not None
-    assert response.rules_context.base_context.execution is not None
-    assert response.rules_context.base_context.execution.authorization_state == "response_received"
+    assert response.plan_context is not None
+    assert response.plan_context.completion is not None
+    assert response.plan_context.execution is not None
+    assert response.plan_context.execution.authorization_state == "response_received"
     stored = AgentConversationService().list_turns(
         managed.world_id, response.conversation.conversation_id,
     )[0]
-    # Governed Plan replies are read through the mixed Rules/Graph record;
-    # Graph evidence stays in the explicitly approved base projection.
-    assert stored.base_projection.kind == "approved"
-    stored_base = stored.base_projection.turn
+    # No Rules lookup occurred; the ordinary native record owns Graph evidence.
+    stored_base = stored
     assert stored_base.graph_context_receipt.assembled_input.packet_disposition == "included"
     events = stored_base.graph_context_execution.events
     attempts = [event for event in events if event.kind in {
@@ -2001,17 +2026,12 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             self.calls += 1
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
             final_text = json.dumps({
-                "schema": "dmb_rules_mixed_answer_v1",
-                "base_output": {
-                    "answer_context_status": "graph_grounded",
-                    "answer_segments": [{
-                        "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
-                        "text": "The sign stands at the old watchtower.",
-                        "target_kind": "relationship", "target_id": "rel:sign-watchtower",
-                    }],
-                },
-                "rules_segments": [],
-                "ordered_refs": [{"domain": "base", "segment_index": None}],
+                "answer_context_status": "graph_grounded",
+                "answer_segments": [{
+                    "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
+                    "text": "The sign stands at the old watchtower.",
+                    "target_kind": "relationship", "target_id": "rel:sign-watchtower",
+                }],
             })
             if native_rules_capture_required:
                 from hashlib import sha256
@@ -2053,15 +2073,14 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         conversation_service=indexed_conversation_service,
     )
     assert indexed_runtime.calls == 2
-    indexed_context = indexed_response.rules_context.base_context
+    indexed_context = indexed_response.plan_context
     assert indexed_context is not None and indexed_context.completion is not None
     assert indexed_context.completion.citation_map.entries[0].source_opened is True
-    indexed_mixed_turn = next(
+    indexed_turn = next(
         turn for turn in AgentConversationService().list_turns(
             managed.world_id, indexed_response.conversation.conversation_id,
-        ) if turn.envelope.user_text == selected_body.message
+        ) if turn.user_text == selected_body.message
     )
-    indexed_turn = indexed_mixed_turn.base_projection.turn
     indexed_events = indexed_turn.graph_context_execution.events
     producing = [
         event for event in indexed_events
@@ -2079,7 +2098,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert indexed_turn.completion.citation_map.entries[0].source_read_ids == [
         read_event.receipts[0].source_read_id
     ]
-    stored_before_replay = indexed_mixed_turn.model_dump(mode="json")
+    stored_before_replay = indexed_turn.model_dump(mode="json")
     reads_before_replay = len(graph_reads)
     replayed_indexed = execute_agent_turn(
         selected_body, root=tmp_path,
@@ -2093,14 +2112,14 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         runtime=indexed_runtime,
         conversation_service=indexed_conversation_service,
     )
-    assert replayed_indexed.rules_context.base_context.delivery_replay is True
-    assert replayed_indexed.rules_context.base_context.completion == indexed_context.completion
+    assert replayed_indexed.plan_context.delivery_replay is True
+    assert replayed_indexed.plan_context.completion == indexed_context.completion
     assert indexed_runtime.calls == 2
     assert len(graph_reads) == reads_before_replay
     assert next(
         turn for turn in indexed_conversation_service.list_turns(
             managed.world_id, indexed_response.conversation.conversation_id,
-        ) if turn.envelope.user_text == selected_body.message
+        ) if turn.user_text == selected_body.message
     ).model_dump(mode="json") == stored_before_replay
 
     from fastapi.testclient import TestClient
@@ -2153,16 +2172,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     # The separate offline host witness expands Graph metadata but does not
     # open its out-of-dispatch source. #1015 correctly forbids citing it.
     monkeypatch.setenv("DMB_HERMES_TEST_FINAL_TEXT", json.dumps({
-        "schema": "dmb_rules_mixed_answer_v1",
-        "base_output": {
-            "answer_context_status": "plan_only_graph_unused",
-            "answer_segments": [{
-                "kind": "plan_claim", "text": "The keeper waits by the tavern.",
-            }],
-            "citation_map": None,
-        },
-        "rules_segments": [],
-        "ordered_refs": [{"domain": "base", "segment_index": None}],
+        "answer_context_status": "plan_only_graph_unused",
+        "answer_segments": [{
+            "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+        }],
+        "citation_map": None,
     }))
     host = HermesGraphAgentHost(
         worker_target=_tool_using_aiagent_host_worker,
@@ -2178,29 +2192,26 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             http_turn = client.post("/api/live/agent/turn", json=http_payload)
             assert http_turn.status_code == 200, http_turn.text
             http_answer = http_turn.json()
-            assert http_answer["schema"] == "dmb_agent_rules_turn_response_v1"
+            assert http_answer["schema"] == "dmb_agent_turn_response_v2"
             assert http_answer["primary_work"]["revision_used"] == 7
             assert isinstance(http_answer["primary_work"]["revision_used"], int)
-            # The accepted mixed Rules receipt is projected from durable
-            # provenance, so request-local content basis is intentionally not
-            # reconstructed into the response.
-            assert http_answer["primary_work"]["content_basis"] is None
+            assert http_answer["primary_work"]["content_basis"]["content_sha256"] == "a" * 64
             assert http_answer["answer"]["graph_grounded"] is False
             assert http_answer["answer"]["text"] == "The keeper waits by the tavern."
             before_history_reads = len(graph_reads)
             history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
             assert history.status_code == 200, history.text
-            assert history.json()["schema"] == "dmb_agent_conversation_history_v4"
+            assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
             assert any(
                 turn["lifecycle_status"] == "completed"
                 and turn["assistant_text"] == "The keeper waits by the tavern."
-                and turn["rules_context"]["base_context"]["completion"] is not None
+                and turn["plan_context"]["completion"] is not None
                 for turn in history.json()["turns"]
             )
             assert len(graph_reads) == before_history_reads
             replay = client.post("/api/live/agent/turn", json=http_payload)
             assert replay.status_code == 200, replay.text
-            assert replay.json()["rules_context"]["base_context"]["delivery_replay"] is True
+            assert replay.json()["plan_context"]["delivery_replay"] is True
             assert replay.json()["primary_work"]["revision_used"] == 7
             assert replay.json()["primary_work"]["content_basis"] is None
             assert len(graph_reads) == before_history_reads
@@ -2270,9 +2281,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     stored_http = next(
         turn for turn in AgentConversationService().list_turns(
             managed.world_id, http_answer["conversation"]["conversation_id"],
-        ) if turn.envelope.user_text == http_payload["message"]
+        ) if turn.user_text == http_payload["message"]
     )
-    http_events = stored_http.base_projection.turn.graph_context_execution.events
+    http_events = stored_http.graph_context_execution.events
     http_attempts = [
         e for e in http_events
         if e.kind in {

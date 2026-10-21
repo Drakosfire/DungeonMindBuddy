@@ -65,6 +65,8 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     raw_output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
 
+    graph_packets: dict[UUID, str] = Field(default_factory=dict, max_length=64)
+
     @classmethod
     def from_capture(
         cls,
@@ -99,13 +101,13 @@ def _one(items, message):
     return items[0]
 
 
-def verify_native_output(
+def verify_native_reply(
     graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1,
     rules_execution: RulesExecutionV1,
     proof: NativeRulesOutputProofV1,
     capture,
-) -> RulesWriterAnswerV1:
-    """Revalidate exact final producer identity and strict captured mixed JSON."""
+) -> None:
+    """Revalidate the exact captured reply against both durable producer ledgers."""
     if not isinstance(proof, NativeRulesOutputProofV1):
         raise ValueError("Native Rules output proof is not the current closed schema")
     if (
@@ -279,7 +281,19 @@ def verify_native_output(
         raise ValueError(
             "Native Rules output is not the final authorized provider response"
         )
-    answer = parse_answer(raw)
+
+
+def verify_native_output(graph_execution, rules_execution, proof, capture) -> RulesWriterAnswerV1:
+    """Verify the actual producer, then parse its closed mixed answer."""
+    verify_native_reply(graph_execution, rules_execution, proof, capture)
+    answer = parse_answer(proof.raw_output_json)
+    included = _one(
+        [event for event in rules_execution.events
+         if isinstance(event, RulesProviderIncludedV1)
+         and not isinstance(event, RulesBuildProviderIncludedV1)
+         and event.provider_attempt_id == proof.producing_provider_attempt_id],
+        "Native Rules output has no unique included input",
+    )
     admitted_supports = {str(item.support_id) for item in included.support_refs}
     if any(
         not set(segment.support_ids) <= admitted_supports
@@ -385,3 +399,64 @@ def normalize_native_mixed_output(
         assistant_text=assistant_text,
         graph_used=graph_used,
     )
+
+
+def sealed_native_producer(turn, rules_execution, proof):
+    """Reconstruct proof witnesses from locked durable state, without source reads."""
+    from types import SimpleNamespace
+    from .rules_authority_events import RulesNativeProviderOutcomeV1
+
+    outcomes = [event for event in rules_execution.events
+        if isinstance(event, RulesNativeProviderOutcomeV1)
+        and event.provider_attempt_id == proof.producing_provider_attempt_id]
+    if len(outcomes) != 1:
+        raise ValueError("Native Rules completion has no unique sealed provider outcome")
+    outcome = outcomes[0]
+    graph_auths = [event for event in turn.graph_context_execution.events
+        if isinstance(event, (ProviderAttemptAuthorizedEventV1,
+            ProviderAttemptAuthorizedEventV2, ProviderAttemptAuthorizedEventV3))
+        and event.provider_attempt_id == proof.producing_provider_attempt_id]
+    if len(graph_auths) != 1:
+        raise ValueError("Native Rules completion has no unique Graph provider authorization")
+    graph_auth = graph_auths[0]
+    capture = SimpleNamespace(
+        authorization_id=outcome.authorization_id,
+        api_request_id=outcome.api_request_id,
+        provider=graph_auth.provider,
+        model=graph_auth.model,
+        api_mode=graph_auth.api_mode,
+        request_sha256=graph_auth.envelope_sha256,
+        status=outcome.status,
+        finish_reason=outcome.finish_reason,
+        text=proof.raw_output_json,
+        text_sha256=outcome.output_sha256,
+        text_utf8_bytes=outcome.output_utf8_bytes,
+        tool_calls=(),
+    )
+    from .native_graph_input import producing_graph_closures
+    closures = producing_graph_closures(turn, graph_auth, proof)
+    receipt = turn.graph_context_receipt
+    graph_support = SimpleNamespace(
+        provider_attempt_id=proof.producing_provider_attempt_id,
+        envelope_sha256=graph_auth.envelope_sha256,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        graph_revision=receipt.graph_authority.graph_revision,
+        closures=tuple(closures),
+    )
+    return capture, graph_support
+
+
+def normalize_unused_native_output(turn, rules_execution, proof):
+    """Prove an ordinary native answer whose Rules capability was never used."""
+    from .native_answer_output import parse_native_answer
+
+    scope = rules_execution.scope
+    if ((scope.world_id, scope.conversation_id, scope.turn_id, scope.product_attempt)
+            != (turn.world_id, turn.conversation_id, turn.turn_id, turn.attempt)):
+        raise ValueError("Unused Rules execution differs from its native turn")
+    if rules_execution.budget_use.calls or rules_execution.supports:
+        raise ValueError("Used Rules requires mixed completion")
+    capture, support = sealed_native_producer(turn, rules_execution, proof)
+    verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture)
+    return parse_native_answer(proof.raw_output_json, turn,
+        proof.producing_provider_attempt_id, support=support)

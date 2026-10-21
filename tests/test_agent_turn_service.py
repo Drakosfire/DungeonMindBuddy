@@ -1717,8 +1717,9 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     content = "bound source text"
     digest = "a" * 64  # Parent source revision digest, not the excerpt digest.
 
-    def read(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
+    def read(arguments: Any, *, receipt_version: int, root: Path) -> dict[str, Any]:
         assert receipt_version == 2
+        assert root == Path(".")
         assert order[-1] == "authorize_source_read"
         anchor_id = arguments["anchorIds"][0]
         suffix = "one" if anchor_id == "anchor:one" else "two"
@@ -1804,8 +1805,8 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
             assert adapter.authorize(view) is False
             assert order[-1] == "authorize_source_read"
             return
-        def forged(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
-            batch = read(arguments, receipt_version=receipt_version)
+        def forged(arguments: Any, *, receipt_version: int, root: Path) -> dict[str, Any]:
+            batch = read(arguments, receipt_version=receipt_version, root=root)
             batch["reads"][0]["receipt"]["source_revision_id"] = "source-revision:forged"
             return batch
 
@@ -2008,10 +2009,11 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
     }
 
     source_read_sequence = 0
-    def read_source(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
+    def read_source(arguments: Any, *, receipt_version: int, root: Path) -> dict[str, Any]:
         nonlocal source_read_sequence
         source_read_sequence += 1
         assert receipt_version == 2
+        assert root == Path(".")
         assert append_order[-1] == "authorize_source_read"
         returned = []
         for anchor_id in arguments["anchorIds"]:
@@ -5637,7 +5639,8 @@ def test_selected_multi_hop_graph_read_and_source_scope_remain_separate(tmp_path
     monkeypatch.setattr('graph_memory.interaction.session_store.get_session',lambda _id:session)
     calls=[]
     pin=bootstrap.source_scope_anchors[0]
-    def read(args,*,receipt_version):
+    def read(args,*,receipt_version,root):
+        assert root == Path(".")
         calls.append(args)
         return {'schema':'dmb_internal_read_graph_source_batch_v2','retrievalSessionId':session.id,'reads':[{
             'sourceReadId':'source-read:inside','result':{'schema':'dmb_world_graph_source_anchor_read_v1','outcome':'enough','anchorId':pin['anchor_id'],
@@ -6107,6 +6110,18 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
                     ]
                 },
             }
+            if native_rules_capture_required:
+                from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+                raw = json.dumps(answer)
+                view = authorize.__self__.rules_runtime.last_provider
+                assert on_native_provider_reply(NativeProviderReply(
+                    authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+                    api_request_id=str(uuid4()), provider=view["provider"], model=view["model"],
+                    api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+                    finish_reason="stop", status="answered", text=raw,
+                    text_sha256=sha256(raw.encode()).hexdigest(),
+                    text_utf8_bytes=len(raw.encode()), tool_calls=(),
+                ))
             return AgentRuntimeResult(
                 status="ok",
                 final_text=json.dumps(answer),
@@ -6197,13 +6212,10 @@ def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
     before = saved.model_dump_json()
     rebuilt = project_plan_turn_context(saved, delivery_replay=True)
     assert rebuilt.schema_ == "dmb_agent_plan_world_graph_context_response_v2"
-    target = next(
-        t for t in rebuilt.source_open_targets if t.kind == "related_recap_context"
-    )
-    assert (
-        target.context_anchor_id == descriptor.context_anchor_id
-        and target.legacy_recap_marker == "**Recap**:"
-    )
+    assert rebuilt.source_open_targets == []
+    assert [status.status for status in rebuilt.related_recap_context_statuses] == [
+        "metadata_unavailable"
+    ]
     assert (
         service.list_turns(world, conversation.conversation_id)[0].model_dump_json()
         == before
@@ -6567,6 +6579,18 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                     'kind':'graph_claim','claim_id':'claim:population',
                     'text':'The keeper guards the gate.','target_kind':'assertion','target_id':'asrt:population',
                 }]}
+            if native_rules_capture_required:
+                from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+                raw = json.dumps(answer)
+                view = authorize.__self__.rules_runtime.last_provider
+                assert on_native_provider_reply(NativeProviderReply(
+                    authorization_id=str(authorize.__self__.rules_runtime.authorization_id),
+                    api_request_id=str(uuid4()), provider=view["provider"], model=view["model"],
+                    api_mode=view["apiMode"], request_sha256=view["payloadSha256"],
+                    finish_reason="stop", status="answered", text=raw,
+                    text_sha256=sha256(raw.encode()).hexdigest(),
+                    text_utf8_bytes=len(raw.encode()), tool_calls=(),
+                ))
             return AgentRuntimeResult(
                 status="ok",
                 final_text=json.dumps(answer),

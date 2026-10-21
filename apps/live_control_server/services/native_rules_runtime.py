@@ -374,6 +374,51 @@ class NativeRulesRuntime:
             rules_execution_id=self.record.execution.scope.execution_id,
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
         )
+        # Reuse the turn-local immutable result bytes; no Graph reacquisition.
+        auth = next(event for event in turn.graph_context_execution.events
+            if getattr(event, "provider_attempt_id", None) == proof.producing_provider_attempt_id
+            and hasattr(event, "included_graph_event_ids"))
+        from application_state.agent_conversation.source_writer_output import strict_json
+        candidate = strict_json(reply.text)
+        if not isinstance(candidate, dict):
+            raise ValueError("Native final answer is not an object")
+        base = candidate.get("base_output") if candidate.get("schema") == "dmb_rules_mixed_answer_v1" else candidate
+        if base is not None and not isinstance(base, dict):
+            raise ValueError("Native base answer is not an object")
+        segments = base.get("answer_segments", []) if base is not None else []
+        if not isinstance(segments, list):
+            raise ValueError("Native base segments are not a list")
+        targets = {(item.get("target_kind"), item.get("target_id"))
+            for item in segments if isinstance(item, dict) and item.get("kind") == "graph_claim"
+            and item.get("target_kind") in {"assertion", "relationship"}
+            and isinstance(item.get("target_id"), str)}
+        operations = {event.event_id: event for event in turn.graph_context_execution.events
+            if hasattr(event, "assertion_ids") and hasattr(event, "relationship_ids")}
+        packets = {}
+        for event_id in auth.included_graph_event_ids:
+            event = operations.get(event_id)
+            if event is None or not any(
+                    target in (event.assertion_ids if kind == "assertion" else event.relationship_ids)
+                    for kind, target in targets):
+                continue
+            raw = self.adapter.operation_payloads.get(event_id)
+            if raw is not None:
+                value = json.loads(raw)
+                packets[event_id] = json.dumps({key: item for key, item in value.items()
+                    if key not in {"retrievalSessionId", "addedClaimIds", "claimLedger"}},
+                    ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        proof = proof.model_copy(update={"graph_packets": packets})
+        if self.record.execution.budget_use.calls == 0:
+            from application_state.agent_conversation.native_rules_output import normalize_unused_native_output
+            completion, bindings, text = normalize_unused_native_output(
+                turn, self.record.execution, proof)
+            return self.adapter.service.complete_native_base_turn(TurnResult(
+                world_id=turn.world_id, conversation_id=turn.conversation_id,
+                turn_id=turn.turn_id, expected_revision=turn.revision,
+                assistant_text=text, completion=completion,
+                producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
+                claim_graph_event_ids=bindings,
+            ), output_proof=proof, expected_rules_revision=self.record.revision)
         normalized = normalize_native_mixed_output(
             turn, turn.graph_context_execution, self.record.execution, proof, reply,
             graph_support=self.adapter.build_claim_evidence.get(self.adapter.producing_provider_attempt_id),

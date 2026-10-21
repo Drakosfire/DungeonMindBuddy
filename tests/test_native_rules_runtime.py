@@ -18,6 +18,7 @@ from application_state.agent_conversation.rules_authority_events import (
     RulesProviderOutcomeV1,
     RulesQueryObservedV1,
     RulesToolAuthorizedV1,
+    RulesBudgetUseV1,
 )
 from application_state.agent_conversation.rules_authority_policy import RULESET
 
@@ -216,6 +217,18 @@ def test_native_rules_response_received_waits_for_exact_reply_capture():
 
     assert runtime.record is record
     assert len(runtime.record.execution.events) == 1
+
+
+def test_no_rules_lookup_still_requires_actual_final_provider_reply():
+    runtime = object.__new__(NativeRulesRuntime)
+    runtime.record = SimpleNamespace(execution=SimpleNamespace(
+        supports={}, budget_use=RulesBudgetUseV1(
+            calls=0, distinct_questions=0, novel_excerpt_utf8=0,
+            presentation_utf8=0, provider_requests=0,
+        ),
+    ))
+    with pytest.raises(ValueError, match="actual final provider reply"):
+        runtime.complete(SimpleNamespace(), None)
 
 
 @pytest.mark.parametrize("wire_shape", ["responses", "chat"])

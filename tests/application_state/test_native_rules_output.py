@@ -10,6 +10,7 @@ import pytest
 from application_state.agent_conversation.native_rules_output import (
     NativeRulesOutputProofV1,
     normalize_native_mixed_output,
+    normalize_unused_native_output,
     verify_native_output,
 )
 from application_state.agent_conversation.rules_authority_events import (
@@ -26,7 +27,7 @@ from tests.test_play_graph_authority import native_provider
 from tests.test_native_answer_output import plan_turn
 
 
-def native_case(*, graph_turn=None, base_output=None):
+def native_case(*, graph_turn=None, base_output=None, unused=False):
     owner = native_rules_execution()
     attempt = uuid4()
     if graph_turn is not None:
@@ -42,30 +43,35 @@ def native_case(*, graph_turn=None, base_output=None):
             "product_attempt": graph_turn.attempt,
         })
         owner = owner.model_copy(update={"scope": scope})
-    owner, lookup = rules_lookup(owner)
-    prepared_request_json = json.dumps({"messages": [
-        {"role": "assistant", "tool_calls": [{
-            "id": lookup.observation.call_id,
-            "type": "function",
-            "function": {
-                "name": "lookup_rules",
-                "arguments": json.dumps({
-                    "question": args().question,
-                    "ruleset_id": owner.scope.ruleset_id,
-                }),
-            },
-        }]},
-        {"role": "tool", "tool_call_id": lookup.observation.call_id,
-         "content": lookup.raw_output},
-    ]})
-    request_sha = sha256(prepared_request_json.encode("utf-8")).hexdigest()
-    refs = lookup.observation.support_refs
-    outputs = (
-        RulesOutputRefV1(
-            call_id=lookup.observation.call_id,
-            packet_sha256=lookup.observation.packet_sha256,
-        ),
-    )
+    if unused:
+        prepared_request_json = json.dumps({"messages": [{"role": "user", "content": "Ready?"}]})
+        request_sha = sha256(prepared_request_json.encode()).hexdigest()
+        refs, outputs = (), ()
+    else:
+        owner, lookup = rules_lookup(owner)
+        prepared_request_json = json.dumps({"messages": [
+            {"role": "assistant", "tool_calls": [{
+                "id": lookup.observation.call_id,
+                "type": "function",
+                "function": {
+                    "name": "lookup_rules",
+                    "arguments": json.dumps({
+                        "question": args().question,
+                        "ruleset_id": owner.scope.ruleset_id,
+                    }),
+                },
+            }]},
+            {"role": "tool", "tool_call_id": lookup.observation.call_id,
+             "content": lookup.raw_output},
+        ]})
+        request_sha = sha256(prepared_request_json.encode("utf-8")).hexdigest()
+        refs = lookup.observation.support_refs
+        outputs = (
+            RulesOutputRefV1(
+                call_id=lookup.observation.call_id,
+                packet_sha256=lookup.observation.packet_sha256,
+            ),
+        )
     auth = RulesProviderAuthorizedV1(
         event_id=uuid4(),
         sequence=len(owner.events),
@@ -99,12 +105,14 @@ def native_case(*, graph_turn=None, base_output=None):
                 {
                     "kind": "rules_claim",
                     "text": "The rule applies.",
-                    "support_ids": [str(refs[0].support_id)],
+                    "support_ids": [str(refs[0].support_id)] if refs else [],
                 }
             ],
             "ordered_refs": ordered_refs,
         }
     )
+    if unused:
+        raw = json.dumps(base_output)
     if graph_turn is None:
         graph_auth = native_provider().model_copy(
             update={"provider_attempt_id": attempt, "envelope_sha256": request_sha}
@@ -370,3 +378,39 @@ def test_native_proof_rejects_foreign_rules_scope_and_oversized_text():
             rules_execution_id=rules.scope.execution_id,
             producing_provider_attempt_id=proof.producing_provider_attempt_id,
         )
+
+
+def unused_case():
+    turn, _ = plan_turn()
+    base = {"answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [{"kind": "plan_claim", "text": "The party reaches Edge."}],
+            "citation_map": None}
+    return native_case(graph_turn=turn, base_output=base, unused=True)
+
+
+def test_unused_rules_still_proves_actual_native_output():
+    graph, rules, proof, capture, raw, turn = unused_case()
+    completion, bindings, text = normalize_unused_native_output(turn, rules, proof)
+    assert completion.answer_segments[0].text == text == "The party reaches Edge."
+    assert bindings == {}
+    assert rules.budget_use.calls == 0 and not rules.supports
+
+
+@pytest.mark.parametrize("mutation", ["output", "scope", "used", "missing_outcome", "producer"])
+def test_unused_rules_rejects_forged_native_completion(mutation):
+    graph, rules, proof, capture, raw, turn = unused_case()
+    if mutation == "output":
+        raw = raw.replace("Edge", "Somewhere else")
+        proof = proof.model_copy(update={"raw_output_json": raw,
+            "raw_output_sha256": sha256(raw.encode()).hexdigest(),
+            "raw_output_utf8_bytes": len(raw.encode())})
+    elif mutation == "scope":
+        rules = rules.model_copy(update={"scope": rules.scope.model_copy(update={"turn_id": uuid4()})})
+    elif mutation == "used":
+        rules = rules.model_copy(update={"budget_use": rules.budget_use.model_copy(update={"calls": 1})})
+    elif mutation == "missing_outcome":
+        rules = rules.model_copy(update={"events": rules.events[:-1]})
+    else:
+        proof = proof.model_copy(update={"producing_provider_attempt_id": uuid4()})
+    with pytest.raises(ValueError):
+        normalize_unused_native_output(turn, rules, proof)
