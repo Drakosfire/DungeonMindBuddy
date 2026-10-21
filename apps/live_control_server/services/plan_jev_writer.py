@@ -20,7 +20,7 @@ Graph facts require a complete graph_records entry. Its target_id is the exact c
 selector; copy it without changing it. Short evidence handles join passages to records.
 Do not treat entity_index labels or dialogue_reference as established World facts.
 Use source names in attribution. Do not claim a source was opened if it is unopened.
-retrieval_results qualifies the acquired records; retrieval_gaps describes failed reads.
+retrieval_results qualifies graph_records by zero-based records indexes; retrieval_gaps describes failed reads.
 Incomplete/truncated evidence needs a qualified partial answer. Never claim corpus completeness.
 Return only JSON with answer_context_status and answer_segments; no citation_map.
 Statuses: graph_grounded, graph_grounded_partial, plan_only_graph_unused,

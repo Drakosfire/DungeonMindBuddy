@@ -63,6 +63,19 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     assert prompts[-1].payload_sha256==writer.prepared.body_sha256
     assert prompts[-1].api_mode=='responses'
     assert not writer.authorize(writer.prepared)
+    # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
+    body = json.loads(wire.calls[0].content)
+    frame = json.loads(body['input'][0]['content'])
+    assert all('assertion_ids' not in row and 'relationship_ids' not in row
+               for row in frame['retrieval_results'])
+    passage = frame['opened_passages'][0]
+    assert body['input'][0]['content'].count(passage['text']) == 1
+    for field in ('source_artifact_id', 'source_revision_id', 'context_receipt_sha256',
+                  'execution_policy_sha256', 'content_sha256'):
+        assert field not in frame
+        assert field not in passage
+    assert entry.target_id == 'assertion:pond'
+    assert entry.source_read_ids == ['read:anchor:park:0']
 
 
 def test_actual_plan_writer_accepts_rules_and_no_graph(plan_adapter):

@@ -7,7 +7,6 @@ records and passages. Display source labels grant no factual claim authority.
 """
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 from uuid import UUID
 
 from .plan_jev_decision import _owner
@@ -92,17 +91,14 @@ def project(turn, proof, trace):
         refs.update(event.evidence_ref_ids)
     originals.sort(key=lambda item: str(item[0]))
     handles = {ref: f"e{index}" for index, ref in enumerate(sorted(refs))}
-    records, closures, assertions, relationships, entities, retrievals = [], set(), set(), set(), [], []
+    records, closures, assertions, relationships, entities = [], set(), set(), set(), []
+    record_indexes = {}
     for _, event, original in originals:
-        retrievals.append({
-            "assertion_ids": list(event.assertion_ids), "relationship_ids": list(event.relationship_ids),
-            "evidence": [handles[ref] for ref in event.evidence_ref_ids],
-            "coverage": event.coverage_status, "truncated": event.truncated,
-            "evidence_sufficiency": event.evidence_sufficiency_status,
-        })
+        indexes = set()
         for node in original.get("nodes", []):
             label = {key: node[key] for key in ("nodeId", "label", "kind") if key in node}
-            if label and label not in entities: entities.append(label)
+            if label and label not in entities:
+                entities.append(label)
         anchors = {row.get("evidenceRefId") for row in original.get("sourceAnchors", [])}
         for key, kind, id_key in _TARGETS:
             for row in original.get(key, []):
@@ -115,9 +111,20 @@ def project(turn, proof, trace):
                 qualified = {k: v for k, v in row.items() if k not in _METADATA | {id_key}}
                 record = {"kind": kind, "target_id": target, "record": qualified,
                           "evidence": [handles[ref] for ref in evidence]}
-                if record not in records: records.append(record)
+                if record not in records:
+                    records.append(record)
+                indexes.add(records.index(record))
                 closures.add((kind, target, tuple(sorted(set(evidence)))))
                 (assertions if kind == "assertion" else relationships).add(target)
+        record_indexes[event.event_id] = sorted(indexes)
+    # Qualify each read with compact indexes into the one record table. Exact
+    # assertion/relationship selectors remain there once, and in the host proof.
+    retrievals = [{
+        "records": record_indexes[event.event_id],
+        "evidence": [handles[ref] for ref in event.evidence_ref_ids],
+        "coverage": event.coverage_status, "truncated": event.truncated,
+        "evidence_sufficiency": event.evidence_sufficiency_status,
+    } for _, event, _ in originals]
     names = proof["source_names"]
     if not isinstance(names, dict) or any(not isinstance(k, str) or not isinstance(v, str) or not v.strip() for k, v in names.items()):
         raise ValueError("Plan source labels must be host display metadata")
@@ -137,7 +144,9 @@ def project(turn, proof, trace):
                 raise ValueError("Plan captured passage changed its exact source identity")
         if sha256(passage.text.encode()).hexdigest() != read.content_sha256 or len(passage.text) != read.returned_chars:
             raise ValueError("Plan captured passage changed its source bytes")
-        seen.add(passage.source_read_id); source_events.add(source.event_id); present.add(passage.evidence_ref_id)
+        seen.add(passage.source_read_id)
+        source_events.add(source.event_id)
+        present.add(passage.evidence_ref_id)
         passages.append({"evidence": handles[passage.evidence_ref_id], "source_name": names.get(passage.source_read_id, "Opened source"),
             "text": passage.text, "line_start": passage.line_start, "line_end": passage.line_end, "outcome": passage.outcome, "truncated": read.truncated,
             "evidence_sufficiency": read.evidence_sufficiency_status})
@@ -171,10 +180,14 @@ def frame_in_request(raw):
         content = item.get("content")
         if not isinstance(content, str):
             raise ValueError("Plan writer frame requires exact text messages")
-        if item["role"] != "user": continue
-        try: value = strict_json(content)
-        except (ValueError, TypeError): continue
-        if isinstance(value, dict) and value.get("schema") == SCHEMA: frames.append(value)
+        if item["role"] != "user":
+            continue
+        try:
+            value = strict_json(content)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(value, dict) and value.get("schema") == SCHEMA:
+            frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")
     return frames[0]

@@ -245,7 +245,7 @@ def test_partial_graph_and_enough_but_truncated_source_remain_qualified(applicat
     proof = evidence(case, packets)
     frame = project(case.turn, proof, trace(case)).frame
     assert frame["retrieval_results"] == [{
-        "assertion_ids": ["pond-road"], "relationship_ids": [], "evidence": ["e0"],
+        "records": [0], "evidence": ["e0"],
         "coverage": "incomplete", "truncated": True, "evidence_sufficiency": "insufficient"}]
     passage = frame["opened_passages"][0]
     assert passage["outcome"] == "enough" and passage["truncated"]
