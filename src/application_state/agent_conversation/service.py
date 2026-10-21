@@ -941,6 +941,13 @@ class AgentConversationService:
         with unit_of_work(_ready_dsn()) as conn:
             return read_historical_rules_passage(conn, request)
 
+    def source_name_labels(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> list[dict]:
+        """Frozen display-only source labels for one already selected history page."""
+        from .source_display import read_source_names
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            return read_source_names(conn, world_id, conversation_id, turn_ids)
+
     def list_turns(
         self,
         world_id: str,

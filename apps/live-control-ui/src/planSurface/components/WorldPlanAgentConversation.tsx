@@ -718,6 +718,7 @@ function savedProposalGrounding(
       || typeof target.anchor_id !== "string" || !target.anchor_id
       || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
       || typeof target.source_revision_id !== "string" || !target.source_revision_id
+      || !(target.source_name === null || (typeof target.source_name === "string" && target.source_name.trim()))
       || typeof target.native_world_id !== "string" || !target.native_world_id
       || target.managed_world_id !== worldId) return null;
     const citation = citations.get(target.claim_id);
@@ -1157,7 +1158,7 @@ function isWorldPlanSourceOpenTargets(
     if (!isRecord(target)) return false;
     const evidence = target.kind === "evidence_anchor";
     if (!evidence && target.kind !== "related_recap_context") return false;
-    const common = ["schema", "kind", "claim_id", "source_artifact_id", "source_revision_id", "managed_world_id",
+    const common = ["schema", "kind", "claim_id", "source_artifact_id", "source_revision_id", "source_name", "managed_world_id",
       "native_world_id", "binding_version", "scope_mode", "campaign_id", "focus", "admissibility", "graph_revision"];
     const variant = evidence
       ? ["anchor_id", "evidence_ref_id", "source_read_id", "read_outcome"]
@@ -1168,6 +1169,7 @@ function isWorldPlanSourceOpenTargets(
       || typeof target.claim_id !== "string" || !target.claim_id
       || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
       || typeof target.source_revision_id !== "string" || !target.source_revision_id
+      || !(target.source_name === null || (typeof target.source_name === "string" && target.source_name.trim()))
       || target.managed_world_id !== (receipt.schema === "dmb_build_graph_context_receipt_v1" ? receipt.source_basis.world_id : receipt.plan_basis.world_id)
       || target.managed_world_id !== receipt.graph_authority.managed_world_id
       || target.native_world_id !== receipt.graph_authority.native_world_id
@@ -4547,7 +4549,7 @@ export function WorldPlanAgentConversation({
         <span className="world-plan-agent-conversation__source-choice-kind">
           {target.kind === "evidence_anchor" ? "Graph evidence" : `Session ${target.expected_session_id} recap`}
         </span>
-        <strong>{sourcePassage?.turnId === turn.turn_id && sourcePassage.targetId === targetId && sourcePassage.sourceName || label}</strong>
+        <strong>{sourcePassage?.turnId === turn.turn_id && sourcePassage.targetId === targetId && sourcePassage.sourceName || target.source_name || label}</strong>
         <span>Read source passage <span aria-hidden="true">→</span></span>
       </button>;
     };
@@ -4601,7 +4603,7 @@ export function WorldPlanAgentConversation({
             {activeTarget && sourcePassage ? <section className="world-plan-agent-conversation__source-reader">
               <header className="world-plan-agent-conversation__source-reader-header">
                 <div><span className="world-plan-agent-conversation__source-reader-eyebrow">{activeTarget.kind === "evidence_anchor" ? "Graph evidence" : `Session ${activeTarget.expected_session_id} recap`}</span>
-                  <BuddySourceProvenance target={activeTarget} name={sourcePassage.status === "loading" ? "Opening source…" : sourcePassage.sourceName}
+                  <BuddySourceProvenance target={activeTarget} name={activeTarget.source_name || (sourcePassage.status === "loading" ? "Opening source…" : sourcePassage.sourceName)}
                     lines={sourcePassage.lines ?? (sourcePassage.page ? { start: sourcePassage.page.lineStart!, end: sourcePassage.page.lineEnd! } : undefined)} /></div>
                 <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
               </header>

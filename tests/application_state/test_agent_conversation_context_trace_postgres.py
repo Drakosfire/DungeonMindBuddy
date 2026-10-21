@@ -161,3 +161,32 @@ def test_exact_historical_read_fails_closed_on_stored_corruption(application_sta
     from application_state.errors import ApplicationStateError
     with pytest.raises(ApplicationStateError):
         service.read_historical_source_passage(reference)
+
+
+def test_source_name_page_projection_is_exact_and_excludes_source_bytes(application_state_dsn):
+    service, reference, passage, _ = _captured_passage_fixture(application_state_dsn)
+    labels = service.source_name_labels(reference.world_id, reference.conversation_id, [reference.turn_id])
+    assert len(labels) == 1
+    assert labels[0]['source_name'] == passage.source_name
+    assert labels[0]['source_read_event_id'] == str(passage.source_read_event_id)
+    assert labels[0]['content_sha256'] == passage.content_sha256
+    assert set(labels[0]) == {'turn_id','source_read_event_id','source_read_id','source_artifact_id',
+        'source_revision_id','anchor_id','evidence_ref_id','graph_revision','content_sha256','source_name'}
+    assert 'text' not in labels[0]
+    assert service.source_name_labels('foreign',reference.conversation_id,[reference.turn_id]) == []
+    assert service.source_name_labels(reference.world_id,uuid4(),[reference.turn_id]) == []
+
+
+@pytest.mark.parametrize('field', ['world_id','conversation_id','turn_id','trace_id','attempt'])
+def test_source_name_page_refuses_changed_trace_owner(application_state_dsn,field):
+    service, reference, _, payload = _captured_passage_fixture(application_state_dsn)
+    payload[field] = 2 if field == 'attempt' else 'foreign'
+    if field in {'turn_id', 'trace_id', 'attempt'}:
+        with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+            conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=1',
+                (Jsonb(payload), reference.turn_id))
+        return
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=1',
+            (Jsonb(payload),reference.turn_id))
+    assert service.source_name_labels(reference.world_id,reference.conversation_id,[reference.turn_id]) == []

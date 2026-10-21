@@ -176,7 +176,9 @@ def test_registered_historical_passage_after_real_save(
         ).fetchone()
     assert count == (1,)
 
-    assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
+    opened = open_span(tmp_path, artifact, span)
+    assert opened.content == "The tower watches the river."
+    assert opened.source_name == doc.title
     save(tmp_path, doc, "# Lore\n\nThe tower has fallen.\n")
     # The immutable DB revision, rather than the current workspace or local
     # derived files, now carries the exact old passage and stable span IDs.

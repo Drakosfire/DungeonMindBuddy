@@ -5204,6 +5204,7 @@ def _validate_policy_turn_record(
 
 def _evidence_anchor_open_projection(
     turn: Turn,
+    *, source_names=(),
 ) -> tuple[list[AgentEvidenceAnchorOpenTargetV1], list[AgentEvidenceAnchorStatusV1]]:
     """Project only cited, frozen source pins from a validated V2 turn."""
     graph_types = _app_state_graph_execution_types()
@@ -5263,6 +5264,14 @@ def _evidence_anchor_open_projection(
         and event.event_id in included_read_events
         for read in event.receipts
     }
+    read_events_by_id = {
+        read.source_read_id: event.event_id
+        for event in execution.events
+        if getattr(event, "kind", None) == "validated_source_read_v2"
+        and event.event_id in included_read_events
+        for read in event.receipts
+    }
+    from .agent_source_names import source_name_for_read
     targets: list[AgentEvidenceAnchorOpenTargetV1] = []
     counts: dict[str, int] = {}
     omitted: set[str] = set()
@@ -5330,6 +5339,8 @@ def _evidence_anchor_open_projection(
                 graph_revision=authority.graph_revision,
                 source_read_id=None if read is None else read.source_read_id,
                 read_outcome=None if read is None else read.outcome,
+                source_name=None if read is None else source_name_for_read(
+                    turn, read_events_by_id[read.source_read_id], read, source_names),
             ))
             counts[citation.claim_id] += 1
             remaining.append((citation, choices))
@@ -5601,6 +5612,7 @@ def project_plan_turn_context(
     turn: Turn,
     *,
     delivery_replay: bool,
+    source_names: list[dict] | None = None,
 ) -> AgentPlanWorldGraphContextResponseV2 | AgentBuildGraphContextResponseV1:
     """Project a history/replay receipt only after checking its lifecycle binding."""
     _validate_policy_turn_record(turn)
@@ -5632,7 +5644,10 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
-    evidence_targets, evidence_statuses = _evidence_anchor_open_projection(turn)
+    from .agent_source_names import source_names_for_turns
+    if source_names is None:
+        source_names = source_names_for_turns([turn])
+    evidence_targets, evidence_statuses = _evidence_anchor_open_projection(turn, source_names=source_names)
     related_targets, related_statuses = _related_recap_context_open_targets(
         turn,
         available_slots=64 - len(evidence_targets),

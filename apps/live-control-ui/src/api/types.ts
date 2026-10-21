@@ -1229,6 +1229,7 @@ export interface WorldPlanRelatedRecapContextStatusV2 {
 export interface WorldPlanSourceOpenAuthorityV1 {
   claim_id: string;
   source_artifact_id: string;
+  source_name: string | null;
   source_revision_id: string;
   managed_world_id: string;
   native_world_id: string;

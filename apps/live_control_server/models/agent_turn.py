@@ -521,6 +521,7 @@ class AgentSourceOpenAuthorityV1(BaseModel):
 
     claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_name: str | None = None  # Frozen display label; never read authority.
     source_revision_id: str = Field(min_length=1, max_length=256)
     managed_world_id: str = Field(min_length=1, max_length=128)
     native_world_id: str = Field(min_length=1, max_length=128)

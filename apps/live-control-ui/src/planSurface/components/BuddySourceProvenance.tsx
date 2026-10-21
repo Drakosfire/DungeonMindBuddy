@@ -1,6 +1,7 @@
 import type { WorldPlanSourceOpenTargetV2 } from '../../api/types'
 
 export function sourceCitationTitle(target: WorldPlanSourceOpenTargetV2): string {
+  if (target.source_name) return target.source_name
   return target.kind === 'related_recap_context'
     ? target.canonical_heading.replace(/^#{1,6}\s*/, '')
     : 'Open cited source'

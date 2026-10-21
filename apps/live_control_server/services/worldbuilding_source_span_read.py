@@ -515,6 +515,7 @@ def read_admitted_worldbuilding_span(
         anchor_id=anchor_id,
         evidence_ref_id=evidence_ref_id,
         source_artifact_id=cleaned_artifact_id,
+        source_name=workspace_record.title,
         source_domain="worldbuilding",
         source_span_ref_id=span.source_span_id,
         locator_kind="source_span",

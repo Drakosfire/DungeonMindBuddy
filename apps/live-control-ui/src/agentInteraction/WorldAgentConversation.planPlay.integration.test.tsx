@@ -424,7 +424,7 @@ async function buildGraphContext(): Promise<WorldBuildKnowledgeContextV1> {
         entries: plan.completion!.citation_map!.entries.map(entry => ({ ...entry, source_read_ids: [] })),
       } },
     source_open_targets: [{ schema: "dmb_agent_evidence_anchor_open_target_v1", kind: "evidence_anchor",
-      claim_id: claim.claim_id, source_artifact_id: "artifact-one", source_revision_id: "source-rev-one",
+      claim_id: claim.claim_id, source_artifact_id: "artifact-one", source_revision_id: "source-rev-one", source_name: null,
       managed_world_id: WORLD, native_world_id: receipt.graph_authority.native_world_id,
       binding_version: receipt.graph_authority.binding_version, scope_mode: "world", campaign_id: null,
       focus: {kind: "none", session_id: null, campaign_id: null}, admissibility: "gm",

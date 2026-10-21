@@ -1395,6 +1395,8 @@ def get_world_conversation_history(
         and not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
         for turn in turns
     )
+    from apps.live_control_server.services.agent_source_names import source_names_for_turns
+    source_names = source_names_for_turns(turns)
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1405,7 +1407,7 @@ def get_world_conversation_history(
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
                 idempotency_key=envelope.idempotency_key,
-                rules_context=project_rules_answer_context(turn, delivery_replay=True),
+                rules_context=project_rules_answer_context(turn, delivery_replay=True, source_names=source_names),
                 **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
@@ -1433,7 +1435,7 @@ def get_world_conversation_history(
         elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
-                knowledge_context=project_plan_turn_context(turn, delivery_replay=True)))
+                knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
         elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
             play_model = (
                 AgentConversationHistoryPlayTurnV3
@@ -1456,7 +1458,7 @@ def get_world_conversation_history(
                 )(
                     **values,
                     plan_context=project_plan_turn_context(
-                        turn, delivery_replay=True
+                        turn, delivery_replay=True, source_names=source_names
                     ),
                 )
             )
