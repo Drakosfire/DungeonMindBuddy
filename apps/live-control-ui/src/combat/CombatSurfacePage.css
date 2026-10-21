@@ -1,4 +1,5 @@
-.native-combat-surface { width:100%; min-width:0; box-sizing:border-box; }
+.app-wrap:has(> .native-combat-surface) { max-width:none; min-width:0; }
+.native-combat-surface { width:100%; min-width:0; box-sizing:border-box; margin:1rem 0; padding:0 1rem; }
 .native-combat-surface .combat-roster-save-rail { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; }
 .native-combat-surface .combat-roster-save-rail label { display:flex; flex-direction:column; gap:.25rem; flex:1; min-width:min(14rem,100%); max-width:100%; }
 .native-combat-surface .combat-roster-save-rail :is(input,select) { min-width:0; width:100%; box-sizing:border-box; }

@@ -14,7 +14,7 @@ export function CombatSurfacePage(){
     identity:buildSurfaceInteractionIdentity({surfaceId:'combat',instanceParts:[worldId]}),
     canvas:null,agentContext:null,tools:[],editCommands:[],projections:[],projectionBindings:[]}),[worldId]);
   usePublishSurfaceInteraction(publication);
-  return <AppChrome activeRoute="combat"><main className="app-status native-combat-surface" aria-label="Combat encounters">
+  return <AppChrome activeRoute="combat"><main className="native-combat-surface" aria-label="Combat encounters">
     <CombatRosterModule />
   </main></AppChrome>;
 }
