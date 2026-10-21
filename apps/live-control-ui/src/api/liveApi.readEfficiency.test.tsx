@@ -27,6 +27,24 @@ describe("protected read acquisition",()=>{
   gate.resolve(Response.json({schema:"dmb_agent_conversation_history_v4",turns:[]}));
   unmount();
  });
+ it.each([
+  ["Plan action history",()=>api.getWorldPlanDocumentEditActions("elderwyld","doc-1"),"/api/live/world-plan-edit/actions?world_id=elderwyld&document_id=doc-1"],
+  ["Plan conversation action history",()=>api.getWorldPlanConversationActions("elderwyld","conversation-1"),"/api/live/world-plan-edit/conversation-actions?world_id=elderwyld&conversation_id=conversation-1"],
+])("coalesces concurrent %s refreshes and fetches fresh data after settlement",async(_label,read,path)=>{
+  api.setNativeGraphAccessToken("action-history-read-sharing");
+  const gate=deferred<Response>();
+  let calls=0;
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(()=>
+    ++calls===1 ? gate.promise : Promise.resolve(Response.json({actions:[]})));
+  const first=read();
+  const repeated=read();
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));
+  expect(String(fetch.mock.calls[0][0])).toBe(path);
+  gate.resolve(Response.json({actions:[]}));
+  await Promise.all([first,repeated]);
+  await read();
+  expect(fetch).toHaveBeenCalledTimes(2);
+ });
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
@@ -176,6 +194,38 @@ describe("protected read acquisition",()=>{
   const reads=[historyPath,historyPath.replace("elderwyld","other"),historyPath+"&before_sequence=10"].map(path=>api.authenticatedApiFetch(path));reads.push(api.authenticatedApiFetch(historyPath,{cache:"no-store"}));
   for(const body of [{worldId:"w",queryText:"a",revisionPin:"1"},{worldId:"w",queryText:"b",revisionPin:"1"},{worldId:"w",queryText:"a",revisionPin:"2"}])reads.push(api.authenticatedApiFetch("/api/live/world-graph/managed-projection",{method:"POST",body:JSON.stringify(body)}));
   await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(7));gate.resolve(Response.json({}));await Promise.all(reads);
+ });
+ it.each([
+  "/api/live/world-graph/retrieval/complete-object",
+  "/api/live/world-graph/retrieval/source-anchor/read",
+  "/api/live/world-graph/retrieval/recap-context/v2/read",
+])("coalesces identical pending evidence reads at %s and keeps request variants distinct",async path=>{
+  api.setNativeGraphAccessToken("evidence-read-sharing");
+  const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async (_url,init)=>{
+    const body=JSON.parse(String(init?.body));
+    return Response.json({revisionPin:body.revisionPin,worldId:body.worldId});
+  });
+  const base={schema:"read-request-v1",worldId:"elderwyld",revisionPin:"rev-1",anchorId:"anchor-1"};
+  const body=JSON.stringify(base);
+  const first=api.authenticatedApiFetch(path,{method:"POST",body});
+  const same=api.authenticatedApiFetch(path,{method:"POST",body});
+  const changedRevision=api.authenticatedApiFetch(path,{method:"POST",body:JSON.stringify({...base,revisionPin:"rev-2"})});
+  const changedWorld=api.authenticatedApiFetch(path,{method:"POST",body:JSON.stringify({...base,worldId:"other-world"})});
+  await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(3));
+  expect(fetch.mock.calls.map(([,init])=>JSON.parse(String(init?.body)))).toEqual([
+    base,
+    {...base,revisionPin:"rev-2"},
+    {...base,worldId:"other-world"},
+  ]);
+  const [a,b,c,d]=await Promise.all([first,same,changedRevision,changedWorld]);
+  expect(await Promise.all([a.response.json(),b.response.json(),c.response.json(),d.response.json()])).toEqual([
+    {revisionPin:"rev-1",worldId:"elderwyld"},
+    {revisionPin:"rev-1",worldId:"elderwyld"},
+    {revisionPin:"rev-2",worldId:"elderwyld"},
+    {revisionPin:"rev-1",worldId:"other-world"},
+  ]);
+  await api.authenticatedApiFetch(path,{method:"POST",body});
+  expect(fetch).toHaveBeenCalledTimes(4);
  });
  it("does not share a refresh across a command or coalesce command calls",async()=>{
   api.setNativeGraphAccessToken("test-bearer");const gate=deferred<Response>();const fetch=vi.spyOn(globalThis,"fetch").mockReturnValue(gate.promise);

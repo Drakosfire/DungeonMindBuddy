@@ -672,6 +672,8 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || pathname === "/api/live/play-active-run"
     || pathname === "/api/live/world-play-runs/v2"
     || pathname === "/api/live/world-play-runs/v2/active"
+    || pathname === "/api/live/world-plan-edit/actions"
+    || pathname === "/api/live/world-plan-edit/conversation-actions"
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
@@ -680,7 +682,14 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
     || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
   return method === "POST" && typeof init?.body === "string"
-    && ["/api/live/world-graph/projection", "/api/live/world-graph/managed-projection", "/api/live/world-graph/recap-projection"].includes(pathname);
+    && [
+      "/api/live/world-graph/projection",
+      "/api/live/world-graph/managed-projection",
+      "/api/live/world-graph/recap-projection",
+      "/api/live/world-graph/retrieval/complete-object",
+      "/api/live/world-graph/retrieval/source-anchor/read",
+      "/api/live/world-graph/retrieval/recap-context/v2/read",
+    ].includes(pathname);
 }
 
 /** The current wizard's status probe is a read despite its POST transport. */
