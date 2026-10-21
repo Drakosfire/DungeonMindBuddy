@@ -563,7 +563,7 @@ def test_ephemeral_system_prompt_prefixes_neutral_graph_policy(tmp_path: Path) -
     prompt = str((_FakeAgent.last_init or {}).get("ephemeral_system_prompt") or "")
     assert prompt.startswith(GRAPH_SYSTEM_POLICY)
     assert "Turn capability policy" in prompt
-    assert "enabledPluginIds" in prompt
+    assert "enabledPluginIds" not in prompt
 
 
 def test_explicit_conversation_only_worker_turn_has_no_graph_or_tools(
@@ -4230,6 +4230,11 @@ def test_compact_scope_preserves_exact_initial_packet_and_parent_admission():
     rendered = _scope_block(policy, retrieval_session_id="session", retrieval_session=session)
     raw = rendered.split("\n", 1)[1]
     payload = json.loads(raw)
+    assert set(payload) == {"worldId", "campaignId", "scopeMode", "focus", "admissibility",
+                            "revisionPin", "retrievalSessionId", "initialClaimPacket"}
+    assert payload["worldId"] == policy.graph_scope.world_id
+    assert payload["revisionPin"] == policy.graph_scope.revision_pin
+    assert payload["retrievalSessionId"] == "session"
     assert "\n" not in raw
     assert len(raw.encode()) < len(json.dumps(payload, ensure_ascii=False, indent=2).encode())
     assert payload["initialClaimPacket"]["candidates"] == session["candidates"]
@@ -4249,6 +4254,9 @@ def test_buddy_product_prompt_reaches_sdk_request_and_rebuild(tmp_path, monkeypa
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
     question = "Discuss the swamp and Edge before choosing an image."
     turn_policy = "TURN_POLICY_SENTINEL: use only admitted World evidence."
+    from apps.live_control_server.services.hermes_graph_agent import _scope_block
+    turn_policy += "\n\n" + _scope_block(
+        default_graph_only_capability_policy(_default_scope()), retrieval_session_id="synthetic-session")
     with hermes_import_namespace():
         from run_agent import AIAgent
         ProductAgent = buddy_agent_class(AIAgent)
@@ -4288,7 +4296,15 @@ def test_buddy_product_prompt_reaches_sdk_request_and_rebuild(tmp_path, monkeypa
                 messages = sent["messages"]
                 system = "\n".join(m["content"] for m in messages if m["role"] == "system")
                 assert BUDDY_SYSTEM_PROMPT in system
+                assert "reuse opened passages" in system
+                assert "Batch independent reads when the tool supports it." in system
+                assert "stop retrieving and respond" in system
+                assert "using its source name" in system
+                assert "Use exact selectors only where the tool or answer contract" in system
                 assert turn_policy in system
+                for bookkeeping in ("enabledPluginIds", "enabledToolsets", "enabledToolNames", "processIsolation"):
+                    assert bookkeeping not in system
+                assert '"retrievalSessionId":"synthetic-session"' in system
                 assert any(m.get("content") == question for m in messages)
                 if resumed:
                     for message in history:
