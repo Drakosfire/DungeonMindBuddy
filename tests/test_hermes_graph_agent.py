@@ -4238,3 +4238,67 @@ def test_compact_scope_preserves_exact_initial_packet_and_parent_admission():
     bootstrap = SimpleNamespace(retrieval_session=SimpleNamespace(project_for_hermes=lambda: session))
     view = SimpleNamespace(api_mode="codex_responses", payload_json=json.dumps({"instructions": rendered}))
     assert _initial_claim_packet_from_view(view, bootstrap) == payload["initialClaimPacket"]
+
+
+@pytest.mark.parametrize("resumed", [False, True])
+def test_buddy_product_prompt_reaches_sdk_request_and_rebuild(tmp_path, monkeypatch, resumed):
+    """Exercise actual SDK request assembly, not just the prompt helper string."""
+    from apps.live_control_server.services.hermes_product_prompt import (
+        BUDDY_SYSTEM_PROMPT, buddy_agent_class,
+    )
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    question = "Discuss the swamp and Edge before choosing an image."
+    turn_policy = "TURN_POLICY_SENTINEL: use only admitted World evidence."
+    with hermes_import_namespace():
+        from run_agent import AIAgent
+        ProductAgent = buddy_agent_class(AIAgent)
+        from hermes_state import SessionDB
+        db = SessionDB(tmp_path / "sessions.db") if resumed else None
+        history = [{"role": "user", "content": "Prior story question"},
+                   {"role": "assistant", "content": "Prior story answer"}] if resumed else None
+        if db:
+            db.create_session("product-prompt-resume", "test", model="gpt-6-luna",
+                              system_prompt="You are a coding agent.\nModel: gpt-6-luna\nProvider: openai-api")
+            for message in history:
+                db.append_message("product-prompt-resume", **message)
+            before = db.get_messages("product-prompt-resume")
+        with patch("run_agent.OpenAI"):
+            agent = ProductAgent(
+                quiet_mode=True, api_key="test-key-1234567890",
+                provider="openai-api", model="gpt-6-luna",
+                base_url="https://api.openai.com/v1", api_mode="chat_completions",
+                enabled_toolsets=[], skip_context_files=True, skip_memory=True,
+                ephemeral_system_prompt=turn_policy,
+                session_id="product-prompt-resume", session_db=db,
+            )
+        agent.client = MagicMock()
+        agent.client.chat.completions.create.return_value = _mock_chat_response(
+            content="Let's ground the image in the available evidence.", finish_reason="stop",
+        )
+        agent._use_prompt_caching = False
+        agent.compression_enabled = False
+        agent.save_trajectories = False
+        # Upstream build must never be called, including after invalidation.
+        with patch("agent.system_prompt.build_system_prompt", side_effect=AssertionError("host prompt assembly")):
+            for _ in range(2):
+                agent._invalidate_system_prompt()
+                result = agent.run_conversation(user_message=question, conversation_history=history)
+                assert result["final_response"]
+                sent = agent.client.chat.completions.create.call_args.kwargs
+                messages = sent["messages"]
+                system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+                assert BUDDY_SYSTEM_PROMPT in system
+                assert turn_policy in system
+                assert any(m.get("content") == question for m in messages)
+                if resumed:
+                    for message in history:
+                        assert {key: message[key] for key in ("role", "content")} in messages
+                    assert db.get_session(agent.session_id)["system_prompt"] == BUDDY_SYSTEM_PROMPT
+                    after = db.get_messages(agent.session_id)
+                    assert after[:len(before)] == before
+                for forbidden in ("coding agent", "Workspace (snapshot", "User home directory:",
+                                  "Active Hermes profile", "Recent commits:", "Nous Research"):
+                    assert forbidden not in system
+        assert agent._build_system_prompt_parts("caller context") == {
+            "stable": BUDDY_SYSTEM_PROMPT, "context": "caller context", "volatile": "",
+        }
