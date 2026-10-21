@@ -1,7 +1,7 @@
 import './BuddyContextTrace.css'
 import { useEffect, useState } from 'react'
 import { PreparedRequestInspector } from './PreparedRequestInspector'
-import { getWorldAgentTurnPrompt } from '../../api/liveApi'
+import { useBuddyPromptReader } from './BuddyTurnInspection'
 import type { BuddyPromptEvidence, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 
 export function BuddyPromptInspector({ trace }: { trace: BuddyTurnContextTrace | null }) {
@@ -28,26 +28,18 @@ function ScopedPromptInspector({ trace }: { trace: BuddyTurnContextTrace }) {
   </div>
 }
 function CapturedPrompt({ trace, reference }: { trace: BuddyTurnContextTrace; reference: BuddyTracePromptReference }) {
-  const [state, setState] = useState<{ evidence?: BuddyPromptEvidence; error?: string }>({})
+  const readPrompt = useBuddyPromptReader()
+  const [state, setState] = useState<{ owner?: typeof readPrompt; evidence?: BuddyPromptEvidence; error?: string }>({})
   useEffect(() => {
     let active = true
     const controller = new AbortController()
-    getWorldAgentTurnPrompt(trace.world_id, trace.turn_id, trace.trace_id, reference.provider_attempt_id, controller.signal)
-      .then(evidence => {
+    readPrompt(trace, reference, controller.signal).then(evidence => {
         if (!active) return
-        if (evidence.schema !== 'dmb_agent_prompt_evidence_v1' || evidence.world_id !== trace.world_id
-          || evidence.conversation_id !== trace.conversation_id || evidence.turn_id !== trace.turn_id
-          || evidence.trace_id !== trace.trace_id || evidence.attempt !== trace.attempt
-          || evidence.reference.provider_attempt_id !== reference.provider_attempt_id
-          || evidence.reference.evidence_id !== reference.evidence_id
-          || evidence.reference.payload_sha256 !== reference.payload_sha256
-          || evidence.reference.payload_utf8_bytes !== reference.payload_utf8_bytes) throw new Error('binding')
-        const body = JSON.parse(evidence.payload_json)
-        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('envelope')
-        setState({ evidence })
-      }).catch(() => { if (active) setState({ error: 'This captured request is unavailable. No reconstructed request is shown.' }) })
+        setState({ owner: readPrompt, evidence })
+      }).catch(() => { if (active) setState({ owner: readPrompt, error: 'This captured request is unavailable. No reconstructed request is shown.' }) })
     return () => { active = false; controller.abort() }
-  }, [trace.world_id, trace.conversation_id, trace.turn_id, trace.trace_id, trace.attempt, reference.provider_attempt_id, reference.evidence_id, reference.payload_sha256, reference.payload_utf8_bytes])
+  }, [readPrompt, trace.world_id, trace.conversation_id, trace.turn_id, trace.trace_id, trace.attempt, reference.provider_attempt_id, reference.evidence_id, reference.payload_sha256, reference.payload_utf8_bytes])
+  if (state.owner !== readPrompt) return <p role="status">Loading captured request…</p>
   if (state.error) return <p role="alert">{state.error}</p>
   if (!state.evidence) return <p role="status">Loading captured request…</p>
   const evidence = state.evidence

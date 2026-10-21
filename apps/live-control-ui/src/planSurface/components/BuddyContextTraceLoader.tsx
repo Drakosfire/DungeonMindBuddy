@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { deferredComponent } from '../../ui/deferredComponent'
 import { useBuddyTurnInspection } from './BuddyTurnInspection'
 
@@ -21,9 +22,15 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   const attempts = data.attempts
   return <div>{error}{!running && attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete')
     ? <p role="note">The turn has ended, but this saved capture is incomplete. Refresh trace to check for a later capture.</p> : null}<p>Captured observation · <button type="button" onClick={refresh}>Refresh trace</button></p>
-    {!attempts.length ? running ? <p role="status">Trace capture has not started yet.</p> : promptOnly ? <BuddyPromptInspector trace={null} /> : <BuddyContextTrace trace={null} ownerActive={running} />
+    {!attempts.length ? running ? <p role="status">Trace capture has not started yet.</p> : promptOnly ? <BuddyPromptInspector trace={null} /> : <DebugAttempt trace={null} running={running} />
       : attempts.map((trace, index) => index === attempts.length - 1
-        ? promptOnly ? <BuddyPromptInspector key={trace.trace_id} trace={trace} /> : <BuddyContextTrace key={trace.trace_id} trace={trace} ownerActive={running} />
-        : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary>{promptOnly ? <BuddyPromptInspector trace={trace} /> : <BuddyContextTrace trace={trace} ownerActive={running} />}</details>)}
+        ? promptOnly ? <BuddyPromptInspector key={trace.trace_id} trace={trace} /> : <DebugAttempt key={trace.trace_id} trace={trace} running={running} />
+        : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary>{promptOnly ? <BuddyPromptInspector trace={trace} /> : <DebugAttempt trace={trace} running={running} />}</details>)}
   </div>
+}
+
+function DebugAttempt({ trace, running }: { trace: import('../../api/buddyContextTraceTypes').BuddyTurnContextTrace | null; running: boolean }) {
+  const [open, setOpen] = useState(false)
+  return <><details onToggle={event => setOpen(event.currentTarget.open)}><summary>The Prompt</summary>
+    {open && <BuddyPromptInspector trace={trace} />}</details><BuddyContextTrace trace={trace} ownerActive={running} /></>
 }

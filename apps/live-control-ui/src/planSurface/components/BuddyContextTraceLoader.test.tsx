@@ -1,13 +1,13 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BuddyTurnContextTrace, WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
 import { BuddyContextTraceLoader as TraceView } from './BuddyContextTraceLoader'
 import { BuddyTurnInspection } from './BuddyTurnInspection'
 import type { ComponentProps } from 'react'
-import type { getWorldAgentTurnContextTrace } from '../../api/liveApi'
+import type { getWorldAgentTurnContextTrace, getWorldAgentTurnPrompt } from '../../api/liveApi'
 
-function BuddyContextTraceLoader({ load, running, ...props }: ComponentProps<typeof TraceView> & { load?: typeof getWorldAgentTurnContextTrace; running?: boolean }) {
-  return <BuddyTurnInspection {...props} load={load} lifecycle={running ? "running" : "completed"}><TraceView {...props} /></BuddyTurnInspection>
+function BuddyContextTraceLoader({ load, loadPrompt, running, ...props }: ComponentProps<typeof TraceView> & { load?: typeof getWorldAgentTurnContextTrace; loadPrompt?: typeof getWorldAgentTurnPrompt; running?: boolean }) {
+  return <BuddyTurnInspection {...props} load={load} loadPrompt={loadPrompt} lifecycle={running ? "running" : "completed"}><TraceView {...props} /></BuddyTurnInspection>
 }
 
 const props = { worldId:'world', turnId:'turn', conversationId:'conversation' }
@@ -120,4 +120,23 @@ describe('opt-in turn trace read', () => {
     expect(load).toHaveBeenCalledTimes(2)
   })
 
+})
+
+it("opens a failed turn's exact captured request within Debug only on demand", async () => {
+  const reference = {kind:'prompt_reference' as const,sequence:0,elapsed_ms:0,provider_attempt_id:'call',
+    evidence_id:'evidence',provider:'openai',model:'model',api_mode:'responses',serializer_version:'fixture',
+    payload_sha256:'a'.repeat(64),payload_utf8_bytes:18}
+  const captured = {...trace(),closed_at:'2026-10-13T00:00:01Z',terminal_status:'failed' as const,
+    capture_status:'complete' as const,observations:[reference]}
+  const loadPrompt=vi.fn().mockResolvedValue({schema:'dmb_agent_prompt_evidence_v1',world_id:'world',
+    conversation_id:'conversation',turn_id:'turn',trace_id:'trace',attempt:1,reference,
+    payload_json:JSON.stringify({model:'model',input:'Exact image direction request'})})
+  render(<BuddyContextTraceLoader {...props} enabled load={vi.fn().mockResolvedValue(response([captured]))} loadPrompt={loadPrompt} />)
+  const control = await screen.findByText('The Prompt', {selector:'summary'})
+  expect(loadPrompt).not.toHaveBeenCalled()
+  fireEvent.click(control)
+  await screen.findByRole('heading',{name:'Full composed request'})
+  expect(loadPrompt).toHaveBeenCalledTimes(1)
+  expect(loadPrompt).toHaveBeenCalledWith('world','turn','trace','call',expect.any(AbortSignal))
+  expect(screen.getByLabelText('Captured request')).toHaveTextContent('Exact image direction request')
 })
