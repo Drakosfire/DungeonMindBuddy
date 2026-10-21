@@ -1,0 +1,153 @@
+{
+  "schema": "dmb_play_world_graph_context_receipt_v1",
+  "receipt_serializer_version": "canonical-json-utf8-v1",
+  "context_receipt_sha256": "b002d58999cb5779d0d3ee5db334a5b4a65eaf38d955e29effaba3279b7ec3c8",
+  "play_graph_policy": {
+    "schema": "dmb_play_graph_policy_v1",
+    "policy": "native_play_world_v1"
+  },
+  "play_basis": {
+    "schema": "dmb_play_run_turn_context_receipt_v2",
+    "run_id": "run-one",
+    "run_revision": 3,
+    "runbook_object_id": "plan-one",
+    "runbook_object_revision": 7,
+    "runbook_work_revision_id": "00000000-0000-4000-8000-000000000001",
+    "runbook_revision_n": 2,
+    "runbook_content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "beat_id": "beat:north",
+    "scene_id": "scene:boardwalk",
+    "marker_grammar_version": "v2",
+    "world_id": "world-one",
+    "edition_revision": 0,
+    "edition_revision_id": null,
+    "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "scene_note": "Saved 🦉 note.",
+    "scene_note_sha256": "00238839c528e9ae18e3637bca7e7612a2a1e244ed3be192d94f7f89b7f22356"
+  },
+  "play_sources": {
+    "schema": "dmb_play_source_manifest_v1",
+    "entries": [
+      {
+        "source_id": "play-source:4817c4c80a70c0394da03c33163f7ce8f9f50cf5ccca8272f1132ce96d15a74a",
+        "source_kind": "current_moment",
+        "locator": {
+          "world_id": "world-one",
+          "run_id": "run-one",
+          "run_revision": 3,
+          "edition": {
+            "edition_revision": 0,
+            "edition_revision_id": null,
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "beat_id": "beat:north",
+          "scene_id": "scene:boardwalk"
+        },
+        "payload_sha256": "4817c4c80a70c0394da03c33163f7ce8f9f50cf5ccca8272f1132ce96d15a74a",
+        "payload_utf8_bytes": 390,
+        "text_sha256": "e73cc51d34188e9ecf8a0d82ba35f03e55cc8323bf23b0ed66b2ab7227c73cb0",
+        "text_utf8_bytes": 42,
+        "text_codepoints": 39
+      },
+      {
+        "source_id": "play-source:b22e6d9048087285f235b205dc8a319ca06223752285896cda2fbaedf18e2c15",
+        "source_kind": "scene_note",
+        "locator": {
+          "world_id": "world-one",
+          "run_id": "run-one",
+          "run_revision": 3,
+          "edition": {
+            "edition_revision": 0,
+            "edition_revision_id": null,
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "beat_id": "beat:north",
+          "scene_id": "scene:boardwalk"
+        },
+        "payload_sha256": "b22e6d9048087285f235b205dc8a319ca06223752285896cda2fbaedf18e2c15",
+        "payload_utf8_bytes": 359,
+        "text_sha256": "00238839c528e9ae18e3637bca7e7612a2a1e244ed3be192d94f7f89b7f22356",
+        "text_utf8_bytes": 16,
+        "text_codepoints": 13
+      }
+    ],
+    "manifest_sha256": "c240a60be3ce83ebfca897e37ed4d4b492ec24a475634f699f9b76932c96f4b2"
+  },
+  "play_source_frame_sha256": "d7e1f474cfd94142c0c51095b1c2e1d8e060ed484d59480716b241407197ee8d",
+  "retrieval_session_id": "retrieval-one",
+  "graph_authority": {
+    "managed_world_id": "world-one",
+    "native_world_id": "native-world-one",
+    "binding_version": 1,
+    "scope_mode": "world",
+    "campaign_id": null,
+    "admissibility_version": "gm-v1",
+    "graph_revision": "graph-one"
+  },
+  "graph_packet": {
+    "schema": "dmb_play_world_graph_packet_v1",
+    "packet_serializer_version": "canonical-json-utf8-v1",
+    "selection_policy_version": "parent_initial_retrieval_with_bounded_source_index_v1",
+    "evidence_sufficiency_policy_version": "synthetic",
+    "retrieval_packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "candidate_assertion_ids": [
+      "assertion-one"
+    ],
+    "candidate_relationship_ids": [],
+    "candidate_evidence_ref_ids": [
+      "e0",
+      "e1",
+      "e2",
+      "e3",
+      "e4",
+      "e5",
+      "e6",
+      "e7"
+    ],
+    "retrieval_status": "complete",
+    "evidence_sufficiency_status": "sufficient",
+    "result_limit": 32,
+    "coverage_status": "complete",
+    "truncated": false,
+    "omission_reasons": []
+  },
+  "assembled_input": {
+    "assembler_version": "native-play-v1",
+    "budget_policy_version": "synthetic",
+    "provider_model_name": "synthetic",
+    "provider_model_version": "synthetic",
+    "tokenizer_name": "synthetic",
+    "tokenizer_version": "synthetic",
+    "provider_envelope_input_tokens": 12,
+    "output_token_reserve": 10,
+    "context_window_limit": 1024,
+    "packet_disposition": "included",
+    "packet_disposition_reason": null,
+    "dispatched_packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "dispatched_assertion_ids": [
+      "assertion-one"
+    ],
+    "dispatched_relationship_ids": [],
+    "dispatched_evidence_ref_ids": [
+      "e0",
+      "e1",
+      "e2",
+      "e3",
+      "e4",
+      "e5",
+      "e6",
+      "e7"
+    ],
+    "source_token_accounting": [
+      {
+        "source_kind": "play",
+        "source_id": "run-one",
+        "input_tokens": 12
+      }
+    ],
+    "included_history": [],
+    "assembled_input_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "evidence_mode": "metadata_only",
+  "source_opened": false
+}

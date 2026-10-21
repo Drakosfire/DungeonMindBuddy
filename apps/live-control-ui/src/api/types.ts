@@ -1005,6 +1005,38 @@ export interface WorldPlanGraphContextReceiptV1 {
   source_opened: false;
 }
 
+/** Native Play source commitments; never reinterpreted as a Plan receipt. */
+export interface WorldPlayRunContextReceiptV2 extends WorldPlayContentBasis, WorldPlayTarget {
+  schema: "dmb_play_run_turn_context_receipt_v2";
+  world_id: string; run_id: string; run_revision: number;
+  runbook_object_id: string; runbook_object_revision: number;
+  runbook_work_revision_id: string; runbook_revision_n: number; runbook_content_sha256: string;
+  scene_note: string | null; scene_note_sha256: string | null;
+}
+export interface WorldPlaySourceLocator {
+  world_id: string; run_id: string; run_revision: number;
+  edition: WorldPlayContentBasis; beat_id: string; scene_id: string | null;
+}
+export interface WorldPlaySourceManifestEntry {
+  source_id: string; source_kind: "current_moment" | "scene_note";
+  locator: WorldPlaySourceLocator; payload_sha256: string; payload_utf8_bytes: number;
+  text_sha256: string; text_utf8_bytes: number; text_codepoints: number;
+}
+export interface WorldPlayGraphContextReceiptV1 {
+  schema: "dmb_play_world_graph_context_receipt_v1";
+  receipt_serializer_version: "canonical-json-utf8-v1"; context_receipt_sha256: string;
+  play_graph_policy: { schema: "dmb_play_graph_policy_v1"; policy: "native_play_world_v1" };
+  play_basis: WorldPlayRunContextReceiptV2;
+  play_sources: { schema: "dmb_play_source_manifest_v1"; entries: WorldPlaySourceManifestEntry[]; manifest_sha256: string };
+  play_source_frame_sha256: string; retrieval_session_id: string;
+  graph_authority: WorldPlanGraphContextReceiptV1["graph_authority"];
+  graph_packet: Omit<WorldPlanGraphContextReceiptV1["graph_packet"], "schema"> & { schema: "dmb_play_world_graph_packet_v1" };
+  assembled_input: Omit<WorldPlanGraphContextReceiptV1["assembled_input"], "source_token_accounting"> & {
+    source_token_accounting: { source_kind: "play" | "history" | "graph" | "instructions" | "tools" | "message" | "rules"; source_id: string; input_tokens: number }[];
+  };
+  evidence_mode: "metadata_only"; source_opened: false;
+}
+
 export type WorldPlanGraphAnswerSegmentV1 =
   | {
     kind: "graph_claim";
