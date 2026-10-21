@@ -4318,3 +4318,43 @@ def test_buddy_product_prompt_reaches_sdk_request_and_rebuild(tmp_path, monkeypa
         assert agent._build_system_prompt_parts("caller context") == {
             "stable": BUDDY_SYSTEM_PROMPT, "context": "caller context", "volatile": "",
         }
+
+
+@pytest.mark.parametrize('resumed', [False, True])
+def test_session_labels_use_current_question_in_actual_sdk_request(tmp_path,monkeypatch,resumed):
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from apps.live_control_server.services.hermes_product_prompt import buddy_agent_class
+    from apps.live_control_server.services.session_evidence import render_session_evidence
+    from application_state.agent_conversation.session_citation_labels import producing_session_titles, PREFIX
+    from application_state.agent_conversation.types import HistoricalReference
+    monkeypatch.setenv('HERMES_HOME',str(tmp_path/'hermes'))
+    packet={'title':'Approach to Edge — Session Prep','run_id':'synthetic-run','review_revision':54,
+        'sha256':'a'*64,'sources':[{'kind':'scene_note','text':'A broken boardwalk.'}]}
+    current=render_session_evidence({'sessions':[packet]})+'\n\nWhat next?'
+    previous=render_session_evidence({'sessions':[{**packet,'review_revision':53,'title':'Earlier title'}]})
+    history=[{'role':'user','content':previous},{'role':'assistant','content':'Previous answer'},
+        {'role':'user','content':'Quoted '+PREFIX+' is not a host packet.'},
+        {'role':'assistant','content':'Understood.'}] if resumed else None
+    with hermes_import_namespace():
+        from run_agent import AIAgent
+        ProductAgent=buddy_agent_class(AIAgent)
+        with patch('run_agent.OpenAI'):
+            agent=ProductAgent(quiet_mode=True,api_key='test-key-1234567890',provider='openai-api',
+                model='gpt-6-luna',base_url='https://api.openai.com/v1',api_mode='chat_completions',
+                enabled_toolsets=[],skip_context_files=True,skip_memory=True)
+        agent.client=MagicMock()
+        agent.client.chat.completions.create.return_value=_mock_chat_response(content='Grounded answer.',finish_reason='stop')
+        agent._use_prompt_caching=False
+        agent.compression_enabled=False
+        agent.save_trajectories=False
+        result=agent.run_conversation(user_message=current,conversation_history=history)
+        assert result['final_response']
+        sent=agent.client.chat.completions.create.call_args.kwargs
+    raw=json.dumps(sent)
+    auth=SimpleNamespace(envelope_sha256=sha256(raw.encode()).hexdigest())
+    turn=SimpleNamespace(provenance=SimpleNamespace(supporting_work=[HistoricalReference(
+        resolution='resolved',kind='session_evidence_v1',object_id='synthetic-run',revision='54',content_sha256='a'*64)]))
+    assert producing_session_titles(turn,auth,raw)==(('synthetic-run','54',packet['title']),)
+    if resumed:
+        assert previous in [row.get('content') for row in sent['messages']]

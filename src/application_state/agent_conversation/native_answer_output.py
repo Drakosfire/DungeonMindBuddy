@@ -5,6 +5,7 @@ input/output proof and atomic acceptance remain mandatory at their owners.
 """
 from __future__ import annotations
 
+import re
 from typing import Annotated, Protocol
 from uuid import UUID
 from urllib.parse import urlencode
@@ -102,7 +103,21 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
                     raise ValueError('Session evidence is not frozen on this turn')
                 row['evidence_sha256']=matching[0].content_sha256
                 url='/play?'+urlencode({'world':turn.world_id,'run':matching[0].object_id,'evidence_revision':int(matching[0].revision)})
-                if url not in row.get('text',''):row['text']=row.get('text','')+f' [Session notes and reflections]({url})'
+                if (support is None or support.provider_attempt_id != auth.provider_attempt_id
+                        or support.envelope_sha256 != auth.envelope_sha256
+                        or support.context_receipt_sha256 != receipt.context_receipt_sha256
+                        or support.graph_revision != receipt.graph_authority.graph_revision):
+                    raise ValueError('Session citation lacks its actual producing input')
+                titles = {title for run, revision, title in getattr(support, 'session_titles', ())
+                    if (run, revision) == (matching[0].object_id, matching[0].revision)}
+                if len(titles) != 1:
+                    raise ValueError('Session citation has no unique frozen source title')
+                title = next(iter(titles))
+                title = re.sub(r'([\\\[\]])', r'\\\1', title.replace('\n', ' '))
+                link = f'[{title} — notes and reflections]({url})'
+                pattern = r'\[[^\]\n]*\]\(\s*' + re.escape(url) + r'\s*\)'
+                text, count = re.subn(pattern, lambda _match: link, row.get('text', ''))
+                row['text'] = text if count else text + ' ' + link
             normalized.append(row)
         if target_only:
             entries=[{**{key:row[key] for key in ('claim_id','target_kind','target_id','graph_revision','evidence_ref_ids')},

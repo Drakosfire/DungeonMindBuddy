@@ -461,12 +461,14 @@ def sealed_native_producer(turn, rules_execution, proof):
     from .native_graph_input import producing_graph_closures
     closures = producing_graph_closures(turn, graph_auth, proof)
     receipt = turn.graph_context_receipt
+    from .session_citation_labels import producing_session_titles
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
         envelope_sha256=graph_auth.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256,
         graph_revision=receipt.graph_authority.graph_revision,
         closures=tuple(closures),
+        session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),
     )
     return capture, graph_support
 

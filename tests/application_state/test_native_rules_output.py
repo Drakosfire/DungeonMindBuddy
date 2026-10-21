@@ -27,7 +27,7 @@ from tests.test_play_graph_authority import native_provider
 from tests.test_native_answer_output import plan_turn
 
 
-def native_case(*, graph_turn=None, base_output=None, unused=False):
+def native_case(*, graph_turn=None, base_output=None, unused=False, current_question="Ready?"):
     owner = native_rules_execution()
     attempt = uuid4()
     if graph_turn is not None:
@@ -44,7 +44,7 @@ def native_case(*, graph_turn=None, base_output=None, unused=False):
         })
         owner = owner.model_copy(update={"scope": scope})
     if unused:
-        prepared_request_json = json.dumps({"messages": [{"role": "user", "content": "Ready?"}]})
+        prepared_request_json = json.dumps({"messages": [{"role": "user", "content": current_question}]})
         request_sha = sha256(prepared_request_json.encode()).hexdigest()
         refs, outputs = (), ()
     else:
@@ -414,3 +414,25 @@ def test_unused_rules_rejects_forged_native_completion(mutation):
         proof = proof.model_copy(update={"producing_provider_attempt_id": uuid4()})
     with pytest.raises(ValueError):
         normalize_unused_native_output(turn, rules, proof)
+
+
+def test_app_reconstructs_session_title_from_sealed_producing_input():
+    from urllib.parse import urlencode
+    from application_state.agent_conversation.types import HistoricalReference
+    from apps.live_control_server.services.session_evidence import render_session_evidence
+    turn,_=plan_turn()
+    run=str(uuid4())
+    packet={'title':'Approach to Edge — Session Prep','run_id':run,'review_revision':54,
+        'sha256':'a'*64,'sources':[{'kind':'scene_note','text':'The boardwalk was pulled under.'}]}
+    ref=HistoricalReference(resolution='resolved',kind='session_evidence_v1',object_id=run,revision='54',content_sha256='a'*64)
+    turn=turn.model_copy(update={'provenance':turn.provenance.model_copy(update={'supporting_work':[ref]})})
+    url='/play?'+urlencode({'world':turn.world_id,'run':run,'evidence_revision':54})
+    base={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
+        {'kind':'session_evidence_claim','run_id':run,'review_revision':54,
+         'text':f'[Session 54 scene notes]( {url} ) describe a submerged boardwalk.'}]}
+    _,rules,proof,_,_,turn=native_case(graph_turn=turn,base_output=base,unused=True,
+        current_question=render_session_evidence({'sessions':[packet]})+'\n\nWhat next?')
+    completion,bindings,text=normalize_unused_native_output(turn,rules,proof)
+    assert 'Session 54' not in text and packet['title'] in text
+    assert text.count(url)==1 and completion.answer_segments[0].evidence_sha256=='a'*64
+    assert bindings=={}

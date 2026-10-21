@@ -146,7 +146,12 @@ def test_current_plan_hash_and_session_citation_are_derived_from_frozen_owners()
     candidate={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
         {'kind':'plan_claim','text':'The keeper waits.'},
         {'kind':'session_evidence_claim','text':'Saved recollections.','run_id':run,'review_revision':3}]}
-    completion,bindings,text=normalize_native_answer(candidate,turn,auth.provider_attempt_id)
+    support=SimpleNamespace(provider_attempt_id=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,
+        context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,
+        graph_revision=turn.graph_context_receipt.graph_authority.graph_revision,
+        session_titles=((run,'3','At the old gate'),))
+    completion,bindings,text=normalize_native_answer(candidate,turn,auth.provider_attempt_id,support=support)
+    assert '[At the old gate — notes and reflections]' in text
     assert completion.answer_segments[0].plan_content_sha256==turn.graph_context_receipt.plan_basis.content_sha256
     assert completion.answer_segments[1].evidence_sha256=='f'*64
     assert f'run={run}&evidence_revision=3' in text and bindings=={}
