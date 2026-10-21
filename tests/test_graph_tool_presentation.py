@@ -264,3 +264,44 @@ def test_per_target_closures_do_not_union_refs_or_admit_discovery_rows():
     # An earlier completed reassembly cannot authorize a later partial envelope.
     partial_again, = large.inclusion(TOOL, [pages[-1]])
     assert not any(target == 'a:one' for _, target, _ in partial_again.claim_evidence)
+
+
+def compact_neighborhood_case():
+    evidence='evidence:recap:session-24:paragraph-12'
+    graph={"schema":"dmb_world_graph_retrieval_result_v1","operation":"neighborhood","outcome":"enough",
+        "snapshot":{"worldId":SCOPE.world_id,"revisionId":SCOPE.revision_id},
+        "nodes":[{"nodeId":"edge","label":"Edge"}],
+        "relationships":[{"edgeId":"refugees:displaced_from:edge","sourceNodeId":"refugees","targetNodeId":"edge",
+            "predicate":"displaced_from","epistemicKind":"belief","visibility":"gm","campaignScope":"longmont-c2",
+            "sessionIds":["session-24"],"evidenceRefIds":[evidence],"temporalScope":{"kind":"past"}}],
+        "sourceAnchors":[{"anchorId":"source:one","evidenceRefId":evidence,"readable":True,
+            "locator":{"opaque_metadata":"x"*10000}}],
+        "coverage":{"truncatedFields":[]}}
+    return graph,{**ARGS,"operation":"neighborhood","seedNodeIds":["edge"],"queryText":None}
+
+
+def test_neighborhood_factors_complete_records_without_opening_sources_or_fetching_detail():
+    graph,args=compact_neighborhood_case();parent=GraphToolPresentation(SCOPE);identity=uuid4()
+    packet=parent.present(TOOL,args,json.dumps(graph),identity);value=json.loads(packet)
+    assert value['schema']=='dmb_graph_evidence_packet_v1'
+    assert len(packet.encode())<=8000
+    record=value['records'][0]['record']
+    for key in ['epistemicKind','visibility','campaignScope','sessionIds','temporalScope','evidenceRefIds']:
+        assert record[key]==graph['relationships'][0][key]
+    assert value['sources'][0]['outcome']=='not_opened' and value['sources'][0]['content'] is None
+    exposure,=parent.inclusion(TOOL,[packet])
+    assert exposure.relationship_ids=={'refugees:displaced_from:edge'}
+    assert exposure.evidence_ref_ids=={graph['sourceAnchors'][0]['evidenceRefId']}
+    assert parent.bundled_source_inclusion([packet])==[]
+    assert exposure.event_id==identity
+    changed=json.loads(packet);changed['records'][0]['record']['epistemicKind']='fact'
+    with pytest.raises(ValueError):parent.inclusion(TOOL,[json.dumps(changed)])
+
+
+def test_genuinely_large_neighborhood_retains_discovery_and_exact_continuation():
+    graph,args=compact_neighborhood_case();graph['relationships'][0]['longQualifiedText']='text '*4000
+    parent=GraphToolPresentation(SCOPE);packet=parent.present(TOOL,args,json.dumps(graph),uuid4())
+    assert json.loads(packet)['schema']=='dmb_graph_tool_overview_v1'
+    assert not parent.inclusion(TOOL,[packet])[0].relationship_ids
+    pages=detail_pages(parent,packet,args=args)
+    assert parent.inclusion(TOOL,pages)[0].relationship_ids=={'refugees:displaced_from:edge'}

@@ -60,6 +60,19 @@ class GraphToolPresentation:
     def present(self, tool: str, arguments: dict, raw: str, event_id: UUID, *,
                 source_pins: dict[str, Any] | None = None) -> str:
         result = _Result(tool, event_id, raw, json.loads(raw))
+        from .graph_tool_transport import PAGE_BYTES
+        if (tool == "expand_graph_retrieval" and arguments.get("operation") == "neighborhood"
+                and result.value.get("schema") == "dmb_world_graph_retrieval_result_v1"
+                and isinstance(result.value.get("snapshot"), dict)
+                and len(raw.encode()) > PAGE_BYTES):
+            try:
+                # Complete qualified records often fit once repeated anchor
+                # metadata is factored. No source was opened by this operation.
+                return self.present_bundle(raw, event_id, [])
+            except ValueError as exc:
+                if str(exc) not in {"evidence_bundle_overflow", "bundle claim lacks exact evidence closure"}:
+                    raise
+                # Genuinely oversized/incomplete results retain exact paging.
         payload = self.cache.present(tool, arguments, self.scope, raw)
         value = json.loads(payload)
         if value.get("schema") == OVERVIEW_SCHEMA:

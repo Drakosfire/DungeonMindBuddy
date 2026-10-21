@@ -136,3 +136,24 @@ def test_initial_target_requires_exact_frozen_system_packet(mutation):
     else:
         result = producing_graph_closures(turn, auth, proof)
         assert (("assertion", "initial", ("ev1",)) in result) == (mutation is None)
+
+
+def test_actual_compact_neighborhood_delivery_supplies_exact_native_target_closure():
+    from apps.live_control_server.services.graph_tool_presentation import GraphToolPresentation
+    from tests.test_graph_tool_presentation import compact_neighborhood_case, TOOL, SCOPE
+    graph,args=compact_neighborhood_case();identity=uuid4();raw=json.dumps(graph)
+    packet=GraphToolPresentation(SCOPE).present(TOOL,args,raw,identity)
+    evidence=graph['sourceAnchors'][0]['evidenceRefId'];target=graph['relationships'][0]['edgeId']
+    event=ValidatedGraphOperationEventV1.model_construct(event_id=identity,
+        result_packet_sha256=sha256(canonical_bytes(graph)).hexdigest(),graph_revision=SCOPE.revision_id,
+        assertion_ids=[],relationship_ids=[target],evidence_ref_ids=[evidence])
+    turn=SimpleNamespace(graph_context_execution=SimpleNamespace(events=[event]),
+        graph_context_receipt=SimpleNamespace(assembled_input=SimpleNamespace(dispatched_packet_sha256=None),
+            graph_authority=SimpleNamespace(graph_revision=SCOPE.revision_id)))
+    auth=SimpleNamespace(included_graph_event_ids=[identity],included_assertion_ids=[],included_relationship_ids=[target],included_evidence_ref_ids=[evidence])
+    body={'input':[{'type':'function_call','call_id':'c','name':TOOL},
+        {'type':'function_call_output','call_id':'c','output':packet}]}
+    proof=SimpleNamespace(graph_packets={identity:raw},prepared_request_json=json.dumps(body))
+    assert producing_graph_closures(turn,auth,proof)==(('relationship',target,(evidence,)),)
+    body['input'][1]['output']=json.dumps({**json.loads(packet),'records':[]});proof.prepared_request_json=json.dumps(body)
+    assert producing_graph_closures(turn,auth,proof)==()
