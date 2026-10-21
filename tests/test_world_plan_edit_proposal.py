@@ -1288,6 +1288,8 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         expected_world_pointer=expected_pointer,
     )
     assert not hasattr(adapter, "request") and not adapter._is_build_turn()
+    assert adapter.rules_runtime is None and adapter.pending_native_rules_capability is None
+    assert adapter._captures_target_support(None) is False
     if prompt_capture in {"failure", "append_failure"}:
         assert adapter.authorize(view) is False
         assert adapter.failure.code == "prompt_capture_unavailable"
@@ -1646,7 +1648,8 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     )
     source_calls = []
 
-    def read_source(arguments, *, receipt_version):
+    def read_source(arguments, *, receipt_version, root):
+        assert receipt_version == 2 and root == tmp_path
         bootstrap = resolved[-1]
         pin = bootstrap.source_scope_anchors[0]
         source_calls.append((arguments, receipt_version))

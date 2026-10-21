@@ -1032,7 +1032,9 @@ def _plan_context_resolver(
             provider_dispatched=False,
         )
     use_bounded_index = stored_selection_policy == "parent_initial_retrieval_with_bounded_source_index_v1"
-    native_play_scope = body.surface.surface_id == "play" and work.kind == "run"
+    # Run work was already admitted with its Play surface/target above. Plan
+    # Action search intents intentionally carry no conversational surface.
+    native_play_scope = work.kind == "run"
     if native_play_scope and stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1":
         raise AgentTurnServiceError(
             "The stored Play source scope uses an unsupported selected-index policy.",
@@ -1123,7 +1125,7 @@ def _plan_context_resolver(
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
     request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
-    native_play = body.surface.surface_id == "play" and body.play_target is not None
+    native_play = native_play_scope
     if use_bounded_index or use_selected_index or native_play:
         request_identity += b"\x00" + (
             (work.plan_markdown or "").encode("utf-8")

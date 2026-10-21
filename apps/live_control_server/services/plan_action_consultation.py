@@ -150,6 +150,11 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         root: Path | None = None,
         expected_world_pointer: WorldPointer | None = None,
     ) -> None:
+        # Actions share the Graph broker without acquiring conversational Rules
+        # authority. Initialize the optional capability state explicitly because
+        # this owner deliberately has no Ask request or Turn identity.
+        self.rules_runtime = None
+        self.pending_native_rules_capability = None
         self.store = store
         self.turn = action  # The actual APP action record, never an Ask Turn.
         self.bootstrap = bootstrap
@@ -241,6 +246,11 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         )
         self.fence.action = updated
         self.turn = updated
+
+    def _captures_target_support(self, execution: Any) -> bool:
+        # Actions validate their own consultation output against their Action
+        # receipt; they never create a conversational native-output proof.
+        return False
 
     def _is_build_turn(self) -> bool:
         # A Plan action never acquires Build authority or an Ask request identity.

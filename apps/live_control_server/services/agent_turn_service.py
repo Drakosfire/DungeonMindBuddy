@@ -1658,6 +1658,13 @@ class _PolicyExecutionAdapter:
     def _is_build_turn(self) -> bool:
         return _governed_build_turn(self.request)
 
+    def _captures_target_support(self, execution: Any) -> bool:
+        """Turn owners capture native final-input support; Action owners opt out."""
+        types = _app_state_graph_execution_types()
+        return self._is_build_turn() or isinstance(
+            execution, (types.PlanWorldGraphExecutionV3, types.PlayWorldGraphExecutionV1)
+        )
+
     def enable_rules_lookup(self, capability):
         """Trusted harness capability injection, never an HTTP/model argument."""
         from .rules_build_runtime import RulesBuildRuntime
@@ -2113,9 +2120,7 @@ class _PolicyExecutionAdapter:
                 if item in exposed[event.event_id].evidence_ref_ids
             })
             build_closures = []
-            capture_target_support = (self._is_build_turn()
-                or isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
-                or is_native_play)
+            capture_target_support = self._captures_target_support(execution)
             if capture_target_support:
                 from .build_jev_dispatch import CONTINUATION_SCHEMA, PHASE_SCHEMA
                 continuation = active_driver is not None and body.get("state", {}).get("schema") in {CONTINUATION_SCHEMA, PHASE_SCHEMA}
