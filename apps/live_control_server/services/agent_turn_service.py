@@ -2210,7 +2210,7 @@ class _PolicyExecutionAdapter:
                 event_fields["sequence"] = len(execution.events) + 1
                 event = graph_types.ProviderAttemptAuthorizedEventV3(
                     kind="provider_attempt_authorized_v3",
-                    included_source_read_event_ids=[],
+                    included_source_read_event_ids=[item.event_id for item in included_source_events],
                     **event_fields,
                 )
                 method_name = "authorize_native_play_provider"

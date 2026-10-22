@@ -23,24 +23,36 @@ from tests.test_agent_turn_service import _request
 
 
 @pytest.fixture
-def acquired(application_state_dsn, monkeypatch):
-    service, sub, turn, provider, raw = prepared_native(application_state_dsn)
-    turn, _ = append(service, sub, turn, provider, raw)
-    for value in ("sdk_entered", "response_received"):
-        turn, _ = service.record_provider_outcome(
-            turn.world_id,
-            turn.conversation_id,
-            turn.turn_id,
-            expected_revision=turn.revision,
-            expected_attempt=turn.attempt,
-            outcome=t.ProviderOutcomeEventV1(
-                kind="provider_outcome",
-                event_id=uuid4(),
-                sequence=len(turn.graph_context_execution.events),
-                provider_attempt_id=provider.provider_attempt_id,
-                outcome=value,
-            ),
+def acquired(application_state_dsn, monkeypatch, request):
+    if getattr(request, "param", None) == "empty_owner":
+        from tests.test_native_play_source_capacity import prepare_empty_owner
+
+        empty = prepare_empty_owner(application_state_dsn, monkeypatch)
+        service, sub, turn, provider, raw = (
+            empty.service,
+            empty.sub,
+            empty.turn,
+            empty.provider,
+            empty.raw,
         )
+    else:
+        service, sub, turn, provider, raw = prepared_native(application_state_dsn)
+        turn, _ = append(service, sub, turn, provider, raw)
+        for value in ("sdk_entered", "response_received"):
+            turn, _ = service.record_provider_outcome(
+                turn.world_id,
+                turn.conversation_id,
+                turn.turn_id,
+                expected_revision=turn.revision,
+                expected_attempt=turn.attempt,
+                outcome=t.ProviderOutcomeEventV1(
+                    kind="provider_outcome",
+                    event_id=uuid4(),
+                    sequence=len(turn.graph_context_execution.events),
+                    provider_attempt_id=provider.provider_attempt_id,
+                    outcome=value,
+                ),
+            )
     receipt = turn.graph_context_receipt
     authority = receipt.graph_authority
     session = GraphRetrievalSession(
@@ -87,23 +99,7 @@ def acquired(application_state_dsn, monkeypatch):
         budget={},
     )
 
-    class Fence:
-        def __init__(self):
-            self.turn = turn
-
-        def append(self, method, key, event, **extras):
-            self.turn, fresh = getattr(service, method)(
-                self.turn.world_id,
-                self.turn.conversation_id,
-                self.turn.turn_id,
-                expected_revision=self.turn.revision,
-                expected_attempt=self.turn.attempt,
-                **{key: event},
-                **extras,
-            )
-            return self.turn, fresh
-
-    adapter.fence = Fence()
+    adapter.fence = owner._ClaimFence(service, turn)
     adapter.last_provider_attempt_id = provider.provider_attempt_id
     calls = []
     pin = t.GraphSourceScopeAnchorV2(
@@ -133,6 +129,8 @@ def acquired(application_state_dsn, monkeypatch):
         "coverage": {"state": "complete"},
     }
     result = SimpleNamespace(
+        operation="object",
+        nodes=(SimpleNamespace(node_id="bridge", label="Bridge", kind="location"),),
         snapshot=SimpleNamespace(
             world_id=authority.native_world_id, revision_id=authority.graph_revision
         ),
@@ -217,8 +215,17 @@ def acquired(application_state_dsn, monkeypatch):
         "graph_memory.interaction.expansion_executor.execute_read_graph_source", source
     )
     yield SimpleNamespace(
-        adapter=adapter, pin=pin, text=text, calls=calls, session=session
+        service=service,
+        sub=sub,
+        raw=raw,
+        provider=provider,
+        adapter=adapter,
+        pin=pin,
+        text=text,
+        calls=calls,
+        session=session,
     )
+    adapter.fence.renewer.stop_and_join()
     clear_sessions()
 
 
@@ -346,3 +353,114 @@ def test_native_play_uncertain_bundle_never_repeats_corpus_io(acquired, monkeypa
         json.loads(second["resultJson"])["code"] == "evidence_bundle_turn_unavailable"
     )
     assert f.calls == ["graph"] and calls == [1]
+
+
+@pytest.mark.parametrize("acquired", ["empty_owner"], indirect=True)
+@pytest.mark.parametrize("change", ["valid", "omitted", "altered"])
+def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
+    acquired, monkeypatch, change
+):
+    from apps.live_control_server.services.agent_context_trace_collector import (
+        ContextTraceCollector,
+    )
+    from application_state.agent_conversation.native_answer_output import (
+        normalize_native_answer,
+    )
+
+    f = acquired
+    f.adapter.context_capture = ContextTraceCollector(f.adapter.fence)
+    bundle = f.adapter.broker_graph_operation(request(f))
+    assert f.adapter.failure is None, f.adapter.failure
+    packet = json.loads(bundle["resultJson"])
+    body = {"model": "synthetic", "input": json.loads(f.raw)["messages"], "tools": []}
+    if change != "omitted":
+        output = (
+            bundle["resultJson"]
+            if change == "valid"
+            else bundle["resultJson"].replace("three lanterns", "seven lanterns")
+        )
+        body["input"].extend(
+            [
+                {
+                    "type": "function_call",
+                    "call_id": "read-bundle",
+                    "name": "expand_graph_retrieval",
+                    "arguments": json.dumps(request(f)["arguments"]),
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "read-bundle",
+                    "output": output,
+                },
+            ]
+        )
+    raw = json.dumps(body)
+    budget = {
+        "provider": "synthetic",
+        "model": "synthetic",
+        "apiMode": "codex_responses",
+        "contextLimitTokens": 100000,
+        "outputReserveTokens": 1000,
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+    }
+    f.adapter.budget = budget
+    # Reuse the actual accepted owner/claim; source exposure, native Play input
+    # proof, provider ledger append and support reconstruction below are real.
+    monkeypatch.setattr(
+        f.adapter, "_ensure_claimed", lambda _view: (f.adapter.fence.turn, [], [], [])
+    )
+    allowed = f.adapter.authorize(
+        {
+            "provider": "synthetic",
+            "model": "synthetic",
+            "apiMode": "codex_responses",
+            "payloadJson": raw,
+            "payloadSha256": sha256(raw.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(raw.encode()),
+        }
+    )
+    if change == "altered":
+        assert not allowed and f.adapter.failure.code == "graph_evidence_invalid"
+        return
+    assert allowed, f.adapter.failure
+    turn = f.adapter.fence.turn
+    auth = turn.graph_context_execution.events[-1]
+    expected = set(f.adapter.source_payloads) if change == "valid" else set()
+    assert set(auth.included_source_read_event_ids) == expected
+    reopened = f.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution == turn.graph_context_execution
+    assert f.adapter.record_lifecycle({"transition": "sdk_entered"})
+    assert f.adapter.record_lifecycle({"transition": "response_received"})
+    answer = {
+        "schema": "dmb_surface_source_answer_v1",
+        "answer_context_status": "source_grounded",
+        "answer_segments": [
+            {
+                "kind": "source_passage_claim",
+                "text": "Bridge journal describes three lanterns.",
+                "passage_handles": [packet["sources"][0]["passageHandle"]],
+            }
+        ],
+    }
+    if change == "omitted":
+        with pytest.raises(ValueError):
+            normalize_native_answer(
+                answer,
+                f.adapter.fence.turn,
+                auth.provider_attempt_id,
+                support=f.adapter.build_claim_evidence[auth.provider_attempt_id],
+            )
+    else:
+        completion, bindings, text = normalize_native_answer(
+            answer,
+            f.adapter.fence.turn,
+            auth.provider_attempt_id,
+            support=f.adapter.build_claim_evidence[auth.provider_attempt_id],
+        )
+        assert completion.source_citations[0].read_event_id in expected
+        assert (
+            completion.source_citations[0].source_name == "Bridge journal"
+            and bindings == {}
+        )
+        assert text == "Bridge journal describes three lanterns."
+    assert f.calls == ["graph", "source"]
