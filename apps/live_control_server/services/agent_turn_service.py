@@ -3104,7 +3104,11 @@ class _PolicyExecutionAdapter:
             truncated = result.outcome == "truncated" or bool(
                 result.coverage.truncated_fields
             ) or bool(reviewed is not None and (reviewed.observation_gap_codes or reviewed.observation_missing_ids))
-            if sufficient and not truncated:
+            # Plan Jev's fixed acquisition contract cannot open related recap
+            # routes, and its writer never receives them. Do not derive an
+            # unused context index or re-read target evidence for this owner.
+            if (sufficient and not truncated
+                    and not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                 offers = self._related_recap_offers(result, services)
                 if offers:
                     result_payload["relatedRecapContexts"] = offers

@@ -235,3 +235,45 @@ def test_large_anchor_catalog_preserves_exhausted_character_policy(plan_adapter)
     assert len(frame['opened_passages']) == 8
     assert driver.gaps == ['source_read_over_budget']
     assert frame['retrieval_gaps'] == [{'operation': 'source_read', 'reason': 'source_read_over_budget'}]
+
+
+def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adapter, monkeypatch):
+    from types import SimpleNamespace
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    a = plan_adapter
+    selected = RetrievalCandidate(handle='node:pond', label='Park pond', kind='location')
+    asyncio.run(PlanJevDispatch(a, (selected,)).run(transport=Decisions(), api_key='synthetic-not-secret'))
+    world=a.bootstrap.world_scope.world_id
+    revision=a.bootstrap.world_scope.revision_id
+    result=WorldGraphRetrievalResult.model_validate({
+        'operation':'object','outcome':'enough',
+        'snapshot':{'worldId':world,'campaignId':'','revisionId':revision,'headRevisionId':revision,
+            'isHead':True,'scopeMode':'world','admissibility':'gm','focus':{'kind':'none'}},
+        'resolvedNodeId':'pond','matchedNodeIds':['pond'],
+        'nodes':[{'nodeId':'pond','label':'Park pond','kind':'location','role':'target'}],
+        'attributes':[{'assertionId':'assertion:pond','subjectNodeId':'pond','value':{'summary':'A park pond'},
+            'evidenceRefIds':['evidence:pond']}],
+        'sourceAnchors':[{'anchorId':'anchor:pond','revisionId':revision,'evidenceRefId':'evidence:pond',
+            'sourceArtifactId':'artifact:pond','sourceDomain':'session_recap','readable':True,
+            'locatorKind':'source_span','supportingAssertionIds':['assertion:pond']}]})
+    pin=SimpleNamespace(anchor_id='anchor:pond',evidence_ref_id='evidence:pond',source_artifact_id='artifact:pond',
+        source_revision_id='source:pond:1',graph_revision=revision)
+    native=SimpleNamespace(result=result,source_pins=(pin,),reviewed_source_observations=(),
+        observation_gap_codes=(),observation_missing_ids=())
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',lambda *_:object())
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.get_object_with_reviewed_sources_direct_v3',lambda *_:native)
+    monkeypatch.setattr(a,'_related_recap_offers',lambda *_:pytest.fail('Plan Jev cannot consume recap routes'))
+    reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
+        'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
+    assert a.failure is None
+    assert 'resultJson' in reply
+    packet=json.loads(next(iter(a.operation_payloads.values())))
+    assert packet['attributes'][0]['assertionId']=='assertion:pond'
+    assert packet['sourceAnchors'][0]['anchorId']=='anchor:pond'
+    assert 'relatedRecapContexts' not in packet
+    event=next(e for e in a._broker_execution().events if e.kind=='validated_graph_operation_v3')
+    assert event.assertion_ids==['assertion:pond'] and event.evidence_ref_ids==['evidence:pond']
+    assert event.coverage_status=='complete' and event.evidence_sufficiency_status=='sufficient'
+    assert a._broker_execution().effective_source_pins()['anchor:pond'].source_revision_id=='source:pond:1'
