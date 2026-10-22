@@ -1,3 +1,4 @@
+import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { webSourceHref } from "./webSourceHref";
 import { mediaMarkdown } from "../../media/mediaReferences";
 import {
@@ -295,6 +296,11 @@ export function serializeDecisionConsequence(node: JsonNode): string {
 
 function serializeNode(node: JsonNode): string {
   switch (node.type) {
+    case "preparedTable": {
+      const source=String(node.attrs?.source ?? '');
+      parseTableFence(source);
+      return source;
+    }
     case "doc":
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
     case "text":

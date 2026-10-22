@@ -1,3 +1,4 @@
+import {TABLE_TOOL,TABLE_PROJECTION,TABLE_BINDING_ID,pendingTableKey,usePreparedTablesProjection,type PreparedTablesBinding} from "../preparedTables/preparedTablesProjection";
 import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION, useRulesLookupProjection } from "../rulesLookup/rulesLookupProjection";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
@@ -273,7 +274,9 @@ function PlaySurfacePublisher({
   currentMoment,
   sessionCopy = false,
   contentBasis = null,
+  preparedTables = null,
 }: {
+  preparedTables?: PreparedTablesBinding | null;
   sessionCopy?: boolean;
   contentBasis?: import("../api/types").WorldPlayContentBasis | null;
   admittedRun: AnyPlayRunRecord | null;
@@ -303,11 +306,11 @@ function PlaySurfacePublisher({
       ...agentContextContribution,
       ambientSummary: sessionCopy ? "Play session copy · Agent context unavailable" : authority.ambientSummary,
     },
-    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL],
+    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL, ...(preparedTables ? [TABLE_TOOL] : [])],
     editCommands: [],
-    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION],
-    projectionBindings: [],
-  }), [authority, agentContextContribution, sessionCopy]);
+    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION, ...(preparedTables ? [TABLE_PROJECTION] : [])],
+    projectionBindings: preparedTables ? [{id:TABLE_BINDING_ID,value:preparedTables}] : [],
+  }), [authority, agentContextContribution, sessionCopy, preparedTables]);
 
   usePublishWorldPlayConversation(!sessionCopy && contentBasis != null && admittedRun?.schema_version === "dmb_world_play_run_record_v2"
     ? {
@@ -338,6 +341,7 @@ function PlaySurfacePublisher({
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("play", true);
   useCombatProjection("play", true);
+  usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);
   return null;
 }
@@ -1028,6 +1032,28 @@ function PlayRuntimePage() {
   const onSessionDraftStateChange = useCallback((hasUnsubmitted: boolean) => {
     if (sessionCopyIdentity) setSessionDraftState({ identity: sessionCopyIdentity, hasUnsubmitted });
   }, [sessionCopyIdentity]);
+  const [tableHold,setTableHold]=useState<{scope:string;held:boolean}|null>(null);
+  const tableScope=admittedRun?.schema_version === 'dmb_world_play_run_record_v2'
+    ? pendingTableKey(admittedRun.world_id,admittedRun.run_id) : null;
+  const recoveredTableHold=useMemo(()=>{
+    if(!tableScope)return false;
+    try{return localStorage.getItem(tableScope)!==null;}catch{return true;}
+  },[tableScope]);
+  const tableHeld=tableHold?.scope===tableScope ? tableHold.held : recoveredTableHold;
+  const preparedTables=useMemo<PreparedTablesBinding|null>(()=>{
+    if(admittedRun?.schema_version !== 'dmb_world_play_run_record_v2'||!tableScope)return null;
+    const world=admittedRun.world_id,id=admittedRun.run_id;
+    const current=()=>{const latest=admissionRef.current;return latest&&isNativeRunbookReadyV2(latest)&&latest.run.schema_version==='dmb_world_play_run_record_v2'&&latest.run.world_id===world&&latest.run.run_id===id?latest:null;};
+    return {run:admittedRun,blocked:sessionCopyBlocked||mutationStatus!=='idle',
+      onHeld:(held)=>{if(current())setTableHold({scope:tableScope,held});},
+      onRun:(next)=>{
+        const latest=current();if(!latest)throw new Error('Play session changed during the command');
+        if(next.run_revision<latest.run.run_revision)return;
+        const overlaid=overlayRuntimeOnV2Ready(latest,next);
+        if(!overlaid)throw new Error('Refresh this session to inspect the saved roll');
+        admissionRef.current=overlaid;setAdmission(overlaid);
+      }};
+  },[admittedRun,tableScope,sessionCopyBlocked,mutationStatus]);
   const currentWorldBeat = v2Deck?.beats.find((beat) => beat.id === v2Deck.currentBeatId) ?? null;
   const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
@@ -1041,11 +1067,11 @@ function PlayRuntimePage() {
           current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
             title:`${("record" in v2Deck.snapshot ? v2Deck.snapshot.record.title : v2Deck.snapshot.title)} — ${currentWorldScene?.title ?? "Play session"}`,
             surface:"play", revision:admittedRun.run_revision, content_revision:v2Deck.effectiveContent.edition_revision} : null}
-          blocked={sessionCopyBlocked || mutationStatus !== "idle" || loadStatus !== "ready"}
+          blocked={sessionCopyBlocked || tableHeld || mutationStatus !== "idle" || loadStatus !== "ready"}
           onTrashed={() => window.location.assign(`/play?world=${encodeURIComponent(selectedWorldId)}&choose=1`)}
           /> : null}
       </PlaySurfaceContext> : null}
-      <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
+      <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} preparedTables={preparedTables}
         sessionCopy={sessionCopyBlocked}
         contentBasis={v2Deck?.effectiveContent ? { edition_revision: v2Deck.effectiveContent.edition_revision, edition_revision_id: v2Deck.effectiveContent.edition_revision_id, content_sha256: v2Deck.effectiveContent.content_sha256 } : null}
         currentMoment={currentWorldBeat ? { beatId: currentWorldBeat.id, beatTitle: currentWorldBeat.title,
@@ -1077,7 +1103,7 @@ function PlayRuntimePage() {
           data-play-document-id={publication.documentId ?? ""}
         >
 
-          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/> : null}
+          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/> : null}
           {v2Deck.effectiveContent ? <PlaySessionContentEditor
             key={sessionCopyIdentity}
             content={v2Deck.effectiveContent}
@@ -1086,7 +1112,8 @@ function PlayRuntimePage() {
             onAcceptedContent={onAcceptedSessionContent}
             onUnsubmittedChange={onSessionDraftStateChange}
             runRevision={v2Deck.run.run_revision}
-            canPropose={!sessionCopyBlocked}
+            externalMutationBlocked={tableHeld}
+            canPropose={!sessionCopyBlocked&&!tableHeld}
           /> : null}
           {sessionCopyBlocked ? (
             <p role="status" aria-label="Session copy Agent availability" className="play-muted"
@@ -1095,6 +1122,7 @@ function PlayRuntimePage() {
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}
+            externalMutationBlocked={tableHeld}
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onNoteUnsubmittedChange={onNoteDraftStateChange}

@@ -25,10 +25,12 @@ export function PlaySessionContentEditor({
   onUnsubmittedChange,
   runRevision,
   canPropose = false,
+  externalMutationBlocked = false,
 }: {
   content: PlayRunContent;
   runRevision?: number;
   canPropose?: boolean;
+  externalMutationBlocked?: boolean;
   currentSceneId: string | null;
   originLabel: string;
   onAcceptedContent: (content: PlayRunContent) => void;
@@ -47,10 +49,10 @@ export function PlaySessionContentEditor({
   const imported = useMemo(() => markdownToTiptapDoc(controller.state.draftMarkdown), [controller.state.draftMarkdown]);
   const identityKey = `${content.world_id}:${content.run_id}:${content.origin.playable_work_revision_id}:${content.origin.playable_content_sha256}`;
   const sceneEditorState = useRef({ content: controller.state.accepted, runRevision: runRevision ?? content.observed_run_revision,
-    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose,
+    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose && !externalMutationBlocked,
     draftMarkdown: controller.state.draftMarkdown, applyReviewed: controller.applyReviewed, remount: () => setEditorEpoch(value => value + 1) });
   sceneEditorState.current = { content: controller.state.accepted, runRevision: runRevision ?? content.observed_run_revision,
-    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose,
+    sceneId: currentSceneId, clean: !controller.hasUnsubmittedContent, allowed: canPropose && !externalMutationBlocked,
     draftMarkdown: controller.state.draftMarkdown, applyReviewed: controller.applyReviewed, remount: () => setEditorEpoch(value => value + 1) };
   const sceneEditBridge = useMemo(() => createPlaySceneEditBridge(() => sceneEditorState.current), [identityKey]);
   usePublishPlaySceneEditBridge(sceneEditBridge);
@@ -108,7 +110,7 @@ export function PlaySessionContentEditor({
   const [mediaTarget, setMediaTarget] = useState<string | null>(null);
   useEffect(() => { setMediaTarget(null); }, [mediaIdentity]);
   const mediaVersion = `${controller.state.accepted.edition_revision_id ?? "pinned"}:${controller.state.draftGeneration}:${controller.state.editorRevision}:${runRevision ?? content.observed_run_revision}`;
-  const mediaCanEdit = open && mode === "visual" && ["saved", "dirty"].includes(controller.state.saveState)
+  const mediaCanEdit = !externalMutationBlocked && open && mode === "visual" && ["saved", "dirty"].includes(controller.state.saveState)
     && !imported.diagnostics.some(item => item.level === "warning");
 
   const discardDraftForLatest = () => {
@@ -129,8 +131,8 @@ export function PlaySessionContentEditor({
   return (
     <>
     <PlaySurfaceContext id="play-editor-context" order={30} identity={surfaceIdentity}>
-      <SurfaceContextAction type="button" aria-label={open ? "Close editor" : "Edit session"} title={open ? "Close editor" : "Edit session"} aria-expanded={open} onClick={openEditor}>{open ? "Close" : "Edit"}</SurfaceContextAction>
-      <SurfaceContextAction type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={["recovering", "unknown", "conflict", "storage-error"].includes(controller.state.saveState)}
+      <SurfaceContextAction disabled={externalMutationBlocked} type="button" aria-label={open ? "Close editor" : "Edit session"} title={open ? "Close editor" : "Edit session"} aria-expanded={open} onClick={openEditor}>{open ? "Close" : "Edit"}</SurfaceContextAction>
+      <SurfaceContextAction type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={externalMutationBlocked || ["recovering", "unknown", "conflict", "storage-error"].includes(controller.state.saveState)}
         onClick={() => { setOpen(true); setHasOpened(true); setMode("visual"); setJumpCount(value => value + 1); setMediaTarget(mediaIdentity); }}>Images</SurfaceContextAction>
       <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}><span tabIndex={0} title={savedLabel}>{controller.state.saveState === "saved" ? "Saved" : savedLabel}</span></SurfaceContextStatus>
     </PlaySurfaceContext>
@@ -184,7 +186,7 @@ export function PlaySessionContentEditor({
               <Suspense fallback={<div className="play-session-content__visual" role="status">Loading visual editor…</div>}>
                 <PlaySessionVisualEditor
                   content={imported.doc}
-                  editable={controller.state.saveState !== "recovering"}
+                  editable={!externalMutationBlocked && controller.state.saveState !== "recovering"}
                   documentKey={`${identityKey}:${controller.state.editorRevision}:${editorEpoch}:visual`}
                   onUpdate={updateFromVisual}
                   onEditorChange={bindEditor}
@@ -196,7 +198,7 @@ export function PlaySessionContentEditor({
               aria-label="Session copy Markdown"
               data-testid="play-session-copy-markdown"
               value={split.markdown}
-              disabled={controller.state.saveState === "recovering"}
+              disabled={externalMutationBlocked || controller.state.saveState === "recovering"}
               onChange={event => {
                 const markdown = preserveLeadingYamlFrontmatter(controller.state.accepted.markdown, event.target.value);
                 const parsed = markdownToTiptapDoc(markdown);

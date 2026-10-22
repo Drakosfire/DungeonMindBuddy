@@ -1,6 +1,10 @@
 # PLAY — native recorded rolls for prepared tables
 
-ACTIVE design-only lease. PRIME owns this serial design slice from Buddy
+SETTLED design slice (#1596, merge112f8fbcaa3ad7f9d1630d67c0a550a63adaf710).
+Implementation is activated by HANDOFF-PLAY-prepared-table-implementation.md;
+this historical design lease grants no additional writes.
+
+Historical design scope: PRIME owns this serial design slice from Buddy
 390c3cb1f6b7b63f6144661f3f838ebe4b8663b7 in the existing buddy-context-loop checkout,
 branch codex/play-recorded-table-contract. Open PR census has no overlapping
 native Play/table implementation. Exclusive writes: this file, predecessor

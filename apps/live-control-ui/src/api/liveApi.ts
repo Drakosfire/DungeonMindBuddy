@@ -336,6 +336,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (pathname.startsWith("/api/live/combat/encounters")) return true;
   if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (pathname==="/api/live/recap-ingest" && Array.isArray(requestBodyRecord(body)?.session_evidence) && (requestBodyRecord(body)!.session_evidence as unknown[]).length>0) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
