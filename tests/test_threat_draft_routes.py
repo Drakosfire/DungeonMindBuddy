@@ -10,6 +10,7 @@ from apps.live_control_server.main import create_app
 import apps.live_control_server.routes.threat_drafts as threat_drafts_routes
 from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
 from apps.live_control_server.services.world_container_registry import create_world_container
+from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
 
 
 def _payload() -> dict:
@@ -178,6 +179,8 @@ def test_world_route_revision_admission_before_create_and_update(
     client = TestClient(create_app())
     payload = _world_payload(tmp_path)
     existing = client.post("/api/live/threat-drafts", json=payload).json()
+    binding = VerifiedManagedWorldBinding(payload["world_id"], "world:reserved", 1, "sources/owned")
+    monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding", lambda *args, **kwargs: binding)
     calls = []
 
     def read_revision(world_id, revision_id):
@@ -200,7 +203,7 @@ def test_world_route_revision_admission_before_create_and_update(
               if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
     update.update(expected_version=1, description="Changed.")
     assert client.put(f"/api/live/threat-drafts/{existing['draft_id']}", json=update).status_code == expected_status
-    assert calls == [(payload["world_id"], "exact-pin")] * 2
+    assert calls == [("world:reserved", "exact-pin")] * 2
     if result != "exact":
         assert client.get(f"/api/live/threat-drafts/{existing['draft_id']}").json() == existing
 
@@ -215,7 +218,74 @@ def test_world_route_rejects_factory_unavailable_but_freestanding_is_explicit(
     def unavailable():
         raise RuntimeError("Not mounted")
 
+    monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding",
+                        lambda *args, **kwargs: VerifiedManagedWorldBinding(payload["world_id"], "world:reserved", 1, "sources/owned"))
     monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", unavailable)
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 200
     payload["graph_context_snapshot"]["graph_revision_id"] = "pin"
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 503
+
+
+def test_world_draft_binding_change_rejects_before_mutation(monkeypatch, tmp_path):
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    payload = _world_payload(tmp_path)
+    existing = client.post("/api/live/threat-drafts", json=payload).json()
+    first = VerifiedManagedWorldBinding(payload["world_id"], "world:one", 1, "sources/owned")
+    changed = VerifiedManagedWorldBinding(payload["world_id"], "world:two", 2, "sources/owned")
+    bindings = iter([first, changed, first, changed])
+    monkeypatch.setattr(threat_drafts_routes, "resolve_managed_world_binding", lambda *args, **kwargs: next(bindings))
+    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: SimpleNamespace(
+        read_revision=lambda world_id, revision_id: SimpleNamespace(world_id=world_id, revision_id=revision_id)))
+    payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
+    assert client.post("/api/live/threat-drafts", json=payload).status_code == 409
+    update = {key: value for key, value in payload.items() if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
+    update["expected_version"] = 1
+    assert client.put(f"/api/live/threat-drafts/{existing['draft_id']}", json=update).status_code == 409
+    assert client.get(f"/api/live/threat-drafts/{existing['draft_id']}").json() == existing
+    assert client.get("/api/live/threat-drafts", params={"world_id": payload["world_id"]}).json()["total"] == 1
+
+
+def test_world_draft_reserved_identity_is_not_graph_authority(monkeypatch, tmp_path):
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    payload = _world_payload(tmp_path)
+    payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
+    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: pytest.fail("Unbound World must not reach native authority"))
+    client = TestClient(create_app())
+    assert client.post("/api/live/threat-drafts", json=payload).status_code == 409
+    assert not (tmp_path / "out/threat_drafts").exists()
+
+
+def test_world_draft_admission_uses_configured_world_root(monkeypatch, tmp_path):
+    import json
+    code_root = tmp_path / "code"
+    world_root = tmp_path / "world-data"
+    code_root.mkdir(); world_root.mkdir()
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: code_root)
+    payload = _world_payload(world_root)
+    registry = world_root / "out/registries/world_containers.json"
+    data = json.loads(registry.read_text())
+    data["records"][0]["native_graph_binding"] = {
+        "status": "active", "native_world_id": "world:reserved", "binding_version": 1,
+        "validated_at": "2026-10-22T00:00:00Z", "validated_head_revision_id": "exact-pin",
+    }
+    registry.write_text(json.dumps(data))
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(world_root))
+    calls = []
+    def read_revision(world_id, revision_id):
+        calls.append((world_id, revision_id))
+        return SimpleNamespace(world_id=world_id, revision_id=revision_id)
+    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: SimpleNamespace(read_revision=read_revision))
+    payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
+    client = TestClient(create_app())
+    response = client.post("/api/live/threat-drafts", json=payload)
+    assert response.status_code == 200, response.text
+    created = response.json()
+    update = {key: value for key, value in payload.items() if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
+    update.update(expected_version=1, description="Changed.")
+    assert client.put(f"/api/live/threat-drafts/{created['draft_id']}", json=update).status_code == 200
+    assert calls == [("world:reserved", "exact-pin")] * 2
+    assert not (code_root / "out/registries/world_containers.json").exists()
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing"))
+    assert client.post("/api/live/threat-drafts", json=payload).status_code == 503
+    assert client.get("/api/live/threat-drafts", params={"world_id": payload["world_id"]}).json()["total"] == 1

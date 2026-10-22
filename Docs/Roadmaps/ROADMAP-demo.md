@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `172799b43b3a04c80e2d2fee77b59f3a0fda3658` (through PR #1576).
+**Evidence anchor:** remote main `af4298575fe8db2bd564da4fa3929b99d55385e9` (through PR #1577).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -21,9 +21,11 @@ publication showed its receipt directly and reopened Ready/3nodes. One exact D0
 was created; both prior World heads and source admission stayed unchanged. Build
 Find then reproduced authority_receipt_missing by routing the managed slug to
 native projection. #1576 repaired owner-qualified shared-read reuse and managed
-exact-pin routing; actual Find→View NPC succeeded after reload. Build exposure of
-the existing lazy Statblock Workbench is the next serial prerequisite for the
-real generation/acceptance witness before bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
+exact-pin routing; actual Find→View NPC succeeded after reload. #1577 exposes the
+existing lazy Statblock Workbench in Build Tools. Its live Create & generate
+revealed managed-slug/native-ID confusion in head lookup and server draft
+revision admission. That provenance repair is the active serial prerequisite
+for real generation/acceptance before bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -103,7 +105,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves3846c3091 (#1574); UI5202 serves172799b43 (#1576),
+The API backing5202 serves3846c3091 (#1574); UI5202 servesaf4298575 (#1577),
 with all1487 existing APP rows preserved at delivery. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 

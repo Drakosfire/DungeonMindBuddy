@@ -1,3 +1,4 @@
+import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -10,6 +11,7 @@ import {
   getThreatDraft,
   LiveApiError,
   postWorldGraphProjection,
+  postManagedWorldGraphProjection,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
   validateStatblockDefinition,
@@ -378,6 +380,28 @@ class ProjectionScopeMismatch extends Error {}
 async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<{
   head: string | null;
 }> {
+  if (scope.mode === "world") {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: scope.worldId, campaignId: "", scopeMode: "world" as const,
+      focus: { kind: "none" as const, sessionId: null }, admissibility: "gm" as const,
+    };
+    const response = await postManagedWorldGraphProjection({
+      schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: scope.worldId,
+    });
+    // A received malformed envelope is an integrity failure, not a transport
+    // outage eligible for the explicit freestanding escape hatch.
+    try {
+      const mismatch = verifyManagedWorldGraphProjectionResponse({
+        managedWorldId: scope.worldId, request, response, revisionKind: "head",
+      });
+      if (mismatch) throw new ProjectionScopeMismatch(mismatch);
+      return { head: response.projection.snapshot.revisionId };
+    } catch (error) {
+      if (error instanceof ProjectionScopeMismatch) throw error;
+      throw new ProjectionScopeMismatch("Managed World Graph returned malformed provenance.");
+    }
+  }
   const projection = await postWorldGraphProjection({
     schema: "dmb_world_graph_projection_request_v1",
     worldId: scope.worldId,

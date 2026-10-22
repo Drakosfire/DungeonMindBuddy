@@ -1,6 +1,8 @@
 # BUILD — shared Statblock Workbench tool
 
-ACTIVE. PRIME owns design/implementation/merge/UI-only5202 delivery.
+DELIVERED TOOL EXPOSURE: PR1577 mergedaf4298575fe8db2bd564da4fa3929b99d55385e9, UI5202 with unchanged API3846c309 and1487 priorAPP rows. Bugbot approved5d8044069f2a5afb7f2407686d86bbcff5333e9b; independently178 tests/typecheck/diff-check passed. Ordinary Build Tools→Statblocks opens the actual World workbench, but Create & generate fails its managed-slug/native-head lookup before draft creation. Generation/acceptance acceptance remains open; HANDOFF-STATBLOCK-managed-provenance.md owns the next repair.
+
+Historical scope: PRIME owns design/implementation/merge/UI-only5202 delivery.
 Base172799b43b3a04c80e2d2fee77b59f3a0fda3658; existing buddy-context-loop checkout,
 branch codex/build-statblock-tool. Serial one PR; no overlapping active lane.
 

@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import ManagedWorldDataRootError, managed_world_data_root, repo_root
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
     MAX_LIST_LIMIT,
@@ -18,6 +18,8 @@ from apps.live_control_server.models.threat_draft import (
 )
 from apps.live_control_server.ports.world_graph_authority import WorldGraphAuthorityError
 from apps.live_control_server.ports.world_graph_authority_access import get_world_graph_authority
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
     create_threat_draft,
@@ -40,20 +42,28 @@ def _draft_response(draft: ThreatDraft) -> dict[str, Any]:
 def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
     """Admit ownership, not model grounding. Legacy campaign drafts are unchanged."""
     try:
-        get_world_container(repo_root(), world_id)
+        world_root = managed_world_data_root(default=repo_root())
+        get_world_container(world_root, world_id)
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(status_code=503, detail="Managed World storage unavailable") from exc
     except WorldContainerRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if revision_id is None:
         return  # Explicit freestanding snapshot, validated by the request model.
     try:
-        revision = get_world_graph_authority().read_revision(world_id, revision_id)
+        binding = resolve_managed_world_binding(world_id, root=world_root)
+        revision = get_world_graph_authority().read_revision(binding.native_world_id, revision_id)
+        if resolve_managed_world_binding(world_id, root=world_root) != binding:
+            raise HTTPException(status_code=409, detail="World Graph binding changed; refresh and retry")
+    except WorldGraphProjectionServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except WorldGraphAuthorityError as exc:
         status = 503 if exc.code == "authority_unavailable" else 422
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     except RuntimeError as exc:
         # The mounted-port factory can fail before an adapter exists.
         raise HTTPException(status_code=503, detail="World graph authority unavailable") from exc
-    if revision.world_id != world_id or revision.revision_id != revision_id:
+    if revision.world_id != binding.native_world_id or revision.revision_id != revision_id:
         raise HTTPException(status_code=422, detail="Graph revision does not belong to this World")
 
 
