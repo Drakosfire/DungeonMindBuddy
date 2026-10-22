@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `12ce584156581aae04b101437f7034a85f71a30c` (through PR #1606).
+**Evidence anchor:** remote main `fb9b962304d7c65d44f87920a5b24fa68c130bf4` (through PR #1607).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -47,6 +47,13 @@ second-card selection survived reload, Plan→Play→Plan and Document reload. C
 campaign publication are excluded. Connected Combat acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
+
+#1607 delivered complete frozen-paragraph evidence partition correction. Ordinary
+Conks correction created an unpublished child with zero invalid quotations and
+unchanged proposed semantics; reload/restart retained sources and native state.
+Semantic review then exposed friendly relationship labels hiding different stored
+predicates. Conks publication is stopped pending transparent typed review; quote
+validity alone does not establish factual or relationship correctness.
 
 ## Product decisions that remain in force
 

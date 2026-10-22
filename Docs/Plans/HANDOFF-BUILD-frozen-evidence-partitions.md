@@ -1,6 +1,12 @@
 # BUILD — correct frozen evidence paragraph bindings
 
-ACTIVE serial PRIME slice from 12ce584156581aae04b101437f7034a85f71a30c,
+SETTLED: PR #1607 merged as fb9b962304d7c65d44f87920a5b24fa68c130bf4.
+Two exact-head Bugbot cycles; final approved head 03062933015578c888ee36b3d03909469fa8f261.
+Delivered on8000/5202; ordinary Conks child has zero invalid quotations, unchanged
+semantic payload, and retained parent/source/native data through restart.
+Semantic review/publication remains open and is owned by the successor.
+
+Original serial PRIME slice from 12ce584156581aae04b101437f7034a85f71a30c,
 branch codex/build-frozen-evidence-partitions, existing buddy-context-loop checkout.
 Operator goal authorizes ordinary Build evidence correction and explicitly rejects
 backwards compatibility. Current remote/open PR census checked: no overlapping lane.

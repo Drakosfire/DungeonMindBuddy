@@ -338,7 +338,7 @@ def test_held_review_package_remains_readable(
     typed = SimpleNamespace(
         nodes=[
             SimpleNamespace(
-                node_id="mira",
+                node_id="mira", node_type="character",
                 label="Mira",
                 description="Found a key",
                 evidence_refs=[

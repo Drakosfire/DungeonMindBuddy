@@ -5,7 +5,7 @@ import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
 import {obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,firstWorldScope,firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
   runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'a'.repeat(64),worldId:'world-a',sourceProse:'A keeper.',diagnostics:[],
-  assertions:[{assertionId:'keeper',kind:'object',label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
+  assertions:[{assertionId:'keeper',kind:'object', nodeType: "npc", contributionKind: "npc",label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
 const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'plan-a',planDigest:'sha256:'+'b'.repeat(64),decisionDigest:'sha256:'+'c'.repeat(64),
   worldId:'world-a',runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:review.sourceRevisionId,workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',
   extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion:keeper'],rejectedAssertionIds:[],contributionId:'contribution-a',
@@ -168,4 +168,13 @@ it('does not archive a foreign obsolete envelope or changed scope',async()=>{
   expect(obsoleteUnsubmittedRecovery({...review,worldId:'foreign'})).toBeNull();
   await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>false)).rejects.toThrow('selected source');
   expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+
+it('retains but refuses recovery whose stored kind no longer matches reviewed semantics', async () => {
+  await saveFirstWorldRecovery(review, plan, false, () => true);
+  const key = firstWorldRecoveryKey(review), saved = JSON.parse(localStorage.getItem(key)!);
+  saved.plan.reviewedEffect.accepted_proposals[0].value.kind = 'faction';
+  const raw = JSON.stringify(saved); localStorage.setItem(key, raw);
+  expect(() => readFirstWorldRecovery(review)).toThrow('reviewed structured meaning');
+  expect(localStorage.getItem(key)).toBe(raw);
 });

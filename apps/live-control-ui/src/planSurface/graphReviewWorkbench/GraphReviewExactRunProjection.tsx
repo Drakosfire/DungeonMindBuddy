@@ -1,3 +1,4 @@
+import {CandidateReviewSemantics} from './CandidateReviewSemantics';
 import { useEffect, useMemo, useState } from "react";
 
 import "./GraphReviewExactRunProjection.css";
@@ -189,10 +190,9 @@ export function GraphReviewExactRunProjection({
                 <strong>{assertion.label}</strong>
                 {assertion.evidence.some((item) => (item.invalidAnchorQuotes?.length ?? 0) > 0)
                   ? <span>Invalid evidence</span> : null}
-                <span>
-                  {assertion.kind}
-                  {assertion.summary ? ` · ${assertion.summary}` : ""}
-                </span>
+                {review.sourceDomain === 'worldbuilding'
+                  ? <CandidateReviewSemantics assertion={assertion} assertions={review.assertions}/>
+                  : <span>{assertion.kind}{assertion.summary ? ` · ${assertion.summary}` : ""}</span>}
               </button>
             </li>
           ))}

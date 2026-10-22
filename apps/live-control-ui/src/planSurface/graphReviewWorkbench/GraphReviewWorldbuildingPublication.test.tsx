@@ -17,9 +17,9 @@ const review: ExactRunReviewPackage = {
   sourceArtifactId: "source-a", sourceRevisionId: "sha256:" + "c".repeat(64), worldId: "world-a", sourceProse: "Draft lore",
   inspectionStatus: "ready", promotable: false, worldState: "uninitialized", firstWorldPublishEligible: true,
   diagnostics: [], assertions: [
-    {assertionId: "location:edge", kind: "object", label: "Edge", summary: "A proposed town", evidence: []},
-    {assertionId: "npc:a", kind: "object", label: "Mara", summary: "A proposed soldier", evidence: []},
-    {assertionId: "edge:a", kind: "relationship", label: "In town", summary: "npc:a → location:edge", evidence: []},
+    {assertionId: "location:edge", kind: "object", nodeType: "npc", contributionKind: "npc", label: "Edge", summary: "A proposed town", evidence: []},
+    {assertionId: "npc:a", kind: "object", nodeType: "npc", contributionKind: "npc", label: "Mara", summary: "A proposed soldier", evidence: []},
+    {assertionId: "edge:a", kind: "relationship", relationshipType: "located_in", fromCandidateNodeId: "npc:a", toCandidateNodeId: "location:edge", label: "In town", summary: "npc:a → location:edge", evidence: []},
   ],
 };
 const projection = {schema: "dmb_managed_world_graph_projection_v1", managedWorldId: "world-a", nativeWorldId: "native-a", bindingVersion: 1,

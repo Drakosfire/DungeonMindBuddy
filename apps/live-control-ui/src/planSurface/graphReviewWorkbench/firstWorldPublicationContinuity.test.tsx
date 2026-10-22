@@ -12,7 +12,7 @@ vi.mock('../../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>({
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',runId:'run-a',sourceDomain:'worldbuilding',
   inspectionStatus:'ready',worldId:'world-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'c'.repeat(64),
   sourceProse:'The guardian watches.',diagnostics:[],promotable:false,worldState:'uninitialized',firstWorldPublishEligible:true,
-  assertions:[{assertionId:'guardian',kind:'object',label:'Guardian',summary:'The guardian watches.',evidence:[{
+  assertions:[{assertionId:'guardian',kind:'object', nodeType: "npc", contributionKind: "npc",label:'Guardian',summary:'The guardian watches.',evidence:[{
     sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'The guardian watches.',anchorQuotes:['guardian']}]}]};
 const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),
   nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},

@@ -33,19 +33,21 @@ def _fixture(
         )
     ]
     typed = SimpleNamespace(
-        nodes=[SimpleNamespace(node_id="torbin", label="Torbin", description="Villager", evidence_refs=refs)],
+        nodes=[SimpleNamespace(node_id="torbin", node_type="npc", label="Torbin", description="Villager", evidence_refs=refs)],
         edges=[],
     )
     resolved = SimpleNamespace(
         run_id="run-demo",
         status="reviewable",
         normalized_recap_path=source,
+        source_span_index_path=source,
         candidate_graph_path=candidate,
         source_artifact_id=artifact_id,
         source_revision_id="sha256:abc",
         campaign_id="demo",
         session_id=None,
         source_domain="worldbuilding",
+        extraction_profile="worldbuilding_shepherds_flock_v0@0.1",
         world_id="demo",
         diagnostics=[],
     )
