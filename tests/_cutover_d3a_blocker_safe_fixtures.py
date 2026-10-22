@@ -169,7 +169,16 @@ def register_glass_orchard(repo: Path):
     )
 
 
-    return create_world_container(repo, name="The Glass Orchard")
+    # Retained pre-provisioning fixture for the historical first-world port
+    # cohort. Fresh ordinary source provisioning has its own no-patch witness.
+    created = create_world_container(repo, name="The Glass Orchard")
+    path = repo / "out/registries/world_containers.json"
+    payload = json.loads(path.read_text())
+    for row in payload["records"]:
+        if row["world_id"] == created.world_id:
+            row["native_graph_binding"] = None
+    path.write_text(json.dumps(payload))
+    return created.model_copy(update={"native_graph_binding": None})
 
 
 def first_world_decisions(

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphBindingRecord,
+    NativeGraphProvisioningRecord,
     WorldContainerRecord,
     WorldContainerRegistryDocument,
     _load_unlocked,
@@ -171,7 +172,7 @@ def _check_native_graph_claim_is_unique(
     if any(
         record.world_id != managed_world_id
         and record.native_graph_binding is not None
-        and record.native_graph_binding.status == "active"
+        and record.native_graph_binding.status in {"active", "provisioning"}
         and record.native_graph_binding.native_world_id == native_world_id
         for record in document.records
     ):
@@ -200,6 +201,11 @@ def bind_native_graph(
 
     initial, expected_token = _load_binding_snapshot(root, cleaned_managed_id)
     _require_expected_version(initial, expected_binding_version)
+    if isinstance(initial.native_graph_binding, NativeGraphProvisioningRecord):
+        raise WorldGraphBindingError(
+            "Reserved native identity requires reviewed first World publication.",
+            status_code=409,
+        )
     if initial.native_graph_binding is not None and initial.native_graph_binding.status == "active":
         if initial.native_graph_binding.native_world_id == cleaned_native_id:
             return initial
@@ -276,6 +282,11 @@ def deactivate_native_graph_binding(
         if binding is None:
             raise WorldGraphBindingError(
                 "Managed World has no native Graph binding to deactivate.",
+                status_code=409,
+            )
+        if isinstance(binding, NativeGraphProvisioningRecord):
+            raise WorldGraphBindingError(
+                "A source identity reservation is not an active Graph binding.",
                 status_code=409,
             )
         if binding.status == "inactive":

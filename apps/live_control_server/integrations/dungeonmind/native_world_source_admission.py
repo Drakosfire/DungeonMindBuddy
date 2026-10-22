@@ -45,19 +45,19 @@ from graph_memory.vnext.domain_runtime import (
 )
 
 from apps.live_control_server.services.managed_world_graph_projection import (
-    resolve_managed_world_binding, WorldGraphProjectionServiceError,
+    resolve_managed_source_identity, WorldGraphProjectionServiceError,
 )
 
 
 def _source_world_binding(root, managed_world_id):
     try:
-        return resolve_managed_world_binding(
+        return resolve_managed_source_identity(
             managed_world_id, root=config.managed_world_data_root(root),
         )
     except (WorldGraphProjectionServiceError, config.ManagedWorldDataRootError) as exc:
         raise NativeWorldSourceAdmissionError(
             getattr(exc, "code", "managed_world_unavailable"),
-            "Saved source has no verified active native World binding",
+            "Saved source has no verified native source identity",
             status_code=getattr(exc, "status_code", 503),
         ) from exc
 

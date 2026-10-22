@@ -222,3 +222,82 @@ def test_legacy_v1_registry_read_is_unbound_and_does_not_rewrite_bytes(root: Pat
     assert listed[0].source_root_relpath == "corpus/legacy-world-markdown"
     assert listed[0].native_graph_binding is None
     assert path.read_bytes() == original
+
+
+def test_fresh_world_reservation_is_durable_private_and_unique(root: Path) -> None:
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphProvisioningRecord, WorldContainerPublicRecord,
+    )
+    first = create_world_container(root, name="First fresh World")
+    reserved = first.native_graph_binding
+    assert isinstance(reserved, NativeGraphProvisioningRecord)
+    assert reserved.native_world_id != first.world_id
+    assert "validated_head_revision_id" not in reserved.model_dump()
+    assert get_world_container(root, first.world_id).native_graph_binding == reserved
+    assert create_world_container(root, name="first fresh world") == first
+    other = create_world_container(root, name="Second fresh World")
+    assert other.native_graph_binding.native_world_id != reserved.native_world_id
+    assert other.native_graph_binding.provisioning_id != reserved.provisioning_id
+    public = WorldContainerPublicRecord.from_record(first).model_dump_json()
+    assert reserved.native_world_id not in public
+    assert reserved.provisioning_id not in public
+    assert '"status":"provisioning"' in public
+
+
+def test_reservation_grants_source_identity_without_graph_read_or_binding_authority(root: Path) -> None:
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        resolve_managed_source_identity, resolve_managed_world_binding,
+        WorldGraphProjectionServiceError,
+    )
+    from apps.live_control_server.services.world_graph_binding import (
+        bind_native_graph, deactivate_native_graph_binding, WorldGraphBindingError,
+    )
+    from apps.live_control_server.services.first_world_graph import admit_managed_world
+    from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
+
+    world = create_world_container(root, name="Reserved sources")
+    reserved = world.native_graph_binding
+    source = resolve_managed_source_identity(world.world_id, root=root)
+    assert source.native_world_id == reserved.native_world_id
+    with pytest.raises(WorldGraphProjectionServiceError) as error:
+        resolve_managed_world_binding(world.world_id, root=root)
+    assert error.value.code == "native_graph_provisioning_pending"
+    with pytest.raises(WorldGraphBindingError):
+        bind_native_graph(root, world.world_id, native_world_id="other", expected_binding_version=1,
+                          authority_validator=lambda _: pytest.fail("must reject before native read"))
+    with pytest.raises(WorldGraphBindingError):
+        deactivate_native_graph_binding(root, world.world_id, expected_binding_version=1)
+    with pytest.raises(WorldbuildingWritePlanError) as error:
+        admit_managed_world(root, world.world_id)
+    assert error.value.code == "native_graph_provisioning_pending"
+    assert get_world_container(root, world.world_id) == world
+
+
+def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:
+    from apps.live_control_server.services.world_container_registry import WorldContainerRegistryDocument
+    from pydantic import ValidationError
+    first = create_world_container(root, name="Reserved first")
+    second = create_world_container(root, name="Reserved second")
+    with pytest.raises(ValidationError):
+        WorldContainerRegistryDocument(records=[first, second.model_copy(update={
+            "native_graph_binding": first.native_graph_binding,
+        })])
+
+
+def test_reconcile_existing_unbound_world_does_not_allocate_or_rewrite(root: Path) -> None:
+    world = create_world_container(root, name="Retained unbound")
+    path = world_containers_path(root)
+    payload = json.loads(path.read_text())
+    payload["records"][0]["native_graph_binding"] = None
+    path.write_text(json.dumps(payload))
+    before = path.read_bytes()
+    assert create_world_container(root, name="retained unbound").native_graph_binding is None
+    assert path.read_bytes() == before
+
+
+def test_concurrent_fresh_world_create_reuses_one_reservation(root: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        records = list(executor.map(lambda _: create_world_container(root, name="Concurrent World"), range(8)))
+    assert all(record == records[0] for record in records)
+    assert len(list_world_containers(root)) == 1

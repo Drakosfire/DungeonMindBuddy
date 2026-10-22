@@ -7,6 +7,7 @@ import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -68,6 +69,21 @@ class NativeGraphBindingRecord(BaseModel):
         return value
 
 
+class NativeGraphProvisioningRecord(BaseModel):
+    """Reserved native/source-space identity; no Graph or head exists by implication."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["dmb_managed_world_native_graph_provisioning_v1"] = (
+        "dmb_managed_world_native_graph_provisioning_v1"
+    )
+    provider: Literal["dungeonmind_v2"] = "dungeonmind_v2"
+    native_world_id: str = Field(pattern=r"^world:[0-9a-f]{32}$")
+    provisioning_id: str = Field(pattern=r"^provision:[0-9a-f]{32}$")
+    status: Literal["provisioning"] = "provisioning"
+    binding_version: Literal[1] = 1
+
+
 class WorldContainerRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -76,7 +92,7 @@ class WorldContainerRecord(BaseModel):
     name: str
     source_root_relpath: str
     created_at: str
-    native_graph_binding: NativeGraphBindingRecord | None = None
+    native_graph_binding: NativeGraphBindingRecord | NativeGraphProvisioningRecord | None = None
 
     @model_validator(mode="after")
     def _legacy_record_cannot_claim_native_binding(self) -> "WorldContainerRecord":
@@ -92,15 +108,22 @@ class WorldContainerRegistryDocument(BaseModel):
     records: list[WorldContainerRecord] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _active_native_graph_ids_are_unique(self) -> "WorldContainerRegistryDocument":
-        active_native_ids = [
+    def _claimed_native_graph_ids_are_unique(self) -> "WorldContainerRegistryDocument":
+        claimed_native_ids = [
             record.native_graph_binding.native_world_id
             for record in self.records
             if record.native_graph_binding is not None
-            and record.native_graph_binding.status == "active"
+            and record.native_graph_binding.status in {"active", "provisioning"}
         ]
-        if len(active_native_ids) != len(set(active_native_ids)):
-            raise ValueError("a native Graph may be actively bound to only one managed World")
+        if len(claimed_native_ids) != len(set(claimed_native_ids)):
+            raise ValueError("a native identity may be reserved or active for only one managed World")
+        operations = [
+            record.native_graph_binding.provisioning_id
+            for record in self.records
+            if isinstance(record.native_graph_binding, NativeGraphProvisioningRecord)
+        ]
+        if len(operations) != len(set(operations)):
+            raise ValueError("a provisioning operation belongs to only one managed World")
         return self
 
 
@@ -109,7 +132,7 @@ class NativeGraphBindingPublicStatus(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["unbound", "active", "inactive"]
+    status: Literal["unbound", "active", "inactive", "provisioning"]
     binding_version: int = Field(ge=0)
 
 
@@ -374,6 +397,10 @@ def create_world_container(root: Path, *, name: str) -> WorldContainerRecord:
             name=display,
             source_root_relpath=source_root_rel,
             created_at=_utc_now_iso(),
+            native_graph_binding=NativeGraphProvisioningRecord(
+                native_world_id=f"world:{uuid4().hex}",
+                provisioning_id=f"provision:{uuid4().hex}",
+            ),
         )
         document.records.append(record)
         try:

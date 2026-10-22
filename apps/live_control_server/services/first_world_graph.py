@@ -23,6 +23,7 @@ from apps.live_control_server.services.source_artifact_registry import (
 )
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
+    NativeGraphProvisioningRecord,
     get_world_container,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -156,6 +157,11 @@ def admit_managed_world(repo: Path, world_id: str):
             f"managed world source root does not exist: {expected}",
             code="world_unmanaged",
             status_code=422,
+        )
+    if isinstance(record.native_graph_binding, NativeGraphProvisioningRecord):
+        raise WorldbuildingWritePlanError(
+            "Source admission is available; reviewed native Graph initialization is pending.",
+            code="native_graph_provisioning_pending", status_code=409,
         )
     return record
 
@@ -291,7 +297,11 @@ def resolve_first_world_capability(
         )
     try:
         admit_managed_world(repo, cleaned)
-    except WorldbuildingWritePlanError:
+    except WorldbuildingWritePlanError as exc:
+        if exc.code == "native_graph_provisioning_pending":
+            return FirstWorldCapability(
+                world_id=cleaned, world_state="uninitialized", eligible=False, reason=str(exc),
+            )
         return FirstWorldCapability(
             world_id=cleaned,
             world_state="unmanaged",

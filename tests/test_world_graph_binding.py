@@ -13,7 +13,7 @@ from starlette.requests import Request
 
 from apps.live_control_server.services.world_container_registry import (
     REGISTRY_SCHEMA,
-    create_world_container,
+    create_world_container as _create_provisioned_world,
     list_world_containers,
     world_containers_path,
 )
@@ -24,6 +24,18 @@ from apps.live_control_server.services.world_graph_binding import (
     bind_native_graph,
     deactivate_native_graph_binding,
 )
+
+
+def _existing_unbound_world(root: Path, *, name: str):
+    """Explicit retained unbound fixture for the existing-Graph binding contract."""
+    created = _create_provisioned_world(root, name=name)
+    path = world_containers_path(root)
+    payload = json.loads(path.read_text())
+    for record in payload["records"]:
+        if record["world_id"] == created.world_id:
+            record["native_graph_binding"] = None
+    path.write_text(json.dumps(payload))
+    return created.model_copy(update={"native_graph_binding": None})
 
 
 LOCAL_TOKEN = "binding-test-local-operator-token-long-enough"
@@ -97,7 +109,7 @@ def root(tmp_path: Path) -> Path:
 
 
 def test_initial_bind_reads_exact_head_revision_then_persists_v2(root: Path) -> None:
-    managed = create_world_container(root, name="Binding Target")
+    managed = _existing_unbound_world(root, name="Binding Target")
     authority = _Authority()
     before = managed.model_dump()
 
@@ -127,7 +139,7 @@ def test_initial_bind_reads_exact_head_revision_then_persists_v2(root: Path) -> 
 
 
 def test_bind_preserves_exact_opaque_head_revision_id(root: Path) -> None:
-    managed = create_world_container(root, name="Opaque Head")
+    managed = _existing_unbound_world(root, name="Opaque Head")
     authority = _Authority(NATIVE_ID, " rev:opaque-head ")
 
     active = bind_native_graph(
@@ -162,7 +174,7 @@ def test_invalid_authority_or_head_revision_never_persists_active(
     stored_revision_id: str | None,
     exists: bool,
 ) -> None:
-    managed = create_world_container(root, name="No Active Binding")
+    managed = _existing_unbound_world(root, name="No Active Binding")
     authority = _Authority(
         world_id,
         revision_id,
@@ -189,7 +201,7 @@ def test_invalid_authority_or_head_revision_never_persists_active(
 def test_deactivation_and_reactivation_are_versioned_and_deactivation_is_local(
     root: Path,
 ) -> None:
-    managed = create_world_container(root, name="Deactivate World")
+    managed = _existing_unbound_world(root, name="Deactivate World")
     authority = _Authority()
     active = bind_native_graph(
         root,
@@ -230,7 +242,7 @@ def test_deactivation_and_reactivation_are_versioned_and_deactivation_is_local(
 
 
 def test_rebinding_requires_inactive_and_exact_expected_version(root: Path) -> None:
-    managed = create_world_container(root, name="Rebind World")
+    managed = _existing_unbound_world(root, name="Rebind World")
     first = _Authority(NATIVE_ID, "rev:first")
     bind_native_graph(
         root,
@@ -279,8 +291,8 @@ def test_rebinding_requires_inactive_and_exact_expected_version(root: Path) -> N
 
 
 def test_duplicate_active_native_graph_claim_is_rejected_inside_mutation(root: Path) -> None:
-    first = create_world_container(root, name="First World")
-    second = create_world_container(root, name="Second World")
+    first = _existing_unbound_world(root, name="First World")
+    second = _existing_unbound_world(root, name="Second World")
     bind_native_graph(
         root,
         first.world_id,
@@ -308,11 +320,11 @@ def test_duplicate_active_native_graph_claim_is_rejected_inside_mutation(root: P
 def test_registry_token_change_during_mind_validation_fails_compare_and_swap(
     root: Path,
 ) -> None:
-    managed = create_world_container(root, name="CAS World")
+    managed = _existing_unbound_world(root, name="CAS World")
     authority = _Authority()
 
     def validate_with_concurrent_registry_change(_world_id: str) -> Any:
-        create_world_container(root, name="Concurrent World")
+        _existing_unbound_world(root, name="Concurrent World")
         return authority
 
     with pytest.raises(WorldGraphBindingError) as exc_info:
@@ -462,7 +474,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
     from apps.live_control_server.routes import world_containers
 
     _enable_local_auth(monkeypatch)
-    managed = create_world_container(root, name="Route World")
+    managed = _existing_unbound_world(root, name="Route World")
     monkeypatch.setattr(world_containers, "repo_root", lambda: root)
     authority = _Authority()
     monkeypatch.setattr(
@@ -581,3 +593,14 @@ def test_malformed_registry_bind_error_does_not_echo_private_graph_identity(
     assert "native-leak-marker" not in str(exc_info.value.detail)
     assert "private-head-marker" not in str(exc_info.value.detail)
     assert "private-native-id" not in str(exc_info.value.detail)
+
+
+def test_existing_graph_binding_cannot_steal_a_reserved_native_identity(root: Path) -> None:
+    reserved = _create_provisioned_world(root, name="Reserved owner")
+    other = _existing_unbound_world(root, name="Existing other")
+    native_id = reserved.native_graph_binding.native_world_id
+    before = world_containers_path(root).read_bytes()
+    with pytest.raises(WorldGraphBindingError):
+        bind_native_graph(root, other.world_id, native_world_id=native_id, expected_binding_version=0,
+                          authority_validator=lambda _: _Authority(world_id=native_id))
+    assert world_containers_path(root).read_bytes() == before

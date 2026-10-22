@@ -4,9 +4,12 @@ import os
 import uuid
 from hashlib import sha256
 from pathlib import Path
-from urllib.parse import urlparse
+from psycopg.conninfo import conninfo_to_dict
 
 import pytest
+from fastapi.testclient import TestClient
+from apps.live_control_server.main import create_app
+from apps.live_control_server.routes import world_containers, workspace_documents
 
 from apps.live_control_server import config
 from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as native
@@ -20,10 +23,11 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     get_workspace_document_snapshot,
 )
-from apps.live_control_server.services.world_container_registry import create_world_container
+from apps.live_control_server.services.world_container_registry import get_world_container
 from dungeonmind.infrastructure.postgres import (
     PostgresDatabase,
     PostgresNativeSourceEvidenceRepository,
+    PostgresWorldGraphRepository,
 )
 
 pytestmark = pytest.mark.integration
@@ -34,9 +38,9 @@ def disposable_database_url(monkeypatch: pytest.MonkeyPatch) -> str:
     url = os.environ.get("DMB_DEMO_J1_DISPOSABLE_DATABASE_URL", "").strip()
     if not url:
         pytest.skip("DMB_DEMO_J1_DISPOSABLE_DATABASE_URL must point at a dedicated disposable database")
-    parsed = urlparse(url)
-    database_name = parsed.path.removeprefix("/")
-    if parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not database_name.startswith(
+    parsed = conninfo_to_dict(url)
+    database_name = parsed.get("dbname", "")
+    if parsed.get("host") not in {"127.0.0.1", "localhost", "::1"} or not database_name.startswith(
         "dmb_demo_j1_"
     ):
         pytest.fail("Refusing integration writes outside a loopback dmb_demo_j1_* database")
@@ -45,30 +49,20 @@ def disposable_database_url(monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 def test_native_source_admission_persists_and_replays_after_repository_recreation(
-    tmp_path: Path, disposable_database_url: str
+    tmp_path: Path, disposable_database_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name=f"J1 Integration {uuid.uuid4().hex[:10]}")
-    import json
-    registry_path = tmp_path / "out/registries/world_containers.json"
-    registry_data = json.loads(registry_path.read_text())
-    from datetime import UTC, datetime
-    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(disposable_database_url))
-    domain, profile = native._descriptors()
-    native_id = "native-" + world.world_id
-    native.initialize_empty_knowledge_space(
-        repository=repository, space_id=native_id,
-        initialization_id=native._stable_id("dmb-world-genesis", native_id),
-        created_at=native._parse_timestamp(world.created_at, field="created_at"),
-        domain_contract=domain, semantic_profile=profile,
-    )
-    validated_head = repository.get_head(native_id)
-    assert validated_head is not None
-    registry_data["records"][0]["native_graph_binding"] = {
-        "native_world_id": "native-" + world.world_id, "binding_version": 1,
-        "status": "active", "validated_at": datetime.now(UTC).isoformat(),
-        "validated_head_revision_id": validated_head.head_revision_id,
-    }
-    registry_path.write_text(json.dumps(registry_data))
+    monkeypatch.setattr(world_containers, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(workspace_documents, "repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    created = client.post("/api/live/world-containers", json={"name": f"J1 Integration {uuid.uuid4().hex[:10]}"})
+    assert created.status_code == 200
+    assert created.json()["native_graph_binding"] == {"status": "provisioning", "binding_version": 1}
+    world = get_world_container(tmp_path, created.json()["world_id"])
+    # Ordinary create reserves the source identity; there is no preexisting Graph,
+    # registry patch, or fake active binding using a source KnowledgeSpace head.
+    native_id = world.native_graph_binding.native_world_id
+    assert native_id != world.world_id
+    assert world.native_graph_binding.status == "provisioning"
     markdown = "# Exact source\n\nThis text remains evidence, not extracted canon.\n"
     record = create_workspace_document(
         tmp_path,
@@ -102,35 +96,38 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     ).committed_record
 
     snapshot = get_workspace_document_snapshot(tmp_path, committed.document_id)
-    first = native.admit_native_world_source(
-        tmp_path,
-        committed.document_id,
-        expected_revision=snapshot.loaded_revision,
-        expected_body_sha256=snapshot.content_sha256,
-    )
+    admitted = client.post(f"/api/live/workspace-documents/{committed.document_id}/native-world-source", json={
+        "expected_revision": snapshot.loaded_revision, "expected_body_sha256": snapshot.content_sha256,
+    })
+    assert admitted.status_code == 200, admitted.text
+    first = native.NativeWorldSourceAdmissionStatus.model_validate(admitted.json())
+    # Source genesis is not reviewed World Graph genesis. Admission must not
+    # accidentally activate Graph reads or create a Graph head.
+    assert PostgresWorldGraphRepository(PostgresDatabase(disposable_database_url)).get_head(native_id) is None
     first_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    head_after_admission = first_repository.get_head("native-" + world.world_id)
+    head_after_admission = first_repository.get_head(native_id)
     assert head_after_admission is not None
     receipt = first_repository.get_native_source_admission_receipt(
-        "native-" + world.world_id, first.admission_id
+        native_id, first.admission_id
     )
     assert receipt is not None
 
     # Recreate service/repository objects as after a process restart.
-    replay = native.admit_native_world_source(
-        tmp_path,
-        committed.document_id,
-        expected_revision=snapshot.loaded_revision,
-        expected_body_sha256=snapshot.content_sha256,
-    )
+    fresh_client = TestClient(create_app())
+    replayed = fresh_client.post(f"/api/live/workspace-documents/{committed.document_id}/native-world-source", json={
+        "expected_revision": snapshot.loaded_revision, "expected_body_sha256": snapshot.content_sha256,
+    })
+    assert replayed.status_code == 200, replayed.text
+    replay = native.NativeWorldSourceAdmissionStatus.model_validate(replayed.json())
+    assert get_world_container(tmp_path, world.world_id) == world
     fresh_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    fresh_head = fresh_repository.get_head("native-" + world.world_id)
+    fresh_head = fresh_repository.get_head(native_id)
     fresh_receipt = fresh_repository.get_native_source_admission_receipt(
-        "native-" + world.world_id, replay.admission_id
+        native_id, replay.admission_id
     )
     snapshot = get_workspace_document_snapshot(tmp_path, committed.document_id)
     body = snapshot.markdown.encode("utf-8")
@@ -147,6 +144,6 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     assert status.span_start_byte == 0
     assert status.span_end_byte == len(body)
 
-    assert first.space_id == "native-" + world.world_id
+    assert first.space_id == native_id
     assert first.world_id == world.world_id
     assert fresh_repository.get_head(world.world_id) is None
