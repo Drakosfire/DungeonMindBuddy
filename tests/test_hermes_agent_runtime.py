@@ -604,3 +604,43 @@ def test_trusted_read_profile_maps_without_build_write_actions():
         restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(request))
         assert restored.graph_read_profile==profile
     with pytest.raises(ValueError):replace(base,graph_read_profile='Build from prompt text')
+
+
+def test_current_native_play_policy_and_source_cross_worker_ipc_once():
+    """Real mapping→host serializer→worker parser; no provider or user-data IO."""
+    import json
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV2
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    from application_state.agent_conversation.rules_authority_types import canonical_bytes
+    from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS,POLICY
+    from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as OBSOLETE
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext,AgentPlayCurrentMomentContext,AgentPlayCurrentElementContext
+    from apps.live_control_server.services.hermes_graph_agent_contract import MAX_SURFACE_CONTEXT_BLOCK_CHARS
+    from tests.test_play_graph_authority import payload
+    body='Frozen scene quotation sentinel. '+('A boardwalk stretches north. '*100)
+    note='Saved note sentinel.'
+    frame=play_source_frame((payload(text=body),payload('scene_note',text=note)))
+    carrier=NativePlayInputV2(submission_id=uuid4(),message='Quote the saved note exactly.',source_frame=frame)
+    question=canonical_bytes(carrier).decode()
+    surface=AgentSurfaceContext(surface_id='play',current_play=AgentPlayCurrentMomentContext(
+        run_id='run-one',playable_artifact_id='plan-one',playable_revision=1,
+        current_beat=AgentPlayCurrentElementContext(kind='beat',element_id='beat-one',title='North road',body_text=body),
+        saved_scene_note=note))
+    base=_invocation()
+    invocation=_invocation(message=question,input_kind='server_assembled_saved_work',context_packet=replace(base.context_packet,surface_context=surface))
+    request=map_invocation_to_hermes_request(invocation)
+    wire=serialize_hermes_graph_agent_turn_request(request)
+    restored=deserialize_hermes_graph_agent_turn_request(wire)
+    assert restored.question==question and restored.input_kind=='server_assembled_saved_work'
+    assert len(restored.surface_context_block or '')<=MAX_SURFACE_CONTEXT_BLOCK_CHARS
+    assert INSTRUCTIONS not in (restored.surface_context_block or '')
+    assert OBSOLETE not in (restored.surface_context_block or '')
+    parsed=NativePlayInputV2.model_validate_json(restored.question)
+    assert parsed.answer_policy==POLICY and parsed.answer_instructions==INSTRUCTIONS
+    assert parsed.source_frame==frame
+    assert restored.question.count('Frozen scene quotation sentinel.')==1
+    assert restored.question.count('Saved note sentinel.')==1
+    assert body not in (restored.surface_context_block or '') and note not in (restored.surface_context_block or '')
+    assert json.loads(restored.question)['answer_instructions']==INSTRUCTIONS

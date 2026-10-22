@@ -188,9 +188,8 @@ def map_invocation_to_hermes_request(
         # rich typed context internally, but do not send the source text twice.
         surface_context = replace(surface_context, current_play=None)
     surface_context_block = render_agent_surface_context(surface_context)
-    if surface_context is not None and surface_context.surface_id == "play":
-        from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as SOURCE_INSTRUCTIONS
-        surface_context_block = (surface_context_block or "") + "\n\n" + SOURCE_INSTRUCTIONS
+    # The current native Play question carries its exact answer policy once.
+    # Surface context remains a compact provenance description across worker IPC.
     question = invocation.message
     selection = invocation.context_packet.selected_knowledge_context
     if selection is not None:

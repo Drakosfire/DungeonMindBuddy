@@ -61,3 +61,15 @@ paired8000/5202 migration/delivery/restart with APP/native/source/mechanics prot
 Repeat real private two-turn Conks witness and timing; no story prose in public PR.
 Read reuse is a separate dependent repair after this authority boundary is sound.
 Settle delivered1611/publication truthfully; full J1–J6/latency acceptance stays open.
+
+
+Delivery evidence after merge f18c7574a0a277c550202707dc7a983a3b0781db (PR1612):
+Bugbot cycle1 held two P2s; cycle2 approved exact f7941fdb4d103ecfa4ae4f06ce729eb72224ff48
+with57 backend/271 UI independent checks. Paired8000/5202 at APP0046; Plan real
+fresh two-turn9.7s/3.9s produced source claims and literal authored quote, named
+passages reopened. Protected restart preserved1727 APP rows,79 mechanics files,
+17 frozen components and all native rows. Cross-turn identical-window reread persists.
+Play rendered prior current-contract Plan history, but fresh Play dispatch failed
+before provider/Turn admission at host_request_serialize: obsolete answer instructions
+still occupy compact context. Successor HANDOFF-PLAY-current-answer-carrier.md owns
+that bounded delivery repair; do not claim full Plan/Play live acceptance yet.
