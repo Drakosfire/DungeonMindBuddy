@@ -9,6 +9,8 @@ import {
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
+import "../../combat/combatRoster.css";
+import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
 function valueText(value: unknown): string {
@@ -224,6 +226,12 @@ export function CombatRosterModule() {
   const selectedWorld = useSelectedWorld();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const worldRequestGeneration = useRef(0);
+  const recoverySession = useRef(new CombatRecoverySession());
+  const draftRef = useRef<CombatEncounterDraft | null>(null);
+  const recordRef = useRef<CombatEncounterRecord | null>(null);
+  const pendingSave = useRef<CombatRecovery['pending']>(null);
+  const [availableRecovery, setAvailableRecovery] = useState<CombatRecovery | null>(null);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [encounters, setEncounters] = useState<CombatEncounterRecord[]>([]);
   const [loadedWorldId, setLoadedWorldId] = useState<string | null>(null);
   const [selectedEncounterId, setSelectedEncounterId] = useState("");
@@ -232,21 +240,23 @@ export function CombatRosterModule() {
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const replacingDraft = busy === "create" || busy === "open" || busy === "reload";
+  const replacingDraft = busy === "create" || busy === "open" || busy === "reload" || availableRecovery !== null;
   const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     worldRequestGeneration.current += 1;
     return () => {
       worldRequestGeneration.current += 1;
+      recoverySession.current.close();
     };
   }, [worldId]);
 
   useEffect(() => {
     let alive = true;
     const generation = worldRequestGeneration.current;
-    setRecord(null);
-    setDraft(null);
+    setRecord(null); recordRef.current = null;
+    setDraft(null); draftRef.current = null; pendingSave.current = null;
+    setAvailableRecovery(null); setRecoveryMessage(null);
     setEncounters([]);
     setLoadedWorldId(null);
     setSelectedEncounterId("");
@@ -262,6 +272,8 @@ export function CombatRosterModule() {
         if (alive && generation === worldRequestGeneration.current) {
           setEncounters(items);
           setLoadedWorldId(worldId);
+          const selected = localStorage.getItem(combatSelectionKey(worldId));
+          if (items.some(item => item.world_id === worldId && item.encounter_id === selected)) setSelectedEncounterId(selected!);
         }
       })
       .catch((caught) => {
@@ -284,8 +296,47 @@ export function CombatRosterModule() {
   const active = useMemo(() => activeActor(visibleDraft), [visibleDraft]);
   const next = useMemo(() => nextActor(visibleDraft), [visibleDraft]);
 
-  function updateDraft(update: (current: CombatEncounterDraft) => CombatEncounterDraft) {
-    setDraft((current) => current ? update(current) : current);
+  function updateDraft(update: (current: CombatEncounterDraft) => CombatEncounterDraft): boolean {
+    const current = draftRef.current, base = recordRef.current;
+    if (!current || !base) return false;
+    try {
+      if (availableRecovery) throw new Error('Recover or discard the retained Combat draft before editing.');
+      if (pendingSave.current && busy !== 'save') throw new Error('The previous Save outcome is unknown. Retry the same Save or explicitly reload; local edits are retained.');
+      const nextDraft = update(current);
+      recoverySession.current.write(base, nextDraft, pendingSave.current);
+      draftRef.current = nextDraft; setDraft(nextDraft); return true;
+    } catch (caught) {setError(String(caught)); return false;}
+  }
+
+  async function adoptRecord(opened: CombatEncounterRecord, requestedWorld: string, requestedId: string | null, generation: number) {
+    if (opened.world_id !== requestedWorld || (requestedId && opened.encounter_id !== requestedId)) throw new Error('Combat response belongs to a different encounter.');
+    setRecord(null); recordRef.current = null; setDraft(null); draftRef.current = null;
+    const recovery = await recoverySession.current.open(opened, () => generation === worldRequestGeneration.current);
+    if (generation !== worldRequestGeneration.current) return;
+    recordRef.current = opened; draftRef.current = cloneDraft(opened.draft); pendingSave.current = null;
+    setRecord(opened); setDraft(draftRef.current); setAvailableRecovery(recovery.recovery);
+    setRecoveryMessage(recovery.committedMatch ? (recovery.recovery ? 'The submitted Save is committed. Later local edits remain available to recover.' : 'Committed encounter matches the retained Save. No request was reposted.') : null);
+  }
+
+  function recoverDraft() {
+    if (!availableRecovery) return;
+    recordRef.current = availableRecovery.base; draftRef.current = cloneDraft(availableRecovery.draft);
+    pendingSave.current = availableRecovery.pending;
+    setRecord(availableRecovery.base); setDraft(draftRef.current); setAvailableRecovery(null);
+    setRecoveryMessage('Recovered local edits are unsaved. Save uses their original base revision.');
+  }
+
+  function discardRecovery() {
+    try {recoverySession.current.clear(); setAvailableRecovery(null); setRecoveryMessage(null);}
+    catch (caught) {setError(String(caught));}
+  }
+
+  function revertDraft() {
+    if (!visibleRecord) return;
+    try {
+      recoverySession.current.clear(); pendingSave.current = null;
+      draftRef.current = cloneDraft(visibleRecord.draft); setDraft(draftRef.current);
+    } catch (caught) {setError(String(caught));}
   }
 
   function updateEntity(entityId: string, replacement: CombatEntity) {
@@ -306,8 +357,7 @@ export function CombatRosterModule() {
       if (generation !== worldRequestGeneration.current) return;
       setEncounters((current) => [created, ...current.filter((item) => item.encounter_id !== created.encounter_id)]);
       setSelectedEncounterId(created.encounter_id);
-      setRecord(created);
-      setDraft(cloneDraft(created.draft));
+      await adoptRecord(created, requestedWorldId, null, generation);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -325,8 +375,7 @@ export function CombatRosterModule() {
     try {
       const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId);
       if (generation !== worldRequestGeneration.current) return;
-      setRecord(opened);
-      setDraft(cloneDraft(opened.draft));
+      await adoptRecord(opened, requestedWorldId, requestedEncounterId, generation);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -335,20 +384,29 @@ export function CombatRosterModule() {
   }
 
   async function saveEncounter() {
-    if (!worldId || !visibleRecord || !visibleDraft || !dirty) return;
+    if (!worldId || !visibleRecord || !visibleDraft || (!dirty && !pendingSave.current)) return;
     const requestedWorldId = worldId;
     const submittedRecord = visibleRecord;
-    const submittedDraft = cloneDraft(visibleDraft);
+    const submittedDraft = cloneDraft(pendingSave.current?.draft ?? visibleDraft);
     const generation = worldRequestGeneration.current;
     setBusy("save");
     setError(null);
     try {
+      const submitted = {expected_revision: submittedRecord.revision, draft: submittedDraft};
+      recoverySession.current.write(submittedRecord, draftRef.current ?? submittedDraft, submitted);
+      pendingSave.current = submitted;
       const saved = await saveWorldCombatEncounter(requestedWorldId, submittedRecord.encounter_id, submittedRecord.revision, submittedDraft);
       if (generation !== worldRequestGeneration.current) return;
-      setRecord(saved);
-      setDraft((current) => current && JSON.stringify(current) !== JSON.stringify(submittedDraft)
-        ? current
-        : cloneDraft(saved.draft));
+      if (saved.world_id !== requestedWorldId || saved.encounter_id !== submittedRecord.encounter_id
+          || saved.revision !== submittedRecord.revision + 1 || !combatDraftEqual(saved.draft, submittedDraft)) {
+        throw new Error('Save acknowledgement did not match the submitted encounter; recovery is retained.');
+      }
+      const laterDraft = draftRef.current ?? submittedDraft;
+      const nextDraft = combatDraftEqual(laterDraft, submittedDraft) ? cloneDraft(saved.draft) : laterDraft;
+      if (combatDraftEqual(nextDraft, saved.draft)) recoverySession.current.clear();
+      else recoverySession.current.write(saved, nextDraft);
+      pendingSave.current = null; recordRef.current = saved; draftRef.current = nextDraft;
+      setRecord(saved); setDraft(nextDraft); setRecoveryMessage(null);
       setEncounters((current) => [saved, ...current.filter((item) => item.encounter_id !== saved.encounter_id)]);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
@@ -367,8 +425,11 @@ export function CombatRosterModule() {
     try {
       const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId);
       if (generation !== worldRequestGeneration.current) return;
-      setRecord(opened);
-      setDraft(cloneDraft(opened.draft));
+      // Explicit reload discards only this owned local recovery after a verified read.
+      if (opened.world_id !== requestedWorldId || opened.encounter_id !== requestedEncounterId) throw new Error('Combat response belongs to a different encounter.');
+      recoverySession.current.clear(); pendingSave.current = null; setAvailableRecovery(null);
+      recordRef.current = opened; draftRef.current = cloneDraft(opened.draft);
+      setRecord(opened); setDraft(draftRef.current); setRecoveryMessage(null);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -443,7 +504,7 @@ export function CombatRosterModule() {
                 aria-label="Encounter"
                 value={selectedEncounterId}
                 onChange={(event) => setSelectedEncounterId(event.target.value)}
-                disabled={busy !== null}
+                disabled={busy !== null || availableRecovery !== null}
               >
                 <option value="">Choose an encounter…</option>
                 {visibleEncounters.map((item) => (
@@ -463,14 +524,20 @@ export function CombatRosterModule() {
             <button type="button" disabled={busy !== null || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
               Create
             </button>
-            <button type="button" disabled={busy !== null || !dirty} onClick={() => void saveEncounter()}>
+            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>
-            <button type="button" disabled={busy !== null || !dirty} onClick={() => visibleRecord && setDraft(cloneDraft(visibleRecord.draft))}>
+            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
               Revert
             </button>
-            {dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
+            {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
           </section>
+          {availableRecovery && <section aria-label="Combat draft recovery">
+            <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
+            <button type="button" disabled={busy !== null} onClick={recoverDraft}>Recover local Combat draft</button>
+            <button type="button" disabled={busy !== null} onClick={discardRecovery}>Discard local Combat draft</button>
+          </section>}
+          {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           {worldListLoading ? <p className="module-muted">Loading World encounters…</p> : null}
           {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord ? (
             <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
@@ -496,7 +563,7 @@ export function CombatRosterModule() {
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} disabled={busy !== null} remainingSlots={100 - visibleDraft.entities.length}
+                worldId={worldId} disabled={busy !== null || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
                   const proposed = {...visibleDraft,
                     entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
@@ -506,7 +573,7 @@ export function CombatRosterModule() {
                   if (new TextEncoder().encode(JSON.stringify(proposed)).byteLength > 700 * 1024) {
                     return 'These copies exceed the encounter’s 700 KiB storage capacity. Reduce copies before adding; your draft is unchanged.';
                   }
-                  updateDraft(() => proposed);
+                  if (!updateDraft(() => proposed)) return 'Combat draft could not be retained. Your prior draft and assembly inputs are unchanged.';
                 }} />
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
