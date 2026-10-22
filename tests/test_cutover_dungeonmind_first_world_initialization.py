@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import json
 import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -1765,3 +1764,171 @@ def test_first_publication_requires_gm_auth_before_run_resolution(native_first_w
     unauthenticated = TestClient(create_app(), client=("127.0.0.1",50000))
     response = unauthenticated.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body("missing", _first_world_decisions()))
     assert response.status_code == 401
+
+
+class _PreflightSpy:
+    def __init__(self, native, *, preflight_error=None, initialize_error=None, probe_error=None):
+        self.native = native
+        self.preflight_error = preflight_error
+        self.initialize_error = initialize_error
+        self.probe_error = probe_error
+        self.preflights = 0
+        self.initializations = 0
+
+    def probe(self, world_id):
+        if self.probe_error:
+            raise self.probe_error
+        return self.native.probe(world_id)
+
+    def preflight(self, request):
+        self.preflights += 1
+        if self.preflight_error:
+            raise self.preflight_error
+        self.native.preflight(request)
+
+    def initialize(self, request):
+        self.initializations += 1
+        if self.initialize_error:
+            raise self.initialize_error
+        return self.native.initialize(request)
+
+
+def _install_preflight_spy(monkeypatch, world_root, **kwargs):
+    import apps.live_control_server.services.first_world_graph_publication as service
+    spy = _PreflightSpy(get_world_graph_initialization_authority(world_root=world_root), **kwargs)
+    monkeypatch.setattr(service, "get_world_graph_initialization_authority", lambda **_: spy)
+    return spy
+
+
+def _invalid_endpoint():
+    return WorldGraphInitializationError(
+        "endpoint kinds are not admitted", code="inexpressible",
+        details={"assertion_id": "asrt:invalid", "buddy_predicate": "located_in",
+                 "subject_dm_kind": "location", "object_dm_kind": "npc", "reason": "invalid_endpoint_kinds"},
+    )
+
+
+def test_prepare_preflight_rejects_before_sealed_plan_or_initialization(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    spy = _install_preflight_spy(monkeypatch, world_root, preflight_error=_invalid_endpoint())
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    response = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
+    assert response.status_code == 409, response.text
+    body = response.json()
+    assert body["code"] == "dungeonmind_inexpressible"
+    assert body["failureResult"]["schema"] == "dmb_first_world_preflight_failure_v1"
+    assert body["failureResult"]["failure"]["buddy_predicate"] == "located_in"
+    assert spy.preflights == 1
+    assert spy.initializations == 0
+    assert spy.native.probe(NATIVE_RESERVED_WORLD_ID).state == "uninitialized"
+
+
+def test_retained_invalid_confirm_proves_only_this_request_did_not_invoke(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    spy = _install_preflight_spy(monkeypatch, world_root, preflight_error=_invalid_endpoint())
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code == 409, response.text
+    body = response.json()
+    assert body["code"] == "first_world_confirm_not_invoked"
+    proof = body["failureResult"]
+    assert proof["schema"] == "dmb_first_world_confirm_not_invoked_v1"
+    assert proof["initializationInvoked"] is False
+    assert proof["worldId"] == plan["worldId"]
+    assert proof["nativeWorldId"] == plan["nativeTarget"]["nativeWorldId"]
+    assert proof["initializationId"] == plan["nativeTarget"]["provisioningId"]
+    assert proof["planId"] == plan["planId"]
+    assert proof["planDigest"] == plan["planDigest"]
+    assert spy.preflights == 1
+    assert spy.initializations == 0
+
+
+@pytest.mark.parametrize("stage,code", [("probe", "authority_unavailable"), ("preflight", "authority_unavailable"),
+    ("initialize", "inexpressible"), ("initialize", "authority_unavailable")])
+def test_unknown_or_post_invoke_failure_never_grants_release(native_first_world_client, monkeypatch, stage, code):
+    client, world_root, repo, _dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    spy = _install_preflight_spy(monkeypatch, world_root,
+        **{stage + "_error": WorldGraphInitializationError("failure", code=code)})
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code >= 400, response.text
+    assert response.json()["code"] != "first_world_confirm_not_invoked"
+    assert response.json().get("failureResult") is None
+    assert spy.initializations == int(stage == "initialize")
+
+
+def test_matching_receipt_skips_nonapplication_preflight(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    spy = _install_preflight_spy(monkeypatch, world_root, preflight_error=_invalid_endpoint())
+    replay = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert replay.status_code == 200, replay.text
+    assert spy.preflights == 0
+    assert spy.initializations == 1
+
+
+def test_adapter_preflight_uses_exact_command_without_opening_storage(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    adapter = get_world_graph_initialization_authority(world_root=world_root)
+    request = _sealed_native_request(repo, plan)
+    monkeypatch.setattr(adapter, "_bundle", lambda: pytest.fail("preflight opened storage"))
+    adapter.preflight(request)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_initialization_adapter as module
+    seen = []
+    build = module._build_command
+    def capture(req, **kwargs):
+        seen.append(req)
+        return build(req, **kwargs)
+    monkeypatch.setattr(module, "_build_command", capture)
+    adapter.preflight(request)
+    assert seen == [request]
+
+
+def test_prepare_real_native_endpoint_qualification_identifies_original_choice(native_first_world_client):
+    client, world_root, repo, _dsn = native_first_world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    def invalid_relationship(payload):
+        edge = payload["edges"][0]
+        edge["from_node_id"], edge["to_node_id"] = edge["to_node_id"], edge["from_node_id"]
+        edge["relationship_type"] = "located_in"
+    _mutate_extraction_candidate(repo, run_id, invalid_relationship)
+    response = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
+    assert response.status_code == 409, response.text
+    failure = response.json()["failureResult"]["failure"]
+    assert failure["buddy_predicate"] == "located_in"
+    assert failure["candidate_assertion_ids"] == ["e33"]
+    assert get_world_graph_initialization_authority(world_root=world_root).probe(NATIVE_RESERVED_WORLD_ID).state == "uninitialized"
+
+
+@pytest.mark.parametrize("state,world_id,initialization_id,head", [
+    ("unreadable", NATIVE_RESERVED_WORLD_ID, None, None),
+    ("uninitialized", "world:"+"f"*32, None, None),
+    ("uninitialized", NATIVE_RESERVED_WORLD_ID, "unexpected", None),
+    ("initialized", NATIVE_RESERVED_WORLD_ID, "other-initialization", "rev:other"),
+])
+def test_unreadable_changed_or_initialized_probe_never_releases(native_first_world_client, monkeypatch, state, world_id, initialization_id, head):
+    from apps.live_control_server.ports.world_graph_initialization import WorldGraphInitializationState
+    client, world_root, repo, _dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    spy = _install_preflight_spy(monkeypatch, world_root, preflight_error=_invalid_endpoint(),
+        initialize_error=WorldGraphInitializationError("Already initialized", code="already_initialized"))
+    monkeypatch.setattr(spy, "probe", lambda _: WorldGraphInitializationState(world_id, state, initialization_id, head))
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code >= 400, response.text
+    assert response.json()["code"] != "first_world_confirm_not_invoked"
+    assert response.json().get("failureResult") is None
+    assert spy.preflights == 0
+
+
+def test_prepare_unavailability_is_not_invalid_choice_feedback(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    spy = _install_preflight_spy(monkeypatch, world_root,
+        preflight_error=WorldGraphInitializationError("temporarily unavailable", code="authority_unavailable"))
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    response = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
+    assert response.status_code == 503, response.text
+    assert response.json().get("failureResult") is None
+    assert spy.initializations == 0

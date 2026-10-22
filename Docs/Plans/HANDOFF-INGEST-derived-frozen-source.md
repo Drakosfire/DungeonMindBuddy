@@ -1,6 +1,13 @@
 # INGEST — retain frozen source identity in corrected child runs
 
-ACTIVE. PRIME owns one serial slice from9d3ce62ae6969b514043f134c32c2a2f287e0497,
+SETTLED. #1586 mergedbea0009f2c32add59dbf9b7c512ea73c414f24dd after Bugbot
+approvedc0561b4ec (53 independent registry/correction tests). API8000 serves the
+merge. Guarded rollout preserved1498 APP rows,59 product files and6 frozen
+component files. Ordinary saved-request retry recovered the same reviewable child;
+parent/source/index/candidate hashes stayed unchanged. The implementation lease is
+released. Publication remains unperformed; #1587 owns its preflight/recovery gap.
+
+PRIME owned one serial slice from9d3ce62ae6969b514043f134c32c2a2f287e0497,
 branch codex/ingest-derived-frozen-source, existing buddy-context-loop checkout.
 Current open-PR census has no overlapping active implementation lease. No schema,
 provider, UI, Graph-write or candidate-rewrite change.

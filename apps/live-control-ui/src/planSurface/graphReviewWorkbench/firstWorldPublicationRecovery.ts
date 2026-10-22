@@ -1,4 +1,5 @@
-import type {ExactRunReviewPackage,FirstWorldDisposition,FirstWorldGraphPlan,FirstWorldGraphConfirmReceipt} from '../../api/types';
+import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
+import type {ExactRunReviewPackage,FirstWorldDisposition,FirstWorldGraphPlan,FirstWorldGraphConfirmReceipt,FirstWorldConfirmNonapplication} from '../../api/types';
 
 export type FirstWorldRecovery={schema:'dmb_first_world_publication_recovery_v1';scope:string;plan:FirstWorldGraphPlan;submitted:boolean};
 const nonblank=(value:unknown):value is string=>typeof value==='string'&&!!value.trim();
@@ -90,4 +91,37 @@ export function assertFirstWorldReceipt(receipt:FirstWorldGraphConfirmReceipt,pl
     ||!same(receipt.acceptedAssertionIds,plan.acceptedAssertionIds)||!same(receipt.rejectedAssertionIds,plan.rejectedAssertionIds)
     ||!['ok','degraded'].includes(receipt.auditStatus)||!Array.isArray(receipt.warnings)||!receipt.warnings.every(value=>typeof value==='string'))
     throw new Error('The creation receipt does not match the retained request. Recover its exact result.');
+}
+
+
+export function firstWorldNonapplication(error: unknown, plan: FirstWorldGraphPlan): FirstWorldConfirmNonapplication | null {
+  if (!(error instanceof ExtractPromoteApiError) || error.code !== 'first_world_confirm_not_invoked'
+    || error.body?.schema !== 'dmb_extract_promote_error_v1') return null;
+  const proof = error.body.failureResult;
+  if (!proof || proof.schema !== 'dmb_first_world_confirm_not_invoked_v1'
+    || proof.worldId !== plan.worldId || proof.nativeWorldId !== plan.nativeTarget.nativeWorldId
+    || proof.initializationId !== plan.nativeTarget.provisioningId || proof.planId !== plan.planId
+    || proof.planDigest !== plan.planDigest || proof.initializationInvoked !== false
+    || !nonblank(proof.validationMessage) || !proof.failure || typeof proof.failure !== 'object' || Array.isArray(proof.failure)
+    || Object.keys(proof).some(key => !['schema','worldId','nativeWorldId','initializationId','planId','planDigest','initializationInvoked','validationMessage','failure'].includes(key))) return null;
+  return proof as unknown as FirstWorldConfirmNonapplication;
+}
+
+export async function releaseFirstWorldRecovery(review: ExactRunReviewPackage, plan: FirstWorldGraphPlan,
+  proof: FirstWorldConfirmNonapplication, isCurrent: () => boolean) {
+  assertFirstWorldPlan(plan, review);
+  if (!navigator.locks) throw new Error('This browser cannot safely release World creation recovery.');
+  const error = new ExtractPromoteApiError('Not invoked',409,'first_world_confirm_not_invoked',{
+    schema:'dmb_extract_promote_error_v1',failureResult:proof as unknown as Record<string,unknown>,
+  });
+  if (!firstWorldNonapplication(error,plan)) throw new Error('Nonapplication proof does not match this creation request.');
+  return navigator.locks.request(firstWorldRecoveryKey(review), () => {
+    if (!isCurrent()) throw new Error('The selected source or World changed. Recovery is retained.');
+    if (!firstWorldNonapplication(error,plan)) throw new Error('Nonapplication proof changed while waiting for recovery ownership.');
+    const key=firstWorldRecoveryKey(review), raw=localStorage.getItem(key), retained=readFirstWorldRecovery(review);
+    if (!retained?.submitted || !same(retained.plan,plan) || localStorage.getItem(key)!==raw)
+      throw new Error('Another creation request owns recovery. Reopen this review.');
+    localStorage.removeItem(key);
+    if (localStorage.getItem(key)!==null) throw new Error('World creation recovery could not be released.');
+  });
 }

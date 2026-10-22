@@ -1,7 +1,8 @@
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 import type {ExactRunReviewPackage,FirstWorldGraphPlan} from '../../api/types';
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
-import {assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
+import {firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
   runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'a'.repeat(64),worldId:'world-a',sourceProse:'A keeper.',diagnostics:[],
   assertions:[{assertionId:'keeper',kind:'object',label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
@@ -75,4 +76,48 @@ it('rejects an obsolete v1 carried creation plan without upgrading it',async()=>
   localStorage.setItem(key,JSON.stringify(stored));
   expect(()=>readFirstWorldRecovery(review)).toThrow();
   expect(JSON.parse(localStorage.getItem(key)!).plan.schema).toBe('dmb_first_world_graph_plan_v1');
+});
+
+const proof=()=>({schema:'dmb_first_world_confirm_not_invoked_v1' as const,worldId:plan.worldId,
+  nativeWorldId:plan.nativeTarget.nativeWorldId,initializationId:plan.nativeTarget.provisioningId,
+  planId:plan.planId,planDigest:plan.planDigest,initializationInvoked:false as const,
+  validationMessage:'Invalid endpoint pair',failure:{reason:'invalid_endpoint_kinds'}});
+const proofError=(value:unknown=proof())=>new ExtractPromoteApiError('Not invoked',409,'first_world_confirm_not_invoked',{
+  schema:'dmb_extract_promote_error_v1',failureResult:value as Record<string,unknown>});
+it.each(['worldId','nativeWorldId','initializationId','planId','planDigest','schema','initializationInvoked','validationMessage','failure'])(
+  'refuses a wrong or malformed nonapplication proof %s',field=>{
+    const value={...proof(),[field]:field==='initializationInvoked'?true:field==='failure'?[]:field==='validationMessage'?'':'foreign'};
+    expect(firstWorldNonapplication(proofError(value),plan)).toBeNull();
+  });
+it('never treats a timeout or a generic conflict as nonapplication',()=>{
+  expect(firstWorldNonapplication(new Error('timeout'),plan)).toBeNull();
+  expect(firstWorldNonapplication(new ExtractPromoteApiError('conflict',409),plan)).toBeNull();
+});
+it('explicitly releases only the exact submitted request on verified proof',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  await saveFirstWorldRecovery(review,plan,true,()=>true);
+  expect(firstWorldNonapplication(proofError(),plan)).toEqual(proof());
+  await releaseFirstWorldRecovery(review,plan,proof(),()=>true);
+  expect(readFirstWorldRecovery(review)).toBeNull();
+});
+it('refuses to release a foreign retained request',async()=>{
+  await saveFirstWorldRecovery(review,{...plan,planId:'foreign'},false,()=>true);
+  const before=localStorage.getItem(firstWorldRecoveryKey(review));
+  await expect(releaseFirstWorldRecovery(review,plan,proof(),()=>true)).rejects.toThrow('Another creation');
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(before);
+});
+it('retains recovery if source changes while waiting for release ownership',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);await saveFirstWorldRecovery(review,plan,true,()=>true);
+  let release!:()=>void,current=true;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>new Promise((resolve,reject)=>{
+    release=()=>{try{resolve(action());}catch(error){reject(error);}};
+  })}});
+  const pending=releaseFirstWorldRecovery(review,plan,proof(),()=>current);current=false;release();
+  await expect(pending).rejects.toThrow('selected source');expect(readFirstWorldRecovery(review)?.submitted).toBe(true);
+});
+it('retains recovery when storage refuses removal',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);await saveFirstWorldRecovery(review,plan,true,()=>true);
+  vi.spyOn(Storage.prototype,'removeItem').mockImplementation(()=>{throw new Error('storage unavailable');});
+  await expect(releaseFirstWorldRecovery(review,plan,proof(),()=>true)).rejects.toThrow('storage unavailable');
+  expect(readFirstWorldRecovery(review)?.submitted).toBe(true);
 });
