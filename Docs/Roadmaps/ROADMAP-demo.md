@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `0a7b2c5abcfd8f5dee311e5f1a5742f3c9cc087c` (through PR #1590).
+**Evidence anchor:** remote main `21e263b7ace1de519848be66a8220196034762c9` (through PR #1591).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API and UI backing5202 serve0a7b2c5abc (#1590). Named saved-section
+The API backing5202 serves21e263b7a (#1591); UI serves0a7b2c5abc (#1590). Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -268,11 +268,26 @@ without weakening that gate. Four real Jev classification controls passed. Fresh
 ordinary correction completed11263ms with Rules none=1.0, zero Rules calls/support,
 corrected tower ownership and conditional trigger, PDF references and explicit
 withdrawal of the earlier gap; full reload retained the answer and both failures.
-The active bounded repair is [saved-source names](../Plans/HANDOFF-BUILD-saved-source-names.md):
-exact committed artifact metadata batched per history page, without body reads or
-changing citations. Source publication and this correction are proved; universal
+Saved-source names delivered in #1590: exact committed artifact metadata is
+batched per history page without body reads or changed citations. #1591 separates
+retrieval completeness from question coverage; fresh ordinary grounding had no
+contradictory gap and reopened after reload. It used8Jev/1writer and10498ms trace
+capture, not a reliable latency SLA. Source publication and these repairs are proved; universal
 answer consistency,10-second reliability and the connected journey remain open. PDF decorative divider lines also trigger the existing
 visual-editor fidelity gate; exact source remains protected and reviewable.
+
+Ordinary rehearsal now retains Plan d5149207-9441-4487-86c9-7894fd3c60fe,
+revision11, one Beat/three Scenes and a reviewed Agent-authored read-aloud. Play
+5e59b7f6-aec2-4058-946a-74319224b2d4 retains the refusal note and current confrontation
+after reload; the original Plan hash stayed unchanged. Partial encounter
+9162d3e4-1331-4b8b-9dfe-1b12db2d64ec rev2 retains a source-verified manual Noke.
+Workbench generated/reviewed/validated/accepted Noke’s mechanics and explicitly
+associated them with npc_ahmed_noke (version1). This is a labeled older-adventure
+transcription into the current2024 schema, not edition-conversion acceptance.
+The exact snapshot loads in Combat, but missing actor removal blocks replacing
+the manual baseline in that same encounter. Agent structural card creation also
+remains open; focused body editing works after manual structure creation. These
+are partial connected witnesses, not complete adventure/J1–J6 acceptance.
 
 The target is an adventure usable at the table:
 

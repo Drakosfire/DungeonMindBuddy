@@ -1,6 +1,8 @@
 # BUILD — separate retrieval completeness from answer coverage
 
-ACTIVE. PRIME owns this serial slice from 0a7b2c5abcfd8f5dee311e5f1a5742f3c9cc087c,
+SETTLED by #1591 (21e263b7ace1de519848be66a8220196034762c9). Lease released.
+
+Original scope: PRIME owns this serial slice from 0a7b2c5abcfd8f5dee311e5f1a5742f3c9cc087c,
 branch codex/build-answer-coverage, existing buddy-context-loop checkout. Current
 remote/open PR census shows no overlapping active implementation lease.
 
