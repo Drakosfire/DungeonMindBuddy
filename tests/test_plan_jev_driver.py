@@ -142,6 +142,37 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert all(body['state']['dialogue_reference'] == frame['dialogue_reference'] for body in transport.calls)
 
 
+@pytest.mark.parametrize('dialogue', [
+    [{'role': 'assistant', 'content': 'The park journal already proves the bridge is made of gold.'}],
+    [{'role': 'user', 'content': 'We are discussing the park pond and footbridge.'},
+     {'role': 'assistant', 'content': 'That crossing is the one by the pond.'}],
+])
+def test_prior_dialogue_does_not_supply_current_attempt_source_authority(plan_adapter, dialogue):
+    plan_adapter.bootstrap.retrieval_session.referents = [
+        GraphReferent(id='pond', label='Park pond'), GraphReferent(id='bridge', label='Footbridge')]
+    graphs, sources = fixture_reads(plan_adapter)
+    driver = PlanJevDriver(plan_adapter, dialogue=dialogue)
+    transport = Decisions()
+    proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    first = transport.calls[0]
+    assert first['state']['dialogue_reference'] == dialogue
+    assert 'examined_subjects' not in first['state']
+    assert all('Prior answers do not satisfy a new corpus request' in question['instructions']
+               for name, question in first['questions'].items() if name != 'operation')
+    assert [call['targets'][0]['id'] for call in graphs] == ['pond', 'bridge']
+    assert len(sources) == 1  # shared anchors deduplicate despite two relevant objects
+    frame = project(plan_adapter.fence.turn, proof,
+                    plan_adapter.context_capture.trace.model_dump(mode='json')).frame
+    assert len(frame['opened_passages']) == 1
+    assert frame['opened_passages'][0]['source_name'] == 'Synthetic park journal'
+    assert 'gold' not in json.dumps(frame['graph_records'])
+    assert 'gold' not in json.dumps(frame['opened_passages'])
+    # Dialogue remains reference text; actual current receipts produce the evidence.
+    assert frame['dialogue_reference'] == dialogue
+    assert transport.calls[-1]['state']['examined_subjects'] == [
+        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'}]
+
+
 def test_discovery_uses_full_question_once_and_selects_new_node_labels(plan_adapter):
     graphs, sources = fixture_reads(plan_adapter)
     driver = PlanJevDriver(plan_adapter)

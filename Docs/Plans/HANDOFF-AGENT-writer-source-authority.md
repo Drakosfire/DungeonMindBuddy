@@ -1,6 +1,14 @@
 # AGENT — offer only available writer citation authority
 
-ACTIVE serial PRIME slice from6f5acb430c3387c57f3ae86fdcf0cfe838433971,
+SETTLED1603 at10c4422025024d8b950ef91b11caa2fce0613b20, running8000/5202.
+Bugbot approvedf3a9a1834ecb03cfe157301cad3ccc8149c8a8ea in one cycle, no findings;
+29independent tests passed. Ordinary grounding completed6.594s, image follow-up
+4.360s, actual Generate/Save/library selection/reopen survived restart. All1664APP
+rows, native rows,79mechanics files and11frozen components remained unchanged.
+Corpus acquisition was skipped and image intent needed Question selection; these
+remain separate acceptance gaps.
+
+Historical serial PRIME slice from6f5acb430c3387c57f3ae86fdcf0cfe838433971,
 branch codex/plan-writer-source-authority, existing buddy-context-loop checkout.
 Operator goal explicitly authorizes prompt refinement and actual swamp/Edge
 multi-turn grounding/image acceptance. No overlapping ACTIVE open implementation.
