@@ -399,3 +399,52 @@ def test_default_build_rules_does_not_require_source_ingestion(
     assert replay.rules_context.accepted_binding == result.rules_context.accepted_binding
     assert replay.answer.text == result.answer.text
     assert len(decisions.calls) == calls_before and len(writer.calls) == 1
+
+
+class AbstainingRulesDecisionWire(RulesDecisionWire):
+    """Exact normalized vote from the ordinary Sheep failure, without story text."""
+    def __init__(self):
+        super().__init__(query=False)
+
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        answer = response.json()
+        if QUERY_CHOICE in answer["answers"]:
+            answer["answers"][QUERY_CHOICE].update(confidence=.34, probabilities={"none": .67, "query:0": .33})
+        return httpx2.Response(200, request=request, json=answer)
+
+
+def test_uncertain_none_vote_completes_cited_source_answer_without_rules_read(application_state_dsn, build_case, tmp_path, monkeypatch):
+    completed, adapter, decisions, writer, reads = run_parent(build_case, tmp_path, monkeypatch,
+        query=False, decision=AbstainingRulesDecisionWire(), dsn=application_state_dsn)
+    assert completed.status == "completed"
+    assert completed.completion.source_citations
+    assert len(writer.calls) == 1
+    assert len(decisions.calls) == 5
+    assert reads == {"graph": 1, "source": 1}
+    assert adapter.rules_runtime.outputs == []
+    assert adapter.rules_runtime._selection is None
+    with psycopg.connect(application_state_dsn) as conn:
+        payload = conn.execute("SELECT payload FROM agent.turn_rules_execution WHERE turn_id=%s", (completed.turn_id,)).fetchone()[0]
+    assert payload["budget_use"]["calls"] == 0
+    assert payload["supports"] == {}
+    assert not any(event["kind"] == "lookup_authorized" for event in payload["events"])
+
+
+@pytest.mark.parametrize("selected,scores", [
+    ("query:0", {"none": .33, "query:0": .67}),
+    ("foreign", {"none": 1., "query:0": 0.}),
+    ("none", {"none": float("nan"), "query:0": 0.}),
+    ("none", {"none": 1.2, "query:0": -.2}),
+    ("none", {"none": .67, "query:0": .1}),
+    ("none", {"none": .67}),
+    ("none", {"none": True, "query:0": False}),
+])
+def test_invalid_or_uncertain_positive_vote_does_not_select_lookup(selected, scores):
+    from apps.live_control_server.services.rules_build_runtime import RulesBuildRuntime
+    runtime = object.__new__(RulesBuildRuntime)
+    runtime.offers = ("A synthetic question",)
+    runtime._selection = None
+    with pytest.raises(ValueError, match="unresolved or uncalibrated"):
+        runtime.select(request_id="request", vote={"kind": "choice", "selected": selected, "probabilities": scores}, operation="answer_from_sources")
+    assert runtime._selection is None

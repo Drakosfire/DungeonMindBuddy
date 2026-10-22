@@ -1,6 +1,16 @@
 # INGEST — qualify first-World choices before sealing and recover proven nonapplication
 
-ACTIVE. PRIME owns this serial capability frombea0009f2c32add59dbf9b7c512ea73c414f24dd
+SETTLED. #1587 merged58c81d58f7809e62555a8de424570bdf74d49808 after Bugbot
+approvedbf1e7b8d7 (47 native/APP and57 UI tests independently passed). API8000
+and UI5202 serve the merge. Guarded delivery retained1498 APP rows,59 product
+files and6 frozen components. Ordinary original-request recovery produced scoped
+nonapplication proof; explicit Return preserved30 choices. Rejecting two
+unsupported relationships published28 selected changes at
+rev:8510f91b92167281a6a6547644bad236. Fresh next-turn retrieval then exposed the
+optional Rules-none confidence failure, owned by HANDOFF-BUILD-rules-abstention.md.
+Cited retrieval and full J1–J6 remain unaccepted; this lease is released.
+
+PRIME owned this serial capability frombea0009f2c32add59dbf9b7c512ea73c414f24dd
 in buddy-context-loop, branch codex/first-world-qualified-preflight. Current open
 PRs have no overlapping active implementation lease. Architecture approved the
 bounded design in chat01a086f2-c457-7b10-b753-df6063cab1ce on2026-10-22, tightening
