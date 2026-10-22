@@ -260,3 +260,34 @@ def test_partial_graph_and_enough_but_truncated_source_remain_qualified(applicat
         case.service.authorize_plan_jev_writer(case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
             expected_revision=case.turn.revision, expected_attempt=case.turn.attempt, authorization=auth,
             producer_proof={"prepared_request_json": changed, "evidence": proof})
+
+
+@pytest.mark.parametrize("bounded", [True, False])
+def test_bounded_search_qualifies_unclosed_records_without_aborting_writer(application_state_dsn, bounded):
+    case = prepare_case(application_state_dsn); append(case)
+    packets = record(case)
+    original_event = case.turn.graph_context_execution.events[-1]
+    packet = json.loads(next(iter(packets.values())))
+    packet['relationships'] = [{'edgeId': 'other-road', 'predicate': 'leads_to',
+        'sourceNodeId': 'pond', 'targetNodeId': 'other', 'evidenceRefIds': ['evidence:outside-page']}]
+    raw = json.dumps(packet)
+    event = original_event.model_copy(update={'event_id': uuid4(), 'operation_id': uuid4(),
+        'sequence': len(case.turn.graph_context_execution.events),
+        'result_packet_sha256': canonical_sha256(packet), 'relationship_ids': ['other-road'],
+        'coverage_status': 'incomplete' if bounded else 'complete', 'truncated': bounded,
+        'evidence_sufficiency_status': 'insufficient' if bounded else 'sufficient'})
+    case.turn, _ = case.service.append_validated_graph_operation(case.turn.world_id, case.turn.conversation_id,
+        case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt, operation_event=event)
+    packets[event.event_id] = raw
+    case.redecide('finish_retrieval'); append(case)
+    if not bounded:
+        with pytest.raises(ValueError, match='exact admitted evidence closure'):
+            admit_writer(case, packets=packets)
+        return
+    auth, proof = admit_writer(case, packets=packets)
+    projected = project(case.turn, proof, trace(case))
+    assert [r['target_id'] for r in projected.frame['graph_records']] == ['pond-road']
+    assert projected.relationship_ids == ()
+    assert {'operation': 'graph_retrieval', 'reason': 'incomplete_evidence_closure'} in projected.frame['retrieval_gaps']
+    assert producing_closures(case.turn, auth, SimpleNamespace(prepared_request_json=case.raw,
+        graph_packets=packets)) == (('assertion', 'pond-road', ('evidence:pond',)),)

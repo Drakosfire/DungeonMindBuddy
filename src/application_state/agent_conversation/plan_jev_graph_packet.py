@@ -93,6 +93,7 @@ def project(turn, proof, trace):
     handles = {ref: f"e{index}" for index, ref in enumerate(sorted(refs))}
     records, closures, assertions, relationships, entities = [], set(), set(), set(), []
     record_indexes = {}
+    incomplete_closure = False
     for _, event, original in originals:
         indexes = set()
         for node in original.get("nodes", []):
@@ -105,9 +106,16 @@ def project(turn, proof, trace):
                 target, evidence = row.get(id_key), row.get("evidenceRefIds")
                 allowed = event.assertion_ids if kind == "assertion" else event.relationship_ids
                 if (not isinstance(target, str) or target not in allowed or not isinstance(evidence, list)
-                        or not evidence or any(not isinstance(ref, str) for ref in evidence)
-                        or not set(evidence) <= set(event.evidence_ref_ids) & anchors):
+                        or not evidence or any(not isinstance(ref, str) for ref in evidence)):
                     raise ValueError("Plan Graph record lacks its exact admitted evidence closure")
+                if not set(evidence) <= set(event.evidence_ref_ids) & anchors:
+                    # A bounded search may return a relationship whose source
+                    # lies outside its evidence page. It is navigation only:
+                    # never expose it as a citable record or abort other facts.
+                    if not event.truncated and event.coverage_status == "complete":
+                        raise ValueError("Plan Graph record lacks its exact admitted evidence closure")
+                    incomplete_closure = True
+                    continue
                 qualified = {k: v for k, v in row.items() if k not in _METADATA | {id_key}}
                 record = {"kind": kind, "target_id": target, "record": qualified,
                           "evidence": [handles[ref] for ref in evidence]}
@@ -156,6 +164,8 @@ def project(turn, proof, trace):
         for row in trace.get("observations", []) if row.get("kind") == "failure"
         for failure in (TraceFailure.model_validate(row),)
         if failure.phase in {"graph_retrieval", "source_read"}})
+    if incomplete_closure:
+        gaps = sorted(set(gaps) | {("graph_retrieval", "incomplete_evidence_closure")})
     frame = {"schema": SCHEMA, "user_question": turn.user_text, "committed_plan_markdown": markdown,
         "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at") if key in session}
             | {"sources": [{key: source[key] for key in ("kind", "element_id", "text") if key in source}
