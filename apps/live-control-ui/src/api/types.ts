@@ -5351,7 +5351,7 @@ export type ThreatMechanicsDisposition =
 export interface ThreatQueryHydrationRequestV1 {
   schema: "dmb_threat_query_hydration_request_v1";
   worldId: string;
-  campaignId: string;
+  campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionPin: string;
   queryText: string;
@@ -5436,7 +5436,7 @@ export interface ThreatQueryHydrationHitV1 {
 export interface ThreatQueryHydrationResponseV1 {
   schema: "dmb_threat_query_hydration_response_v1";
   worldId: string;
-  campaignId: string;
+  campaignId: string | null;
   scopeMode: "campaign" | "world";
   revisionId: string;
   queryText: string;

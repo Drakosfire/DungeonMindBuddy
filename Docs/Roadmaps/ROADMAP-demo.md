@@ -1,15 +1,15 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `6d1cd664c3982a1c1e811fe75b95f9f50c046f13` (through PR #1570).
+**Evidence anchor:** remote main `a3eed957d451e21c0ff317c397895beca7fe9694` (through PR #1571).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
 This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation is delivered; native World manual encounter assembly
-is the next bounded slice. Historical “next”
+foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation is delivered; native World manual encounter assembly is delivered. Exact World-scope Threat
+hydration is the next prerequisite to bound mechanics. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -51,7 +51,7 @@ bounded ownership and review.
 | User/Agent Rules lookup in governed Plan and Play | #1500–#1506, #1526, #1543–#1545 | Admitted public SRD 5.2.1 occupancy corpus; not all 2024 rules, travel-rule coverage or a rules graph |
 | Build ingestion in the existing document: Worldbuilding/Recap configuration, review and recovery | #1525, #1535–#1539, #1547–#1549, #1551 | Editing accepted World facts remains separate; full source-quality/chronology acceptance is open |
 | Native publication and exact source reopen | #1552, #1560–#1563; isolated real Worldbuilding and public Recap review→selected identity publication→cold source reopen | Selected publication, not every proposed attribute/relationship; private external Session 29 extraction was reviewable but not published and had no supplements selected |
-| Native Combat C0 Surface module, artifact lookup, roster state save/reopen and responsive layout | #1550, #1556/#1557; isolated rendered persistence witness | Not connected Play continuity, C1–C4, graph roster selection or live generated-statblock acceptance |
+| Native Combat C0 plus C1a World/manual actor assembly, independent copies/groups and saved World identity | #1550, #1556/#1557, #1571; actual native World selection→Save→fresh reopen/API restart | Exact-bound mechanics C1b, operational C2 and Plan/Play continuity remain open |
 | Ordinary Build Jev retrieval (#1325–#1369), plus Plan retrieval decisions, host-owned reads and one writer; actual per-call usage | #1527–#1534, #1540–#1546 | Fresh rendered response/composer repaired by #1568; latency target not reliably met |
 | Named source citations and exact lazy Debug prompt inspection, including failures | #1553–#1555, #1559, #1563 | Component and selected live evidence do not prove every fresh multi-turn/image path |
 | Real image generation from an authored/prepared prompt | #1443/#1444 and actual Build image acceptance | Build and fresh Plan prompt→generated/saved asset→library reopen proved; full journey acceptance remains open |
@@ -89,8 +89,8 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves7b904dccd (#1569); UI5202 serves the evidence anchor
-6d1cd664c (#1570). These are the observed
+The API backing5202 and UI5202 serve the evidence anchor
+a3eed957d (#1571). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance
@@ -146,13 +146,18 @@ The operator included these priorities in the active goal. This does not reactiv
 old prototype/handoff leases.
 
 Architecture assessed C1 against the actual Elderwyld World:595 nodes and zero
-uses_statblock bindings. The selected serial boundary is C1a: demand-loaded World
+uses_statblock bindings. Delivered #1571 proves C1a: demand-loaded World
 identity discovery and explicit manual actor assembly in the existing encounter
 draft/Save/CAS writer. Exact mechanics remain null unless entered by the operator.
 C1b remains required: explicit bound-version selection, verified immutable snapshot
 and drilldown after a real mechanics publication witness. C1a does not complete
-C1b, live command-board interactions or Play continuity. The active bounded
+C1b, live command-board interactions or Play continuity. The settled
 contract is [World manual assembly](../Plans/HANDOFF-COMBAT-world-manual-assembly.md).
+The native Threat hydration API still incorrectly requires a campaign for World
+scope; [World hydration scope](../Plans/HANDOFF-STATBLOCK-world-hydration-scope.md)
+is the current prerequisite. DMS7860 is restored on its fetched main223cbbe92 with
+unchanged private configuration/Firestore storage; Buddy advertises generation,
+read and persistence. No new exact-bound publication is claimed.
 
 ### 1. Make Combat a usable table instrument
 

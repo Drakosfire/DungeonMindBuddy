@@ -72,7 +72,7 @@ describe("PlayThreatMechanicsSection", () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",

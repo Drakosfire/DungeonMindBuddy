@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
@@ -63,7 +63,7 @@ class ThreatQueryHydrationRequestV1(StrictModel):
         alias="schema",
     )
     world_id: str = Field(min_length=1)
-    campaign_id: str = Field(min_length=1)
+    campaign_id: str | None = None
     scope_mode: ScopeMode = "campaign"
     revision_pin: str = Field(min_length=1)
     query_text: str = Field(min_length=1)
@@ -71,6 +71,14 @@ class ThreatQueryHydrationRequestV1(StrictModel):
     relationship_predicates: list[str] = Field(default_factory=list, max_length=16)
     max_hits: int = Field(default=16, ge=1, le=64)
     include_mechanics: bool = True
+
+    @model_validator(mode="after")
+    def _exact_campaign_scope(self):
+        if self.scope_mode == "world" and self.campaign_id is not None:
+            raise ValueError("campaignId must be null in World scope")
+        if self.scope_mode == "campaign" and not self.campaign_id:
+            raise ValueError("campaignId is required in campaign scope")
+        return self
 
     @field_validator("world_id", "campaign_id", "revision_pin", "query_text", mode="before")
     @classmethod
@@ -133,7 +141,7 @@ class ThreatQueryHydrationResponseV1(StrictModel):
         alias="schema",
     )
     world_id: str
-    campaign_id: str
+    campaign_id: str | None
     scope_mode: ScopeMode
     revision_id: str
     query_text: str
@@ -141,6 +149,15 @@ class ThreatQueryHydrationResponseV1(StrictModel):
     hits: list[ThreatQueryHydrationHitV1] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list, max_length=32)
     message: str | None = None
+
+
+    @model_validator(mode="after")
+    def _exact_campaign_scope(self):
+        if self.scope_mode == "world" and self.campaign_id is not None:
+            raise ValueError("campaignId must be null in World scope")
+        if self.scope_mode == "campaign" and not (self.campaign_id or "").strip():
+            raise ValueError("campaignId is required in campaign scope")
+        return self
 
 
 __all__ = [

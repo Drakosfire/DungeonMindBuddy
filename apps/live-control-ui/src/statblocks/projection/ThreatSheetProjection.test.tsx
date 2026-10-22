@@ -61,7 +61,7 @@ describe("ThreatSheetProjection", () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
@@ -118,7 +118,7 @@ describe("ThreatSheetProjection", () => {
     expect(postThreatQueryHydration).toHaveBeenCalledWith({
       schema: "dmb_threat_query_hydration_request_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionPin: scope.revisionId,
       queryText: "threat:tripod-null-calf",
@@ -155,7 +155,7 @@ describe("ThreatSheetProjection", () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
@@ -237,7 +237,7 @@ describe("ThreatSheetProjection", () => {
       .mockResolvedValueOnce({
         schema: "dmb_threat_query_hydration_response_v1",
         worldId: scope.worldId,
-        campaignId: scope.campaignId,
+        campaignId: null,
         scopeMode: scope.scopeMode,
         revisionId: scope.revisionId,
         queryText: "threat:other",
@@ -289,7 +289,7 @@ describe("ThreatSheetProjection", () => {
     resolveFirst?.({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
@@ -347,7 +347,7 @@ describe("ThreatSheetProjection", () => {
     ) => ({
       schema: "dmb_threat_query_hydration_response_v1" as const,
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: nodeId,
@@ -459,7 +459,7 @@ describe("ThreatSheetProjection", () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
@@ -515,7 +515,7 @@ describe("ThreatSheetProjection", () => {
     vi.mocked(postThreatQueryHydration).mockResolvedValue({
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
-      campaignId: scope.campaignId,
+      campaignId: null,
       scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",

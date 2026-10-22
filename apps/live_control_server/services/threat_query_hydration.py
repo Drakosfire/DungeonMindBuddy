@@ -573,7 +573,8 @@ def query_threats_with_hydration(
     projection_request = WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=request.world_id,
-        campaign_id=request.campaign_id,
+        # Existing projection DTO represents a native World's null campaign as "".
+        campaign_id=request.campaign_id if request.campaign_id is not None else "",
         focus=WorldGraphProjectionFocus(kind="none"),
         admissibility="gm",
         revision_pin=request.revision_pin,
@@ -609,7 +610,7 @@ def query_threats_with_hydration(
 
     if (
         projection.snapshot.world_id != request.world_id
-        or projection.snapshot.campaign_id != request.campaign_id
+        or projection.snapshot.campaign_id != (request.campaign_id if request.campaign_id is not None else "")
         or projection.snapshot.scope_mode != request.scope_mode
         or projection.snapshot.revision_id != request.revision_pin
     ):

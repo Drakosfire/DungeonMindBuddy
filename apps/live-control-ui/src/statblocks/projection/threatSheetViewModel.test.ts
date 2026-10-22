@@ -19,6 +19,7 @@ import {
   isResolvedThreat,
   selectExactThreatHit,
   sortThreatSheetBindings,
+  threatSelectionTupleKey,
   type ThreatSheetBindingViewModel,
 } from "./threatSheetViewModel";
 
@@ -68,7 +69,7 @@ function makeResponse(
   return {
     schema: "dmb_threat_query_hydration_response_v1",
     worldId: scope.worldId,
-    campaignId: scope.campaignId,
+    campaignId: null,
     scopeMode: scope.scopeMode,
     revisionId,
     queryText: "threat:tripod-null-calf",
@@ -146,7 +147,7 @@ describe("threatSheetViewModel", () => {
     expect(buildThreatQueryHydrationRequest(scope, "threat:tripod-null-calf")).toEqual({
       schema: "dmb_threat_query_hydration_request_v1",
       worldId: "eldyrwild",
-      campaignId: "longmont-c2",
+      campaignId: null,
       scopeMode: "world",
       revisionPin: "rev-1",
       queryText: "threat:tripod-null-calf",
@@ -368,4 +369,21 @@ describe("threatSheetViewModel", () => {
     });
     expect(model.loadStatus).toBe("integrity_failure");
   });
+});
+
+
+it('uses one exact World cache identity across irrelevant selected campaigns',()=>{
+ const tuple={...scope,threatNodeId:'threat:one'};
+ expect(threatSelectionTupleKey(tuple)).toBe(threatSelectionTupleKey({...tuple,campaignId:'another-campaign'}));
+ expect(threatSelectionTupleKey({...tuple,scopeMode:'campaign'})).not.toBe(threatSelectionTupleKey({...tuple,scopeMode:'campaign',campaignId:'another-campaign'}));
+ expect(threatSelectionTupleKey(tuple)).not.toBe(threatSelectionTupleKey({...tuple,revisionId:'other'}));
+});
+it('requires null campaign echo for World hydration and exact campaign echo in campaign mode',()=>{
+ const response=makeResponse([makeHit(threatNode.nodeId,threatNode.label)]);
+ expect(selectExactThreatHit(response,scope,threatNode.nodeId).status).toBe('ready');
+ expect(selectExactThreatHit({...response,campaignId:'longmont-c2'},scope,threatNode.nodeId).status).toBe('revision_mismatch');
+ const campaign={...scope,scopeMode:'campaign' as const};
+ expect(buildThreatQueryHydrationRequest(campaign,threatNode.nodeId).campaignId).toBe('longmont-c2');
+ expect(selectExactThreatHit({...response,campaignId:'longmont-c2',scopeMode:'campaign'},campaign,threatNode.nodeId).status).toBe('ready');
+ expect(selectExactThreatHit({...response,scopeMode:'campaign'},campaign,threatNode.nodeId).status).toBe('revision_mismatch');
 });

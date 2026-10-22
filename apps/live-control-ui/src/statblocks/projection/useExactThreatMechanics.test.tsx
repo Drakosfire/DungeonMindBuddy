@@ -57,7 +57,7 @@ function okResponse(nodeId: string, revisionId = scope.revisionId) {
   return {
     schema: "dmb_threat_query_hydration_response_v1" as const,
     worldId: scope.worldId,
-    campaignId: scope.campaignId,
+    campaignId: null,
     scopeMode: scope.scopeMode,
     revisionId,
     queryText: nodeId,
@@ -139,7 +139,7 @@ describe("useExactThreatMechanics", () => {
     expect(postThreatQueryHydration).toHaveBeenCalledWith(
       expect.objectContaining({
         worldId: scope.worldId,
-        campaignId: scope.campaignId,
+        campaignId: null,
         scopeMode: scope.scopeMode,
         revisionPin: scope.revisionId,
         queryText: "threat:tripod-null-calf",
