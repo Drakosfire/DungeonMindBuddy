@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `be2860a15767c5289550d7bb8c4e8e5c64ca6e54` (through PR #1592).
+**Evidence anchor:** remote main `f168672c4d9f8e11e32f4605e6835531c1a8e7fa` (through PR #1593).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves21e263b7a (#1591); UI servesbe2860a15 (#1592). Named saved-section
+The API backing5202 serves21e263b7a (#1591); UI servesf168672c4 (#1593). Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -287,9 +287,12 @@ transcription into the current2024 schema, not edition-conversion acceptance.
 #1592 delivered shared recoverable actor removal. Ordinary same-encounter
 replacement saved revision3 with exact Noke snapshot, independent tracker HP53/55
 and Prone; original Plan unchanged. API restart retained1562 APP rows/63 product
-files and frozen sources. Same-view Open then exposed a false cross-view lock
-collision; [lease release repair](../Plans/HANDOFF-COMBAT-reopen-lease.md) carries
-the rendered reopen gate. Agent structural card creation also
+files and frozen sources. #1593 fixed a false cross-view lock collision by awaiting the owned browser
+lease release. Ordinary same-module Open→Open after delivery retained the same
+encounter and saved source/tracker values without reloading the page. The shared
+mechanics renderer still displays unrelated fixed portrait art; removal is the
+next bounded presentation repair. Direct accepted-asset selection for unnamed
+creatures is under read-only Architecture critique; no contract is activated. Agent structural card creation also
 remains open; focused body editing works after manual structure creation. These
 are partial connected witnesses, not complete adventure/J1–J6 acceptance.
 

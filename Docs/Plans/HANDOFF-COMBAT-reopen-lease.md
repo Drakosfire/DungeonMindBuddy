@@ -1,6 +1,9 @@
 # COMBAT — await owned browser lease release before reopening
 
-ACTIVE. PRIME owns a serial slice frombe2860a15767c5289550d7bb8c4e8e5c64ca6e54,
+SETTLED by #1593 (f168672c4d9f8e11e32f4605e6835531c1a8e7fa). Lease released.
+Ordinary same-module Open→Open passed after delivery; source/tracker state unchanged.
+
+Original scope: PRIME owns a serial slice frombe2860a15767c5289550d7bb8c4e8e5c64ca6e54,
 branch codex/combat-reopen-lease, existing buddy-context-loop checkout. Remote
 open PR census shows no overlapping active implementation lease.
 
