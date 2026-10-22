@@ -10,6 +10,7 @@ function uniqueKeys(raw:string) {
   let pos=0;
   function value():void {
     const token=tokens[pos++];
+    if (/^-?\d/.test(token) && !/^-?\d+$/.test(token)) throw new Error('Table numbers must use JSON integers');
     if(token==='{') {
       const keys=new Set<string>();
       while(tokens[pos]!=='}') {

@@ -32,5 +32,6 @@ describe('shared typed table writing',()=>{
   it('rejects duplicate escaped keys and inaccurate numeric representations',()=>{
     expect(()=>parseTableJson(JSON.stringify(definition).replace('"title":"Weather"','"title":"Weather", "tit\\u006ce":"Again"'))).toThrow();
     expect(()=>parseTableJson(JSON.stringify({...definition,die_sides:9007199254740992}))).toThrow();
+    expect(()=>parseTableJson(JSON.stringify(definition).replace('\"die_sides\":6','\"die_sides\":6.0'))).toThrow();
   });
 });
