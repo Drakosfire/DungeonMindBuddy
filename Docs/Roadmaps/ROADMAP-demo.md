@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `f18c7574a0a277c550202707dc7a983a3b0781db` (through PR #1612).
+**Evidence anchor:** remote main `8f43d37b301f7ddbbc8d56c6fadf109a3f996e7c` (through PR #1613).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -90,6 +90,18 @@ An identical source window is still reread on the follow-up. Fresh Play revealed
 a pre-provider IPC failure: obsolete source-only instructions duplicate the current
 carrier policy inside the compact Surface context. That delivery repair precedes
 read reuse. Plan/Play live acceptance and complete journeys remain open.
+
+#1613 removes the obsolete duplicate Play answer policy from compact IPC context;
+current policy and frozen body remain once in the actual carrier. Bugbot approved.
+Ordinary exact saved-request retry completed in8.7s with a quoted saved-scene note
+and separate named adventure citation. The exact passage reopened after protected
+restart;1737 APP rows/all native rows/79 mechanics files/17 frozen components were
+retained. This closes that Play delivery defect and supplies the mixed-contract
+Play witness, not full journey acceptance. The Plan follow-up still rereads one
+identical source window. The next bounded contract is
+[retained passage reuse](../Plans/HANDOFF-AGENT-retained-passage-reuse.md): explicit
+current-turn reuse admission with prior producer proof and current pin verification.
+Its design does not claim runtime reuse or additional latency acceptance.
 
 ## Product decisions that remain in force
 
