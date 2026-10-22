@@ -416,7 +416,7 @@ async function buildGraphContext(): Promise<WorldBuildKnowledgeContextV1> {
   receipt.context_receipt_sha256 = await sha256Hex(canonicalJson(hashable));
   const claim = plan.completion!.answer_segments[0]!;
   if (claim.kind !== "graph_claim") throw new Error("Expected Graph fixture");
-  return { schema: "dmb_build_graph_context_response_v1", receipt, delivery_replay: false,
+  return { schema: "dmb_build_graph_context_response_v1", saved_source_name: null, receipt, delivery_replay: false,
     execution: plan.execution, completion: { schema: "dmb_build_graph_completion_v1",
       context_receipt_sha256: receipt.context_receipt_sha256, answer_basis: "saved_source_plus_world_graph",
       answer_context_status: "graph_grounded", answer_segments: [claim], citation_map: {

@@ -200,3 +200,41 @@ def test_bad_selector_before_any_app_read():
             world_id="a", turn_id=uuid4(), segment_index=True, section_event_id=uuid4()
         )
     assert e.value.status_code == 422
+
+
+def test_named_projection_deduplicates_history_metadata_without_changing_targets(completed, monkeypatch):
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from apps.live_control_server.services.agent_source_names import source_names_for_turns
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
+    basis = completed.graph_context_receipt.source_basis
+    identity = build_worldbuilding_source_artifact_id(workspace_document_id=basis.document_id,
+        workspace_document_revision=basis.registry_revision, content_sha256=basis.content_sha256)
+    artifact = GraphMemorySourceArtifact(source_artifact_id=identity, source_domain="worldbuilding",
+        world_id=basis.world_id, uri="repo://frozen/source.md", content_sha256=basis.content_sha256,
+        workspace_document_id=basis.document_id, workspace_document_revision=basis.registry_revision,
+        visibility_state=basis.visibility, lineage={"source_name": "Original committed source name"})
+    calls = []
+    def batch(root, identities):
+        calls.append(identities)
+        return {identity: artifact}
+    monkeypatch.setattr(registry, "get_source_artifacts", batch)
+    targets = saved_section_targets(completed)
+    names = source_names_for_turns([completed, completed])
+    assert calls == [{identity}]
+    assert len([label for label in names if label.get("kind") == "saved_build_source"]) == 1
+    projected = project_plan_turn_context(completed, delivery_replay=True, source_names=names)
+    assert projected.saved_source_name == "Original committed source name"
+    assert projected.saved_source_sections == targets
+    assert calls == [{identity}]
+    opened = open_saved_section(world_id=completed.world_id, turn_id=completed.turn_id,
+        segment_index=targets[0].segment_index, section_event_id=targets[0].section_event_id)
+    assert opened.target == targets[0]
+    missing = project_plan_turn_context(completed, delivery_replay=True, source_names=[])
+    assert missing.saved_source_name is None and missing.saved_source_sections == targets
+
+
+def test_foreign_turn_world_never_resolves_saved_name(completed, monkeypatch):
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from apps.live_control_server.services.agent_source_names import source_names_for_turns
+    monkeypatch.setattr(registry, "get_source_artifacts", lambda *_: pytest.fail("Foreign World metadata read"))
+    assert source_names_for_turns([completed.model_copy(update={"world_id": "foreign"})]) == []

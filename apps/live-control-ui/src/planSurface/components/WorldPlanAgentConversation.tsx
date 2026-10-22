@@ -1365,9 +1365,10 @@ function isBuildGraphReceipt(value: unknown, worldId: string): value is WorldBui
 }
 
 function isBuildKnowledgeContext(value: unknown, worldId: string): value is WorldBuildKnowledgeContextV1 {
-  const required = ["schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"];
+  const required = ["saved_source_name", "schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"];
   if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "saved_source_sections")) required.push("saved_source_sections");
   if (!hasExactKeys(value, required)
+    || !(value.saved_source_name === null || (typeof value.saved_source_name === "string" && !!value.saved_source_name.trim()))
     || value.schema !== "dmb_build_graph_context_response_v1" || !isRecord(value.receipt)
     || value.receipt.schema !== "dmb_build_graph_context_receipt_v1"
     || !isRecord(value.receipt.source_basis) || !isRecord(value.receipt.graph_authority)
@@ -4493,6 +4494,7 @@ export function WorldPlanAgentConversation({
     const savedEvidence = planContext?.schema === "dmb_build_graph_context_response_v1" && planContext.completion
       && verifiedWorldId && planContext.saved_source_sections?.length
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
+          sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
     if (planContext?.completion?.schema === "dmb_build_graph_completion_v2") {
       return <details className="world-plan-agent-conversation__evidence-trail">

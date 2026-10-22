@@ -178,6 +178,7 @@ def test_shared_sdk_proposal_completes_reloads_and_recovers_without_another_call
     )
 
     response = AgentBuildGraphContextResponseV1(
+        saved_source_name=None,
         receipt=done.graph_context_receipt,
         completion=done.completion,
         execution=None,

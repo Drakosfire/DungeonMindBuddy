@@ -5772,7 +5772,11 @@ def project_plan_turn_context(
     )
     context_type = AgentBuildGraphContextResponseV1 if isinstance(receipt, BuildGraphContextReceiptV1) else AgentPlanWorldGraphContextResponseV2
     from .agent_saved_sections import saved_section_targets
-    saved_options = {"saved_source_sections": saved_section_targets(turn)} if isinstance(receipt, BuildGraphContextReceiptV1) else {}
+    from .agent_source_names import source_name_for_saved_basis
+    saved_options = {
+        "saved_source_sections": saved_section_targets(turn),
+        "saved_source_name": source_name_for_saved_basis(receipt.source_basis, source_names),
+    } if isinstance(receipt, BuildGraphContextReceiptV1) else {}
     return context_type(
         **saved_options,
         receipt=receipt,

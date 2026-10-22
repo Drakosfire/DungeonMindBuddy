@@ -710,6 +710,7 @@ class AgentSavedBuildSectionReadV1(BaseModel):
 
 
 class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
+    saved_source_name: str | None
     schema_: Literal["dmb_build_graph_context_response_v1"] = Field(
         default="dmb_build_graph_context_response_v1", alias="schema"
     )

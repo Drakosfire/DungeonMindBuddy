@@ -339,6 +339,14 @@ def resolve_worldbuilding_source_span(
     )
 
 
+def get_source_artifacts(root: Path, source_artifact_ids: set[str]) -> dict[str, GraphMemorySourceArtifact]:
+    """Resolve one exact metadata batch from one registry snapshot; never open bodies."""
+    if not source_artifact_ids:
+        return {}
+    return {record.source_artifact_id: record for record in _load(root).records
+            if record.source_artifact_id in source_artifact_ids}
+
+
 def get_source_artifact(root: Path, source_artifact_id: str) -> GraphMemorySourceArtifact:
     document = _load(root)
     for record in document.records:

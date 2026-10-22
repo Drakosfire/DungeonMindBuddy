@@ -1207,6 +1207,7 @@ export interface SavedBuildSectionReadV1 {
 
 export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
   schema: "dmb_build_graph_context_response_v1";
+  saved_source_name: string | null;
   saved_source_sections?: SavedBuildSectionTargetV1[];
   receipt: WorldBuildGraphReceiptV1;
   completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | WorldBuildImagePreparationCompletionV1 | null;

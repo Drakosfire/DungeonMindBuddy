@@ -39,7 +39,8 @@ async function hash(text: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
 }
-export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, turnId }: {
+export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, turnId, sourceName }: {
+  sourceName: string | null;
   targets: SavedBuildSectionTargetV1[]; basis: WorldBuildGraphReceiptV1["source_basis"];
   segments: {kind: string; text: string; content_sha256?: string}[]; worldId: string; turnId: string;
 }) {
@@ -66,10 +67,10 @@ export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, t
     } catch { if (requestEpoch === epoch.current) setOpened({index, status: "unavailable"}); }
   }
   return <section aria-label="Saved-source evidence">
-    <p>Saved-source evidence · authored worldbuilding</p>
+    <p>{sourceName ?? "Source name unavailable"} · authored worldbuilding</p>
     {targets.slice(0, visible).map((t, index) => <div key={`${t.segment_index}/${t.section_event_id}`}>
       <p>{segments[t.segment_index]?.text}</p>
-      <button type="button" onClick={() => { void open(index); }}>Read saved lines {t.line_start}–{t.line_end}</button>
+      <button type="button" onClick={() => { void open(index); }}>{sourceName ? `Read ${sourceName} · lines ` : "Read saved lines "}{t.line_start}–{t.line_end}</button>
     </div>)}
     {visible < targets.length ? <button type="button" onClick={() => setVisible(v => v + 8)}>Show more saved sections</button> : null}
     {opened ? <section aria-label="Opened saved-source section" aria-live="polite">
