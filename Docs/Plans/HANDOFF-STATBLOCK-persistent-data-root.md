@@ -1,6 +1,15 @@
 # STATBLOCK — persistent product data root
 
-ACTIVE. PRIME owns design/implementation/merge and guarded8000 delivery.
+SOURCE DELIVERED: PR1579 merged2687cf712603370ebde61e05889540df05689fb5
+and API8000 runs that revision; UI remains1578. Bugbot independently passed136
+backend tests; guarded delivery preserved1487 APP rows and46 prior product files.
+The real World-scoped draft and original generation now persist in the configured
+root. DMS44 repaired a producer schema failure and original generation resumed.
+Candidate review/revise exposed current producer/consumer digest drift; successor
+HANDOFF-STATBLOCK-canonical-digest-parity.md owns that repair. Actual mechanics
+acceptance and restart proof remain open.
+
+Historical lease: PRIME owns design/implementation/merge and guarded8000 delivery.
 Basef3a8dac3ca900cb79e9da77989ae33e9fab8858b; existing buddy-context-loop checkout,
 branch codex/statblock-persistent-data-root. Serial one PR. No competing lease.
 

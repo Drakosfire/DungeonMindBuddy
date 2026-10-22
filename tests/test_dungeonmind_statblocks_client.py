@@ -1276,3 +1276,24 @@ def test_revise_candidate_maps_409_and_410() -> None:
     with pytest.raises(StatblockIntegrationError) as exc_info2:
         _client(httpx.MockTransport(expired_handler)).revise_candidate(body)
     assert exc_info2.value.category == "downstream_expired"
+
+
+def test_revise_receipt_binds_exact_current_dms_canonical_digest() -> None:
+    body = _fixture("server_revise_transcripts/revise-request.json")
+    body.pop("source_candidate_id", None)
+    body["source_definition"] = _fixture("create-request.json")["definition"]
+    response = _fixture("server_revise_transcripts/revise-replay-response.json")
+    response["generation_receipt"]["source_definition_digest"] = (
+        "sha256:170d6a58c947d61bda8078d2c64705ca5edae5e68a8d61a6b3c2aad395a61246"
+    )
+    # This seal comes from DMS f95e92c, not the consumer helper under test.
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["source_definition"] == body["source_definition"]
+        return httpx.Response(200, json=response)
+    candidate = _client(httpx.MockTransport(handler)).revise_candidate(body)
+    assert candidate.generation_receipt.source_definition_digest.root == (
+        response["generation_receipt"]["source_definition_digest"]
+    )
+    response["generation_receipt"]["source_definition_digest"] = "sha256:" + "0" * 64
+    with pytest.raises(StatblockIntegrationError, match="source_definition_digest"):
+        _client(httpx.MockTransport(handler)).revise_candidate(body)
