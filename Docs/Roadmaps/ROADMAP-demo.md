@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `acccb12ba4383a074dedb3e08d08029e3dff09ff` (through PR #1611).
+**Evidence anchor:** remote main `f18c7574a0a277c550202707dc7a983a3b0781db` (through PR #1612).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -80,6 +80,16 @@ stored as Plan claims despite that Plan containing only a preparation instructio
 One follow-up also repeated a previously opened source anchor. Mixed evidence
 attribution is the immediate owning repair; read reuse follows separately. These
 are partial journey witnesses, not J1–J6 or consistent latency acceptance.
+
+#1612 delivers the versioned mixed evidence contract with exact selected source
+passages, literal authored quotes, closed host limitations, retained history and
+visible paragraph citations. Bugbot approved after two cycles. Paired APP0046/
+8000/5202 Plan dogfood completed9.7s/3.9s; named passages reopened and protected
+restart retained1727 APP rows/79 mechanics files/17 frozen components/native rows.
+An identical source window is still reread on the follow-up. Fresh Play revealed
+a pre-provider IPC failure: obsolete source-only instructions duplicate the current
+carrier policy inside the compact Surface context. That delivery repair precedes
+read reuse. Plan/Play live acceptance and complete journeys remain open.
 
 ## Product decisions that remain in force
 
