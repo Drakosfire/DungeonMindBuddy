@@ -37,21 +37,26 @@ export class CombatRecoverySession {
   private key: string | null = null;
   private expectedRaw: string | null = null;
   private generation = 0;
+  private settled: Promise<void> = Promise.resolve();
   close() { this.generation++; this.release?.(); this.release = null; this.key = null; }
 
   async open(record: CombatEncounterRecord, isCurrent: () => boolean): Promise<{recovery: CombatRecovery | null; committedMatch: boolean}> {
     this.close();
     const generation = this.generation;
+    // Resolving the callback is not the browser's release acknowledgement.
+    // Await only our own prior request; another view still fails ifAvailable.
+    await this.settled;
+    if (generation !== this.generation || !isCurrent()) throw new Error('Combat view changed.');
     const key = combatRecoveryKey(record.world_id, record.encounter_id);
     if (!navigator.locks) throw new Error('This browser cannot safely retain Combat drafts across views.');
     await new Promise<void>((resolve, reject) => {
-      void navigator.locks.request(key, {ifAvailable: true}, async lock => {
+      this.settled = navigator.locks.request(key, {ifAvailable: true}, async lock => {
         if (!lock) {reject(new Error('This encounter is open in another view. Close that editor before opening it here.')); return;}
         if (generation !== this.generation || !isCurrent()) {reject(new Error('Combat view changed.')); return;}
         await new Promise<void>(finish => {
           this.release = finish; this.key = key; resolve();
         });
-      }).catch(reject);
+      }).then(() => undefined, error => {reject(error);});
     });
     try {
       if (generation !== this.generation || !isCurrent()) throw new Error('Combat view changed.');
