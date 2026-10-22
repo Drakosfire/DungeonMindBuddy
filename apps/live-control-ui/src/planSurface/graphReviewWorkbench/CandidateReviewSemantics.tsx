@@ -1,3 +1,4 @@
+import "./GraphReviewPublicationReview.css";
 import type {ExactRunReviewAssertion} from '../../api/types';
 import {candidateSemanticDescription, hasReviewSemantics} from './candidateReviewSemantics';
 

@@ -1,6 +1,14 @@
 # BUILD — review exact structured candidate semantics
 
-ACTIVE serial PRIME slice from fb9b962304d7c65d44f87920a5b24fa68c130bf4,
+SETTLED: PR #1608 merged as 207145a5c5892ececfc5cafb011e1ab43a71c315.
+Two Bugbot cycles; approved head 05e543cd34041e69f25b25c9dc7f6a9eeb2453b7.
+Delivered on8000/5202. Ordinary Conks review exposed all31 node types/kinds and25
+exact directed predicates; no publication invoked. Protected restart retained1699
+APP rows, all native rows,79 mechanics files and11 frozen components. Rendered
+Build exposed Plan-owned CSS dependency; the shared-style successor owns that
+remaining presentation defect. Adventure acceptance remains open.
+
+Original serial PRIME slice from fb9b962304d7c65d44f87920a5b24fa68c130bf4,
 branch codex/build-review-structured-semantics, existing buddy-context-loop checkout.
 Operator goal authorizes dependable evidence review and selected publication.
 Remote main/open PR census checked; no overlapping active implementation lane.
