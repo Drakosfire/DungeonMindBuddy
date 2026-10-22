@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `6f5acb430c3387c57f3ae86fdcf0cfe838433971` (through PR #1602).
+**Evidence anchor:** remote main `10c4422025024d8b950ef91b11caa2fce0613b20` (through PR #1603).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve6f5acb43 (#1602), with Core617635c. Named saved-section
+API8000/UI5202 serve10c44220 (#1603), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -156,8 +156,13 @@ preserved1644APP rows, native rows,79mechanics files and11frozen components.
 Individual Plan5.9s/Play14.3s traces do not establish reliable10s acceptance.
 The real swamp/Edge benchmark then exposed a writer prompt authority mismatch:
 no opened passages, but source claims with empty handles for Plan/session prose.
-ACTIVE HANDOFF-AGENT-writer-source-authority.md owns that exact prompt repair;
-normalizers continue to reject invented or absent source authority.
+The prompt repair delivered1603; the ordinary query completed6.594s with proper
+Plan/session attribution. The4.360s follow-up opened Image Studio; explicit Generate
+and Save, library selection and reopening passed after restart with1664APP rows,
+native rows,79mechanics files and11frozen components unchanged. Normalizers still
+reject absent source authority. Jev nevertheless skipped requested corpus reads;
+ACTIVE HANDOFF-AGENT-jev-dialogue-read-boundary.md owns that decision repair.
+Image follow-up defaulting to Plan change remains a separate intent gap.
 No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing

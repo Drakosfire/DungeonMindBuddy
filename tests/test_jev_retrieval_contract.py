@@ -218,6 +218,11 @@ def test_dialogue_is_reference_text_and_is_bound_to_exact_decision_wire():
     prepared = prepare_decision(req)
     assert prepared.state["dialogue_reference"] == [row.model_dump() for row in req.dialogue]
     assert "never evidence" in prepared.questions[0].question
+    for candidate_question in prepared.questions[1:]:
+        assert "Prior answers do not satisfy a new corpus request" in candidate_question.question
+        assert "Attempted means tried, not verified" in candidate_question.question
+    assert "Assume no offered candidate" not in prepared.questions[0].question
+    assert "never establish successful source coverage" in prepared.questions[0].question
     assert req.digest != request().model_copy(update={
         "request_id": req.request_id, "parent_attempt_id": req.parent_attempt_id}).digest
     body = {"model": MODEL, "state": prepared.state, "questions": {
