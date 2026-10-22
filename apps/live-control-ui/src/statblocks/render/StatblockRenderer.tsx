@@ -18,10 +18,6 @@ import {
 
 export type StatblockRendererChrome = "default" | "campaign";
 
-/** Same Cloudflare placeholder as Statblock Generator PortraitPanel until CDN portraits are bound. */
-export const STATBLOCK_PORTRAIT_PLACEHOLDER_URL =
-  "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/1778cee9-f500-4476-7f30-ac7fd991f700/public";
-
 export type StatblockRendererProps =
   | {
       candidate: GeneratedStatblockCandidateV1;
@@ -305,16 +301,6 @@ function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
 
       <div className="statblock-campaign-grid">
         <div className="statblock-campaign-col">
-          <figure className="statblock-campaign-portrait" data-testid="statblock-campaign-portrait">
-            <div className="statblock-campaign-portrait__frame">
-              <img
-                className="statblock-campaign-portrait__image"
-                src={STATBLOCK_PORTRAIT_PLACEHOLDER_URL}
-                alt="Portrait placeholder"
-              />
-            </div>
-          </figure>
-
           {view.flavorSummary ? (
             <p className="statblock-campaign-flavor" data-testid="statblock-campaign-flavor">
               {view.flavorSummary}

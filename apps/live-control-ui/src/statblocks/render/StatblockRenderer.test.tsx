@@ -324,14 +324,9 @@ describe("StatblockRenderer", () => {
     expect(screen.queryByText(/Revision/)).toBeNull();
   });
 
-  it("renders Classic MM campaign layout with portrait placeholder", () => {
+  it("renders campaign mechanics without invented portrait art", () => {
     render(<StatblockRenderer revision={revision} mode="full" chrome="campaign" />);
-    expect(screen.getByTestId("statblock-campaign-portrait")).toBeInTheDocument();
-    const img = screen.getByRole("img", { name: /Portrait placeholder/i });
-    expect(img).toHaveAttribute(
-      "src",
-      "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/1778cee9-f500-4476-7f30-ac7fd991f700/public",
-    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(document.querySelector(".statblock-campaign-grid")).toBeTruthy();
     expect(screen.getByLabelText("Core combat statistics")).toBeInTheDocument();
     expect(screen.getByLabelText("Ability scores")).toBeInTheDocument();
