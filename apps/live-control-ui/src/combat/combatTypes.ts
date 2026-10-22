@@ -27,6 +27,11 @@ export interface CombatEntityProvenance {
   hydration_contract: "combat_defaults";
 }
 
+export interface CombatWorldIdentity {
+  managed_world_id: string; native_world_id: string; binding_version: number;
+  graph_revision_id: string; node_id: string; label: string; kind: string; role: string;
+}
+
 export interface CombatEntity {
   id: string;
   name: string;
@@ -46,6 +51,7 @@ export interface CombatEntity {
   statblock_title: string | null;
   corpus_fingerprint: string | null;
   source: "corpus" | "generated_pending" | "manual" | "imported";
+  world_identity?: CombatWorldIdentity | null;
   provenance: CombatEntityProvenance[];
 }
 

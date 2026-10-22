@@ -1,0 +1,9 @@
+.combat-assembly { padding: 1rem; border: 1px solid var(--border-color, #394650); border-radius: .5rem; margin: 1rem 0; }
+.combat-assembly summary { cursor: pointer; font-weight: 600; }
+.combat-assembly__fields { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; }
+.combat-assembly__fields label, .combat-assembly__world label { display: flex; flex-direction: column; gap: .25rem; }
+.combat-assembly__fields input[type=number] { width: 6rem; }
+.combat-assembly__candidates { max-height: 13rem; overflow-y: auto; list-style: none; padding: 0; }
+.combat-assembly__candidates button { width: 100%; text-align: left; margin: .15rem 0; }
+.combat-assembly__candidates button[aria-pressed=true] { outline: 2px solid #d4a444; }
+.combat-assembly__candidates small { opacity: .7; margin-left: .6rem; }

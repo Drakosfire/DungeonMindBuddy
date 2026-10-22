@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from "../api/liveApi";
 import type {
   AddGeneratedStatblockRequest,
   AddGeneratedStatblockResponse,
@@ -6,7 +7,9 @@ import type {
   CreateCombatEncounterRequest,
 } from "./combatTypes";
 
-const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+async function fetchCombat(path: string, init?: RequestInit): Promise<Response> {
+  return (await authenticatedApiFetch(path, init)).response;
+}
 
 async function readJson<T>(response: Response): Promise<T> {
   const body = await response.text();
@@ -27,18 +30,18 @@ async function readJson<T>(response: Response): Promise<T> {
 
 function scopedPath(worldId: string, path = ""): string {
   const query = new URLSearchParams({ world_id: worldId });
-  return `${baseUrl}/api/live/combat/encounters${path}?${query.toString()}`;
+  return `/api/live/combat/encounters${path}?${query.toString()}`;
 }
 
 export async function listWorldCombatEncounters(worldId: string): Promise<CombatEncounterRecord[]> {
-  return readJson<CombatEncounterRecord[]>(await fetch(scopedPath(worldId)));
+  return readJson<CombatEncounterRecord[]>(await fetchCombat(scopedPath(worldId)));
 }
 
 export async function createWorldCombatEncounter(
   worldId: string,
   request: CreateCombatEncounterRequest,
 ): Promise<CombatEncounterRecord> {
-  return readJson<CombatEncounterRecord>(await fetch(scopedPath(worldId), {
+  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -49,7 +52,7 @@ export async function getWorldCombatEncounter(
   worldId: string,
   encounterId: string,
 ): Promise<CombatEncounterRecord> {
-  return readJson<CombatEncounterRecord>(await fetch(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`)));
+  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`)));
 }
 
 export async function saveWorldCombatEncounter(
@@ -58,7 +61,7 @@ export async function saveWorldCombatEncounter(
   expectedRevision: number,
   draft: CombatEncounterDraft,
 ): Promise<CombatEncounterRecord> {
-  return readJson<CombatEncounterRecord>(await fetch(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`), {
+  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ expected_revision: expectedRevision, draft }),
@@ -72,7 +75,7 @@ export async function addGeneratedStatblockToEncounter(
   request: AddGeneratedStatblockRequest,
 ): Promise<AddGeneratedStatblockResponse> {
   const path = `/${encodeURIComponent(encounterId)}/statblocks/${encodeURIComponent(artifactId)}`;
-  return readJson<AddGeneratedStatblockResponse>(await fetch(scopedPath(worldId, path), {
+  return readJson<AddGeneratedStatblockResponse>(await fetchCombat(scopedPath(worldId, path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),

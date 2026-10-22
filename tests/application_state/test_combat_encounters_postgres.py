@@ -247,3 +247,15 @@ def test_draft_rejects_payload_that_exceeds_storage_limit() -> None:
     ]
     with pytest.raises(ValueError, match="700 KiB storage limit"):
         CombatEncounterDraft(title="Large", entities=entities)
+
+
+def test_new_world_identity_requires_server_verification(application_state_dsn):
+    from application_state.combat_encounters.types import CombatWorldIdentity
+    created = create_encounter(world_id="elderwyld", request=CreateCombatEncounterRequest(title="Manual assembly"))
+    identity = CombatWorldIdentity(managed_world_id="elderwyld", native_world_id="native-world", binding_version=1,
+        graph_revision_id="graph-a", node_id="npc-a", label="Scout", kind="npc", role="npc")
+    actor = _entity("scout-a", "Scout", 1).model_copy(update={"world_identity": identity})
+    with pytest.raises(ApplicationStateValidationError, match="must be verified"):
+        save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,
+            request=SaveCombatEncounterRequest(expected_revision=1,draft=CombatEncounterDraft(title="Manual assembly",entities=[actor])))
+    assert get_encounter(world_id="elderwyld",encounter_id=created.encounter_id) == created
