@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `110f7e9ae2d546ce254c02078d125ff8e33eebf7` (through PR #1584).
+**Evidence anchor:** remote main `9d3ce62ae6969b514043f134c32c2a2f287e0497` (through PR #1585).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -42,8 +42,8 @@ save/reopen/restart retained1489APP rows/59product files, identical snapshot cop
 HP7/16, conditions/notes and active actor. #1584 delivered shared lazy Plan/Play Combat hosting with explicit exact encounter
 selection and local draft recovery. Actual Plan edit→tool close→recover→Play
 recover→Save→Plan reopen and API restart preserved the same fight, snapshots and
-independent actor state. Full page navigation exposed Plan scene-position reset;
-that is the next bounded fix. Connected journey acceptance is still open; native Graph binding payloads and fake
+independent actor state. Full page navigation exposed Plan scene-position reset; #1585 repaired it. Actual
+second-card selection survived reload, Plan→Play→Plan and Document reload. Connected journey acceptance is still open; native Graph binding payloads and fake
 campaign publication are excluded. Connected Combat acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves3f3f60865 (#1583); UI5202 serves110f7e9ae (#1584).
+The API backing5202 serves3f3f60865 (#1583); UI5202 serves9d3ce62ae (#1585).
 Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
 18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
 and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
@@ -183,19 +183,15 @@ The operator identified the mechanical, unfilled Combat landing and nominated
 The operator included these priorities in the active goal. This does not reactivate
 old prototype/handoff leases.
 
-Architecture assessed C1 against the actual Elderwyld World:595 nodes and zero
-uses_statblock bindings. Delivered #1571 proves C1a: demand-loaded World
-identity discovery and explicit manual actor assembly in the existing encounter
-draft/Save/CAS writer. Exact mechanics remain null unless entered by the operator.
-C1b remains required: explicit bound-version selection, verified immutable snapshot
-and drilldown after a real mechanics publication witness. C1a does not complete
-C1b, live command-board interactions or Play continuity. The settled
-contract is [World manual assembly](../Plans/HANDOFF-COMBAT-world-manual-assembly.md).
-The native Threat hydration API still incorrectly requires a campaign for World
-scope; [World hydration scope](../Plans/HANDOFF-STATBLOCK-world-hydration-scope.md)
-is the current prerequisite. DMS7860 is restored on its fetched main223cbbe92 with
-unchanged private configuration/Firestore storage; Buddy advertises generation,
-read and persistence. No new exact-bound publication is claimed.
+Architecture assessed the Elderwyld World:595 nodes and zero uses_statblock
+bindings. #1571 delivered explicit World/manual assembly; #1572 repaired World
+Threat hydration. #1580/#1582 established actual generated/revised/accepted exact
+mechanics and an APP-owned World association. #1583 delivered independently
+verified immutable Combat snapshots and #1584 shared recoverable hosting in Plan
+and Play. #1585 repaired Plan scene memory through full navigation/reload.
+Configured Combat and the source-grounded connected adventure rehearsal remain
+open. Native Graph mechanics bindings are not required by this APP association
+contract. Historical prototype leases remain inactive.
 
 ### 1. Make Combat a usable table instrument
 
@@ -231,13 +227,23 @@ into the runtime to make the demonstration work.
 ### 2. Adventure ingestion through a winding story and combat
 
 Use both named adventures to exercise the same general Build→Plan→Play→Combat
-workflow. Begin by locating and verifying the permitted local source editions,
-existing imports/runs, source digests and retained Worlds. Current main contains
-historical Of Conks evidence and derived-candidate correction (#778), but that
-record explicitly did not confirm publication or close J1. It is not proof of a
-current accepted import. A current Wild Sheep Chase source/run has not yet been
-verified in this reconciliation. Preserve useful existing work before deciding
-whether any extraction must be repeated. Keep licensed text out of Git fixtures.
+workflow. On2026-10-22 both retained PDF/media/reference packets matched their
+recorded SHA inventories; current APP had no saved adventure documents/runs.
+Historical Of Conks #778 corrected a disposable candidate without publication;
+it is not an accepted current import. Licensed text stays outside Git fixtures.
+
+A Wild Sheep Chase is the first current rehearsal. Ordinary Build import created
+World a-wild-sheep-chase-rehearsal and source2d0b126c-d0ef-440b-a6de-158605e384ed,
+revision2, SHA9f042e5d65292abe306c9102242ed41753c52f0fb49e5d28439180ba6e1e87e8.
+Its six-page PDF text is retained with page locators and an explicit distinction
+between authored possibilities and played events. Reviewable extraction
+3e765e4d-0d85-4327-ac05-e8761dd9a204 exposed14 nonliteral quotes. UI corrections
+qualified child2129f391-100d-5d4a-af11-4de2dd8b8a79, but registry sealing wrongly
+compared inherited source location with relocated candidate output. The exact
+saved correction and validated child are preserved. The bounded repair is
+[derived frozen source](../Plans/HANDOFF-INGEST-derived-frozen-source.md); no World
+publication is claimed. PDF decorative divider lines also trigger the existing
+visual-editor fidelity gate; exact source remains protected and reviewable.
 
 The target is an adventure usable at the table:
 

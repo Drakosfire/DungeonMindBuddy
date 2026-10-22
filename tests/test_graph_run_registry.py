@@ -1370,3 +1370,98 @@ def test_get_reviewable_extraction_run_still_rejects_validated(tmp_path: Path) -
     run, _artifact, _source_path = _validated_recap_run(tmp_path)
     with pytest.raises(GraphRunRegistryError, match="not reviewable"):
         get_reviewable_extraction_run(tmp_path, run.run_id)
+
+
+def _frozen_snapshot_child(root: Path):
+    """Current producer freezes source/spans together; a child only moves output."""
+    record, _ = _committed_worldbuilding(root, "# Lore\n\nMira guards the crossing.\n")
+    artifact = create_source_artifact_from_workspace_document(
+        root, document_id=record.document_id, expected_revision=record.revision,
+    )
+    original = _reviewable_components(root, artifact)
+    frozen = root / "out/runs/parent"
+    frozen.mkdir(parents=True)
+    components = {}
+    names = {"source_artifact": "source.md", "source_span_index": "source_span_index.json", "candidate_graph": "candidate_graph.json"}
+    for kind, ref in original.items():
+        path = frozen / names[kind]
+        path.write_bytes((root / ref.uri.removeprefix("repo://")).read_bytes())
+        components[kind] = ref.model_copy(update={"uri": "repo://" + path.relative_to(root).as_posix()})
+    parent = create_extraction_run(
+        root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",
+        components=components, status=ExtractionRunStatus.REVIEWABLE,
+        profile_id="worldbuilding_shepherds_flock_v0@0.1",
+    )
+    child_path = root / "out/derived/child/candidate_graph.json"
+    child_path.parent.mkdir(parents=True)
+    child_path.write_text('{"nodes": [], "edges": [], "reviewed": true}')
+    child_components = dict(components)
+    child_components["candidate_graph"] = components["candidate_graph"].model_copy(update={
+        "uri": "repo://" + child_path.relative_to(root).as_posix(),
+        "sha256": hashlib.sha256(child_path.read_bytes()).hexdigest(),
+    })
+    child = create_extraction_run(
+        root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",
+        components=child_components, status=ExtractionRunStatus.VALIDATED,
+        profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
+    )
+    return parent, child, frozen, child_path
+
+
+def test_corrected_child_seals_with_inherited_frozen_evidence_and_reopens_exactly(tmp_path: Path):
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+
+    parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
+    before = {p.name: p.read_bytes() for p in frozen.iterdir()}
+    sealed = update_extraction_run_status(
+        tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,
+        expected_revision=child.revision,
+    )
+    assert get_reviewable_extraction_run(tmp_path, child.run_id) == sealed
+    resolved = resolve_promotable_ingest_run(child.run_id, root=tmp_path)
+    assert resolved.candidate_graph_path == child_path
+    assert resolved.source_span_index_path == frozen / "source_span_index.json"
+    assert resolved.normalized_recap_path.read_bytes() == before["source.md"]
+    assert {p.name: p.read_bytes() for p in frozen.iterdir()} == before
+    assert get_reviewable_extraction_run(tmp_path, parent.run_id) == parent
+    assert sealed.components["source_artifact"] == parent.components["source_artifact"]
+    assert sealed.components["source_span_index"] == parent.components["source_span_index"]
+
+
+@pytest.mark.parametrize("tamper", ["source_bytes", "span_bytes", "span_identity", "candidate_sibling_source", "source_escape"])
+def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, tamper: str):
+    parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
+    components = dict(child.components)
+    if tamper == "source_bytes":
+        (frozen / "source.md").write_text("changed source")
+    elif tamper == "span_bytes":
+        (frozen / "source_span_index.json").write_text("{}")
+    elif tamper == "span_identity":
+        path = frozen / "source_span_index.json"
+        payload = json.loads(path.read_text())
+        payload["source_artifact_id"] = "foreign-artifact"
+        path.write_text(json.dumps(payload))
+        components["source_span_index"] = components["source_span_index"].model_copy(update={
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        })
+    elif tamper == "candidate_sibling_source":
+        path = child_path.parent / "source.md"
+        path.write_bytes((frozen / "source.md").read_bytes())
+        components["source_artifact"] = components["source_artifact"].model_copy(update={
+            "uri": "repo://" + path.relative_to(tmp_path).as_posix(),
+        })
+    else:
+        components["source_artifact"] = components["source_artifact"].model_copy(update={"uri": "repo://../source.md"})
+    if components != child.components:
+        child = create_extraction_run(
+            tmp_path, source_artifact_id=parent.source_artifact_id, source_domain="worldbuilding",
+            components=components, status=ExtractionRunStatus.VALIDATED,
+            profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
+        )
+    with pytest.raises(GraphRunRegistryError):
+        update_extraction_run_status(
+            tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,
+            expected_revision=child.revision,
+        )
+    assert get_extraction_run(tmp_path, child.run_id).status == ExtractionRunStatus.VALIDATED
+    assert get_extraction_run(tmp_path, parent.run_id) == parent

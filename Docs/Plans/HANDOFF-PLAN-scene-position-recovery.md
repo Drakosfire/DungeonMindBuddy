@@ -1,6 +1,15 @@
 # PLAN — scene position through navigation and reload
 
-ACTIVE. PRIME owns this serial dependent slice from origin/main
+SETTLED. #1585 merged9d3ce62ae6969b514043f134c32c2a2f287e0497 and is running
+on UI5202. Bugbot independently approvedf9447a9a (15 focused tests); typecheck
+and production build passed. Actual second-card selection survived full reload,
+Plan→Play→Plan navigation and Document reload, then Cards. Scene note,18 protected
+host tables/687 rows, Combat revision3, independent actor state and exact
+mechanics/World association stayed unchanged. UI-only rollout retained1494 APP
+rows with API unchanged. This is session-local view memory, not cross-device
+position sync or full adventure acceptance. The implementation lease is released.
+
+PRIME owned this serial dependent slice from origin/main
 110f7e9ae2d546ce254c02078d125ff8e33eebf7 in buddy-context-loop,
 branch codex/plan-scene-position-recovery. Current open PRs have no overlapping
 active implementation lease. No new service, database, provider or Graph writes.
