@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `8f43d37b301f7ddbbc8d56c6fadf109a3f996e7c` (through PR #1613).
+**Evidence anchor:** remote main `9995299ef14dcfdd9c42ca9c075d6ebf64382f9a` (through PR #1614).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -101,7 +101,9 @@ Play witness, not full journey acceptance. The Plan follow-up still rereads one
 identical source window. The next bounded contract is
 [retained passage reuse](../Plans/HANDOFF-AGENT-retained-passage-reuse.md): explicit
 current-turn reuse admission with prior producer proof and current pin verification.
-Its design does not claim runtime reuse or additional latency acceptance.
+Architecture critique and exact-head Bugbot review were adopted in #1614.
+The shared implementation is now active under that handoff; runtime reuse and
+additional latency acceptance remain unproven until reviewed delivery.
 
 ## Product decisions that remain in force
 

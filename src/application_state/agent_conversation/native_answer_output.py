@@ -143,8 +143,8 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
             if not isinstance(citations,dict) or set(citations)!={'entries'}:raise ValueError('Unknown citation map fields')
             entries=citations['entries']
             if not isinstance(entries,list):raise ValueError('Citation entries must be a list')
-            included=set(auth.included_source_read_event_ids)
-            reads=[read for event in execution.events if isinstance(event,t.ValidatedSourceReadEventV2)
+            included=set(t.included_passage_event_ids(auth))
+            reads=[read for event in execution.events if isinstance(event,t.SOURCE_PASSAGE_EVENTS)
                 and event.event_id in included for read in event.receipts
                 if read.outcome in {'enough','partial','truncated'} and read.content_sha256 is not None and read.returned_chars>0]
             derived=[]

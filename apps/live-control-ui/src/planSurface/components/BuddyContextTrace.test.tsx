@@ -37,6 +37,15 @@ describe('Buddy context trace', () => {
     render(<BuddyContextTrace ownerActive={true} trace={null} />)
     expect(screen.getByText('No execution trace was captured for this turn.')).toBeInTheDocument()
   })
+  it('labels current reuse separately and preserves original read provenance', () => {
+    const reused = { ...passage('A retained exact passage.'), kind: 'source_passage_reuse' as const,
+      origin_turn_id: 'original-turn', origin_attempt: 1, origin_read_event_id: 'original-read', origin_provider_attempt_id: 'original-provider' }
+    render(<BuddyContextTrace ownerActive={true} trace={trace([reused])} />)
+    expect(screen.getByText(/Session source.*reused/)).toBeInTheDocument()
+    expect(screen.getByText('Exact retained passage admitted for reuse in this attempt. Original read provenance is preserved.')).toBeInTheDocument()
+    expect(screen.queryByText('Exact passage read during this attempt. Historical observation; it does not grant new evidence authority.')).not.toBeInTheDocument()
+    expect(screen.getByText(/original-turn/)).toBeInTheDocument()
+  })
   it('distinguishes estimates from actual model usage', () => {
     render(<BuddyContextTrace ownerActive={true} trace={trace([{kind:'provider_call', sequence:0, elapsed_ms:0,
       provider:'openai-api', model:'model', outcome:'authorized', input_upper_bound:67797,

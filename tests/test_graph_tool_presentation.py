@@ -305,3 +305,21 @@ def test_genuinely_large_neighborhood_retains_discovery_and_exact_continuation()
     assert not parent.inclusion(TOOL,[packet])[0].relationship_ids
     pages=detail_pages(parent,packet,args=args)
     assert parent.inclusion(TOOL,pages)[0].relationship_ids=={'refugees:displaced_from:edge'}
+
+
+@pytest.mark.parametrize('chars',[40,12000])
+def test_explicit_source_batch_keeps_multiple_admissions_through_paging(chars):
+    parent=GraphToolPresentation(SCOPE,cache=GraphToolPageCache(page_bytes=8000))
+    identities=[uuid4(),uuid4()]
+    sources=[]
+    for i,identity in enumerate(identities):
+        sources.append((identity,json.dumps({'schema':'dmb_world_graph_source_anchor_read_v1',
+            'anchorId':f'anchor:{i}','content':str(i)*chars,'outcome':'enough'})))
+    args={'retrievalSessionId':'session','anchorIds':['anchor:0','anchor:1'],'maxChars':12000}
+    first=parent.present_source_batch(args,sources,source_pins={})
+    pages=detail_pages(parent,first,tool='read_graph_source',args=args)
+    exposures=parent.inclusion('read_graph_source',pages)
+    assert {e.event_id for e in exposures}==set(identities)
+    assert all(e.complete for e in exposures)
+    with pytest.raises(ValueError,match='Unknown or ambiguous'):
+        parent.inclusion('read_graph_source',[first+' '])

@@ -29,7 +29,7 @@ def read_source_names(conn, world_id: str, conversation_id: UUID, turn_ids: list
           AND trace.payload->>'trace_id'=trace.trace_id::text
           AND trace.payload->'attempt'=to_jsonb(t.attempt)
           AND observation.value->>'world_id'=t.world_id
-          AND observation.value->>'kind'='source_passage'
+          AND observation.value->>'kind' IN ('source_passage','source_passage_reuse')
           AND jsonb_typeof(observation.value->'source_name')='string'
     """, (world_id, conversation_id, turn_ids)).fetchall()
     return [{"turn_id": str(row[0]), **row[1]} for row in rows]

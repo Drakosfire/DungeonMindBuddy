@@ -89,7 +89,7 @@ def prove_play_source_input(
     """
     if not isinstance(prepared_request_json, str) or len(prepared_request_json.encode("utf-8")) > MAX_REQUEST_BYTES:
         raise ValueError("Native Play prepared request exceeds its UTF8 bound")
-    authorization = t.ProviderAttemptAuthorizedEventV3.model_validate_json(authorization.model_dump_json(by_alias=True))
+    authorization = type(authorization).model_validate_json(authorization.model_dump_json(by_alias=True))
     if sha256(prepared_request_json.encode("utf-8")).hexdigest() != authorization.envelope_sha256:
         raise ValueError("Native Play source request differs from its actual producer hash")
     body = strict_json(prepared_request_json)

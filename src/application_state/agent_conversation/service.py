@@ -1245,6 +1245,9 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .types import SourcePassageReuseEventV1
+            if isinstance(event, SourcePassageReuseEventV1):
+                raise ApplicationStateValidationError("reuse requires its retained-source transaction owner")
             execution = turn.graph_context_execution
             if execution is None:
                 raise ApplicationStateValidationError("turn has no Graph execution policy")
@@ -1414,14 +1417,15 @@ class AgentConversationService:
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             if trace_active and isinstance(event, ProviderAttemptAuthorizedEventV3):
+                from . import types as graph_types
                 payload = conn.execute(
                     "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
                     (turn_id, expected_attempt),
                 ).fetchone()[0]
                 captured = {(item.get("source_read_event_id"), item.get("source_read_id"), item.get("content_sha256"))
-                            for item in payload["observations"] if item.get("kind") == "source_passage"}
+                            for item in payload["observations"] if item.get("kind") in {"source_passage", "source_passage_reuse"}}
                 for read_event in execution.events:
-                    if isinstance(read_event, ValidatedSourceReadEventV2) and read_event.event_id in event.included_source_read_event_ids:
+                    if isinstance(read_event, graph_types.SOURCE_PASSAGE_EVENTS) and read_event.event_id in graph_types.included_passage_event_ids(event):
                         if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in captured for read in read_event.receipts):
                             raise ApplicationStateValidationError("provider inclusion requires captured source passages")
             if isinstance(event, ValidatedGraphOperationEventV1):
@@ -1592,6 +1596,84 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=receipt, duplicate_key="event_id", build_source_markdown=source_markdown)
+
+    def admit_retained_source_passages(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, request: dict,
+    ) -> tuple[Turn, bool]:
+        """Select and persist retained evidence under one reset/claim fence."""
+        from . import types as t
+        from .source_passage_reuse import retained_candidates
+        world_id = _world_id(world_id)
+        if (not isinstance(request, dict) or set(request) != {"anchor_ids", "max_chars", "elapsed_ms", "request_id"}
+                or not isinstance(request["anchor_ids"], list)
+                or not 1 <= len(request["anchor_ids"]) <= 8
+                or any(not isinstance(a, str) or not a for a in request["anchor_ids"])
+                or len(set(request["anchor_ids"])) != len(request["anchor_ids"])
+                or type(request["max_chars"]) is not int or not 1 <= request["max_chars"] <= 12000
+                or type(request["elapsed_ms"]) not in {int, float} or not 0 <= request["elapsed_ms"] < float("inf")):
+            raise ApplicationStateValidationError("invalid retained source selection")
+        try:
+            request_id = UUID(str(request["request_id"]))
+        except (ValueError, TypeError) as exc:
+            raise ApplicationStateValidationError("invalid reuse request identity") from exc
+        request_sha = t.canonical_sha256({"anchor_ids": request["anchor_ids"], "max_chars": request["max_chars"]})
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = repo.lock_world_state(conn, world_id)
+            conversation = repo.lock_conversation(conn, world_id, conversation_id)
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
+            if (pointer.active_conversation_id != conversation_id or conversation is None
+                    or conversation.status != "active" or turn is None
+                    or turn.status != "running"
+                    or turn.attempt != expected_attempt or turn.claim_expires_at is None
+                    or turn.claim_expires_at <= repo.database_clock(conn)):
+                raise ApplicationStateConflictError("retained passage admission lost its active claim")
+            execution = turn.graph_context_execution
+            if (turn.provenance.surface_id not in {"plan", "play"}
+                    or not isinstance(execution, (t.PlanWorldGraphExecutionV3, t.PlayWorldGraphExecutionV1))):
+                raise ApplicationStateValidationError("retained passages require current native Plan/Play")
+            prior = [e for e in execution.events if isinstance(e, t.SourcePassageReuseEventV1)
+                and e.reuse_request_id == request_id]
+            if prior:
+                if any(e.request_sha256 != request_sha or e.request_turn_revision != expected_revision for e in prior):
+                    raise ApplicationStateConflictError("reuse request identity changed its selection")
+                return turn, False
+            if turn.revision != expected_revision:
+                raise ApplicationStateConflictError("retained passage admission lost its revision")
+            pins = execution.effective_source_pins()
+            if any(a not in pins for a in request["anchor_ids"]) or request["max_chars"] > execution.policy.max_chars_per_source_read:
+                raise ApplicationStateValidationError("retained passage selection differs from current scope")
+            captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s FOR UPDATE",
+                (turn_id, expected_attempt)).fetchone()
+            if not captured or captured[0].get("capture_status") != "recording":
+                return turn, False  # No complete current trace: ordinary fresh reader remains available.
+            used = {r.anchor_id for e in execution.events if isinstance(e, t.SOURCE_PASSAGE_EVENTS) for r in e.receipts}
+            pending = set(request["anchor_ids"]) - used
+            if not pending:
+                return turn, False
+            candidates = retained_candidates(conn, turn, pending, request["max_chars"])
+            events, passages = [], []
+            usage = t.source_read_character_usage(execution.policy, execution.events)
+            for candidate in candidates:
+                if usage + candidate.receipt.returned_chars > execution.policy.max_source_read_chars:
+                    continue
+                event, passage = candidate.admission(len(execution.events) + len(events), request["elapsed_ms"],
+                    request_id, request_sha, expected_revision)
+                events.append(event); passages.append(passage)
+                usage += candidate.receipt.returned_chars
+            if not events:
+                return turn, False
+            updated_execution = type(execution).model_validate({**execution.model_dump(mode="python", by_alias=True),
+                "events": [*execution.events, *events]})
+            updated = repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=updated_execution)
+            if updated is None:
+                raise ApplicationStateConflictError("retained passage admission lost its claim")
+            for event, passage in zip(events, passages, strict=True):
+                if append_source_passages_locked(conn, world_id=world_id, turn_id=turn_id,
+                        attempt=expected_attempt, event_id=event.event_id, passages=[passage]) is None:
+                    raise ApplicationStateIntegrityError("retained passage trace disappeared")
+            return updated, True
 
     def authorize_source_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,

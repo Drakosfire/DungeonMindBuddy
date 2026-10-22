@@ -62,7 +62,8 @@ def validate_play_graph_provider_authorization(receipt: t.PlayWorldGraphContextR
     validate_play_graph_execution_binding(receipt, execution)
     receipt = _checked_receipt(receipt)
     execution = t.PlayWorldGraphExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
-    event = t.ProviderAttemptAuthorizedEventV3.model_validate_json(event.model_dump_json(by_alias=True))
+    event_type = t.ProviderAttemptAuthorizedEventV4 if isinstance(event, t.ProviderAttemptAuthorizedEventV4) else t.ProviderAttemptAuthorizedEventV3
+    event = event_type.model_validate_json(event.model_dump_json(by_alias=True))
     t.validate_graph_provider_envelope(receipt, execution, event)
     wire = execution.model_dump(mode='json', by_alias=True)
     wire['events'].append(event.model_dump(mode='json', by_alias=True))

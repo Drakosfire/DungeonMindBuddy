@@ -743,6 +743,30 @@ def list_turns(
     return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
 
 
+def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]:
+    """Filter one existing history window before materializing heavy ledgers."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""
+            WITH history AS (
+                SELECT turn_id FROM agent.turn WHERE world_id=%s AND conversation_id=%s
+                AND sequence<%s ORDER BY sequence DESC LIMIT 50
+            )
+            SELECT {_TURN_COLS} FROM agent.turn
+            WHERE turn_id IN (SELECT turn_id FROM history) AND status='completed'
+              AND graph_context_receipt->'graph_authority'=%s
+              AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS e
+                CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN e->>'kind'='validated_source_read_v2'
+                    THEN e->'receipts' ELSE '[]'::jsonb END) AS r
+                WHERE r->>'anchor_id'=ANY(%s))
+            ORDER BY sequence
+            """, (current.world_id, current.conversation_id, current.sequence,
+                Jsonb(current.graph_context_receipt.graph_authority.model_dump(mode='json')), sorted(anchor_ids)))
+        rows=cur.fetchall()
+    references=_turn_reference_page(conn,rows)
+    return [_turn_from_row(conn,row,references=references[row['turn_id']]) for row in rows]
+
+
 def list_completed_plan_ask_context(
     conn: psycopg.Connection,
     verified_world_id: str,

@@ -94,11 +94,11 @@ def producing_passages(turn, authorization, request_json):
     if sha256(request_json.encode()).hexdigest() != authorization.envelope_sha256:
         raise ValueError("Source answer request differs from producing authorization")
     execution = turn.graph_context_execution
-    included = set(authorization.included_source_read_event_ids)
+    included = set(t.included_passage_event_ids(authorization))
     reads = [
         (event.event_id, read)
         for event in execution.events
-        if isinstance(event, t.ValidatedSourceReadEventV2)
+        if isinstance(event, t.SOURCE_PASSAGE_EVENTS)
         and event.event_id in included
         for read in event.receipts
         if eligible(read)
@@ -197,7 +197,7 @@ def producing_passages(turn, authorization, request_json):
     partial |= any(
         not eligible(read)
         for event in execution.events
-        if isinstance(event, t.ValidatedSourceReadEventV2)
+        if isinstance(event, t.SOURCE_PASSAGE_EVENTS)
         and event.event_id in included
         for read in event.receipts
     )
@@ -354,8 +354,8 @@ def validate_surface_completion(
     reads = {
         e.event_id: e
         for e in execution.events
-        if isinstance(e, t.ValidatedSourceReadEventV2)
-        and e.event_id in auth.included_source_read_event_ids
+        if isinstance(e, t.SOURCE_PASSAGE_EVENTS)
+        and e.event_id in t.included_passage_event_ids(auth)
     }
     for citation in completion.source_citations:
         event = reads.get(citation.read_event_id)
