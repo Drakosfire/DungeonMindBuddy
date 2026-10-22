@@ -370,3 +370,30 @@ def test_rules_final_writer_blocks_new_admission_but_allows_exact_replay(plan_ad
         assert second.service.inspect_turn(world_id=current.world_id, turn_id=current.turn_id).revision == current.revision
     finally:
         second.fence.stop()
+
+
+@pytest.mark.parametrize('internal', [False, True])
+def test_repeated_reuse_with_smaller_bound_delegates_to_bounded_reader(plan_adapter, monkeypatch, internal):
+    complete_origin(plan_adapter)
+    second, _writer, _reads = stage_reuse(plan_adapter, monkeypatch)
+    try:
+        before = second.fence.turn.graph_context_execution
+        receipts = [r for e in before.events if isinstance(e, t.SourcePassageReuseEventV1) for r in e.receipts]
+        original = next(r for r in receipts if r.anchor_id == 'anchor:park:0')
+        assert original.returned_chars > 1
+        calls = []
+        def bounded_reader(message, *, bundle_internal):
+            calls.append((message['arguments'], bundle_internal))
+            # A native bounded miss carries no complete passage. Existing native
+            # reader tests own the IO/receipt contract; this exercises dispatch.
+            return {'resultJson':json.dumps({'statusCode':422, 'code':'source_not_sufficient'})}
+        second._broker_fresh_source_read = bounded_reader
+        scope = before.policy.source_read_scope
+        reply = second.broker_source_read({'toolName':'read_graph_source', 'arguments':{
+            'retrievalSessionId':scope.retrieval_session_id, 'anchorIds':[original.anchor_id], 'maxChars':1}},
+            bundle_internal=internal)
+        assert len(calls) == 1 and calls[0][0]['maxChars'] == 1 and calls[0][1] is internal
+        assert json.loads(reply['resultJson']) == {'statusCode':422, 'code':'source_not_sufficient'}
+        assert second.fence.turn.graph_context_execution == before
+    finally:
+        second.fence.stop()

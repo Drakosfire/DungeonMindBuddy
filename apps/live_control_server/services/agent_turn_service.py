@@ -3448,7 +3448,8 @@ class _PolicyExecutionAdapter:
                     continue
                 rows = []
                 for receipt in event.receipts:
-                    if receipt.anchor_id not in request.anchor_ids:
+                    if (receipt.anchor_id not in request.anchor_ids
+                            or receipt.returned_chars > request.max_chars):
                         continue
                     matches = [p for p in trace.observations if p.kind == "source_passage_reuse"
                         and p.source_read_event_id == event.event_id and p.source_read_id == receipt.source_read_id]
