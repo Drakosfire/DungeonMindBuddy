@@ -4948,13 +4948,13 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
   });
 
-  it.each(["valid", "receipt", "source", "graph-claim"])("renders final source-only Build evidence after sufficient discovery: %s", async (mutation) => {
+  it.each(["valid", "receipt", "source", "graph-claim", "name"])("renders final source-only Build evidence after sufficient discovery: %s", async (mutation) => {
     const context = await planGraphContext("graph_grounded");
     const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
     const turnId = "11111111-1111-4111-8111-111111111111";
     const passage = "The tower watches the river.";
     const passageHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(passage))), b => b.toString(16).padStart(2, "0")).join("");
-    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const, saved_source_name: "Named authored source",
       receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
         source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
         graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
@@ -4968,6 +4968,7 @@ describe("World Plan conversation consumer", () => {
     const digest = await sha256Hex(canonicalJson(receiptForHash));
     knowledge.receipt.context_receipt_sha256 = digest;
     knowledge.completion.context_receipt_sha256 = digest;
+    if (mutation === "name") knowledge.saved_source_name = {} as never;
     if (mutation === "receipt") knowledge.receipt.context_receipt_sha256 = "f".repeat(64);
     if (mutation === "source") knowledge.completion.answer_segments[0]!.content_sha256 = "f".repeat(64);
     if (mutation === "graph-claim") knowledge.completion.answer_segments = [{kind: "graph_claim", text: passage} as never];
@@ -4997,7 +4998,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
     expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Evidence trail"));
-    fireEvent.click(screen.getByRole("button", {name: "Read saved lines 1–1"}));
+    fireEvent.click(screen.getByRole("button", {name: "Read Named authored source · lines 1–1"}));
     await screen.findByRole("region", {name: "Opened saved-source section"});
     expect(open).toHaveBeenCalledWith(target);
   });
@@ -5014,7 +5015,7 @@ describe("World Plan conversation consumer", () => {
         source_artifact_id: "artifact", source_revision_id: "revision", outcome: "enough" as const,
         content_sha256: passageHash, line_start: 1, line_end: 1, returned_chars: passage.length,
         truncated: false as const, evidence_sufficiency_status: "sufficient" as const}};
-    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const, saved_source_name: null,
       receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
         source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
         graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},
@@ -5055,7 +5056,7 @@ describe("World Plan conversation consumer", () => {
     const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;
     const turnId = "11111111-1111-4111-8111-111111111111";
     const passage = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.";
-    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const,
+    const knowledge = { schema: "dmb_build_graph_context_response_v1" as const, saved_source_name: null,
       receipt: {...receipt, schema: "dmb_build_graph_context_receipt_v1" as const,
         source_basis: {world_id: worldId, document_id: "other-work", registry_revision: 1, content_sha256: contentSha256, visibility: "internal" as const},
         graph_authority: {...receipt.graph_authority, admissibility_version: "gm-v1"}},

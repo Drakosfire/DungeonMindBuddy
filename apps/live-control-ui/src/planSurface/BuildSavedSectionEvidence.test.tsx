@@ -19,7 +19,7 @@ beforeEach(()=>{vi.stubGlobal('crypto',webcrypto);load.mockReset();});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 describe('saved-source evidence',()=>{
  it('opens exact authored Markdown without treating it as Graph evidence',async()=>{
-  load.mockResolvedValue(response());render(<BuildSavedSectionEvidence {...props()} />);
+  load.mockResolvedValue(response());render(<BuildSavedSectionEvidence sourceName={null} {...props()} />);
   expect(load).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button',{name:'Read saved lines 10–10'}));
   expect(await screen.findByText('walk on water')).toBeInTheDocument();
@@ -30,25 +30,25 @@ describe('saved-source evidence',()=>{
   const r=response();if(which==='content')r.content='newer text';
   if(which==='target')r.target={...r.target,section_read_id:other};
   if(which==='extra')Object.assign(r,{graph_authority:true});
-  load.mockResolvedValue(r);render(<BuildSavedSectionEvidence {...props()} />);
+  load.mockResolvedValue(r);render(<BuildSavedSectionEvidence sourceName={null} {...props()} />);
   fireEvent.click(screen.getByRole('button',{name:/Read saved lines/}));
   expect(await screen.findByText(/No newer text has been substituted/)).toBeInTheDocument();
  });
  it('rejects claim-text mismatch before sending a read',async()=>{
-  render(<BuildSavedSectionEvidence {...props()} segments={[{...segments[0]!,text:'another claim'}]} />);
+  render(<BuildSavedSectionEvidence sourceName={null} {...props()} segments={[{...segments[0]!,text:'another claim'}]} />);
   fireEvent.click(screen.getByRole('button',{name:/Read saved lines/}));
   expect(await screen.findByText(/No newer text has been substituted/)).toBeInTheDocument();expect(load).not.toHaveBeenCalled();
  });
  it('discards a late read across World/turn identity changes',async()=>{
   let resolve!:(r:SavedBuildSectionReadV1)=>void;load.mockImplementation(()=>new Promise(r=>{resolve=r;}));
-  const {rerender}=render(<BuildSavedSectionEvidence {...props()} />);
+  const {rerender}=render(<BuildSavedSectionEvidence sourceName={null} {...props()} />);
   fireEvent.click(screen.getByRole('button',{name:/Read saved lines/}));await waitFor(()=>expect(load).toHaveBeenCalled());
-  rerender(<BuildSavedSectionEvidence {...props()} turnId={other} />);
+  rerender(<BuildSavedSectionEvidence sourceName={null} {...props()} turnId={other} />);
   await act(async()=>resolve(response()));expect(screen.queryByLabelText('Opened saved-source section')).toBeNull();
  });
  it('exposes all distinct section choices',()=>{
   const targets=Array.from({length:10},(_,i)=>({...target(),section_event_id:`${String(i).padStart(8,'0')}-1111-4111-8111-111111111111`}));
-  render(<BuildSavedSectionEvidence {...props()} targets={targets} />);
+  render(<BuildSavedSectionEvidence sourceName={null} {...props()} targets={targets} />);
   expect(screen.getAllByRole('button',{name:/Read saved lines/})).toHaveLength(8);
   fireEvent.click(screen.getByRole('button',{name:'Show more saved sections'}));
   expect(screen.getAllByRole('button',{name:/Read saved lines/})).toHaveLength(10);
@@ -72,4 +72,20 @@ it('uses the actual authenticated evidence GET without a body or redirect',async
  expect(init?.redirect).toBe('error');expect(init?.body).toBeUndefined();
  expect(init?.credentials).toBe('same-origin');expect(fetch).toHaveBeenCalledTimes(1);
  api.setNativeGraphAccessToken(null);
+});
+
+
+it('names the source without changing the historical request or eagerly reading it',async()=>{
+ load.mockResolvedValue(response());
+ render(<BuildSavedSectionEvidence {...props()} sourceName="A Named Adventure" />);
+ expect(screen.getByLabelText('Saved-source evidence')).toHaveTextContent('A Named Adventure · authored worldbuilding');
+ expect(load).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Read A Named Adventure · lines 10–10'}));
+ expect(await screen.findByText('walk on water')).toBeInTheDocument();
+ expect(load).toHaveBeenCalledExactlyOnceWith(target());
+});
+it('renders source metadata as plain text',()=>{
+ render(<BuildSavedSectionEvidence {...props()} sourceName={'<img src=x onerror=alert(1)>'} />);
+ expect(screen.getByLabelText('Saved-source evidence')).toHaveTextContent('<img src=x onerror=alert(1)>');
+ expect(document.querySelector('img')).toBeNull();
 });

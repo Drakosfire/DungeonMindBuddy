@@ -1,6 +1,16 @@
 # BUILD — distinguish adventure interpretation from mechanical Rules lookup
 
-ACTIVE. PRIME owns one serial slice from6856752eef08a20e20eabe2ed749244be3c90570,
+SETTLED. #1589 merged47160c7f6ddbebce561d5ca634e7a0666126bc92 after Bugbot
+approved184bdaa686 and independently passed74 tests. Four real Jev routing
+cases passed. Guarded API delivery retained1525APP rows,59product files and
+frozen source bytes. Fresh ordinary source-correction follow-up completed11263ms,
+selected Rules none=1.0 with zero Rules calls/support, corrected ownership and the
+conditional attack trigger with PDF references, and withdrew the earlier gap.
+Full reload retained the answer and both original interrupted turns. This lease
+is released. Saved-source name presentation is the next bounded repair; broader
+answer quality, reliable10-second timing and full J1–J6 remain unaccepted.
+
+PRIME owned one serial slice from6856752eef08a20e20eabe2ed749244be3c90570,
 branch codex/build-rules-routing-instructions, existing buddy-context-loop checkout.
 Fresh remote/open PR census found no overlapping active implementation lease.
 Buddy owns the decision prompt; no APP/provider/corpus contract changes.

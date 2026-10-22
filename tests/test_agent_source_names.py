@@ -62,3 +62,70 @@ def test_no_read_for_uncited_turn_or_metadata_failure():
     assert calls == []
     assert source_names_for_turns([turn],service=Owner()) == []
     assert len(calls)==1
+
+
+def saved_fixture():
+    from application_state.agent_conversation.types import BuildSourceContextBasisV1
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
+    basis = BuildSourceContextBasisV1(world_id="world", document_id="document", registry_revision=2,
+        content_sha256="a" * 64, visibility="internal")
+    artifact_id = build_worldbuilding_source_artifact_id(workspace_document_id=basis.document_id,
+        workspace_document_revision=basis.registry_revision, content_sha256=basis.content_sha256)
+    artifact = GraphMemorySourceArtifact(source_artifact_id=artifact_id, source_domain="worldbuilding",
+        world_id=basis.world_id, uri="repo://frozen/source.md", content_sha256=basis.content_sha256,
+        workspace_document_id=basis.document_id, workspace_document_revision=basis.registry_revision,
+        visibility_state=basis.visibility, lineage={"source_name": "The Frozen Source"})
+    return basis, artifact
+
+
+def test_saved_names_use_one_exact_metadata_batch_and_never_open_bodies(monkeypatch):
+    from apps.live_control_server.services import agent_source_names as names, source_artifact_registry as registry
+    basis, artifact = saved_fixture()
+    calls = []
+    def batch(root, identities):
+        calls.append(identities)
+        return {artifact.source_artifact_id: artifact}
+    monkeypatch.setattr(registry, "get_source_artifacts", batch)
+    monkeypatch.setattr(registry, "load_registered_source_artifact_text", lambda *_a, **_k: pytest.fail("Source body read"))
+    labels = names._saved_source_names([basis, basis])
+    assert len(calls) == 1 and calls[0] == {artifact.source_artifact_id}
+    # Caller batches distinct bases; resolver never guesses between duplicate labels.
+    assert names.source_name_for_saved_basis(basis, labels[:1]) == "The Frozen Source"
+    assert names.source_name_for_saved_basis(basis, labels) is None
+
+
+@pytest.mark.parametrize("change", [
+    {"world_id": "foreign"}, {"workspace_document_id": "foreign"}, {"workspace_document_revision": 3},
+    {"content_sha256": "b" * 64}, {"visibility_state": "player_safe"}, {"source_domain": "recap"},
+    {"source_artifact_id": "foreign"}, {"lineage": {}}, {"lineage": {"source_name": " "}},
+])
+def test_saved_name_refuses_foreign_or_missing_metadata(monkeypatch, change):
+    from apps.live_control_server.services import agent_source_names as names, source_artifact_registry as registry
+    basis, artifact = saved_fixture()
+    monkeypatch.setattr(registry, "get_source_artifacts", lambda *_: {artifact.source_artifact_id: artifact.model_copy(update=change)})
+    assert names._saved_source_names([basis]) == []
+
+
+def test_saved_name_metadata_failure_does_not_fall_back_to_current_document(monkeypatch):
+    from apps.live_control_server.services import agent_source_names as names, source_artifact_registry as registry
+    basis, _ = saved_fixture()
+    def unavailable(*_):
+        raise OSError("Unavailable metadata")
+    monkeypatch.setattr(registry, "get_source_artifacts", unavailable)
+    assert names._saved_source_names([basis]) == []
+    assert names.source_name_for_saved_basis(basis, []) is None
+
+
+def test_registry_batch_reads_one_snapshot_and_returns_only_requested_ids(monkeypatch):
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from pathlib import Path
+    _, artifact = saved_fixture()
+    calls = []
+    def snapshot(root):
+        calls.append(root)
+        return N(records=[artifact, artifact.model_copy(update={"source_artifact_id": "unrequested"})])
+    monkeypatch.setattr(registry, "_load", snapshot)
+    assert registry.get_source_artifacts(Path("unused"), {artifact.source_artifact_id}) == {artifact.source_artifact_id: artifact}
+    assert len(calls) == 1
+    assert registry.get_source_artifacts(Path("unused"), set()) == {}
+    assert len(calls) == 1

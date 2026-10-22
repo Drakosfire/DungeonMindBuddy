@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `6856752eef08a20e20eabe2ed749244be3c90570` (through PR #1588).
+**Evidence anchor:** remote main `47160c7f6ddbebce561d5ca634e7a0666126bc92` (through PR #1589).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves6856752ee (#1588); UI5202 serves58c81d58f (#1587).
+The API backing5202 serves47160c7f6 (#1589); UI5202 serves58c81d58f (#1587).
 Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
 18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
 and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
@@ -259,11 +259,16 @@ Sheep grounding completed12572ms with8Jev/1writer, source citations and full-rel
 history continuity. Quality remains unaccepted: gap prose contradicts supplied
 fight-trigger details, and saved-source evidence labels omit the source name.
 A source-correction follow-up was misclassified as an uncertain positive Rules
-query (.63), which the positive authorization gate correctly refused. The active
-bounded repair is [Rules routing instructions](../Plans/HANDOFF-BUILD-rules-routing-instructions.md),
-clarifying adventure interpretation versus game-rule adjudication without
-weakening that gate. Source publication is proved; full cited multi-turn quality,
-10-second reliability and the connected adventure journey remain open. PDF decorative divider lines also trigger the existing
+query (.63), which the positive authorization gate correctly refused. #1589 delivered
+[Rules routing instructions](../Plans/HANDOFF-BUILD-rules-routing-instructions.md)
+without weakening that gate. Four real Jev classification controls passed. Fresh
+ordinary correction completed11263ms with Rules none=1.0, zero Rules calls/support,
+corrected tower ownership and conditional trigger, PDF references and explicit
+withdrawal of the earlier gap; full reload retained the answer and both failures.
+The active bounded repair is [saved-source names](../Plans/HANDOFF-BUILD-saved-source-names.md):
+exact committed artifact metadata batched per history page, without body reads or
+changing citations. Source publication and this correction are proved; universal
+answer consistency,10-second reliability and the connected journey remain open. PDF decorative divider lines also trigger the existing
 visual-editor fidelity gate; exact source remains protected and reviewable.
 
 The target is an adventure usable at the table:
