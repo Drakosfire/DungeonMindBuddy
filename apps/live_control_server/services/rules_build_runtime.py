@@ -102,12 +102,15 @@ class RulesBuildRuntime:
         selected, scores = vote.get("selected"), vote.get("probabilities")
         if (vote.get("kind") != "choice" or selected not in options or not isinstance(scores, dict)
                 or set(scores) != options or any(type(v) not in {int, float} or not math.isfinite(v) or not 0 <= v <= 1 for v in scores.values())
-                or abs(sum(scores.values()) - 1) > .02 or scores[selected] < .9):
+                or abs(sum(scores.values()) - 1) > .02
+                or (selected != "none" and scores[selected] < .9)):
             raise ValueError("Rules query choice is unresolved or uncalibrated")
         if operation != "answer_from_sources":
             self.retire_unused()
             return
         if selected == "none":
+            # Abstention grants no lookup or support authority. Only an actual
+            # positive query needs the calibrated authorization threshold.
             return
         index = int(selected.split(":")[1])
         a = self.adapter
