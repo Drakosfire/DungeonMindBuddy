@@ -1,14 +1,14 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff` (through PR #1568).
+**Evidence anchor:** remote main `7b904dccd063758c4b1be73c072f10b8080fb180` (through PR #1569).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
 This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff
+foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation
 is the next bounded slice. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -52,9 +52,9 @@ bounded ownership and review.
 | Build ingestion in the existing document: Worldbuilding/Recap configuration, review and recovery | #1525, #1535–#1539, #1547–#1549, #1551 | Editing accepted World facts remains separate; full source-quality/chronology acceptance is open |
 | Native publication and exact source reopen | #1552, #1560–#1563; isolated real Worldbuilding and public Recap review→selected identity publication→cold source reopen | Selected publication, not every proposed attribute/relationship; private external Session 29 extraction was reviewable but not published and had no supplements selected |
 | Native Combat C0 Surface module, artifact lookup, roster state save/reopen and responsive layout | #1550, #1556/#1557; isolated rendered persistence witness | Not connected Play continuity, C1–C4, graph roster selection or live generated-statblock acceptance |
-| Ordinary Build Jev retrieval (#1325–#1369), plus Plan retrieval decisions, host-owned reads and one writer; actual per-call usage | #1527–#1534, #1540–#1546 | Fresh rendered response has a contract defect below; latency target not reliably met |
+| Ordinary Build Jev retrieval (#1325–#1369), plus Plan retrieval decisions, host-owned reads and one writer; actual per-call usage | #1527–#1534, #1540–#1546 | Fresh rendered response/composer repaired by #1568; latency target not reliably met |
 | Named source citations and exact lazy Debug prompt inspection, including failures | #1553–#1555, #1559, #1563 | Component and selected live evidence do not prove every fresh multi-turn/image path |
-| Real image generation from an authored/prepared prompt | #1443/#1444 and actual Build image acceptance | Build prompt→generated asset proved; fresh Plan conversation→prompt→image completion has not |
+| Real image generation from an authored/prepared prompt | #1443/#1444 and actual Build image acceptance | Build and fresh Plan prompt→generated/saved asset→library reopen proved; full journey acceptance remains open |
 
 The operator's played session established useful improvisation and note-taking.
 It also exposed navigation and media weaknesses. Preserve that evidence without
@@ -79,18 +79,17 @@ calling the full local demo accepted.
    9.841-second pass; fresh browser requests took 12.046 and 12.016 seconds. The requested
    roughly 10-second experience is not a reliable accepted target yet. Measure
    actual decision/read/writer times and quality; do not report a single pass as SLA.
-4. **Fresh image continuation:** the repaired fresh browser flow now writes an image prompt, but has no
-   action handing that prompt into Plan Image Studio. A prior Build image witness cannot
-   close this gap or establish a one-click image action in Plan. The next bounded
-   [shared Studio handoff](../Plans/HANDOFF-PLAN-image-prompt-handoff.md) prepares
-   an editable seed with explicit user Generate/Save/placement; it is not delivered yet.
+4. **Fresh image continuation — delivered:** #1569 merged7b904dccd and runs on
+   API8000/UI5202. A fresh typed prompt completed5.201s and seeded Studio exactly.
+   Actual generation and Save succeeded; the saved image reopened from the library
+   on a fresh page. No automatic Plan insertion. Full journey acceptance remains open.
 5. **Trace presentation:** the live trace shows duplicate response_received
    observations for the same model call, one without usage and one with reported
    usage. Aggregate/per-call reported counts are available; presentation still
    needs reconciliation and must not imply an extra paid call.
 
-The API backing 5202 is at the evidence-anchor revision; the UI serves
-`339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff` (#1568). These are the observed
+The API backing 5202 and UI serve the evidence-anchor revision
+`7b904dccd063758c4b1be73c072f10b8080fb180` (#1569). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance

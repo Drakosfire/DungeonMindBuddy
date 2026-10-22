@@ -1,6 +1,8 @@
 # PLAN — reviewed image prompt into the shared Studio
 
-ACTIVE serial slice under the operator's preparation/play goal. Base339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff; branch codex/plan-image-prompt-handoff, existing buddy-context-loop checkout. PRIME designs/implements/merges; Bugbot independently reviews exact head. Current open hosted, ingestion and historical Combat PRs do not own these paths. One implementation PR; no new checkout/environment.
+SETTLED: PR1569 merged7b904dccd063758c4b1be73c072f10b8080fb180 and delivered API8000/UI5202. Independent Bugbot approved588c78c16621c367128808050e40d7f37120e7a8;21backend/244UI plus2Plan host tests/typecheck passed. Fresh rendered typed prompt completed5.201s; exact610-character seed generated through configured Image Studio, saved to CDN, then reopened from Image library on a fresh page. No Plan insertion. Saved asset0d23b872-edbd-454a-afc6-d4d39b07fd39 remains ready. Full journey/latency acceptance remains open.
+
+Historical serial slice under the operator's preparation/play goal. Base339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff; branch codex/plan-image-prompt-handoff, existing buddy-context-loop checkout. PRIME designs/implements/merges; Bugbot independently reviews exact head. Current open hosted, ingestion and historical Combat PRs do not own these paths. One implementation PR; no new checkout/environment.
 
 Observed rendered boundary: native Plan grounding and its follow-up now complete, but the writer can only write prose and says it cannot generate an image. Build already has a durable Build-specific proposal/mutation lifecycle; do not mislabel a Plan as Build or borrow Build source authority.
 

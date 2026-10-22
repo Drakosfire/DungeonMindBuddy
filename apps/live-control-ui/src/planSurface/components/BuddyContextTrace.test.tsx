@@ -130,3 +130,42 @@ describe('Buddy context trace', () => {
    fireEvent.click(summary);fireEvent.click(screen.getByText('Pinned source reference'));
    expect(screen.getByText(/"source_artifact": "artifact:opaque"/)).toBeInTheDocument();
  });
+
+describe('provider response reconciliation', () => {
+  const response = (sequence: number, fields = {}) => ({kind:'provider_call' as const, sequence, elapsed_ms:sequence * 1000,
+    provider_attempt_id:'call-a', provider:'openai-api', model:'writer', outcome:'response_received' as const, ...fields})
+  it('enriches the original response with late measured usage without moving it after intervening work', () => {
+    render(<BuddyContextTrace ownerActive={false} trace={trace([
+      response(0), {kind:'failure',sequence:1,elapsed_ms:1000,phase:'delivery',code:'interrupted'},
+      response(2,{input_tokens:0,output_tokens:7,duration_ms:1234}),
+    ])} />)
+    expect(screen.getAllByText('response_received')).toHaveLength(1)
+    expect(screen.getByText('Provider-reported usage: 0 input · 7 output')).toBeInTheDocument()
+    expect(screen.queryByText('Actual token usage was not captured for this observation.')).not.toBeInTheDocument()
+    expect(screen.getByText('Same provider call · usage updated at 2.0s')).toBeInTheDocument()
+    const rows=screen.getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('Provider duration: 1.23s')
+    expect(rows[1]).toHaveTextContent('Execution failed')
+    fireEvent.click(screen.getByText('Recorded provider observations'))
+    expect(screen.getByText(/"sequence": 2/)).toBeInTheDocument()
+  })
+  it.each([
+    {provider_attempt_id:'call-b'}, {provider_attempt_id:null}, {model:'other-writer'}, {provider:'other-provider'},
+    {outcome:'failed'}, {input_tokens:43}, {duration_ms:999},
+  ])('keeps distinct, unidentified, conflicting or different lifecycle observations separate: %j', fields => {
+    render(<BuddyContextTrace ownerActive={false} trace={trace([
+      response(0,{input_tokens:42,duration_ms:1234}), response(1,fields),
+    ])} />)
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByText('Recorded provider observations')).not.toBeInTheDocument()
+  })
+  it('preserves authorization separately and does not double count repeated usage', () => {
+    render(<BuddyContextTrace ownerActive={false} trace={trace([
+      {...response(0),outcome:'authorized'}, response(1), response(2,{input_tokens:42}),response(3,{input_tokens:42}),
+    ])} />)
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByText('authorized')).toBeInTheDocument()
+    expect(screen.getAllByText('response_received')).toHaveLength(1)
+    expect(screen.getByText('Provider-reported usage: 42 input · output unavailable')).toBeInTheDocument()
+  })
+})
