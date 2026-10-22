@@ -1,6 +1,14 @@
 # PLAY — retain actual source receipts in provider preparation
 
-ACTIVE serial PRIME successor from5e3cb2f42623ff32038621a27bd7ec579934cce8,
+SETTLED1602 at6f5acb430c3387c57f3ae86fdcf0cfe838433971, running8000/5202.
+Bugbot approved82516e4eab28b43829b1b571a7a4a5cc2d6fe433, one cycle, no findings;
+128independent tests passed. Ordinary fresh Plan/Play answers named sources and
+opened exact passages; individual trace windows5.9s/14.3s. Play answer and citation
+rehydrated/reopened after restart with1644APP rows, native rows,79mechanics files
+and11frozen components unchanged. This closes that bounded source handoff, not
+full adventure or reliable latency acceptance.
+
+Historical serial PRIME successor from5e3cb2f42623ff32038621a27bd7ec579934cce8,
 branch codex/play-source-provider-inclusion, existing buddy-context-loop checkout.
 The sustained operator goal and Architecture critique01a164bf-90d3-7820-9805-4b5d031542e2
 require actual adapter→APP→provider proof, not prepared receipts alone.

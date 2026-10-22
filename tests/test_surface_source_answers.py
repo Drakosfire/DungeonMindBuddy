@@ -57,6 +57,11 @@ def test_actual_plan_source_only_writer_persists_exact_receipts_and_reopens(
     wire = WriterWire(plan_adapter, json.dumps(answer(writer)))
     completed = asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
     assert completed.status == "completed" and len(wire.calls) == 1
+    instructions=json.loads(wire.calls[0].content)["instructions"]
+    assert "dmb_surface_source_answer_v1" in instructions
+    assert "never emit an empty handle list" in instructions
+    assert "session notes/reflections" in instructions
+
     assert isinstance(completed.completion, t.SurfaceSourceCompletionV1)
     assert (
         completed.completion.surface_id == "plan"

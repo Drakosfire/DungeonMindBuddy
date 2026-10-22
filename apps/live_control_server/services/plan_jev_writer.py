@@ -113,7 +113,10 @@ class PlanJevWriter:
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
         from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as SOURCE_INSTRUCTIONS
-        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS, SOURCE_INSTRUCTIONS,
+        source_answer_available = (not self.projection.assertion_ids and not self.projection.relationship_ids
+            and any(row.get('passage_handle') for row in self.projection.frame['opened_passages']))
+        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS,
+            SOURCE_INSTRUCTIONS if source_answer_available else '',
             RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None

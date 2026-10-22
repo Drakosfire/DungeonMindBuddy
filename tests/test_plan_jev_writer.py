@@ -69,6 +69,7 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     assert not writer.authorize(writer.prepared)
     # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
     body = json.loads(wire.calls[0].content)
+    assert 'dmb_surface_source_answer_v1' not in body['instructions']
     assert body['service_tier'] == 'fast'
     assert writer.call['response_service_tier'] == 'fast'
     assert body['reasoning'] == {'effort':'none'}
@@ -216,7 +217,12 @@ def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,exist
         else 'Scene notes describe a submerged boardwalk.')
     candidate={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
         {'kind':'session_evidence_claim','text':text,'run_id':run,'review_revision':54}]}
-    completed=asyncio.run(writer.run(transport=WriterWire(a,json.dumps(candidate)),api_key='synthetic-not-secret'))
+    wire=WriterWire(a,json.dumps(candidate))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert writer.projection.frame['opened_passages']==[]
+    instructions=json.loads(wire.calls[0].content)['instructions']
+    assert 'dmb_surface_source_answer_v1' not in instructions
+    assert 'session_evidence_claim' in instructions and 'plan_claim' in instructions
     assert 'Session 54' not in completed.assistant_text
     assert completed.assistant_text.count(url)==1
     assert '[Approach to Edge — Session Prep — notes and reflections]' in completed.assistant_text

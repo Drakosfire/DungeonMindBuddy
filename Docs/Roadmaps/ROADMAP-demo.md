@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `5e3cb2f42623ff32038621a27bd7ec579934cce8` (through PR #1601).
+**Evidence anchor:** remote main `6f5acb430c3387c57f3ae86fdcf0cfe838433971` (through PR #1602).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve5e3cb2f4 (#1601), with Core617635c. Named saved-section
+API8000/UI5202 serve6f5acb43 (#1602), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -150,10 +150,14 @@ truth. Shared source-answer code delivered1599. A fresh ordinary Plan reply answ
 correctly with named citations and exact passage reopening in5.9s; reload retained
 it. Native Play remains unaccepted: live witness exposed predecessor Graph/read
 routing in its shared broker. The current-type repair delivered1600. A further ordinary Play witness exposed
-zero read capacity when initial discovery has no anchors. That setup repair delivered1601; fresh Play opens source passages. Its actual
-next provider authorization still drops read IDs, so source-proof validation
-fails closed. ACTIVE HANDOFF-PLAY-source-provider-inclusion.md owns the handoff
-repair; exact authority and settled budgets remain binding.
+zero read capacity when initial discovery has no anchors. That setup repair delivered1601; fresh Play opens source passages. Its actual next provider read inclusion was repaired1602. Ordinary fresh Play
+now answered with named source citations and exact historical reopening; restart
+preserved1644APP rows, native rows,79mechanics files and11frozen components.
+Individual Plan5.9s/Play14.3s traces do not establish reliable10s acceptance.
+The real swamp/Edge benchmark then exposed a writer prompt authority mismatch:
+no opened passages, but source claims with empty handles for Plan/session prose.
+ACTIVE HANDOFF-AGENT-writer-source-authority.md owns that exact prompt repair;
+normalizers continue to reject invented or absent source authority.
 No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing
