@@ -13,7 +13,7 @@ found no overlapping implementation. Architecture critique from chat
 Topology: **serial**. This design PR writes only this handoff,
 `HANDOFF-PLAY-current-answer-carrier.md`, and `../Roadmaps/ROADMAP-demo.md`.
 The original design gate was exact-head Bugbot review and PRIME adoption,
-completed in #1614. **Implementation is ACTIVE under the exact lease below**;
+completed in #1614. **Implementation is SETTLED by #1615; see settlement below**;
 no further operator approval is required. New paths require lease amendment. Design merge claims no
 runtime delivery. Plan and Play share the implementation; Graph-object reuse,
 retrieval-policy redesign and history pruning are separate. No Core/OverMind
@@ -109,7 +109,7 @@ latency, 8 GB measurements and operator acceptance remain open.
 
 ## Implementation activation — 2026-10-22
 
-ACTIVE serial PRIME implementation from merged contract
+SETTLED serial PRIME implementation from merged contract
 `9995299ef14dcfdd9c42ca9c075d6ebf64382f9a`, branch
 `codex/agent-retained-passage-reuse`, same existing checkout. Bugbot approved exact
 design head `1f4435305f611ad4d583cc89bdfb1307a4e990f7`; PRIME adopted it in #1614.
@@ -150,3 +150,21 @@ retains explicit V4 provider authorization at native Play's existing second
 validation boundary; `source_display.py` includes reuse observations in the same
 metadata-only named-source projection. `tests/test_play_graph_context.py` and
 `tests/test_agent_source_names.py` are included for those owning regressions.
+
+
+## Settlement — #1615
+
+Bugbot approved exact head `104886dc8a7257391776b8b4f7b10c56ff5815c6` after three
+cycles; PRIME merged at `319e45fac00b4ae2152e5a0d895ac60e5e2f0866`, now live on
+8000/5202 with APP0047. All three review findings were fixed. Ordinary Plan4.590s
+and native Play13.191s follow-ups each admitted one retained passage with zero
+fresh source IO and explicit current final producer inclusion. Named citations,
+Debug reuse labels/exact prompts and native citation reopening survived protected
+restart:1752 APP rows/all native rows/79 mechanics files/17 frozen components.
+
+The original swamp/Edge question also reused five passages without fresh IO but
+failed final delivery at9.042s because model-generated authored text was not an
+exact frozen quote. This is not successful benchmark acceptance. The successor
+[authored excerpt selection](HANDOFF-AGENT-authored-excerpt-selection.md) repairs
+that separate contract; source-reuse semantics are retained. Graph/history reuse,
+full journeys, repeated latency and full-goal acceptance remain open.

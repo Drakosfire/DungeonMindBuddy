@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `9995299ef14dcfdd9c42ca9c075d6ebf64382f9a` (through PR #1614).
+**Evidence anchor:** remote main `319e45fac00b4ae2152e5a0d895ac60e5e2f0866` (through PR #1615).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -102,8 +102,22 @@ identical source window. The next bounded contract is
 [retained passage reuse](../Plans/HANDOFF-AGENT-retained-passage-reuse.md): explicit
 current-turn reuse admission with prior producer proof and current pin verification.
 Architecture critique and exact-head Bugbot review were adopted in #1614.
-The shared implementation is now active under that handoff; runtime reuse and
-additional latency acceptance remain unproven until reviewed delivery.
+#1615 delivers shared retained-passage admission with exact prior producer/current
+pin proof, atomic protected bytes, explicit reuse inclusion, honest accounting and
+Debug. Bugbot approved after three cycles; APP0047 and8000/5202 are live. Ordinary
+Plan4.590s and Play13.191s each reused one passage with zero fresh source reads.
+Both exact citations reopened after protected restart, retaining1752 APP rows,
+all native rows,79 mechanics files and17 frozen components. This proves reuse,
+not a general latency improvement.
+
+The original swamp/Edge query reused five passages with zero fresh reads but
+failed delivery at9.042s: the writer regenerated authored Plan text that was not a
+literal frozen excerpt. Pure replay of saved actual bytes reproduces the rejection.
+[Authored excerpt selection](../Plans/HANDOFF-AGENT-authored-excerpt-selection.md)
+is the next bounded repair: the model selects exposed block handles; the host
+materializes exact text. Architecture critique is adopted; implementation waits
+for exact-head contract review/adoption. No fuzzy quote acceptance, new retry/judge
+or extra arbitrary cap. Full journeys and consistent original~10s remain open.
 
 ## Product decisions that remain in force
 
