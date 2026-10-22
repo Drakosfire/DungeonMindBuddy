@@ -12,7 +12,7 @@ const actorKinds = new Set(['npc', 'threat', 'creature', 'monster']);
 /** A Surface-owned draft editor. Loading identity never invents or loads mechanics. */
 export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onAdd }: {
   worldId: string; disabled: boolean; remainingSlots: number;
-  onAdd: (entities: CombatEntity[], group: CombatGroup | null) => void;
+  onAdd: (entities: CombatEntity[], group: CombatGroup | null) => string | void;
 }) {
   const [world, setWorld] = useState<ManagedWorldGraphProjectionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,9 +93,10 @@ export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onA
       statblock_path: null, statblock_artifact_id: null, statblock_title: null, corpus_fingerprint: null,
       world_identity: selected, mechanics_snapshot: snapshot,
     }));
-    onAdd(entities, copies > 1 ? {group_key: crypto.randomUUID(), label: name.trim(),
+    const refusal = onAdd(entities, copies > 1 ? {group_key: crypto.randomUUID(), label: name.trim(),
       statblock_path: null, member_ids: entities.map(entity => entity.id), collapsed: false} : null);
-    setName(''); setSelected(null); discardPreview();
+    if (refusal) {setError(refusal); return;}
+    setError(null); setName(''); setSelected(null); discardPreview();
   }
   return <details className="combat-assembly"><summary>Add combatants</summary>
     <p>Choose a World creature or enter a name. Enter the stats you want to track; World identity alone supplies no mechanics.</p>

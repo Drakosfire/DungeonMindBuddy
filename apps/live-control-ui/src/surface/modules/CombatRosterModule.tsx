@@ -497,10 +497,17 @@ export function CombatRosterModule() {
               </header>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
                 worldId={worldId} disabled={busy !== null} remainingSlots={100 - visibleDraft.entities.length}
-                onAdd={(entities, group) => updateDraft(current => ({...current,
-                  entities: [...current.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
-                  groups: group ? [...current.groups, group] : current.groups,
-                }))} />
+                onAdd={(entities, group) => {
+                  const proposed = {...visibleDraft,
+                    entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
+                    groups: group ? [...visibleDraft.groups, group] : visibleDraft.groups,
+                  };
+                  // Mirror the owning APP draft limit over the complete UTF-8 payload.
+                  if (new TextEncoder().encode(JSON.stringify(proposed)).byteLength > 700 * 1024) {
+                    return 'These copies exceed the encounter’s 700 KiB storage capacity. Reduce copies before adding; your draft is unchanged.';
+                  }
+                  updateDraft(() => proposed);
+                }} />
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (

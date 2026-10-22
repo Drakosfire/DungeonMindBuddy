@@ -36,8 +36,9 @@ CAS. Existing actor snapshot/source identity is immutable; later saved encounter
 read/edit/reopen does not refresh external mechanics. Per-copy tracker fields are
 independent. Generic manual-tracking retains manual/null AC/HP; no D&D projection.
 Selection/World/encounter changes invalidate late previews. New preview is explicit;
-no per-keystroke/repeated-per-copy Graph or DMS reads. Actor count and draft byte
-bounds remain existing constraints; add no arbitrary new caps or compatibility path.
+no per-keystroke/repeated-per-copy Graph or DMS reads. The host checks the complete proposed UTF-8 draft against the existing700KiB
+capacity before appending snapshots; refusal preserves both prior edits and assembly
+inputs. Actor count and draft byte bounds remain existing constraints; add no arbitrary new caps or compatibility path.
 
 Exclusive expected writes: this handoff; predecessor association handoff and
 Docs/Roadmaps/ROADMAP-demo.md; src/application_state/combat_encounters/{types,service}.py;
