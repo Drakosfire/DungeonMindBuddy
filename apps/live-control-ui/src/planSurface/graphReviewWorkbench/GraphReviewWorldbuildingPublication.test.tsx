@@ -84,7 +84,7 @@ describe("existing World worldbuilding publication", () => {
     expect(screen.getByRole("button", {name: "Prepare proposed changes"})).toBeDisabled();
   });
   it("allows first-World flow only on an explicit missing native binding plus exact eligibility", async () => {
-    vi.mocked(live.postManagedWorldGraphProjection).mockRejectedValue(new live.LiveApiError("missing", 409, {code: "native_graph_binding_missing"}));
+    vi.mocked(live.postManagedWorldGraphProjection).mockRejectedValue(new live.LiveApiError("missing", 409, {code: "native_graph_provisioning_pending"}));
     render(<GraphReviewWorldbuildingPublication review={review} />);
     await screen.findByText("First World review"); expect(api.getWorldbuildingCapabilities).not.toHaveBeenCalled();
   });
@@ -349,7 +349,7 @@ describe("durable exact Worldbuilding recovery", () => {
 it('routes retained creation to recovery after initialization instead of existing-World publication',async()=>{
   const bound={...review,assertions:review.assertions.map(row=>({...row,evidence:[{sourceArtifactId:review.sourceArtifactId,
     sourceSpanRefId:'span-a',paragraphText:'A source-backed claim.',anchorQuotes:['source-backed']}]}))};
-  await saveFirstWorldRecovery(bound,withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v1',planId:'first-plan',planDigest:'sha256:'+'a'.repeat(64),
+  await saveFirstWorldRecovery(bound,withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v2',nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'first-plan',planDigest:'sha256:'+'a'.repeat(64),
     decisionDigest:'sha256:'+'b'.repeat(64),worldId:'world-a',runId:review.runId,sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,
     workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion-a','assertion-b','assertion-c'],
     rejectedAssertionIds:[],contributionId:'contribution-a',contributionPayloadSha256:'c'.repeat(64),

@@ -33,7 +33,6 @@ from apps.live_control_server.ports.world_graph_initialization import (
 from apps.live_control_server.ports.world_graph_initialization_access import (
     get_world_graph_initialization_authority,
 )
-from apps.live_control_server.services.first_world_graph import first_world_initialization_id
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.party_context import (
     CAMPAIGN_CORPUS,
@@ -42,6 +41,13 @@ from graph_memory.party_context import (
     party_registry_path,
 )
 from graph_memory.standing_context_partition import party_registry_artifact_id
+
+
+def _recap_initialization_id(world_id: str, plan_id: str) -> str:
+    """Retain the recap contract's operation identity, independently of Build provisioning."""
+    payload = json.dumps({"world_id": world_id, "plan_id": plan_id},
+                         sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return f"dmb:first-world:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
 class RecapWorldGenesisError(ValueError):
@@ -158,7 +164,7 @@ def _materialize_plan(
     plan_id = f"recap-world-genesis:{plan_digest[:24]}"
     plan = RecapWorldGenesisPlan(
         plan_id=plan_id, plan_digest=f"sha256:{plan_digest}",
-        initialization_id=first_world_initialization_id(request.world_id, plan_id),
+        initialization_id=_recap_initialization_id(request.world_id, plan_id),
         **semantic,
     )
     return plan, artifact, contribution

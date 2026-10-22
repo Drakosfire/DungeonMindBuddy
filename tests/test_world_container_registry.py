@@ -252,7 +252,7 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
     from apps.live_control_server.services.world_graph_binding import (
         bind_native_graph, deactivate_native_graph_binding, WorldGraphBindingError,
     )
-    from apps.live_control_server.services.first_world_graph import admit_managed_world
+    from apps.live_control_server.services.first_world_graph import first_world_native_target
     from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
 
     world = create_world_container(root, name="Reserved sources")
@@ -267,9 +267,9 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
                           authority_validator=lambda _: pytest.fail("must reject before native read"))
     with pytest.raises(WorldGraphBindingError):
         deactivate_native_graph_binding(root, world.world_id, expected_binding_version=1)
-    with pytest.raises(WorldbuildingWritePlanError) as error:
-        admit_managed_world(root, world.world_id)
-    assert error.value.code == "native_graph_provisioning_pending"
+    target = first_world_native_target(root, world.world_id)
+    assert target.native_world_id == reserved.native_world_id
+    assert target.provisioning_id == reserved.provisioning_id
     assert get_world_container(root, world.world_id) == world
 
 

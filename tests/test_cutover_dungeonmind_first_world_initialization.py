@@ -35,7 +35,6 @@ from apps.live_control_server.ports.world_graph_initialization import (
 from apps.live_control_server.ports.world_graph_initialization_access import (
     get_world_graph_initialization_authority,
 )
-from apps.live_control_server.services.first_world_graph import first_world_initialization_id
 from apps.live_control_server.services.first_world_graph_publication import (
     _initialization_request,
 )
@@ -50,7 +49,6 @@ from tests._cutover_d3a_blocker_safe_fixtures import (
 from tests._cutover_d3a_blocker_safe_fixtures import (
     FIRST_WORLD_CONFIRM_URL,
     FIRST_WORLD_PREPARE_URL,
-    GLASS_ORCHARD_WORLD_ID,
     first_world_confirm_body as _first_world_confirm_body,
     first_world_decisions as _first_world_decisions,
     first_world_prepare_body as _first_world_prepare_body,
@@ -63,6 +61,8 @@ pytest_plugins = ("tests.application_state.conftest",)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REJECTED_NODE_ID = "obj_rejected_extra"
+NATIVE_RESERVED_WORLD_ID = "world:" + "1" * 32
+LOCAL_TOKEN = "reviewed-world-provisioning-local-token-long-enough"
 
 
 def _forbidden_imports(path: Path, names: tuple[str, ...]) -> list[str]:
@@ -270,21 +270,6 @@ def test_projection_constructor_consumes_reviewed_world_initializations() -> Non
     ).read_text(encoding="utf-8")
     assert "reviewed_world_initializations=bundle.reviewed_world_initializations" in source
     assert "WorldGraphProjectionService(" in source
-
-
-def test_initialization_id_is_deterministic() -> None:
-    first = first_world_initialization_id("the-glass-orchard", "plan-a")
-    second = first_world_initialization_id("the-glass-orchard", "plan-a")
-    other = first_world_initialization_id("the-glass-orchard", "plan-b")
-    assert first == second
-    assert first.startswith("dmb:first-world:")
-    assert first != other
-    payload = json.dumps(
-        {"world_id": "the-glass-orchard", "plan_id": "plan-a"},
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    assert first == "dmb:first-world:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def test_factory_is_dungeonmind_only_and_rejects_alternate_root(
@@ -559,7 +544,13 @@ def native_first_world_client(
     monkeypatch.setattr(live_config, "repo_root", lambda: repo)
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
-    client = TestClient(create_app())
+    from apps.live_control_server.services import world_container_registry
+    from uuid import UUID
+    monkeypatch.setattr(world_container_registry, "uuid4", lambda: UUID("1" * 32))
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_TOKEN)
+    client = TestClient(create_app(), client=("127.0.0.1", 50000), headers={"Authorization": f"Bearer {LOCAL_TOKEN}"})
     return client, world_root, repo, dsn
 
 
@@ -595,6 +586,7 @@ def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRe
     rematerialized = materialize_first_world_plan(
         preview=typed_preview,
         world_id=plan["worldId"],
+        native_target=FirstWorldGraphConfirmRequest.model_validate(_first_world_confirm_body(plan)).plan.native_target,
         run_id=plan["runId"],
         source_artifact_id=plan["sourceArtifactId"],
         source_revision_id=plan["sourceRevisionId"],
@@ -631,7 +623,7 @@ def _bundle(dsn: str):
     return PostgresRepositoryBundle(PostgresDatabase(dsn))
 
 
-def _project_native(dsn: str, *, world_id: str, campaign_id: str):
+def _project_native(dsn: str, *, world_id: str, campaign_id: str | None):
     from dungeonmind.application.world_graph_projection import WorldGraphProjectionService
     from dungeonmind.contracts.projection import Admissibility
     from dungeonmind.contracts.projection_v2 import ScopeModeV2, WorldGraphProjectionRequestV2
@@ -653,7 +645,7 @@ def _project_native(dsn: str, *, world_id: str, campaign_id: str):
             world_id=world_id,
             campaign_id=campaign_id,
             admissibility=Admissibility.GM,
-            scope_mode=ScopeModeV2.CAMPAIGN,
+            scope_mode=ScopeModeV2.WORLD if campaign_id is None else ScopeModeV2.CAMPAIGN,
         )
     )
     return result, bundle
@@ -882,10 +874,10 @@ def test_native_review_prepare_confirm_with_buddy_graph_absent(
     native_first_world_client,
 ) -> None:
     client, world_root, repo, dsn = native_first_world_client
-    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+    glass_dir = world_root / "graph_memory" / "worlds" / NATIVE_RESERVED_WORLD_ID
     run_id, plan = _prepare_native_plan(client, repo, with_rejected=True)
     assert not glass_dir.exists()
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 0
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["receipts"] == 0
 
 
     review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
@@ -923,7 +915,7 @@ def test_native_empty_to_d0_topology_and_source_closure(
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 200, confirm.text
     published = confirm.json()["committedRevisionId"]
-    counts = _counts(dsn, GLASS_ORCHARD_WORLD_ID)
+    counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
     assert counts["heads"] == 1
     assert counts["revisions"] == 1
     assert counts["receipts"] == 1
@@ -931,14 +923,14 @@ def test_native_empty_to_d0_topology_and_source_closure(
     assert counts["artifacts"] == 1
     assert counts["revisions_src"] == 1
     assert counts["adoptions"] == 0
-    assert not (world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID).exists()
+    assert not (world_root / "graph_memory" / "worlds" / NATIVE_RESERVED_WORLD_ID).exists()
 
 
     bundle = _bundle(dsn)
-    head = bundle.world_graph.get_head(GLASS_ORCHARD_WORLD_ID)
+    head = bundle.world_graph.get_head(NATIVE_RESERVED_WORLD_ID)
     assert head is not None
     assert head.head_revision_id == published
-    stored = bundle.world_graph.get_revision(GLASS_ORCHARD_WORLD_ID, published)
+    stored = bundle.world_graph.get_revision(NATIVE_RESERVED_WORLD_ID, published)
     assert stored is not None
     assert stored.revision.parent_revision_id is None
     payload = stored.graph_payload
@@ -948,10 +940,10 @@ def test_native_empty_to_d0_topology_and_source_closure(
     assert REJECTED_NODE_ID not in object_ids
 
 
-    init = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    init = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
     assert init is not None
     contribution = bundle.contributions.get(
-        GLASS_ORCHARD_WORLD_ID, init.reviewed_contribution_id
+        NATIVE_RESERVED_WORLD_ID, init.reviewed_contribution_id
     )
     assert contribution is not None
     vial = next(
@@ -977,8 +969,8 @@ def test_native_empty_to_d0_topology_and_source_closure(
 
     profile = _genesis_semantic_profile()
     assert profile.profile_id == "dungeonmind.dnd5e"
-    artifact_ids = {row[0] for row in _artifact_ids(dsn, GLASS_ORCHARD_WORLD_ID)}
-    revision_ids = {row[0] for row in _revision_ids(dsn, GLASS_ORCHARD_WORLD_ID)}
+    artifact_ids = {row[0] for row in _artifact_ids(dsn, NATIVE_RESERVED_WORLD_ID)}
+    revision_ids = {row[0] for row in _revision_ids(dsn, NATIVE_RESERVED_WORLD_ID)}
     assert artifact_ids
     assert revision_ids
     for assertion in contribution.assertions:
@@ -1011,8 +1003,8 @@ def test_native_empty_to_d0_topology_and_source_closure(
 
     projected, _ = _project_native(
         dsn,
-        world_id=GLASS_ORCHARD_WORLD_ID,
-        campaign_id=plan.get("campaignScope") or plan["worldId"],
+        world_id=NATIVE_RESERVED_WORLD_ID,
+        campaign_id=None,
     )
     admitted = set(projected.graph.objects)
     assert "obj_session22_vial" in admitted
@@ -1064,11 +1056,11 @@ def _assert_corrected_preserves_historical_identity(corrected, historical) -> No
     assert current != historical_hash
     identity = reviewed_world_initialization_replay_identity(corrected)
     assert identity.current_command_sha256 == current
-    assert identity.historical_other_normalized_sha256 == historical_hash
+    assert identity.historical_other_normalized_sha256 is None
 
 
 @pytest.mark.integration
-def test_corrected_command_preserves_historical_evidence_identity(
+def test_v2_command_has_no_historical_other_replay_identity(
     native_first_world_client,
 ) -> None:
     client, _world, repo, _dsn = native_first_world_client
@@ -1082,7 +1074,7 @@ def test_corrected_command_preserves_historical_evidence_identity(
 
 
 @pytest.mark.integration
-def test_historical_other_receipt_replays_as_already_initialized(
+def test_v2_command_refuses_historical_other_receipt_without_mutation(
     native_first_world_client,
 ) -> None:
     from dungeonmind.application.reviewed_world_initialization import (
@@ -1117,7 +1109,7 @@ def test_historical_other_receipt_replays_as_already_initialized(
         graph_reader=_build_graph_reader(),
     )
     stored = bundle.world_graph.get_revision(
-        GLASS_ORCHARD_WORLD_ID, seeded.published_revision_id
+        NATIVE_RESERVED_WORLD_ID, seeded.published_revision_id
     )
     assert stored is not None
     assert stored.revision.parent_revision_id is None
@@ -1131,42 +1123,33 @@ def test_historical_other_receipt_replays_as_already_initialized(
         assert record["source_domain_key"] == "other"
     historical_hash = reviewed_world_initialization_command_sha256(historical)
     assert seeded.command_sha256 == historical_hash
-    counts = _counts(dsn, GLASS_ORCHARD_WORLD_ID)
+    counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
     assert counts["revisions"] == 1
     assert counts["receipts"] == 1
     assert counts["adoptions"] == 0
 
 
-    replayed = DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(
-        request
-    )
-    assert replayed.outcome == "already_initialized"
-    assert replayed.published_revision_id == seeded.published_revision_id
-    assert replayed.command_sha256 == historical_hash
-    after = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    with pytest.raises(WorldGraphInitializationError) as error:
+        DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(request)
+    assert error.value.code == "idempotency_conflict"
+    after = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
     assert after is not None
     assert after.command_sha256 == historical_hash
     identity = reviewed_world_initialization_replay_identity(corrected)
-    assert identity.historical_other_normalized_sha256 == after.command_sha256
+    assert identity.historical_other_normalized_sha256 is None
     unchanged = bundle.world_graph.get_revision(
-        GLASS_ORCHARD_WORLD_ID, seeded.published_revision_id
+        NATIVE_RESERVED_WORLD_ID, seeded.published_revision_id
     )
     assert unchanged is not None
     assert unchanged.graph_payload == historical_payload
-    after_counts = _counts(dsn, GLASS_ORCHARD_WORLD_ID)
+    after_counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
     assert after_counts["revisions"] == 1
     assert after_counts["receipts"] == 1
     assert after_counts["adoptions"] == 0
 
 
-    projected, _ = _project_native(
-        dsn,
-        world_id=GLASS_ORCHARD_WORLD_ID,
-        campaign_id=plan.get("campaignScope") or plan["worldId"],
-    )
-    admitted = set(projected.graph.objects)
-    assert "obj_session22_vial" in admitted
-    assert "mystery_puddles" in admitted
+    # Preserved OTHER-domain history is not silently made eligible as current
+    # World-scoped authored evidence by this rejected v2 command.
     for record in unchanged.graph_payload.get("evidence_refs") or []:
         assert record["source_domain"] == SourceDomain.OTHER.value
         assert record["source_domain_key"] == "other"
@@ -1181,20 +1164,20 @@ def test_native_exact_retry_reuses_receipt_timestamp(
     first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert first.status_code == 200, first.text
     bundle = _bundle(dsn)
-    original = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    original = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
     assert original is not None
     retry = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert retry.status_code == 200, retry.text
     assert retry.json()["outcome"] == "already_initialized"
     assert retry.json()["committedRevisionId"] == first.json()["committedRevisionId"]
     assert retry.json()["baselineRevisionId"] is None
-    replayed = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    replayed = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
     assert replayed is not None
     assert replayed.command_sha256 == original.command_sha256
     assert replayed.initialized_at == original.initialized_at
     assert replayed.published_revision_id == original.published_revision_id
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["receipts"] == 1
 
 
 @pytest.mark.integration
@@ -1229,8 +1212,8 @@ def test_native_lost_response_restart_replays_same_d0(
     retry = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert retry.status_code == 200, retry.text
     assert retry.json()["outcome"] == "already_initialized"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["receipts"] == 1
 
 
 @pytest.mark.integration
@@ -1342,8 +1325,8 @@ def test_native_synchronized_identical_confirms_recover_via_timestamp_conflict(
     assert len(replay_stamps) == 2
     assert receipt_reads.count(None) == 2
     assert sum(1 for item in receipt_reads if item is not None) == 1
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["receipts"] == 1
 
 
 @pytest.mark.integration
@@ -1363,7 +1346,7 @@ def test_native_changed_command_conflicts(native_first_world_client) -> None:
     with pytest.raises(WorldGraphInitializationError) as exc_info:
         adapter.initialize(changed)
     assert exc_info.value.code == "idempotency_conflict"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 1
 
 
 @pytest.mark.integration
@@ -1380,17 +1363,13 @@ def test_native_non_pristine_without_receipt_fails_closed(
     with psycopg.connect(dsn) as conn:
         conn.execute(
             "DELETE FROM dungeonmind.reviewed_world_initializations WHERE world_id = %s",
-            (GLASS_ORCHARD_WORLD_ID,),
+            (NATIVE_RESERVED_WORLD_ID,),
         )
         conn.commit()
     second = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert second.status_code == 409, second.text
-    assert second.json()["code"] in {
-        "world_already_initialized",
-        "first_world_initialization_failed",
-        "first_world_idempotency_conflict",
-    }
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
+    assert second.json()["code"] == "native_graph_binding_changed"
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 1
 
 
 @pytest.mark.integration
@@ -1432,7 +1411,7 @@ def test_native_workspace_drift_fails_before_publication(
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 422, confirm.text
     assert confirm.json()["code"] == "workspace_lineage_mismatch"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 0
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["receipts"] == 0
 
 
 @pytest.mark.integration
@@ -1454,12 +1433,12 @@ def test_native_receipt_without_head_is_integrity_not_unavailable(
     with psycopg.connect(dsn) as conn:
         conn.execute(
             "DELETE FROM dungeonmind.world_graph_heads WHERE world_id = %s",
-            (GLASS_ORCHARD_WORLD_ID,),
+            (NATIVE_RESERVED_WORLD_ID,),
         )
         conn.commit()
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
     with pytest.raises(WorldGraphInitializationError) as probe_exc:
-        adapter.probe(GLASS_ORCHARD_WORLD_ID)
+        adapter.probe(NATIVE_RESERVED_WORLD_ID)
     assert type(probe_exc.value) is WorldGraphInitializationError
     assert probe_exc.value.code == "integrity_failure"
     assert probe_exc.value.details.get("reason") == "reviewed_init_receipt_without_head"
@@ -1497,12 +1476,12 @@ def test_native_corrupt_d0_receipt_is_integrity_not_unavailable(
             "UPDATE dungeonmind.graph_revisions "
             "SET parent_revision_id = revision_id "
             "WHERE world_id = %s",
-            (GLASS_ORCHARD_WORLD_ID,),
+            (NATIVE_RESERVED_WORLD_ID,),
         )
         conn.commit()
     adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
     with pytest.raises(WorldGraphInitializationError) as probe_exc:
-        adapter.probe(GLASS_ORCHARD_WORLD_ID)
+        adapter.probe(NATIVE_RESERVED_WORLD_ID)
     assert type(probe_exc.value) is WorldGraphInitializationError
     assert probe_exc.value.code == "integrity_failure"
     with pytest.raises(WorldGraphInitializationError) as init_exc:
@@ -1696,3 +1675,93 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
             sort_keys=True,
         )
     )
+
+
+@pytest.mark.integration
+def test_fresh_source_receipt_survives_reviewed_graph_activation(native_first_world_client):
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as native
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        ManagedWorldGraphProjectionRequest, project_managed_world_graph,
+    )
+    client, _, repo, dsn = native_first_world_client
+    _, plan = _prepare_native_plan(client, repo)
+    source_id = plan["workspaceDocumentId"]
+    snapshot = native.get_workspace_document_snapshot(repo, source_id)
+    admitted = native.admit_native_world_source(repo, source_id,
+        expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
+    before = get_world_container(repo, plan["worldId"]).native_graph_binding
+    assert before.status == "provisioning"
+    assert _bundle(dsn).world_graph.get_head(before.native_world_id) is None
+    assert admitted.space_id == before.native_world_id != plan["worldId"]
+    confirmed = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert confirmed.status_code == 200, confirmed.text
+    active = get_world_container(repo, plan["worldId"]).native_graph_binding
+    assert active.status == "active"
+    assert active.native_world_id == before.native_world_id
+    assert active.provisioning_id == before.provisioning_id
+    assert active.binding_version == before.binding_version == 1
+    assert native.get_native_world_source_status(repo, source_id) == admitted
+    projection = project_managed_world_graph(ManagedWorldGraphProjectionRequest.model_validate({
+        "schema":"dmb_managed_world_graph_projection_request_v1", "managedWorldId":plan["worldId"],
+    }), root=repo)
+    assert projection.native_world_id == before.native_world_id
+    assert projection.projection.snapshot.revision_id == confirmed.json()["committedRevisionId"]
+    assert projection.projection.nodes
+    assert _bundle(dsn).world_graph.get_head(plan["worldId"]) is None
+
+
+@pytest.mark.integration
+def test_published_graph_recovers_after_activation_write_failure(native_first_world_client, monkeypatch):
+    from apps.live_control_server.services import world_graph_binding as binding
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    client, _, repo, dsn = native_first_world_client
+    run_id, plan = _prepare_native_plan(client, repo)
+    reservation = get_world_container(repo, plan["worldId"]).native_graph_binding
+    original = binding._save_cas
+    def unavailable(*args, **kwargs):
+        raise OSError("synthetic registry write interruption")
+    monkeypatch.setattr(binding, "_save_cas", unavailable)
+    interrupted = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert interrupted.status_code == 503, interrupted.text
+    assert interrupted.json()["code"] == "native_graph_activation_pending"
+    assert get_world_container(repo, plan["worldId"]).native_graph_binding == reservation
+    assert _counts(dsn, reservation.native_world_id)["revisions"] == 1
+    # Reconstructing exact reviewed choices after restart retains the operation
+    # and command; it cannot mint another World or another D0.
+    rebuilt = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
+    assert rebuilt.status_code == 200, rebuilt.text
+    assert rebuilt.json() == plan
+    monkeypatch.setattr(binding, "_save_cas", original)
+    recovered = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(rebuilt.json()))
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["outcome"] == "already_initialized"
+    assert get_world_container(repo, plan["worldId"]).native_graph_binding.status == "active"
+    assert _counts(dsn, reservation.native_world_id)["revisions"] == 1
+    assert _counts(dsn, reservation.native_world_id)["receipts"] == 1
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("field,value", [("nativeWorldId", "world:"+"f"*32), ("provisioningId", "provision:"+"f"*32), ("bindingVersion", 2)])
+def test_first_publication_rejects_tampered_native_target(native_first_world_client, field, value):
+    from copy import deepcopy
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    client, _, repo, dsn = native_first_world_client
+    _, plan = _prepare_native_plan(client, repo)
+    before = get_world_container(repo, plan["worldId"])
+    changed = deepcopy(plan)
+    changed["nativeTarget"][field] = value
+    rejected = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(changed))
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["code"] == "native_graph_binding_changed"
+    assert _counts(dsn, before.native_graph_binding.native_world_id)["revisions"] == 0
+    assert get_world_container(repo, plan["worldId"]) == before
+
+
+@pytest.mark.integration
+def test_first_publication_requires_gm_auth_before_run_resolution(native_first_world_client):
+    from fastapi.testclient import TestClient
+    client, _, _, _ = native_first_world_client
+    unauthenticated = TestClient(create_app(), client=("127.0.0.1",50000))
+    response = unauthenticated.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body("missing", _first_world_decisions()))
+    assert response.status_code == 401

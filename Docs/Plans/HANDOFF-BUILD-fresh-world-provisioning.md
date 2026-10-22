@@ -1,6 +1,13 @@
 # BUILD — fresh World native provisioning
 
-Status: ACTIVE. Owner: PRIME, operator's sustained local preparation/play goal.
+Status: SETTLED — #1573 merged e6bf88f72d3e13772cc0603a0281bb4b39079977,
+reviewed head7a399007b5dcd95f279d2ad8d8417f107e9b4a52; Bugbot independently114 tests
+passed. Guarded API delivery retained all1481 APP rows. Ordinary Build created
+combat-mechanics-rehearsal-2, saved source revision2 and admitted/reloaded it
+without repair. No native World Graph head was fabricated. Reviewed initialization
+and activation continue in HANDOFF-BUILD-reviewed-world-activation.md.
+
+Historical authorization: Owner: PRIME, operator's sustained local preparation/play goal.
 Base: `4fbb0911538ef11c2695c52069d43b728f6c1557`.
 Lane: `codex/fresh-world-source-provisioning`, existing buddy-context-loop checkout.
 Topology: serial; one PR for a new World's reserved identity and source admission.

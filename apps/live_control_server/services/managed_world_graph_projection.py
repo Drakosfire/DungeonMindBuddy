@@ -187,10 +187,11 @@ def resolve_managed_source_identity(
             source_root_relpath=record.source_root_relpath,
             provisioning_id=binding.provisioning_id,
         )
-    active = resolve_managed_world_binding(managed_world_id, root=registry_root)
+    native_world_id, binding_version = _active_binding(record)
     return ManagedWorldSourceIdentity(
-        managed_world_id=active.managed_world_id, native_world_id=active.native_world_id,
-        binding_version=active.binding_version, source_root_relpath=active.source_root_relpath,
+        managed_world_id=record.world_id, native_world_id=native_world_id,
+        binding_version=binding_version, source_root_relpath=record.source_root_relpath,
+        provisioning_id=record.native_graph_binding.provisioning_id,
     )
 
 

@@ -31,9 +31,11 @@ function assertFirstWorldEffect(plan:FirstWorldGraphPlan,review:ExactRunReviewPa
 
 export function assertFirstWorldPlan(plan:FirstWorldGraphPlan,review:ExactRunReviewPackage,decisions?:FirstWorldDisposition[]){
   const snapshot=plan?.reviewedEffect?.decision_snapshot;
-  if(!plan||plan.schema!=='dmb_first_world_graph_plan_v1'||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
+  if(!plan||plan.schema!=='dmb_first_world_graph_plan_v2'||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
     ||!nonblank(review.worldId)||plan.worldId!==review.worldId||plan.runId!==review.runId
     ||plan.sourceArtifactId!==review.sourceArtifactId||plan.sourceRevisionId!==review.sourceRevisionId||!digest(review.sourceRevisionId)
+    ||!plan.nativeTarget||!/^world:[a-f0-9]{32}$/.test(plan.nativeTarget.nativeWorldId)
+    ||!/^provision:[a-f0-9]{32}$/.test(plan.nativeTarget.provisioningId)||plan.nativeTarget.bindingVersion!==1
     ||!nonblank(plan.planId)||!digest(plan.planDigest)||!digest(plan.decisionDigest)||!nonblank(plan.contributionId)
     ||!/^[a-f0-9]{64}$/.test(plan.contributionPayloadSha256)||!nonblank(plan.workspaceDocumentId)
     ||typeof plan.workspaceDocumentRevision!=='string'||!/^\d+$/.test(plan.workspaceDocumentRevision)||Number(plan.workspaceDocumentRevision)<1

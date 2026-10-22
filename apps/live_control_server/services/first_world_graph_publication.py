@@ -1,8 +1,8 @@
 """Mounted first-world prepare → confirm (CUTOVER D.2C2).
 
 Product code talks only to ``WorldGraphInitializationAuthority``. Native
-confirm does not open Buddy World Graph files. Kernel/filesystem initialization
-stays behind explicit buddy_files compatibility.
+confirm does not open Buddy World Graph files. Native reviewed initialization
+and verified reservation activation are the only mounted creation path.
 """
 
 from __future__ import annotations
@@ -38,9 +38,8 @@ from apps.live_control_server.services.extract_promote import (
 from apps.live_control_server.services.first_world_graph import (
     FIRST_WORLD_PLAN_SCHEMA,
     FirstWorldLineage,
-    admit_managed_world,
+    first_world_native_target,
     cross_check_workspace_lineage,
-    first_world_initialization_id,
     materialize_first_world_plan,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
@@ -104,16 +103,19 @@ def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
             ],
         )
     try:
-        admit_managed_world(live_config.repo_root(), world_id)
+        target = first_world_native_target(live_config.repo_root(), world_id)
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
     try:
         probed = get_world_graph_initialization_authority(
             world_root=live_config.world_graph_root()
-        ).probe(world_id)
+        ).probe(target.native_world_id)
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
-    if probed.state == "initialized":
+    from apps.live_control_server.services.world_container_registry import get_world_container, NativeGraphProvisioningRecord
+    record = get_world_container(live_config.managed_world_data_root(live_config.repo_root()), world_id)
+    recovering = isinstance(record.native_graph_binding, NativeGraphProvisioningRecord) and probed.initialization_id == target.provisioning_id
+    if record.native_graph_binding.status == "active" or (probed.state == "initialized" and not recovering):
         raise ExtractPromoteError(
             "World Graph already exists for this world",
             code="world_already_initialized",
@@ -183,11 +185,13 @@ def prepare_first_world(
     )
 
     _world_id, lineage = _require_first_world_admission(resolved)
+    native_target = first_world_native_target(live_config.repo_root(), lineage.world_id)
 
     try:
         materialized = materialize_first_world_plan(
             preview=typed_preview,
             world_id=lineage.world_id,
+            native_target=native_target,
             run_id=resolved.run_id,
             source_artifact_id=lineage.source_artifact_id,
             source_revision_id=lineage.source_revision_id,
@@ -213,6 +217,7 @@ def prepare_first_world(
         plan_digest=materialized.plan_digest,
         decision_digest=materialized.decision_digest,
         world_id=lineage.world_id,
+        native_target=native_target,
         run_id=resolved.run_id,
         source_artifact_id=lineage.source_artifact_id,
         source_revision_id=lineage.source_revision_id,
@@ -351,11 +356,9 @@ def _initialization_request(
         live_config.repo_root(), plan.source_artifact_id
     )
     return WorldGraphInitializationRequest(
-        world_id=plan.world_id,
-        campaign_id=plan.world_id,
-        initialization_id=first_world_initialization_id(
-            plan.world_id, rematerialized.plan_id
-        ),
+        world_id=plan.native_target.native_world_id,
+        campaign_id=None,
+        initialization_id=plan.native_target.provisioning_id,
         source_plan_schema=FIRST_WORLD_PLAN_SCHEMA,
         source_plan_id=rematerialized.plan_id,
         source_plan_sha256=rematerialized.plan_digest,
@@ -476,7 +479,12 @@ def confirm_first_world(
         )
 
     try:
-        admit_managed_world(live_config.repo_root(), plan.world_id)
+        target = first_world_native_target(live_config.repo_root(), plan.world_id)
+        if target != plan.native_target:
+            raise WorldbuildingWritePlanError(
+                "World provisioning identity changed after review.",
+                code="native_graph_binding_changed", status_code=409,
+            )
         lineage = cross_check_workspace_lineage(
             live_config.repo_root(),
             source_artifact_id=resolved.source_artifact_id,
@@ -558,6 +566,7 @@ def confirm_first_world(
         rematerialized = materialize_first_world_plan(
             preview=typed_preview,
             world_id=plan.world_id,
+            native_target=target,
             run_id=plan.run_id,
             source_artifact_id=plan.source_artifact_id,
             source_revision_id=plan.source_revision_id,
@@ -625,9 +634,19 @@ def confirm_first_world(
 
     authority = get_world_graph_initialization_authority(world_root=world_root)
     try:
-        probed = authority.probe(plan.world_id)
+        probed = authority.probe(target.native_world_id)
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    current_binding = get_world_container(
+        live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+    ).native_graph_binding
+    if current_binding.status == "active" and (
+        probed.state != "initialized" or probed.initialization_id != target.provisioning_id
+        or probed.published_revision_id != current_binding.initialization_revision_id
+    ):
+        raise ExtractPromoteError("Active World initialization proof changed.",
+                                  code="native_graph_binding_changed", status_code=409)
     if probed.state == "unreadable":
         raise ExtractPromoteError(
             "World Graph storage exists but is unreadable",
@@ -665,6 +684,19 @@ def confirm_first_world(
                 )
             ],
         )
+    from apps.live_control_server.services.world_graph_binding import (
+        activate_reviewed_native_graph, WorldGraphBindingError,
+    )
+    try:
+        activate_reviewed_native_graph(
+            live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+            target=target, receipt=port_receipt,
+            plan_id=plan.plan_id, plan_digest=plan.plan_digest,
+        )
+    except WorldGraphBindingError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="native_graph_activation_pending", status_code=exc.status_code,
+        ) from exc
     return _first_world_confirm_receipt(
         outcome=outcome,
         plan=plan,

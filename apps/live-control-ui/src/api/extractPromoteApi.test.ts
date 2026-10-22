@@ -1,6 +1,6 @@
 import * as liveApi from "./liveApi";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   correctRecapRunEvidence,
@@ -20,6 +20,11 @@ function mockJsonResponse(payload: unknown): Response {
 }
 
 describe("extractPromoteApi confirm", () => {
+  beforeEach(() => {
+    vi.spyOn(liveApi, "authenticatedApiFetch").mockImplementation(async (path, init) => ({
+      response: await fetch(path, init), csrf: null, requestEpoch: 1,
+    }));
+  });
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -70,7 +75,8 @@ describe("extractPromoteApi confirm", () => {
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({
-        schema: "dmb_first_world_graph_plan_v1",
+        schema: "dmb_first_world_graph_plan_v2",
+      nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
         planId: "first-world-graph-plan:abc",
         planDigest: "sha256:plan",
         decisionDigest: "sha256:decisions",
@@ -114,7 +120,8 @@ describe("extractPromoteApi confirm", () => {
 
   it("confirmFirstWorldGraph posts only schema and sealed plan", async () => {
     const plan = {
-      schema: "dmb_first_world_graph_plan_v1",
+      schema: "dmb_first_world_graph_plan_v2",
+      nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
       planId: "first-world-graph-plan:abc",
       planDigest: "sha256:plan",
       decisionDigest: "sha256:decisions",
