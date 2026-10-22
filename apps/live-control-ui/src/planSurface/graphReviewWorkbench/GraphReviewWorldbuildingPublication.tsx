@@ -20,21 +20,29 @@ const message = (error: unknown) => error instanceof Error ? error.message : "Wo
 export function GraphReviewWorldbuildingPublication(props: Props) {
   const world = useSelectedWorld();
   const [epoch, setEpoch] = useState(0);
-  const scope=JSON.stringify([world.kind,world.kind==='managed'?world.worldId:null,props.review.runId,props.review.sourceRevisionId]);
+  const scope=JSON.stringify([world.kind,world.kind==='managed'?world.worldId:null,props.review.runId,props.review.sourceArtifactId,props.review.sourceRevisionId]);
   const currentScope=useRef(scope);currentScope.current=scope;
-  const isCurrent=()=>currentScope.current===scope;
+  const isCurrent=()=>currentScope.current===scope&&(props.isCurrent?.()??true);
   if (world.kind !== "managed" || props.review.worldId !== world.worldId) {
     return <p role="status">Select the verified World belonging to this exact source to review publication.</p>;
   }
   if (props.review.inspectionStatus !== "ready" || props.review.sourceDomain !== "worldbuilding") return null;
-  // Initialization changes eligibility and creates the binding. Recover the
-  // original creation request before considering a different publication mode.
-  try {
-    if(readFirstWorldRecovery(props.review))return <GraphReviewFirstWorldPublishSheet {...props} isCurrent={isCurrent}/>;
-  }catch(reason){return <p role="alert">{message(reason)}</p>;}
-  return <Publication key={`${world.worldId}:${props.review.runId}:${props.review.sourceArtifactId}:${props.review.sourceRevisionId}:${epoch}`}
-    {...props} isCurrent={isCurrent} managedWorldId={world.worldId} onReset={() => setEpoch(n => n + 1)} />;
+  return <PublicationEntry key={`${scope}:${epoch}`} {...props} isCurrent={isCurrent}
+    managedWorldId={world.worldId} onReset={() => setEpoch(n => n + 1)} />;
 }
+function PublicationEntry(props: Props & {managedWorldId: string; onReset: () => void}) {
+  // Choose the route once on entry to this exact source scope. A newly saved
+  // creation request must not reparent an in-flight sheet on a busy/status
+  // update and discard its actual receipt. True remounts still recover explicitly.
+  const [entry] = useState(() => {
+    try { return {creation: readFirstWorldRecovery(props.review) !== null, error: null}; }
+    catch (reason) { return {creation: false, error: message(reason)}; }
+  });
+  if (entry.error) return <p role="alert">{entry.error}</p>;
+  if (entry.creation) return <GraphReviewFirstWorldPublishSheet {...props}/>;
+  return <Publication {...props}/>;
+}
+
 function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, isCurrent}: Props & {managedWorldId: string; onReset: () => void}) {
   const [saved] = useState(() => {
     try { return {recovery: readWorldbuildingPublicationRecovery(review, managedWorldId), error: null}; }
