@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { act, cleanup } from '@testing-library/react';
 import * as mechanicsApi from './combatApi';
 import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
-import type { CombatMechanicsSnapshot } from './combatTypes';
+import type { AssociatedCombatMechanicsSnapshot as CombatMechanicsSnapshot } from './combatTypes';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import * as api from '../api/liveApi';
 import { CombatEncounterAssembly } from './CombatEncounterAssembly';
@@ -140,5 +140,49 @@ it('discards a late preview on World or encounter unmount',async()=>{
   vi.spyOn(mechanicsApi,'previewWorldCombatMechanics').mockReturnValue(new Promise(resolve=>{finish=resolve;}));
   const mounted=await selectAssociated();await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
   mounted.unmount();mount();await act(async()=>finish(mechanics));
+  expect(screen.queryByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.')).toBeNull();
+});
+
+const acceptedChoice = {draft_id:'draft-accepted',draft_version:2,name:'Saved Wolf'};
+const directMechanics = {origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',...acceptedChoice,
+  resource:{definition:{identity:{name:'Saved Wolf'}}},snapshot_digest:'sha256:verified'} as unknown as import('./combatTypes').AcceptedCombatMechanicsSnapshot;
+it('selects accepted mechanics without World discovery and adds independent copies',async()=>{
+  const graph=vi.spyOn(api,'postManagedWorldGraphProjection');
+  vi.spyOn(mechanicsApi,'listAcceptedCombatMechanics').mockResolvedValue({choices:[acceptedChoice],nextOffset:null});
+  const preview=vi.spyOn(mechanicsApi,'previewAcceptedCombatMechanics').mockResolvedValue(directMechanics);
+  const {onAdd}=mount();expect(preview).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('button',{name:'Find saved mechanics'}));
+  await userEvent.click(await screen.findByRole('button',{name:'Saved Wolf Saved mechanics · draft 2'}));
+  await screen.findByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.');
+  fireEvent.change(screen.getByLabelText('Combatant copies'),{target:{value:'2'}});
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+  const actors=onAdd.mock.calls[0][0];expect(actors).toHaveLength(2);
+  expect(actors[0].id).not.toBe(actors[1].id);
+  expect(actors[0]).toMatchObject({world_identity:null,mechanics_snapshot:directMechanics,hp:null,ac:null});
+  expect(actors[1].mechanics_snapshot).toEqual(directMechanics);expect(graph).not.toHaveBeenCalled();
+  expect(preview).toHaveBeenCalledWith('elderwyld',{draft_id:'draft-accepted',draft_version:2});
+});
+it('rejects foreign or stale direct previews without changing entered name',async()=>{
+  vi.spyOn(mechanicsApi,'listAcceptedCombatMechanics').mockResolvedValue({choices:[acceptedChoice],nextOffset:null});
+  vi.spyOn(mechanicsApi,'previewAcceptedCombatMechanics').mockResolvedValue({...directMechanics,draft_version:3});
+  const {onAdd}=mount();fireEvent.change(screen.getByLabelText('Combatant name'),{target:{value:'My PC'}});
+  await userEvent.click(screen.getByRole('button',{name:'Find saved mechanics'}));
+  await userEvent.click(await screen.findByRole('button',{name:'Saved Wolf Saved mechanics · draft 2'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('did not match');
+  expect(screen.getByLabelText('Combatant name')).toHaveValue('My PC');
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+  expect(onAdd.mock.calls[0][0][0].mechanics_snapshot).toBeNull();
+});
+it('ignores direct preview after unmount and pages saved drafts only on request',async()=>{
+  const list=vi.spyOn(mechanicsApi,'listAcceptedCombatMechanics').mockResolvedValueOnce({choices:[],nextOffset:20})
+    .mockResolvedValueOnce({choices:[acceptedChoice],nextOffset:null});
+  let finish!:(snapshot:import('./combatTypes').AcceptedCombatMechanicsSnapshot)=>void;
+  vi.spyOn(mechanicsApi,'previewAcceptedCombatMechanics').mockReturnValue(new Promise(resolve=>{finish=resolve}));
+  const mounted=mount();await userEvent.click(screen.getByRole('button',{name:'Find saved mechanics'}));
+  await userEvent.click(await screen.findByRole('button',{name:'More saved drafts'}));
+  expect(list).toHaveBeenLastCalledWith('elderwyld',20);
+  await userEvent.click(await screen.findByRole('button',{name:'Saved Wolf Saved mechanics · draft 2'}));
+  expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
+  mounted.unmount();mount();await act(async()=>finish(directMechanics));
   expect(screen.queryByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.')).toBeNull();
 });

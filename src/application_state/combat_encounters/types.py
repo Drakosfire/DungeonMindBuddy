@@ -81,21 +81,49 @@ class CombatMechanicsSnapshot(CombatMechanicsSelection):
 
     @model_validator(mode="after")
     def integrity(self):
-        payload = self.model_dump(mode="json", exclude={"snapshot_digest"})
-        if self.snapshot_digest != self.digest_payload(payload):
-            raise ValueError("Combat mechanics snapshot digest is invalid")
-        canonical = self.resource.get("canonical_definition")
-        if not isinstance(canonical, str) or "sha256:" + hashlib.sha256(canonical.encode()).hexdigest() != self.locator.definition_digest:
-            raise ValueError("Combat mechanics canonical digest is invalid")
-        if json.loads(canonical) != self.resource.get("definition"):
-            raise ValueError("Combat mechanics definition differs from canonical text")
-        fields = ("statblock_id", "revision_id", "contract", "contract_version", "definition_digest")
-        if any(self.resource.get(field) != getattr(self.locator, field) for field in fields):
-            raise ValueError("Combat mechanics resource identity is invalid")
-        receipt = self.resource.get("validation_receipt")
-        if not isinstance(receipt, dict) or receipt.get("definition_digest") != self.locator.definition_digest:
-            raise ValueError("Combat mechanics receipt identity is invalid")
-        return self
+        return _snapshot_integrity(self)
+
+
+class AcceptedCombatMechanicsSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    draft_id: UUID
+    draft_version: int = Field(gt=0)
+
+
+class AcceptedCombatMechanicsSnapshot(AcceptedCombatMechanicsSelection):
+    origin: Literal["world_accepted_mechanics_v1"]
+    managed_world_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,62}$")
+    acceptance_operation_id: str = Field(min_length=1)
+    acceptance_request_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    accepted_from_draft_version: int = Field(gt=0)
+    accepted_from_candidate_id: str | None
+    locator: MechanicsLocator
+    resource: dict
+    snapshot_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+    digest_payload = staticmethod(CombatMechanicsSnapshot.digest_payload)
+
+    @model_validator(mode="after")
+    def integrity(self):
+        return _snapshot_integrity(self)
+
+
+def _snapshot_integrity(self):
+    payload = self.model_dump(mode="json", exclude={"snapshot_digest"})
+    if self.snapshot_digest != self.digest_payload(payload):
+        raise ValueError("Combat mechanics snapshot digest is invalid")
+    canonical = self.resource.get("canonical_definition")
+    if not isinstance(canonical, str) or "sha256:" + hashlib.sha256(canonical.encode()).hexdigest() != self.locator.definition_digest:
+        raise ValueError("Combat mechanics canonical digest is invalid")
+    if json.loads(canonical) != self.resource.get("definition"):
+        raise ValueError("Combat mechanics definition differs from canonical text")
+    fields = ("statblock_id", "revision_id", "contract", "contract_version", "definition_digest")
+    if any(self.resource.get(field) != getattr(self.locator, field) for field in fields):
+        raise ValueError("Combat mechanics resource identity is invalid")
+    receipt = self.resource.get("validation_receipt")
+    if not isinstance(receipt, dict) or receipt.get("definition_digest") != self.locator.definition_digest:
+        raise ValueError("Combat mechanics receipt identity is invalid")
+    return self
 
 
 class CombatEntity(BaseModel):
@@ -120,11 +148,11 @@ class CombatEntity(BaseModel):
     corpus_fingerprint: str | None = Field(default=None, max_length=128)
     source: Literal["corpus", "generated_pending", "manual", "imported"] = "manual"
     world_identity: CombatWorldIdentity | None = None
-    mechanics_snapshot: CombatMechanicsSnapshot | None = None
+    mechanics_snapshot: CombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | None = None
 
     @model_validator(mode="after")
     def _mechanics_target(self):
-        if self.mechanics_snapshot and self.world_identity != self.mechanics_snapshot.target:
+        if isinstance(self.mechanics_snapshot, CombatMechanicsSnapshot) and self.world_identity != self.mechanics_snapshot.target:
             raise ValueError("Combat mechanics require the same exact World identity")
         return self
     provenance: list[CombatEntityProvenance] = Field(default_factory=list, max_length=16)

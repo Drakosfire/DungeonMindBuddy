@@ -129,7 +129,14 @@ def save_encounter(
             if entity.mechanics_snapshot is not None and prior is None:
                 if (verified_mechanics_snapshots or {}).get(entity.id) != entity.mechanics_snapshot:
                     raise ApplicationStateValidationError("New mechanics snapshot must be independently verified")
-                new_snapshots.append(entity.mechanics_snapshot)
+                from application_state.combat_encounters.types import AcceptedCombatMechanicsSnapshot
+                if isinstance(entity.mechanics_snapshot, AcceptedCombatMechanicsSnapshot):
+                    if entity.mechanics_snapshot.managed_world_id != canonical_world_id:
+                        raise ApplicationStateValidationError("Accepted mechanics belong to a different World")
+                    if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint or entity.tags:
+                        raise ApplicationStateValidationError("Direct accepted mechanics cannot claim another source")
+                else:
+                    new_snapshots.append(entity.mechanics_snapshot)
             if prior is not None and entity.mechanics_snapshot != prior.mechanics_snapshot:
                 raise ApplicationStateValidationError("Saved combatant mechanics snapshot cannot be changed")
             if prior is not None:

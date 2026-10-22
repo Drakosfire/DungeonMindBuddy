@@ -83,8 +83,28 @@ export async function addGeneratedStatblockToEncounter(
 }
 
 
-export async function previewWorldCombatMechanics(worldId: string, selection: import('./combatTypes').CombatMechanicsSelection): Promise<import('./combatTypes').CombatMechanicsSnapshot> {
+export async function previewWorldCombatMechanics(worldId: string, selection: import('./combatTypes').CombatMechanicsSelection): Promise<import('./combatTypes').AssociatedCombatMechanicsSnapshot> {
   return readJson(await fetchCombat(scopedPath(worldId, '/world-mechanics/preview'), {
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(selection),
   }));
+}
+
+
+export async function previewAcceptedCombatMechanics(worldId: string, selection: import('./combatTypes').AcceptedCombatMechanicsSelection): Promise<import('./combatTypes').AcceptedCombatMechanicsSnapshot> {
+  return readJson(await fetchCombat(scopedPath(worldId, '/accepted-mechanics/preview'), {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(selection),
+  }));
+}
+
+/** Page the existing saved-draft catalog; loading this list never reads DMS. */
+export async function listAcceptedCombatMechanics(worldId: string, offset = 0): Promise<{
+  choices: import('./combatTypes').AcceptedCombatMechanicsChoice[]; nextOffset: number | null;
+}> {
+  const query = new URLSearchParams({world_id: worldId, limit: '20', offset: String(offset)});
+  const page = await readJson<{drafts: {schema: string; draft_id: string; version: number; world_id: string | null; name: string; workflow_state: string}[]; total: number; limit: number; offset: number}>(
+    await fetchCombat(`/api/live/threat-drafts?${query}`));
+  if (page.drafts.some(draft => draft.world_id !== worldId)) throw new Error('Saved mechanics belong to another World.');
+  return {choices: page.drafts.filter(draft => draft.schema === 'dmb_threat_draft_summary_v2' && draft.workflow_state === 'mechanics_saved')
+    .map(draft => ({draft_id: draft.draft_id, draft_version: draft.version, name: draft.name})),
+    nextOffset: page.offset + page.limit < page.total ? page.offset + page.limit : null};
 }

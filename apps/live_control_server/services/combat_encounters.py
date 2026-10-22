@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import ExitStack
 import uuid
 from datetime import UTC, datetime
 
@@ -62,54 +63,74 @@ def save_world_combat_encounter(
     snapshots = {}
     verified_snapshots = {}
     association_records = None
-    for entity in request.draft.entities:
-        identity = entity.world_identity
-        if entity.id in prior_ids or identity is None:
-            continue
-        if identity.managed_world_id != world_id:
-            raise ApplicationStateValidationError("Combatant belongs to a different World")
-        key = (identity.graph_revision_id, identity.native_world_id, identity.binding_version)
-        if key not in projections:
-            projections[key] = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
-                schema="dmb_managed_world_graph_projection_request_v1",
-                managed_world_id=world_id, revision_pin=identity.graph_revision_id,
-            ))
-        projected = projections[key]
-        node = next((item for item in projected.projection.nodes if item.node_id == identity.node_id), None)
-        if node is None:
-            raise ApplicationStateValidationError("Selected World creature is absent from the pinned revision")
-        expected = CombatWorldIdentity(
-            managed_world_id=projected.managed_world_id, native_world_id=projected.native_world_id,
-            binding_version=projected.binding_version, graph_revision_id=projected.projection.snapshot.revision_id,
-            node_id=node.node_id, label=node.label, kind=node.kind, role=node.role, campaign_scope=node.campaign_scope,
-        )
-        if identity != expected or not is_combat_candidate(node.kind, node.role):
-            raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
-        verified[entity.id] = expected
-        if entity.mechanics_snapshot is not None:
-            from apps.live_control_server.services import combat_mechanics
-            from application_state.combat_encounters.types import CombatMechanicsSelection
-            snapshot = entity.mechanics_snapshot
-            if association_records is None:
-                association_records = combat_mechanics.associations.list_current(world_id=world_id)
-            key = snapshot.association_id
-            if key not in snapshots:
-                snapshots[key] = combat_mechanics.preview(world_id=world_id,
-                    selection=CombatMechanicsSelection(**snapshot.model_dump(include={"association_id","association_version","target"})),
-                    records=association_records,projection=projected)
-            if snapshot != snapshots[key]:
-                raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified exact resource")
-            verified_snapshots[entity.id] = snapshots[key]
-    # Persist only the independently built server snapshots.
-    verified_draft = request.draft.model_copy(update={"entities": [
-        entity.model_copy(update={"mechanics_snapshot": verified_snapshots[entity.id]})
-        if entity.id in verified_snapshots else entity for entity in request.draft.entities]})
-    return encounter_state.save_encounter(
-        world_id=world_id, encounter_id=encounter_id,
-        request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
-        verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
+    from application_state.combat_encounters.types import (
+        AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot, CombatMechanicsSnapshot,
     )
-
+    from apps.live_control_server.services import combat_mechanics
+    # Stable lock order across distinct drafts; one proof/provider read per exact
+    # selection, even when the encounter adds many independent actor copies.
+    direct_selections = {(str(e.mechanics_snapshot.draft_id), e.mechanics_snapshot.draft_version)
+        for e in request.draft.entities if e.id not in prior_ids
+        and isinstance(e.mechanics_snapshot, AcceptedCombatMechanicsSnapshot)}
+    with ExitStack() as guards:
+        direct_snapshots = {key: guards.enter_context(combat_mechanics.accepted_snapshot_guard(
+            world_id=world_id, selection=AcceptedCombatMechanicsSelection(draft_id=key[0], draft_version=key[1])))
+            for key in sorted(direct_selections)}
+        for entity in request.draft.entities:
+            identity = entity.world_identity
+            if entity.id in prior_ids:
+                continue
+            if isinstance(entity.mechanics_snapshot, AcceptedCombatMechanicsSnapshot):
+                snapshot = entity.mechanics_snapshot
+                expected = direct_snapshots[(str(snapshot.draft_id), snapshot.draft_version)]
+                if snapshot != expected:
+                    raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified accepted resource")
+                verified_snapshots[entity.id] = expected
+            if identity is None:
+                continue
+            if identity.managed_world_id != world_id:
+                raise ApplicationStateValidationError("Combatant belongs to a different World")
+            key = (identity.graph_revision_id, identity.native_world_id, identity.binding_version)
+            if key not in projections:
+                projections[key] = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
+                    schema="dmb_managed_world_graph_projection_request_v1",
+                    managed_world_id=world_id, revision_pin=identity.graph_revision_id,
+                ))
+            projected = projections[key]
+            node = next((item for item in projected.projection.nodes if item.node_id == identity.node_id), None)
+            if node is None:
+                raise ApplicationStateValidationError("Selected World creature is absent from the pinned revision")
+            expected = CombatWorldIdentity(
+                managed_world_id=projected.managed_world_id, native_world_id=projected.native_world_id,
+                binding_version=projected.binding_version, graph_revision_id=projected.projection.snapshot.revision_id,
+                node_id=node.node_id, label=node.label, kind=node.kind, role=node.role, campaign_scope=node.campaign_scope,
+            )
+            if identity != expected or not is_combat_candidate(node.kind, node.role):
+                raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
+            verified[entity.id] = expected
+            if isinstance(entity.mechanics_snapshot, CombatMechanicsSnapshot):
+                from apps.live_control_server.services import combat_mechanics
+                from application_state.combat_encounters.types import CombatMechanicsSelection
+                snapshot = entity.mechanics_snapshot
+                if association_records is None:
+                    association_records = combat_mechanics.associations.list_current(world_id=world_id)
+                key = snapshot.association_id
+                if key not in snapshots:
+                    snapshots[key] = combat_mechanics.preview(world_id=world_id,
+                        selection=CombatMechanicsSelection(**snapshot.model_dump(include={"association_id","association_version","target"})),
+                        records=association_records,projection=projected)
+                if snapshot != snapshots[key]:
+                    raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified exact resource")
+                verified_snapshots[entity.id] = snapshots[key]
+        # Persist only the independently built server snapshots.
+        verified_draft = request.draft.model_copy(update={"entities": [
+            entity.model_copy(update={"mechanics_snapshot": verified_snapshots[entity.id]})
+            if entity.id in verified_snapshots else entity for entity in request.draft.entities]})
+        return encounter_state.save_encounter(
+            world_id=world_id, encounter_id=encounter_id,
+            request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
+            verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
+        )
 
 def add_generated_statblock_to_world_combat_encounter(
     *,

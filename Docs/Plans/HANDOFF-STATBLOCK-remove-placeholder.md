@@ -1,6 +1,9 @@
 # STATBLOCK — show saved mechanics without unrelated placeholder art
 
-ACTIVE. PRIME owns a serial slice fromf168672c4d9f8e11e32f4605e6835531c1a8e7fa,
+SETTLED by #1594 (c11da4db7236d170f0ee00bf8e38e74cb929f08b). Lease released.
+Rendered portrait-free inspection and retained source/tracker values verified.
+
+Original scope: PRIME owns a serial slice fromf168672c4d9f8e11e32f4605e6835531c1a8e7fa,
 branch codex/statblock-remove-placeholder, existing buddy-context-loop checkout.
 Remote/open PR census has no overlapping implementation lease. Architecture is
 performing a read-only critique of direct accepted-mechanics selection; that

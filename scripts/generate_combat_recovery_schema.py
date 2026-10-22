@@ -18,7 +18,8 @@ def build_schema():
     resource = ExactRevisionResourceV1.model_json_schema(by_alias=True)
     assert not set(schema['$defs']) & set(resource['$defs'])
     schema['$defs'].update(resource.pop('$defs'))
-    schema['$defs']['CombatMechanicsSnapshot']['properties']['resource'] = {'$ref': '#/$defs/ExactRevisionResourceV1'}
+    for name in ('CombatMechanicsSnapshot', 'AcceptedCombatMechanicsSnapshot'):
+        schema['$defs'][name]['properties']['resource'] = {'$ref': '#/$defs/ExactRevisionResourceV1'}
     schema['$defs']['ExactRevisionResourceV1'] = resource
     annotations = {'title', 'description', 'default', 'examples', 'discriminator'}
     def compact(value):

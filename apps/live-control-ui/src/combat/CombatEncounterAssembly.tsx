@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { listWorldMechanicsAssociations, postManagedWorldGraphProjection } from '../api/liveApi';
 import type { ManagedWorldGraphProjectionResponse } from '../api/types';
-import { previewWorldCombatMechanics } from './combatApi';
+import { listAcceptedCombatMechanics, previewAcceptedCombatMechanics, previewWorldCombatMechanics } from './combatApi';
 import { CombatMechanicsInspection } from './CombatMechanicsInspection';
 import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
-import type { CombatMechanicsSnapshot, CombatEntity, CombatGroup, CombatWorldIdentity } from './combatTypes';
+import type { AcceptedCombatMechanicsChoice, CombatMechanicsSnapshot, CombatEntity, CombatGroup, CombatWorldIdentity } from './combatTypes';
 import './combatAssembly.css';
 
 const actorKinds = new Set(['npc', 'threat', 'creature', 'monster']);
@@ -28,9 +28,12 @@ export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onA
   const [associations, setAssociations] = useState<WorldMechanicsAssociation[]>([]);
   const [snapshot, setSnapshot] = useState<CombatMechanicsSnapshot | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [acceptedChoices, setAcceptedChoices] = useState<AcceptedCombatMechanicsChoice[]>([]);
+  const [acceptedLoaded, setAcceptedLoaded] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
   const selectionGeneration = useRef(0);
   const alive = useRef(true);
-  function discardPreview() { selectionGeneration.current++; setSnapshot(null); setPreviewing(false); }
+  function discardPreview() { selectionGeneration.current++; setSnapshot(null); setPreviewing(false); setLoading(false); }
   const association = associations.find(record => record.request.target.node_id === selected?.node_id);
   async function loadMechanics() {
     if (!selected || !association || previewing) return;
@@ -48,22 +51,47 @@ export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onA
     } catch (caught) { if (alive.current && selectionGeneration.current === generation) setError(String(caught)); }
     finally { if (alive.current && selectionGeneration.current === generation) setPreviewing(false); }
   }
+  async function loadAccepted(offset = 0) {
+    const generation = ++selectionGeneration.current;
+    setLoading(true); setError(null); setSnapshot(null); setPreviewing(false);
+    try {
+      const page = await listAcceptedCombatMechanics(worldId, offset);
+      if (!alive.current || selectionGeneration.current !== generation) return;
+      setAcceptedChoices(prior => offset === 0 ? page.choices : [...prior, ...page.choices]);
+      setNextOffset(page.nextOffset); setAcceptedLoaded(true);
+    } catch (caught) { if (alive.current && selectionGeneration.current === generation) setError(String(caught)); }
+    finally { if (alive.current && selectionGeneration.current === generation) setLoading(false); }
+  }
+  async function selectAccepted(choice: AcceptedCombatMechanicsChoice) {
+    const generation = ++selectionGeneration.current;
+    setPreviewing(true); setSnapshot(null); setError(null);
+    try {
+      const result = await previewAcceptedCombatMechanics(worldId, {draft_id:choice.draft_id, draft_version:choice.draft_version});
+      if (!alive.current || selectionGeneration.current !== generation) return;
+      if (result.origin !== 'world_accepted_mechanics_v1' || result.managed_world_id !== worldId
+        || result.draft_id !== choice.draft_id || result.draft_version !== choice.draft_version) {
+        throw new Error('Mechanics preview did not match the selected saved draft.');
+      }
+      setSnapshot(result); setName(choice.name);
+    } catch (caught) { if (alive.current && selectionGeneration.current === generation) setError(String(caught)); }
+    finally { if (alive.current && selectionGeneration.current === generation) setPreviewing(false); }
+  }
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   async function loadWorld() {
-    discardPreview(); setLoading(true); setError(null); setSelected(null); setWorld(null); setAssociations([]);
+    discardPreview(); const generation = selectionGeneration.current; setLoading(true); setError(null); setSelected(null); setWorld(null); setAssociations([]);
     try {
       const [result, records] = await Promise.all([postManagedWorldGraphProjection({
         schema: 'dmb_managed_world_graph_projection_request_v1', managedWorldId: worldId,
       }), listWorldMechanicsAssociations(worldId)]);
-      if (!alive.current) return;
+      if (!alive.current || selectionGeneration.current !== generation) return;
       if (result.managedWorldId !== worldId || result.nativeWorldId !== result.projection.snapshot.worldId
         || result.projection.snapshot.scopeMode !== 'world') throw new Error('World identity could not be verified.');
       if (records.some(record => record.request.target.managed_world_id !== worldId)) throw new Error('Foreign mechanics associations.');
       setWorld(result); setAssociations(records); setSelected(null);
     } catch (caught) {
-      if (alive.current) setError(caught instanceof Error ? caught.message : String(caught));
-    } finally { if (alive.current) setLoading(false); }
+      if (alive.current && selectionGeneration.current === generation) setError(caught instanceof Error ? caught.message : String(caught));
+    } finally { if (alive.current && selectionGeneration.current === generation) setLoading(false); }
   }
   const candidates = world?.projection.nodes.filter(node =>
     (actorKinds.has(node.kind.toLowerCase()) || actorKinds.has(node.role.toLowerCase()))
@@ -99,7 +127,7 @@ export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onA
     setError(null); setName(''); setSelected(null); discardPreview();
   }
   return <details className="combat-assembly"><summary>Add combatants</summary>
-    <p>Choose a World creature or enter a name. Enter the stats you want to track; World identity alone supplies no mechanics.</p>
+    <p>Choose a World creature, load saved mechanics, or enter a name. Enter the stats you want to track; World identity alone supplies no mechanics.</p>
     <div className="combat-assembly__world">
       <button type="button" disabled={disabled || loading} onClick={() => void loadWorld()}>{loading ? 'Loading creatures…' : world ? 'Refresh World creatures' : 'Find World creatures'}</button>
       {world && <>
@@ -115,6 +143,18 @@ export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onA
         {candidates.length === 0 && <p>No matching creatures. You can enter a manual combatant below.</p>}
       </>}
       {error && <p role="alert">{error}</p>}
+    </div>
+    <div className="combat-assembly__world">
+      <button type="button" disabled={disabled || loading || previewing} onClick={() => void loadAccepted()}>
+        {acceptedLoaded ? 'Refresh saved mechanics' : 'Find saved mechanics'}</button>
+      {acceptedLoaded && <>
+        <ul aria-label="Saved mechanics" className="combat-assembly__candidates">{acceptedChoices.map(choice =>
+          <li key={choice.draft_id}><button type="button" disabled={disabled || loading || previewing}
+            onClick={() => void selectAccepted(choice)}>{choice.name} <small>Saved mechanics · draft {choice.draft_version}</small></button></li>)}</ul>
+        {acceptedChoices.length === 0 && <p>No accepted mechanics on this page. Save mechanics in Build Tools to use them here.</p>}
+        {nextOffset !== null && <button type="button" disabled={disabled || loading || previewing}
+          onClick={() => void loadAccepted(nextOffset)}>More saved drafts</button>}
+      </>}
     </div>
     {selected && <p>World identity: {selected.label} · Manual stats <button type="button" disabled={disabled} onClick={() => {setSelected(null); discardPreview();}}>Use name only</button></p>}
     {selected && association && <button type="button" disabled={disabled || previewing || loading}

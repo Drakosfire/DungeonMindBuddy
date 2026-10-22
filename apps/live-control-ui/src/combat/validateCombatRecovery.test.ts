@@ -17,3 +17,12 @@ it.each(['resource','definition','abilities','rule','conditions','groups'])('ref
   expect(isCombatRecoveryDraft(invalid)).toBe(false);
 });
 it('requires the complete serialized base rather than a partial input body',()=>{expect(isCombatRecoveryRecord({world_id:'elderwyld',draft})).toBe(false);});
+it('accepts the direct accepted-mechanics origin without a fabricated World identity and rejects mixed origins',()=>{
+  const direct={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'3f620410-21cb-4d18-88d4-5ea5e60b0b14',draft_version:2,
+    acceptance_operation_id:'accepted-operation',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:'cand_fixture1',
+    locator:actor.mechanics_snapshot.locator,resource,snapshot_digest:actor.mechanics_snapshot.snapshot_digest};
+  const directDraft={...draft,entities:[{...actor,world_identity:null,mechanics_snapshot:direct}]};
+  expect(isCombatRecoveryDraft(directDraft)).toBe(true);
+  expect(isCombatRecoveryDraft({...directDraft,entities:[{...directDraft.entities[0],mechanics_snapshot:{...direct,association_id:'forged'}}]})).toBe(false);
+  expect(isCombatRecoveryDraft({...directDraft,entities:[{...directDraft.entities[0],mechanics_snapshot:{...direct,resource:{}}}]})).toBe(false);
+});
