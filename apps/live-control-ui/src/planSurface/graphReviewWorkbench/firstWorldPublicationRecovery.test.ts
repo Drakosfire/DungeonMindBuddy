@@ -5,7 +5,7 @@ import {assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFi
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
   runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'a'.repeat(64),worldId:'world-a',sourceProse:'A keeper.',diagnostics:[],
   assertions:[{assertionId:'keeper',kind:'object',label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
-const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v1',planId:'plan-a',planDigest:'sha256:'+'b'.repeat(64),decisionDigest:'sha256:'+'c'.repeat(64),
+const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v2',nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'plan-a',planDigest:'sha256:'+'b'.repeat(64),decisionDigest:'sha256:'+'c'.repeat(64),
   worldId:'world-a',runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:review.sourceRevisionId,workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',
   extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion:keeper'],rejectedAssertionIds:[],contributionId:'contribution-a',
   contributionPayloadSha256:'d'.repeat(64),reviewedEffect:{decision_snapshot:[{assertion_id:'keeper',candidate_kind:'node',decision:'create_new',target_node_id:null}]},
@@ -63,4 +63,16 @@ it.each(['campaign','session','artifact','revision','profile','nested_campaign',
   if(field==='proposal_source')(altered.reviewedEffect.accepted_proposals as Record<string,unknown>[])[0].source_artifact_id='foreign';
   if(field==='effect_map')altered.reviewedEffect.candidate_effect_map={keeper:['foreign']};
   expect(()=>assertFirstWorldPlan(altered,review)).toThrow('foreign scope');
+});
+
+it('rejects an obsolete v1 carried creation plan without upgrading it',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  await saveFirstWorldRecovery(review,plan,true,()=>true);
+  const key=firstWorldRecoveryKey(review);
+  const stored=JSON.parse(localStorage.getItem(key)!);
+  stored.plan.schema='dmb_first_world_graph_plan_v1';
+  delete stored.plan.nativeTarget;
+  localStorage.setItem(key,JSON.stringify(stored));
+  expect(()=>readFirstWorldRecovery(review)).toThrow();
+  expect(JSON.parse(localStorage.getItem(key)!).plan.schema).toBe('dmb_first_world_graph_plan_v1');
 });

@@ -397,7 +397,7 @@ describe("GraphReviewGenericRun", () => {
     const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
     const firstWorldPrepare = vi.spyOn(extractPromoteApi, "prepareFirstWorldGraph");
 
-    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockRejectedValue(new liveApi.LiveApiError("No binding", 409, {code: "native_graph_binding_missing"}));
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockRejectedValue(new liveApi.LiveApiError("No binding", 409, {code: "native_graph_provisioning_pending"}));
     renderModule();
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-first-world-publish-sheet")).toBeInTheDocument();

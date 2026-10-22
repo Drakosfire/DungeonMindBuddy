@@ -3,8 +3,7 @@
 
 Owns managed-world admission, workspace lineage cross-check, and create_new-only
 contribution materialization. Native initialization state comes from
-``WorldGraphInitializationAuthority.probe()``. Filesystem classification remains
-only for explicit buddy_files compatibility.
+``WorldGraphInitializationAuthority.probe()`` against the reserved native target.
 """
 
 
@@ -18,12 +17,16 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
 
+from apps.live_control_server.config import managed_world_data_root
+from apps.live_control_server.models.extract_promote import FirstWorldNativeTarget
+
 from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
     NativeGraphProvisioningRecord,
+    NativeGraphBindingRecord,
     get_world_container,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -53,7 +56,7 @@ from graph_memory.worldbuilding_write_plan import (
 )
 
 
-FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v2"
 
 
 FirstWorldGraphState = Literal[
@@ -114,13 +117,6 @@ def expected_source_root_relpath(world_id: str) -> str:
     return f"corpus/{world_id}-markdown"
 
 
-def first_world_initialization_id(world_id: str, plan_id: str) -> str:
-    """Deterministic DungeonMind initialization identity for one sealed plan."""
-    payload = _canonical_json({"world_id": world_id, "plan_id": plan_id})
-    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    return f"dmb:first-world:{digest}"
-
-
 def admit_managed_world(repo: Path, world_id: str):
     """Fail closed unless W is a managed world with matching source root."""
     cleaned = (world_id or "").strip()
@@ -158,23 +154,25 @@ def admit_managed_world(repo: Path, world_id: str):
             code="world_unmanaged",
             status_code=422,
         )
-    if isinstance(record.native_graph_binding, NativeGraphProvisioningRecord):
-        raise WorldbuildingWritePlanError(
-            "Source admission is available; reviewed native Graph initialization is pending.",
-            code="native_graph_provisioning_pending", status_code=409,
-        )
     return record
 
 
-def classify_world_graph_state(world_root: Path, world_id: str) -> FirstWorldGraphState:
-    """Buddy filesystem world-state classifier — retired in D.3B.
-
-
-    First-world capability uses DungeonMind initialization ports; this helper
-    remains only as an explicit fail-closed stub for any stray caller.
-    """
-    del world_root, world_id
-    return "unreadable"
+def first_world_native_target(repo: Path, world_id: str) -> FirstWorldNativeTarget:
+    """Resolve reserved identity, including exact original-confirm recovery after activation."""
+    record = admit_managed_world(managed_world_data_root(repo), world_id)
+    binding = record.native_graph_binding
+    if not isinstance(binding, (NativeGraphProvisioningRecord, NativeGraphBindingRecord)) or (
+        isinstance(binding, NativeGraphBindingRecord)
+        and (binding.status != "active" or binding.provisioning_id is None)
+    ):
+        raise WorldbuildingWritePlanError(
+            "First publication requires this World's reserved native identity.",
+            code="native_graph_provisioning_required", status_code=409,
+        )
+    return FirstWorldNativeTarget(
+        native_world_id=binding.native_world_id, provisioning_id=binding.provisioning_id,
+        binding_version=binding.binding_version,
+    )
 
 
 def cross_check_workspace_lineage(
@@ -296,17 +294,13 @@ def resolve_first_world_capability(
             reason="exact SourceArtifact world_id is required for first-world publish",
         )
     try:
-        admit_managed_world(repo, cleaned)
+        target = first_world_native_target(repo, cleaned)
     except WorldbuildingWritePlanError as exc:
-        if exc.code == "native_graph_provisioning_pending":
-            return FirstWorldCapability(
-                world_id=cleaned, world_state="uninitialized", eligible=False, reason=str(exc),
-            )
         return FirstWorldCapability(
             world_id=cleaned,
             world_state="unmanaged",
             eligible=False,
-            reason=f"world {cleaned!r} is not a managed world",
+            reason=str(exc),
         )
     from apps.live_control_server.ports.world_graph_initialization import (
         WorldGraphInitializationError,
@@ -319,7 +313,7 @@ def resolve_first_world_capability(
     try:
         probed = get_world_graph_initialization_authority(
             world_root=world_root
-        ).probe(cleaned)
+        ).probe(target.native_world_id)
     except WorldGraphInitializationError as exc:
         return FirstWorldCapability(
             world_id=cleaned,
@@ -328,7 +322,10 @@ def resolve_first_world_capability(
             reason=str(exc),
         )
     state: FirstWorldGraphState
-    if probed.state == "initialized":
+    record = get_world_container(managed_world_data_root(repo), cleaned)
+    recovering = (isinstance(record.native_graph_binding, NativeGraphProvisioningRecord)
+                  and probed.initialization_id == target.provisioning_id)
+    if probed.state == "initialized" and not recovering:
         state = "initialized"
         return FirstWorldCapability(
             world_id=cleaned,
@@ -397,6 +394,7 @@ def materialize_first_world_plan(
     *,
     preview: CandidateGraphPreview,
     world_id: str,
+    native_target: FirstWorldNativeTarget,
     run_id: str,
     source_artifact_id: str,
     source_revision_id: str,
@@ -593,6 +591,7 @@ def materialize_first_world_plan(
     }
     plan_identity = {
         "schema": FIRST_WORLD_PLAN_SCHEMA,
+        "native_target": native_target.model_dump(mode="json"),
         "world_id": world,
         "run_id": run,
         "source_domain": "worldbuilding",

@@ -54,8 +54,8 @@ async function parseJsonBody<T>(response: Response): Promise<T> {
   }
 }
 
-async function extractPromoteFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
+async function extractPromoteFetch<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
+  const response = authenticated ? (await authenticatedApiFetch(path, init)).response : await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -184,6 +184,7 @@ export async function prepareFirstWorldGraph(
       method: "POST",
       body: JSON.stringify(payload),
     },
+    true,
   );
 }
 
@@ -202,5 +203,6 @@ export async function confirmFirstWorldGraph(
       method: "POST",
       body: JSON.stringify(payload),
     },
+    true,
   );
 }

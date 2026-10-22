@@ -53,6 +53,17 @@ class NativeGraphBindingRecord(BaseModel):
     validated_at: str = Field(min_length=1)
     validated_head_revision_id: str = Field(min_length=1)
 
+    provisioning_id: str | None = Field(default=None, pattern=r"^provision:[0-9a-f]{32}$")
+    initialization_revision_id: str | None = None
+
+    @model_validator(mode="after")
+    def _reviewed_provisioning_proof_is_complete(self):
+        if (self.provisioning_id is None) != (self.initialization_revision_id is None):
+            raise ValueError("reviewed native binding requires operation and genesis revision")
+        if self.initialization_revision_id is not None and not self.initialization_revision_id.strip():
+            raise ValueError("reviewed genesis revision must be nonblank")
+        return self
+
     @field_validator("native_world_id")
     @classmethod
     def _trim_native_world_id(cls, value: str) -> str:
@@ -120,7 +131,8 @@ class WorldContainerRegistryDocument(BaseModel):
         operations = [
             record.native_graph_binding.provisioning_id
             for record in self.records
-            if isinstance(record.native_graph_binding, NativeGraphProvisioningRecord)
+            if record.native_graph_binding is not None
+            and record.native_graph_binding.provisioning_id is not None
         ]
         if len(operations) != len(set(operations)):
             raise ValueError("a provisioning operation belongs to only one managed World")

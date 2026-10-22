@@ -296,6 +296,14 @@ def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict
         remapped = contribution
     else:
         remapped = _worldbuilding_expressible(request.reviewed_contribution)
+        # Product source ownership stays managed; native publication is explicitly
+        # World scoped and targets only the sealed server-reserved native identity.
+        remapped = remapped.model_copy(update={
+            "world_id": request.world_id, "campaign_scope": request.campaign_id,
+            **{field: [item.model_copy(update={"campaign_scope": request.campaign_id})
+                       for item in getattr(remapped, field)]
+               for field in ("accepted_assertions", "rejected_assertions", "candidate_assertions")},
+        })
     try:
         mapped = _map_contributions(_EmptyEvidenceView(), [remapped], pair_to_dm)
     except WorldGraphInitializationError:

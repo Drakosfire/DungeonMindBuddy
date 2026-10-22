@@ -58,7 +58,7 @@ class WorldGraphInitializationRequest:
     """Product-facing first-world initialize request. No graph payload or DSN."""
 
     world_id: str
-    campaign_id: str
+    campaign_id: str | None
     initialization_id: str
     source_plan_schema: str
     source_plan_id: str

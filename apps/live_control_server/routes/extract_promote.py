@@ -524,6 +524,7 @@ def post_worldbuilding_write_plan_confirm(
 def post_first_world_prepare(
     request_context: Request,
     request: FirstWorldGraphPrepareRequest,
+    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
@@ -560,6 +561,7 @@ def post_first_world_prepare(
 def post_first_world_confirm(
     request_context: Request,
     request: FirstWorldGraphConfirmRequest,
+    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)

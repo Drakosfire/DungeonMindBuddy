@@ -4803,11 +4803,12 @@ export interface FirstWorldGraphPlanSummary {
 }
 
 export interface FirstWorldGraphPlan {
-  schema: "dmb_first_world_graph_plan_v1";
+  schema: "dmb_first_world_graph_plan_v2";
   planId: string;
   planDigest: string;
   decisionDigest: string;
   worldId: string;
+  nativeTarget: {nativeWorldId: string; provisioningId: string; bindingVersion: number};
   runId: string;
   sourceArtifactId: string;
   sourceRevisionId: string;

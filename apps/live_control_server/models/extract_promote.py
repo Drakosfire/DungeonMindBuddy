@@ -72,7 +72,7 @@ FirstWorldGraphState = Literal[
     "unmanaged",
 ]
 FIRST_WORLD_PREPARE_REQUEST_SCHEMA = "dmb_first_world_graph_prepare_request_v1"
-FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v2"
 FIRST_WORLD_CONFIRM_REQUEST_SCHEMA = "dmb_first_world_graph_confirm_request_v1"
 FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA = "dmb_first_world_graph_confirm_v1"
 
@@ -1382,6 +1382,14 @@ class FirstWorldGraphPlanSummary(_ExtractPromoteModel):
     accepted_assertion_count: int = 0
 
 
+class FirstWorldNativeTarget(_ExtractPromoteModel):
+    """Exact reserved native identity included in the reviewed plan digest."""
+
+    native_world_id: str = Field(pattern=r"^world:[0-9a-f]{32}$")
+    provisioning_id: str = Field(pattern=r"^provision:[0-9a-f]{32}$")
+    binding_version: int = Field(gt=0, strict=True)
+
+
 class FirstWorldGraphPlan(_ExtractPromoteModel):
     """Sealed, response-carried first-world initialization plan (confirm evidence)."""
 
@@ -1392,6 +1400,7 @@ class FirstWorldGraphPlan(_ExtractPromoteModel):
     plan_digest: str
     decision_digest: str
     world_id: str
+    native_target: FirstWorldNativeTarget
     run_id: str
     source_artifact_id: str
     source_revision_id: str

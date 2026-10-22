@@ -76,7 +76,7 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
         setReady(true);
       } catch (e) {
         if (cancelled) return;
-        if (e instanceof LiveApiError && e.code === "native_graph_binding_missing"
+        if (e instanceof LiveApiError && e.code === "native_graph_provisioning_pending"
           && !saved.recovery && !saved.error && review.worldState === "uninitialized" && review.firstWorldPublishEligible === true) setFirstWorld(true);
         else setError(message(e));
       }

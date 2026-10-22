@@ -9,11 +9,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from apps.live_control_server.models.extract_promote import FirstWorldNativeTarget
+from apps.live_control_server.ports.world_graph_initialization import WorldGraphInitializationReceipt
 from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphBindingRecord,
     NativeGraphProvisioningRecord,
     WorldContainerRecord,
+    WorldContainerRegistryError,
     WorldContainerRegistryDocument,
     _load_unlocked,
     _save_cas,
@@ -262,6 +265,104 @@ def bind_native_graph(
         return updated
 
 
+def activate_reviewed_native_graph(
+    root: Path, managed_world_id: str, *, target: FirstWorldNativeTarget,
+    receipt: WorldGraphInitializationReceipt,
+    plan_id: str, plan_digest: str,
+    authority_validator: NativeGraphAuthorityValidator | None = None,
+) -> WorldContainerRecord:
+    """Verify real reviewed genesis unlocked, then promote only its exact reservation."""
+    initial, token = _load_binding_snapshot(root, _validate_world_id(managed_world_id))
+    binding = initial.native_graph_binding
+    if binding is None or (
+        binding.native_world_id != target.native_world_id
+        or binding.binding_version != target.binding_version
+        or binding.provisioning_id != target.provisioning_id
+        or binding.status not in {"provisioning", "active"}
+    ):
+        raise WorldGraphBindingError("World provisioning changed; reload the original reviewed request.")
+    if (receipt.world_id != target.native_world_id
+            or receipt.initialization_id != target.provisioning_id):
+        raise WorldGraphBindingError("Reviewed initialization returned a different World operation.", status_code=502)
+
+    services = (authority_validator or _validate_with_mind)(target.native_world_id)
+    authority = services.binding
+    if (authority.genesis != "reviewed_world_initialization"
+            or authority.dungeonmind_first_revision_id != receipt.published_revision_id):
+        raise WorldGraphBindingError("Reserved World requires its reviewed Graph genesis.", status_code=502)
+    head_id = _validated_head_and_revision(services, target.native_world_id)
+    try:
+        verified = services.bundle.reviewed_world_initializations.get_for_world(target.native_world_id)
+        if (verified is None or verified.world_id != target.native_world_id
+                or verified.initialization_id != target.provisioning_id
+                or verified.published_revision_id != receipt.published_revision_id
+                or verified.command_sha256 != receipt.command_sha256
+                or verified.source_plan_id != plan_id
+                or verified.source_plan_sha256 != plan_digest.removeprefix("sha256:")
+                or verified.campaign_id is not None):
+            raise WorldGraphBindingError("Reviewed initialization proof does not match this plan.", status_code=502)
+        # Receipt reads verify D0 bytes and its null parent in Core. Also verify
+        # that the current head actually descends from that D0, including retries
+        # after later ordinary child publication. No arbitrary history cap.
+        current = head_id
+        seen: set[str] = set()
+        while True:
+            if current in seen:
+                raise WorldGraphBindingError("Native Graph ancestry contains a cycle.", status_code=502)
+            seen.add(current)
+            stored = services.bundle.world_graph.get_revision(target.native_world_id, current)
+            if (stored is None or stored.revision.world_id != target.native_world_id
+                    or stored.revision.revision_id != current):
+                raise WorldGraphBindingError("Native Graph ancestry could not be verified.", status_code=502)
+            parent = stored.revision.parent_revision_id
+            if current == receipt.published_revision_id:
+                if parent is not None:
+                    raise WorldGraphBindingError("Reviewed Graph genesis has a parent.", status_code=502)
+                break
+            if parent is None:
+                raise WorldGraphBindingError("Native head does not descend from reviewed genesis.", status_code=502)
+            current = parent
+    except WorldGraphBindingError:
+        raise
+    except Exception as exc:
+        raise WorldGraphBindingError("Reviewed Graph proof is unavailable; retry the original request.", status_code=503) from exc
+
+    if isinstance(binding, NativeGraphBindingRecord):
+        if binding.initialization_revision_id != receipt.published_revision_id:
+            raise WorldGraphBindingError("Active World has a different initialization proof.")
+        # This binding is immutable for this operation; a concurrent deactivate
+        # must not be acknowledged as successful original-confirm recovery.
+        current, _ = _load_binding_snapshot(root, managed_world_id)
+        if current != initial:
+            raise WorldGraphBindingError("World binding changed during initialization recovery.")
+        return current
+
+    with registry_mutation_lock(world_containers_path(root)):
+        document, current_token = _load_unlocked(root)
+        current = _managed_record(document, root, managed_world_id)
+        if token != current_token or current != initial:
+            raise WorldGraphBindingError("World registry changed; retry the original reviewed request.")
+        _check_native_graph_claim_is_unique(document, managed_world_id=managed_world_id,
+                                            native_world_id=target.native_world_id)
+        active = NativeGraphBindingRecord(
+            native_world_id=target.native_world_id, status="active",
+            binding_version=target.binding_version, provisioning_id=target.provisioning_id,
+            initialization_revision_id=receipt.published_revision_id,
+            validated_at=_utc_now_iso(), validated_head_revision_id=head_id,
+        )
+        updated = current.model_copy(update={"native_graph_binding": active})
+        next_document = WorldContainerRegistryDocument(records=[
+            updated if row.world_id == managed_world_id else row for row in document.records
+        ])
+        try:
+            _save_cas(root, next_document, expected_token=token)
+        except (WorldContainerRegistryError, OSError) as exc:
+            raise WorldGraphBindingError(
+                "Graph was published; activation must retry the original reviewed request.", status_code=503,
+            ) from exc
+        return updated
+
+
 def deactivate_native_graph_binding(
     root: Path,
     managed_world_id: str,
@@ -316,5 +417,6 @@ __all__ = [
     "DeactivateNativeGraphBindingRequest",
     "WorldGraphBindingError",
     "bind_native_graph",
+    "activate_reviewed_native_graph",
     "deactivate_native_graph_binding",
 ]

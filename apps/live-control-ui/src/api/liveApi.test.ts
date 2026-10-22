@@ -3502,3 +3502,42 @@ it.each(["/content", "/content/revisions/1", "/content/commands/11111111-1111-41
   expect(fetch.mock.calls[0][1]?.redirect).toBe("error");
   fetch.mockRestore();
 });
+
+
+it.each(['prepare','confirm'])('authenticates first-World %s through the actual bearer transport',async action=>{
+  const api=await importLiveApiForBaseUrl('');
+  api.setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({}));
+  const path=`/api/live/extract-promote/worldbuilding/first-world/${action}`;
+  const body=JSON.stringify({schema:'exact-command',plan:{nativeTarget:'fixed'}});
+  await api.authenticatedApiFetch(path,{method:'POST',body});
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][0]).toBe(path);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer test-only-local-operator-credential-value');
+  expect(fetch.mock.calls[0][1]).toMatchObject({method:'POST',body,redirect:'error',credentials:'same-origin'});
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it.each(['prepare','confirm'])('acquires a local session and sends CSRF for first-World %s',async action=>{
+  const api=await importLiveApiForBaseUrl('');
+  const fetch=vi.spyOn(globalThis,'fetch')
+    .mockResolvedValueOnce(Response.json({status:'active',csrf_token:'first-world-csrf'}))
+    .mockResolvedValueOnce(Response.json({}));
+  const path=`/api/live/extract-promote/worldbuilding/first-world/${action}`;
+  await api.authenticatedApiFetch(path,{method:'POST',body:JSON.stringify({plan:'fixed'})});
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch.mock.calls[1][0]).toBe(path);
+  expect(new Headers(fetch.mock.calls[1][1]?.headers).get('X-DMB-Graph-CSRF')).toBe('first-world-csrf');
+  expect(fetch.mock.calls[1][1]).toMatchObject({redirect:'error',credentials:'same-origin'});
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it.each(['prepare','confirm'])('refuses non-loopback first-World %s before sending credentials',async action=>{
+  const api=await importLiveApiForBaseUrl('https://example.invalid');
+  api.setNativeGraphAccessToken('test-only-local-operator-credential-value');
+  const fetch=vi.spyOn(globalThis,'fetch');
+  await expect(api.authenticatedApiFetch(`/api/live/extract-promote/worldbuilding/first-world/${action}`,
+    {method:'POST',body:'{}'})).rejects.toThrow('loopback');
+  expect(fetch).not.toHaveBeenCalled();
+  vi.restoreAllMocks();vi.unstubAllEnvs();
+});
