@@ -4903,6 +4903,18 @@ export interface ExtractPromoteConfirmReceipt {
   warnings: string[];
 }
 
+export interface FirstWorldConfirmNonapplication {
+  schema: "dmb_first_world_confirm_not_invoked_v1";
+  worldId: string;
+  nativeWorldId: string;
+  initializationId: string;
+  planId: string;
+  planDigest: string;
+  initializationInvoked: false;
+  validationMessage: string;
+  failure: Record<string, unknown>;
+}
+
 export interface ExtractPromoteErrorBody {
   schema?: "dmb_extract_promote_error_v1";
   code?: string;

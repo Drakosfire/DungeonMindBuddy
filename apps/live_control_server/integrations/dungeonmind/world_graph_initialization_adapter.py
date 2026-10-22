@@ -531,6 +531,12 @@ class DungeonMindWorldGraphInitializationAdapter:
             )
         return WorldGraphInitializationState(world_id=world_id, state="uninitialized")
 
+    def preflight(self, request: WorldGraphInitializationRequest) -> None:
+        # Same complete command construction/qualification as initialize. No bundle,
+        # receipt mutation or initialization call is allowed on this path.
+        clock = self._now or (lambda: datetime.now(UTC))
+        _build_command(request, requested_initialized_at=clock())
+
     def initialize(
         self,
         request: WorldGraphInitializationRequest,

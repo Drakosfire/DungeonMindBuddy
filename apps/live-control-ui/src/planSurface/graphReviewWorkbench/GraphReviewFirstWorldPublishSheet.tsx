@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  ExtractPromoteApiError,
   confirmFirstWorldGraph,
   prepareFirstWorldGraph,
 } from "../../api/extractPromoteApi";
@@ -11,10 +12,11 @@ import type {
   FirstWorldDisposition,
   FirstWorldGraphConfirmReceipt,
   FirstWorldGraphPlan,
+  FirstWorldConfirmNonapplication,
 } from "../../api/types";
 
 import {assertFirstWorldPlan,assertFirstWorldReceipt,firstWorldDecisions,firstWorldScope,
-  readFirstWorldRecovery,saveFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
+  readFirstWorldRecovery,saveFirstWorldRecovery,firstWorldNonapplication,releaseFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
 
 export interface GraphReviewFirstWorldPublishSheetProps {
   review: ExactRunReviewPackage;
@@ -161,6 +163,28 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
   const [sealedPlan, setSealedPlan] = useState<FirstWorldGraphPlan | null>(saved?.plan??null);
   const [receipt, setReceipt] = useState<FirstWorldGraphConfirmReceipt | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [nonapplication, setNonapplication] = useState<FirstWorldConfirmNonapplication | null>(null);
+  const [failure, setFailure] = useState<Record<string, unknown> | null>(null);
+  const rememberFailure = (error: unknown, plan?: FirstWorldGraphPlan) => {
+    if (error instanceof ExtractPromoteApiError) {
+      const payload=error.body?.failureResult;
+      if (payload && ['dmb_first_world_preflight_failure_v1','dmb_first_world_confirm_not_invoked_v1'].includes(String(payload.schema))
+        && payload.failure && typeof payload.failure==='object' && !Array.isArray(payload.failure))
+        setFailure(payload.failure as Record<string,unknown>);
+    }
+    if (plan) setNonapplication(firstWorldNonapplication(error,plan));
+  };
+  const returnToReview = async () => {
+    if (!sealedPlan || !nonapplication || lock.current || !current()) return;
+    lock.current=true;
+    try {
+      await releaseFirstWorldRecovery(review,sealedPlan,nonapplication,current);
+      if (!current()) return;
+      setSealedPlan(null);setNonapplication(null);setPublishPhase('pre_commit_error');
+      setPublishError('This confirm did not call initialization. Your choices are retained; explicitly review the invalid relationships before retrying.');
+    } catch(error) {if(current())setPublishError(publishErrorMessage(error));}
+    finally {lock.current=false;}
+  };
 
   const alive=useRef(true),lock=useRef(false);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
@@ -213,13 +237,14 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
     if(lock.current||hasTerminalReceipt||!current())return;
     lock.current=true;setPublishPhase('publishing');setPublishError(null);
     try {await confirmRetained(plan);}
-    catch(error){if(current()){setPublishPhase('unknown_result');setPublishError(publishErrorMessage(error));}}
+    catch(error){if(current()){rememberFailure(error,plan);setPublishPhase('unknown_result');setPublishError(publishErrorMessage(error));}}
     finally {lock.current=false;}
   }
   async function runPrepareAndConfirm(){
     if(lock.current||sealedPlan||hasTerminalReceipt||keptCount===0||!current())return;
     lock.current=true;setPublishPhase('publishing');setPublishError(null);
     let prepared=false;
+    let attemptedPlan: FirstWorldGraphPlan | undefined;
     try {
       const decisions=buildFirstWorldDecisions(review.assertions,keepByAssertionId);
       const plan=await prepareFirstWorldGraph({runId:review.runId,decisions});
@@ -227,9 +252,9 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
       assertFirstWorldPlan(plan,review,decisions);
       await saveFirstWorldRecovery(review,plan,false,current);
       if(!current())return;
-      prepared=true;setSealedPlan(plan);
+      prepared=true;attemptedPlan=plan;setSealedPlan(plan);
       await confirmRetained(plan);
-    } catch(error){if(current()){setPublishPhase(prepared?'unknown_result':'pre_commit_error');setPublishError(publishErrorMessage(error));}}
+    } catch(error){if(current()){rememberFailure(error,attemptedPlan);setPublishPhase(prepared?'unknown_result':'pre_commit_error');setPublishError(publishErrorMessage(error));}}
     finally {lock.current=false;}
   }
 
@@ -303,6 +328,12 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
         </p>
       ) : null}
 
+      {failure ? <p role="status">
+        Review relationship {String(failure.assertion_id ?? '')}: proposed predicate {String(failure.buddy_predicate ?? '')}
+        {failure.subject_dm_kind || failure.object_dm_kind ? ` (${String(failure.subject_dm_kind ?? '?')} → ${String(failure.object_dm_kind ?? '?')})` : ''}.
+        {String(failure.reason ?? 'Native validation rejected this choice.')}.
+      </p> : null}
+
       {!hasTerminalReceipt ? (
         <ul className="graph-review-extract-promote-items">
           {review.assertions.map((assertion) => {
@@ -311,15 +342,19 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
               assertion.kind === "relationship"
               && isRelationshipBlocked(assertion, keepByAssertionId);
             const disabled = selectionLocked || blocked;
+            const invalid = Array.isArray(failure?.candidate_assertion_ids)
+              && failure.candidate_assertion_ids.includes(assertion.assertionId);
             return (
               <li
                 key={assertion.assertionId}
+                aria-invalid={invalid || undefined}
                 className={
                   blocked
                     ? "graph-review-extract-promote-item is-blocked"
                     : "graph-review-extract-promote-item"
                 }
               >
+                {invalid ? <p role="status">Review this choice: {String(failure?.reason ?? 'Native validation rejected this relationship.')}</p> : null}
                 <label>
                   <input
                     type="checkbox"
@@ -402,7 +437,9 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
           </button>
         ) : null}
 
-        {publishPhase === "unknown_result" && !hasTerminalReceipt ? (
+        {nonapplication && sealedPlan && !hasTerminalReceipt ? <button type="button"
+          disabled={publishing} onClick={() => {void returnToReview();}}>Return to review</button> : null}
+        {publishPhase === "unknown_result" && !hasTerminalReceipt && !nonapplication ? (
           <button
             type="button"
             className="primary"

@@ -72,3 +72,25 @@ it('keeps durable recovery but never delivers a previous source receipt into ano
   await screen.findByRole('button',{name:'Recover saved creation result'});
   expect(first.confirmFirstWorldGraph).toHaveBeenCalledTimes(1);
 });
+
+
+it('returns to retained choices only after an exact nonapplication proof and explicit action',async()=>{
+  const proof={schema:'dmb_first_world_confirm_not_invoked_v1',worldId:plan.worldId,
+    nativeWorldId:plan.nativeTarget.nativeWorldId,initializationId:plan.nativeTarget.provisioningId,
+    planId:plan.planId,planDigest:plan.planDigest,initializationInvoked:false,
+    validationMessage:'Invalid endpoint pair',failure:{candidate_assertion_ids:['guardian'],reason:'invalid_endpoint_kinds'}};
+  vi.spyOn(first,'confirmFirstWorldGraph').mockRejectedValue(new first.ExtractPromoteApiError('Not invoked',409,
+    'first_world_confirm_not_invoked',{schema:'dmb_extract_promote_error_v1',failureResult:proof}));
+  render(<Parent/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Create World Graph with 1 change'}));
+  const back=await screen.findByRole('button',{name:'Return to review'});
+  expect(screen.getByRole('checkbox',{name:'Keep Guardian'})).toBeDisabled();
+  expect(readFirstWorldRecovery(review)?.submitted).toBe(true);
+  expect(screen.getByRole('checkbox',{name:'Keep Guardian'}).closest('li')).toHaveAttribute('aria-invalid','true');
+  fireEvent.click(back);
+  await waitFor(()=>expect(screen.getByRole('checkbox',{name:'Keep Guardian'})).toBeEnabled());
+  expect(screen.getByRole('checkbox',{name:'Keep Guardian'})).toBeChecked();
+  expect(readFirstWorldRecovery(review)).toBeNull();
+  expect(first.prepareFirstWorldGraph).toHaveBeenCalledTimes(1);
+  expect(first.confirmFirstWorldGraph).toHaveBeenCalledTimes(1);
+});

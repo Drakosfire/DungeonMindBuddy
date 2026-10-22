@@ -96,6 +96,9 @@ class WorldGraphInitializationAuthority(Protocol):
     def probe(self, world_id: str) -> WorldGraphInitializationState:
         """Advisory initialization state. Missing Buddy files are not uninitialized."""
 
+    def preflight(self, request: WorldGraphInitializationRequest) -> None:
+        """Read-only command qualification; never invokes native initialization."""
+
     def initialize(
         self,
         request: WorldGraphInitializationRequest,

@@ -13,6 +13,7 @@ from apps.live_control_server import config as live_config
 from apps.live_control_server.models.extract_promote import (
     PRODUCT_CONFIRM_ALLOW_LIVE_WORLD,
     SERVER_CONFIRMING_PRINCIPAL,
+    FirstWorldConfirmNonapplication,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
     FirstWorldGraphPlan,
@@ -85,6 +86,16 @@ def _initialization_error(exc: WorldGraphInitializationError) -> ExtractPromoteE
         status_code=status,
         diagnostics=[_diagnostic(code, str(exc))],
     )
+
+
+def _preflight_failure_details(exc: WorldGraphInitializationError, plan: FirstWorldGraphPlan) -> dict:
+    details = dict(exc.details)
+    effect_map = plan.reviewed_effect.get("candidate_effect_map", {})
+    details["candidate_assertion_ids"] = [
+        candidate_id for candidate_id, assertion_ids in effect_map.items()
+        if details.get("assertion_id") in assertion_ids
+    ]
+    return details
 
 
 def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
@@ -212,7 +223,7 @@ def prepare_first_world(
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
 
-    return FirstWorldGraphPlan(
+    plan = FirstWorldGraphPlan(
         plan_id=materialized.plan_id,
         plan_digest=materialized.plan_digest,
         decision_digest=materialized.decision_digest,
@@ -237,6 +248,19 @@ def prepare_first_world(
         confirmable=materialized.confirmable,
         diagnostics=list(materialized.diagnostics),
     )
+    authority = get_world_graph_initialization_authority(world_root=live_config.world_graph_root())
+    try:
+        authority.preflight(_initialization_request(plan=plan, rematerialized=materialized, resolved=resolved))
+    except WorldGraphInitializationError as exc:
+        diagnostic = _initialization_error(exc)
+        if exc.code == "inexpressible":
+            diagnostic.failure_payload = {
+                "schema": "dmb_first_world_preflight_failure_v1",
+                "validationMessage": str(exc),
+                "failure": _preflight_failure_details(exc, plan),
+            }
+        raise diagnostic from exc
+    return plan
 
 
 def _assert_rematerialized_first_world_plan_matches(
@@ -660,14 +684,36 @@ def confirm_first_world(
             ],
         )
 
-    try:
-        port_receipt = authority.initialize(
-            _initialization_request(
-                plan=plan,
-                rematerialized=rematerialized,
-                resolved=resolved,
+    initialization_request = _initialization_request(
+        plan=plan, rematerialized=rematerialized, resolved=resolved,
+    )
+    if probed.world_id != target.native_world_id:
+        raise ExtractPromoteError("Initialization state belongs to another World.",
+                                  code="native_graph_binding_changed", status_code=409)
+    if probed.state == "uninitialized":
+        if probed.initialization_id is not None or probed.published_revision_id is not None:
+            raise ExtractPromoteError("Uninitialized state carries contradictory receipt data.",
+                                      code="first_world_initialization_failed", status_code=409)
+        try:
+            authority.preflight(initialization_request)
+        except WorldGraphInitializationError as exc:
+            if exc.code != "inexpressible":
+                raise _initialization_error(exc) from exc
+            proof = FirstWorldConfirmNonapplication(
+                world_id=plan.world_id, native_world_id=target.native_world_id,
+                initialization_id=target.provisioning_id, plan_id=plan.plan_id,
+                plan_digest=plan.plan_digest, validation_message=str(exc), failure=_preflight_failure_details(exc, plan),
             )
-        )
+            raise ExtractPromoteError(
+                "This confirm did not invoke initialization. Review the rejected relationship choices.",
+                code="first_world_confirm_not_invoked", status_code=409,
+                diagnostics=[_diagnostic("first_world_preflight_inexpressible", str(exc))],
+                failure_payload=proof.model_dump(mode="json", by_alias=True),
+            ) from exc
+    # Anything after this point may have reached initialization. No exception from
+    # initialize can be converted into a nonapplication proof.
+    try:
+        port_receipt = authority.initialize(initialization_request)
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
 

@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `9d3ce62ae6969b514043f134c32c2a2f287e0497` (through PR #1585).
+**Evidence anchor:** remote main `bea0009f2c32add59dbf9b7c512ea73c414f24dd` (through PR #1586).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves3f3f60865 (#1583); UI5202 serves9d3ce62ae (#1585).
+The API backing5202 servesbea0009f2 (#1586); UI5202 serves9d3ce62ae (#1585).
 Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
 18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
 and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
@@ -240,9 +240,14 @@ between authored possibilities and played events. Reviewable extraction
 3e765e4d-0d85-4327-ac05-e8761dd9a204 exposed14 nonliteral quotes. UI corrections
 qualified child2129f391-100d-5d4a-af11-4de2dd8b8a79, but registry sealing wrongly
 compared inherited source location with relocated candidate output. The exact
-saved correction and validated child are preserved. The bounded repair is
-[derived frozen source](../Plans/HANDOFF-INGEST-derived-frozen-source.md); no World
-publication is claimed. PDF decorative divider lines also trigger the existing
+saved correction recovered the same reviewable child after #1586. All frozen
+source/span/candidate identities remained unchanged. Explicit selection retained30
+changes; first-World prepare sealed typed relationships that native confirm could
+not express. No Graph head was created. The submitted request remains retained.
+The active bounded repair is [qualified preflight and proven nonapplication
+recovery](../Plans/HANDOFF-INGEST-first-world-qualified-preflight.md): qualify before
+sealing and permit explicit return to choices only when confirm proves it never
+invoked initialization. No World publication is claimed. PDF decorative divider lines also trigger the existing
 visual-editor fidelity gate; exact source remains protected and reviewable.
 
 The target is an adventure usable at the table:

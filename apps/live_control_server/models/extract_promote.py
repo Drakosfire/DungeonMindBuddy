@@ -464,6 +464,22 @@ class ExtractPromoteConfirmReceipt(_ExtractPromoteModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class FirstWorldConfirmNonapplication(_ExtractPromoteModel):
+    """This exact confirm returned before calling initialize, not a timeless absence proof."""
+
+    schema_: Literal["dmb_first_world_confirm_not_invoked_v1"] = Field(
+        default="dmb_first_world_confirm_not_invoked_v1", alias="schema"
+    )
+    world_id: str
+    native_world_id: str
+    initialization_id: str
+    plan_id: str
+    plan_digest: str
+    initialization_invoked: Literal[False] = False
+    validation_message: str
+    failure: dict[str, Any]
+
+
 class ExtractPromoteErrorResponse(_ExtractPromoteModel):
     schema_: Literal["dmb_extract_promote_error_v1"] = Field(
         default=ERROR_SCHEMA, alias="schema"
