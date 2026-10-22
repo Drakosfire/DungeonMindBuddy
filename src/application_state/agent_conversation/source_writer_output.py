@@ -179,7 +179,16 @@ def normalize(raw: str, packet: dict) -> dict:
     if coverage != "catalog_exhausted":
         required.add("partial_retrieval")
     if status == "insufficient_evidence":
-        required.add("missing_requested_details")
+        if answer.answer_context_status == "source_insufficient_evidence":
+            required.add("missing_requested_details")
+        elif not {"missing_requested_details", "partial_retrieval"}.intersection(
+            answer.limitations
+        ):
+            raise ValueError("Writer omitted the host retrieval limitation")
+        # Acquisition uncertainty is not proof that a requested detail is absent
+        # from the selected passages. Keep the answer partial either way.
+        if answer.answer_context_status == "source_grounded":
+            raise ValueError("Writer strengthened partial host retrieval")
     if status == "unresolved_conflict":
         required.add("unresolved_conflict")
     if not required.issubset(answer.limitations):

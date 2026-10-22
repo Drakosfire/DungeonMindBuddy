@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `47160c7f6ddbebce561d5ca634e7a0666126bc92` (through PR #1589).
+**Evidence anchor:** remote main `0a7b2c5abcfd8f5dee311e5f1a5742f3c9cc087c` (through PR #1590).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,10 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves47160c7f6 (#1589); UI5202 serves58c81d58f (#1587).
+The API and UI backing5202 serve0a7b2c5abc (#1590). Named saved-section
+evidence was verified after reload in the ordinary Sheep conversation and opened
+its exact historical passage. Guarded delivery retained1533 APP rows,59 product
+files and frozen extraction components. Contradictory answer/gap quality remains open.
 Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
 18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
 and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),

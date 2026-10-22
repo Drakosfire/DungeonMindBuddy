@@ -318,3 +318,83 @@ def test_new_format_reserves_completion_capacity_for_host_messages():
     raw["answer_segments"].append(raw["answer_segments"][0])
     with pytest.raises(ValueError):
         owner.normalize(json.dumps(raw), packet(question))
+
+
+@pytest.mark.parametrize("coverage", ["heuristic_partial", "catalog_exhausted"])
+def test_acquisition_uncertainty_does_not_force_a_missing_question_detail(coverage):
+    raw = answer()
+    raw["requested_detail_gaps"] = []
+    raw["limitations"] = ["partial_retrieval"]
+    raw["answer_segments"][0]["text"] = "The toll is five copper."
+    request = packet()
+    request["retrieval_disposition"]["coverage_status"] = coverage
+    result = owner.normalize(json.dumps(raw), request)
+    assert result["answer_context_status"] == "source_grounded_partial"
+    assert result["answer_segments"] == [
+        raw["answer_segments"][0],
+        {"kind": "connective", "text": owner.LIMITATIONS["partial_retrieval"]},
+    ]
+    # Complete corpus acquisition and complete question support remain separate.
+    raw.update(answer_context_status="source_grounded", limitations=[])
+    with pytest.raises(ValueError):
+        owner.normalize(json.dumps(raw), request)
+
+
+def test_acquisition_uncertainty_cannot_hide_total_abstention_or_actual_gap():
+    raw = answer()
+    raw["limitations"] = ["partial_retrieval"]
+    with pytest.raises(ValueError, match="missing-details"):
+        owner.normalize(json.dumps(raw), packet())
+    raw.update(answer_context_status="source_insufficient_evidence",
+               answer_segments=[], requested_detail_gaps=[])
+    with pytest.raises(ValueError, match="host retrieval limitation"):
+        owner.normalize(json.dumps(raw), packet())
+    raw["limitations"].append("missing_requested_details")
+    assert owner.normalize(json.dumps(raw), packet())["answer_segments"] == [
+        {"kind": "connective", "text": text}
+        for key, text in owner.LIMITATIONS.items() if key in raw["limitations"]
+    ]
+
+
+class CoveredQuestionWriter(WriterWire):
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        wire = json.loads(request.content)
+        assert "compare each proposed gap against your cited answer" in wire["instructions"]
+        assert "not a claim that an answered detail is missing" in wire["instructions"]
+        value = response.json()
+        output = value["output"][0]["content"][0]
+        raw = json.loads(output["text"])
+        raw.update(limitations=["partial_retrieval"], requested_detail_gaps=[])
+        output["text"] = json.dumps(raw)
+        return httpx.Response(200, request=request, json=value)
+
+
+def test_supported_question_survives_insufficient_acquisition_sdk_app_and_reopen(
+    build_case, monkeypatch, tmp_path
+):
+    case, reads = ordinary_case(build_case, monkeypatch)
+
+    class PartialHarness(BuildJevHarness):
+        @staticmethod
+        def _acquire(adapter, driver):
+            BuildJevHarness._acquire(adapter, driver)
+            driver._machine._step = driver._machine._finish(
+                "insufficient_evidence", "support_missing_or_conflicting"
+            )
+
+    writer = CoveredQuestionWriter()
+    response = execute(case, tmp_path, PartialHarness(
+        decision_transport=DecisionWire(), writer_transport=writer, accounting=counter()
+    ))
+    request = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert request["retrieval_disposition"]["status"] == "insufficient_evidence"
+    assert len(writer.calls) == 1 and reads == {"graph": 1, "source": 1}
+    assert "Frank believes" in response.answer.text
+    assert owner.LIMITATIONS["missing_requested_details"] not in response.answer.text
+    service = AgentConversationService()
+    turn, = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)
+    assert turn.status == "completed" and turn.assistant_text == response.answer.text
+    assert turn.completion.answer_context_status == "source_grounded_partial"
+    assert len(turn.completion.source_citations) == 1
+    assert turn.completion.answer_segments[-1].text == owner.LIMITATIONS["partial_retrieval"]

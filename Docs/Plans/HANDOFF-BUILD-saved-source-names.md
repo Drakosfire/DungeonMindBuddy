@@ -1,6 +1,8 @@
 # BUILD — exact source names for saved-section evidence
 
-ACTIVE. PRIME owns a serial Buddy slice from47160c7f6ddbebce561d5ca634e7a0666126bc92,
+SETTLED by #1590 (0a7b2c5abcfd8f5dee311e5f1a5742f3c9cc087c). Lease released.
+
+Original scope: PRIME owns a serial Buddy slice from47160c7f6ddbebce561d5ca634e7a0666126bc92,
 branch codex/build-saved-source-names, existing buddy-context-loop checkout.
 Remote/open PR census has no overlapping active implementation lease.
 
