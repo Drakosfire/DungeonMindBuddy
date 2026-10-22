@@ -8,8 +8,8 @@
 This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. Draft #1566 remains unmerged and undeployed
-at this checkpoint and is the first existing delivery candidate. Historical “next”
+foundation refinement throughout. PR #1566 is now merged and running on 5202; the fresh-reply contract repair
+is the next bounded slice. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -62,12 +62,12 @@ calling the full local demo accepted.
 
 ## Current dogfood failures — next-goal inputs
 
-1. **Root Plan inventory:** `/plan?documentId=…` still enters the old campaign
-   inventory and omits native Session 29 Plans. The Plans exist under the native
-   Elderwyld route. Draft [#1566](https://github.com/Drakosfire/DungeonMindBuddy/pull/1566)
-   replaces the root fallback with shared World selection. Source review found
-   no actionable product issue; rendered delivery remains pending. Its inherited
-   Plan test cohort is not wholly green. Do not mark this fixed on 5202.
+1. **Root Plan inventory — resolved:** #1566 merged `955064067` and runs on5202.
+   The exact formerly failing root URL now shows World selection. Ordinary
+   Elderwyld selection exposes both Session29 Plans, and Campaign2Session29 opens
+   through the normal selector. The guarded UI rollout retained all1458 APP rows
+   with the API unchanged. The broad Plan fixture cohort still has documented
+   inherited failures; do not call that entire suite green.
 2. **Fresh reply completion:** an actual native Plan grounding request completed
    durably and rendered named evidence, but the composer stayed locked. Fresh Jev
    responses retain a replay-only null content basis; the UI rejects their fresh
@@ -83,7 +83,7 @@ calling the full local demo accepted.
    close this gap or establish a one-click image action in Plan.
 
 The API backing 5202 is at the evidence-anchor revision; the UI serves
-`a65de0de8ffa428efbfa00631b54eec1d2608ea7` (#1561). These are the observed
+`95506406796f74a89cf0029abbcec4b51bc90611` (#1566). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance

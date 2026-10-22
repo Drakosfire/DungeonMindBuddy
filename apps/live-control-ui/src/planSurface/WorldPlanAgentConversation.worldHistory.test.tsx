@@ -53,6 +53,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
 }));
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { WorldAgentConversationProvider } from "../agentInteraction/WorldAgentConversation";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { commandCanonicalDigest, verifiedCommandResolution, confirmedNewConversationStatus, newConversationRequestFingerprint, classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
@@ -3744,6 +3745,45 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
     expect(postAsk).toHaveBeenCalledTimes(1);
     mounted.unmount();
+  });
+
+  it.each(["correlated", "unrelated", "durable-id-only"])("settles a shared pending Plan lock only for correlated completed history (%s)", async (correlation) => {
+    const matchingKey = correlation === "correlated";
+    const api = setupApi(history("conversation-a", 10, []));
+    let request!: WorldPlanAgentTurnRequestV1;
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (value) => {
+      request = value;
+      throw new Error("connection reset after dispatch");
+    });
+    render(<WorldAgentConversationProvider worldId={worldId}>
+      {conversationElement()}
+    </WorldAgentConversationProvider>);
+    await waitForConversationReady();
+    ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/outcome of this Ask is uncertain/);
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const completed = withPersistedCorrelation(policyHistoryTurn(
+      1, request.turn_id, request.message, "The western gate is watched.", context, "completed", request,
+    ), await expectedHistoryCorrelationKey(worldId, matchingKey ? request.turn_id : "another-request"),
+    "00000000-0000-4000-8000-000000000091");
+    expect(completed.turn_id).not.toBe(request.turn_id);
+    if (correlation === "durable-id-only") completed.turn_id = request.turn_id;
+    api.setCurrent(await historyV3("conversation-a", 10, [completed]));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await screen.findAllByText("The western gate is watched.");
+    if (matchingKey) {
+      await waitFor(() => expect(pendingAskKeys()).toEqual([]));
+      await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+      fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
+      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    } else {
+      expect(pendingAskKeys()).toHaveLength(1);
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    }
+    expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {

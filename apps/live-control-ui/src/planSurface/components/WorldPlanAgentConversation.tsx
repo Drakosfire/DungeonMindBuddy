@@ -2885,7 +2885,7 @@ export function WorldPlanAgentConversation({
           return;
         }
         if (!active || generation !== historyGenerationRef.current) return;
-        sharedConversation?.setPendingTurn((current) => current && page.turns.some((turn) =>
+        sharedConversation?.setPendingTurn((current) => current && current.surface !== "plan" && page.turns.some((turn) =>
           turn.turn_id === current.turnId && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)) ? null : current);
         const readOnlyConfirmed = pendingPlayTurn && await confirmedReadOnlyTurn(page, pendingPlayTurn);
         if (!active || generation !== historyGenerationRef.current) return;
@@ -2934,9 +2934,12 @@ export function WorldPlanAgentConversation({
           setConfirmedTerminalFailureAsks(terminalFailures);
           // Durable turn IDs differ from client request IDs. Only the exact
           // bound terminal envelope may release its client-side pending lock.
-          const settledClientIds = new Set(terminalFailures.filter((failure) =>
-            window.localStorage.getItem(failure.storageKey) === failure.serialized)
-            .map((failure) => failure.clientTurnId));
+          const settledClientIds = new Set([
+            ...reconciliation.confirmedTurnIds,
+            ...terminalFailures.filter((failure) =>
+              window.localStorage.getItem(failure.storageKey) === failure.serialized)
+              .map((failure) => failure.clientTurnId),
+          ]);
           sharedConversation?.setPendingTurn((current) => current?.surface === "plan"
             && settledClientIds.has(current.turnId) ? null : current);
           const uncertain = uncertainPlanNoticeRef.current;
