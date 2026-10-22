@@ -118,13 +118,13 @@ def test_app_injection_and_saved_snapshot_change_refused(direct):
 
 
 def test_final_draft_recheck_and_exact_provider_failure_leave_no_actor(direct, monkeypatch):
-    p = direct; snapshot = preview(p); locked = mechanics.locked_threat_draft
+    p = direct; snapshot = preview(p); locked = mechanics.locked_threat_drafts
     @contextmanager
     def changed(*a):
-        with locked(*a) as draft: yield draft.model_copy(update={'version': draft.version+1})
-    monkeypatch.setattr(mechanics, 'locked_threat_draft', changed)
+        with locked(*a) as drafts: yield {key:draft.model_copy(update={'version': draft.version+1}) for key,draft in drafts.items()}
+    monkeypatch.setattr(mechanics, 'locked_threat_drafts', changed)
     assert p.client.put(p.url, json=body(p, snapshot)).status_code == 409
-    monkeypatch.setattr(mechanics, 'locked_threat_draft', locked)
+    monkeypatch.setattr(mechanics, 'locked_threat_drafts', locked)
     from apps.live_control_server.integrations.dungeonmind_statblocks.errors import downstream_unavailable
     def fail(*a): raise downstream_unavailable('offline')
     monkeypatch.setattr(p.dms, 'get_exact_revision', fail)
@@ -163,3 +163,47 @@ def test_optional_identity_failure_refuses_direct_snapshot_as_well(direct, monke
     response = p.client.put(p.url, json=request)
     assert response.status_code == 422, response.text
     assert p.client.get(p.url).json()['revision'] == 1
+
+
+def test_distinct_assets_use_one_final_store_lock_with_no_external_io(direct, monkeypatch):
+    from apps.live_control_server.services import threat_draft_store as store
+    from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest, ThreatDraftCandidateRefV1
+    from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptThreatDraftMechanicsRequestV1
+    from apps.live_control_server.services.statblock_mechanics_acceptance import begin_or_resume_acceptance
+    p = direct
+    second = store.create_threat_draft(p.root, CreateWorldThreatDraftRequest(
+        scope_mode='world', world_id='elderwyld', campaign_id=None, name='Second asset', description='Synthetic', threat_kind='creature',
+        generation_intent={'ruleset':{'system':'dnd5e','edition':'2024'}}, graph_context_snapshot={'graph_revision_id':'rev:head'}, created_by='gm'))
+    store.append_candidate_ref(p.root, draft_id=second.draft_id, expected_version=1, candidate_ref=ThreatDraftCandidateRefV1(
+        candidate_id='cand_fixture2', generated_from_draft_version=1, request_id='generate2', created_at='2026-10-22T00:00:00Z'))
+    begin_or_resume_acceptance(p.root, draft_id=second.draft_id, client=p.dms, request=AcceptThreatDraftMechanicsRequestV1(
+        operation_id=str(uuid4()), expected_draft_version=1, definition=p.revision.definition.model_dump(mode='json'),
+        validation_receipt=p.revision.validation_receipt, validation_definition_digest=p.revision.definition_digest,
+        source_candidate_id='cand_fixture2', change_summary='Synthetic acceptance', actor='gm'))
+    first = preview(p); p.selection = {'draft_id':second.draft_id,'draft_version':2}; second_snapshot = preview(p)
+    request = body(p, first); request['draft']['entities'][1]['mechanics_snapshot'] = second_snapshot
+    original_lock = store._store_lock; depth = 0; final_batches = []
+    @contextmanager
+    def checked_lock(root):
+        nonlocal depth
+        assert depth == 0, 'Store-wide file lock must not be nested'
+        with original_lock(root):
+            depth += 1
+            try: yield
+            finally: depth -= 1
+    monkeypatch.setattr(store, '_store_lock', checked_lock)
+    exact_read = p.dms.get_exact_revision
+    def checked_read(*args):
+        assert depth == 0, 'Provider IO must finish before the store lock'
+        return exact_read(*args)
+    monkeypatch.setattr(p.dms, 'get_exact_revision', checked_read)
+    app_save = state.save_encounter
+    def checked_save(**kwargs):
+        assert depth == 1, 'Final draft CAS must stay locked through APP Save'
+        final_batches.append(kwargs)
+        return app_save(**kwargs)
+    monkeypatch.setattr(state, 'save_encounter', checked_save)
+    saved = p.client.put(p.url, json=request)
+    assert saved.status_code == 200, saved.text
+    assert len(final_batches) == 1
+    assert len({e['mechanics_snapshot']['draft_id'] for e in saved.json()['draft']['entities']}) == 2

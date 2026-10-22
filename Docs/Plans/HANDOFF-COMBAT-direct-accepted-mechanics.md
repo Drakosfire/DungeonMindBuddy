@@ -15,15 +15,15 @@ and canonical snapshot digest. Existing associated snapshots retain their curren
 contract. No fake World node/association, corpus fallback or compatibility adapter.
 Manual tracker stats remain independent; optional genuine World identity is
 separately verified. Preview and Save prove scope, current draft, unique attached
-acceptance and exact DMS integrity. Save rechecks the draft under its owning lock
-through APP CAS; deduplicate exact proof reads across copies. Existing snapshots
+acceptance and exact DMS integrity. Save prepares all external proofs before one owning store lock, then rechecks
+all selected drafts through APP CAS; deduplicate exact proof reads across copies. Existing snapshots
 reopen offline and stay immutable. Failures preserve recoverable drafts and write
 no encounter revision; no silent refresh or promotion.
 
 Exclusive lease: this handoff; HANDOFF-STATBLOCK-remove-placeholder.md and
 Docs/Roadmaps/ROADMAP-demo.md settlement; src/application_state/combat_encounters/
 {types,service}.py; apps/live_control_server/{services/combat_mechanics.py,
-services/combat_encounters.py,routes/combat_encounters.py}; UI combat/{combatTypes.ts,
+services/combat_encounters.py,services/threat_draft_store.py,routes/combat_encounters.py}; UI combat/{combatTypes.ts,
 combatApi.ts,CombatEncounterAssembly.tsx,CombatEncounterAssembly.test.tsx,
 combatApi.test.ts,combatRecoverySchema.json,validateCombatRecovery.test.ts};
 scripts/generate_combat_recovery_schema.py; tests/test_combat_direct_mechanics.py.

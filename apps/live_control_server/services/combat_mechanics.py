@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from application_state.combat_encounters.types import AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot
 from application_state.errors import ApplicationStateIntegrityError
 from apps.live_control_server.config import artifact_data_root, repo_root
-from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_draft
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
 from application_state.combat_encounters.types import CombatMechanicsSelection, CombatMechanicsSnapshot
@@ -50,9 +50,8 @@ def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None,
 
 
 
-@contextmanager
-def accepted_snapshot_guard(*, world_id: str, selection: AcceptedCombatMechanicsSelection):
-    """Prove exact accepted bytes, then hold the saved draft CAS through admission.
+def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechanicsSelection):
+    """Prepare exact accepted bytes before taking any final admission lock.
 
     No Graph identity or association is inferred. Consumers may retain the returned
     immutable snapshot without re-reading mutable draft or provider state later.
@@ -94,12 +93,23 @@ def accepted_snapshot_guard(*, world_id: str, selection: AcceptedCombatMechanics
         locator=accepted.to_mechanics_locator().model_dump(mode='json'), resource=resource)
     snapshot = AcceptedCombatMechanicsSnapshot(**payload,
         snapshot_digest=AcceptedCombatMechanicsSnapshot.digest_payload(payload))
-    with locked_threat_draft(root, draft.draft_id) as current:
-        if current != draft:
+    return draft, snapshot
+
+
+@contextmanager
+def accepted_drafts_guard(drafts):
+    """Recheck every saved draft under one short store lock through APP CAS."""
+    if not drafts:
+        yield
+        return
+    root = artifact_data_root(default=repo_root())
+    with locked_threat_drafts(root, [draft.draft_id for draft in drafts]) as current:
+        if any(current[draft.draft_id] != draft for draft in drafts):
             raise ApplicationStateConflictError('Saved mechanics changed during verification; refresh and select again')
-        yield snapshot
+        yield
 
 
 def preview_accepted(*, world_id: str, selection: AcceptedCombatMechanicsSelection):
-    with accepted_snapshot_guard(world_id=world_id, selection=selection) as snapshot:
+    draft, snapshot = prepare_accepted_snapshot(world_id=world_id, selection=selection)
+    with accepted_drafts_guard([draft]):
         return snapshot
