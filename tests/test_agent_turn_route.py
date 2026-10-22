@@ -729,8 +729,8 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 api_request_id = str(uuid4())
             else:
                 final_text = json.dumps({
-                    "answer_context_status": "play_only_graph_unused",
-                    "answer_segments": [{"kind": "connective", "text": "The scene is ready for play."}],
+                    "schema":"dmb_surface_evidence_answer_v2", "limitations":[], "requested_detail_gaps":[],
+                    "answer_segments":[{"kind":"proposal","label":"invented_idea","text":"We could begin beside the bridge."}],
                 })
             if native_rules_capture_required:
                 assert callable(on_native_provider_reply)
@@ -766,7 +766,10 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 super().complete_native_base_turn(result, output_proof=output_proof,
                     expected_rules_revision=expected_rules_revision + 1)
             rejected_proofs.append("stale")
-            raw = output_proof.raw_output_json.replace("ready", "forged")
+            candidate = json.loads(output_proof.raw_output_json)
+            candidate['answer_segments'][0]['text'] += ' forged'
+            raw = json.dumps(candidate)
+            assert raw != output_proof.raw_output_json
             forged = output_proof.model_copy(update={"raw_output_json": raw,
                 "raw_output_sha256": hashlib.sha256(raw.encode()).hexdigest(),
                 "raw_output_utf8_bytes": len(raw.encode())})

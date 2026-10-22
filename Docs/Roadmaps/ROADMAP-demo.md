@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `319e45fac00b4ae2152e5a0d895ac60e5e2f0866` (through PR #1615).
+**Evidence anchor:** remote main `df4cebf3cebae6e8cc94a5cb7b7dbc3703017e43` (through PR #1616).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -115,8 +115,9 @@ failed delivery at9.042s: the writer regenerated authored Plan text that was not
 literal frozen excerpt. Pure replay of saved actual bytes reproduces the rejection.
 [Authored excerpt selection](../Plans/HANDOFF-AGENT-authored-excerpt-selection.md)
 is the next bounded repair: the model selects exposed block handles; the host
-materializes exact text. Architecture critique is adopted; implementation waits
-for exact-head contract review/adoption. No fuzzy quote acceptance, new retry/judge
+materializes exact text. Architecture critique and exact-head Bugbot review were adopted in #1616;
+implementation is active under the exact successor lease. Runtime remains #1615
+until implementation review, merge and ordinary rendered delivery. No fuzzy quote acceptance, new retry/judge
 or extra arbitrary cap. Full journeys and consistent original~10s remain open.
 
 ## Product decisions that remain in force

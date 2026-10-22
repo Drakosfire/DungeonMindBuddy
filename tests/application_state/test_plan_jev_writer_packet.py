@@ -217,7 +217,7 @@ def test_native_plan_writer_accepts_opened_source_citation_atomically(applicatio
     graph_finish(case, case.producer)
     from application_state.agent_conversation.plan_jev_graph_packet import frame_in_request
     selected = frame_in_request(case.raw)['opened_passages'][0]['passage_handle']
-    raw_output = json.dumps({"schema":"dmb_surface_evidence_answer_v1","limitations":[],"requested_detail_gaps":[],"answer_segments": [
+    raw_output = json.dumps({"schema":"dmb_surface_evidence_answer_v2","limitations":[],"requested_detail_gaps":[],"answer_segments": [
         {"kind": "graph_claim", "claim_id": "pond-description", "text": "The account reports a wooden walkway by Park Pond.",
          "target_kind": "assertion", "target_id": "pond-road", "passage_handles":[selected]}]})
     capture = SimpleNamespace(authorization_id="synthetic-plan-packet", api_request_id="synthetic-graph-writer",

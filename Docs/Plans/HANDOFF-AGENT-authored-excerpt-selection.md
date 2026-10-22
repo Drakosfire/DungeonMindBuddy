@@ -9,8 +9,8 @@ branch `codex/agent-authored-excerpt-selection`; no new worktree/environment.
 Fresh remote/open-PR census found no overlapping implementation.
 
 Topology **serial**: one design-contract PR, then one dependent implementation PR.
-This PR is design-only. Implementation is **BLOCKED** until exact-head Bugbot
-review and PRIME adoption of this contract. That is a technical gate, not a new
+The original #1616 PR was design-only. The design gate was satisfied by #1616; implementation is **ACTIVE** under the
+exact activation below after exact-head Bugbot review and PRIME adoption. That is a technical gate, not a new
 operator-permission request. Activation records the reviewed contract/head and
 exact implementation base before runtime edits. Location alone grants no authority.
 
@@ -100,7 +100,7 @@ focused new partition/selection tests and owning existing Plan writer/native Pla
 source-reuse, Rules composition, APP completion/history and UI test files.
 The activating steward enumerates exact test paths and amends before additional
 writes. Lockfiles, old migrations, primary runtime checkout and unrelated lanes
-are excluded. Design PR writes only the three Markdown files named above.
+are excluded. The original design PR wrote only the three Markdown files named above.
 
 Runtime lease for reviewed merged delivery: existing owned8000/5202, APP54331,
 native54330, current persistent artifact root/Core overlay and immutable rollout
@@ -130,3 +130,45 @@ position, mechanics and historical saves.
 - Full two-adventure J1–J6 twice, image follow-through, original repeated~10s,
   older-laptop/8GB evidence and operator acceptance remain goal gates, not claims
   established by this contract or its isolated tests.
+
+
+## Implementation activation — 2026-10-22
+
+PRIME adopts Bugbot-approved design head `538c193f625184c5cee53d00aeb761ba4a581a57`,
+merged #1616 at `df4cebf3cebae6e8cc94a5cb7b7dbc3703017e43`. ACTIVE serial dependent
+implementation branch `codex/agent-authored-excerpt-blocks` starts at that exact
+remote main. Same checkout/runtime lease; open-PR census has no competing owner.
+One implementation PR, exact-head Bugbot, PRIME merge and guarded delivery.
+
+The exact source/UI/migration write set is the expected lease above, with these
+explicit consumer paths added before editing:
+`apps/live_control_server/services/native_play_graph_owner.py`,
+`apps/live_control_server/models/agent_turn.py`,
+`apps/live-control-ui/src/shared/surfaceEvidenceProtocol.ts` and its test,
+`apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`.
+UI paths above resolve under `apps/live-control-ui/`; server services resolve
+under `apps/live_control_server/services/`; APP modules resolve under
+`src/application_state/agent_conversation/`.
+
+Exact test writes: new `tests/test_authored_excerpt_blocks.py`,
+`tests/test_surface_evidence_answers.py`, `tests/test_surface_source_answers.py`,
+`tests/test_surface_source_play_binding.py`, `tests/test_source_passage_reuse.py`,
+`tests/test_plan_jev_writer.py`, `tests/test_plan_jev_driver.py`,
+`tests/test_native_play_source_acquisition.py`,
+`tests/application_state/test_plan_jev_writer_packet.py`,
+`tests/application_state/test_native_play_input_postgres.py`,
+`tests/application_state/test_agent_conversation_historical_trace_postgres.py`,
+`tests/test_play_graph_context.py`, `tests/test_native_answer_output.py` and
+existing named shared UI tests above. Amend before any additional file.
+No old migration or retained state may be rewritten.
+
+Lease amendment: `apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.tsx`
+accepts the explicit new shared completion union; citation rendering remains unchanged.
+
+Lease amendment: `src/application_state/agent_conversation/repository.py` selects
+versioned Plan evidence history attribution from the actual completion type;
+retained V1 attributions keep their exact schema and validators.
+
+Lease amendment: `tests/test_agent_turn_route.py` updates only the native Play
+HTTP no-Rules fixture to the current V2 answer contract; independent owner-pin,
+retry and Rules admission assertions remain the boundary under test.

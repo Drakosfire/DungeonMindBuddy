@@ -12,8 +12,9 @@ from . import types as t
 from .rules_authority_types import canonical_sha256, canonical_bytes
 from .source_writer_output import LIMITATIONS, RequestedDetailGap, gap_messages, strict_json
 
-POLICY = 'dmb_surface_evidence_answer_v1'
-INSTRUCTIONS = '''Current answer policy: dmb_surface_evidence_answer_v1.
+HISTORICAL_POLICY = 'dmb_surface_evidence_answer_v1'
+POLICY = 'dmb_surface_evidence_answer_v2'
+HISTORICAL_INSTRUCTIONS = '''Current answer policy: dmb_surface_evidence_answer_v1.
 Return only {"schema":"dmb_surface_evidence_answer_v1","answer_segments":[...],
 "limitations":[],"requested_detail_gaps":[]} (or this object inside Rules base_output).
 Use the actual supplied evidence, never dialogue as independent authority.
@@ -43,6 +44,38 @@ missing_requested_details for these gaps. No paraphrased gap prose or byte offse
 Do not emit revisions, hashes, citation maps, source-opening flags or authority metadata.
 '''
 
+INSTRUCTIONS = '''Current answer policy: dmb_surface_evidence_answer_v2.
+Return only {"schema":"dmb_surface_evidence_answer_v2","answer_segments":[...],
+"limitations":[],"requested_detail_gaps":[]} (or this object inside Rules base_output).
+Use the actual supplied evidence, never dialogue as independent authority.
+Every factual segment must use exactly one of these shapes:
+- {"kind":"graph_claim","claim_id":"claim:1","text":"prose","target_kind":"assertion or relationship","target_id":"exact complete admitted target","passage_handles":[]}.
+Graph prose must describe that specific admitted fact. Select only opened passage handles
+that actually support this claim and belong to its evidence; [] explicitly means an unopened
+Graph fact. A location or family edge does not support an entity's entire history.
+- {"kind":"source_passage_claim","text":"prose","passage_handles":["exact supplied passage_handle"]}.
+Use this for corpus/background/motives/branches learned from opened passages, even when
+Graph records are also available. Split claims with different support. Cite every passage
+needed by a composite claim; prefer separately readable, precisely supported statements.
+- {"kind":"authored_excerpt","block_handle":"exact supplied block_handle"}.
+Select one exposed authored block; the host supplies its saved literal text. Do not write
+text, offsets, source handles or formatting in this segment. Select multiple blocks as
+separate segments. Do not paraphrase authored material as a quote. A Plan's presence never makes source
+facts Plan material. Never use plan_claim, session_evidence_claim or play_context_claim.
+- {"kind":"proposal","text":"explicitly hypothetical creative suggestion","label":"invented_idea"}.
+For a requested image prompt use {"kind":"proposal","label":"image_prompt","text":"complete visual prompt"} and only the complete visual
+prompt in text, without citation metadata or generation claims. Grounding discussion alone
+is not a request to prepare or generate an image. No action tool ran.
+No connective segments or arbitrary uncited explanatory facts. Keep uncertainty/beliefs,
+authored possibilities and played recollections distinct in the properly cited claim prose.
+Select limitation codes only from missing_requested_details, partial_retrieval,
+unresolved_conflict. The host renders their wording. Do not claim corpus completeness.
+requested_detail_gaps selects exact unique nonoverlapping question_phrase strings from
+user_question only for requested details not established by these excerpts; include
+missing_requested_details for these gaps. No paraphrased gap prose or byte offsets.
+Do not emit revisions, hashes, citation maps, source-opening flags or authority metadata.
+'''
+
 @dataclass(frozen=True)
 class AuthoredSupport:
     handle: str
@@ -53,19 +86,22 @@ class AuthoredSupport:
     body_sha256: str
     owner_sha256: str
     text: str
+    entry_identity: str | None = None
 
 
-def authored_support(kind, name, object_id, revision, owner_sha, text):
+def authored_support(kind, name, object_id, revision, owner_sha, text, entry_identity=None):
     if not isinstance(text, str) or not text.strip():
         raise ValueError('Authored source body must be nonblank')
     body_sha = sha256(text.encode()).hexdigest()
     identity = dict(source_kind=kind, object_id=object_id, revision=str(revision),
                     body_sha256=body_sha, owner_sha256=owner_sha)
+    if entry_identity is not None:
+        identity['entry_identity'] = entry_identity
     return AuthoredSupport('q' + canonical_sha256(identity), kind, name,
-                          object_id, str(revision), body_sha, owner_sha, text)
+                          object_id, str(revision), body_sha, owner_sha, text, entry_identity)
 
 
-def plan_authored_sources(turn, markdown, sessions):
+def plan_authored_sources(turn, markdown, sessions, *, block_policy=False):
     basis = turn.graph_context_receipt.plan_basis
     if sha256(markdown.encode()).hexdigest() != basis.content_sha256:
         raise ValueError('Authored Plan differs from the frozen committed body')
@@ -77,11 +113,12 @@ def plan_authored_sources(turn, markdown, sessions):
         key = (session['run_id'], str(session['review_revision']))
         if key not in frozen:
             raise ValueError('Session quote source lacks frozen ownership')
-        for source in session.get('sources', []):
+        for ordinal, source in enumerate(session.get('sources', [])):
             text = source.get('text', '')
             if text.strip():
                 result.append(authored_support('session', session['title'] + ' — notes and reflections',
-                    key[0], key[1], frozen[key], text))
+                    key[0], key[1], frozen[key], text,
+                    canonical_sha256({'kind':source.get('kind'),'element_id':source.get('element_id'),'ordinal':ordinal}) if block_policy else None))
     return tuple(result)
 
 
@@ -105,23 +142,41 @@ def producing_authored(turn, auth, raw):
         frame = frame_in_request(raw)
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
-        result = plan_authored_sources(turn, frame['committed_plan_markdown'], frame['session_evidence'])
-        if frame.get('authored_sources') != authored_frame_rows(result, frame['session_evidence']):
-            raise ValueError('Authored source selectors changed their exact body/owner join')
+        if frame.get('schema') == 'dmb_plan_jev_writer_frame_v2':
+            from .authored_excerpt_blocks import restore_blocks, verify_blocks
+            from copy import deepcopy
+            sessions = deepcopy(frame['session_evidence'])
+            markdown = restore_blocks(frame['committed_plan_blocks'])
+            for session in sessions:
+                for source in session.get('sources',[]):
+                    source['text'] = restore_blocks(source.pop('text_blocks'))
+            result = plan_authored_sources(turn,markdown,sessions,block_policy=True)
+            expected = authored_frame_rows(result,sessions)
+            expected = [{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in expected]
+            if frame.get('authored_sources') != expected:
+                raise ValueError('Authored source selectors changed their exact body/owner join')
+            for source,row in zip(result,expected,strict=True):
+                blocks=frame
+                for key in row['body_path']: blocks=blocks[key]
+                verify_blocks(blocks,source.text,source.handle)
+        else:
+            result = plan_authored_sources(turn, frame['committed_plan_markdown'], frame['session_evidence'])
+            if frame.get('authored_sources') != authored_frame_rows(result, frame['session_evidence']):
+                raise ValueError('Authored source selectors changed their exact body/owner join')
         return result
     from .play_graph_input import _user_texts
     carriers = []
     for text in _user_texts(strict_json(raw), auth.api_mode):
         try: row = strict_json(text)
         except (ValueError, TypeError): continue
-        if isinstance(row, dict) and row.get('schema') == 'dmb_native_play_input_v2':
-            from .play_graph_input import NativePlayInputV2
-            carrier = NativePlayInputV2.model_validate_json(json.dumps(row))
+        if isinstance(row, dict) and row.get('schema') in {'dmb_native_play_input_v2','dmb_native_play_input_v3'}:
+            from .play_graph_input import NativePlayInputV2,NativePlayInputV3
+            carrier = (NativePlayInputV3 if row['schema']=='dmb_native_play_input_v3' else NativePlayInputV2).model_validate_json(json.dumps(row))
             if carrier.submission_id == turn.idempotency_key:
                 carriers.append(carrier)
     if len(carriers) != 1:
         return ()
-    frame = carriers[0].source_frame
+    frame = carriers[0].resolved_source_frame() if hasattr(carriers[0],"resolved_source_frame") else carriers[0].source_frame
     receipt = turn.graph_context_receipt
     if frame.manifest != receipt.play_sources or canonical_sha256(frame) != receipt.play_source_frame_sha256:
         raise ValueError('Play quotes differ from the included frozen source frame')
@@ -135,19 +190,28 @@ def producing_authored(turn, auth, raw):
     return tuple(result)
 
 
-def require_current_policy(auth, raw):
+def require_current_policy(turn, auth, raw):
     body = strict_json(raw)
     if isinstance(auth, t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
-        return frame_in_request(raw).get('answer_policy') == POLICY
+        return frame_in_request(raw).get('answer_policy') if frame_in_request(raw).get('answer_policy') in {POLICY,HISTORICAL_POLICY} else False
     from .play_graph_input import _user_texts
-    return any(_current_carrier(text) for text in _user_texts(body, auth.api_mode))
+    policies = {_current_carrier(text, turn.idempotency_key) for text in _user_texts(body, auth.api_mode)} - {False}
+    if len(policies)>1: raise ValueError('Ambiguous current answer policy')
+    return next(iter(policies),False)
 
 
-def _current_carrier(text):
+def _current_carrier(text, submission_id):
     try: row = strict_json(text)
     except (ValueError, TypeError): return False
-    return isinstance(row, dict) and row.get('schema') == 'dmb_native_play_input_v2'
+    if not isinstance(row,dict): return False
+    # Retained user carriers describe earlier turns, never the current policy.
+    from uuid import UUID
+    try:
+        if UUID(str(row.get('submission_id'))) != submission_id: return False
+    except ValueError:
+        return False
+    return POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 
 def _limit(code, phrase=None):
@@ -170,6 +234,8 @@ def status_for(segments):
 
 
 def validate_shape(c):
+    blocks=[s.block_handle for s in c.answer_segments if isinstance(s,t.SurfaceAuthoredExcerptV1)]
+    if len(set(blocks))!=len(blocks):raise ValueError('Repeated authored block')
     if any(not s.text.strip() for s in c.answer_segments): raise ValueError('Blank evidence segment')
     if c.answer_context_status != status_for(c.answer_segments): raise ValueError('Evidence status differs from typed support')
     claims = {i: s for i, s in enumerate(c.answer_segments) if isinstance(s, t.PlanWorldGraphClaimSegmentV1)}
@@ -227,19 +293,29 @@ def graph_bindings(segments, receipt, execution, auth):
 
 
 def normalize(candidate, turn, producer, support):
-    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] != POLICY:
+    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {POLICY,HISTORICAL_POLICY}:
         raise ValueError('Invalid current mixed evidence answer')
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     auth = next(e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == producer)
     if (support is None or support.provider_attempt_id != producer or support.envelope_sha256 != auth.envelope_sha256
         or support.context_receipt_sha256 != receipt.context_receipt_sha256 or support.graph_revision != receipt.graph_authority.graph_revision):
         raise ValueError('Mixed evidence differs from actual producer')
+    selected_policy = getattr(support,'current_policy',False)
+    if isinstance(selected_policy,str) and candidate['schema'] != selected_policy:
+        raise ValueError('Answer differs from the actual producing policy')
+    current = candidate['schema'] == POLICY
+    if current and selected_policy != POLICY:
+        raise ValueError('Block selection requires its actual current input policy')
+    from .authored_excerpt_blocks import partition,PARTITION
+    blocks = {block.block_handle:(source,block) for source in getattr(support,'authored',()) for block in partition(source.text,source.handle)}
+    selected_blocks=set()
     available = {}
     for passage in getattr(support, 'passages', ()): available.setdefault(passage.handle, passage)
     authored = {s.handle:s for s in getattr(support, 'authored', ())}
     segments, citations, entries = [], [], []
     for row in candidate['answer_segments']:
-        if not isinstance(row, dict) or not isinstance(row.get('text'), str) or not row['text'].strip(): raise ValueError('Invalid evidence segment')
+        if not isinstance(row,dict): raise ValueError('Invalid evidence segment')
+        if row.get('kind')!='authored_excerpt' and (not isinstance(row.get('text'),str) or not row['text'].strip()): raise ValueError('Invalid evidence segment')
         kind = row.get('kind'); index = len(segments)
         if kind in {'graph_claim', 'source_passage_claim'}:
             expected = {'kind','text','passage_handles'} | ({'claim_id','target_kind','target_id'} if kind == 'graph_claim' else set())
@@ -260,7 +336,17 @@ def normalize(candidate, turn, producer, support):
                 p = available[handle]
                 citations.append(t.SurfaceSourcePassageCitationV1(segment_index=index, text_sha256=sha256(row['text'].encode()).hexdigest(),
                     provider_attempt_id=producer, envelope_sha256=auth.envelope_sha256, read_event_id=p.event_id, receipt=p.receipt, source_name=p.source_name))
-        elif kind == 'authored_quote':
+        elif kind == 'authored_excerpt' and current:
+            if set(row)!={'kind','block_handle'} or not isinstance(row['block_handle'],str) or row['block_handle'] not in blocks or row['block_handle'] in selected_blocks:
+                raise ValueError('Unknown, repeated or model-authored block selection')
+            selected_blocks.add(row['block_handle'])
+            a,block=blocks[row['block_handle']]
+            segments.append(t.SurfaceAuthoredExcerptV1(kind=kind,text=block.text,source_handle=a.handle,
+                source_kind=a.source_kind,source_name=a.source_name,object_id=a.object_id,revision=a.revision,
+                body_sha256=a.body_sha256,owner_sha256=a.owner_sha256,entry_identity=a.entry_identity,
+                block_handle=block.block_handle,partition_version=PARTITION,byte_start=block.byte_start,
+                byte_end=block.byte_end,block_sha256=block.block_sha256))
+        elif kind == 'authored_quote' and not current:
             if set(row) != {'kind','text','source_handle'} or not isinstance(row['source_handle'],str) or row['source_handle'] not in authored: raise ValueError('Unknown authored source')
             a = authored[row['source_handle']]
             if row['text'] not in a.text: raise ValueError('Authored claim must be a literal frozen excerpt')
@@ -285,7 +371,7 @@ def normalize(candidate, turn, producer, support):
     if partial and 'partial_retrieval' not in codes: codes.append('partial_retrieval')
     segments += [_limit(code) for code in codes] + [_limit('missing_requested_details', g.question_phrase) for g in gaps]
     if not segments: segments = [_limit('missing_requested_details')]
-    c = t.SurfaceEvidenceCompletionV1(surface_id=turn.provenance.surface_id, context_receipt_sha256=receipt.context_receipt_sha256,
+    c = (t.SurfaceEvidenceCompletionV2 if current else t.SurfaceEvidenceCompletionV1)(surface_id=turn.provenance.surface_id, context_receipt_sha256=receipt.context_receipt_sha256,
         answer_context_status=status_for(segments), answer_segments=segments, citation_map=citation_map, source_citations=citations)
     validate_completion(c, receipt, execution, producer, bindings)
     return c, bindings, '\n'.join(s.text for s in c.answer_segments)

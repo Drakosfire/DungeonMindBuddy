@@ -17,11 +17,11 @@ def wire_answer(segments):
 def test_actual_mixed_source_and_literal_plan_quote_persist(plan_adapter,application_state_dsn):
     writer = stage(plan_adapter)
     frame = writer.projection.frame
-    quote = frame['committed_plan_markdown'].splitlines()[1]
+    quote = frame['committed_plan_blocks'][1]['text']
     payload = wire_answer([
         dict(kind='source_passage_claim', text='The journal describes a wooden walkway.',
             passage_handles=[frame['opened_passages'][0]['passage_handle']]),
-        dict(kind='authored_quote', text=quote, source_handle=frame['authored_sources'][0]['handle']),
+        dict(kind='authored_excerpt',block_handle=frame['committed_plan_blocks'][1]['block_handle']),
         dict(kind='proposal', text='We could begin beside the pond.', label='invented_idea')])
     wire = WriterWire(plan_adapter, json.dumps(payload))
     completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
@@ -29,7 +29,7 @@ def test_actual_mixed_source_and_literal_plan_quote_persist(plan_adapter,applica
     assert isinstance(completed.completion, t.SurfaceEvidenceCompletionV1)
     assert len(completed.completion.source_citations) == 1
     assert completed.completion.answer_segments[1].text == quote
-    assert frame['authored_sources'][0]['body_path'] == ['committed_plan_markdown']
+    assert frame['authored_sources'][0]['body_path'] == ['committed_plan_blocks']
     reopened = AgentConversationService().inspect_turn(world_id=completed.world_id, turn_id=completed.turn_id)
     assert reopened.completion == completed.completion
     # SQL admits the current shape but rejects reintroducing an old claim kind.
@@ -45,12 +45,12 @@ def test_actual_mixed_source_and_literal_plan_quote_persist(plan_adapter,applica
     from sqlalchemy import create_engine
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
-    migration=import_module('application_state.migrations.versions.20261022_0046_surface_evidence_answers')
+    migration=import_module('application_state.migrations.versions.20261022_0048_authored_excerpt_blocks')
     engine=create_engine(application_state_dsn.replace('postgresql://','postgresql+psycopg://'))
     try:
         with engine.begin() as conn:
             with Operations.context(MigrationContext.configure(conn)):
-                with pytest.raises(RuntimeError,match='retained mixed evidence'):
+                with pytest.raises(RuntimeError,match='retained authored block'):
                     migration.downgrade()
     finally: engine.dispose()
 
@@ -128,8 +128,8 @@ def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapt
     proof=asyncio.run(PlanJevDriver(a,rules=rules).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
     capsule=rules.frame().supports[0]
-    quoted=writer.projection.frame['committed_plan_markdown'].splitlines()[0]
-    base=wire_answer([dict(kind='authored_quote',text=quoted,source_handle=writer.projection.frame['authored_sources'][0]['handle'])])
+    quoted=writer.projection.frame['committed_plan_blocks'][0]['text']
+    base=wire_answer([dict(kind='authored_excerpt',block_handle=writer.projection.frame['committed_plan_blocks'][0]['block_handle'])])
     if with_graph:
         handle=writer.projection.frame['opened_passages'][0]['passage_handle']
         base['answer_segments'] += [dict(kind='graph_claim',claim_id='claim:1',text='The pond has a wooden walkway.',
@@ -192,3 +192,18 @@ def test_two_windows_sharing_graph_evidence_only_bind_the_selected_passage(plan_
     selected=completed.completion.source_citations[0].receipt
     assert selected.anchor_id=='anchor:park:1'
     assert completed.completion.citation_map.entries[0].source_read_ids==[selected.source_read_id]
+
+
+@pytest.mark.parametrize('change',['model_text','unknown','duplicate','legacy_wire'])
+def test_current_authored_selector_rejects_generated_or_unexposed_material(plan_adapter,change):
+    writer=stage(plan_adapter)
+    block=writer.projection.frame['committed_plan_blocks'][0]
+    segment=dict(kind='authored_excerpt',block_handle=block['block_handle'])
+    if change=='model_text':segment['text']=block['text']
+    if change=='unknown':segment['block_handle']='b'+'e'*64
+    payload=wire_answer([segment,segment] if change=='duplicate' else [segment])
+    if change=='legacy_wire':payload['schema']='dmb_surface_evidence_answer_v1'
+    wire=WriterWire(plan_adapter,json.dumps(payload))
+    with pytest.raises(Exception):asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    stored=plan_adapter.service.inspect_turn(world_id=plan_adapter.world_id,turn_id=plan_adapter.turn.turn_id)
+    assert stored.completion is None and len(wire.calls)==1

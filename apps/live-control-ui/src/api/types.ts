@@ -1047,7 +1047,7 @@ export interface WorldPlayGraphCompletionV1 {
 }
 export interface WorldPlayAgentContextV1 {
   schema: "dmb_agent_play_world_graph_context_response_v1";
-  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | null;
+  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
 }
 
@@ -1110,7 +1110,7 @@ export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletio
 export interface WorldPlanAgentPlanContextV2 {
   schema: "dmb_agent_plan_world_graph_context_response_v2";
   receipt: WorldPlanGraphContextReceiptV1;
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | null;
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
   source_open_targets?: WorldPlanSourceOpenTargetV2[];
@@ -1179,6 +1179,14 @@ export interface SurfaceEvidenceCompletionV1 {
   citation_map: WorldPlanGraphCitationMapV2 | null;
   source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
 }
+export interface SurfaceEvidenceCompletionV2 extends Omit<SurfaceEvidenceCompletionV1,"schema"|"answer_segments"> {
+  schema:"dmb_surface_evidence_completion_v2";
+  answer_segments:(Exclude<SurfaceEvidenceCompletionV1['answer_segments'][number],{kind:"authored_quote"}>
+    | (Omit<Extract<SurfaceEvidenceCompletionV1['answer_segments'][number],{kind:"authored_quote"}>,"kind">
+      & {kind:"authored_excerpt";block_handle:string;partition_version:"markdown_source_blocks_v1";
+         byte_start:number;byte_end:number;block_sha256:string;entry_identity:string|null}))[];
+}
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";

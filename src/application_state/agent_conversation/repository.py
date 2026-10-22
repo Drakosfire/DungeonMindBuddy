@@ -21,7 +21,7 @@ from application_state.agent_conversation.types import (
     LegacyImportReceipt,
     PlanAskContextBasis,
     PlanAskHistoryAttributionV1,
-    PlanEvidenceHistoryAttributionV1,
+    PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, SurfaceEvidenceCompletionV2,
     SurfaceEvidenceCompletionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
@@ -937,7 +937,7 @@ def _plan_ask_history_attribution(
         )
 
     current = isinstance(completion, SurfaceEvidenceCompletionV1)
-    history_type = PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    history_type = PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
     return history_type(
         **({'source_citations':completion.source_citations} if current else {}),
         source_turn_id=turn.turn_id,

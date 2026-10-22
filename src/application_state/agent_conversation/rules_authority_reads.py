@@ -21,7 +21,7 @@ from .rules_authority_types import (
 from .types import (
     Turn,
     PlanAskHistoryAttributionV1,
-    PlanEvidenceHistoryAttributionV1,
+    PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2,
     TurnProvenance,
     GraphContextReceipt,
     GraphTurnExecution,
@@ -274,7 +274,7 @@ class MixedHistoryAttributionV1(ClosedRulesModel):
     schema_: Literal["dmb_mixed_history_attribution_v1"] = Field(alias="schema")
     source_sequence: Annotated[int, Field(ge=1)]
     accepted_binding: RulesAcceptedBindingV1
-    base_attribution: "PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
+    base_attribution: "PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
 
     @model_validator(mode="after")
     def exact_base_attribution(self):

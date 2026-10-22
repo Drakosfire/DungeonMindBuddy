@@ -1,16 +1,17 @@
-import type {SurfaceEvidenceCompletionV1,WorldPlanGraphContextReceiptV1,WorldPlayGraphContextReceiptV1} from "../api/types";
+import type {SurfaceEvidenceCompletion,WorldPlanGraphContextReceiptV1,WorldPlayGraphContextReceiptV1} from "../api/types";
 import {exact, canonical, isSurfaceSourceCompletion} from "./sourcePassageProtocol";
 const text = (v:unknown):v is string => typeof v === 'string' && !!v.trim();
 const hash = (v:unknown):v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const sorted = (v:unknown):v is string[] => Array.isArray(v) && v.every((x,i) => text(x) && (!i || v[i-1] < x));
 /** Closed presentation shape. The server independently proves producer input and authority. */
-export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletionV1 {
+export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletion {
   if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations'])
-    || v.schema !== 'dmb_surface_evidence_completion_v1' || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
+    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
   let authored=false, proposal=false, partial=false;
+  const blocks=new Set<string>();
   for (const [index,s] of v.answer_segments.entries()) {
     if (!s || typeof s !== 'object' || !text(s.text)) return false;
     if (s.kind === 'graph_claim') {
@@ -20,8 +21,16 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
       claims.set(s.claim_id,{index,segment:s});
     } else if (s.kind === 'source_passage_claim') {
       if (!exact(s,['kind','text'])) return false; sources.add(index);
-    } else if (s.kind === 'authored_quote') {
-      if (!exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256'])
+    } else if (s.kind === 'authored_quote' || s.kind === 'authored_excerpt') {
+      const block=s.kind === 'authored_excerpt';
+      if(block !== (v.schema === 'dmb_surface_evidence_completion_v2')) return false;
+      if(block && (!text(s.block_handle) || !/^b[a-f0-9]{64}$/.test(s.block_handle) || blocks.has(s.block_handle)
+        || s.partition_version !== 'markdown_source_blocks_v1' || !Number.isSafeInteger(s.byte_start)
+        || !Number.isSafeInteger(s.byte_end) || s.byte_start < 0 || s.byte_end-s.byte_start !== new TextEncoder().encode(s.text).length
+        || !hash(s.block_sha256) || !(s.entry_identity === null || hash(s.entry_identity))
+        || (s.source_kind === 'session') !== (s.entry_identity !== null))) return false;
+      if(block) blocks.add(s.block_handle);
+      if (!exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256',...(block ? ['block_handle','partition_version','byte_start','byte_end','block_sha256','entry_identity']:[])])
         || !['plan','session','play'].includes(String(s.source_kind)) || ![s.source_handle,s.source_name,s.object_id,s.revision].every(text)
         || !hash(s.body_sha256) || !hash(s.owner_sha256)) return false;
       authored=true;
@@ -64,13 +73,13 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
 }
 
 
-export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletionV1,r:WorldPlanGraphContextReceiptV1|WorldPlayGraphContextReceiptV1):boolean {
+export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldPlanGraphContextReceiptV1|WorldPlayGraphContextReceiptV1):boolean {
   if(c.context_receipt_sha256 !== r.context_receipt_sha256) return false;
   const plan=r.schema === 'dmb_agent_plan_world_graph_context_receipt_v1';
   if(c.surface_id !== (plan ? 'plan':'play')) return false;
   return c.answer_segments.every(s=>{
     if(s.kind === 'graph_claim') return s.graph_revision === r.graph_authority.graph_revision;
-    if(s.kind !== 'authored_quote') return true;
+    if(s.kind !== 'authored_quote' && s.kind !== 'authored_excerpt') return true;
     if(s.source_kind === 'session') return plan;
     if(s.source_kind === 'plan') return plan && s.object_id === r.plan_basis.document_id
       && s.revision === r.plan_basis.work_revision_id && s.owner_sha256 === r.plan_basis.content_sha256 && s.body_sha256 === s.owner_sha256;
