@@ -129,9 +129,9 @@ export async function releaseFirstWorldRecovery(review: ExactRunReviewPackage, p
 
 /** Inspect only the obsolete envelope, never make its plan executable. */
 export function obsoleteUnsubmittedRecovery(review: ExactRunReviewPackage): string | null {
-  const raw = localStorage.getItem(firstWorldRecoveryKey(review));
-  if (raw === null) return null;
   try {
+    const raw = localStorage.getItem(firstWorldRecoveryKey(review));
+    if (raw === null) return null;
     const value = JSON.parse(raw), plan = value?.plan;
     return value?.schema === 'dmb_first_world_publication_recovery_v1'
       && value.scope === firstWorldScope(review) && value.submitted === false

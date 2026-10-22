@@ -177,6 +177,12 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(localStorage.getItem(firstWorldRecoveryKey(baseReview))).toBe(raw);
   });
+  it('shows a safe hold when browser recovery storage cannot be read',()=>{
+    vi.spyOn(Storage.prototype,'getItem').mockImplementation(()=>{throw new Error('storage denied');});
+    expect(()=>render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>)).not.toThrow();
+    expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
   it("shows world identity and Create World Graph CTA when eligible", () => {
     render(<GraphReviewFirstWorldPublishSheet review={baseReview} />);
 

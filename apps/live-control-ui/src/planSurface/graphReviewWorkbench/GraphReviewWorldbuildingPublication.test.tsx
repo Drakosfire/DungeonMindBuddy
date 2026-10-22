@@ -371,3 +371,10 @@ it('routes obsolete unsubmitted creation recovery to its explicit archive UI',()
   expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
   expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
 });
+
+it('holds publication safely when browser recovery storage is unreadable',()=>{
+  vi.spyOn(Storage.prototype,'getItem').mockImplementation(()=>{throw new Error('storage denied');});
+  expect(()=>render(<GraphReviewWorldbuildingPublication review={review}/>)).not.toThrow();
+  expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
+  expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+});
