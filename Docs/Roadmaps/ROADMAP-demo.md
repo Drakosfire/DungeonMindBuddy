@@ -290,9 +290,10 @@ and Prone; original Plan unchanged. API restart retained1562 APP rows/63 product
 files and frozen sources. #1593 fixed a false cross-view lock collision by awaiting the owned browser
 lease release. Ordinary same-module Open→Open after delivery retained the same
 encounter and saved source/tracker values without reloading the page. The shared
-mechanics renderer still displays unrelated fixed portrait art; removal is the
-next bounded presentation repair. Direct accepted-asset selection for unnamed
-creatures is under read-only Architecture critique; no contract is activated. Agent structural card creation also
+mechanics renderer no longer displays unrelated portrait art (#1594); actual
+portrait-free source/tracker inspection passed. Direct accepted-asset selection
+for unnamed creatures is activated in the bounded COMBAT handoff after Architecture
+critique and unique acceptance-journal proof. Agent structural card creation also
 remains open; focused body editing works after manual structure creation. These
 are partial connected witnesses, not complete adventure/J1–J6 acceptance.
 

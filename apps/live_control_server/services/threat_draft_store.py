@@ -279,9 +279,16 @@ def locked_threat_draft(root: Path, draft_id: str) -> Iterator[ThreatDraft]:
     Keep consumers short: no provider or Graph calls under this lock. Consumers
     that join APP state acquire the filesystem lock before APP transaction locks.
     """
+    with locked_threat_drafts(root, [draft_id]) as drafts:
+        yield drafts[draft_id]
+
+
+@contextmanager
+def locked_threat_drafts(root: Path, draft_ids: list[str]) -> Iterator[dict[str, ThreatDraft]]:
+    """One store lock for a batch CAS recheck. No nested lock or external IO."""
     with _store_lock(root):
-        committed_id = _require_committed_draft_id(root, draft_id)
-        yield _load_draft_unlocked(root, committed_id)
+        yield {draft_id: _load_draft_unlocked(root, _require_committed_draft_id(root, draft_id))
+               for draft_id in draft_ids}
 
 
 def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:

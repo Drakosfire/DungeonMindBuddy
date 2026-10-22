@@ -11,6 +11,7 @@ from application_state.combat_encounters.types import (
     AddGeneratedStatblockResponse,
     CombatEncounterRecord,
     CombatMechanicsSelection, CombatMechanicsSnapshot,
+    AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
@@ -27,6 +28,7 @@ from apps.live_control_server.services.statblock_draft_store import (
     UnsafeArtifactIdError,
 )
 from apps.live_control_server.services.statblock_view import StatblockViewError
+from apps.live_control_server.services.threat_draft_store import ThreatDraftStoreError
 
 from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 
@@ -95,6 +97,8 @@ def save_encounter_route(
         return combat_encounters.save_world_combat_encounter(
             world_id=owner, encounter_id=encounter_id, request=body
         ).model_dump(mode="json")
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except StatblockIntegrationError as exc:
         raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
     except WorldGraphProjectionServiceError as exc:
@@ -141,6 +145,21 @@ def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63
     except ApplicationStateError as exc:
         _raise_state_error(exc)
     except WorldGraphProjectionServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except StatblockIntegrationError as exc:
+        raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
+
+
+@router.post("/accepted-mechanics/preview", response_model=AcceptedCombatMechanicsSnapshot)
+def preview_accepted_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: AcceptedCombatMechanicsSelection):
+    owner = _verified_world(world_id)
+    try:
+        return combat_mechanics.preview_accepted(world_id=owner, selection=body)
+    except ApplicationStateError as exc:
+        _raise_state_error(exc)
+    except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except StatblockIntegrationError as exc:
         raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc

@@ -62,9 +62,30 @@ def save_world_combat_encounter(
     snapshots = {}
     verified_snapshots = {}
     association_records = None
+    from application_state.combat_encounters.types import (
+        AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot, CombatMechanicsSnapshot,
+    )
+    from apps.live_control_server.services import combat_mechanics
+    # Read each distinct exact source once, before the final store lock. The
+    # owning draft lock covers the store, so never nest it across selections.
+    direct_selections = {(str(e.mechanics_snapshot.draft_id), e.mechanics_snapshot.draft_version)
+        for e in request.draft.entities if e.id not in prior_ids
+        and isinstance(e.mechanics_snapshot, AcceptedCombatMechanicsSnapshot)}
+    prepared = {key: combat_mechanics.prepare_accepted_snapshot(
+        world_id=world_id, selection=AcceptedCombatMechanicsSelection(draft_id=key[0], draft_version=key[1]))
+        for key in sorted(direct_selections)}
+    direct_snapshots = {key: result[1] for key, result in prepared.items()}
     for entity in request.draft.entities:
         identity = entity.world_identity
-        if entity.id in prior_ids or identity is None:
+        if entity.id in prior_ids:
+            continue
+        if isinstance(entity.mechanics_snapshot, AcceptedCombatMechanicsSnapshot):
+            snapshot = entity.mechanics_snapshot
+            expected = direct_snapshots[(str(snapshot.draft_id), snapshot.draft_version)]
+            if snapshot != expected:
+                raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified accepted resource")
+            verified_snapshots[entity.id] = expected
+        if identity is None:
             continue
         if identity.managed_world_id != world_id:
             raise ApplicationStateValidationError("Combatant belongs to a different World")
@@ -86,7 +107,7 @@ def save_world_combat_encounter(
         if identity != expected or not is_combat_candidate(node.kind, node.role):
             raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
         verified[entity.id] = expected
-        if entity.mechanics_snapshot is not None:
+        if isinstance(entity.mechanics_snapshot, CombatMechanicsSnapshot):
             from apps.live_control_server.services import combat_mechanics
             from application_state.combat_encounters.types import CombatMechanicsSelection
             snapshot = entity.mechanics_snapshot
@@ -104,11 +125,12 @@ def save_world_combat_encounter(
     verified_draft = request.draft.model_copy(update={"entities": [
         entity.model_copy(update={"mechanics_snapshot": verified_snapshots[entity.id]})
         if entity.id in verified_snapshots else entity for entity in request.draft.entities]})
-    return encounter_state.save_encounter(
-        world_id=world_id, encounter_id=encounter_id,
-        request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
-        verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
-    )
+    with combat_mechanics.accepted_drafts_guard([result[0] for result in prepared.values()]):
+        return encounter_state.save_encounter(
+            world_id=world_id, encounter_id=encounter_id,
+            request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
+            verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
+        )
 
 
 def add_generated_statblock_to_world_combat_encounter(

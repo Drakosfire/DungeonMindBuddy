@@ -3,10 +3,21 @@ import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
 export interface CombatMechanicsSelection {
   association_id: string; association_version: number; target: CombatWorldIdentity;
 }
-export interface CombatMechanicsSnapshot extends CombatMechanicsSelection {
+export interface AssociatedCombatMechanicsSnapshot extends CombatMechanicsSelection {
   locator: WorldMechanicsAssociation['proof']['locator'];
   resource: StatblockRevisionResourceV1; snapshot_digest: string;
 }
+
+export interface AcceptedCombatMechanicsSelection { draft_id: string; draft_version: number; }
+export interface AcceptedCombatMechanicsSnapshot extends AcceptedCombatMechanicsSelection {
+  origin: 'world_accepted_mechanics_v1'; managed_world_id: string;
+  acceptance_operation_id: string; acceptance_request_digest: string;
+  accepted_from_draft_version: number; accepted_from_candidate_id: string | null;
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot;
+export interface AcceptedCombatMechanicsChoice extends AcceptedCombatMechanicsSelection { name: string; }
 
 export interface CombatRulesetField {
   key: "initiative" | "armor_class" | "hit_points" | "temp_hit_points" | "conditions" | "notes";
