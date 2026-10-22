@@ -11,7 +11,7 @@ const locator = { provider:"dungeonmind",statblock_id:"sb_one",revision_id:"rev_
 const draft = {schema:"dmb_threat_draft_v2",world_id:"elderwyld",draft_id:"9e02566a-c840-402b-8d22-61f6bee780c4",version:3,
   workflow_state:"mechanics_saved",accepted_mechanics_ref:{...locator,accepted_from_draft_version:2,accepted_from_candidate_id:"cand_one",accepted_at:"2026-10-22T00:00:00Z"}} as ThreatDraftV2;
 const view = {schema:"dmb_managed_world_graph_projection_v1",managedWorldId:"elderwyld",nativeWorldId:"world:opaque",bindingVersion:2,
-  projection:{snapshot:{worldId:"world:opaque",revisionId:"rev:head",isHead:true},nodes:[
+  projection:{schema:"dmb_world_graph_projection_v1",snapshot:{worldId:"world:opaque",revisionId:"rev:head",headRevisionId:"rev:head",isHead:true,scopeMode:"world",admissibility:"gm",campaignId:"",focus:{kind:"none",sessionId:null}},nodes:[
     {nodeId:"node:one",label:"Keeper",kind:"npc",role:"",campaignScope:null},
     {nodeId:"node:two",label:"Keeper",kind:"npc",role:"",campaignScope:null},
     {nodeId:"node:place",label:"Ferry",kind:"location",role:"",campaignScope:null},

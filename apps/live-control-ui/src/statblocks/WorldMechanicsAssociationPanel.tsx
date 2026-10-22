@@ -1,3 +1,4 @@
+import { verifyManagedWorldGraphProjectionResponse } from "../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useEffect, useRef, useState } from "react";
 import {
   associateWorldMechanics, listWorldMechanicsAssociations,
@@ -48,9 +49,13 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
         postManagedWorldGraphProjection({schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: draft.world_id}),
         listWorldMechanicsAssociations(draft.world_id),
       ]);
-      if (projection.managedWorldId !== draft.world_id || projection.schema !== "dmb_managed_world_graph_projection_v1"
-          || projection.projection.snapshot.worldId !== projection.nativeWorldId || !projection.projection.snapshot.isHead) {
-        throw new Error("World contents could not be verified; reopen this tool");
+      const mismatch = verifyManagedWorldGraphProjectionResponse({
+        managedWorldId: draft.world_id, response: projection, revisionKind: "head",
+        request: { schema: "dmb_world_graph_projection_request_v1", worldId: draft.world_id,
+          campaignId: "", focus: {kind: "none", sessionId: null}, admissibility: "gm", scopeMode: "world" },
+      });
+      if (mismatch || associations.some(record => record.request.target.managed_world_id !== draft.world_id)) {
+        throw new Error(mismatch ?? "Association records belong to a different World");
       }
       if (live.current) { setView(projection); setCurrent(associations); }
     } catch (e) { if (live.current) setError(String(e)); }
@@ -112,8 +117,8 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
   }
 
   return <section className="statblock-section" aria-label="Associate World creature">
-    <h3>Use these mechanics for a World creature</h3>
-    <p>Choose an existing creature explicitly. Its World facts stay unchanged.</p>
+    <h3>Associate saved mechanics with a World creature</h3>
+    <p>Uses the accepted mechanics saved for this draft. Choose an existing creature explicitly; its World facts stay unchanged.</p>
     <button type="button" onClick={() => void load()} disabled={busy || !!pending || !!initial.error}>
       {view ? "Refresh creatures" : "Load creatures"}
     </button>
