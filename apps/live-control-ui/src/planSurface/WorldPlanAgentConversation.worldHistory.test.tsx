@@ -1003,6 +1003,7 @@ interface ConversationTestProps {
   savedDirty?: boolean;
   presentationHosts?: PlanConversationPresentationHosts;
   onSavePlan?: () => void;
+  imagePromptHost?: { unavailableReason: string | null; open: (prompt: string) => boolean };
   savePlanEnabled?: boolean;
   editorSelectionActive?: boolean;
   playableTargetLabel?: string;
@@ -1031,6 +1032,7 @@ function conversationElement(props: ConversationTestProps = {}) {
       saveInFlight={false}
       presentationHosts={props.presentationHosts}
       onSavePlan={props.onSavePlan}
+      imagePromptHost={props.imagePromptHost}
       savePlanEnabled={props.savePlanEnabled}
       editorSelectionActive={props.editorSelectionActive}
       playableTargetLabel={props.playableTargetLabel}
@@ -3745,6 +3747,44 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
     expect(postAsk).toHaveBeenCalledTimes(1);
     mounted.unmount();
+  });
+
+  it.each(["ready", "stale-revision", "foreign-document", "busy-host", "missing-host", "ordinary-idea"])("offers a typed image seed only to its ready Plan host (%s)", async (scenario) => {
+    const prompt = "A broken boardwalk above dark water. No town or tower.";
+    const context = await planGraphContext("plan_only_insufficient_evidence", { execution: null });
+    context.completion!.answer_segments = [{ kind: "proposal", label: scenario === "ordinary-idea" ? "invented_idea" : "image_prompt", text: prompt }];
+    const turn = policyHistoryTurn(1, "image-turn", "Make an image prompt", prompt, context);
+    setupApi(await historyV2("conversation-a", 4, [turn]));
+    const open = vi.fn(() => true);
+    harness.agent.setPaneOpen = vi.fn();
+    if (scenario === "foreign-document") {
+      harness.agent.scope.campaignId = `world-plan-agent:world:${encodeURIComponent(worldId)}:document:another-plan`;
+      harness.agent.activeThread.campaignId = harness.agent.scope.campaignId;
+      harness.agent.scope.documentId = "another-plan";
+      harness.agent.activeThread.documentId = "another-plan";
+    }
+    mountComponent(scenario === "stale-revision" ? 8 : 7, null, null, false, {
+      documentId: scenario === "foreign-document" ? "another-plan" : documentId,
+      imagePromptHost: scenario === "missing-host" ? undefined : { open, unavailableReason: scenario === "busy-host" ? "Studio already open" : null },
+    });
+    await screen.findAllByText(prompt);
+    expect(open).not.toHaveBeenCalled();
+    if (scenario === "ordinary-idea") {
+      expect(screen.queryByRole("button", { name: "Open Image Studio" })).not.toBeInTheDocument();
+      return;
+    }
+    const action = screen.getByRole("button", { name: "Open Image Studio" });
+    if (scenario === "ready") {
+      expect(action).toBeEnabled();
+      fireEvent.click(action);
+      expect(open).toHaveBeenCalledExactlyOnceWith(prompt);
+      expect(harness.agent.setPaneOpen).toHaveBeenCalledWith(false);
+    } else {
+      expect(action).toBeDisabled();
+      fireEvent.click(action);
+      expect(open).not.toHaveBeenCalled();
+      expect(harness.agent.setPaneOpen).not.toHaveBeenCalled();
+    }
   });
 
   it.each(["correlated", "unrelated", "durable-id-only"])("settles a shared pending Plan lock only for correlated completed history (%s)", async (correlation) => {

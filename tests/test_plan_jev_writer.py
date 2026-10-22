@@ -239,3 +239,21 @@ def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_se
         assert plan_adapter.fence.turn.graph_context_execution.model_dump(mode='json') == before
     finally:
         setattr(plan_adapter, field, None)
+
+
+def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_adapter):
+    writer=stage_graph(plan_adapter)
+    prompt='A broken timber boardwalk above dark fen water. No town or tower.'
+    answer={'answer_context_status':'plan_only_graph_unused','answer_segments':[
+        {'kind':'proposal','label':'image_prompt','text':prompt}]}
+    wire=WriterWire(plan_adapter,json.dumps(answer))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert completed.status=='completed' and len(wire.calls)==1
+    assert completed.completion.answer_segments[0].label=='image_prompt'
+    assert completed.completion.answer_segments[0].text==prompt
+    assert completed.completion.citation_map is None
+    stored=AgentConversationService().list_turns(plan_adapter.world_id,completed.conversation_id)[-1]
+    assert stored.completion.answer_segments[0].text==prompt
+    body=json.loads(wire.calls[0].content)
+    assert '"label":"image_prompt"' in body['instructions']
+    assert body['tools']==[]

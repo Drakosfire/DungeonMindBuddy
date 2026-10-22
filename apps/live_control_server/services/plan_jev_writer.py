@@ -41,6 +41,14 @@ Segment shapes:
 - {"kind":"plan_claim","text":"prose"} for authored Plan material, never played fact.
 - {"kind":"session_evidence_claim","text":"prose","run_id":"exact supplied run_id","review_revision":1} for session notes/reflections.
 - {"kind":"proposal","text":"prose","label":"invented_idea"} for creative suggestions.
+- {"kind":"proposal","text":"image generation prompt only","label":"image_prompt"} only when the current user asks to write/prepare the prompt or proceed to generation.
+A request to retrieve, ground or discuss an eventual image is not that request;
+answer the grounding/composition question first without preparing a prompt.
+Put the complete ready-to-review visual prompt alone in that segment: no headings,
+source citations, commentary or generation claims inside the prompt. Keep grounding
+and limitations in separate appropriate segments. The UI offers Open Image Studio
+for the user to review this prompt and explicitly Generate, Save and place an image.
+No image has been generated merely by preparing the prompt.
 - {"kind":"connective","text":"prose"} for transitions or limitations without factual assertions.
 Use unique answer-local claim labels. Do not emit hashes, source-opening flags or revision IDs.
 Do not claim an edit, publication or image generation happened; no action tool ran.

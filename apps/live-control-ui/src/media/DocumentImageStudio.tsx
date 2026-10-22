@@ -5,13 +5,13 @@ import type { DocumentMediaBridge } from './documentMediaBridge';
 import './DocumentImageStudio.css';
 
 /** The existing Studio generates/retains assets; the host alone writes its document. */
-export function DocumentImageStudio({ bridge, onClose, targetLabel }: {
-  bridge: DocumentMediaBridge; onClose: () => void; targetLabel: string;
+export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPrompt = "" }: {
+  bridge: DocumentMediaBridge; onClose: () => void; targetLabel: string; initialPrompt?: string;
 }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, [bridge]);
   return <aside className="document-image-studio" aria-label={`Image Studio · ${targetLabel}`}>
-    <MediaImageWizard onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
+    <MediaImageWizard initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
       const target = await bridge.pickInsertion({ ...placement, assetId: image.asset_id });
       placement.signal.throwIfAborted();
       const { response } = await authenticatedApiFetch(`/api/live/media/images/${encodeURIComponent(image.asset_id)}/metadata`, { signal: placement.signal, cache: 'no-store' });

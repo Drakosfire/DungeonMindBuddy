@@ -1063,7 +1063,7 @@ export type WorldPlanGraphAnswerSegmentV1 =
   }
   | { kind: "session_evidence_claim"; text:string;run_id:string;review_revision:number;evidence_sha256:string }
   | { kind: "plan_claim"; text: string; plan_content_sha256: string }
-  | { kind: "proposal"; text: string; label: "invented_idea" }
+  | { kind: "proposal"; text: string; label: "invented_idea" | "image_prompt" }
   | { kind: "connective"; text: string };
 
 export interface WorldPlanGraphCitationV1 {

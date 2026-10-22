@@ -1,3 +1,4 @@
+import { SurfaceImagePromptAction } from "../../shared/SurfaceImagePromptAction";
 import { isWorldPlayContextProjection, isWorldPlayGraphReceipt, isPlayContextProvenanceBound, playReceiptDigestsBound, isPlaySourceContext, isPlaySourceProvenanceBound, playSourceContextDigestBound } from '../../rulesLookup/playContextProtocol';
 import { isSurfaceGraphInput } from '../../rulesLookup/surfaceGraphInput';
 import { RulesAnswerEvidence } from '../../rulesLookup/RulesAnswerEvidence';
@@ -144,6 +145,7 @@ export interface WorldPlanAgentConversationProps {
   onClearPlayableEditTarget?: () => void;
   onSavePlan?: () => void;
   savePlanEnabled?: boolean;
+  imagePromptHost?: { unavailableReason: string | null; open: (prompt: string) => boolean };
 }
 
 interface ValidatedWorldPlanResponse {
@@ -1065,7 +1067,7 @@ function isWorldPlanGraphCompletion(
         || segment.plan_content_sha256 !== receipt.plan_basis.content_sha256) return false;
     } else if (segment.kind === "proposal" && !build) {
       if (!hasExactKeys(segment, ["kind", "text", "label"])
-        || typeof segment.text !== "string" || !segment.text.trim() || segment.label !== "invented_idea") return false;
+        || typeof segment.text !== "string" || !segment.text.trim() || !["invented_idea", "image_prompt"].includes(String(segment.label))) return false;
     } else if (segment.kind === "connective") {
       if (!hasExactKeys(segment, ["kind", "text"]) || typeof segment.text !== "string" || !segment.text.trim()) return false;
     } else return false;
@@ -2278,6 +2280,7 @@ export function WorldPlanAgentConversation({
   onClearPlayableEditTarget = () => undefined,
   onSavePlan,
   savePlanEnabled = false,
+  imagePromptHost,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -5480,6 +5483,16 @@ export function WorldPlanAgentConversation({
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />
+            {!isReadOnly && turn.provenance.surface_id === "plan" && graphContextForTurn(turn)?.completion?.answer_segments
+              .filter(segment => segment.kind === "proposal" && segment.label === "image_prompt")
+              .map((segment, index) => <SurfaceImagePromptAction key={`${turn.turn_id}:image:${index}`} prompt={segment.text}
+                unavailableReason={!scopeMatches || !pageReady || saveInFlight || turn.provenance.world_id !== worldId
+                  || turn.provenance.primary_work.object_id !== documentId
+                  || turn.provenance.primary_work.object_revision !== revision
+                  ? "Open the original saved Plan revision to use this image prompt."
+                  : imagePromptHost?.unavailableReason ?? (imagePromptHost ? null : "Open this Plan with Image Studio available to use the prompt.")}
+                onOpen={imagePromptHost ? (prompt) => { if (imagePromptHost.open(prompt)) agent.setPaneOpen(false); } : undefined}
+              />)}
             {rulesContextForTurn(turn) && <RulesAnswerEvidence active={visible && agent.paneState.isOpen} context={rulesContextForTurn(turn)!} answer={turn.assistant_text ?? ''} />}
             {renderSourceActions(turn)}
           </div>
