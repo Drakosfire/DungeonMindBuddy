@@ -16,8 +16,9 @@ from .source_writer_output import strict_json
 
 ANSWER_SCHEMA = "dmb_surface_source_answer_v1"
 
-INSTRUCTIONS = """When no complete Graph claim records are available, you may answer from
-actually opened source passages. This attributes authored source text; it does not
+INSTRUCTIONS = """Only when at least one complete opened source passage has an actual opaque
+passage_handle or passageHandle AND no complete Graph claim records are available,
+you may answer from those actually opened source passages. This attributes authored source text; it does not
 turn it into accepted World facts or played events. Use only complete, sufficient,
 untruncated passages carrying passage_handle (or passageHandle in tool results).
 Return {"schema":"dmb_surface_source_answer_v1","answer_context_status":"source_grounded or source_grounded_partial",
@@ -29,7 +30,11 @@ A source_grounded answer means these supplied passages support the requested det
 never that the corpus is complete. Use source_grounded_partial for missing details,
 conflicts or retrieval gaps; say concretely what remains unknown. Use relevant opened
 passages before more reads, and stop when they support the requested answer.
-Do not output passage handles anywhere except passage_handles. Do not fabricate them.
+Every source_passage_claim requires at least one exact available handle in passage_handles;
+never emit an empty handle list. Saved Plan prose and session notes/reflections are
+not opened corpus passages. Without an eligible handle, use the owning Plan/Play
+answer contract instead of this schema. Do not output passage handles anywhere
+except passage_handles. Do not fabricate them.
 """
 
 
