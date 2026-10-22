@@ -37,7 +37,7 @@ const baseReview: ExactRunReviewPackage = {
   assertions: [
     {
       assertionId: "obj_session22_vial",
-      kind: "object",
+      kind: "object", nodeType: "npc", contributionKind: "npc",
       label: "vial",
       summary: "Puddle sample vial",
       evidence: [
@@ -51,7 +51,7 @@ const baseReview: ExactRunReviewPackage = {
     },
     {
       assertionId: "mystery_puddles",
-      kind: "object",
+      kind: "object", nodeType: "npc", contributionKind: "npc",
       label: "mystery puddles",
       summary: "Shimmering puddles",
       evidence: [
@@ -65,7 +65,7 @@ const baseReview: ExactRunReviewPackage = {
     },
     {
       assertionId: "e33",
-      kind: "relationship",
+      kind: "relationship", relationshipType: "contains", fromCandidateNodeId: "obj_session22_vial", toCandidateNodeId: "mystery_puddles",
       label: "vial —contains→ mystery puddles",
       summary: "obj_session22_vial → mystery_puddles",
       evidence: [
@@ -156,6 +156,58 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
   afterEach(() => {
     cleanup();vi.restoreAllMocks();
   });
+
+  it('displays actual typed relations separately from hostile friendly wording and summary', () => {
+    const review = structuredClone(baseReview);
+    review.assertions[1].nodeType = 'faction'; review.assertions[1].contributionKind = 'faction';
+    Object.assign(review.assertions[2], {label: 'stole property from', relationshipType: 'owns', summary: 'fake → reversed'});
+    render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+    const row = screen.getByRole('checkbox', {name:'Keep stole property from'}).closest('li')!;
+    expect(row).toHaveTextContent('Structured relation: vial (npc) → owns → mystery puddles (faction)');
+    expect(row).toHaveTextContent('Candidate wording: stole property from');
+    expect(row).not.toHaveTextContent('fake');
+    expect(screen.getByRole('checkbox', {name:'Keep mystery puddles'}).closest('li')).toHaveTextContent('Structured type: faction');
+  });
+
+  it('distinguishes opposite relations between same-named typed candidates', () => {
+    const review = structuredClone(baseReview);
+    for (const node of review.assertions.slice(0, 2)) Object.assign(node, {label: 'Guard', nodeType:'character'});
+    Object.assign(review.assertions[2], {label:'owns', relationshipType:'owns'});
+    review.assertions.push({...review.assertions[2], assertionId:'reverse',
+      fromCandidateNodeId:'mystery_puddles', toCandidateNodeId:'obj_session22_vial'});
+    render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+    const rows = screen.getAllByRole('checkbox', {name:'Keep owns'}).map(e=>e.closest('li')!);
+    expect(rows[0]).toHaveTextContent('Guard [obj_session22_vial] (character) → owns → Guard [mystery_puddles] (character)');
+    expect(rows[1]).toHaveTextContent('Guard [mystery_puddles] (character) → owns → Guard [obj_session22_vial] (character)');
+    const nodes = screen.getAllByRole('checkbox', {name:'Keep Guard'}).map(e=>e.closest('li')!);
+    expect(nodes[0]).toHaveTextContent('candidate: obj_session22_vial');
+    expect(nodes[1]).toHaveTextContent('candidate: mystery_puddles');
+  });
+
+  it.each(['relationshipType', 'fromCandidateNodeId', 'toCandidateNodeId'] as const)(
+    'never reconstructs missing %s from friendly summary', field => {
+      const review = structuredClone(baseReview); delete review.assertions[2][field];
+      render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+      expect(screen.getByRole('checkbox', {name:'Keep vial —contains→ mystery puddles'})).toBeDisabled();
+      expect(extractPromoteApi.prepareFirstWorldGraph).not.toHaveBeenCalled();
+    });
+
+  it.each(['kind', 'predicate', 'direction', 'subject', 'target'])(
+    'refuses forged prepared %s before saving or confirming', async field => {
+      const plan = sealedPlan(), rows = plan.reviewedEffect.accepted_proposals as Record<string, unknown>[];
+      const node = rows[0], edge = rows[2], value = edge.value as Record<string, unknown>;
+      if(field === 'kind') (node.value as Record<string, unknown>).kind = 'faction';
+      if(field === 'predicate') { edge.predicate = 'hires'; value.predicate = 'hires'; }
+      if(field === 'direction') value.direction = 'inbound';
+      if(field === 'subject') edge.subject_node_id = 'mystery_puddles';
+      if(field === 'target') edge.target_node_id = 'obj_session22_vial';
+      vi.mocked(extractPromoteApi.prepareFirstWorldGraph).mockResolvedValue(plan);
+      render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+      await userEvent.click(screen.getByRole('button', {name:'Create World Graph with 3 changes'}));
+      expect(await screen.findByRole('alert')).toHaveTextContent('reviewed structured meaning');
+      expect(extractPromoteApi.confirmFirstWorldGraph).not.toHaveBeenCalled();
+      expect(localStorage.length).toBe(0);
+    });
 
   it('offers explicit archive and fresh review only for an unsubmitted obsolete plan',async()=>{
     const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(baseReview),

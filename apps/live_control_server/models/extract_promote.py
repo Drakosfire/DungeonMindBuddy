@@ -511,6 +511,11 @@ class ExactRunReviewAssertion(_ExtractPromoteModel):
     label: str
     summary: str
     subject_candidate_node_id: str | None = None
+    node_type: str | None = None
+    contribution_kind: str | None = None
+    relationship_type: str | None = None
+    from_candidate_node_id: str | None = None
+    to_candidate_node_id: str | None = None
     evidence: list[ExactRunReviewEvidence] = Field(default_factory=list)
 
 

@@ -111,7 +111,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         for item in payload["nodes"]:
             refs = [SimpleNamespace(**ref) for ref in item["evidence_refs"]]
             nodes.append(SimpleNamespace(
-                node_id=item["node_id"], label=item["label"],
+                node_id=item["node_id"], node_type=item.get("node_type", "npc"), label=item["label"],
                 description=item["description"], evidence_refs=refs,
             ))
         return SimpleNamespace(nodes=nodes, edges=[])

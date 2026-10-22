@@ -1,3 +1,4 @@
+import {hasReviewSemantics, relationshipEndpoints} from './candidateReviewSemantics';
 import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
 import type {ExactRunReviewPackage,FirstWorldDisposition,FirstWorldGraphPlan,FirstWorldGraphConfirmReceipt,FirstWorldConfirmNonapplication} from '../../api/types';
 
@@ -27,6 +28,23 @@ function assertFirstWorldEffect(plan:FirstWorldGraphPlan,review:ExactRunReviewPa
       return !decision||!strings(ids)||ids.length===0||ids.some(id=>!allowed.includes(id));
     })||new Set(Object.values(map).flat()).size!==plan.acceptedAssertionIds.length+plan.rejectedAssertionIds.length){
     throw new Error('The creation plan contains a foreign scope, source or materialized effect.');
+  }
+  const proposals = [...accepted as Record<string,unknown>[], ...rejected as Record<string,unknown>[]];
+  for (const candidate of review.assertions) {
+    const ids = (map as Record<string,string[]>)[candidate.assertionId];
+    const rows = proposals.filter(row => ids.includes(row.assertion_id as string));
+    if (!hasReviewSemantics(candidate, review.assertions) || rows.length !== 1 || ids.length !== 1)
+      throw new Error('The creation plan does not match the reviewed structured meaning.');
+    const row = rows[0], value = row.value as Record<string,unknown> | undefined;
+    const endpoints = relationshipEndpoints(candidate);
+    const matches = candidate.kind === 'object'
+      ? row.assertion_kind === 'node' && row.subject_node_id === candidate.assertionId
+        && row.label === candidate.label && value?.kind === candidate.contributionKind
+      : row.assertion_kind === 'edge' && !!endpoints
+        && row.predicate === candidate.relationshipType && value?.predicate === candidate.relationshipType
+        && row.subject_node_id === endpoints[0] && row.target_node_id === endpoints[1]
+        && value?.direction === 'outbound';
+    if (!matches) throw new Error('The creation plan does not match the reviewed structured meaning.');
   }
 }
 

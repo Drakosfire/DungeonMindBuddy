@@ -37,7 +37,7 @@ def test_retained_style_review_uses_the_canonical_exact_run_projection(
     )
     typed = SimpleNamespace(
         nodes=[SimpleNamespace(
-            node_id="mira-found-key",
+            node_id="mira-found-key", node_type="character",
             label="Mira found the silver key",
             description="Mira found and returned with the key.",
             evidence_refs=[evidence_ref],

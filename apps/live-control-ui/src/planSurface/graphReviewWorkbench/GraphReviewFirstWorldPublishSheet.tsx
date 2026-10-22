@@ -1,3 +1,5 @@
+import {CandidateReviewSemantics} from './CandidateReviewSemantics';
+import {relationshipEndpoints, hasReviewSemantics, candidateSemanticDescription} from './candidateReviewSemantics';
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -39,14 +41,6 @@ function formatWorldDisplayName(worldId: string): string {
     .join(" ");
 }
 
-function parseRelationshipEndpoints(summary: string): [string, string] | null {
-  const parts = summary.split("→").map((part) => part.trim());
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    return null;
-  }
-  return [parts[0], parts[1]];
-}
-
 function isEvidenceBacked(assertion: ExactRunReviewAssertion): boolean {
   return assertion.evidence.length > 0;
 }
@@ -55,7 +49,7 @@ function buildInitialKeepState(assertions: ExactRunReviewAssertion[]): Map<strin
   const objectKeep = new Map<string, boolean>();
   for (const assertion of assertions) {
     if (assertion.kind === "object") {
-      objectKeep.set(assertion.assertionId, isEvidenceBacked(assertion));
+      objectKeep.set(assertion.assertionId, isEvidenceBacked(assertion) && hasReviewSemantics(assertion, assertions));
     }
   }
 
@@ -65,14 +59,14 @@ function buildInitialKeepState(assertions: ExactRunReviewAssertion[]): Map<strin
       keep.set(assertion.assertionId, objectKeep.get(assertion.assertionId) ?? false);
       continue;
     }
-    const endpoints = parseRelationshipEndpoints(assertion.summary);
+    const endpoints = relationshipEndpoints(assertion);
     const endpointsKept =
       endpoints != null
       && (objectKeep.get(endpoints[0]) ?? false)
       && (objectKeep.get(endpoints[1]) ?? false);
     keep.set(
       assertion.assertionId,
-      isEvidenceBacked(assertion) && endpointsKept,
+      isEvidenceBacked(assertion) && hasReviewSemantics(assertion, assertions) && endpointsKept,
     );
   }
   return keep;
@@ -82,7 +76,7 @@ function relationshipEndpointIds(
   assertion: ExactRunReviewAssertion,
 ): [string, string] | null {
   if (assertion.kind !== "relationship") return null;
-  return parseRelationshipEndpoints(assertion.summary);
+  return relationshipEndpoints(assertion);
 }
 
 function isRelationshipBlocked(
@@ -352,7 +346,9 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
       ) : null}
 
       {failure ? <p role="status">
-        Review relationship {String(failure.assertion_id ?? '')}: proposed predicate {String(failure.buddy_predicate ?? '')}
+        {review.assertions.filter(a => Array.isArray(failure.candidate_assertion_ids) && failure.candidate_assertion_ids.includes(a.assertionId))
+          .map(a => `${a.label}: ${candidateSemanticDescription(a, review.assertions)}`).join('; ') || 'Review the rejected relationship'}.
+        Proposed predicate {String(failure.buddy_predicate ?? '')}
         {failure.subject_dm_kind || failure.object_dm_kind ? ` (${String(failure.subject_dm_kind ?? '?')} → ${String(failure.object_dm_kind ?? '?')})` : ''}.
         {String(failure.reason ?? 'Native validation rejected this choice.')}.
       </p> : null}
@@ -364,7 +360,8 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
             const blocked =
               assertion.kind === "relationship"
               && isRelationshipBlocked(assertion, keepByAssertionId);
-            const disabled = selectionLocked || blocked;
+            const semanticReady = hasReviewSemantics(assertion, review.assertions);
+            const disabled = selectionLocked || blocked || !semanticReady;
             const invalid = Array.isArray(failure?.candidate_assertion_ids)
               && failure.candidate_assertion_ids.includes(assertion.assertionId);
             return (
@@ -393,9 +390,9 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
                         {assertion.kind}
                       </span>
                     </span>
-                    <span className="graph-review-extract-promote-item-summary">
-                      {assertion.summary}
-                    </span>
+                    <CandidateReviewSemantics assertion={assertion} assertions={review.assertions}/>
+                    <span>Candidate wording: {assertion.label}</span>
+                    {assertion.kind === 'object' ? <span className="graph-review-extract-promote-item-summary">{assertion.summary}</span> : null}
                     {assertion.evidence[0]?.paragraphText ? (
                       <span className="graph-review-extract-promote-item-evidence">
                         {assertion.evidence[0].paragraphText}

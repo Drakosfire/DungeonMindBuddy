@@ -1,3 +1,4 @@
+import {CandidateReviewSemantics} from './CandidateReviewSemantics';
 import { useEffect, useRef, useState } from "react";
 import { ExtractPromoteApiError } from "../../api/extractPromoteApi";
 import { LiveApiError, postManagedWorldGraphProjection } from "../../api/liveApi";
@@ -176,7 +177,8 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
         <legend>Publication choices</legend>
         {review.assertions.map(a => <details key={a.assertionId}>
           <summary>{a.label} · {decisions[a.assertionId].decision}</summary>
-          <p>{a.summary}</p>
+          <p><CandidateReviewSemantics assertion={a} assertions={review.assertions}/></p>
+          {a.kind === 'object' ? <p>{a.summary}</p> : null}
           {a.evidence.map((e, i) => <blockquote key={i}>{e.anchorQuotes.join("\n")}</blockquote>)}
           <label>Decision for {a.label}<select value={decisions[a.assertionId].decision}
             onChange={e => update(a.assertionId, e.target.value as WorldbuildingDecision["decision"])}>

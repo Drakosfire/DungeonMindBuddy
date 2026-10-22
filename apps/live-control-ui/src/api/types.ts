@@ -4732,6 +4732,11 @@ export interface ExactRunReviewEvidence {
 }
 
 export interface ExactRunReviewAssertion {
+  nodeType?: string | null;
+  contributionKind?: string | null;
+  relationshipType?: string | null;
+  fromCandidateNodeId?: string | null;
+  toCandidateNodeId?: string | null;
   assertionId: string;
   kind: "object" | "relationship";
   label: string;

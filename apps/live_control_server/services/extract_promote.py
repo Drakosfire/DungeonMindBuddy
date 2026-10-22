@@ -67,6 +67,7 @@ from apps.live_control_server.services.promotable_ingest_run import (
 )
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
+    kernel_kind_for_node_type,
     load_typed_candidate_graph,
 )
 from graph_memory.extract_promote_ops import (
@@ -903,7 +904,10 @@ def _assert_and_project_candidate_evidence(
                 label=str(node.label or node_id).strip() or node_id,
                 summary=str(getattr(node, "description", "") or "").strip(),
                 evidence_refs=node.evidence_refs,
-            )
+            ).model_copy(update={
+                "node_type": node.node_type,
+                "contribution_kind": kernel_kind_for_node_type(node.node_type),
+            })
         )
     for edge in typed.edges:
         edge_id = str(edge.edge_id or "").strip()
@@ -919,7 +923,11 @@ def _assert_and_project_candidate_evidence(
                     f"{getattr(edge, 'to_node_id', None) or '?'}"
                 ),
                 evidence_refs=edge.evidence_refs,
-            )
+            ).model_copy(update={
+                "relationship_type": edge.relationship_type,
+                "from_candidate_node_id": edge.from_node_id,
+                "to_candidate_node_id": edge.to_node_id,
+            })
         )
     for observation in getattr(typed, "source_observations", ()):
         assertions.append(_project_holder(
