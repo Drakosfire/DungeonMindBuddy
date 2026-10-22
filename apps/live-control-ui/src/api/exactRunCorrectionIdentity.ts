@@ -16,3 +16,20 @@ export async function exactRunCorrectionDigest(request: {parentRunId: string; pa
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
 }
+
+
+export async function worldbuildingEvidenceCorrectionDigest(request: import('./types').WorldbuildingEvidenceCorrectionRequest): Promise<string> {
+  const compare = (a: string, b: string) => {
+    const x=Array.from(a,c=>c.codePointAt(0)!), y=Array.from(b,c=>c.codePointAt(0)!);
+    for(let i=0;i<Math.min(x.length,y.length);i++) if(x[i]!==y[i]) return x[i]-y[i];
+    return x.length-y.length;
+  };
+  const sorted = {...request, corrections:[...request.corrections].sort((a,b)=>compare(a.assertionId,b.assertionId)||a.evidenceIndex-b.evidenceIndex)};
+  function canonical(value: unknown): unknown {
+    if(Array.isArray(value))return value.map(canonical);
+    if(value!==null&&typeof value==='object')return Object.fromEntries(Object.entries(value).sort(([a],[b])=>compare(a,b)).map(([k,v])=>[k,canonical(v)]));
+    return value;
+  }
+  const bytes=new TextEncoder().encode(JSON.stringify(canonical(sorted))+"\n");
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+}

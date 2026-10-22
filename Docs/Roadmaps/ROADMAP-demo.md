@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `5f4fc7e0c49b6ca11ce9c2a5375c6839239a844b` (through PR #1605).
+**Evidence anchor:** remote main `12ce584156581aae04b101437f7034a85f71a30c` (through PR #1606).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve5f4fc7e0 (#1605), with Core617635c. Named saved-section
+API8000/UI5202 serve12ce5841 (#1606), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -168,16 +168,20 @@ followed a peripheral NPC and mislabeled some notes as a recap in prose; reliabl
 latency and citation wording remain open. Image composer repair delivered1605:
 the original follow-up automatically routed to Question, completed a typed prompt
 and reopened the exact Studio prompt after restart;1690APP rows, native rows,
-79mechanics files and11frozen components were unchanged. ACTIVE
-HANDOFF-AGENT-source-attribution-prose.md owns unsupported session/recap labels
-in claim prose; full adventure acceptance remains open.
+79mechanics files and11frozen components were unchanged. Source attribution instruction repair delivered1606: fresh original grounding kept
+notes/reflections separate from recap citations, with exact passage reopening after
+restart;1698APP rows, native rows,79mechanics files and11frozen components unchanged.
+The13.8s Debug capture does not establish reliable10s latency. Full adventure acceptance remains open.
 No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing
 Worlds are not rewritten or reinitialized; evidence correction and any governed
 successor publication remain separate. Conks exact-run review currently exposes
 nonliteral quotes, including wrong paragraph bindings. Do not substitute a literal
-quote from the wrong paragraph merely to clear qualification.
+quote from the wrong paragraph merely to clear qualification. Exact diagnosis found
+25 invalid quotes across21refs/41spans, including multi-paragraph quote groups.
+ACTIVE HANDOFF-BUILD-frozen-evidence-partitions.md owns explicit same-source
+paragraph selection and complete quote partitions into unpublished child candidates.
 
 ## Remaining acceptance
 

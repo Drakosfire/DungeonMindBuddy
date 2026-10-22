@@ -13,6 +13,8 @@ from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.models.extract_promote import (
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
+    WorldbuildingEvidenceCorrectionRequest,
+    WorldbuildingFrozenSpanCatalog,
     RecapEvidenceCorrectionResponse,
 )
 from apps.live_control_server.services.extract_promote import (
@@ -42,7 +44,7 @@ from graph_memory.ingestion.extraction_run import (
 )
 
 _PROFILE = "worldbuilding_shepherds_flock_v0@0.1"
-_DERIVATION = "operator_literal_evidence_correction_v1"
+_DERIVATION = "operator_frozen_evidence_partition_v2"
 _RECAP_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_PROFILE = "recap_category_v1@1.0"
 _LIFECYCLE = (
@@ -207,14 +209,11 @@ def _apply_literal_quote_corrections(
     return ordered
 
 
-def correct_exact_run_evidence(
-    request: ExactRunEvidenceCorrectionRequest,
-) -> ExactRunEvidenceCorrectionResponse:
-    """Seal one quote-only child; never mutate parent or publish a World head."""
+def _worldbuilding_parent(run_id):
     repo = artifact_data_root(repo_root())
     try:
-        resolved = resolve_promotable_ingest_run(request.parent_run_id, root=repo)
-        parent = get_extraction_run(repo, request.parent_run_id)
+        resolved = resolve_promotable_ingest_run(run_id, root=repo)
+        parent = get_extraction_run(repo, run_id)
     except (PromotableIngestRunError, GraphRunRegistryError) as exc:
         raise _reject(f"parent run is not reviewable: {exc}") from exc
     if (
@@ -224,6 +223,8 @@ def correct_exact_run_evidence(
         or parent.profile_id != _PROFILE
     ):
         raise _reject("correction requires the exact managed-World worldbuilding profile")
+    if parent.status != ExtractionRunStatus.REVIEWABLE:
+        raise _reject("parent run is no longer reviewable", status_code=409)
     if not resolved.world_id or resolved.session_id:
         raise _reject("worldbuilding run has an invalid World/session binding")
     try:
@@ -232,9 +233,6 @@ def correct_exact_run_evidence(
         raise _reject("parent run does not belong to a managed World") from exc
 
     parent_bytes = resolved.candidate_graph_path.read_bytes()
-    parent_sha = _sha(parent_bytes)
-    if parent_sha != request.parent_candidate_sha256:
-        raise _reject("parent candidate digest changed", status_code=409)
     try:
         payload = json.loads(parent_bytes)
         source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
@@ -252,17 +250,112 @@ def correct_exact_run_evidence(
         span_index=span_index,
         inspect_false_anchor_quotes=True,
     )
-    ordered = _apply_literal_quote_corrections(
+    return repo, resolved, parent, payload, source_prose, span_index
+
+
+def get_worldbuilding_frozen_spans(run_id: str) -> WorldbuildingFrozenSpanCatalog:
+    """Project exact frozen paragraphs, never client-derived paragraph identities."""
+    _, resolved, parent, payload, source, index = _worldbuilding_parent(run_id)
+    spans = list(index.spans)
+    if len({span.source_span_id for span in spans}) != len(spans):
+        raise _reject("frozen source span IDs are ambiguous")
+    return WorldbuildingFrozenSpanCatalog(
+        parent_run_id=run_id, parent_revision=parent.revision, parent_status=parent.status,
+        world_id=resolved.world_id, source_artifact_id=resolved.source_artifact_id,
+        source_sha256=_sha(resolved.normalized_recap_path.read_bytes()),
+        span_index_sha256=_sha(resolved.source_span_index_path.read_bytes()),
+        parent_candidate_sha256=_sha(resolved.candidate_graph_path.read_bytes()),
+        spans=[dict(source_span_ref_id=span.source_span_id, start_line=span.start_line,
+            end_line=span.end_line, paragraph_text=_paragraph_for_span(source.splitlines(),
+                start_line=int(span.start_line), end_line=int(span.end_line)).strip()) for span in spans],
+        evidence_refs=[dict(assertion_id=row.get("node_id") or row.get("edge_id"),
+            evidence_index=i, ref_sha256=_sha(_canonical_bytes(ref)))
+            for collection in ("nodes", "edges") for row in payload.get(collection, [])
+            for i, ref in enumerate(row.get("evidence_refs", []))])
+
+
+def _apply_evidence_partitions(payload, request, *, source_prose, span_index):
+    """Complete original-quote partitions; no automatic matching or semantic edits."""
+    from copy import deepcopy
+    spans = list(span_index.spans)
+    if len({span.source_span_id for span in spans}) != len(spans):
+        raise _reject("frozen source span IDs are ambiguous")
+    paragraphs = {span.source_span_id: _paragraph_for_span(source_prose.splitlines(),
+        start_line=int(span.start_line), end_line=int(span.end_line)).strip() for span in spans}
+    targets = {}
+    for change in request.corrections:
+        key = (change.assertion_id, change.evidence_index)
+        if key in targets:
+            raise _reject("duplicate correction target")
+        targets[key] = change
+    plans = []
+    for key, change in sorted(targets.items()):
+        holders = [row for collection in ("nodes", "edges") for row in payload.get(collection, [])
+            if (row.get("node_id") or row.get("edge_id")) == change.assertion_id]
+        if len(holders) != 1:
+            raise _reject("correction assertion ID is missing or ambiguous")
+        refs = holders[0].get("evidence_refs", [])
+        if change.evidence_index >= len(refs):
+            raise _reject("correction evidence index is stale", status_code=409)
+        old = refs[change.evidence_index]
+        if _sha(_canonical_bytes(old)) != change.expected_ref_sha256:
+            raise _reject("correction evidence preimage is stale", status_code=409)
+        quotes = old.get("anchor_quotes", [])
+        if not quotes:
+            raise _reject("correction requires original quote assignments")
+        seen_indices, replacements = set(), []
+        for part in change.parts:
+            sid = part.source_span_ref_id
+            if sid not in paragraphs:
+                raise _reject("correction source span is unknown")
+            assignments = sorted(part.quote_assignments, key=lambda item: item.original_quote_index)
+            replacement = []
+            for assignment in assignments:
+                index = assignment.original_quote_index
+                if index >= len(quotes) or index in seen_indices:
+                    raise _reject("original quote index is unknown or duplicated")
+                seen_indices.add(index)
+                if not find_anchor_quote_matches(paragraphs[sid], [assignment.replacement_quote]):
+                    raise _reject("replacement quote is not literal in the selected frozen paragraph")
+                replacement.append(assignment.replacement_quote)
+            ref = deepcopy(old)
+            ref["source_span_ref_id"], ref["anchor_quotes"] = sid, replacement
+            replacements.append((assignments[0].original_quote_index, ref, [a.original_quote_index for a in assignments]))
+        if seen_indices != set(range(len(quotes))):
+            raise _reject("every original quote index must be assigned exactly once")
+        ordered_parts = sorted(replacements)
+        if [i for _, _, indices in ordered_parts for i in indices] != list(range(len(quotes))):
+            raise _reject("paragraph partitions must preserve original quote order")
+        new_refs = [ref for _, ref, _ in ordered_parts]
+        if new_refs == [old]:
+            raise _reject("correction evidence is unchanged")
+        plans.append((holders[0], change.evidence_index, new_refs))
+    # Descending indices avoid shifting another selected evidence ref in the same holder.
+    for holder, index, replacements in sorted(plans, key=lambda item: item[1], reverse=True):
+        holder["evidence_refs"][index:index + 1] = replacements
+    return [targets[key] for key in sorted(targets)]
+
+
+def correct_exact_run_evidence(
+    request: WorldbuildingEvidenceCorrectionRequest,
+) -> ExactRunEvidenceCorrectionResponse:
+    """Derive an unpublished, completely qualified child from explicit frozen spans."""
+    repo, resolved, parent, payload, source_prose, span_index = _worldbuilding_parent(request.parent_run_id)
+    parent_sha = _sha(resolved.candidate_graph_path.read_bytes())
+    if (parent.revision != request.expected_parent_revision or parent.status != request.expected_parent_status
+        or parent_sha != request.parent_candidate_sha256 or resolved.world_id != request.world_id
+        or resolved.source_artifact_id != request.source_artifact_id
+        or _sha(resolved.normalized_recap_path.read_bytes()) != request.source_sha256
+        or _sha(resolved.source_span_index_path.read_bytes()) != request.span_index_sha256):
+        raise _reject("frozen parent/source/span-index preimage changed", status_code=409)
+    ordered = _apply_evidence_partitions(
         payload, request, source_prose=source_prose, span_index=span_index
     )
     _qualify_payload(payload=payload, resolved=resolved, source_prose=source_prose, span_index=span_index)
 
     canonical_corrections = [item.model_dump(mode="json", by_alias=True) for item in ordered]
-    correction_digest = _sha(_canonical_bytes({
-        "parentRunId": request.parent_run_id,
-        "parentCandidateSha256": parent_sha,
-        "corrections": canonical_corrections,
-    }))
+    correction_digest = _sha(_canonical_bytes(request.model_dump(mode="json", by_alias=True) |
+        {"corrections": canonical_corrections}))
     child_id = str(uuid5(NAMESPACE_URL, f"dmb:{_DERIVATION}:{correction_digest}"))
     child_bytes = _canonical_bytes(payload)
     child_sha = _sha(child_bytes)

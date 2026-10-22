@@ -532,6 +532,72 @@ class ExactRunEvidenceCorrectionRequest(_ExtractPromoteModel):
     corrections: list[ExactRunEvidenceQuoteCorrection] = Field(min_length=1)
 
 
+class WorldbuildingEvidenceQuoteAssignment(_ExtractPromoteModel):
+    original_quote_index: int = Field(strict=True, ge=0)
+    replacement_quote: str = Field(min_length=1)
+
+    @field_validator("replacement_quote")
+    @classmethod
+    def _literal(cls, value: str) -> str:
+        if value != value.strip():
+            raise ValueError("replacement quote must be trimmed")
+        return value
+
+
+class WorldbuildingEvidencePart(_ExtractPromoteModel):
+    source_span_ref_id: str = Field(min_length=1)
+    quote_assignments: list[WorldbuildingEvidenceQuoteAssignment] = Field(min_length=1)
+
+
+class WorldbuildingEvidenceRefCorrection(_ExtractPromoteModel):
+    assertion_id: str = Field(min_length=1)
+    evidence_index: int = Field(strict=True, ge=0)
+    expected_ref_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    parts: list[WorldbuildingEvidencePart] = Field(min_length=1)
+
+
+class WorldbuildingEvidenceCorrectionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_evidence_correction_request_v2"] = Field(
+        default="dmb_worldbuilding_evidence_correction_request_v2", alias="schema")
+    parent_run_id: str = Field(min_length=1)
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    expected_parent_status: Literal["reviewable"] = "reviewable"
+    world_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    span_index_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    parent_candidate_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    corrections: list[WorldbuildingEvidenceRefCorrection] = Field(min_length=1)
+
+
+class WorldbuildingFrozenSpan(_ExtractPromoteModel):
+    source_span_ref_id: str
+    start_line: int
+    end_line: int
+    paragraph_text: str
+
+
+class WorldbuildingEvidencePreimage(_ExtractPromoteModel):
+    assertion_id: str
+    evidence_index: int
+    ref_sha256: str
+
+
+class WorldbuildingFrozenSpanCatalog(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_frozen_span_catalog_v1"] = Field(
+        default="dmb_worldbuilding_frozen_span_catalog_v1", alias="schema")
+    parent_run_id: str
+    parent_revision: int
+    parent_status: Literal["reviewable"]
+    world_id: str
+    source_artifact_id: str
+    source_sha256: str
+    span_index_sha256: str
+    parent_candidate_sha256: str
+    spans: list[WorldbuildingFrozenSpan]
+    evidence_refs: list[WorldbuildingEvidencePreimage]
+
+
 class ExactRunEvidenceCorrectionResponse(_ExtractPromoteModel):
     schema_: Literal["dmb_exact_run_evidence_correction_response_v1"] = Field(
         default=EVIDENCE_CORRECTION_RESPONSE_SCHEMA, alias="schema"

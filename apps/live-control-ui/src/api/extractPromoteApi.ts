@@ -6,6 +6,8 @@ import type {
   ExactRunReviewPackage,
   RecapEvidenceCorrectionResponse,
   ExactRunEvidenceCorrectionResponse,
+  WorldbuildingEvidenceCorrectionRequest,
+  WorldbuildingFrozenSpanCatalog,
   ExactRunEvidenceQuoteCorrection,
   ExtractPromoteConfirmReceipt,
   ExtractPromoteConfirmRequest,
@@ -92,16 +94,17 @@ export async function getExactRunReviewPackage(runId: string): Promise<ExactRunR
   );
 }
 
-export async function correctExactRunEvidence(input: {
-  parentRunId: string;
-  parentCandidateSha256: string;
-  corrections: ExactRunEvidenceQuoteCorrection[];
-}): Promise<ExactRunEvidenceCorrectionResponse> {
+export async function getWorldbuildingFrozenSpans(runId: string): Promise<WorldbuildingFrozenSpanCatalog> {
+  return extractPromoteFetch<WorldbuildingFrozenSpanCatalog>(
+    `/api/live/extract-promote/runs/${encodeURIComponent(runId)}/frozen-source-spans`);
+}
+
+export async function correctExactRunEvidence(input: WorldbuildingEvidenceCorrectionRequest): Promise<ExactRunEvidenceCorrectionResponse> {
   return extractPromoteFetch<ExactRunEvidenceCorrectionResponse>(
     `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/evidence-corrections`,
     {
       method: "POST",
-      body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }),
+      body: JSON.stringify(input),
     },
   );
 }

@@ -1365,25 +1365,10 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(screen.queryByText("Create World Graph")).not.toBeInTheDocument();
-    await user.type(
-      screen.getByRole("textbox", { name: /Literal replacement for Torbin quote 1/i }),
-      "who bought the strange seed",
-    );
-    await user.click(screen.getByRole("button", { name: "Create reviewed child candidate" }));
-    await waitFor(() => expect(correctionSpy).toHaveBeenCalledWith({
-      parentRunId: run.run_id,
-      parentCandidateSha256: "a".repeat(64),
-      corrections: [{
-        assertionId: "torbin",
-        evidenceIndex: 0,
-        sourceSpanRefId: "span:1",
-        quoteIndex: 0,
-        originalQuote: "Torbin bought the strange seed",
-        replacementQuote: "who bought the strange seed",
-      }],
-    }));
-    expect(await screen.findByTestId("graph-review-derived-candidate-lineage")).toHaveTextContent(run.run_id);
-    expect(window.location.search).toContain(`extractionRunId=${child.run_id}`);
+    expect(screen.queryByRole("textbox",{name:/Literal replacement for Torbin/})).not.toBeInTheDocument();
+    expect(screen.getByRole("link",{name:"Build"})).toHaveAttribute("href",expect.stringContaining("/build?world="));
+    expect(correctionSpy).not.toHaveBeenCalled();
+
   });
 
   it("lets exact-run handoff win Advanced details over a stale persisted catalog run", async () => {

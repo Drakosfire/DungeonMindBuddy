@@ -1412,7 +1412,10 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         semantic_assessment = None
         try:
             run_record = get_extraction_run(_artifact_root(), resolved.run_id)
-            if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
+            # Historical immutable children keep their lineage label; the retired V1
+            # worldbuilding mutation wire is not accepted by the correction route.
+            if run_record.lineage.get("derivation") in {"operator_literal_evidence_correction_v1",
+                    "operator_frozen_evidence_partition_v2"}:
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
             from apps.live_control_server.services.recap_semantic_disposition import (
                 is_recap_correction,
