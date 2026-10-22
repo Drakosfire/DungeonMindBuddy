@@ -49,7 +49,7 @@ import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
 import {SessionEvidenceViewer} from "./review/SessionEvidenceViewer";
 import { SessionReviewPanel } from "./review/SessionReviewPanel";
 import {readSessionReview} from "./review/sessionReviewApi";
-import { PlayWorldPicker } from "./PlayWorldPicker";
+import { SurfaceWorldPicker } from "../shared/SurfaceWorldPicker";
 import { StartRunPanel } from "./StartRunPanel";
 import { SurfaceContextAction } from "../surfaceInteraction/contextHost";
 import { PlaySurfaceContext, playSurfaceContextIdentity } from "./components/PlaySurfaceContext";
@@ -474,7 +474,7 @@ function PlayChooser({
         {continuityWarning ? <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">{continuityWarning}</p> : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
-      {!selectedWorldId ? <PlayWorldPicker /> : null}
+      {!selectedWorldId ? <SurfaceWorldPicker surface="play" /> : null}
       <section data-testid="play-existing-runs" aria-label="Saved sessions">
         {selectedWorldId || records.length > 0 ? <h2>{selectedWorldId ? "Your sessions" : "Earlier campaign sessions"}</h2> : null}
         {status === "loading" ? <p>Loading sessions…</p> : null}

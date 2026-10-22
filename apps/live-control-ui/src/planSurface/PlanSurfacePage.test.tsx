@@ -4199,3 +4199,21 @@ it("publishes Rules Lookup from the actual native managed Plan and preserves wri
   expect(editor.getJSON()).toEqual(before); expect(save).not.toHaveBeenCalled();
   act(() => editor.commands.undo()); expect(editor.getJSON()).toEqual(original);
 });
+
+
+it("root Plan exposes World selection instead of the campaign inventory and preserves recovery bytes", async () => {
+  window.history.replaceState({}, "", "/plan?documentId=b7e0d9da-37ad-444a-9a62-25f7c61bb32d");
+  const recoveryKey = "dmb:world-plan-local-draft:v2:elderwyld";
+  const oldDraft = JSON.stringify({schema_version:"dmb_plan_promotion_recovery_v2",scope_mode:"world",
+    world_id:"elderwyld",document_id:null,title:"Unsaved session",markdown:"# Recollections\nStill drafting.",revision:null});
+  localStorage.setItem(recoveryKey, oldDraft);
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({records:[{
+    world_id: "elderwyld", name: "Elderwyld",
+  }]} as never);
+  const legacyRead = vi.spyOn(liveApi, "getPlanView");
+  render(<PlanSurfacePage />);
+  expect(await screen.findByRole("link", {name: /Elderwyld/})).toHaveAttribute("href", "/plan?world=elderwyld");
+  expect(screen.queryByRole("combobox", {name: "Plan document"})).toBeNull();
+  expect(legacyRead).not.toHaveBeenCalled();
+  expect(localStorage.getItem(recoveryKey)).toBe(oldDraft);
+});

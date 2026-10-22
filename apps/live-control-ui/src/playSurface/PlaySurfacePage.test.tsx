@@ -86,7 +86,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublish
 vi.mock("../graphLens", () => ({ useOptionalWorldGraphLens: () => null }));
 vi.mock("./review/SessionReviewPanel",()=>({SessionReviewPanel:()=>null}));
 vi.mock("./review/sessionReviewApi",()=>({readSessionReview:vi.fn().mockResolvedValue({review:null})}));
-vi.mock("./PlayWorldPicker", () => ({PlayWorldPicker: () => <div>Choose your World</div>}));
+vi.mock("../shared/SurfaceWorldPicker", () => ({SurfaceWorldPicker: () => <div>Choose your World</div>}));
 vi.mock("./StartRunPanel", () => ({ StartRunPanel: () => <div>Start Run</div> }));
 
 const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

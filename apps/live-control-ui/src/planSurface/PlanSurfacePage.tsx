@@ -16,21 +16,20 @@ import {
   createWorldOwnedPlan,
   getManagedWorldPlanContext,
   LiveApiError,
-  getPlanView,
   getWorldOwnedPlanCommittedRevision,
   getWorldOwnedPlanSnapshot,
   listWorldOwnedPlans,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { PlanViewProjection, WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
+import type { WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
 import { DurableSaveStatus, type DurableSaveState } from "../components/DurableSaveStatus";
 import { DocumentImageStudio } from "../media/DocumentImageStudio";
 import { createDocumentMediaBridge, type DocumentMediaState } from "../media/documentMediaBridge";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { PlanMarkdownSource } from "./components/PlanMarkdownSource";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
-import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { AppChrome } from "../chrome/AppChrome";
+import { SurfaceWorldPicker } from "../shared/SurfaceWorldPicker";
 import { markdownToTiptapDoc, type MarkdownImportDiagnostic } from "../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
@@ -127,42 +126,6 @@ function markdownFidelityRejectionText(warnings: readonly string[]): string {
 export function PlanSurfacePage() {
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  const [status, setStatus] = useState<LoadStatus>("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
-  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
-
-  useEffect(() => {
-    if (selectedWorld.kind === "loading" || selectedWorld.kind === "error" || managedWorldId) return;
-    let cancelled = false;
-    (async () => {
-      setStatus("loading");
-      setError(null);
-      setPlanView(null);
-      try {
-        const response = await getPlanView(managedWorldId);
-        if (!cancelled) {
-          if (managedWorldId && (
-            response.world_id !== managedWorldId
-            || response.campaign_id !== managedWorldId
-          )) {
-            throw new Error(`Plan context does not match selected World ${managedWorldId}.`);
-          }
-          setPlanView(response);
-          setStatus("ready");
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setStatus("error");
-          setError(loadError instanceof Error ? loadError.message : "Failed to load plan context");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [managedWorldId, selectedWorld.kind]);
-
   if (selectedWorld.kind === "loading") {
     return <AppChrome activeRoute="plan"><main className="app-status"><p>Resolving selected World…</p></main></AppChrome>;
   }
@@ -175,30 +138,12 @@ export function PlanSurfacePage() {
     </WorldPlanGraphReferenceActivationProvider>
   );
 
-  if (status === "loading") {
-    return (
-      <AppChrome activeRoute="plan">
-        <main className="app-status">
-          <p>Loading plan surface…</p>
-        </main>
-      </AppChrome>
-    );
-  }
-
-  if (status === "error" || !planView) {
-    return (
-      <AppChrome activeRoute="plan">
-        <main className="app-status app-error">
-          <h1>Plan</h1>
-          <p>{error ?? "Unable to load plan context."}</p>
-        </main>
-      </AppChrome>
-    );
-  }
-
   return (
-    <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-      <PlanSurfaceShell planView={planView} onEditorToolsChange={setEditorTools} />
+    <AppChrome activeRoute="plan">
+      <main className="app-status plan-world-entry" aria-label="Plan workspace">
+        <h1>Plan your next session</h1>
+        <SurfaceWorldPicker surface="plan" />
+      </main>
     </AppChrome>
   );
 }
