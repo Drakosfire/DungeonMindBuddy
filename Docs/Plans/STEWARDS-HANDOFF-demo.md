@@ -50,20 +50,20 @@ Document drafts, accepted graph knowledge and mutable Run state retain their
 actual ownership. A fresh blank World must be usable before campaign, corpus or
 published graph-head existence.
 
-## Current execution pickup — reconciled 2026-10-19
+## Current execution pickup — reconciled 2026-10-21
 
-Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for the delivered
-baseline, remaining acceptance and candidates under operator discussion.
-Shared authoring, session-copy editing, session-aware Buddy, media authoring,
-compact navbars, Trash and session closing/evidence consumers have delivered
-bounded capabilities through #1455. This does not award full J1–J6 acceptance.
+Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for delivered work,
+remaining acceptance and the operator's next-goal discussion. Implementation is
+paused. Cards/manual editing, shared Surface navigation, Build document ingestion,
+limited native Rules lookup and Combat C0 have delivered bounded capabilities.
+They do not award J1–J6 acceptance.
 
-The old #793 transfer and three-slice immediate delivery order are historical,
-not current assignments. Their evidence remains in Git. Do not reopen an old
-welcome, shell or migration PR because this mandate previously called it next.
-Cards' purpose and information capacity need the requested design examination;
-no new implementation is activated by the current roadmap audit. Preserve the
-existing mutation, ownership and review boundaries when a next slice is selected.
+Fresh live Plan dogfooding found a root inventory split (draft #1566, not deployed)
+and a completed Jev reply that leaves the composer locked. The fresh
+conversation→image journey remains unproven; one isolated sub-10-second grounding
+pass is not a reliable latency acceptance result. The roadmap records these gaps
+and proposed goals. Do not resume implementation or an old “next” dispatch until
+the operator chooses the next goal. Mandate, ownership and full mission remain.
 
 ## Activation and inheritance
 
