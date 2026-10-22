@@ -293,6 +293,21 @@ describe("BuildReferenceCapability", () => {
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
+  it("opens the shared workbench without granting document or Graph authority", async () => {
+    const user = userEvent.setup();
+    render(<AgentInteractionProvider>
+      <BuildReferenceCapability documentId={null} />
+      <PublicationProbe /><ToolHost /><LegacyProjectionHostAdapter />
+    </AgentInteractionProvider>);
+    expect(screen.queryByText("Statblock Workbench")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tools", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Statblocks", exact: true }));
+    expect(await screen.findByTestId("statblock-scope-unavailable")).toHaveTextContent("Select a verified World");
+    expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
   it("publishes Find existing tool when session is accepted", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFixture());
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());

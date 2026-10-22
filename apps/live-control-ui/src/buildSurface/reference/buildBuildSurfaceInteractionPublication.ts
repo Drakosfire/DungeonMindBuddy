@@ -1,3 +1,4 @@
+import { STATBLOCK_WORKBENCH_TOOL, STATBLOCK_WORKBENCH_PROJECTION } from "../../statblocks/statblockWorkbenchProjection";
 import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION } from "../../rulesLookup/rulesLookupProjection";
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
 import type {
@@ -76,16 +77,16 @@ function buildBuildIdentity(documentId: string | null) {
   });
 }
 
-function buildRulesOnlyPublication(documentId: string | null): SurfaceInteractionPublication {
+function buildDocumentIndependentPublication(documentId: string | null): SurfaceInteractionPublication {
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,
     identity: buildBuildIdentity(documentId),
     canvas: null,
     agentContext: null,
-    tools: [RULES_LOOKUP_TOOL],
+    tools: [RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL],
     editCommands: [],
-    projections: [RULES_LOOKUP_PROJECTION],
+    projections: [RULES_LOOKUP_PROJECTION, STATBLOCK_WORKBENCH_PROJECTION],
     projectionBindings: [],
   };
 }
@@ -129,7 +130,7 @@ export function buildBuildSurfaceInteractionPublication(
   const { documentId, acceptedDocument, referenceContext, worldGraphChannel, documentSave = null } = input;
 
   if (!isAcceptedDocument(documentId, acceptedDocument) || referenceContext == null) {
-    return buildRulesOnlyPublication(documentId);
+    return buildDocumentIndependentPublication(documentId);
   }
 
   const admittedDocumentId = acceptedDocument.documentId;
@@ -172,6 +173,7 @@ export function buildBuildSurfaceInteractionPublication(
           projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
         },
       },
+      STATBLOCK_WORKBENCH_TOOL,
     ],
     editCommands,
     projections: [
@@ -191,6 +193,7 @@ export function buildBuildSurfaceInteractionPublication(
         preferredSize: "wide",
         bindingIds: [GRAPH_REFERENCE_RESOLUTION_BINDING_ID],
       },
+      STATBLOCK_WORKBENCH_PROJECTION,
     ],
     projectionBindings: [
       { id: BUILD_REFERENCE_CONTEXT_BINDING_ID, value: referenceContext },

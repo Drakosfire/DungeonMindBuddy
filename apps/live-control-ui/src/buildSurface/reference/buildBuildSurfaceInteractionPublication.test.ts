@@ -1,3 +1,4 @@
+import { STATBLOCK_WORKBENCH_TOOL, STATBLOCK_WORKBENCH_PROJECTION } from "../../statblocks/statblockWorkbenchProjection";
 import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION } from "../../rulesLookup/rulesLookupProjection";
 import { describe, expect, it, vi } from "vitest";
 
@@ -40,7 +41,7 @@ const sampleContext: BuildReferenceContextBinding = {
 };
 
 describe("buildBuildSurfaceInteractionPublication", () => {
-  it("publishes only Rules when documentId is null", () => {
+  it("publishes independent tools when documentId is null", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: null,
       acceptedDocument: null,
@@ -48,16 +49,16 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL]);
     expect(publication.editCommands).toEqual([]);
-    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION, STATBLOCK_WORKBENCH_PROJECTION]);
     expect(publication.projectionBindings).toEqual([]);
     expect(publication.canvas).toBeNull();
     expect(publication.identity.surfaceId).toBe("build");
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
-  it("publishes only Rules when accepted document is missing", () => {
+  it("publishes independent tools when accepted document is missing", () => {
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: null,
@@ -65,8 +66,8 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
-    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION, STATBLOCK_WORKBENCH_PROJECTION]);
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
@@ -78,7 +79,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL]);
     expect(publication.canvas).toBeNull();
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
@@ -91,8 +92,8 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       worldGraphChannel: null,
     });
 
-    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL]);
-    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION]);
+    expect(publication.tools).toEqual([RULES_LOOKUP_TOOL, STATBLOCK_WORKBENCH_TOOL]);
+    expect(publication.projections).toEqual([RULES_LOOKUP_PROJECTION, STATBLOCK_WORKBENCH_PROJECTION]);
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
   });
 
@@ -120,7 +121,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       canvasId: "markdown-canvas",
       workObject: { kind: "document", id: DOC_ID },
     });
-    expect(publication.tools).toHaveLength(2);
+    expect(publication.tools).toHaveLength(3);
     expect(publication.tools[1]).toMatchObject({
       id: BUILD_FIND_EXISTING_TOOL_ID,
       label: "Find existing object",
@@ -154,6 +155,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         preferredSize: "wide",
         bindingIds: [GRAPH_REFERENCE_RESOLUTION_BINDING_ID],
       },
+      STATBLOCK_WORKBENCH_PROJECTION,
     ]);
     expect(publication.projectionBindings.map((entry) => entry.id)).toEqual([
       BUILD_REFERENCE_CONTEXT_BINDING_ID,

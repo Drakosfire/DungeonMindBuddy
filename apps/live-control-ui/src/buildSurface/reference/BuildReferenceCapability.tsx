@@ -1,3 +1,4 @@
+import { useStatblockWorkbenchProjection } from "../../statblocks/statblockWorkbenchProjection";
 import { useRulesLookupProjection } from "../../rulesLookup/rulesLookupProjection";
 import {
   useCallback,
@@ -617,6 +618,7 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
 
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("build", true);
+  useStatblockWorkbenchProjection("build");
 
   const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
 
