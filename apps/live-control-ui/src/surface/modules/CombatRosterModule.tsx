@@ -51,12 +51,14 @@ function RosterRow({
   disabled,
   onChange,
   onSetActive,
+  onRemove,
 }: {
   entity: CombatEntity;
   active: boolean;
   disabled: boolean;
   onChange: (entity: CombatEntity) => void;
   onSetActive: () => void;
+  onRemove: () => void;
 }) {
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
@@ -212,6 +214,9 @@ function RosterRow({
           />{" "}
           Defeated
         </label>
+        <button type="button" aria-label={`Remove ${entity.name} from encounter draft`}
+          title="Remove from the draft. Revert restores the saved roster before Save."
+          disabled={disabled} onClick={onRemove}>Remove</button>
         {error ? <div className="module-error">{error}</div> : null}
       </td>
     </tr>
@@ -437,6 +442,26 @@ export function CombatRosterModule() {
     }
   }
 
+  function removeEntity(entityId: string) {
+    updateDraft((current) => {
+      const index = current.entities.findIndex((entity) => entity.id === entityId);
+      if (index < 0) return current;
+      const successor = [...current.entities.slice(index + 1), ...current.entities.slice(0, index)]
+        .find((entity) => !entity.defeated)?.id ?? null;
+      return {
+        ...current,
+        entities: current.entities.filter((entity) => entity.id !== entityId)
+          .map((entity, order) => ({ ...entity, order: order + 1 })),
+        groups: current.groups.flatMap((group) => {
+          const member_ids = group.member_ids.filter((id) => id !== entityId);
+          return member_ids.length ? [{ ...group, member_ids }] : [];
+        }),
+        active_turn_entity_id: current.active_turn_entity_id === entityId ? successor : current.active_turn_entity_id,
+        round_start_entity_id: current.round_start_entity_id === entityId ? null : current.round_start_entity_id,
+      };
+    });
+  }
+
   function setActive(entityId: string) {
     updateDraft((current) => current.entities.some((entity) => entity.id === entityId && !entity.defeated)
       ? { ...current, active_turn_entity_id: entityId, round_start_entity_id: current.round_start_entity_id ?? entityId }
@@ -590,6 +615,7 @@ export function CombatRosterModule() {
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}
+                          onRemove={() => removeEntity(entity.id)}
                         />
                       ))}
                     </tbody>

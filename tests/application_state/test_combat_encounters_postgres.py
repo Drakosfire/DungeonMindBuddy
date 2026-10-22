@@ -259,3 +259,36 @@ def test_new_world_identity_requires_server_verification(application_state_dsn):
         save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,
             request=SaveCombatEncounterRequest(expected_revision=1,draft=CombatEncounterDraft(title="Manual assembly",entities=[actor])))
     assert get_encounter(world_id="elderwyld",encounter_id=created.encounter_id) == created
+
+
+def test_actor_removal_with_cleaned_pointers_and_groups_saves_and_reopens(application_state_dsn):
+    created = create_encounter(world_id="elderwyld", request=CreateCombatEncounterRequest(title="Roster removal"))
+    original = CombatEncounterDraft(
+        title="Roster removal", round=4,
+        entities=[_entity("a", "First", 1), _entity("b", "Second", 2)],
+        active_turn_entity_id="a", round_start_entity_id="a",
+        groups=[{"group_key":"pair", "label":"Pair", "member_ids":["a","b"], "collapsed":False}],
+    )
+    baseline = save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,
+        request=SaveCombatEncounterRequest(expected_revision=1, draft=original))
+    # Omission does not authorize dangling turn or group identities.
+    for changes in [
+        {"entities":[original.entities[1]]},
+        {"entities":[original.entities[1]], "active_turn_entity_id":"b", "round_start_entity_id":None},
+    ]:
+        with pytest.raises(ValueError):
+            CombatEncounterDraft.model_validate({**original.model_dump(), **changes})
+    cleaned = original.model_copy(update={
+        "entities":[original.entities[1].model_copy(update={"order":1})],
+        "active_turn_entity_id":"b", "round_start_entity_id":None,
+        "groups":[original.groups[0].model_copy(update={"member_ids":["b"]})],
+    })
+    saved = save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,
+        request=SaveCombatEncounterRequest(expected_revision=baseline.revision, draft=cleaned))
+    assert saved.revision == 3 and saved.draft.round == 4
+    assert get_encounter(world_id="elderwyld", encounter_id=created.encounter_id) == saved
+    assert saved.draft.entities[0] == cleaned.entities[0]
+    with pytest.raises(ApplicationStateConflictError):
+        save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,
+            request=SaveCombatEncounterRequest(expected_revision=baseline.revision, draft=original))
+    assert get_encounter(world_id="elderwyld", encounter_id=created.encounter_id) == saved
