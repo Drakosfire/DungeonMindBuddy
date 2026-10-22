@@ -76,7 +76,7 @@ function hydrationOk(nodeId: string) {
   return {
     schema: "dmb_threat_query_hydration_response_v1" as const,
     worldId: scopeG1.worldId,
-    campaignId: scopeG1.campaignId,
+    campaignId: null,
     scopeMode: scopeG1.scopeMode,
     revisionId: scopeG1.revisionId,
     queryText: nodeId,
@@ -372,7 +372,7 @@ describe("PlayGraphObjectSheet", () => {
       },
       snapshot: {
         worldId: scopeG1.worldId,
-        campaignId: scopeG1.campaignId,
+        campaignId: null,
         revisionId: scopeG1.revisionId,
         headRevisionId: scopeG1.revisionId,
         isHead: true,
