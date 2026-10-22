@@ -31,7 +31,7 @@ const entity = {
   statblock_title: null,
   corpus_fingerprint: null,
   source: "manual" as const,
-  provenance: [],
+  provenance: [], world_identity:null, mechanics_snapshot:null,
 };
 
 function record(overrides: Partial<CombatEncounterRecord> = {}): CombatEncounterRecord {
@@ -573,6 +573,23 @@ describe("CombatRosterModule", () => {
     first.unmount();await userEvent.click(b.getByRole('button',{name:'Open'}));
     await userEvent.click(await b.findByRole('button',{name:'Recover local Combat draft'}));
     expect(b.getByLabelText('Notes for Geomantic Drake')).toHaveValue('First view recovery');
+  });
+
+  it("keeps an unconfirmed Save retryable when later local edits equal the original base",async()=>{
+    const initial=record(),pending=deferred<CombatEncounterRecord>();
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockReturnValueOnce(pending.promise)
+      .mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const title=await screen.findByLabelText('Encounter title');await userEvent.clear(title);await userEvent.type(title,'Submitted edit');
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+    const submitted=save.mock.calls[0][3];await userEvent.clear(title);await userEvent.type(title,initial.draft.title);
+    pending.reject(new Error('Connection lost'));await screen.findByRole('alert');
+    expect(screen.getByText('Save outcome unconfirmed · exact request retained')).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Save'})).toBeEnabled();expect(screen.getByRole('button',{name:'Revert'})).toBeEnabled();
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));await waitFor(()=>expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[1][2]).toBe(1);expect(save.mock.calls[1][3]).toEqual(submitted);
+    await screen.findByText('Unsaved changes');expect(title).toHaveValue(initial.draft.title);
   });
 
 });

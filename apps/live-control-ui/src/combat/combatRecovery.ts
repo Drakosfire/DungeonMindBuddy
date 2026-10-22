@@ -1,3 +1,4 @@
+import {isCombatRecoveryRecord,isCombatRecoveryDraft} from './validateCombatRecovery';
 import type {CombatEncounterDraft, CombatEncounterRecord} from './combatTypes';
 
 export const combatSelectionKey = (worldId: string) => `dmb.combat.selected:${worldId}`;
@@ -14,27 +15,17 @@ function ordered(value: unknown): unknown {
   return value;
 }
 export const combatDraftEqual = (a: unknown, b: unknown) => JSON.stringify(ordered(a)) === JSON.stringify(ordered(b));
-function validDraft(value: unknown): value is CombatEncounterDraft {
-  if (!value || typeof value !== 'object') return false;
-  const d = value as CombatEncounterDraft;
-  return typeof d.title === 'string' && d.schema === 'dmb_combat_encounter_draft_v1'
-    && Number.isInteger(d.round) && d.round > 0 && d.queue_model === 'circular_barrel_v1'
-    && Array.isArray(d.entities) && Array.isArray(d.groups) && Array.isArray(d.provenance)
-    && d.entities.every(e => e && typeof e.id === 'string' && typeof e.name === 'string'
-      && Number.isInteger(e.order) && typeof e.notes === 'string' && typeof e.temp_hp === 'number'
-      && typeof e.defeated === 'boolean' && Array.isArray(e.conditions) && Array.isArray(e.tags)
-      && Array.isArray(e.provenance));
-}
+
 function parse(raw: string | null, current: CombatEncounterRecord): CombatRecovery | null {
   if (raw === null) return null;
   const saved = JSON.parse(raw) as CombatRecovery;
   if (!saved || saved.schema !== 'dmb_combat_recovery_v1' || !saved.base
       || saved.base.world_id !== current.world_id || saved.base.encounter_id !== current.encounter_id
       || !Number.isInteger(saved.base.revision) || saved.base.revision < 1
-      || !validDraft(saved.base.draft) || !validDraft(saved.draft)
+      || !isCombatRecoveryRecord(saved.base) || !isCombatRecoveryDraft(saved.draft)
       || !saved.base.ruleset || !Array.isArray(saved.base.ruleset.fields)
       || (saved.pending !== null && (!saved.pending || saved.pending.expected_revision !== saved.base.revision
-        || !validDraft(saved.pending.draft)))) {
+        || !isCombatRecoveryDraft(saved.pending.draft)))) {
     throw new Error('Stored Combat recovery is invalid or belongs to a different encounter. It has been preserved.');
   }
   return saved;

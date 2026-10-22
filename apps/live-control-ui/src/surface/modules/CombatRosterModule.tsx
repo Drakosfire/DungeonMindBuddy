@@ -384,7 +384,7 @@ export function CombatRosterModule() {
   }
 
   async function saveEncounter() {
-    if (!worldId || !visibleRecord || !visibleDraft || !dirty) return;
+    if (!worldId || !visibleRecord || !visibleDraft || (!dirty && !pendingSave.current)) return;
     const requestedWorldId = worldId;
     const submittedRecord = visibleRecord;
     const submittedDraft = cloneDraft(pendingSave.current?.draft ?? visibleDraft);
@@ -524,13 +524,13 @@ export function CombatRosterModule() {
             <button type="button" disabled={busy !== null || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
               Create
             </button>
-            <button type="button" disabled={busy !== null || !dirty} onClick={() => void saveEncounter()}>
+            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>
-            <button type="button" disabled={busy !== null || !dirty} onClick={revertDraft}>
+            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
               Revert
             </button>
-            {dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
+            {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
           </section>
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>

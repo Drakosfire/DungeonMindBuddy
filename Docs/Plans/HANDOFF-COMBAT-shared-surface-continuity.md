@@ -36,9 +36,11 @@ new caps, latest fallback, backwards path or provider/Graph mutation.
 
 Exclusive writes: this handoff; predecessor HANDOFF-COMBAT-exact-world-mechanics.md
 and ROADMAP-demo.md; UI combat/new combatRecovery.ts and combatProjection.tsx, combatRoster.css/CombatSurfacePage.css style ownership plus
-owning recovery/catalog/integration tests; shared CombatRosterModule.tsx and tests;
+owning recovery/catalog/integration tests; generated combatRecoverySchema.json,
+validateCombatRecovery.ts, scripts/generate_combat_recovery_schema.py and owning
+schema synchronization test (render-safe client shape, not commit authority); shared CombatRosterModule.tsx and tests;
 PlanSurfacePage.tsx and PlaySurfacePage.tsx opt-in imports/publication/hooks only.
-No backend, migration, Plan/Play writer, global registry or dependency changes.
+No backend runtime, migration, Plan/Play writer, global registry or dependency changes.
 
 Verify recovery before-close/reload, scoped ID/base mismatch, quota/lock failure,
 late callbacks/ABA, two-view refusal and external-client CAS, lost ack without
@@ -46,3 +48,9 @@ reposting, edits during Save, exact encounter Plan→Play and reverse, lazy read
 unchanged host draft/scene/notes. Bugbot exact cumulative review→PRIME merge→5202.
 Actual rendered Plan/Play same fight, independent actor state/mechanics and local
 recovery through tool close/reload; API restart retains prior state. No full J1–J6 award.
+
+Review refinements: complete nested recovery shapes are generated from current APP
+Combat and DMS exact-resource types, with annotation-only schema text removed. Unknown
+validator vocabulary fails closed; synchronization test detects contract drift.
+Pending Save permits exact retry/discard even when later working draft equals base,
+and status remains unconfirmed rather than Saved. No new storage/model caps.
