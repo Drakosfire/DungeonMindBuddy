@@ -16,14 +16,26 @@ from .source_writer_output import strict_json
 
 ANSWER_SCHEMA = "dmb_surface_source_answer_v1"
 
-INSTRUCTIONS = """Only when at least one complete opened source passage has an actual opaque
+SOURCE_ATTRIBUTION_INSTRUCTIONS = """Keep evidence claim prose about what the evidence says. The host supplies exact
+source names and links in citations; do not add source-label headings, parenthetical
+source labels, citation links or inferred session-number labels to claim prose. Plan text and dialogue
+may mention other sessions; those numbers do not label separately supplied evidence.
+Session notes and closing reflections are not an external recap. Describe them as
+notes/reflections, preserving their uncertainty and planned versus played events.
+review_revision is a review checkpoint selector, never a session number. Do not infer
+a session number from a Plan title, nearby prose, dialogue or a revision selector.
+External recap passages remain attributed through their owner-provided source names
+in host citations. Never borrow another source's title or characterize notes as a recap.
+"""
+
+SOURCE_ANSWER_INSTRUCTIONS = """Only when at least one complete opened source passage has an actual opaque
 passage_handle or passageHandle AND no complete Graph claim records are available,
 you may answer from those actually opened source passages. This attributes authored source text; it does not
 turn it into accepted World facts or played events. Use only complete, sufficient,
 untruncated passages carrying passage_handle (or passageHandle in tool results).
 Return {"schema":"dmb_surface_source_answer_v1","answer_context_status":"source_grounded or source_grounded_partial",
 "answer_segments":[{"kind":"source_passage_claim","text":"source-attributed prose","passage_handles":["exact opaque handle"]}]}.
-Use source names in prose. You may add connective segments for limitations or
+You may add connective segments for limitations or
 proposal segments labeled invented_idea for suggestions. Do not mix graph_claim,
 Plan/session/play-context claims or citation metadata into this source-only answer.
 A source_grounded answer means these supplied passages support the requested details,
@@ -36,6 +48,9 @@ not opened corpus passages. Without an eligible handle, use the owning Plan/Play
 answer contract instead of this schema. Do not output passage handles anywhere
 except passage_handles. Do not fabricate them.
 """
+
+
+INSTRUCTIONS = SOURCE_ATTRIBUTION_INSTRUCTIONS + SOURCE_ANSWER_INSTRUCTIONS
 
 
 def eligible(read):

@@ -1,6 +1,13 @@
 # SURFACE — route image prompt preparation to discussion
 
-ACTIVE serial PRIME successor from 8dc5c44fb3c80be8a5d1037b0be30fe979f76c4a,
+DELIVERED in PR #1605, reviewed head 5ca34ead5d9edaa68f74b095a1a5659ce2fafac0,
+merge 5f4fc7e0c49b6ca11ce9c2a5375c6839239a844b after four Bugbot cycles.
+Ordinary original image follow-up routed to Question without manual correction,
+completed typed image_prompt and opened exact prompt in Studio. Reload/restart
+retained1690 APP rows, all native rows,79 mechanics files and11 frozen components.
+No automatic Generate/Save or Plan edit. Full adventure acceptance remains open.
+
+Historical serial PRIME successor from 8dc5c44fb3c80be8a5d1037b0be30fe979f76c4a,
 branch codex/surface-image-prompt-intent, existing buddy-context-loop checkout.
 Operator goal authorizes ordinary grounded image-prompt→Studio completion. Current
 open PR census has no overlapping active implementation.

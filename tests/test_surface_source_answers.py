@@ -58,6 +58,9 @@ def test_actual_plan_source_only_writer_persists_exact_receipts_and_reopens(
     completed = asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
     assert completed.status == "completed" and len(wire.calls) == 1
     instructions=json.loads(wire.calls[0].content)["instructions"]
+    from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
+    assert instructions.count(SOURCE_ATTRIBUTION_INSTRUCTIONS) == 1
+    assert "Use source names in prose" not in instructions
     assert "dmb_surface_source_answer_v1" in instructions
     assert "never emit an empty handle list" in instructions
     assert "session notes/reflections" in instructions

@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.types import (
     Conversation,
@@ -167,7 +168,7 @@ _PLAN_MESSAGE_INSTRUCTIONS = (
     "The following JSON object contains the exact committed Plan Markdown and the user's question:"
 )
 
-_PLAN_GRAPH_ANSWER_INSTRUCTIONS = """\
+_PLAN_GRAPH_ANSWER_INSTRUCTIONS = SOURCE_ATTRIBUTION_INSTRUCTIONS + """\
 Answer the question using relevant admitted evidence. Stop retrieving once it has adequate support; do not audit unrelated World material.
 Return only JSON with exactly answer_context_status and answer_segments. No citation_map.
 Allowed statuses: graph_grounded, graph_grounded_partial, plan_only_graph_unused,
