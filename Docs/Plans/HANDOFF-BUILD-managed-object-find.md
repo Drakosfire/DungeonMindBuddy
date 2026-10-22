@@ -1,6 +1,8 @@
 # BUILD — managed World object discovery
 
-ACTIVE. PRIME owns design, implementation, merge and UI-only5202 delivery.
+SETTLED: PR1576 merged172799b43b3a04c80e2d2fee77b59f3a0fda3658 and delivered UI5202 with unchanged API3846c309. Bugbot approved exactb72569ee614d217c6bb6d5e9fa4383a2d56992c1; independently61 tests/typecheck/diff-check passed; author109 tests/build passed. Guarded adoption preserved all1487 prior APP rows. Ordinary published World reload→Find→three nodes→View Lantern Keeper NPC succeeded, saved source revision2 retained, exact D0 unchanged. Combat mechanics still open.
+
+Historical scope: PRIME owns design, implementation, merge and UI-only5202 delivery.
 Base0dc43538a1becbe65b8330aadd978c3849cd882e; existing buddy-context-loop checkout,
 branch codex/build-managed-find. Serial one PR. No overlapping open lease found.
 

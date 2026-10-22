@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `0dc43538a1becbe65b8330aadd978c3849cd882e` (through PR #1575).
+**Evidence anchor:** remote main `172799b43b3a04c80e2d2fee77b59f3a0fda3658` (through PR #1576).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -20,8 +20,10 @@ unchanged. #1575 repaired first-receipt continuity: a fresh ordinary Build
 publication showed its receipt directly and reopened Ready/3nodes. One exact D0
 was created; both prior World heads and source admission stayed unchanged. Build
 Find then reproduced authority_receipt_missing by routing the managed slug to
-native projection. Its owner-qualified shared-read repair is the active serial
-slice before bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
+native projection. #1576 repaired owner-qualified shared-read reuse and managed
+exact-pin routing; actual Find→View NPC succeeded after reload. Build exposure of
+the existing lazy Statblock Workbench is the next serial prerequisite for the
+real generation/acceptance witness before bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -101,8 +103,8 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves3846c3091 (#1574); UI5202 serves0dc43538a (#1575),
-with all1484 existing APP rows preserved at delivery. These are the observed
+The API backing5202 serves3846c3091 (#1574); UI5202 serves172799b43 (#1576),
+with all1487 existing APP rows preserved at delivery. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance
@@ -114,9 +116,8 @@ planning checkpoint, not a requirement to keep those revisions after delivery.
 - **Connected knowledge:** ordinary retrieval of published recap/authored sources,
   callbacks and relationships with exact named citations. Source availability in
   an isolated publication witness is not ordinary next-turn retrieval acceptance.
-  Build Find `authority_receipt_missing` was freshly reproduced after successful
-  first publication. HANDOFF-BUILD-managed-object-find.md owns its active repair;
-  no rendered finder acceptance is claimed yet.
+  Build Find after fresh publication was repaired by #1576 and rendered
+  Find→View NPC proved. This is discovery acceptance, not next-turn Buddy retrieval.
 - **Session-to-memory:** real external recap plus explicitly matching scene notes
   and closing recollections → discrepancy review → selected publication → ordinary
   cited next-session planning. Keep chronology and separate evidence authority.
