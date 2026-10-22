@@ -1,6 +1,15 @@
 # STATBLOCK — canonical digest parity
 
-ACTIVE. PRIME owns this serial Buddy repair under the preparation/play goal.
+SOURCE DELIVERED: PR1580 merged0ad0296fc365980e92c95fe3b63c3bca4807a912.
+Bugbot independently passed156 relevant tests and verified exact DMS golden bytes.
+API8000 adopted the repair, preserving1487 APP rows and42 lifecycle files. Fresh
+ordinary Build generation, manual name edit, AI revise, review, validation and
+acceptance succeeded. Exact DMS accepted-revision integrity passed; same-artifact
+API restart preserved1487 rows and59 product files. UI reopen acceptance and its
+contradictory saved-state notice are owned by HANDOFF-STATBLOCK-saved-state-copy.md.
+The earlier unresolved journal remains unchanged; no old-operation repair awarded.
+
+Historical lease: PRIME owns this serial Buddy repair under the preparation/play goal.
 Base2687cf712603370ebde61e05889540df05689fb5; reuse buddy-context-loop on
 codex/statblock-canonical-digest-parity. No competing lease.
 

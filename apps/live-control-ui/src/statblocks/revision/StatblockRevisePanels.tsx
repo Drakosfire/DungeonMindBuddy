@@ -129,7 +129,7 @@ export function ReviseWithAiPanel({
       <h3>Revise with AI</h3>
       {mechanicsSaved ? (
         <p className="module-muted" data-testid="revise-mechanics-saved-boundary">
-          Source: current unsaved working copy. Previously saved mechanics are unchanged.
+          Revisions use this working copy. Saved mechanics remain unchanged.
         </p>
       ) : (
         <p className="module-muted">Source: current unsaved working copy.</p>
@@ -226,8 +226,8 @@ export function ReviseWithAiPanel({
 export function MechanicsSavedAppendBoundary() {
   return (
     <p className="module-muted statblock-sbw13-boundary" data-testid="sbw13-append-boundary">
-      This proposal is not saved. Appending it as a new immutable mechanics revision is not available until
-      SBW13.
+      Mechanics are saved for this draft. Further edits stay in the working copy; saving another
+      mechanics revision is not available yet.
     </p>
   );
 }
