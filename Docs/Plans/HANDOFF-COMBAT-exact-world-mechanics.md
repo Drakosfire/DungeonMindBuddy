@@ -1,6 +1,14 @@
 # COMBAT — exact associated World mechanics snapshots
 
-ACTIVE. Architecture reviewed the contract2026-10-22; PRIME owns serial implementation.
+SETTLED. #1583 merged3f3f608650f23ba4746777fde2e4bc671db18478 and runs8000/5202.
+Bugbot approvedc3ab93fc0 after fixing complete draft-capacity preflight; independently
+54backend/32UI/API tests passed. Real UI created encounter06be700f-58ac-4a40-98b4-418e9ed28c14,
+loaded exact associated mechanics, added two actors, applied independent HP7/16,
+Prone/notes and active turn, saved and reopened after API restart. Full encounter
+state equal; all1489APP rows/59product files preserved. Native head and exact
+DMS identity unchanged. Shared Plan/Play hosting/recovery is the successor.
+
+Historical scope: Architecture reviewed the contract2026-10-22; PRIME owned serial implementation.
 Base b5fc320c9cad2e8958499b8419404e3323c39c81; existing buddy-context-loop checkout,
 branch codex/combat-exact-world-mechanics. No competing open PR owns these paths.
 Strict Graph-head equality is intentional: even unrelated head advance requires explicit

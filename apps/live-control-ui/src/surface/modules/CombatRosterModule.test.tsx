@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {testCombatLocks} from "../../combat/combatRecovery.testSupport";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { CombatMechanicsSnapshot } from "../../combat/combatTypes";
@@ -79,6 +80,7 @@ function deferred<T>() {
 }
 
 describe("CombatRosterModule", () => {
+  beforeEach(() => {localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
   afterEach(() => vi.restoreAllMocks());
 
   function mount() {
@@ -511,6 +513,66 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
     expect(await screen.findByRole('textbox',{name:'Notes for Keeper'})).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it("keeps unsaved edits through tool unmount and explicitly recovers the same encounter",async()=>{
+    const initial=record();vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
+    const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const notes=await screen.findByLabelText('Notes for Geomantic Drake');await userEvent.clear(notes);await userEvent.type(notes,'Retained local notes');
+    first.unmount();mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    expect(screen.getByRole('combobox',{name:'Encounter'})).toHaveValue(initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const recover=await screen.findByRole('button',{name:'Recover local Combat draft'});
+    expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Guards the pass');expect(save).not.toHaveBeenCalled();
+    await userEvent.click(recover);expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Retained local notes');
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities[0].notes).toBe('Retained local notes');
+  });
+  it("reconciles a lost Save acknowledgement without reposting or dropping later edits",async()=>{
+    const initial=record();const pending=deferred<CombatEncounterRecord>();
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockReturnValueOnce(pending.promise)
+      .mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const title=await screen.findByLabelText('Encounter title');await userEvent.clear(title);await userEvent.type(title,'Submitted');
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+    const submitted=save.mock.calls[0][3];await userEvent.clear(title);await userEvent.type(title,'Later edits');
+    pending.reject(new Error('Connection lost'));await screen.findByRole('alert');first.unmount();
+    get.mockResolvedValue({...initial,revision:2,draft:submitted});mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await screen.findByText('The submitted Save is committed. Later local edits remain available to recover.');
+    expect(save).toHaveBeenCalledTimes(1);await userEvent.click(screen.getByRole('button',{name:'Recover local Combat draft'}));
+    expect(screen.getByLabelText('Encounter title')).toHaveValue('Later edits');
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));await screen.findByText('Saved · rev 3');
+    expect(save.mock.calls[1][2]).toBe(2);expect(save.mock.calls[1][3].title).toBe('Later edits');
+  });
+  it("refuses local changes when browser recovery storage fails",async()=>{
+    const initial=record();vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const title=await screen.findByLabelText('Encounter title');vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage quota exceeded');});
+    await userEvent.type(title,'x');expect(await screen.findByRole('alert')).toHaveTextContent('Storage quota exceeded');expect(title).toHaveValue('Mireward Gate');
+    expect(screen.getByRole('button',{name:'Save'})).toBeDisabled();
+  });
+
+  it("refuses a second local editor and recovers only after the first view closes",async()=>{
+    const initial=record();vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'elderwyld',name:'Elderwyld',documentId:null});
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const first=render(<CombatRosterModule/>),second=render(<CombatRosterModule/>);
+    const a=within(first.container),b=within(second.container);
+    await a.findByRole('option',{name:'Mireward Gate · rev 1'});await b.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(a.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(a.getByRole('button',{name:'Open'}));
+    const notes=await a.findByLabelText('Notes for Geomantic Drake');await userEvent.clear(notes);await userEvent.type(notes,'First view recovery');
+    await userEvent.selectOptions(b.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(b.getByRole('button',{name:'Open'}));
+    expect(await b.findByRole('alert')).toHaveTextContent('another view');expect(a.getByLabelText('Notes for Geomantic Drake')).toHaveValue('First view recovery');
+    first.unmount();await userEvent.click(b.getByRole('button',{name:'Open'}));
+    await userEvent.click(await b.findByRole('button',{name:'Recover local Combat draft'}));
+    expect(b.getByLabelText('Notes for Geomantic Drake')).toHaveValue('First view recovery');
   });
 
 });

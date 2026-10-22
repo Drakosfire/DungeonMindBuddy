@@ -1,3 +1,4 @@
+import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION, useRulesLookupProjection } from "../rulesLookup/rulesLookupProjection";
 import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInventoryChange";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
@@ -302,9 +303,9 @@ function PlaySurfacePublisher({
       ...agentContextContribution,
       ambientSummary: sessionCopy ? "Play session copy · Agent context unavailable" : authority.ambientSummary,
     },
-    tools: [RULES_LOOKUP_TOOL],
+    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL],
     editCommands: [],
-    projections: [RULES_LOOKUP_PROJECTION],
+    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION],
     projectionBindings: [],
   }), [authority, agentContextContribution, sessionCopy]);
 
@@ -336,6 +337,7 @@ function PlaySurfacePublisher({
 
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("play", true);
+  useCombatProjection("play", true);
   usePublishAgentSurfaceContext(agentContext);
   return null;
 }

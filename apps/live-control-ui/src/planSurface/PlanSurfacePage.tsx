@@ -1,3 +1,4 @@
+import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { useSurfaceImageStudio } from "../shared/useSurfaceImageStudio";
 import { CardSceneNavigation } from "../shared/CardSceneNavigation";
 import { PlanCardEditing, exportPlanCardMarkdown, planCardRange, planCardSelectionAllowed, setPlanCardScope } from "./planCardEditing";
@@ -431,13 +432,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       workObject,
     },
     agentContext: null,
-    tools: [RULES_LOOKUP_TOOL],
+    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL],
     editCommands: [],
-    projections: [RULES_LOOKUP_PROJECTION],
+    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION],
     projectionBindings: [],
   } : null, [status, surfaceIdentity, workObject]);
   usePublishSurfaceInteraction(activePublication);
   useRulesLookupProjection("plan", activePublication !== null);
+  useCombatProjection("plan", activePublication !== null);
 
   useEffect(() => {
     mountedRef.current = true;
