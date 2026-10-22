@@ -37,3 +37,11 @@ it('forwards close without placing or saving', () => {
   const { bridge, onClose } = setup();fireEvent.click(screen.getByRole('button', { name: 'Close studio' }));
   expect(onClose).toHaveBeenCalledOnce();expect(bridge.pickInsertion).not.toHaveBeenCalled();expect(bridge.insert).not.toHaveBeenCalled();
 });
+
+it('seeds the existing wizard without generating, saving or inserting', () => {
+  const bridge = { pickInsertion: vi.fn(), insert: vi.fn() };
+  render(<DocumentImageStudio bridge={bridge} targetLabel="Plan" initialPrompt={"Exact prompt\nSecond line"} onClose={vi.fn()} />);
+  expect(wizard.props.initialPrompt).toBe("Exact prompt\nSecond line");
+  expect(bridge.pickInsertion).not.toHaveBeenCalled();
+  expect(bridge.insert).not.toHaveBeenCalled();
+});

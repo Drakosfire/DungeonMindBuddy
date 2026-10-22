@@ -28,6 +28,14 @@ import {
   threadStorageKey,
 } from "../agentInteraction/agentInteractionStorage";
 
+const planImageHostCapture = vi.hoisted(() => ({ props: null as any }));
+vi.mock("../agentInteraction/WorldAgentConversation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../agentInteraction/WorldAgentConversation")>();
+  return { ...actual, WorldPlanConversationRegistration: (props: any) => {
+    planImageHostCapture.props = props;
+    return <actual.WorldPlanConversationRegistration {...props} />;
+  } };
+});
 const mediaWizardCapture = vi.hoisted(() => ({ props: null as any }));
 vi.mock("../media/MediaImageWizard", () => ({ MediaImageWizard: (props: any) => { mediaWizardCapture.props = props; return <div aria-label="Synthetic Image Studio" />; } }));
 
@@ -4008,6 +4016,30 @@ it("imports the new Plan after switching identity and refuses the previous valid
   expect(JSON.parse(savedB ?? "null").document_id).toBe(b.document_id);
 });
 
+
+it("hands a conversation image seed to the existing Plan Studio without changing the document", async () => {
+  const record = mockSavedPlanForAgent();
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(planImageHostCapture.props?.imagePromptHost?.unavailableReason).toBeNull());
+  const before = surface.textContent;
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const draftBefore = localStorage.getItem(key);
+  const originalHost = planImageHostCapture.props.imagePromptHost;
+  act(() => {
+    expect(originalHost.open("Exact image prompt\nDark water.")).toBe(true);
+    expect(originalHost.open("Must not replace the open draft")).toBe(false);
+  });
+  expect(screen.getByLabelText("Image Studio · Plan")).toBeInTheDocument();
+  expect(mediaWizardCapture.props.initialPrompt).toBe("Exact image prompt\nDark water.");
+  expect(planImageHostCapture.props.imagePromptHost.unavailableReason).toMatch(/Close the current/);
+  expect(surface.textContent).toBe(before);
+  expect(localStorage.getItem(key)).toBe(draftBefore);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+});
 
 it("places a library image from the Plan navbar through the current Plan autosave", async () => {
   const record = mockSavedPlanForAgent();

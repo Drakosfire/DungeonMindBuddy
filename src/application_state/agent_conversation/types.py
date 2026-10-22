@@ -1438,7 +1438,7 @@ class PlanWorldGraphPlanClaimSegmentV1(StrictModel):
 class PlanWorldGraphProposalSegmentV1(StrictModel):
     kind: Literal["proposal"]
     text: str = Field(min_length=1, max_length=4000)
-    label: Literal["invented_idea"]
+    label: Literal["invented_idea", "image_prompt"]
 
 
 class PlanWorldGraphConnectiveSegmentV1(StrictModel):

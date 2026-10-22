@@ -1,14 +1,14 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `71db547cbb3eab3c5037d0b8446ce4014ecfa9f9` (through PR #1565 and #1546).
+**Evidence anchor:** remote main `339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff` (through PR #1568).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
 This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. PR #1566 is now merged and running on 5202; the fresh-reply contract repair
+foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff
 is the next bounded slice. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -68,22 +68,29 @@ calling the full local demo accepted.
    through the normal selector. The guarded UI rollout retained all1458 APP rows
    with the API unchanged. The broad Plan fixture cohort still has documented
    inherited failures; do not call that entire suite green.
-2. **Fresh reply completion:** an actual native Plan grounding request completed
-   durably and rendered named evidence, but the composer stayed locked. Fresh Jev
-   responses retain a replay-only null content basis; the UI rejects their fresh
-   response contract. Fix and verify at the response/UI boundary, preserving true
-   replay semantics. History/pending client-versus-durable turn correlation also
-   needs examination for recovery. No fix has been implemented yet.
+2. **Fresh reply completion — resolved:** #1568 merged `339ddc3f7` and runs on
+   API8000/UI5202. Fresh replies carry their exact committed basis; true replay
+   remains distinct. Exact completed-history correlation releases only its
+   unchanged pending envelope. Bugbot independently passed8backend/228UI/typecheck.
+   Rendered fresh grounding and a follow-up both unlocked the composer; named
+   citation and exact Debug writer request opened. Live rehearsal changed only
+   intended agent rows; Plans/sessions and other non-agent APP tables stayed unchanged.
 3. **Grounding latency:** the exact swamp/Edge question achieved one isolated
-   9.841-second pass; the fresh browser request took 12.046 seconds. The requested
+   9.841-second pass; fresh browser requests took 12.046 and 12.016 seconds. The requested
    roughly 10-second experience is not a reliable accepted target yet. Measure
    actual decision/read/writer times and quality; do not report a single pass as SLA.
-4. **Fresh image continuation:** the fresh browser flow stopped at the locked
-   composer before follow-up/image generation. A prior Build image witness cannot
-   close this gap or establish a one-click image action in Plan.
+4. **Fresh image continuation:** the repaired fresh browser flow now writes an image prompt, but has no
+   action handing that prompt into Plan Image Studio. A prior Build image witness cannot
+   close this gap or establish a one-click image action in Plan. The next bounded
+   [shared Studio handoff](../Plans/HANDOFF-PLAN-image-prompt-handoff.md) prepares
+   an editable seed with explicit user Generate/Save/placement; it is not delivered yet.
+5. **Trace presentation:** the live trace shows duplicate response_received
+   observations for the same model call, one without usage and one with reported
+   usage. Aggregate/per-call reported counts are available; presentation still
+   needs reconciliation and must not imply an extra paid call.
 
 The API backing 5202 is at the evidence-anchor revision; the UI serves
-`95506406796f74a89cf0029abbcec4b51bc90611` (#1566). These are the observed
+`339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff` (#1568). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance

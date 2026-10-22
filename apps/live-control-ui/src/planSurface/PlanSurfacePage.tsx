@@ -1,3 +1,4 @@
+import { useSurfaceImageStudio } from "../shared/useSurfaceImageStudio";
 import { CardSceneNavigation } from "../shared/CardSceneNavigation";
 import { PlanCardEditing, exportPlanCardMarkdown, planCardRange, planCardSelectionAllowed, setPlanCardScope } from "./planCardEditing";
 import { PlanCardDeck } from "./components/PlanCardDeck";
@@ -1737,7 +1738,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdown:serverMarkdownRef.current, edit_generation:editGenerationRef.current,
   } : null;
   const mediaIdentity = `${worldId}:${documentId ?? localDraftId}`;
-  const [mediaTarget, setMediaTarget] = useState<string | null>(null);
+  const imageStudio = useSurfaceImageStudio(mediaIdentity, Boolean(documentId) && status === "ready" && !fidelityBlocked && !recoveryConflict);
   const mediaState = useRef<DocumentMediaState | null>(null);
   mediaState.current = editor ? { editor, identity: mediaIdentity,
     version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}:${cardScopeEpoch.current.generation}`,
@@ -1745,7 +1746,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       && pendingWriteRef.current === null && isCurrentEditTarget(),
   } : null;
   const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
-  useEffect(() => { setMediaTarget(null); }, [mediaIdentity]);
 
   const focusTitle = (() => {
     if (!selectedPlayableTarget || savedCardProjection?.status !== "ready") return null;
@@ -1786,8 +1786,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
-          <button type="button" aria-label="Open Image Studio" aria-expanded={mediaTarget === mediaIdentity} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
-            onClick={() => { setSourceEditing(false); setMediaTarget(mediaIdentity); }}>Images</button>
+          <button type="button" aria-label="Open Image Studio" aria-expanded={Boolean(imageStudio.session)} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
+            onClick={() => { if (imageStudio.open()) setSourceEditing(false); }}>Images</button>
           <WorkspaceTrashControl showTrash={false} worldId={worldId}
             current={documentId && revisionRef.current ? {kind:"document", id:documentId, title, surface:"plan", revision:revisionRef.current} : null}
             blocked={durableSaveState !== "saved" || startingPlay || pendingWriteRef.current !== null}
@@ -1814,7 +1814,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           ) : null}
         </div>}
       />
-      {mediaTarget === mediaIdentity ? <DocumentImageStudio key={mediaIdentity} bridge={mediaBridge} targetLabel="Plan" onClose={() => setMediaTarget(null)} /> : null}
+      {imageStudio.session ? <DocumentImageStudio key={mediaIdentity} initialPrompt={imageStudio.session.prompt} bridge={mediaBridge} targetLabel="Plan" onClose={imageStudio.close} /> : null}
       <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main
         className="app-status world-owned-plan"
@@ -1978,6 +1978,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         savedDirty={savedPlanDirty}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
+        imagePromptHost={{
+          unavailableReason: imageStudio.session ? "Close the current Image Studio before opening another prompt."
+            : !documentId || status !== "ready" || fidelityBlocked || recoveryConflict ? "Reopen a ready Plan to use this image prompt." : null,
+          open: (prompt) => {
+            if (!imageStudio.open(prompt)) return false;
+            setSourceEditing(false);
+            return true;
+          },
+        }}
         playableTarget={selectedPlayableTarget?.target ?? null}
         playableTargetBasis={selectedPlayableTarget ? {
           revision: selectedPlayableTarget.revision,

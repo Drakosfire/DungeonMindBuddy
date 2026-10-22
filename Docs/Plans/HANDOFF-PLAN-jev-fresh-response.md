@@ -1,6 +1,6 @@
 # PLAN — fresh Jev delivery and pending completion
 
-ACTIVE serial slice under the operator's preparation/play goal (2026-10-21).
+SETTLED serial slice under the operator's preparation/play goal (2026-10-21).
 Base `95506406796f74a89cf0029abbcec4b51bc90611`; branch
 `codex/plan-jev-fresh-response`; existing buddy-context-loop checkout. PRIME owns
 implementation/merge/delivery; Bugbot reviews exact cumulative head. PR1566 is
@@ -34,3 +34,5 @@ image flow is subsequent goal work, not inferred from this fix.
 Predecessor: PR1566 merged955064067. UI955064067 is running5202, API71db547c
 unchanged. Actual original root→World chooser→Elderwyld→Session29 navigation
 passed without manual IDs. Guarded rollout preserved all1458 APP rows.
+
+Settlement: PR1568 merged339ddc3f724ed6dfc39fe96fa7c7528ecfd291ff after Bugbot approval of2bc08d0a5 (independent8backend/228UI/typecheck). Guarded API8000/UI5202 adoption preserved1458APP rows. Rendered fresh grounding and image-prompt follow-up both completed and unlocked composer; exact named source passage and Debug writer request opened. Actual total turn timings12.016s and5.359s; the trace captured interval10.9s is not total latency. Live verification changed only intended agent records; all non-agent APP tables unchanged. Image generation handoff and duplicate trace observations remain open. Source lease released; HANDOFF-PLAN-image-prompt-handoff.md owns the next capability.
