@@ -56,7 +56,7 @@ from graph_memory.worldbuilding_write_plan import (
 )
 
 
-FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v2"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v3"
 
 
 FirstWorldGraphState = Literal[
@@ -399,6 +399,7 @@ def materialize_first_world_plan(
     source_artifact_id: str,
     source_revision_id: str,
     source_uri: str,
+    source_evidence_sha256: str,
     extraction_profile: str,
     campaign_scope: str | None,
     workspace_document_id: str,
@@ -592,6 +593,7 @@ def materialize_first_world_plan(
     plan_identity = {
         "schema": FIRST_WORLD_PLAN_SCHEMA,
         "native_target": native_target.model_dump(mode="json"),
+        "source_evidence_sha256": source_evidence_sha256,
         "world_id": world,
         "run_id": run,
         "source_domain": "worldbuilding",

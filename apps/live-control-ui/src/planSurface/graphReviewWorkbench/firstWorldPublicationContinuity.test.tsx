@@ -14,7 +14,7 @@ const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review
   sourceProse:'The guardian watches.',diagnostics:[],promotable:false,worldState:'uninitialized',firstWorldPublishEligible:true,
   assertions:[{assertionId:'guardian',kind:'object',label:'Guardian',summary:'The guardian watches.',evidence:[{
     sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'The guardian watches.',anchorQuotes:['guardian']}]}]};
-const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v2',
+const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),
   nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},
   planId:'plan-a',planDigest:'sha256:'+'a'.repeat(64),decisionDigest:'sha256:'+'b'.repeat(64),worldId:'world-a',runId:'run-a',
   sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,workspaceDocumentId:'doc-a',workspaceDocumentRevision:'2',

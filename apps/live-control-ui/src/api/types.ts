@@ -4804,7 +4804,8 @@ export interface FirstWorldGraphPlanSummary {
 }
 
 export interface FirstWorldGraphPlan {
-  schema: "dmb_first_world_graph_plan_v2";
+  schema: "dmb_first_world_graph_plan_v3";
+  sourceEvidenceSha256: string;
   planId: string;
   planDigest: string;
   decisionDigest: string;

@@ -14,7 +14,6 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_authority_ada
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     WorldGraphWriteError,
-    _EmptyEvidenceView,
     _build_graph_reader,
     _open_repository_bundle,
     _require_database_url,
@@ -178,93 +177,9 @@ def _map_sources(
     return [dm_artifact], [revision], pair_to_dm
 
 
-_FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY = "worldbuilding"
-_FIRST_WORLD_PARTY_REGISTRY_DOMAIN_KEY = "party_registry"
-
-
-def _align_first_world_command_evidence_domains(
-    contribution: Any,
-    artifacts: list[Any],
-) -> Any:
-    """Copy command-owned source domain onto first-world evidence refs.
-
-    Historical #645 mapping derived exported evidence IDs from an OTHER
-    fallback draft. DungeonMind #47 reverse-normalizes only
-    ``EvidenceRef.source_domain``. This helper therefore keeps those IDs and
-    changes only the domain, using the mapped SourceArtifact as authority.
-    """
-    from dungeonmind.contracts.evidence import SourceDomain
-
-    artifacts_by_id: dict[str, Any] = {}
-    for artifact in artifacts:
-        artifact_id = str(artifact.source_artifact_id)
-        prior = artifacts_by_id.get(artifact_id)
-        if prior is not None and prior != artifact:
-            raise WorldGraphInitializationError(
-                "first-world command has conflicting source artifacts",
-                code="inexpressible",
-                details={
-                    "source_artifact_id": artifact_id,
-                    "reason": "ambiguous_source_artifact",
-                },
-            )
-        artifacts_by_id[artifact_id] = artifact
-
-    aligned_assertions = []
-    for assertion in contribution.assertions:
-        aligned_refs = []
-        for ref in assertion.evidence_refs:
-            artifact = artifacts_by_id.get(str(ref.source_artifact_id))
-            if artifact is None:
-                raise WorldGraphInitializationError(
-                    "first-world evidence names a source artifact not in the command",
-                    code="inexpressible",
-                    details={
-                        "source_artifact_id": ref.source_artifact_id,
-                        "reason": "missing_source_artifact",
-                    },
-                )
-            domain_key = str(getattr(artifact, "source_domain_key", "") or "")
-            worldbuilding = (
-                artifact.source_domain is SourceDomain.WORLDBUILDING
-                and domain_key == _FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY
-            )
-            party_registry = (
-                artifact.source_domain is SourceDomain.OTHER
-                and domain_key == _FIRST_WORLD_PARTY_REGISTRY_DOMAIN_KEY
-            )
-            if not (worldbuilding or party_registry):
-                raise WorldGraphInitializationError(
-                    "first-world source artifact is not an approved provenance profile",
-                    code="inexpressible",
-                    details={
-                        "source_artifact_id": artifact.source_artifact_id,
-                        "source_domain": str(artifact.source_domain),
-                        "source_domain_key": domain_key,
-                        "reason": "non_worldbuilding_source_artifact",
-                    },
-                )
-            historical_id = ref.evidence_ref_id
-            corrected = ref.model_copy(update={"source_domain": artifact.source_domain})
-            if corrected.evidence_ref_id != historical_id:
-                raise WorldGraphInitializationError(
-                    "first-world evidence identity changed while correcting provenance",
-                    code="integrity_failure",
-                    details={
-                        "historical_evidence_ref_id": historical_id,
-                        "corrected_evidence_ref_id": corrected.evidence_ref_id,
-                    },
-                )
-            aligned_refs.append(corrected)
-        aligned_assertions.append(
-            assertion.model_copy(update={"evidence_refs": aligned_refs})
-        )
-    return contribution.model_copy(update={"assertions": aligned_assertions})
-
-
-def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict[tuple[str, str], str]):
-    from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
-        _map_contributions,
+def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict[tuple[str, str], str], artifacts: list[Any]):
+    from apps.live_control_server.integrations.dungeonmind.first_world_typed_evidence import (
+        map_first_world_typed_contribution,
     )
 
     if _is_party_registry_profile(request):
@@ -286,6 +201,7 @@ def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict
             )
         if not contribution.accepted_assertions or any(
             item.assertion_kind != "node" or item.acceptance_state != "accepted"
+            or (item.value or {}).get("canon_state") != "canonical"
             for item in contribution.accepted_assertions
         ):
             raise WorldGraphInitializationError(
@@ -305,7 +221,10 @@ def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict
                for field in ("accepted_assertions", "rejected_assertions", "candidate_assertions")},
         })
     try:
-        mapped = _map_contributions(_EmptyEvidenceView(), [remapped], pair_to_dm)
+        mapped = [map_first_world_typed_contribution(
+            remapped, artifacts=artifacts, pair_to_dm=pair_to_dm,
+            party_registry=_is_party_registry_profile(request),
+        )]
     except WorldGraphInitializationError:
         raise
     except Exception as exc:
@@ -336,15 +255,17 @@ def _build_command(
     requested_initialized_at: datetime,
 ):
     from dungeonmind.contracts.reviewed_world_initialization import (
-        ReviewedWorldInitializationCommandV1,
+        ReviewedWorldInitializationCommandV2,
     )
 
+    expected_plan = "dmb_recap_world_genesis_plan_v2" if _is_party_registry_profile(request) else "dmb_first_world_graph_plan_v3"
+    if request.source_plan_schema != expected_plan:
+        raise WorldGraphInitializationError("This review plan is out of date. Prepare and review it again.", code="inexpressible", details={"reason": "stale_review_plan"})
     artifacts, revisions, pair_to_dm = _map_sources(
         request, requested_initialized_at=requested_initialized_at
     )
-    contribution = _map_contribution(request, pair_to_dm)
-    contribution = _align_first_world_command_evidence_domains(contribution, artifacts)
-    return ReviewedWorldInitializationCommandV1(
+    contribution = _map_contribution(request, pair_to_dm, artifacts)
+    command = ReviewedWorldInitializationCommandV2(
         initialization_id=request.initialization_id,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
@@ -354,10 +275,17 @@ def _build_command(
         semantic_profile=_genesis_semantic_profile(),
         source_artifacts=artifacts,
         source_revisions=revisions,
+        producer_profile="party_registry" if _is_party_registry_profile(request) else "worldbuilding_extraction",
         reviewed_contribution=contribution,
         actor=request.actor,
         requested_initialized_at=requested_initialized_at,
     )
+
+    from dungeonmind.application.reviewed_world_initialization import bind_reviewed_world_initialization_command
+    try:
+        return bind_reviewed_world_initialization_command(command)
+    except Exception as exc:
+        raise _map_provider_error(exc) from exc
 
 
 def _head_revision_id(head: Any) -> str | None:
@@ -558,6 +486,11 @@ class DungeonMindWorldGraphInitializationAdapter:
             except Exception as exc:
                 raise _map_provider_error(exc) from exc
             _require_receipt_head_coherent(request.world_id, existing, head)
+            if existing.schema_version != "dm_reviewed_world_initialization_receipt_v2":
+                raise WorldGraphInitializationError(
+                    "This World has a historical initialization. Inspect its receipt; it cannot be replayed.",
+                    code="already_initialized", details={"initialization_id": existing.initialization_id},
+                )
             if existing.initialization_id != request.initialization_id:
                 raise WorldGraphInitializationError(
                     "world already has a reviewed initialization with a different id",

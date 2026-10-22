@@ -72,7 +72,7 @@ FirstWorldGraphState = Literal[
     "unmanaged",
 ]
 FIRST_WORLD_PREPARE_REQUEST_SCHEMA = "dmb_first_world_graph_prepare_request_v1"
-FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v2"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v3"
 FIRST_WORLD_CONFIRM_REQUEST_SCHEMA = "dmb_first_world_graph_confirm_request_v1"
 FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA = "dmb_first_world_graph_confirm_v1"
 
@@ -1412,6 +1412,14 @@ class FirstWorldGraphPlan(_ExtractPromoteModel):
     schema_: Literal[FIRST_WORLD_PLAN_SCHEMA] = Field(
         default=FIRST_WORLD_PLAN_SCHEMA, alias="schema"
     )
+    @model_validator(mode="before")
+    @classmethod
+    def _current_plan_only(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get("schema", value.get("schema_", FIRST_WORLD_PLAN_SCHEMA)) != FIRST_WORLD_PLAN_SCHEMA:
+            raise ValueError("This saved review plan is out of date. Prepare and review the source again; the old request has been preserved.")
+        return value
+
+    source_evidence_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     plan_id: str
     plan_digest: str
     decision_digest: str

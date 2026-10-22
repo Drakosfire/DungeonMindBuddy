@@ -91,7 +91,7 @@ function sealedPlan(
   overrides: Partial<FirstWorldGraphPlan> = {},
 ): FirstWorldGraphPlan {
   return withFirstWorldEffect({
-    schema: "dmb_first_world_graph_plan_v2",
+    schema: "dmb_first_world_graph_plan_v3", sourceEvidenceSha256: "sha256:"+"d".repeat(64),
       nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
     planId: "first-world-graph-plan:abc123",
     planDigest: "sha256:"+"b".repeat(64),

@@ -151,3 +151,17 @@ def test_initialized_world_is_refused_before_prepare() -> None:
     with pytest.raises(RecapWorldGenesisError) as exc:
         _prepare(_Authority(initialized=True))
     assert exc.value.code == "already_initialized"
+
+
+def test_old_registry_review_requires_explicit_fresh_prepare():
+    from apps.live_control_server.models.recap_world_genesis import RecapWorldGenesisPlan
+    authority = _Authority()
+    plan = _prepare(authority)
+    old = plan.model_copy(update={"schema_": "dmb_recap_world_genesis_plan_v1"})
+    request = RecapWorldGenesisConfirmRequest.model_construct(plan=old, confirming_principal="operator")
+    with pytest.raises(RecapWorldGenesisError) as error:
+        confirm_recap_world_genesis(request, repo=REPO, authority=authority)
+    assert error.value.code == "stale_review_plan"
+    assert authority.request is None
+    with pytest.raises(ValueError, match="out of date"):
+        RecapWorldGenesisPlan.model_validate({**plan.model_dump(by_alias=True), "schema": old.schema_})
