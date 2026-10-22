@@ -12,6 +12,7 @@ from application_state.combat_encounters.rulesets import load_ruleset, ruleset_d
 from application_state.combat_encounters.types import (
     CombatEncounterDraft,
     CombatEncounterRecord,
+    CombatWorldIdentity,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
@@ -102,7 +103,8 @@ def list_encounters(*, world_id: str) -> list[CombatEncounterRecord]:
 
 
 def save_encounter(
-    *, world_id: str, encounter_id: UUID | str, request: SaveCombatEncounterRequest
+    *, world_id: str, encounter_id: UUID | str, request: SaveCombatEncounterRequest,
+    verified_world_identities: dict[str, CombatWorldIdentity] | None = None,
 ) -> CombatEncounterRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
@@ -117,6 +119,22 @@ def save_encounter(
                 f"Combat encounter not found in World {canonical_world_id}"
             )
         _require_integrity(before)
+        if before.revision != request.expected_revision:
+            raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
+        existing = {entity.id: entity for entity in before.draft.entities}
+        for entity in request.draft.entities:
+            prior = existing.get(entity.id)
+            if prior is not None:
+                if (entity.world_identity, entity.provenance, entity.statblock_artifact_id,
+                    entity.statblock_path, entity.statblock_title, entity.corpus_fingerprint, entity.source) != (
+                    prior.world_identity, prior.provenance, prior.statblock_artifact_id,
+                    prior.statblock_path, prior.statblock_title, prior.corpus_fingerprint, prior.source):
+                    raise ApplicationStateValidationError("Saved combatant source identity cannot be changed")
+            elif entity.world_identity is not None:
+                if (verified_world_identities or {}).get(entity.id) != entity.world_identity:
+                    raise ApplicationStateValidationError("New World combatant identity must be verified")
+                if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint or entity.tags:
+                    raise ApplicationStateValidationError("World identity alone supplies no statblock mechanics")
         saved = repo.cas_replace_draft(
             conn,
             encounter_id=canonical_encounter_id,

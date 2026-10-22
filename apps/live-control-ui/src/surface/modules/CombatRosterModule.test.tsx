@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -454,4 +454,23 @@ describe("CombatRosterModule", () => {
       }),
     ));
   });
+  it("refuses a 101st actor while preserving other draft edits and a valid Save", async () => {
+    const initial = record({draft:{...record().draft, active_turn_entity_id:"guard-0",round_start_entity_id:"guard-0",
+      entities:Array.from({length:100},(_,index)=>({...entity,id:`guard-${index}`,name:`Guard ${index}`,order:index+1}))}});
+    vi.spyOn(combatApi,"listWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi,"getWorldCombatEncounter").mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,"saveWorldCombatEncounter").mockImplementation(async (_world,_id,_revision,draft)=>({...initial,draft,revision:2}));
+    mount();await screen.findByRole("option",{name:"Mireward Gate · rev 1"});
+    await userEvent.selectOptions(screen.getByRole("combobox",{name:"Encounter"}),initial.encounter_id);
+    await userEvent.click(screen.getByRole("button",{name:"Open"}));
+    fireEvent.change(await screen.findByRole("textbox",{name:"Encounter title"}),{target:{value:"Keep this edit"}});
+    fireEvent.click(screen.getByText("Add combatants"));
+    fireEvent.change(screen.getByLabelText("Combatant name"),{target:{value:"Overflow actor"}});
+    expect(screen.getByRole("button",{name:"Add to encounter draft"})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("encounter is full");
+    await userEvent.click(screen.getByRole("button",{name:"Save"}));
+    expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][3].entities).toHaveLength(100);
+    expect(save.mock.calls[0][3].title).toBe("Keep this edit");
+  });
+
 });

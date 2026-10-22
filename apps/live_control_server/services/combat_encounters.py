@@ -16,6 +16,7 @@ from application_state.combat_encounters.types import (
     CombatEntity,
     CombatEntityProvenance,
     CombatGroup,
+    CombatWorldIdentity,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
@@ -49,8 +50,42 @@ def get_world_combat_encounter(
 def save_world_combat_encounter(
     *, world_id: str, encounter_id: str, request: SaveCombatEncounterRequest
 ) -> CombatEncounterRecord:
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        ManagedWorldGraphProjectionRequest, project_managed_world_graph,
+    )
+    before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id)
+    if before.revision != request.expected_revision:
+        raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
+    prior_ids = {entity.id for entity in before.draft.entities}
+    projections = {}
+    verified = {}
+    for entity in request.draft.entities:
+        identity = entity.world_identity
+        if entity.id in prior_ids or identity is None:
+            continue
+        if identity.managed_world_id != world_id:
+            raise ApplicationStateValidationError("Combatant belongs to a different World")
+        key = (identity.graph_revision_id, identity.native_world_id, identity.binding_version)
+        if key not in projections:
+            projections[key] = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
+                schema="dmb_managed_world_graph_projection_request_v1",
+                managed_world_id=world_id, revision_pin=identity.graph_revision_id,
+            ))
+        projected = projections[key]
+        node = next((item for item in projected.projection.nodes if item.node_id == identity.node_id), None)
+        if node is None:
+            raise ApplicationStateValidationError("Selected World creature is absent from the pinned revision")
+        expected = CombatWorldIdentity(
+            managed_world_id=projected.managed_world_id, native_world_id=projected.native_world_id,
+            binding_version=projected.binding_version, graph_revision_id=projected.projection.snapshot.revision_id,
+            node_id=node.node_id, label=node.label, kind=node.kind, role=node.role, campaign_scope=node.campaign_scope,
+        )
+        if identity != expected or not is_combat_candidate(node.kind, node.role):
+            raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
+        verified[entity.id] = expected
     return encounter_state.save_encounter(
-        world_id=world_id, encounter_id=encounter_id, request=request
+        world_id=world_id, encounter_id=encounter_id, request=request,
+        verified_world_identities=verified,
     )
 
 
@@ -194,3 +229,8 @@ def _copy_suffix(index: int) -> str:
         index = index // 26 - 1
         if index < 0:
             return "".join(reversed(chars))
+
+
+def is_combat_candidate(kind: str, role: str) -> bool:
+    admitted = {"npc", "threat", "creature", "monster"}
+    return kind.casefold() in admitted or role.casefold() in admitted

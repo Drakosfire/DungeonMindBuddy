@@ -39,9 +39,12 @@ def client(application_state_dsn: str, monkeypatch: pytest.MonkeyPatch):
         )
 
     monkeypatch.setattr(route, "resolve_managed_world_binding", resolve)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "test-combat-local-operator-token-123456")
     app = FastAPI()
     app.include_router(route.router)
-    with TestClient(app) as test_client:
+    with TestClient(app, client=("127.0.0.1", 50000), headers={"Authorization": "Bearer test-combat-local-operator-token-123456"}) as test_client:
         yield test_client, resolved
 
 
@@ -365,3 +368,92 @@ def test_real_generated_statblock_uses_configured_artifact_root_through_save_reo
     with pytest.raises(RuntimeError):
         service.add_generated_statblock_to_world_combat_encounter(world_id='elderwyld', encounter_id=created['encounter_id'],
             artifact_id=artifact.artifact_id,request=AddGeneratedStatblockRequest(expected_revision=3,count=1,team='enemy'))
+
+
+def _manual_world_actor():
+    return {"id": "scout-instance-a", "name": "Scout", "team": "ally", "order": 1,
+            "source": "manual", "hp": 18, "max_hp": 18, "world_identity": {
+                "managed_world_id": "elderwyld", "native_world_id": "native-elderwyld",
+                "binding_version": 1, "graph_revision_id": "graph-a", "node_id": "scout-node",
+                "label": "Scout", "kind": "npc", "role": "npc", "campaign_scope": "campaign-c2"}}
+
+
+def _mock_world_identity(monkeypatch):
+    from apps.live_control_server.services import managed_world_graph_projection as projection
+    calls = []
+    def project(request):
+        calls.append(request)
+        return SimpleNamespace(managed_world_id="elderwyld", native_world_id="native-elderwyld", binding_version=1,
+            projection=SimpleNamespace(snapshot=SimpleNamespace(revision_id="graph-a"),
+                nodes=[SimpleNamespace(node_id="scout-node", label="Scout", kind="npc", role="npc", campaign_scope="campaign-c2")]))
+    monkeypatch.setattr(projection, "project_managed_world_graph", project)
+    return calls
+
+
+def test_world_assembly_verifies_once_and_preserves_instances_through_http_reopen(client, monkeypatch):
+    test_client, _ = client
+    calls = _mock_world_identity(monkeypatch)
+    created = _create(test_client)
+    actor = _manual_world_actor()
+    second = {**actor, "id": "scout-instance-b", "order": 2, "hp": 11}
+    draft = {**created["draft"], "entities": [actor, second]}
+    path = f'/api/live/combat/encounters/{created["encounter_id"]}?world_id=elderwyld'
+    saved = test_client.put(path, json={"expected_revision": 1, "draft": draft})
+    assert saved.status_code == 200, saved.text
+    assert len(calls) == 1
+    assert calls[0].revision_pin == "graph-a"
+    assert saved.json()["draft"]["entities"][0]["ac"] is None
+    assert saved.json()["draft"]["entities"][0]["world_identity"] == actor["world_identity"]
+    replay = test_client.put(path, json={"expected_revision": 1, "draft": draft})
+    assert replay.status_code == 409
+    assert len(calls) == 1  # No repeated Graph read for a known stale Save.
+    assert test_client.get(path).json() == saved.json()
+    updated = saved.json()["draft"]
+    updated["entities"][0]["hp"] = 7
+    changed = test_client.put(path, json={"expected_revision": 2, "draft": updated})
+    assert changed.status_code == 200, changed.text
+    assert len(calls) == 1  # Retained source facts need no re-hydration on HP edits.
+    assert [e["hp"] for e in changed.json()["draft"]["entities"]] == [7, 11]
+
+
+@pytest.mark.parametrize("field,value", [("managed_world_id", "other-world"), ("native_world_id", "other-native"),
+    ("binding_version", 2), ("label", "Fabricated"), ("node_id", "absent"), ("kind", "location"), ("graph_revision_id", "wrong")])
+def test_world_assembly_rejects_identity_tampering_without_writing(client, monkeypatch, field, value):
+    test_client, _ = client
+    _mock_world_identity(monkeypatch)
+    created = _create(test_client)
+    actor = _manual_world_actor(); actor["world_identity"][field] = value
+    path = f'/api/live/combat/encounters/{created["encounter_id"]}?world_id=elderwyld'
+    response = test_client.put(path, json={"expected_revision": 1, "draft": {**created["draft"], "entities": [actor]}})
+    assert response.status_code == 422, response.text
+    assert test_client.get(path).json() == created
+
+
+def test_saved_world_identity_cannot_be_rewritten_but_tracker_stats_can(client, monkeypatch):
+    test_client, _ = client
+    _mock_world_identity(monkeypatch)
+    created = _create(test_client)
+    path = f'/api/live/combat/encounters/{created["encounter_id"]}?world_id=elderwyld'
+    saved = test_client.put(path, json={"expected_revision": 1, "draft": {**created["draft"], "entities": [_manual_world_actor()]}}).json()
+    draft = saved["draft"];draft["entities"][0]["world_identity"]["label"] = "Changed after verification"
+    refused = test_client.put(path, json={"expected_revision": 2, "draft": draft})
+    assert refused.status_code == 422
+    assert test_client.get(path).json()["draft"]["entities"][0]["world_identity"]["label"] == "Scout"
+
+
+def test_combat_requires_native_gm_access(client):
+    test_client, _ = client
+    test_client.headers.pop("authorization")
+    response = test_client.get("/api/live/combat/encounters?world_id=elderwyld")
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize("field,value", [("statblock_title", "Pretend mechanics"), ("corpus_fingerprint", "unverified"), ("tags", ["generated_statblock"])])
+def test_manual_world_identity_cannot_claim_mechanics(client, monkeypatch, field, value):
+    test_client, _ = client
+    _mock_world_identity(monkeypatch)
+    created = _create(test_client); actor = _manual_world_actor(); actor[field] = value
+    path = f'/api/live/combat/encounters/{created["encounter_id"]}?world_id=elderwyld'
+    refused = test_client.put(path,json={"expected_revision":1,"draft":{**created["draft"],"entities":[actor]}})
+    assert refused.status_code == 422, refused.text
+    assert test_client.get(path).json() == created

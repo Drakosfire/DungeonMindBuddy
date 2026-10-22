@@ -1,14 +1,14 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `7b904dccd063758c4b1be73c072f10b8080fb180` (through PR #1569).
+**Evidence anchor:** remote main `6d1cd664c3982a1c1e811fe75b95f9f50c046f13` (through PR #1570).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
 This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation
+foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation is delivered; native World manual encounter assembly
 is the next bounded slice. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -83,13 +83,14 @@ calling the full local demo accepted.
    API8000/UI5202. A fresh typed prompt completed5.201s and seeded Studio exactly.
    Actual generation and Save succeeded; the saved image reopened from the library
    on a fresh page. No automatic Plan insertion. Full journey acceptance remains open.
-5. **Trace presentation:** the live trace shows duplicate response_received
-   observations for the same model call, one without usage and one with reported
-   usage. Aggregate/per-call reported counts are available; presentation still
-   needs reconciliation and must not imply an extra paid call.
+5. **Trace presentation — delivered:** #1570 merges compatible response/usage
+   observations for the same identified provider call; lifecycle/conflicting values
+   remain distinct and raw observations inspectable. Actual saved trace rendered
+   four durable response observations as two measured call rows. The capture window
+   is labeled separately from end-to-end request latency.
 
-The API backing 5202 and UI serve the evidence-anchor revision
-`7b904dccd063758c4b1be73c072f10b8080fb180` (#1569). These are the observed
+The API backing5202 serves7b904dccd (#1569); UI5202 serves the evidence anchor
+6d1cd664c (#1570). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance
@@ -143,6 +144,15 @@ The operator identified the mechanical, unfilled Combat landing and nominated
 **Of Conks and Cons** and **A Wild Sheep Chase** as full adventure witnesses.
 The operator included these priorities in the active goal. This does not reactivate
 old prototype/handoff leases.
+
+Architecture assessed C1 against the actual Elderwyld World:595 nodes and zero
+uses_statblock bindings. The selected serial boundary is C1a: demand-loaded World
+identity discovery and explicit manual actor assembly in the existing encounter
+draft/Save/CAS writer. Exact mechanics remain null unless entered by the operator.
+C1b remains required: explicit bound-version selection, verified immutable snapshot
+and drilldown after a real mechanics publication witness. C1a does not complete
+C1b, live command-board interactions or Play continuity. The active bounded
+contract is [World manual assembly](../Plans/HANDOFF-COMBAT-world-manual-assembly.md).
 
 ### 1. Make Combat a usable table instrument
 

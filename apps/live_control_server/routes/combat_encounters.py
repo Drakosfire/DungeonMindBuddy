@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from application_state.combat_encounters.types import (
     AddGeneratedStatblockRequest,
@@ -26,7 +26,10 @@ from apps.live_control_server.services.statblock_draft_store import (
 )
 from apps.live_control_server.services.statblock_view import StatblockViewError
 
-router = APIRouter(prefix="/api/live/combat/encounters", tags=["combat-encounters"])
+from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+
+router = APIRouter(prefix="/api/live/combat/encounters", tags=["combat-encounters"],
+                   dependencies=[Depends(native_graph_gm_dependency)])
 
 
 def _verified_world(world_id: str) -> str:
@@ -90,6 +93,8 @@ def save_encounter_route(
         return combat_encounters.save_world_combat_encounter(
             world_id=owner, encounter_id=encounter_id, request=body
         ).model_dump(mode="json")
+    except WorldGraphProjectionServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ApplicationStateError as exc:
         _raise_state_error(exc)
 

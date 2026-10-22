@@ -1,6 +1,8 @@
 # PLAN — reconcile provider response observations
 
-ACTIVE serial slice under the operator preparation/play goal. Base7b904dccd063758c4b1be73c072f10b8080fb180; branch codex/trace-provider-reconciliation, existing buddy-context-loop checkout. PRIME designs/implements/merges; independent Bugbot reviews exact head. Existing hosted, ingestion and historical Combat open PRs do not own these paths. One implementation PR; no new environment.
+SETTLED: PR1570 merged6d1cd664c3982a1c1e811fe75b95f9f50c046f13; UI5202 delivered with API7b904dccd unchanged. Bugbot approved8851c81a37680e03c52dc37872e16dca325462e2; independently285UI tests/typecheck/diff-check passed. Guarded adoption preserved1480APP rows. Actual saved trace9522bef9-66c9-49e6-87f5-87d41c7de678 renders four durable response observations as two identified model response rows, actual counts/duration retained, raw originals opened. No new provider call. Full journey/latency acceptance remains open.
+
+Historical serial slice under the operator preparation/play goal. Base7b904dccd063758c4b1be73c072f10b8080fb180; branch codex/trace-provider-reconciliation, existing buddy-context-loop checkout. PRIME designs/implements/merges; independent Bugbot reviews exact head. Existing hosted, ingestion and historical Combat open PRs do not own these paths. One implementation PR; no new environment.
 
 Capability: Debug renders one response row for compatible observations with the same captured provider attempt, provider and model. Late measured usage enriches the original chronological row. Authorization/failure/unknown lifecycle observations remain separate; unidentified calls and contradictory measurements never coalesce. Original immutable observations remain inspectable in the reconciled row. Counts are provider reported, never estimated or summed across duplicate observations. The displayed trace window is explicitly a capture window, not end-to-end request latency.
 

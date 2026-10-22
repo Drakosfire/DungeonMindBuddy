@@ -45,6 +45,21 @@ class CombatEncounterProvenance(BaseModel):
     added_at: str = Field(min_length=1, max_length=96)
 
 
+class CombatWorldIdentity(BaseModel):
+    """Historical World identity only; supplies no combat mechanics."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int = Field(gt=0)
+    graph_revision_id: str
+    node_id: str
+    label: str
+    kind: str
+    role: str
+    campaign_scope: str | None
+
+
 class CombatEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -66,6 +81,7 @@ class CombatEntity(BaseModel):
     statblock_title: str | None = Field(default=None, max_length=256)
     corpus_fingerprint: str | None = Field(default=None, max_length=128)
     source: Literal["corpus", "generated_pending", "manual", "imported"] = "manual"
+    world_identity: CombatWorldIdentity | None = None
     provenance: list[CombatEntityProvenance] = Field(default_factory=list, max_length=16)
 
     @field_validator("id", "name", mode="before")

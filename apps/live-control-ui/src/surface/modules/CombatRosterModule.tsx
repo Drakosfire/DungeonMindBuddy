@@ -7,6 +7,7 @@ import {
   saveWorldCombatEncounter,
 } from "../../combat/combatApi";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
+import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
 function valueText(value: unknown): string {
@@ -98,7 +99,7 @@ function RosterRow({
       <td>
         <strong>{entity.name}</strong>
         <div className="module-muted">
-          {entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
+          {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
       </td>
       <td>
@@ -492,8 +493,14 @@ export function CombatRosterModule() {
                 </label>
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
+              <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
+                worldId={worldId} disabled={busy !== null} remainingSlots={100 - visibleDraft.entities.length}
+                onAdd={(entities, group) => updateDraft(current => ({...current,
+                  entities: [...current.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
+                  groups: group ? [...current.groups, group] : current.groups,
+                }))} />
               {visibleDraft.entities.length === 0 ? (
-                <p className="module-muted">No combatants yet. Add generated statblocks from Statblock View and save to this encounter.</p>
+                <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
                 <div className="combat-roster-table-wrap">
                   <table className="combat-roster-table">
