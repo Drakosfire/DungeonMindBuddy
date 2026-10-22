@@ -50,22 +50,21 @@ Document drafts, accepted graph knowledge and mutable Run state retain their
 actual ownership. A fresh blank World must be usable before campaign, corpus or
 published graph-head existence.
 
-## Current execution pickup — reconciled 2026-10-21
+## Current execution pickup — reconciled2026-10-22
 
-Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for delivered work,
-remaining acceptance and the operator-selected sustained goal. Execution resumes
-with bounded reviewed slices for dependable planning, connected Combat and both
-adventure rehearsals, refining foundations throughout. Cards/manual editing, shared Surface navigation, Build document ingestion,
-limited native Rules lookup and Combat C0 have delivered bounded capabilities.
-They do not award J1–J6 acceptance.
+Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for current evidence
+and remaining acceptance. The operator selected the next connected milestone:
+scene→encounter→manual enemy revision→saved successor→explicit encounter
+adoption→Play→reload/restart/resume. The bounded
+[design contract](HANDOFF-COMBAT-scene-encounter-revision.md) owns its critique and
+serial activation; shared module hosting alone does not establish this journey.
 
-Fresh live Plan dogfooding found a root inventory split (draft #1566, not deployed)
-and a completed Jev reply that leaves the composer locked. The fresh
-conversation→image journey remains unproven; one isolated sub-10-second grounding
-pass is not a reliable latency acceptance result. The roadmap records these gaps
-and the selected sequence. Re-anchor and bound each slice; do not revive old
-“next” dispatches or prototype runtime pathways. Mandate, ownership and full
-mission remain.
+Buddy #1617/APP0048 is merged and deployed on8000/5202, preserving retained
+sources/state. Root discovery/composer repairs and Session29 selector/reload are
+witnessed. The new exact excerpt fix still requires its original-query live
+acceptance; repeated roughly10-second grounding, connected image follow-through,
+external recap/memory, full two-adventure J1–J6 twice and8GB evidence remain open.
+Do not reactivate historical dispatches or call a partial witness full acceptance.
 
 ## Activation and inheritance
 

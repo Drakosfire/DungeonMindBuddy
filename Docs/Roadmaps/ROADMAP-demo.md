@@ -1,124 +1,42 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `df4cebf3cebae6e8cc94a5cb7b7dbc3703017e43` (through PR #1616).
+**Status:** current product execution ledger; reconciled2026-10-22.
+**Evidence anchor:** remote/live Buddy `df98f6a5a554ac7ef234b1196b4f8dd3377d178a`
+(#1617), API8000/UI5202, APP0048/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
-**Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
-This is the sole product execution ledger. Detailed history remains in Git, PRs
-and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
-Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
-foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation is delivered; native World manual encounter assembly is delivered. Exact World-scope Threat
-hydration is delivered (#1572), with no bound-mechanics claim. Fresh World source
-provisioning and reviewed Graph initialization now precede the positive mechanics
-publication witness. #1573 delivered durable source reservations and ordinary
-fresh-World source admission, confirmed in Build through saved source revision2
-and browser reload. #1574 delivered reviewed first Graph initialization and
-verified binding activation: the ordinary rehearsal published3 assertions, created
-one D0 and reopened Ready/2nodes; source evidence and prior World heads stayed
-unchanged. #1575 repaired first-receipt continuity: a fresh ordinary Build
-publication showed its receipt directly and reopened Ready/3nodes. One exact D0
-was created; both prior World heads and source admission stayed unchanged. Build
-Find then reproduced authority_receipt_missing by routing the managed slug to
-native projection. #1576 repaired owner-qualified shared-read reuse and managed
-exact-pin routing; actual Find→View NPC succeeded after reload. #1577 exposes the
-existing lazy Statblock Workbench in Build Tools. Its live Create & generate
-revealed managed-slug/native-ID confusion in head lookup and server draft
-revision admission. #1578 repaired managed provenance and is running on8000/5202. Before paid
-generation, statblock journals were found under disposable code root instead of
-the configured persistent artifact root. #1579 delivered that persistent lifecycle root, retaining all1487 APP rows and46
-prior product files. DMS44 repaired stale provider-schema compilation; the original
-saved request resumed and generated a real candidate. Review correctly exposed an
-invalid phase reference. AI revise completed in DMS but Buddy rejected its source
-digest because its mirror omits a field current DMS canonicalization serializes
-as null. The original revise remains unresolved and preserved; #1580 canonical-digest-parity repair is merged and running. A fresh ordinary
-Build generation→manual edit→AI revise→review→validate→accept succeeded; exact
-DMS integrity passed. API restart retained1487 APP rows and59 product files.
-#1581 corrected saved-state notices. Actual normal Tools/history reopen showed
-accepted mechanics after restart. #1582 delivered explicit APP-owned World mechanics association. Ordinary Build
-association→reload→API restart retained1488 APP rows and59 product files, unchanged
-native head/exact DMS identity and saved association version1. #1583 delivered exact Combat snapshots with independent tracker fields. Actual UI
-save/reopen/restart retained1489APP rows/59product files, identical snapshot copies,
-HP7/16, conditions/notes and active actor. #1584 delivered shared lazy Plan/Play Combat hosting with explicit exact encounter
-selection and local draft recovery. Actual Plan edit→tool close→recover→Play
-recover→Save→Plan reopen and API restart preserved the same fight, snapshots and
-independent actor state. Full page navigation exposed Plan scene-position reset; #1585 repaired it. Actual
-second-card selection survived reload, Plan→Play→Plan and Document reload. Connected journey acceptance is still open; native Graph binding payloads and fake
-campaign publication are excluded. Connected Combat acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
-instructions do not reactivate old leases; new implementation slices still require
-bounded ownership and review.
+## Active goal and next milestone
 
-#1607 delivered complete frozen-paragraph evidence partition correction. Ordinary
-Conks correction created an unpublished child with zero invalid quotations and
-unchanged proposed semantics; reload/restart retained sources and native state.
-Semantic review then exposed friendly relationship labels hiding different stored
-predicates. Conks publication is stopped pending transparent typed review; quote
-validity alone does not establish factual or relationship correctness.
+Deliver a dependable local Build→Plan→Play→Combat→memory loop on5202, using
+shared Surface components, exact source/mechanics identities and recoverable
+user work. The operator's2026-10-22 refinement selects this next milestone:
 
-#1608 delivered shared exact candidate type/predicate/direction presentation and
-first-world prepared/recovered effect parity checks, including same-name identity
-disambiguation. The retained Conks review exposes mismatched predicates before
-publication; no Graph was created. Restart retained APP/native/source/mechanics.
-Actual Build rendering exposed shared publication styles still owned by Plan;
-readable cross-surface presentation remains the immediate foundation repair.
+**Open the scene → open its encounter → revise an enemy and save a new version
+→ explicitly use that version in this encounter → run it in Play → reload and resume.**
 
-#1609 moved publication-review styles to shared consumer-owned imports. Wide
-Build review is readable and keyboard focus works; restart retained saved data.
-The640px check found an outer Build implicit-grid containment defect despite
-wrapping item bodies. Narrow rendered acceptance remains open pending that fix.
+Use Of Conks and Cons for the first connected witness and A Wild Sheep Chase
+for generality. This changes the next execution priority; it does not award or
+remove unfinished grounding/image, memory, J1–J6, performance or operator acceptance.
+The bounded design is [scene/encounter/mechanics revision](../Plans/HANDOFF-COMBAT-scene-encounter-revision.md).
+No new implementation lease or historical prototype activation is inferred from
+this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 
-#1610 contains the review host and sheets at wide/640/480 requested sizes. Actual
-whole-document measurements reveal the same implicit-track defect in the nested
-source editor; narrow whole-document acceptance remains open until that is fixed.
+## Current-state assessment
 
-#1611 finishes measured document/review containment at actual CSS widths1164,
-582 and436; protected restart/reopen retains saved data. Ordinary Conks selected
-publication accepted41 changes/omitted15 and recovered the same Graph revision
-after restart. A separate new Plan saved through ordinary controls. Two grounded
-questions completed8.3s/4.6s with truthful per-call usage, but corpus facts were
-stored as Plan claims despite that Plan containing only a preparation instruction.
-One follow-up also repeated a previously opened source anchor. Mixed evidence
-attribution is the immediate owning repair; read reuse follows separately. These
-are partial journey witnesses, not J1–J6 or consistent latency acceptance.
+| Goal area | Delivered or directly witnessed | Still open |
+|---|---|---|
+| Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
+| Evidence efficiency and exact excerpts | #1615 retained-source reuse: Plan4.590s/Play13.191s, each one reuse/zero fresh reads; #1617 host-materialized authored blocks with current-submission policy fencing | #1617 original-query/notes/reflections rendered acceptance and post-answer protected restart; five reused passages in the preceding9.042s failed answer are not successful latency evidence |
+| Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups | Durable accepted-mechanics revisions, explicit existing-actor adoption, durable scene connection and the complete operator-selected journey |
+| Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
+| Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
-#1612 delivers the versioned mixed evidence contract with exact selected source
-passages, literal authored quotes, closed host limitations, retained history and
-visible paragraph citations. Bugbot approved after two cycles. Paired APP0046/
-8000/5202 Plan dogfood completed9.7s/3.9s; named passages reopened and protected
-restart retained1727 APP rows/79 mechanics files/17 frozen components/native rows.
-An identical source window is still reread on the follow-up. Fresh Play revealed
-a pre-provider IPC failure: obsolete source-only instructions duplicate the current
-carrier policy inside the compact Surface context. That delivery repair precedes
-read reuse. Plan/Play live acceptance and complete journeys remain open.
-
-#1613 removes the obsolete duplicate Play answer policy from compact IPC context;
-current policy and frozen body remain once in the actual carrier. Bugbot approved.
-Ordinary exact saved-request retry completed in8.7s with a quoted saved-scene note
-and separate named adventure citation. The exact passage reopened after protected
-restart;1737 APP rows/all native rows/79 mechanics files/17 frozen components were
-retained. This closes that Play delivery defect and supplies the mixed-contract
-Play witness, not full journey acceptance. The Plan follow-up still rereads one
-identical source window. The next bounded contract is
-[retained passage reuse](../Plans/HANDOFF-AGENT-retained-passage-reuse.md): explicit
-current-turn reuse admission with prior producer proof and current pin verification.
-Architecture critique and exact-head Bugbot review were adopted in #1614.
-#1615 delivers shared retained-passage admission with exact prior producer/current
-pin proof, atomic protected bytes, explicit reuse inclusion, honest accounting and
-Debug. Bugbot approved after three cycles; APP0047 and8000/5202 are live. Ordinary
-Plan4.590s and Play13.191s each reused one passage with zero fresh source reads.
-Both exact citations reopened after protected restart, retaining1752 APP rows,
-all native rows,79 mechanics files and17 frozen components. This proves reuse,
-not a general latency improvement.
-
-The original swamp/Edge query reused five passages with zero fresh reads but
-failed delivery at9.042s: the writer regenerated authored Plan text that was not a
-literal frozen excerpt. Pure replay of saved actual bytes reproduces the rejection.
-[Authored excerpt selection](../Plans/HANDOFF-AGENT-authored-excerpt-selection.md)
-is the next bounded repair: the model selects exposed block handles; the host
-materializes exact text. Architecture critique and exact-head Bugbot review were adopted in #1616;
-implementation is active under the exact successor lease. Runtime remains #1615
-until implementation review, merge and ordinary rendered delivery. No fuzzy quote acceptance, new retry/judge
-or extra arbitrary cap. Full journeys and consistent original~10s remain open.
+#1617 merged after two Bugbot cycles at the exact reviewed head. Guarded adoption
+preserved1757 pre-migration APP rows, all native rows,79 mechanics product files
+and17 frozen components; API8000/UI5202 serve the same merge. The additional UI
+fingerprint includes the additive schema row. Runtime health and migration
+preservation do not prove a successful new model reply or close full acceptance.
 
 ## Product decisions that remain in force
 
@@ -167,93 +85,59 @@ The operator's played session established useful improvisation and note-taking.
 It also exposed navigation and media weaknesses. Preserve that evidence without
 calling the full local demo accepted.
 
-## Current dogfood failures — next-goal inputs
+## Next work — connected encounter revision
 
-1. **Root Plan inventory — resolved:** #1566 merged `955064067` and runs on5202.
-   The exact formerly failing root URL now shows World selection. Ordinary
-   Elderwyld selection exposes both Session29 Plans, and Campaign2Session29 opens
-   through the normal selector. The guarded UI rollout retained all1458 APP rows
-   with the API unchanged. The broad Plan fixture cohort still has documented
-   inherited failures; do not call that entire suite green.
-2. **Fresh reply completion — resolved:** #1568 merged `339ddc3f7` and runs on
-   API8000/UI5202. Fresh replies carry their exact committed basis; true replay
-   remains distinct. Exact completed-history correlation releases only its
-   unchanged pending envelope. Bugbot independently passed8backend/228UI/typecheck.
-   Rendered fresh grounding and a follow-up both unlocked the composer; named
-   citation and exact Debug writer request opened. Live rehearsal changed only
-   intended agent rows; Plans/sessions and other non-agent APP tables stayed unchanged.
-3. **Grounding latency:** the exact swamp/Edge question achieved one isolated
-   9.841-second pass; fresh browser requests took 12.046 and 12.016 seconds. The requested
-   roughly 10-second experience is not a reliable accepted target yet. Measure
-   actual decision/read/writer times and quality; do not report a single pass as SLA.
-4. **Fresh image continuation — delivered:** #1569 merged7b904dccd and runs on
-   API8000/UI5202. A fresh typed prompt completed5.201s and seeded Studio exactly.
-   Actual generation and Save succeeded; the saved image reopened from the library
-   on a fresh page. No automatic Plan insertion. Full journey acceptance remains open.
-5. **Trace presentation — delivered:** #1570 merges compatible response/usage
-   observations for the same identified provider call; lifecycle/conflicting values
-   remain distinct and raw observations inspectable. Actual saved trace rendered
-   four durable response observations as two measured call rows. The capture window
-   is labeled separately from end-to-end request latency.
+1. **Accepted mechanics can be revised durably.** Start from an exact saved
+   version in the shared editor, make manual changes, validate and save an immutable
+   successor, then explicitly retain its Buddy accepted reference. Reopen both versions.
+   Saving/accepting does not replace World associations or alter a fight. No AI call is needed for a manual edit. Resolve
+   generic producer ownership before activating any cross-repository change.
+2. **An encounter deliberately adopts a selected version.** Preview old/new
+   mechanics and choose affected actors/copies. Preserve actor identity, turn,
+   initiative, HP/temp HP, conditions and notes; any tracker reconciliation is a
+   separate explicit choice. Other fights and the prior mechanics stay unchanged.
+3. **The scene provides the entry.** Persist scene/encounter ownership through
+   committed Plan and accepted Run boundaries. Open the linked encounter beside
+   Plan or Play with the same shared component; preserve drafts and scene position.
+   Resolve template-versus-live-fight semantics explicitly in design.
+4. **Run and resume.** In ordinary Conks UI, strengthen an enemy, use that exact
+   version, run several turns and state changes, navigate/reload/restart and resume
+   the same scene/fight/mechanics. Repeat with Sheep without adventure-specific code.
 
-API8000/UI5202 serve12ce5841 (#1606), with Core617635c. Named saved-section
-evidence was verified after reload in the ordinary Sheep conversation and opened
-its exact historical passage. Guarded delivery retained1533 APP rows,59 product
-files and frozen extraction components. Contradictory answer/gap quality remains open.
-Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
-18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
-and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
-with its private config and persistence unchanged. These are the observed
-planning checkpoint, not a requirement to keep those revisions after delivery.
+Each item becomes a bounded serial implementation only after the current code,
+contract and failure cases are critiqued and its exact write lease is activated.
+Bugbot reviews every cumulative head; PRIME merges and settles on5202.
 
-Prepared tables #1597 are merged and running on8000/5202. Ordinary Conks
-source→saved Plan→Run rehearsal recorded an entered test value; the exact receipt,
-selected Scene and saved note survived reload and API restart. This verifies
-recording and deterministic resolution, not an actual physical die roll, played
-campaign event or full journey acceptance. See the settled implementation handoff.
+## Retained rehearsal checkpoints
 
-Fresh Sheep Plan grounding exposed unreadable source evidence from first-World
-initialization. OverMind52 and Core139 (617635c5) define/deliver the typed Core
-contract; Buddy1598 adopted it and is running8000/5202. A fresh ordinary saved
-source→review→selected publication produced V2 receipt; Plan opened three correct
-named passages by1.6s. Its4.4s final answer still could not cite them because no
-complete Graph claim records existed. Source evidence is not Graph assertion
-truth. Shared source-answer code delivered1599. A fresh ordinary Plan reply answered
-correctly with named citations and exact passage reopening in5.9s; reload retained
-it. Native Play remains unaccepted: live witness exposed predecessor Graph/read
-routing in its shared broker. The current-type repair delivered1600. A further ordinary Play witness exposed
-zero read capacity when initial discovery has no anchors. That setup repair delivered1601; fresh Play opens source passages. Its actual next provider read inclusion was repaired1602. Ordinary fresh Play
-now answered with named source citations and exact historical reopening; restart
-preserved1644APP rows, native rows,79mechanics files and11frozen components.
-Individual Plan5.9s/Play14.3s traces do not establish reliable10s acceptance.
-The real swamp/Edge benchmark then exposed a writer prompt authority mismatch:
-no opened passages, but source claims with empty handles for Plan/session prose.
-The prompt repair delivered1603; the ordinary query completed6.594s with proper
-Plan/session attribution. The4.360s follow-up opened Image Studio; explicit Generate
-and Save, library selection and reopening passed after restart with1664APP rows,
-native rows,79mechanics files and11frozen components unchanged. Normalizers still
-reject absent source authority. Jev nevertheless skipped requested corpus reads;
-That decision repair delivered1604. Real corpus-grounded runs took10.431s,9.556s
-and14.929s; exact citation reopening passed after restart with1676APP rows, native
-rows,79mechanics files and11frozen components unchanged. The clean conversation
-followed a peripheral NPC and mislabeled some notes as a recap in prose; reliable
-latency and citation wording remain open. Image composer repair delivered1605:
-the original follow-up automatically routed to Question, completed a typed prompt
-and reopened the exact Studio prompt after restart;1690APP rows, native rows,
-79mechanics files and11frozen components were unchanged. Source attribution instruction repair delivered1606: fresh original grounding kept
-notes/reflections separate from recap citations, with exact passage reopening after
-restart;1698APP rows, native rows,79mechanics files and11frozen components unchanged.
-The13.8s Debug capture does not establish reliable10s latency. Full adventure acceptance remains open.
-No full-journey or reliable latency acceptance is awarded.
-Restart retained1595APP rows, all native rows,79mechanics files and11protected
-frozen components. Existing
-Worlds are not rewritten or reinitialized; evidence correction and any governed
-successor publication remain separate. Conks exact-run review currently exposes
-nonliteral quotes, including wrong paragraph bindings. Do not substitute a literal
-quote from the wrong paragraph merely to clear qualification. Exact diagnosis found
-25 invalid quotes across21refs/41spans, including multi-paragraph quote groups.
-ACTIVE HANDOFF-BUILD-frozen-evidence-partitions.md owns explicit same-source
-paragraph selection and complete quote partitions into unpublished child candidates.
+- **Conks:** saved adventure source and corrected child retained; selected
+  publication accepted41 changes/omitted15. Ordinary cited Plan/Play questions and
+  exact passage reopening are witnessed. A minimal separate Plan and a Run with
+  a saved note/table entry exist. This is not an encounter-ready adventure Plan;
+  combat scene/roster/mechanics preparation is still required.
+- **Sheep:** saved adventure source, selected publication, Plan revision11 and
+  Run retained. One fight has source-verified Noke, three grouped Apes and Bear,
+  exact saved mechanics, round2/current Noke and independent tracker state after
+  restart. Conditional Bed Dragon is an asset, not automatically an opponent.
+  Older printed stats transcribed into the current schema are not edition conversion.
+- **Session29:** ordinary Elderwyld selector offers both Session29 Plans. Campaign2
+  Session29 opened and reloaded at its own document identity on2026-10-22. External
+  recap extraction was reviewable, not published; matching supplements were not
+  selected. No recap is generated by closing a session.
+- Entered table test values prove recording/resolution, not an observed physical
+  roll. Prepared rosters, source packets and isolated tests do not close J1–J6.
+
+## Remaining priorities and separately selected work
+
+After the connected encounter milestone, finish the remaining acceptance below
+through the same adventures. Original swamp/Edge grounding/image quality and
+repeated timings remain a regression benchmark throughout. Do not invent new
+arbitrary caps, extra judge calls or compatibility routes to pass a rehearsal.
+
+Hosted v1, rules-graph experimentation, richer summon/status automation, semantic
+maps and economics require separately selected bounded scope. Existing Rules lookup
+remains useful with its admitted public SRD5.2.1 occupancy subset; it does not
+establish full2024/travel-rule coverage.
 
 ## Remaining acceptance
 
@@ -278,189 +162,6 @@ paragraph selection and complete quote partitions into unpublished child candida
 - **Full local acceptance:** J1–J6 below, twice in a resettable environment without
   console/SQL/manual-ID repair, including fresh World and restart. No local demo
   acceptance is awarded. Hosted v1 has separate identity/deploy/backup gates.
-
-## Selected goal and later candidates
-
-| Candidate | First useful outcome | Completion boundary |
-|---|---|---|
-| **Recommended: dependable Plan/Buddy/image journey** | Find Session 29 normally, ground a multi-turn discussion, inspect named evidence/exact Debug prompts and generate/reopen the chosen image | Root entry and fresh response fixed; ordinary 5202 workflow twice with no manual repair, retained drafts/scene position, honest measured latency and operator review |
-| Session-to-memory continuation | Use the real external recap with matching played evidence in next-session planning | Review selected supplements, publish explicitly, retrieve/cite the accepted result on a fresh turn and after restart |
-| Connected table tools | Use Rules and generated mechanics during Play | Select one bounded Rules coverage or Combat continuation slice; prove actual use and retained session state |
-| 8 GB performance acceptance | Know current client cost and eliminate the largest measured waste | Current-build load/read/memory measurements, one prioritized repair and before/after evidence |
-| Hosted v1 | Authenticated laptop use at buddy.dungeonmind.net | Separate SERVER/platform contract, access controls, repeatable deployment and backup/restart proof |
-
-The operator selected dependable planning, connected Combat and the two adventure
-rehearsals as one sustained goal, sequenced in independently reviewable slices.
-Foundation refinement runs throughout: shared Surface components, demand loading,
-bounded/deduplicated reads and current-build 8 GB performance evidence. The
-session-to-memory evidence boundary applies to the rehearsals; hosted v1 remains
-a separately selected candidate. This table does not grant parallel write leases. Rules graph
-experiments remain deferred until broader objectives are accepted or the operator
-explicitly activates a bounded experiment; delivered Rules lookup remains useful
-without that experiment. Semantic maps, linked speculative ideas, economics and
-identity through time remain later evidence-driven candidates.
-
-## Selected continuation after dependable planning
-
-The operator identified the mechanical, unfilled Combat landing and nominated
-**Of Conks and Cons** and **A Wild Sheep Chase** as full adventure witnesses.
-The operator included these priorities in the active goal. This does not reactivate
-old prototype/handoff leases.
-
-Architecture assessed the Elderwyld World:595 nodes and zero uses_statblock
-bindings. #1571 delivered explicit World/manual assembly; #1572 repaired World
-Threat hydration. #1580/#1582 established actual generated/revised/accepted exact
-mechanics and an APP-owned World association. #1583 delivered independently
-verified immutable Combat snapshots and #1584 shared recoverable hosting in Plan
-and Play. #1585 repaired Plan scene memory through full navigation/reload.
-Configured Combat and the source-grounded connected adventure rehearsal remain
-open. Native Graph mechanics bindings are not required by this APP association
-contract. Historical prototype leases remain inactive.
-
-### 1. Make Combat a usable table instrument
-
-Start with an evidence-based design comparison of the played Session 22/23/26
-trackers, Session 24 dogfood feedback and current native Combat. The existing
-[generic command-board contract](../Plans/HANDOFF-COMBAT-generic-command-board-experience.md)
-and [played tracker feedback](../Plans/HANDOFF-c2s24-live-combat-tracker-design.md)
-are design inputs; their old ACTIVE/base/runtime statements do not grant a new
-lease. Inspect current code before adopting any historical implementation claim.
-
-Prioritize the actual GM flow:
-
-- A useful empty/returning landing explains how to assemble an encounter and resume
-  a saved fight. Show real saved work; do not fill it with invented sample encounters.
-- Select creatures or exact statblock versions from available World/assets, adjust
-  the encounter, then open that same encounter from the relevant Plan/Play scene.
-- Keep current/next actor, initiative/round, HP/temp HP, damage/healing, conditions,
-  notes and one-step statblock inspection usable during a fight. Carry forward
-  proven initiative/grouping interactions after checking their current gaps.
-- Navigate away, reload and restart, then resume the exact fight and scene without
-  silently replacing the roster, Plan, mechanics versions or player notes.
-- Keep Combat an embeddable Surface module with durable encounter ownership.
-  Rules lookup uses the admitted Rules tool; a rules graph is not a prerequisite.
-  Summon placement, timed conditions and richer automation are separately bounded
-  follow-ons informed by the played feedback, not implicitly delivered by C0.
-
-**Acceptance:** use a source-grounded adventure encounter through normal controls:
-assemble → enter from Play → run several turns and state changes → leave/reopen →
-restart/resume. Compare the experience against the played prototypes. Preserve
-original historical saves; do not import prototype adapters or campaign mappings
-into the runtime to make the demonstration work.
-
-### 2. Adventure ingestion through a winding story and combat
-
-Use both named adventures to exercise the same general Build→Plan→Play→Combat
-workflow. On2026-10-22 both retained PDF/media/reference packets matched their
-recorded SHA inventories; current APP had no saved adventure documents/runs.
-Historical Of Conks #778 corrected a disposable candidate without publication;
-it is not an accepted current import. Licensed text stays outside Git fixtures.
-
-A Wild Sheep Chase is the first current rehearsal. Ordinary Build import created
-World a-wild-sheep-chase-rehearsal and source2d0b126c-d0ef-440b-a6de-158605e384ed,
-revision2, SHA9f042e5d65292abe306c9102242ed41753c52f0fb49e5d28439180ba6e1e87e8.
-Its six-page PDF text is retained with page locators and an explicit distinction
-between authored possibilities and played events. Reviewable extraction
-3e765e4d-0d85-4327-ac05-e8761dd9a204 exposed14 nonliteral quotes. UI corrections
-qualified child2129f391-100d-5d4a-af11-4de2dd8b8a79, but registry sealing wrongly
-compared inherited source location with relocated candidate output. The exact
-saved correction recovered the same reviewable child after #1586. All frozen
-source/span/candidate identities remained unchanged. Explicit selection retained30
-changes; first-World prepare sealed typed relationships that native confirm could
-not express. No Graph head was created. The submitted request remains retained.
-#1587 delivered [qualified preflight and proven nonapplication
-recovery](../Plans/HANDOFF-INGEST-first-world-qualified-preflight.md). Ordinary
-recovery returned scoped proof and explicit Return preserved30 choices. Two
-explicit rejections left28 selected changes published at
-rev:8510f91b92167281a6a6547644bad236. Source/run identities stayed unchanged;
-guarded API/UI delivery retained1498 APP rows and59 product files.
-Fresh Buddy retrieval then stopped after its first successful Jev decision:
-answer_from_sources selected, but the optional Rules vote none=.67/query:0=.33
-failed a positive-authorization threshold. Exact synthetic-score reproduction
-proved the host rejection. #1588 delivered [optional Rules
-abstention](../Plans/HANDOFF-BUILD-rules-abstention.md); fresh ordinary source-only
-Sheep grounding completed12572ms with8Jev/1writer, source citations and full-reload
-history continuity. Quality remains unaccepted: gap prose contradicts supplied
-fight-trigger details, and saved-source evidence labels omit the source name.
-A source-correction follow-up was misclassified as an uncertain positive Rules
-query (.63), which the positive authorization gate correctly refused. #1589 delivered
-[Rules routing instructions](../Plans/HANDOFF-BUILD-rules-routing-instructions.md)
-without weakening that gate. Four real Jev classification controls passed. Fresh
-ordinary correction completed11263ms with Rules none=1.0, zero Rules calls/support,
-corrected tower ownership and conditional trigger, PDF references and explicit
-withdrawal of the earlier gap; full reload retained the answer and both failures.
-Saved-source names delivered in #1590: exact committed artifact metadata is
-batched per history page without body reads or changed citations. #1591 separates
-retrieval completeness from question coverage; fresh ordinary grounding had no
-contradictory gap and reopened after reload. It used8Jev/1writer and10498ms trace
-capture, not a reliable latency SLA. Source publication and these repairs are proved; universal
-answer consistency,10-second reliability and the connected journey remain open. PDF decorative divider lines also trigger the existing
-visual-editor fidelity gate; exact source remains protected and reviewable.
-
-Ordinary rehearsal now retains Plan d5149207-9441-4487-86c9-7894fd3c60fe,
-revision11, one Beat/three Scenes and a reviewed Agent-authored read-aloud. Play
-5e59b7f6-aec2-4058-946a-74319224b2d4 retains the refusal note and current confrontation
-after reload; the original Plan hash stayed unchanged. Partial encounter
-9162d3e4-1331-4b8b-9dfe-1b12db2d64ec rev2 retains a source-verified manual Noke.
-Workbench generated/reviewed/validated/accepted Noke’s mechanics and explicitly
-associated them with npc_ahmed_noke (version1). This is a labeled older-adventure
-transcription into the current2024 schema, not edition-conversion acceptance.
-#1592 delivered shared recoverable actor removal. Ordinary same-encounter
-replacement saved revision3 with exact Noke snapshot, independent tracker HP53/55
-and Prone; original Plan unchanged. API restart retained1562 APP rows/63 product
-files and frozen sources. #1593 fixed a false cross-view lock collision by awaiting the owned browser
-lease release. Ordinary same-module Open→Open after delivery retained the same
-encounter and saved source/tracker values without reloading the page. The shared
-mechanics renderer no longer displays unrelated portrait art (#1594); actual
-portrait-free source/tracker inspection passed. Direct accepted-asset selection
-for unnamed creatures delivered in #1595. Actual two-copy selection/save/reload/
-restart preserved exact mechanics and independent tracker state without World identity. Agent structural card creation also
-remains open; focused body editing works after manual structure creation. These
-are partial connected witnesses, not complete adventure/J1–J6 acceptance.
-
-Ordinary source-verified Workbench generation/review/revision/validation/acceptance
-added Bear, greatsword Ape and conditional Bed Dragon assets. The original fight
-now retains five opponents (three grouped Apes), round2/current Noke and independent
-HP/conditions through reload/API restart; original Plan revision11/hash unchanged.
-Restart preserved1563APP rows/79product files and frozen sources. Printed older
-values are labeled transcription, not edition-conversion acceptance. One initial
-Bed Dragon generation failed ruleset_mismatch and remains retained; a new explicit
-edition-bound draft succeeded. Ape AI revision restored the omitted printed HP19.
-
-Native recorded table rolls are delivered by1597 under the
-[bounded design](../Plans/HANDOFF-PLAY-recorded-tables.md): explicit tables in the
-exact Run-pinned Plan revision and Play-owned append-only receipts. The ordinary
-Conks rehearsal passed reload/restart; actual physical-roll and full-journey
-acceptance remain open. No new reusable Content kind was required. Sheep encounter
-prose is not an explicit roll table.
-
-The target is an adventure usable at the table:
-
-1. Build retains the exact saved source, extracts/reviews candidates and publishes
-   selected supported knowledge with named citations. Distinguish authored options,
-   conditional encounters and GM secrets from events that have actually happened.
-2. Buddy can answer representative questions about people, places, motives,
-   alternative routes and encounter triggers from that accepted source. Review
-   omissions and unsupported connections against the adventure, not candidate counts.
-3. Plan supports meaningful scene choices and linked NPCs, locations, tables and
-   mechanics. Preserve branches, callbacks and conditional progression; do not
-   flatten the adventure into an asserted chronological history.
-4. Play can follow different routes and reach a real encounter. Open its creatures/
-   statblocks in Combat, record turn/HP/notes and any table results, then resume the
-   same story position after reload/restart. Return combat outcomes to the session
-   record without silently publishing them as World facts.
-5. Complete the connected J1–J6 acceptance applicable to this rehearsal, including
-   real generation where required. A prepared packet, fixture roster or API-only
-   publication cannot stand in for the whole journey. Use the second adventure
-   to check generality without adventure-specific runtime branches.
-
-**Selected sequencing:** finish the fresh Plan/Buddy/image failures, then design
-and deliver the Combat entry/encounter/Play connection in bounded reviewed slices.
-Use one adventure as the first connected rehearsal and the other as the generality
-check; choose their order after inspecting current source/run readiness. Repair
-missing ingestion or knowledge contracts at the owning boundary as the rehearsal
-exposes them. The session-to-memory loop remains another useful bounded goal,
-with external recaps and explicit note supplements rather than generated history.
 
 ## Scope and ownership
 
