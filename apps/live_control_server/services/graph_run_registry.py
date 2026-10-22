@@ -229,7 +229,7 @@ def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
         )
 
     _assert_component_bytes(root, source_component, expected_digest=artifact.content_sha256)
-    _assert_source_component_matches_artifact(source_component, artifact, graph_component)
+    _assert_source_component_matches_artifact(source_component, artifact, span_component)
 
     span_path = _assert_component_bytes(root, span_component)
     try:
@@ -300,7 +300,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
 def _assert_source_component_matches_artifact(
     component: ExtractionRunComponentRef,
     artifact: GraphMemorySourceArtifact,
-    graph_component: ExtractionRunComponentRef | None = None,
+    span_component: ExtractionRunComponentRef | None = None,
 ) -> None:
     from graph_memory.ingestion.extraction_run import normalize_content_digest
 
@@ -312,8 +312,9 @@ def _assert_source_component_matches_artifact(
         )
     expected = artifact.uri
     snapshot_uri = None
-    if graph_component is not None and graph_component.uri.startswith("repo://"):
-        snapshot_uri = graph_component.uri.rsplit("/", 1)[0] + "/source.md"
+    # Corrected candidates move; the inherited source/span bundle does not.
+    if span_component is not None and span_component.uri.startswith("repo://"):
+        snapshot_uri = span_component.uri.rsplit("/", 1)[0] + "/source.md"
     if uri == snapshot_uri:
         return
     if uri.startswith("repo://"):
