@@ -565,6 +565,18 @@ describe("World-scoped mounted Workbench", () => {
     expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
+  it.each(["native_id", "projection", "snapshot"] as const)("rejects malformed managed %s without freestanding fallback", async (fault) => {
+    const h = harness(); const valid = managedProjection();
+    const invalid = fault === "native_id" ? { ...valid, nativeWorldId: null }
+      : fault === "projection" ? { ...valid, projection: null }
+      : { ...valid, projection: { ...valid.projection, snapshot: null } };
+    h.project.mockResolvedValue(invalid as unknown as ManagedWorldGraphProjectionResponse);
+    const user = userEvent.setup(); render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("create-threat-allow-freestanding")); await create(user);
+    await waitFor(() => expect(screen.getByTestId("create-threat-error")).toHaveTextContent("malformed provenance"));
+    expect(h.create).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+  });
+
   it("rejects contradictory projection even with freestanding opt-in", async () => {
     const h = harness();
     h.project.mockResolvedValue(managedProjection(b));

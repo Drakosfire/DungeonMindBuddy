@@ -389,11 +389,18 @@ async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<
     const response = await postManagedWorldGraphProjection({
       schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: scope.worldId,
     });
-    const mismatch = verifyManagedWorldGraphProjectionResponse({
-      managedWorldId: scope.worldId, request, response, revisionKind: "head",
-    });
-    if (mismatch) throw new ProjectionScopeMismatch(mismatch);
-    return { head: response.projection.snapshot.revisionId };
+    // A received malformed envelope is an integrity failure, not a transport
+    // outage eligible for the explicit freestanding escape hatch.
+    try {
+      const mismatch = verifyManagedWorldGraphProjectionResponse({
+        managedWorldId: scope.worldId, request, response, revisionKind: "head",
+      });
+      if (mismatch) throw new ProjectionScopeMismatch(mismatch);
+      return { head: response.projection.snapshot.revisionId };
+    } catch (error) {
+      if (error instanceof ProjectionScopeMismatch) throw error;
+      throw new ProjectionScopeMismatch("Managed World Graph returned malformed provenance.");
+    }
   }
   const projection = await postWorldGraphProjection({
     schema: "dmb_world_graph_projection_request_v1",

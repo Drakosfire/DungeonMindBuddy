@@ -254,3 +254,38 @@ def test_world_draft_reserved_identity_is_not_graph_authority(monkeypatch, tmp_p
     client = TestClient(create_app())
     assert client.post("/api/live/threat-drafts", json=payload).status_code == 409
     assert not (tmp_path / "out/threat_drafts").exists()
+
+
+def test_world_draft_admission_uses_configured_world_root(monkeypatch, tmp_path):
+    import json
+    code_root = tmp_path / "code"
+    world_root = tmp_path / "world-data"
+    code_root.mkdir(); world_root.mkdir()
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: code_root)
+    payload = _world_payload(world_root)
+    registry = world_root / "out/registries/world_containers.json"
+    data = json.loads(registry.read_text())
+    data["records"][0]["native_graph_binding"] = {
+        "status": "active", "native_world_id": "world:reserved", "binding_version": 1,
+        "validated_at": "2026-10-22T00:00:00Z", "validated_head_revision_id": "exact-pin",
+    }
+    registry.write_text(json.dumps(data))
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(world_root))
+    calls = []
+    def read_revision(world_id, revision_id):
+        calls.append((world_id, revision_id))
+        return SimpleNamespace(world_id=world_id, revision_id=revision_id)
+    monkeypatch.setattr(threat_drafts_routes, "get_world_graph_authority", lambda: SimpleNamespace(read_revision=read_revision))
+    payload["graph_context_snapshot"]["graph_revision_id"] = "exact-pin"
+    client = TestClient(create_app())
+    response = client.post("/api/live/threat-drafts", json=payload)
+    assert response.status_code == 200, response.text
+    created = response.json()
+    update = {key: value for key, value in payload.items() if key not in {"world_id", "campaign_id", "scope_mode", "created_by"}}
+    update.update(expected_version=1, description="Changed.")
+    assert client.put(f"/api/live/threat-drafts/{created['draft_id']}", json=update).status_code == 200
+    assert calls == [("world:reserved", "exact-pin")] * 2
+    assert not (code_root / "out/registries/world_containers.json").exists()
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing"))
+    assert client.post("/api/live/threat-drafts", json=payload).status_code == 503
+    assert client.get("/api/live/threat-drafts", params={"world_id": payload["world_id"]}).json()["total"] == 1
