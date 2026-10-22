@@ -1,3 +1,4 @@
+import { classifySurfaceComposerIntent } from "../../agentInteraction/surfaceComposerIntent";
 import { SurfaceImagePromptAction } from "../../shared/SurfaceImagePromptAction";
 import { isWorldPlayContextProjection, isWorldPlayGraphReceipt, isPlayContextProvenanceBound, playReceiptDigestsBound, isPlaySourceContext, isPlaySourceProvenanceBound, playSourceContextDigestBound } from '../../rulesLookup/playContextProtocol';
 import { isSurfaceGraphInput } from '../../rulesLookup/surfaceGraphInput';
@@ -214,19 +215,6 @@ type ValidationResult =
 const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan. Try again.";
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
 
-export function classifyPlanComposerIntent(message: string): "discuss" | "propose" {
-  const normalized = message.trim()
-    .replace(/^(?:please\s+)?(?:buddy[,!]?\s*)/i, "")
-    .replace(/^for (?:this|the|our|my) [^,?.!]+,\s*/i, "");
-  if (!normalized) return "discuss";
-  const proposedEdit = "propose\\s+(?:to\\s+(?:append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|shorten|expand|move|reorder)|(?:appending|editing|revising|rewriting|replacing|updating|adding|removing|deleting|changing|inserting|shortening|expanding|moving|reordering))";
-  const changeVerb = `(?:${proposedEdit}|append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)`;
-  // Explicit change requests take precedence over interrogative phrasing (e.g. "Could you rewrite…?").
-  if (new RegExp(`^(?:(?:please|can you|could you|would you|can we|could we|i want you to|i'd like you to|i want to|i'd like to)\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
-  if (new RegExp(`^(?:(?:can|could|would) you|(?:can|could) we|i want you to|i'd like you to|i want to|i'd like to)\\s+(?:please\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
-  if (/^(?:what|why|when|where|who|how|should|could|would|can we discuss|can we talk|is it possible to)\b/i.test(normalized)) return "discuss";
-  return "discuss";
-}
 
 function worldPlanEditReviewBefore(captured: CapturedWorldPlanEditTarget): WorldPlanEditReviewBefore | null {
   const { request } = captured;
@@ -5281,7 +5269,7 @@ export function WorldPlanAgentConversation({
   const confirmedFailureCount = pendingAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedAskCount = pendingAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
-  const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
+  const inferredComposerIntent = classifySurfaceComposerIntent(composerMessage);
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
     ? composerIntentCorrection.intent
     : inferredComposerIntent;

@@ -1,6 +1,15 @@
 # AGENT — separate conversation references from retrieval coverage
 
-ACTIVE serial PRIME successor from10c4422025024d8b950ef91b11caa2fce0613b20,
+SETTLED #1604 at 8dc5c44fb3c80be8a5d1037b0be30fe979f76c4a, running 8000/5202.
+Bugbot approved 0c6173f18c7a4c5fff9169e2a302b9baee9e95b9 in one cycle, no findings;
+75 independent tests passed. Real corpus-grounded runs took 10.431s, 9.556s and
+14.929s (clean conversation). Exact named source reopened after restart with all
+1676 APP rows, native rows, 79 mechanics files and 11 frozen components unchanged.
+Fresh run used four Jev calls and followed a peripheral NPC; citation prose also
+mislabeled notes as a recap despite the correct session link. Reliable latency and
+wording quality remain open; no full-goal acceptance.
+
+Historical serial PRIME successor from10c4422025024d8b950ef91b11caa2fce0613b20,
 branch codex/jev-dialogue-read-boundary, existing buddy-context-loop checkout.
 Operator goal authorizes Jev prompt refinement, deduplicated reads and actual
 swamp/Edge corpus grounding. Open PR census shows no overlapping active lane.
