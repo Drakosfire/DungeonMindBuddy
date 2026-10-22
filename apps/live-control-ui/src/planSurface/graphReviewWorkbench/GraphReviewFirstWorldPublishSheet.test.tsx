@@ -169,6 +169,21 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     expect(screen.getByRole('checkbox', {name:'Keep mystery puddles'}).closest('li')).toHaveTextContent('Structured type: faction');
   });
 
+  it('distinguishes opposite relations between same-named typed candidates', () => {
+    const review = structuredClone(baseReview);
+    for (const node of review.assertions.slice(0, 2)) Object.assign(node, {label: 'Guard', nodeType:'character'});
+    Object.assign(review.assertions[2], {label:'owns', relationshipType:'owns'});
+    review.assertions.push({...review.assertions[2], assertionId:'reverse',
+      fromCandidateNodeId:'mystery_puddles', toCandidateNodeId:'obj_session22_vial'});
+    render(<GraphReviewFirstWorldPublishSheet review={review}/>);
+    const rows = screen.getAllByRole('checkbox', {name:'Keep owns'}).map(e=>e.closest('li')!);
+    expect(rows[0]).toHaveTextContent('Guard [obj_session22_vial] (character) → owns → Guard [mystery_puddles] (character)');
+    expect(rows[1]).toHaveTextContent('Guard [mystery_puddles] (character) → owns → Guard [obj_session22_vial] (character)');
+    const nodes = screen.getAllByRole('checkbox', {name:'Keep Guard'}).map(e=>e.closest('li')!);
+    expect(nodes[0]).toHaveTextContent('candidate: obj_session22_vial');
+    expect(nodes[1]).toHaveTextContent('candidate: mystery_puddles');
+  });
+
   it.each(['relationshipType', 'fromCandidateNodeId', 'toCandidateNodeId'] as const)(
     'never reconstructs missing %s from friendly summary', field => {
       const review = structuredClone(baseReview); delete review.assertions[2][field];
