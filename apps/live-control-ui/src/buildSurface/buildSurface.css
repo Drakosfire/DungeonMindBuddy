@@ -545,9 +545,12 @@
 
 .build-workspace-projection { flex: 1; width: 100%; min-height: 0; overflow: hidden; }
 .build-workspace-projection .build-surface-with-graph-context {
+  grid-template-columns: minmax(0, 1fr);
   width: min(76rem, calc(100% - 2rem)); margin: 1rem auto; padding: clamp(1rem, 3vw, 2rem);
 }
 .build-workspace-projection .build-surface-shell {
+  box-sizing: border-box;
+  min-width: 0;
   width: min(54rem, 100%); margin-inline: auto; padding: clamp(1rem, 3vw, 2.75rem);
   border: 1px solid var(--ui-border-paper, #c8b78f); border-radius: 0.45rem;
   background: var(--ui-background-paper, #f5ead4); color: var(--ui-text-on-paper, #3a3124);
@@ -739,3 +742,11 @@ body:has([data-document-surface="build"])
 .build-run-review { padding: 1rem; }
 .build-run-review > header { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }
 .build-run-review > header h2 { margin: 0; font-size: 1.1rem; }
+
+/* Review portals remain inside the Build reader's explicit shrinking track. */
+.build-workspace-projection .build-run-review-host,
+.build-workspace-projection .build-run-review {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
