@@ -297,3 +297,39 @@ def test_exact_successful_bootstrap_discovery_is_not_repeated(plan_adapter, matc
     assert len(proof['graph_packets']) == (0 if matching else 3)
     assert 'discover_more' not in transport.calls[0]['questions']['operation']['criteria'] if matching else (
         'discover_more' in transport.calls[0]['questions']['operation']['criteria'])
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_decision_http_client_is_owned_once_per_turn_and_closes_on_failure(plan_adapter, monkeypatch, fail):
+    import apps.live_control_server.services.plan_jev_driver as driver_module
+    plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond'),
+        GraphReferent(id='bridge', label='Footbridge')]
+    fixture_reads(plan_adapter)
+    if fail:
+        def unavailable(_): raise RuntimeError('synthetic acquisition failure')
+        plan_adapter.broker_graph_operation = unavailable
+    clients = []
+    original = driver_module.decision_client
+    def create(**kwargs):
+        client = original(**kwargs)
+        original_close = client.aclose
+        entry = {'closed': 0}
+        async def close():
+            entry['closed'] += 1
+            await original_close()
+        client.aclose = close
+        clients.append(entry)
+        return client
+    monkeypatch.setattr(driver_module, 'decision_client', create)
+    transport = Decisions(sequential=True)
+    driver = PlanJevDriver(plan_adapter)
+    if fail:
+        with pytest.raises(RuntimeError, match='acquisition failure'):
+            asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    else:
+        asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    expected = 1 if fail else 3
+    assert len(transport.calls) == expected and clients == [{'closed': 1}]
+    events = plan_adapter._broker_execution().events
+    authorizations = [e for e in events if isinstance(e, t.PlanJevProviderAuthorizedV1)]
+    assert len({e.provider_attempt_id for e in authorizations}) == expected

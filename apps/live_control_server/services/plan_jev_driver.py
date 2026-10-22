@@ -5,7 +5,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
 from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
 from application_state.agent_conversation.plan_jev_decision import current_selection
-from .plan_jev_dispatch import PlanJevDispatch
+from .plan_jev_dispatch import PlanJevDispatch, decision_client
 
 _RUNTIME_GRAPH_FIELDS = {"retrievalSessionId", "addedClaimIds", "claimLedger"}
 
@@ -148,21 +148,29 @@ class PlanJevDriver:
         self._read_new_sources(operations)
 
     async def run(self, *, transport=None, api_key=None):
-        while not self.finished:
-            operations = (("select_candidates", "finish_retrieval") if self.discovered else
-                          ("select_candidates", "discover_more", "finish_retrieval"))
-            examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
-            if self.rules is not None and self.rules.selected:
-                examined.append(rules_candidate())
-            dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
-                examined_candidates=examined, allowed_operations=operations)
-            self.current = dispatch
-            try:
-                await dispatch.run(transport=transport, api_key=api_key)
-            finally:
-                if dispatch.call is not None: self.calls.append(dispatch.call)
-            self.apply(dispatch)
-        return self.proof()
+        async def authorize(prepared):
+            return self.current.authorize(prepared) if self.current is not None else False
+        async def record(event):
+            return self.current.record(event) if self.current is not None else False
+        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
+        try:
+            while not self.finished:
+                operations = (("select_candidates", "finish_retrieval") if self.discovered else
+                              ("select_candidates", "discover_more", "finish_retrieval"))
+                examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
+                if self.rules is not None and self.rules.selected:
+                    examined.append(rules_candidate())
+                dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
+                    examined_candidates=examined, allowed_operations=operations)
+                self.current = dispatch
+                try:
+                    await dispatch.run(client=client)
+                finally:
+                    if dispatch.call is not None: self.calls.append(dispatch.call)
+                self.apply(dispatch)
+            return self.proof()
+        finally:
+            await client.aclose()
 
     def proof(self):
         if not self.finished or self.adapter.failure is not None:

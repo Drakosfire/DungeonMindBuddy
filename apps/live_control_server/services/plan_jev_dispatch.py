@@ -22,6 +22,15 @@ def request_budget():
         }}
 
 
+def decision_client(*, authorize, record, transport=None, api_key=None):
+    from generationengine import GenerationClient
+    from generationengine.decision_dispatch import DecisionDispatchGate
+    from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
+    options = {"dispatch_gate": DecisionDispatchGate(authorize, record), "transport": transport}
+    if api_key is not None: options["api_key"] = api_key
+    return GenerationClient(decision_providers={PROVIDER: TypeSafeDecisionProvider(**options)})
+
+
 def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
     if (not isinstance(parent, RetrievalDecisionInput) or request.surface.surface_id != "plan"
@@ -133,15 +142,12 @@ class PlanJevDispatch:
         self.selection = selected
         return selected
 
-    async def run(self, *, transport=None, api_key=None):
-        from generationengine import GenerationClient
-        from generationengine.decision_dispatch import DecisionDispatchGate
-        from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
+    async def run(self, *, transport=None, api_key=None, client=None):
         async def authorize(prepared): return self.authorize(prepared)
         async def record(event): return self.record(event)
-        options = {"dispatch_gate": DecisionDispatchGate(authorize, record), "transport": transport}
-        if api_key is not None: options["api_key"] = api_key
-        client = GenerationClient(decision_providers={PROVIDER: TypeSafeDecisionProvider(**options)})
+        owns_client = client is None
+        if owns_client:
+            client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
         started = perf_counter()
         try:
             result = await client.decide(prepare_decision(self.parent))
@@ -158,4 +164,4 @@ class PlanJevDispatch:
                     self.call["duration_ms"] = (perf_counter() - started) * 1000
                     self.adapter.context_capture.provider_usage([self.call])
             finally:
-                await client.aclose()
+                if owns_client: await client.aclose()
