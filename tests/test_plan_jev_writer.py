@@ -30,7 +30,7 @@ class WriterWire(httpx.AsyncBaseTransport):
         assert 'json' in ' '.join(row.get('content','') for row in body['input']).lower()
         assert 'coding agent' not in body['instructions'] and 'cwd' not in body['instructions']
         return httpx.Response(200,request=request,json={'id':'resp_plan_writer','object':'response','created_at':1,
-            'status':self.status,'model':'gpt-6-luna','output':[{'type':'message','id':'msg_plan_writer',
+            'status':self.status,'model':'gpt-6-luna','service_tier':'fast','output':[{'type':'message','id':'msg_plan_writer',
                 'role':'assistant','status':'completed','content':[{'type':'output_text','text':self.text,'annotations':[]} ]},
                 *self.extra_output], 'usage':{'input_tokens':600,'output_tokens':100,'total_tokens':700,
                     'input_tokens_details':{'cached_tokens':400},'output_tokens_details':{'reasoning_tokens':60}},
@@ -69,6 +69,8 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     assert not writer.authorize(writer.prepared)
     # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
     body = json.loads(wire.calls[0].content)
+    assert body['service_tier'] == 'fast'
+    assert writer.call['response_service_tier'] == 'fast'
     assert body['reasoning'] == {'effort':'low'}
     frame = json.loads(body['input'][0]['content'])
     assert all('assertion_ids' not in row and 'relationship_ids' not in row

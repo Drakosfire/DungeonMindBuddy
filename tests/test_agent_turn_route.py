@@ -2471,7 +2471,10 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         assert "target_id is a separate source identifier" in final_user_input
         assert "Do not emit graph_revision, evidence_ref_ids, source_opened or source_read_ids." in final_user_input
         assert "No citation_map." in final_user_input
-    assert '"claimLedger": []' in sdk_bodies[0]["instructions"]
+    scope_text = sdk_bodies[0]["instructions"].split(
+        "(runtime-enforced; also required on tool calls):\n", 1)[1]
+    scope_packet, _ = json.JSONDecoder().raw_decode(scope_text)
+    assert scope_packet["initialClaimPacket"]["claimLedger"] == []
     assert graph_claim["claim_id"] not in json.dumps(sdk_bodies[0])
     followup_output = sdk_bodies[1]["input"][-1]
     assert followup_output["type"] == "function_call_output"

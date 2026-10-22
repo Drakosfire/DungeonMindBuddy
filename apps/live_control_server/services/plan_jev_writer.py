@@ -84,6 +84,7 @@ class PlanWriterProvider(OpenAITextProvider):
                 or row['role'] != 'user' or not isinstance(row['content'], str) for row in messages):
             raise ValueError("Plan writer requires exact text evidence messages")
         options['input'] = messages
+        options['service_tier'] = 'fast'
         return options
 
 
@@ -116,7 +117,7 @@ class PlanJevWriter:
         a = self.adapter
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
             'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': {'type': 'json_object'}},
-            'tools': [], 'stream': False, 'reasoning': {'effort': 'low'}}
+            'tools': [], 'stream': False, 'reasoning': {'effort': 'low'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
@@ -207,6 +208,8 @@ class PlanJevWriter:
                 temperature=None,reasoning_effort='low',max_output_tokens=self.adapter.budget['outputReserveTokens'],
                 json_object=True,max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
+            if self.call is not None and provider.actual_response is not None:
+                self.call['response_service_tier'] = provider.actual_response.service_tier
             reply = self.capture(result,provider.actual_response)
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
