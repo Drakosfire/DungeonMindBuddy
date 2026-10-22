@@ -174,3 +174,23 @@ def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(pla
         assert dispatch.prepared is None
     finally:
         plan_adapter._build_native_acquisition_services = None
+
+
+def test_invalid_actual_decision_is_captured_before_rejection(plan_adapter):
+    class Contradictory(Wire):
+        async def handle_async_request(self, request):
+            response = await super().handle_async_request(request)
+            payload = response.json()
+            payload['answers']['candidate_0']['choice'] = 'exclude'
+            payload['answers']['candidate_0']['probabilities'] = {'include': 0.0, 'exclude': 1.0}
+            return httpx2.Response(200, request=request, json=payload)
+    dispatch = controller(plan_adapter)
+    wire = Contradictory(plan_adapter, operation='select_candidates')
+    with pytest.raises(ValueError, match='nonempty handles'):
+        asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
+    captures = [m for row in plan_adapter.context_capture.trace.observations if row.kind == 'context_snapshot'
+        for m in row.materials if m.item_id.startswith('unvalidated-plan-jev-result:')]
+    assert len(captures) == 1
+    assert json.loads(captures[0].text)['answers']['candidate_0']['selected'] == 'exclude'
+    assert not any(isinstance(e, t.PlanJevRetrievalSelectionV1) for e in plan_adapter._broker_execution().events)
+    assert len(wire.calls) == 1

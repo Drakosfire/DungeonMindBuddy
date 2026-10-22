@@ -108,12 +108,12 @@ class PlanJevDispatch:
         from .agent_turn_service import _require_fresh_execution_append
         if self.prepared is None or self.authorization is None or self.selection is not None:
             raise ValueError("Plan decision has no unique actual authorized producer")
-        selected = decode_selection(self.parent, result)
         a = self.adapter
         raw = result.model_dump_json()
         a.context_capture.observe({"kind": "context_snapshot", "stage": "after", "materials": [{
             "item_id": f"unvalidated-plan-jev-result:{self.authorization.provider_attempt_id}",
             "state": "model_context", "role": "assistant", "text": raw}]})
+        selected = decode_selection(self.parent, result)
         turn = a.fence.turn
         execution = turn.graph_context_execution
         event = t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1", event_id=uuid4(),
