@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `c0c6aa2b1687ca20be9ae8905149ba20d21a165f` (through PR #1609).
+**Evidence anchor:** remote main `aeb9e6d94d80e292e3a203625f6349d54f7ddadc` (through PR #1610).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -66,6 +66,10 @@ readable cross-surface presentation remains the immediate foundation repair.
 Build review is readable and keyboard focus works; restart retained saved data.
 The640px check found an outer Build implicit-grid containment defect despite
 wrapping item bodies. Narrow rendered acceptance remains open pending that fix.
+
+#1610 contains the review host and sheets at wide/640/480 requested sizes. Actual
+whole-document measurements reveal the same implicit-track defect in the nested
+source editor; narrow whole-document acceptance remains open until that is fixed.
 
 ## Product decisions that remain in force
 

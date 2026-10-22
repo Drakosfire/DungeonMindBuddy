@@ -1,6 +1,13 @@
 # BUILD — contain document and review width
 
-ACTIVE serial PRIME slice from c0c6aa2b1687ca20be9ae8905149ba20d21a165f;
+DELIVERED with nested source-grid follow-up: PR #1610 merged as
+aeb9e6d94d80e292e3a203625f6349d54f7ddadc, one Bugbot cycle approved
+9d422961b28a800ed6e7cbcdfa6c388cfc3b4c7a. Paired delivery preserves retained
+state. Actual wide/640/480 requested checks show review host/review/sheet fully
+contained. Paper's nested editor-shell still expands to574px and needs the same
+explicit shrinking-track invariant; successor owns that remaining defect.
+
+Original serial PRIME slice from c0c6aa2b1687ca20be9ae8905149ba20d21a165f;
 branch codex/build-review-width-containment, existing buddy-context-loop checkout.
 Architecture critique 01a16550-976e-76a1-b731-968c169a4e9b adopted. Remote/open PR
 census checked, no overlapping implementation lane. Operator goal authorizes

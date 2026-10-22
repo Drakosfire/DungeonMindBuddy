@@ -549,6 +549,7 @@
   width: min(76rem, calc(100% - 2rem)); margin: 1rem auto; padding: clamp(1rem, 3vw, 2rem);
 }
 .build-workspace-projection .build-surface-shell {
+  grid-template-columns: minmax(0, 1fr);
   box-sizing: border-box;
   min-width: 0;
   width: min(54rem, 100%); margin-inline: auto; padding: clamp(1rem, 3vw, 2.75rem);
@@ -749,4 +750,9 @@ body:has([data-document-surface="build"])
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
+}
+
+.build-workspace-projection .build-surface-editor-shell {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
