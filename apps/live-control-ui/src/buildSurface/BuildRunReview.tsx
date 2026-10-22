@@ -74,11 +74,17 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const alive = useRef(true), lock = useRef(false);
   const key = (run.source_domain==='recap'?'dmb.buildRecapEvidenceCorrection.v1:':'dmb.buildEvidenceCorrection.v2:') + JSON.stringify([worldId,document.document_id,run.run_id,run.components?.candidate_graph?.sha256]);
-  const recoveryRaw=useRef<string|null>(null);
-  const [recovery, setRecovery] = useState<unknown>(() => {
-    try { const saved = localStorage.getItem(key); recoveryRaw.current=saved; return saved ? JSON.parse(saved) : null; }
-    catch { return {unavailable:true}; }
-  });
+  const legacyKey=run.source_domain==='worldbuilding'?key.replace('dmb.buildEvidenceCorrection.v2:','dmb.buildEvidenceCorrection.v1:'):null;
+  const recoveryRaw=useRef<string|null>(null),recoveryStorageKey=useRef(key);
+  function readRecovery():unknown {
+    try {
+      const earlier=legacyKey?localStorage.getItem(legacyKey):null;
+      recoveryStorageKey.current=earlier!==null?legacyKey!:key;
+      const raw=earlier??localStorage.getItem(key);recoveryRaw.current=raw;
+      return raw!==null?(JSON.parse(raw)??{unavailable:true}):null;
+    } catch {return {unavailable:true};}
+  }
+  const [recovery,setRecovery]=useState<unknown>(readRecovery);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; onBusyChange(false); };
@@ -120,14 +126,15 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
       encoded=JSON.stringify(request);
       const persist=()=>{
         if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before persistence.');
+        if(legacyKey&&localStorage.getItem(legacyKey)!==null)throw new Error('An earlier correction request is retained. Explicitly set it aside before creating another.');
         const current=localStorage.getItem(key);
         if(current!==null&&current!==encoded)throw new Error('Another correction is retained. Reopen this review to recover it.');
         localStorage.setItem(key,encoded);
       };
       await correctionStorage(key,persist);
-    } catch(reason){lock.current=false;if(alive.current){setCorrecting(false);setCorrectionError(`${message(reason)} The correction could not be saved for recovery. No request was sent.`);}return;}
+    } catch(reason){lock.current=false;if(alive.current){setCorrecting(false);setRecovery(readRecovery());setCorrectionError(`${message(reason)} The correction could not be saved for recovery. No request was sent.`);}return;}
     if(!alive.current||!isScopeCurrent()){lock.current=false;return;}
-    recoveryRaw.current=encoded;setRecovery(request);
+    recoveryStorageKey.current=key;recoveryRaw.current=encoded;setRecovery(request);
     try {
       const expectedDigest = await (run.source_domain==='worldbuilding'?worldbuildingEvidenceCorrectionDigest(request as WorldbuildingEvidenceCorrectionRequest):exactRunCorrectionDigest(request as RecapCorrectionRequest));
       if (!alive.current || !isScopeCurrent()) return;
@@ -149,13 +156,14 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     try {
       const retain=()=>{
         if(!alive.current||!isScopeCurrent())throw new Error('The selected correction changed before abandonment.');
-        const raw=localStorage.getItem(key);
+        const storageKey=recoveryStorageKey.current;
+        const raw=localStorage.getItem(storageKey);
         if(raw!==recoveryRaw.current)throw new Error('The saved correction changed. Reopen its review.');
-        if(raw!==null)localStorage.setItem(key+':retained:'+crypto.randomUUID(),raw);
-        localStorage.removeItem(key);
+        if(raw!==null)localStorage.setItem(storageKey+':retained:'+crypto.randomUUID(),raw);
+        localStorage.removeItem(storageKey);
       };
       await correctionStorage(key,retain);
-      if(alive.current&&isScopeCurrent()){setRecovery(null);setCorrectionError(null);}
+      if(alive.current&&isScopeCurrent()){setRecovery(readRecovery());setCorrectionError(null);}
     }catch {if(alive.current)setCorrectionError('The saved correction could not be retained and cleared.');}
     finally {lock.current=false;if(alive.current)setCorrecting(false);}
   }
@@ -166,7 +174,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {error && <><p role="alert">{error}</p><button type="button" onClick={()=>setReload(n=>n+1)}>Retry review read</button></>}
     {!review && !error && <p role="status">Reading this exact extraction run…</p>}
     {review && <>
-      {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
+      {recovery !== null && !recoveryValid && <p role="alert">{recoveryStorageKey.current===legacyKey?'An earlier correction request is retained; its retired format cannot be submitted.':'Saved correction details are unavailable or do not match this run.'} Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
         correctionPending={correcting} recoveryPending={recovery !== null} correctionError={correctionError}

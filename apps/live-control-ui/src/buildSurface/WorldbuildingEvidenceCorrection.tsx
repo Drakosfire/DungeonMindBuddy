@@ -32,19 +32,18 @@ export function validWorldbuildingCorrection(value:unknown,c:WorldbuildingFrozen
     const old=r.assertions.find(a=>a.assertionId===change.assertionId)?.evidence[change.evidenceIndex];
     const pre=c.evidenceRefs.find(e=>e.assertionId===change.assertionId&&e.evidenceIndex===change.evidenceIndex);
     if(seen.has(key)||!old||!pre||pre.refSha256!==change.expectedRefSha256||!Array.isArray(change.parts)||!change.parts.length)return false;
-    seen.add(key);const indices=new Set<number>(),spans=new Set<string>();
+    seen.add(key);const indices=new Set<number>(),order:number[]=[];
     for(const part of change.parts){
-      if(!part||spans.has(part.sourceSpanRefId)||!c.spans.some(s=>s.sourceSpanRefId===part.sourceSpanRefId)
+      if(!part||!c.spans.some(s=>s.sourceSpanRefId===part.sourceSpanRefId)
         ||!Array.isArray(part.quoteAssignments)||!part.quoteAssignments.length)return false;
-      spans.add(part.sourceSpanRefId);
       for(const a of part.quoteAssignments){
         if(!a||!Number.isSafeInteger(a.originalQuoteIndex)||a.originalQuoteIndex<0||a.originalQuoteIndex>=old.anchorQuotes.length
           ||indices.has(a.originalQuoteIndex)||typeof a.replacementQuote!=='string'||!a.replacementQuote.trim()
           ||a.replacementQuote!==a.replacementQuote.trim())return false;
-        indices.add(a.originalQuoteIndex);
+        indices.add(a.originalQuoteIndex);order.push(a.originalQuoteIndex);
       }
     }
-    return indices.size===old.anchorQuotes.length;
+    return indices.size===old.anchorQuotes.length&&order.every((value,index)=>value===index);
   });
 }
 
@@ -58,13 +57,15 @@ export function WorldbuildingEvidenceCorrection({review,catalog,busy,recovery,ha
   const [preview,setPreview]=useState(false);
   function choose(key:string,span:string,quote:string){setChoices(old=>({...old,[key]:{span,quote}}));setPreview(false);}
   const corrections=targets.map(t=>{
-    const grouped=new Map<string,{originalQuoteIndex:number;replacementQuote:string}[]>();
+    const parts:{sourceSpanRefId:string;quoteAssignments:{originalQuoteIndex:number;replacementQuote:string}[]}[]=[];
     t.e.anchorQuotes.forEach((quote,j)=>{
       const pick=choices[JSON.stringify([t.key,j])]??{span:t.e.sourceSpanRefId,quote:t.e.invalidAnchorQuotes?.includes(quote)?'':quote};
-      grouped.set(pick.span,[...(grouped.get(pick.span)??[]),{originalQuoteIndex:j,replacementQuote:pick.quote.trim()}]);
+      const assignment={originalQuoteIndex:j,replacementQuote:pick.quote.trim()};
+      if(parts.at(-1)?.sourceSpanRefId===pick.span)parts[parts.length-1].quoteAssignments.push(assignment);
+      else parts.push({sourceSpanRefId:pick.span,quoteAssignments:[assignment]});
     });
     return {assertionId:t.a.assertionId,evidenceIndex:t.i,expectedRefSha256:catalog.evidenceRefs.find(e=>e.assertionId===t.a.assertionId&&e.evidenceIndex===t.i)?.refSha256??'',
-      parts:Array.from(grouped,([sourceSpanRefId,quoteAssignments])=>({sourceSpanRefId,quoteAssignments}))};
+      parts};
   });
   const request:WorldbuildingEvidenceCorrectionRequest={schema:'dmb_worldbuilding_evidence_correction_request_v2',parentRunId:catalog.parentRunId,
     expectedParentRevision:catalog.parentRevision,expectedParentStatus:catalog.parentStatus,worldId:catalog.worldId,
@@ -88,13 +89,13 @@ export function WorldbuildingEvidenceCorrection({review,catalog,busy,recovery,ha
     {error&&<p role="alert">{error}</p>}
     {hasRecovery?<section aria-label="Saved evidence correction recovery"><p>A correction request is retained. Retry it to recover its child; no new request will replace it.</p>
       {recovery&&<><ul>{recovery.corrections.map(change=><li key={JSON.stringify([change.assertionId,change.evidenceIndex])}>
-        {review.assertions.find(a=>a.assertionId===change.assertionId)?.label}{change.parts.map(part=><div key={part.sourceSpanRefId}>
+        {review.assertions.find(a=>a.assertionId===change.assertionId)?.label}{change.parts.map((part,index)=><div key={index}>
           Lines {catalog.spans.find(s=>s.sourceSpanRefId===part.sourceSpanRefId)?.startLine}–{catalog.spans.find(s=>s.sourceSpanRefId===part.sourceSpanRefId)?.endLine}
           {part.quoteAssignments.map(a=><p key={a.originalQuoteIndex}>Quote {a.originalQuoteIndex+1}: “{a.replacementQuote}”</p>)}
         </div>)}</li>)}</ul>
       <button disabled={busy} onClick={onRetry}>Retry saved evidence corrections</button>
       <button disabled={busy} onClick={onAbandon}>Abandon saved request</button></>}</section>:<>
-      {preview&&<section aria-label="Preview evidence corrections">{corrections.map((c,i)=><div key={i}><h4>{targets[i].a.label}</h4>{c.parts.map(part=><div key={part.sourceSpanRefId}>
+      {preview&&<section aria-label="Preview evidence corrections">{corrections.map((c,i)=><div key={i}><h4>{targets[i].a.label}</h4>{c.parts.map((part,index)=><div key={index}>
         <p>Lines {catalog.spans.find(s=>s.sourceSpanRefId===part.sourceSpanRefId)?.startLine}–{catalog.spans.find(s=>s.sourceSpanRefId===part.sourceSpanRefId)?.endLine}</p>
         {part.quoteAssignments.map(a=><p key={a.originalQuoteIndex}>Quote {a.originalQuoteIndex+1}: “{a.replacementQuote}”</p>)}</div>)}</div>)}</section>}
       <button disabled={busy||!validWorldbuildingCorrection(request,catalog,review)} onClick={()=>preview?onSubmit(request):setPreview(true)}>

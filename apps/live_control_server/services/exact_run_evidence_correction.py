@@ -303,12 +303,11 @@ def _apply_evidence_partitions(payload, request, *, source_prose, span_index):
         quotes = old.get("anchor_quotes", [])
         if not quotes:
             raise _reject("correction requires original quote assignments")
-        seen_indices, seen_spans, replacements = set(), set(), []
+        seen_indices, replacements = set(), []
         for part in change.parts:
             sid = part.source_span_ref_id
-            if sid not in paragraphs or sid in seen_spans:
-                raise _reject("correction source span is unknown or duplicated")
-            seen_spans.add(sid)
+            if sid not in paragraphs:
+                raise _reject("correction source span is unknown")
             assignments = sorted(part.quote_assignments, key=lambda item: item.original_quote_index)
             replacement = []
             for assignment in assignments:
@@ -321,10 +320,13 @@ def _apply_evidence_partitions(payload, request, *, source_prose, span_index):
                 replacement.append(assignment.replacement_quote)
             ref = deepcopy(old)
             ref["source_span_ref_id"], ref["anchor_quotes"] = sid, replacement
-            replacements.append((assignments[0].original_quote_index, ref))
+            replacements.append((assignments[0].original_quote_index, ref, [a.original_quote_index for a in assignments]))
         if seen_indices != set(range(len(quotes))):
             raise _reject("every original quote index must be assigned exactly once")
-        new_refs = [ref for _, ref in sorted(replacements)]
+        ordered_parts = sorted(replacements)
+        if [i for _, _, indices in ordered_parts for i in indices] != list(range(len(quotes))):
+            raise _reject("paragraph partitions must preserve original quote order")
+        new_refs = [ref for _, ref, _ in ordered_parts]
         if new_refs == [old]:
             raise _reject("correction evidence is unchanged")
         plans.append((holders[0], change.evidence_index, new_refs))

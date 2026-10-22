@@ -107,3 +107,27 @@ def test_route_catalog_rejects_extra_selectors_and_old_world_quote_wire(monkeypa
         assert client.post(base+'/evidence-corrections',json=bad).status_code==422
         valid=client.post(base+'/evidence-corrections',json=q.model_dump(mode='json',by_alias=True))
         assert valid.status_code==200 and valid.json()['status']=='reviewable'
+
+
+@pytest.mark.parametrize('interleaved',[False,True])
+def test_original_global_quote_order_is_preserved_or_rejected(monkeypatch,tmp_path,interleaved):
+    _,children,q,_,payload,index=stage(monkeypatch,tmp_path)
+    source=tmp_path/'source.md';source.write_text('Zero.\nOne.\nTwo.\n')
+    index.spans[0].end_line=3
+    old=payload['nodes'][0]['evidence_refs'][0];old['anchor_quotes']=['Zero.','One.','Two.']
+    path=tmp_path/'parent.json';path.write_text(json.dumps(payload));before=path.read_bytes()
+    q.source_sha256=hashlib.sha256(source.read_bytes()).hexdigest();q.parent_candidate_sha256=hashlib.sha256(before).hexdigest()
+    q.corrections[0].expected_ref_sha256=owner._sha(owner._canonical_bytes(old))
+    def part(span,indices):return WorldbuildingEvidencePart(source_span_ref_id=span,quote_assignments=[
+        WorldbuildingEvidenceQuoteAssignment(original_quote_index=i,replacement_quote=old['anchor_quotes'][i]) for i in indices])
+    first=index.spans[0].source_span_id
+    q.corrections[0].parts=([part(first,[0,2]),part('second-paragraph',[1])] if interleaved
+        else [part(first,[0]),part('second-paragraph',[1]),part(first,[2])])
+    if interleaved:
+        with pytest.raises(owner.ExtractPromoteError,match='original quote order'):owner.correct_exact_run_evidence(q)
+        assert not children
+    else:
+        receipt=owner.correct_exact_run_evidence(q);child=children[receipt.run_id]
+        result=json.loads((tmp_path/child.components['candidate_graph'].uri).read_bytes())
+        assert [q for ref in result['nodes'][0]['evidence_refs'] for q in ref['anchor_quotes']]==old['anchor_quotes']
+    assert path.read_bytes()==before

@@ -199,7 +199,7 @@ it.each(['worldbuilding','recap'] as const)('refuses a competing %s request pers
     assertionId:'keeper',evidenceIndex:0,quoteIndex:0,sourceSpanRefId:'span-a',originalQuote:'bad quote',replacementQuote:'gate'}]});
   localStorage.setItem(key,original);
   submitCorrection();
-  expect(await screen.findByRole('alert')).toHaveTextContent('Another correction is retained');
+  await waitFor(()=>expect(screen.getAllByRole('alert').some(el=>el.textContent?.includes('Another correction is retained'))).toBe(true));
   expect(localStorage.getItem(key)).toBe(original);expect(api).not.toHaveBeenCalled();
 });
 
@@ -294,4 +294,30 @@ it('keeps Worldbuilding recovery when abandonment retention fails',async()=>{
   fireEvent.click(button);
   await waitFor(()=>expect(screen.getAllByRole('alert').some(el=>el.textContent?.includes('could not be retained'))).toBe(true));
   expect(localStorage.getItem(key)).toBe('original malformed request');expect(api).not.toHaveBeenCalled();
+});
+
+
+it('holds an earlier pending request until explicit retained disposition without executing its retired format',async()=>{
+  const {p,key,api}=correctionCase('worldbuilding');
+  const earlierKey=key.replace('dmb.buildEvidenceCorrection.v2:','dmb.buildEvidenceCorrection.v1:');
+  const raw=JSON.stringify({parentRunId:'run-a',unknownOutcome:true});localStorage.setItem(earlierKey,raw);
+  render(<BuildRunReview {...p}/>);
+  expect(await screen.findByRole('alert')).toHaveTextContent('earlier correction request is retained');
+  expect(screen.getByLabelText('Literal replacement for Keeper quote 1')).toBeDisabled();
+  expect(screen.queryByRole('button',{name:'Preview evidence corrections'})).not.toBeInTheDocument();
+  expect(api).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Abandon saved request'}));
+  await waitFor(()=>expect(localStorage.getItem(earlierKey)).toBeNull());
+  expect(Object.keys(localStorage).filter(k=>k.startsWith(earlierKey+':retained:')).map(k=>localStorage.getItem(k))).toEqual([raw]);
+  fireEvent.change(screen.getByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});submitCorrection();
+  await waitFor(()=>expect(api).toHaveBeenCalledOnce());
+  expect(api.mock.calls[0][0]).toHaveProperty('schema','dmb_worldbuilding_evidence_correction_request_v2');
+});
+
+it('does not bypass an earlier request written after this review mounted',async()=>{
+  const {p,key,api}=correctionCase('worldbuilding');render(<BuildRunReview {...p}/>);
+  fireEvent.change(await screen.findByLabelText('Literal replacement for Keeper quote 1'),{target:{value:'keeper'}});
+  const oldKey=key.replace('dmb.buildEvidenceCorrection.v2:','dmb.buildEvidenceCorrection.v1:');localStorage.setItem(oldKey,'');
+  submitCorrection();await waitFor(()=>expect(screen.getAllByRole('alert').some(el=>el.textContent?.includes('earlier correction request'))).toBe(true));
+  expect(api).not.toHaveBeenCalled();expect(localStorage.getItem(oldKey)).toBe('');
 });

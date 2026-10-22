@@ -49,7 +49,7 @@ One coherent server+API+mounted UI PR, exact-head Bugbot, PRIME merge and guarde
 paired8000/5202 delivery with Core617635c/APP0045 unchanged.
 
 Verify multi-span/full-ref assignment, unchanged literal quote plus OCR correction,
-missing/duplicate/out-of-range indices, empty/duplicate/unknown spans, full preimage
+missing/duplicate/out-of-range indices, empty/unknown spans and duplicate frozen catalog IDs, full preimage
 mutation, wrong World/source/index/revision, stale run revision/status, duplicate
 holder/target, unchanged operation, unrelated invalid evidence, deterministic retry
 and response-loss recovery, immutable parent and unchanged semantic payload. Tests
