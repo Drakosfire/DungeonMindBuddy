@@ -12,7 +12,7 @@ from uuid import UUID
 from .plan_jev_decision import _owner
 from .source_writer_output import strict_json
 from .rules_authority_types import canonical_bytes, canonical_sha256
-from .context_trace import TraceSourcePassage, TraceFailure
+from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
 SCHEMA = "dmb_plan_jev_writer_frame_v1"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
@@ -37,7 +37,8 @@ def _source_trace(turn, trace):
             or type(trace.get("attempt")) is not int or trace["attempt"] != turn.attempt
             or trace.get("capture_status") != "recording"):
         raise ValueError("Plan writer requires its complete current-attempt capture")
-    return [TraceSourcePassage.model_validate(row) for row in trace.get("observations", []) if row.get("kind") == "source_passage"]
+    return [(TraceSourceReuse if row.get("kind") == "source_passage_reuse" else TraceSourcePassage).model_validate(row)
+            for row in trace.get("observations", []) if row.get("kind") in {"source_passage", "source_passage_reuse"}]
 
 
 def project(turn, proof, trace):
@@ -136,7 +137,7 @@ def project(turn, proof, trace):
     names = proof["source_names"]
     if not isinstance(names, dict) or any(not isinstance(k, str) or not isinstance(v, str) or not v.strip() for k, v in names.items()):
         raise ValueError("Plan source labels must be host display metadata")
-    sources = {e.event_id: e for e in execution.events if isinstance(e, t.ValidatedSourceReadEventV2)}
+    sources = {e.event_id: e for e in execution.events if isinstance(e, t.SOURCE_PASSAGE_EVENTS)}
     passages, source_events, present, seen = [], set(), set(), set()
     for passage in _source_trace(turn, trace):
         if passage.evidence_ref_id not in handles:
@@ -209,6 +210,7 @@ def frame_in_request(raw):
 
 def verify_writer_input(turn, authorization, raw, proof, trace):
     from .types import PlanJevWriterAuthorizedV1
+    from . import types as t
     projected = project(turn, proof, trace)
     body = strict_json(raw)
     if (not isinstance(authorization, PlanJevWriterAuthorizedV1)
@@ -217,7 +219,7 @@ def verify_writer_input(turn, authorization, raw, proof, trace):
             or canonical_bytes(frame_in_request(raw)) != canonical_bytes(projected.frame)
             or authorization.frame_sha256 != canonical_sha256(projected.frame)
             or set(authorization.included_graph_event_ids) != set(projected.graph_event_ids)
-            or set(authorization.included_source_read_event_ids) != set(projected.source_event_ids)
+            or set(t.included_passage_event_ids(authorization)) != set(projected.source_event_ids)
             or tuple(authorization.included_assertion_ids) != projected.assertion_ids
             or tuple(authorization.included_relationship_ids) != projected.relationship_ids
             or tuple(authorization.included_evidence_ref_ids) != projected.evidence_ref_ids):

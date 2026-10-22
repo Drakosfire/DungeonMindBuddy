@@ -49,6 +49,8 @@ class GraphToolPresentation:
         self._source_donors: dict[tuple, tuple[str, str]] = {}
         self._bundle_dependencies: dict[str, frozenset[str]] = {}
         self._results: dict[str, _Result] = {}
+        self._source_batches: dict[str, tuple[_Result, ...]] = {}
+        self._source_batch_results: dict[str, tuple[_Result, ...]] = {}
         self._delivered: dict[tuple[str, str], list[_Result]] = {}
 
     def _remember(self, tool: str, payload: str, result: _Result) -> str:
@@ -128,6 +130,28 @@ class GraphToolPresentation:
                 for row, key in zip(rows, keys, strict=True):
                     self._source_donors.setdefault(key, (payload, row["anchorId"]))
         return self._remember(tool, payload, result)
+
+    def present_source_batch(self, arguments: dict, sources: list[tuple[UUID, str]], *, source_pins: dict) -> str:
+        """One paged tool result, several explicitly owned source admissions."""
+        if not sources or len({identity for identity, _ in sources}) != len(sources):
+            raise ValueError("source batch requires distinct current admissions")
+        rows = []
+        for _, raw in sources:
+            value = json.loads(raw)
+            rows.extend(value.get("reads", [value]))
+        anchors = [row.get("anchorId") for row in rows]
+        if len(anchors) != len(set(anchors)):
+            raise ValueError("source batch repeats an admitted anchor")
+        value = rows[0] if len(rows) == 1 else {"schema": "dmb_read_graph_source_batch_v1",
+            "retrievalSessionId": arguments["retrievalSessionId"], "reads": rows}
+        raw = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        payload = self.present("read_graph_source", arguments, raw, sources[0][0], source_pins=source_pins)
+        owned = tuple(_Result("read_graph_source", identity, raw, value) for identity, _ in sources)
+        self._source_batches[payload] = owned
+        page = json.loads(payload)
+        if page.get("schema") in {PAGE_SCHEMA, OVERVIEW_SCHEMA}:
+            self._source_batch_results[page["resultId"]] = owned
+        return payload
 
     def present_bundle(self, graph_raw: str, event_id: UUID,
                        sources: list[tuple[UUID, str]], *, compact_refs: bool = False, source_read_stop_code: str | None = None,
@@ -312,6 +336,9 @@ class GraphToolPresentation:
         result = self._results.get(value.get("resultId"))
         if result is None:
             raise ValueError(value.get("code", "unknown_graph_result_page"))
+        batch = self._source_batch_results.get(value.get("resultId"))
+        if batch is not None:
+            self._source_batches[payload] = batch
         return self._remember(tool, payload, result)
 
     def inclusion(self, tool: str, payloads: list[str], *, source_payloads: list[str] = ()) -> list[Exposure]:
@@ -320,6 +347,10 @@ class GraphToolPresentation:
         groups: dict[UUID, tuple[_Result, list[str]]] = {}
         bundles = []
         for payload in set(payloads):
+            if tool == "read_graph_source" and payload in self._source_batches:
+                for result in self._source_batches[payload]:
+                    groups.setdefault(result.event_id, (result, []))[1].append(payload)
+                continue
             if tool == "expand_graph_retrieval" and payload in self._bundles:
                 bundles.append(self._bundles[payload][0])
                 continue

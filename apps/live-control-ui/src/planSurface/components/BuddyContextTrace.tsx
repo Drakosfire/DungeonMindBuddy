@@ -16,10 +16,10 @@ function JsonDetails({ label, value }: { label: string; value: unknown }) {
 }
 
 function Passage({ passage }: { passage: BuddyTraceSourcePassage }) {
-  return <details className="buddy-context-trace__source"><summary>{passage.source_name?.trim() || 'Source name unavailable'}{passage.line_start == null ? '' : ` · lines ${passage.line_start}–${passage.line_end}`} · {passage.outcome}</summary>
-    <blockquote>{passage.text}</blockquote><p>Exact passage read during this attempt. Historical observation; it does not grant new evidence authority.</p>
+  return <details className="buddy-context-trace__source"><summary>{passage.source_name?.trim() || 'Source name unavailable'}{passage.line_start == null ? '' : ` · lines ${passage.line_start}–${passage.line_end}`} · {passage.kind === 'source_passage_reuse' ? 'reused' : passage.outcome}</summary>
+    <blockquote>{passage.text}</blockquote><p>{passage.kind === 'source_passage_reuse' ? 'Exact retained passage admitted for reuse in this attempt. Original read provenance is preserved.' : 'Exact passage read during this attempt. Historical observation; it does not grant new evidence authority.'}</p>
     <JsonDetails label="Pinned source reference" value={{ world: passage.world_id, graph_revision: passage.graph_revision, anchor: passage.anchor_id, source_artifact: passage.source_artifact_id,
-      evidence: passage.evidence_ref_id, source_revision: passage.source_revision_id, content_sha256: passage.content_sha256, returned_chars: passage.returned_chars }} />
+      evidence: passage.evidence_ref_id, source_revision: passage.source_revision_id, content_sha256: passage.content_sha256, returned_chars: passage.returned_chars, origin_turn: passage.origin_turn_id, origin_attempt: passage.origin_attempt, origin_read_event: passage.origin_read_event_id, origin_provider_attempt: passage.origin_provider_attempt_id }} />
   </details>
 }
 
@@ -70,6 +70,7 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
       {event.result.nodes.length > 0 && <ul>{event.result.nodes.map(node => <li key={node.node_id}>{node.label} · {node.kind}</li>)}</ul>}
       <JsonDetails label="Captured result" value={event.result} />
       {['denied', 'unavailable'].includes(event.result.outcome) && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
+    case 'source_passage_reuse':
     case 'source_passage': return <Passage passage={event} />
     case 'provider_call': return <><strong>{event.model}</strong> <span>{event.outcome}</span>
       <p className="buddy-context-trace__muted">{event.provider_attempt_id ? `Provider call ${event.provider_attempt_id}` : 'Provider call identity was not captured.'}</p>
@@ -116,7 +117,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const rows = traceRows(trace.observations)
   const last = trace.observations.at(-1)
-  const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage')
+  const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage' || event.kind === 'source_passage_reuse')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>How Buddy built this reply</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>

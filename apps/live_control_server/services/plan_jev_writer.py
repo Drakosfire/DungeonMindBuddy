@@ -115,14 +115,17 @@ class PlanJevWriter:
         estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
         if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
-        event = t.PlanJevWriterAuthorizedV1(kind='plan_jev_writer_authorized_v1', event_id=uuid4(),
+        event = t.PlanJevWriterAuthorizedV2(kind='plan_jev_writer_authorized_v2', event_id=uuid4(),
             sequence=len(a._broker_execution().events), provider_attempt_id=UUID(prepared.attempt_id),
             envelope_sha256=prepared.body_sha256, serializer_version='openai-sdk-json-v1',
             provider='openai', model=self.model, api_mode='responses', tool_schema_sha256=sha256(b'[]').hexdigest(),
             input_accounting_kind='conservative_upper_bound', input_estimator=a.budget['estimator'],
             input_tokens=estimate, output_token_reserve=a.budget['outputReserveTokens'],
             frame_sha256=canonical_sha256(projection.frame), included_graph_event_ids=list(projection.graph_event_ids),
-            included_source_read_event_ids=list(projection.source_event_ids), included_assertion_ids=list(projection.assertion_ids),
+            included_source_read_event_ids=[e.event_id for e in a._broker_execution().events
+                if isinstance(e, t.ValidatedSourceReadEventV2) and e.event_id in projection.source_event_ids],
+            included_source_reuse_event_ids=[e.event_id for e in a._broker_execution().events
+                if isinstance(e, t.SourcePassageReuseEventV1) and e.event_id in projection.source_event_ids], included_assertion_ids=list(projection.assertion_ids),
             included_relationship_ids=list(projection.relationship_ids), included_evidence_ref_ids=list(projection.evidence_ref_ids))
         view = {'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
                 'payloadSha256':prepared.body_sha256,'payloadUtf8Bytes':prepared.body_size}

@@ -161,7 +161,7 @@ def validate_decision_phases(execution):
                 raise ValueError("Plan retrieval cannot finish with an unresolved source read")
             selected = event
         elif isinstance(event, (t.ValidatedGraphOperationEventV1, t.SourceScopeExtensionEventV3,
-                t.SourceReadAuthorizationEventV2, t.ValidatedSourceReadEventV2,
+                t.SourceReadAuthorizationEventV2, t.ValidatedSourceReadEventV2, t.SourcePassageReuseEventV1,
                 t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2)):
             if writer is not None or selected is None or selected.operation == "finish_retrieval":
                 raise ValueError("Plan acquisition requires an active completed retrieval decision")

@@ -47,7 +47,7 @@ export interface BuddyTraceGraphResult {
   returned_counts: BuddyTraceGraphCounts; total_counts: BuddyTraceGraphCounts; omission_codes: string[]
 }
 export interface BuddyTraceSourcePassage extends Observation {
-  kind: 'source_passage'; source_read_event_id: string; read_call_id: string
+  kind: 'source_passage' | 'source_passage_reuse'; origin_turn_id?: string; origin_attempt?: number; origin_read_event_id?: string; origin_provider_attempt_id?: string; source_read_event_id: string; read_call_id: string
   world_id: string; graph_revision: string; source_read_id: string; anchor_id: string
   evidence_ref_id: string; source_artifact_id: string; source_revision_id: string; source_name?: string | null
   line_start: number | null; line_end: number | null; outcome: 'enough' | 'partial' | 'truncated'

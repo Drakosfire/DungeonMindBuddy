@@ -108,7 +108,7 @@ class PlanJevDriver:
                     "retrievalSessionId": a.bootstrap.retrieval_session.id, "anchorIds": batch,
                     "maxChars": max_chars}}, bundle_internal=True)
                 if a.failure is not None: raise a.failure
-                if len(set(a.source_payloads) - before) != 1:
+                if not set(a.source_payloads) - before:
                     self.gaps.append(json.loads(reply["resultJson"]).get("code", "source_read_unavailable"))
 
     def apply(self, dispatch):
@@ -183,7 +183,7 @@ class PlanJevDriver:
         a = self.adapter
         names = {}
         for event in a._broker_execution().events:
-            if not isinstance(event, t.ValidatedSourceReadEventV2) or event.event_id not in a.source_payloads:
+            if not isinstance(event, t.SOURCE_PASSAGE_EVENTS) or event.event_id not in a.source_payloads:
                 continue
             payload = json.loads(a.source_payloads[event.event_id])
             rows = payload.get("reads", [payload])

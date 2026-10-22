@@ -12,10 +12,9 @@ found no overlapping implementation. Architecture critique from chat
 
 Topology: **serial**. This design PR writes only this handoff,
 `HANDOFF-PLAY-current-answer-carrier.md`, and `../Roadmaps/ROADMAP-demo.md`.
-Implementation is **BLOCKED pending exact-head Bugbot review and PRIME adoption of
-this contract**, not another operator approval. After adoption PRIME activates one
-implementation lane from then-current remote main and records its exact branch,
-base and expected-path write lease here before edits. Design merge claims no
+The original design gate was exact-head Bugbot review and PRIME adoption,
+completed in #1614. **Implementation is ACTIVE under the exact lease below**;
+no further operator approval is required. New paths require lease amendment. Design merge claims no
 runtime delivery. Plan and Play share the implementation; Graph-object reuse,
 retrieval-policy redesign and history pruning are separate. No Core/OverMind
 runtime dependency changes.
@@ -107,3 +106,47 @@ protected restart. Preserve APP/native rows, sources, drafts, notes, mechanics a
 frozen evidence. Measure actual decision/read/writer timings; eliminating an IO
 alone promises no latency gain. Full J1–J6 twice, original swamp/Edge repeated
 latency, 8 GB measurements and operator acceptance remain open.
+
+## Implementation activation — 2026-10-22
+
+ACTIVE serial PRIME implementation from merged contract
+`9995299ef14dcfdd9c42ca9c075d6ebf64382f9a`, branch
+`codex/agent-retained-passage-reuse`, same existing checkout. Bugbot approved exact
+design head `1f4435305f611ad4d583cc89bdfb1307a4e990f7`; PRIME adopted it in #1614.
+Fresh remote/open-PR census checked; no overlapping implementation.
+
+Exclusive expected writes: this handoff; Docs/Roadmaps/ROADMAP-demo.md;
+`src/application_state/agent_conversation/{types.py,service.py,repository.py,
+context_trace.py,context_trace_store.py,new source_passage_reuse.py,
+plan_jev_graph_packet.py,play_graph_input.py,native_graph_input.py,
+native_answer_output.py,surface_source_answer.py,surface_evidence_answer.py}`;
+`src/application_state/migrations/versions/new 20261022_0047_source_passage_reuse.py`;
+`apps/live_control_server/services/{agent_turn_service.py,agent_context_trace_collector.py,
+plan_jev_driver.py,plan_jev_writer.py,graph_evidence_bundle.py,agent_source_names.py}`;
+`apps/live-control-ui/src/api/buddyContextTraceTypes.ts`;
+`apps/live-control-ui/src/planSurface/components/{BuddyContextTrace.tsx,BuddyContextTrace.test.tsx}`;
+new focused `tests/test_source_passage_reuse.py`,
+`tests/application_state/test_source_passage_reuse_postgres.py`; existing affected
+`tests/{test_plan_jev_driver.py,test_plan_jev_writer.py,test_plan_jev_writer_packet.py,
+test_native_play_input.py,test_native_play_source_acquisition.py,
+test_surface_evidence_answers.py,test_surface_source_play_binding.py,
+test_settled_source_read_accounting.py,test_agent_turn_service.py}` and
+`tests/application_state/{test_plan_jev_writer_packet.py,test_native_play_input_postgres.py}`.
+Actual additional owning paths require a recorded lease amendment before editing.
+Runtime lease remains owned 8000/5202, APP54331/native54330, persistent artifact
+root and existing Core overlay; no restart until reviewed merged delivery.
+
+Lease amendment: shared multi-admission source presentation also owns
+`apps/live_control_server/services/graph_tool_presentation.py` and focused
+`tests/test_graph_tool_presentation.py`. One tool batch can contain original reads
+and distinct reuse admissions without ambiguous exposure or bypassing paging.
+
+Lease amendment: `src/application_state/agent_conversation/plan_jev_decision.py`
+also owns the existing acquisition phase gate; explicit reuse must be rejected
+after retrieval finish or writer authorization at that boundary.
+
+Lease amendment: `src/application_state/agent_conversation/play_graph_context.py`
+retains explicit V4 provider authorization at native Play's existing second
+validation boundary; `source_display.py` includes reuse observations in the same
+metadata-only named-source projection. `tests/test_play_graph_context.py` and
+`tests/test_agent_source_names.py` are included for those owning regressions.

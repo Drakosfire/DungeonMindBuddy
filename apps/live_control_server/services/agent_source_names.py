@@ -21,7 +21,7 @@ def source_names_for_turns(turns, *, service=None):
             basis = receipt.source_basis
             if basis.world_id == turn.world_id:
                 saved_bases[tuple(basis.model_dump().values())] = basis
-        if any(getattr(entry, 'source_read_ids', ()) for entry in citations) and execution is not None and any(getattr(event, 'kind', None) == 'validated_source_read_v2'
+        if any(getattr(entry, 'source_read_ids', ()) for entry in citations) and execution is not None and any(getattr(event, 'kind', None) in {'validated_source_read_v2', 'source_passage_reused_v1'}
                                          for event in execution.events):
             groups[(turn.world_id, turn.conversation_id)].append(turn.turn_id)
     owner = service or AgentConversationService()

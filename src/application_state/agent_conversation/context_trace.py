@@ -293,6 +293,15 @@ class TraceSourcePassage(TraceEvent):
         return self
 
 
+class TraceSourceReuse(TraceSourcePassage):
+    """Current included bytes reused from a completed original producer."""
+    kind: Literal["source_passage_reuse"] = "source_passage_reuse"
+    origin_turn_id: UUID
+    origin_attempt: int = Field(strict=True, ge=1)
+    origin_read_event_id: UUID
+    origin_provider_attempt_id: UUID
+
+
 class TraceProviderCall(TraceEvent):
     kind: Literal["provider_call"] = "provider_call"
     provider_attempt_id: UUID | None = None
@@ -336,7 +345,7 @@ class TraceFailure(TraceEvent):
 
 ContextTraceObservation = Annotated[
     TraceContextSnapshot | TraceContextDecision | TraceGraphTool
-    | TraceSourcePassage | TraceProviderCall | TracePromptReference | TraceFailure,
+    | TraceSourcePassage | TraceSourceReuse | TraceProviderCall | TracePromptReference | TraceFailure,
     Field(discriminator="kind"),
 ]
 

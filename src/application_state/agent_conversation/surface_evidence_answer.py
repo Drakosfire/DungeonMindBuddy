@@ -304,7 +304,7 @@ def validate_completion(c, receipt, execution, producer, bindings):
         raise ValueError('Mixed evidence requires final acknowledged response without later acquisition')
     if graph_bindings(c.answer_segments, receipt, execution, auth) != bindings: raise ValueError('Mixed Graph binding changed')
     t.validate_graph_execution_source_citations(c.citation_map, execution, producer)
-    reads = {e.event_id:e for e in execution.events if isinstance(e,t.ValidatedSourceReadEventV2) and e.event_id in auth.included_source_read_event_ids}
+    reads = {e.event_id:e for e in execution.events if isinstance(e,t.SOURCE_PASSAGE_EVENTS) and e.event_id in t.included_passage_event_ids(auth)}
     for citation in c.source_citations:
         event = reads.get(citation.read_event_id)
         if (citation.provider_attempt_id != producer or citation.envelope_sha256 != auth.envelope_sha256 or event is None

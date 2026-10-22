@@ -125,7 +125,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "plan_jev_provider_authorized_v1", "plan_jev_writer_authorized_v1",
+        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
     }
 
 
@@ -451,6 +451,8 @@ def _app_state_graph_execution_types() -> Any:
         "ValidatedGraphOperationEventV3",
         "SourceScopeExtensionEventV3",
         "ProviderAttemptAuthorizedEventV3",
+        "ProviderAttemptAuthorizedEventV4", "SourcePassageReuseEventV1",
+        "included_passage_event_ids", "SOURCE_PASSAGE_EVENTS",
         "ProviderAttemptAuthorizedEventV1",
         "ProviderOutcomeEventV1",
         "ValidatedGraphOperationEventV1",
@@ -2130,7 +2132,7 @@ class _PolicyExecutionAdapter:
             if active_driver is not None:
                 source_ids = {UUID(sid) for sid in active_driver.source_event_ids}
             included_source_events = [event for event in execution.events
-                if getattr(event, "kind", None) == "validated_source_read_v2" and event.event_id in source_ids]
+                if isinstance(event, graph_types.SOURCE_PASSAGE_EVENTS) and event.event_id in source_ids]
             context_ids = {item.event_id for item in context_exposure if item.complete}
             included_context_events = [event for event in execution.events
                 if getattr(event, "kind", None) == "validated_related_recap_context_v2" and event.event_id in context_ids]
@@ -2211,9 +2213,10 @@ class _PolicyExecutionAdapter:
             )
             if is_native_play:
                 event_fields["sequence"] = len(execution.events) + 1
-                event = graph_types.ProviderAttemptAuthorizedEventV3(
-                    kind="provider_attempt_authorized_v3",
-                    included_source_read_event_ids=[item.event_id for item in included_source_events],
+                event = graph_types.ProviderAttemptAuthorizedEventV4(
+                    kind="provider_attempt_authorized_v4",
+                    included_source_read_event_ids=[item.event_id for item in included_source_events if isinstance(item, graph_types.ValidatedSourceReadEventV2)],
+                    included_source_reuse_event_ids=[item.event_id for item in included_source_events if isinstance(item, graph_types.SourcePassageReuseEventV1)],
                     **event_fields,
                 )
                 method_name = "authorize_native_play_provider"
@@ -3405,6 +3408,105 @@ class _PolicyExecutionAdapter:
             return []
 
     def broker_source_read(self, message: Mapping[str, Any], *, bundle_internal: bool = False) -> Mapping[str, Any]:
+        """Reuse admitted original passages, then genuinely read only misses."""
+        from graph_memory.interaction.expansion_executor import ReadGraphSourceRequest
+        from graph_memory.interaction.session_store import get_session
+        types = _app_state_graph_execution_types()
+        arguments = message.get("arguments")
+        if (self.fence is None or self.context_capture is None or self.failure is not None
+                or self.request.surface.surface_id not in {"plan", "play"}):
+            return self._broker_fresh_source_read(message, bundle_internal=bundle_internal)
+        try:
+            request = ReadGraphSourceRequest.model_validate(arguments)
+        except (ValueError, TypeError):
+            return self._broker_fresh_source_read(message, bundle_internal=bundle_internal)
+        execution = self._broker_execution()
+        if not isinstance(execution, (types.PlanWorldGraphExecutionV3, types.PlayWorldGraphExecutionV1)):
+            return self._broker_fresh_source_read(message, bundle_internal=bundle_internal)
+        scope = execution.policy.source_read_scope
+        session = get_session(scope.retrieval_session_id)
+        authority = self._broker_receipt().graph_authority
+        admitted = {p.anchor_id: p for p in session.source_anchors}
+        pins = execution.effective_source_pins()
+        if (self.last_provider_attempt_id is None or request.retrieval_session_id != scope.retrieval_session_id
+                or session.snapshot.world_id != authority.native_world_id
+                or session.snapshot.revision_id != scope.graph_revision
+                or session.snapshot.campaign_id != (scope.campaign_id or "")
+                or any(a not in pins or a not in admitted or not admitted[a].readable for a in request.anchor_ids)):
+            return self._broker_fresh_source_read(message, bundle_internal=bundle_internal)
+        before = set(self.source_payloads)
+        try:
+            updated, _ = self.fence.append("admit_retained_source_passages", "request",
+                {"anchor_ids": list(request.anchor_ids), "max_chars": request.max_chars,
+                 "elapsed_ms": self.context_capture.elapsed_ms, "request_id": str(uuid4())})
+            self.turn = updated
+            self.context_capture.refresh_after_source_capture()
+            trace = self.context_capture.trace
+            reused = {}
+            for event in updated.graph_context_execution.events:
+                if not isinstance(event, types.SourcePassageReuseEventV1):
+                    continue
+                rows = []
+                for receipt in event.receipts:
+                    if (receipt.anchor_id not in request.anchor_ids
+                            or receipt.returned_chars > request.max_chars):
+                        continue
+                    matches = [p for p in trace.observations if p.kind == "source_passage_reuse"
+                        and p.source_read_event_id == event.event_id and p.source_read_id == receipt.source_read_id]
+                    if len(matches) != 1:
+                        raise ValueError("reused passage has no current protected bytes")
+                    passage = matches[0]
+                    row = {"schema": "dmb_world_graph_source_anchor_read_v1",
+                        "anchorId": receipt.anchor_id, "evidenceRefId": receipt.evidence_ref_id,
+                        "sourceArtifactId": receipt.source_artifact_id, "sourceRevisionId": receipt.source_revision_id,
+                        "sourceName": passage.source_name, "content": passage.text,
+                        "contentSha256": receipt.content_sha256, "lineStart": receipt.line_start,
+                        "lineEnd": receipt.line_end, "outcome": "enough", "truncated": False,
+                        "retrievalSessionId": scope.retrieval_session_id, "diagnostics": []}
+                    from application_state.agent_conversation.surface_source_answer import passage_handle
+                    row["passageHandle"] = passage_handle(receipt)
+                    rows.append(row); reused[receipt.anchor_id] = row
+                if rows:
+                    payload = rows[0] if len(rows) == 1 else {"schema": "dmb_read_graph_source_batch_v1", "reads": rows}
+                    self.source_payloads[event.event_id] = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            if not reused:
+                return self._broker_fresh_source_read(message, bundle_internal=bundle_internal)
+            pending = [a for a in request.anchor_ids if a not in reused]
+            if pending:
+                reply = self._broker_fresh_source_read({**message, "arguments": {**arguments, "anchorIds": pending}}, bundle_internal=True)
+                if self.failure is not None:
+                    return reply
+            relevant = {e.event_id for e in self._broker_execution().events
+                if isinstance(e, types.SourcePassageReuseEventV1) and any(r.anchor_id in reused for r in e.receipts)}
+            added = [(eid, raw) for eid, raw in self.source_payloads.items() if eid not in before or eid in relevant]
+            # Repeated current-turn tool requests can expose an already admitted reuse,
+            # without appending or charging a second admission.
+            if not added:
+                added = [(e.event_id, self.source_payloads[e.event_id]) for e in updated.graph_context_execution.events
+                    if isinstance(e, types.SourcePassageReuseEventV1)
+                    and any(r.anchor_id in reused for r in e.receipts)]
+            if bundle_internal:
+                # Only the final composite bundle is visible to the provider.
+                # Registering internal replies would create unseen literal donors.
+                rows = []
+                for _event_id, raw in added:
+                    payload = json.loads(raw)
+                    rows.extend(payload.get("reads", [payload]))
+                payload = rows[0] if len(rows) == 1 else {
+                    "schema": "dmb_read_graph_source_batch_v1", "reads": rows,
+                    "retrievalSessionId": scope.retrieval_session_id,
+                }
+                return {"resultJson": json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                    "retrievalSession": session.project_for_hermes()}
+            result = self._tool_presentation().present_source_batch(arguments, added, source_pins=pins)
+            return {"resultJson": result, "retrievalSession": session.project_for_hermes()}
+        except Exception:
+            self.failure = AgentTurnServiceError("Retained source admission could not be durably validated.",
+                code="source_reuse_indeterminate", status_code=503)
+            return self._denied_tool_result("read_graph_source", "source_reuse_indeterminate", 503,
+                "Retained source admission could not be durably validated.", arguments=arguments)
+
+    def _broker_fresh_source_read(self, message: Mapping[str, Any], *, bundle_internal: bool = False) -> Mapping[str, Any]:
         """Authorize, read, then durably validate one admitted source batch."""
         from graph_memory.interaction.expansion_executor import (
             ReadGraphSourceRequest, execute_read_graph_source,
@@ -5377,7 +5479,7 @@ def _evidence_anchor_open_projection(
         (
             event for event in execution.events
             if getattr(event, "kind", None) in {
-                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "plan_jev_writer_authorized_v1",
+                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
             }
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id

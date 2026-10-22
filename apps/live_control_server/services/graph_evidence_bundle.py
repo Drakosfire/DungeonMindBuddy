@@ -276,7 +276,7 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
     source_scope = (request.retrieval_session_id, scope.world_id, scope.graph_revision,
                     authority.native_world_id, authority.managed_world_id, str(authority.binding_version))
     receipts_by_event = {event.event_id: event.receipts for event in adapter._broker_execution().events
-                         if event.kind == "validated_source_read_v2"}
+                         if event.kind in {"validated_source_read_v2", "source_passage_reused_v1"}}
     reusable = getattr(adapter, "evidence_source_batches", {})
     remaining = set(anchor_ids)
     for sid, (raw, identity) in reusable.items():
@@ -304,15 +304,14 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
             if adapter.failure is not None:
                 return source_reply
             added_sources = set(adapter.source_payloads) - before_sources
-            if len(added_sources) != 1:
+            if not added_sources:
                 refusal = json.loads(source_reply["resultJson"])
                 if refusal.get("statusCode", 500) >= 500:
                     return source_reply
                 stop_code = refusal.get("code", "source_read_refused")
                 # A known refusal admits no new body. Do not repeat the read.
                 break
-            sid = added_sources.pop()
-            source_events.append((sid, adapter.source_payloads[sid]))
+            source_events.extend((sid, adapter.source_payloads[sid]) for sid in sorted(added_sources, key=str))
             if isinstance(source_reply.get("retrievalSession"), dict):
                 latest_session_packet = source_reply["retrievalSession"]
     request_context = getattr(adapter, "request", None)
@@ -333,7 +332,7 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
     if not hasattr(adapter, "evidence_source_batches"):
         adapter.evidence_source_batches = {}
     receipts_by_event = {event.event_id: event.receipts for event in adapter._broker_execution().events
-                         if event.kind == "validated_source_read_v2"}
+                         if event.kind in {"validated_source_read_v2", "source_passage_reused_v1"}}
     for sid, raw in source_events:
         identity = _source_batch_identity(raw, pins, source_scope, receipts_by_event.get(sid, []))
         if identity is not None:

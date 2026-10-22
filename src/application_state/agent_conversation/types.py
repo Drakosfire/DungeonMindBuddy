@@ -2713,6 +2713,36 @@ class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
     receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=MAX_RECEIPTS_PER_SOURCE_READ_EVENT)
 
 
+class SourcePassageReuseEventV1(GraphExecutionEventBaseV1):
+    """Current admission of an original read; never a new corpus IO receipt."""
+    kind: Literal["source_passage_reused_v1"]
+    reuse_request_id: UUID
+    request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_turn_revision: int = Field(strict=True, ge=1)
+    origin_turn_id: UUID
+    origin_attempt: int = Field(strict=True, ge=1)
+    origin_read_event_id: UUID
+    origin_provider_attempt_id: UUID
+    read_call_id: UUID  # Original call, retained as provenance only.
+    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=MAX_RECEIPTS_PER_SOURCE_READ_EVENT)
+
+    @model_validator(mode="after")
+    def validate_reused_receipts(self):
+        if any(r.outcome != "enough" or r.truncated or r.evidence_sufficiency_status != "sufficient"
+               or not r.source_revision_id or not r.content_sha256 or not r.returned_chars for r in self.receipts):
+            raise ValueError("reuse requires complete sufficient original receipts")
+        return self
+
+
+SOURCE_PASSAGE_EVENTS = (ValidatedSourceReadEventV2, SourcePassageReuseEventV1)
+
+
+def included_passage_event_ids(authorization):
+    """Source exposure union; fresh IO and reuse remain distinct in the wire."""
+    return (list(getattr(authorization, "included_source_read_event_ids", ()))
+            + list(getattr(authorization, "included_source_reuse_event_ids", ())))
+
+
 class RelatedRecapProvenanceBindingV2(StrictModel):
     evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
@@ -3010,6 +3040,18 @@ class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
     included_source_read_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
 
 
+class ProviderAttemptAuthorizedEventV4(ProviderAttemptAuthorizedEventV3):
+    kind: Literal["provider_attempt_authorized_v4"]
+    included_source_reuse_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
+
+    @model_validator(mode="after")
+    def validate_reuse_ids(self):
+        ids = included_passage_event_ids(self)
+        if len(ids) != len(set(ids)) or len(ids) > MAX_INCLUDED_SOURCE_READ_EVENTS_V3:
+            raise ValueError("provider source admissions must be distinct and bounded")
+        return self
+
+
 
 
 GraphExecutionEventV2 = Annotated[
@@ -3147,6 +3189,10 @@ def source_read_character_usage(
             usage += event.max_chars * len(event.anchors)
             if settled and usage > policy.max_source_read_chars:
                 raise ValueError("source-read character budget exceeded at authorization")
+        elif isinstance(event, SourcePassageReuseEventV1):
+            usage += sum(receipt.returned_chars for receipt in event.receipts)
+            if usage > policy.max_source_read_chars:
+                raise ValueError("reused source exposure exceeds the current reservation budget")
         elif settled and isinstance(event, ValidatedSourceReadEventV2):
             auth = reservations.get(event.read_call_id)
             if auth is None or event.sequence <= auth.sequence:
@@ -3193,7 +3239,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     latest_attempt_id: UUID | None = None
     latest_outcome: str | None = None
     for event in execution.events:
-        if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
+        if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1)) and latest_outcome == "outcome_unknown":
             raise ValueError("source reads cannot continue after an unknown provider outcome")
         if isinstance(event, CompletionBindingEventV1) and event.sequence != len(execution.events) - 1:
             raise ValueError("completion binding must be the final V2 execution event")
@@ -3265,9 +3311,26 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 all_read_ids.add(result.source_read_id)
             receipts_by_event[event.event_id] = event
             receipts_by_call.add(event.read_call_id)
+        elif isinstance(event, SourcePassageReuseEventV1):
+            if not dynamic_source_scope:
+                raise ValueError("passage reuse requires dynamic current source admission")
+            for result in event.receipts:
+                pin = scope_by_anchor.get(result.anchor_id)
+                if pin is None or any(getattr(pin, key) != getattr(result, key) for key in
+                    ("anchor_id", "evidence_ref_id", "source_artifact_id", "source_revision_id")):
+                    raise ValueError("reused passage differs from current admitted pin")
+                if result.returned_chars > execution.policy.max_chars_per_source_read or result.source_read_id in all_read_ids:
+                    raise ValueError("reused passage exceeds per-read exposure or repeats an identity")
+                all_read_ids.add(result.source_read_id)
+            receipts_by_event[event.event_id] = event
         elif isinstance(event, ProviderAttemptAuthorizedEventV2):
-            if any(event_id not in receipts_by_event for event_id in event.included_source_read_event_ids):
+            if any(event_id not in receipts_by_event for event_id in included_passage_event_ids(event)):
                 raise ValueError("provider envelope references an unknown or later source-read receipt")
+            if any(isinstance(receipts_by_event[eid], SourcePassageReuseEventV1) for eid in event.included_source_read_event_ids):
+                raise ValueError("reuse cannot be reported as a fresh source read")
+            if any(not isinstance(receipts_by_event[eid], SourcePassageReuseEventV1)
+                   for eid in getattr(event, "included_source_reuse_event_ids", ())):
+                raise ValueError("reuse inclusion requires an explicit reuse admission")
     if not dynamic_source_scope and len(auths) > execution.policy.max_source_read_calls:
         raise ValueError("source-read call budget exceeded")
     if not dynamic_source_scope and authorized_anchors > execution.policy.max_source_read_anchors:
@@ -3286,7 +3349,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 PlaySourceProviderInclusionV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
-                ValidatedSourceReadEventV2,
+                ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
@@ -3331,6 +3394,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         if isinstance(event, ProviderAttemptAuthorizedEventV2):
             payload["kind"] = "provider_attempt_authorized"
             payload.pop("included_source_read_event_ids", None)
+            payload.pop("included_source_reuse_event_ids", None)
         if isinstance(event, ValidatedGraphOperationEventV3):
             payload["kind"] = "validated_graph_operation"
             payload.pop("returned_source_pins", None)
@@ -3464,6 +3528,10 @@ class PlanJevWriterAuthorizedV1(ProviderAttemptAuthorizedEventV3):
     frame_sha256: Digest
 
 
+class PlanJevWriterAuthorizedV2(PlanJevWriterAuthorizedV1, ProviderAttemptAuthorizedEventV4):
+    kind: Literal["plan_jev_writer_authorized_v2"]
+
+
 class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["plan_jev_retrieval_selected_v1"]
     context_receipt_sha256: Digest
@@ -3528,9 +3596,9 @@ class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
-    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
@@ -3563,7 +3631,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         authorized_by_id = {}
         acquisition_events = (
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
-            SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
+            SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
             BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
         )
@@ -3930,9 +3998,9 @@ def graph_execution_policy_digest_v3(
 
 
 PlayGraphExecutionEventV1 = Annotated[
-    PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
-    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2,
     Field(discriminator="kind"),
@@ -4497,11 +4565,11 @@ def derive_graph_execution_evidence_status_for_scope(
             scope_anchors.setdefault(anchor.evidence_ref_id, []).append(anchor)
     source_reads_by_id: dict[str, SourceReadAnchorReceiptV2] = {}
     if isinstance(producing, ProviderAttemptAuthorizedEventV2):
-        included_read_events = set(producing.included_source_read_event_ids)
+        included_read_events = set(included_passage_event_ids(producing))
         source_reads_by_id = {
             read.source_read_id: read
             for event in execution.events
-            if isinstance(event, ValidatedSourceReadEventV2)
+            if isinstance(event, SOURCE_PASSAGE_EVENTS)
             and event.event_id in included_read_events
             for read in event.receipts
         }
@@ -4725,10 +4793,10 @@ def validate_build_passage_completion(completion, receipt, execution, attempt_id
             or (producing.provider, producing.model, producing.api_mode) != roles.writer.identity()
             or producing.included_graph_event_ids or producing.included_assertion_ids
             or producing.included_relationship_ids or producing.included_evidence_ref_ids
-            or not producing.included_source_read_event_ids):
+            or not included_passage_event_ids(producing)):
         raise ValueError("Passage completion requires a source-only producing writer response")
-    reads = {e.event_id: e for e in execution.events if isinstance(e, ValidatedSourceReadEventV2)
-        and e.event_id in producing.included_source_read_event_ids}
+    reads = {e.event_id: e for e in execution.events if isinstance(e, SOURCE_PASSAGE_EVENTS)
+        and e.event_id in included_passage_event_ids(producing)}
     for citation in completion.source_citations:
         event = reads.get(citation.read_event_id)
         if (citation.provider_attempt_id != attempt_id or citation.envelope_sha256 != producing.envelope_sha256
@@ -4843,8 +4911,8 @@ def validate_graph_execution_source_citations(citation_map: PlanWorldGraphCitati
     if citation_map is None:
         return
     attempt = next((e for e in execution.events if isinstance(e, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)) and e.provider_attempt_id == producing_provider_attempt_id), None)
-    included = set(attempt.included_source_read_event_ids) if isinstance(attempt, ProviderAttemptAuthorizedEventV2) else set()
-    reads = {read.source_read_id: read for event in execution.events if isinstance(event, ValidatedSourceReadEventV2) and event.event_id in included for read in event.receipts}
+    included = set(included_passage_event_ids(attempt)) if isinstance(attempt, ProviderAttemptAuthorizedEventV2) else set()
+    reads = {read.source_read_id: read for event in execution.events if isinstance(event, SOURCE_PASSAGE_EVENTS) and event.event_id in included for read in event.receipts}
     for citation in citation_map.entries:
         if citation.source_opened != bool(citation.source_read_ids) or not set(citation.source_read_ids).issubset(reads):
             _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source-opened state must bind source reads in the producing envelope")
