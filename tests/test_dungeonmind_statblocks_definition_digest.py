@@ -11,10 +11,10 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.definition_dig
 )
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "statblocks" / "v1"
-# Computed by accepted Server ``compute_definition_digest`` at
-# 1e8a6185ed16f4cb4cd3596aec7e9e22a3f74ad1 for this definition without explains.
-SERVER_ABSENT_EXPLAINS_DIGEST = (
-    "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44"
+# Produced by DMS compute_definition_digest and canonicalize_definition at
+# f95e92cb0fb50949260534b12c063ab1811eaf30 from create-request.json.
+SERVER_CURRENT_DIGEST = (
+    "sha256:170d6a58c947d61bda8078d2c64705ca5edae5e68a8d61a6b3c2aad395a61246"
 )
 
 
@@ -27,8 +27,8 @@ def _canonical_payload(definition: dict[str, Any]) -> dict[str, Any]:
     return json.loads(canonicalize_definition_dict(definition))
 
 
-def test_explains_local_audit_digest_preserves_absent_vs_explicit_empty() -> None:
-    """Non-null explains digests are Buddy-local; current Server rejects them."""
+def test_current_server_digest_distinguishes_null_from_explicit_empty() -> None:
+    """Server domain default is null; an explicit empty list is a distinct value."""
     absent = _definition()
     absent["rule_elements"][0].pop("explains", None)
     explicit_empty = copy.deepcopy(absent)
@@ -37,19 +37,19 @@ def test_explains_local_audit_digest_preserves_absent_vs_explicit_empty() -> Non
     absent_canonical = _canonical_payload(absent)
     empty_canonical = _canonical_payload(explicit_empty)
 
-    assert "explains" not in absent_canonical["rule_elements"][0]
+    assert absent_canonical["rule_elements"][0]["explains"] is None
     assert empty_canonical["rule_elements"][0]["explains"] == []
     assert source_definition_digest_from_body(absent) != source_definition_digest_from_body(
         explicit_empty
     )
-    assert source_definition_digest_from_body(absent) == SERVER_ABSENT_EXPLAINS_DIGEST
-    assert source_definition_digest_from_body(explicit_empty) != SERVER_ABSENT_EXPLAINS_DIGEST
+    assert source_definition_digest_from_body(absent) == SERVER_CURRENT_DIGEST
+    assert source_definition_digest_from_body(explicit_empty) != SERVER_CURRENT_DIGEST
     assert source_definition_digest_from_body(explicit_empty) == source_definition_digest_from_body(
         copy.deepcopy(explicit_empty)
     )
 
 
-def test_null_explains_digest_matches_absent_for_omission_transport() -> None:
+def test_null_explains_matches_current_server_default() -> None:
     absent = _definition()
     absent["rule_elements"][0].pop("explains", None)
     explicit_null = copy.deepcopy(absent)
@@ -58,12 +58,12 @@ def test_null_explains_digest_matches_absent_for_omission_transport() -> None:
     assert source_definition_digest_from_body(explicit_null) == source_definition_digest_from_body(
         absent
     )
-    assert source_definition_digest_from_body(explicit_null) == SERVER_ABSENT_EXPLAINS_DIGEST
-    assert "explains" not in _canonical_payload(explicit_null)["rule_elements"][0]
+    assert source_definition_digest_from_body(explicit_null) == SERVER_CURRENT_DIGEST
+    assert _canonical_payload(explicit_null)["rule_elements"][0]["explains"] is None
 
 
 def test_populated_explains_is_retained_in_canonical_definition() -> None:
-    """Retain local audit identity without claiming Server accepts the field."""
+    """Canonicalization preserves every explicit field; generation projects separately."""
     definition = _definition()
     definition["rule_elements"][0]["explains"] = [
         {"element_key": "greatclub", "note": "Context for the strike."}
@@ -83,3 +83,9 @@ def test_other_server_default_empty_lists_keep_current_canonical_semantics() -> 
     canonical = _canonical_payload(definition)
 
     assert canonical["communication"]["languages"] == []
+
+
+def test_canonical_bytes_match_exact_current_dms_golden() -> None:
+    expected = (FIXTURE_DIR / "definition-dms-v1.canonical.json").read_text().rstrip("\n")
+    assert canonicalize_definition_dict(_definition()) == expected
+    assert source_definition_digest_from_body(_definition()) == SERVER_CURRENT_DIGEST

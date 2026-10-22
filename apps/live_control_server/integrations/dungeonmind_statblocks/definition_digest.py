@@ -1,21 +1,10 @@
-"""Buddy statblock definition canonicalization and digests.
+"""Mirror DMS statblock-canonicalizer-v1 for receipt and integrity checks.
 
-Mirrors DungeonMindServer ``statblocks_v1.domain.canonicalization`` /
-``digests.compute_definition_digest`` so Buddy can bind
-``generation_receipt.source_definition_digest`` against the same bytes the
-Server hashes after parse + contract-shape restore for fields the accepted
-Server contract supports. The generated Buddy DTO also carries ``explains``,
-which current Server main rejects as an extra field. Non-null ``explains``
-digests below are Buddy-local audit values only; they do not claim Server
-acceptance or digest compatibility. The create client refuses to send them.
-
-OpenAPI-generated ``StatblockDefinitionV1Input`` treats many list fields as
-nullable with default ``None``. Server domain models use
-``Field(default_factory=list)`` for most of those fields. Before hashing we
-restore those Server list defaults so omitted / null lists digest as ``[]``.
-``RuleElement.explains`` is intentionally different: omission must remain
-omission for historical canonical bytes, while an explicit empty list remains
-an explicit empty list.
+DMS owns the canonical contract: every model field is serialized, including nulls
+and empty lists. The generated input DTO uses null for many list defaults; restore
+only the domain's default_factory=list fields before normalization. In particular,
+RuleElement.explains defaults to null, not omission or an empty list. Generation's
+narrower write projection does not change canonical read/digest semantics.
 """
 from __future__ import annotations
 
@@ -108,27 +97,14 @@ def _normalize_value(value: Any, field_name: str | None = None) -> Any:
 
 
 def _canonical_payload(definition: StatblockDefinitionV1Input) -> dict[str, Any]:
-    """Build Buddy canonical JSON while preserving local ``explains`` intent."""
-    payload = definition.model_dump(mode="json", exclude_none=False)
-    rule_elements = payload.get("rule_elements")
-    if isinstance(rule_elements, list):
-        for rule_model, rule_payload in zip(
-            definition.rule_elements, rule_elements, strict=True
-        ):
-            # Current Server rejects the field entirely. Keep None equivalent
-            # to omission in Buddy's audit digest; retain [] and populated
-            # values locally, while the create adapter rejects them before HTTP.
-            if rule_model.explains is None and isinstance(rule_payload, dict):
-                rule_payload.pop("explains", None)
-    return _restore_server_list_defaults(payload)
+    """Serialize the complete current contract, then restore domain list defaults."""
+    return _restore_server_list_defaults(
+        definition.model_dump(mode="json", exclude_none=False)
+    )
 
 
 def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
-    """Canonical Buddy JSON with accepted Server defaults restored.
-
-    Non-null ``RuleElement.explains`` is preserved for local audit identity, but
-    is not accepted by current Server and is rejected by the create adapter.
-    """
+    """Canonical JSON matching DMS's current accepted model and defaults."""
     if not isinstance(source_definition, dict):
         raise TypeError("source_definition must be an object")
     # Validate against the transport DTO, then restore Server domain list defaults
@@ -170,7 +146,7 @@ def compute_definition_digest(definition: StatblockDefinitionV1Input) -> str:
 
 
 def source_definition_digest_from_body(source_definition: dict[str, Any]) -> str:
-    """Digest a Buddy source definition; non-null explains remains local-only."""
+    """Digest the current full contract using DMS-owned v1 semantics."""
     text = canonicalize_definition_dict(source_definition)
     return f"{DIGEST_ALGORITHM}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
