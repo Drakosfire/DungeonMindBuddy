@@ -14,7 +14,7 @@ resources; existing retained APP54331/native54330 and services remain untouched.
 ## First useful capability
 
 In a World Play Run, open Prepared tables in the existing shared Surface tool
-host, select a table authored in the Run's originally pinned Plan/Runbook, enter
+host, select a table authored in the Run's current admitted exact Plan/Runbook pin, enter
 a physical integer, and save its deterministic result. Reopen the receipt after
 navigation/reload/API restart without rerolling. No Rules/Jev/provider/RNG call.
 This is an authored-table outcome, not an attack, recharge, damage roll or Combat
@@ -41,6 +41,16 @@ unterminated typed fences. Other fenced examples are ignored, including apparent
 typed fences inside a longer example fence. Ordinary numeric Markdown tables,
 reference chips, corpus IDs and legacy session mappings confer no authority.
 
+Ordinary authoring is part of the first end-to-end slice, not an assumed capability.
+Current shared Markdown admission rejects fenced code and projects it as prose.
+Include lossless typed-block admission, Tiptap/schema support, serialization and
+reader presentation in the implementation write lease, with shared Build/Plan/Play
+writer round-trip and save/reopen tests. Provide normal author/edit controls or an
+admitted ordinary Markdown edit path; no fidelity-gate bypass, direct DB source
+repair or conversion into a plain paragraph. Unrelated unsupported fences remain
+protected. Existing inferred numeric-table preview/RNG supplies neither membership
+nor a saved roll, and must not be silently reused as the new receipt interaction.
+
 The server loads and verifies the exact same-World immutable Playable pin already
 bound to this Run: WorkObject UUID, revision number, WorkRevision UUID and SHA256.
 It checks the existing sealed manifest/run binding, then parses typed membership
@@ -48,9 +58,13 @@ from those pinned bytes. This strict source-membership check avoids inventing a
 new manifest generation solely to repeat the whole-document immutable pin.
 The selected table ID and canonical parsed-table SHA additionally bind each
 command. Never read a working copy or floating current revision, nor silently
-follow edits to the Play session copy. UI says these are tables prepared when the
-session started. A later source advance/discard cannot change the Run's table or
-its saved outcomes. Source titles are shown to users; technical pins stay in
+follow edits to the Play session copy. UI identifies the pinned preparation as the table source. Ordinary source
+advance/discard cannot change the Run's table or its saved outcomes. An explicit
+allowed Runbook rebase replaces the admitted Run pin and manifest: fresh commands
+then use that new exact basis, with explicit refreshed selection. Plan-backed
+rebase remains refused by its existing owner; this slice adds no rebase path.
+There is no new genesis-pin persistence or promise to resolve future rolls against
+a historical creation pin after rebase. Source titles are shown to users; technical pins stay in
 inspection. No new Content kind, source registry API, Graph identity or adapter.
 
 ## Play-owned append-only receipts
@@ -58,8 +72,11 @@ inspection. No new Content kind, source registry API, Graph identity or adapter.
 Use a dedicated Play receipt ledger, not the strict whole-object progress JSON.
 One new next-head APP migration and one Run-locked unit of work own the append.
 A command binds World, Run, expected Run revision, exact Playable/table pins,
-caller UUID idempotency key and submitted physical integer. Verify ownership,
-active/not-ended session, pinned membership and domain; resolve the row from
+caller UUID idempotency key and submitted physical integer. Verify World/Run
+ownership before receipt lookup. Replay an existing same-key/same-payload receipt
+before current source-membership, lifecycle or CAS checks, including after allowed
+rebase, session end or Trash. For a genuinely new command, require an active,
+not-ended session, current admitted pinned membership and valid domain; resolve the row from
 server-loaded source, increment Run revision without altering progress, and
 append the receipt atomically. The receipt records expected/resulting Run
 revision, original request digest/key, exact source/table pins, table/source title,
@@ -88,10 +105,13 @@ claimed by server persistence.
 
 ## Verification and real acceptance
 
-Owner tests cover strict grammar (including fenced examples), exact historical
+Owner tests cover shared typed-block writing/save/reopen without fidelity loss,
+strict grammar (including fenced examples), exact historical
 source after advance/discard, wrong owner/pins, deterministic range endpoints,
 request replay/payload conflict, concurrent/stale CAS, atomic failure, append-only
-SQL/downgrade protection, old Run/progress writers preserving receipts, lifecycle
+SQL/downgrade protection, new commands after explicit allowed rebase versus old-pin receipt replay (including
+ended/trashed sessions), unchanged Plan-backed rebase refusal, old Run/progress
+writers preserving receipts, lifecycle
 holds, pagination and no model/provider calls. UI tests cover pending recovery,
 unknown retry with original identity, host revision handoff, note/session-copy
 holds, route races, safe outcomes and no implicit reroll. Existing Play/Content
