@@ -124,6 +124,82 @@ explicitly activates a bounded experiment; delivered Rules lookup remains useful
 without that experiment. Semantic maps, linked speculative ideas, economics and
 identity through time remain later evidence-driven candidates.
 
+## Next priorities after dependable planning — discussion proposal
+
+The operator identified the mechanical, unfilled Combat landing and nominated
+**Of Conks and Cons** and **A Wild Sheep Chase** as full adventure witnesses.
+These are proposed priorities, not an activation of old prototype/handoff leases.
+
+### 1. Make Combat a usable table instrument
+
+Start with an evidence-based design comparison of the played Session 22/23/26
+trackers, Session 24 dogfood feedback and current native Combat. The existing
+[generic command-board contract](../Plans/HANDOFF-COMBAT-generic-command-board-experience.md)
+and [played tracker feedback](../Plans/HANDOFF-c2s24-live-combat-tracker-design.md)
+are design inputs; their old ACTIVE/base/runtime statements do not grant a new
+lease. Inspect current code before adopting any historical implementation claim.
+
+Prioritize the actual GM flow:
+
+- A useful empty/returning landing explains how to assemble an encounter and resume
+  a saved fight. Show real saved work; do not fill it with invented sample encounters.
+- Select creatures or exact statblock versions from available World/assets, adjust
+  the encounter, then open that same encounter from the relevant Plan/Play scene.
+- Keep current/next actor, initiative/round, HP/temp HP, damage/healing, conditions,
+  notes and one-step statblock inspection usable during a fight. Carry forward
+  proven initiative/grouping interactions after checking their current gaps.
+- Navigate away, reload and restart, then resume the exact fight and scene without
+  silently replacing the roster, Plan, mechanics versions or player notes.
+- Keep Combat an embeddable Surface module with durable encounter ownership.
+  Rules lookup uses the admitted Rules tool; a rules graph is not a prerequisite.
+  Summon placement, timed conditions and richer automation are separately bounded
+  follow-ons informed by the played feedback, not implicitly delivered by C0.
+
+**Acceptance:** use a source-grounded adventure encounter through normal controls:
+assemble → enter from Play → run several turns and state changes → leave/reopen →
+restart/resume. Compare the experience against the played prototypes. Preserve
+original historical saves; do not import prototype adapters or campaign mappings
+into the runtime to make the demonstration work.
+
+### 2. Adventure ingestion through a winding story and combat
+
+Use both named adventures to exercise the same general Build→Plan→Play→Combat
+workflow. Begin by locating and verifying the permitted local source editions,
+existing imports/runs, source digests and retained Worlds. Current main contains
+historical Of Conks evidence and derived-candidate correction (#778), but that
+record explicitly did not confirm publication or close J1. It is not proof of a
+current accepted import. A current Wild Sheep Chase source/run has not yet been
+verified in this reconciliation. Preserve useful existing work before deciding
+whether any extraction must be repeated. Keep licensed text out of Git fixtures.
+
+The target is an adventure usable at the table:
+
+1. Build retains the exact saved source, extracts/reviews candidates and publishes
+   selected supported knowledge with named citations. Distinguish authored options,
+   conditional encounters and GM secrets from events that have actually happened.
+2. Buddy can answer representative questions about people, places, motives,
+   alternative routes and encounter triggers from that accepted source. Review
+   omissions and unsupported connections against the adventure, not candidate counts.
+3. Plan supports meaningful scene choices and linked NPCs, locations, tables and
+   mechanics. Preserve branches, callbacks and conditional progression; do not
+   flatten the adventure into an asserted chronological history.
+4. Play can follow different routes and reach a real encounter. Open its creatures/
+   statblocks in Combat, record turn/HP/notes and any table results, then resume the
+   same story position after reload/restart. Return combat outcomes to the session
+   record without silently publishing them as World facts.
+5. Complete the connected J1–J6 acceptance applicable to this rehearsal, including
+   real generation where required. A prepared packet, fixture roster or API-only
+   publication cannot stand in for the whole journey. Use the second adventure
+   to check generality without adventure-specific runtime branches.
+
+**Suggested sequencing:** finish the fresh Plan/Buddy/image failures, then design
+and deliver the Combat entry/encounter/Play connection in bounded reviewed slices.
+Use one adventure as the first connected rehearsal and the other as the generality
+check; choose their order after inspecting current source/run readiness. Repair
+missing ingestion or knowledge contracts at the owning boundary as the rehearsal
+exposes them. The session-to-memory loop remains another useful bounded goal,
+with external recaps and explicit note supplements rather than generated history.
+
 ## Scope and ownership
 
 Buddy owns the product, source UX, writing system, Plan/session state and Agent
