@@ -87,3 +87,25 @@ def append_verified(*, request: AssociateWorldMechanicsRequest, proof: AcceptedM
              record.previous_association_id,Jsonb(record.model_dump(mode="json"))),
         )
         return AssociateWorldMechanicsResponse(association=record, replayed=False)
+
+
+def verify_current_slots(conn, *, world_id: str, snapshots) -> None:
+    """Lock ordered slots and verify current associations in the encounter transaction."""
+    targets = {}
+    for snapshot in snapshots:
+        node = snapshot.target.node_id
+        if node in targets and targets[node] != snapshot:
+            raise ApplicationStateConflictError("Different mechanics snapshots target the same creature")
+        targets[node] = snapshot
+    for node, snapshot in sorted(targets.items()):
+        if snapshot.target.managed_world_id != world_id:
+            raise ApplicationStateConflictError("Mechanics belong to a different World")
+        conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (f"world-mechanics-slot:{world_id}:{node}",))
+        record = _load(conn.execute(
+            "SELECT payload FROM world_mechanics.association WHERE world_id=%s AND node_id=%s ORDER BY version DESC LIMIT 1",
+            (world_id, node),
+        ).fetchone())
+        if (record is None or record.association_id != snapshot.association_id
+            or record.version != snapshot.association_version or record.proof.locator != snapshot.locator
+            or record.request.target.model_dump() != snapshot.target.model_dump()):
+            raise ApplicationStateConflictError("Creature mechanics changed; load and confirm again")

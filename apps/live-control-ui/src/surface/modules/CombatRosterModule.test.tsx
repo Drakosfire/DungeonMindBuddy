@@ -2,6 +2,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as liveApi from "../../api/liveApi";
+import type { CombatMechanicsSnapshot } from "../../combat/combatTypes";
+import type { ManagedWorldGraphProjectionResponse } from "../../api/types";
+import type { WorldMechanicsAssociation } from "../../api/worldMechanicsTypes";
 import * as combatApi from "../../combat/combatApi";
 import type { CombatEncounterRecord } from "../../combat/combatTypes";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
@@ -471,6 +475,42 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole("button",{name:"Save"}));
     expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][3].entities).toHaveLength(100);
     expect(save.mock.calls[0][3].title).toBe("Keep this edit");
+  });
+
+  it("refuses oversized snapshot copies before append and preserves edits and assembly inputs", async () => {
+    const initial = record();
+    vi.spyOn(combatApi,"listWorldCombatEncounters").mockResolvedValue([initial]);
+    vi.spyOn(combatApi,"getWorldCombatEncounter").mockResolvedValue(initial);
+    const target={managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:1,graph_revision_id:'head',node_id:'keeper',label:'Keeper',kind:'npc',role:'npc',campaign_scope:null};
+    vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValue({managedWorldId:'elderwyld',nativeWorldId:'native-world',bindingVersion:1,
+      projection:{snapshot:{worldId:'native-world',revisionId:'head',scopeMode:'world'},nodes:[{nodeId:'keeper',label:'Keeper',kind:'npc',role:'npc',aliases:[]}]}} as unknown as ManagedWorldGraphProjectionResponse);
+    vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([{association_id:'one',version:1,request:{target}} as WorldMechanicsAssociation]);
+    const snapshot={association_id:'one',association_version:1,target,resource:{definition:{identity:{name:'Keeper'}},provenance:{description:'x'.repeat(40000)}}} as unknown as CombatMechanicsSnapshot;
+    vi.spyOn(combatApi,"previewWorldCombatMechanics").mockResolvedValue(snapshot);
+    const save=vi.spyOn(combatApi,"saveWorldCombatEncounter").mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const title=await screen.findByRole('textbox',{name:'Encounter title'});
+    await userEvent.clear(title);await userEvent.type(title,'Prior local edit');
+    await userEvent.click(screen.getByText('Add combatants'));
+    await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Keeper npc · World · keeper'}));
+    await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
+    await screen.findByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.');
+    await userEvent.clear(screen.getByLabelText('Combatant copies'));await userEvent.type(screen.getByLabelText('Combatant copies'),'20');
+    await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('700 KiB');
+    expect(title).toHaveValue('Prior local edit');expect(screen.getByLabelText('Combatant name')).toHaveValue('Keeper');
+    expect(screen.getByLabelText('Combatant copies')).toHaveValue(20);
+    expect(screen.queryByRole('textbox',{name:'Notes for Keeper 1'})).toBeNull();
+    await userEvent.click(screen.getByRole('button',{name:'Save'}));
+    await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][3].title).toBe('Prior local edit');expect(save.mock.calls[0][3].entities).toHaveLength(1);
+    await userEvent.clear(screen.getByLabelText('Combatant copies'));await userEvent.type(screen.getByLabelText('Combatant copies'),'1');
+    await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+    expect(await screen.findByRole('textbox',{name:'Notes for Keeper'})).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
 });

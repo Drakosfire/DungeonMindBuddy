@@ -59,6 +59,9 @@ def save_world_combat_encounter(
     prior_ids = {entity.id for entity in before.draft.entities}
     projections = {}
     verified = {}
+    snapshots = {}
+    verified_snapshots = {}
+    association_records = None
     for entity in request.draft.entities:
         identity = entity.world_identity
         if entity.id in prior_ids or identity is None:
@@ -83,9 +86,28 @@ def save_world_combat_encounter(
         if identity != expected or not is_combat_candidate(node.kind, node.role):
             raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
         verified[entity.id] = expected
+        if entity.mechanics_snapshot is not None:
+            from apps.live_control_server.services import combat_mechanics
+            from application_state.combat_encounters.types import CombatMechanicsSelection
+            snapshot = entity.mechanics_snapshot
+            if association_records is None:
+                association_records = combat_mechanics.associations.list_current(world_id=world_id)
+            key = snapshot.association_id
+            if key not in snapshots:
+                snapshots[key] = combat_mechanics.preview(world_id=world_id,
+                    selection=CombatMechanicsSelection(**snapshot.model_dump(include={"association_id","association_version","target"})),
+                    records=association_records,projection=projected)
+            if snapshot != snapshots[key]:
+                raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified exact resource")
+            verified_snapshots[entity.id] = snapshots[key]
+    # Persist only the independently built server snapshots.
+    verified_draft = request.draft.model_copy(update={"entities": [
+        entity.model_copy(update={"mechanics_snapshot": verified_snapshots[entity.id]})
+        if entity.id in verified_snapshots else entity for entity in request.draft.entities]})
     return encounter_state.save_encounter(
-        world_id=world_id, encounter_id=encounter_id, request=request,
-        verified_world_identities=verified,
+        world_id=world_id, encounter_id=encounter_id,
+        request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
+        verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
     )
 
 

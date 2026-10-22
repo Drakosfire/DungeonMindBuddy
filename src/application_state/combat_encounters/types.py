@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from datetime import datetime
 from typing import Literal
@@ -11,6 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from application_state.combat_encounters.rulesets import CombatRulesetConfig
+from application_state.world_mechanics.types import MechanicsLocator
 
 _WORLD_ID = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
 _MAX_DRAFT_BYTES = 700 * 1024
@@ -60,6 +62,42 @@ class CombatWorldIdentity(BaseModel):
     campaign_scope: str | None
 
 
+class CombatMechanicsSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    association_id: UUID
+    association_version: int = Field(gt=0)
+    target: CombatWorldIdentity
+
+
+class CombatMechanicsSnapshot(CombatMechanicsSelection):
+    locator: MechanicsLocator
+    resource: dict
+    snapshot_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+    @staticmethod
+    def digest_payload(payload: dict) -> str:
+        body = json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        return "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+
+    @model_validator(mode="after")
+    def integrity(self):
+        payload = self.model_dump(mode="json", exclude={"snapshot_digest"})
+        if self.snapshot_digest != self.digest_payload(payload):
+            raise ValueError("Combat mechanics snapshot digest is invalid")
+        canonical = self.resource.get("canonical_definition")
+        if not isinstance(canonical, str) or "sha256:" + hashlib.sha256(canonical.encode()).hexdigest() != self.locator.definition_digest:
+            raise ValueError("Combat mechanics canonical digest is invalid")
+        if json.loads(canonical) != self.resource.get("definition"):
+            raise ValueError("Combat mechanics definition differs from canonical text")
+        fields = ("statblock_id", "revision_id", "contract", "contract_version", "definition_digest")
+        if any(self.resource.get(field) != getattr(self.locator, field) for field in fields):
+            raise ValueError("Combat mechanics resource identity is invalid")
+        receipt = self.resource.get("validation_receipt")
+        if not isinstance(receipt, dict) or receipt.get("definition_digest") != self.locator.definition_digest:
+            raise ValueError("Combat mechanics receipt identity is invalid")
+        return self
+
+
 class CombatEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -82,6 +120,13 @@ class CombatEntity(BaseModel):
     corpus_fingerprint: str | None = Field(default=None, max_length=128)
     source: Literal["corpus", "generated_pending", "manual", "imported"] = "manual"
     world_identity: CombatWorldIdentity | None = None
+    mechanics_snapshot: CombatMechanicsSnapshot | None = None
+
+    @model_validator(mode="after")
+    def _mechanics_target(self):
+        if self.mechanics_snapshot and self.world_identity != self.mechanics_snapshot.target:
+            raise ValueError("Combat mechanics require the same exact World identity")
+        return self
     provenance: list[CombatEntityProvenance] = Field(default_factory=list, max_length=16)
 
     @field_validator("id", "name", mode="before")

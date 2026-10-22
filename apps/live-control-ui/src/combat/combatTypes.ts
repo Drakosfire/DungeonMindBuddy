@@ -1,3 +1,13 @@
+import type { StatblockRevisionResourceV1 } from '../contracts/dungeonbuddy-statblocks-v1/client';
+import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
+export interface CombatMechanicsSelection {
+  association_id: string; association_version: number; target: CombatWorldIdentity;
+}
+export interface CombatMechanicsSnapshot extends CombatMechanicsSelection {
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+
 export interface CombatRulesetField {
   key: "initiative" | "armor_class" | "hit_points" | "temp_hit_points" | "conditions" | "notes";
   label: string;
@@ -52,6 +62,7 @@ export interface CombatEntity {
   corpus_fingerprint: string | null;
   source: "corpus" | "generated_pending" | "manual" | "imported";
   world_identity?: CombatWorldIdentity | null;
+  mechanics_snapshot?: CombatMechanicsSnapshot | null;
   provenance: CombatEntityProvenance[];
 }
 
