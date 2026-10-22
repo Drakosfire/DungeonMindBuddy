@@ -31,7 +31,8 @@ A new explicit fenced code language `dmb-roll-table-v1` is admitted inside norma
 Plan/Runbook Markdown. Its JSON has exactly schema_version=dmb_roll_table_v1,
 table_id, title, die_sides and rows. Each row has exactly row_id,min,max,outcome.
 Table IDs match table:[a-z0-9][a-z0-9._-]{0,127}; row IDs use the same tail with
-row:. IDs are authored, unique within their table/document respectively. Title
+row:. Table IDs are unique in the document; row IDs are unique within each table.
+Title
 and outcome are nonblank plain text. Numeric fields are strict integers, not
 booleans/coerced strings. die_sides is at least2; rows in ascending order cover
 1..die_sides exactly once with no gaps, overlaps, reversed or out-of-range bounds.

@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves21e263b7a (#1591); UI/API serve390c3cb1f (#1595). Named saved-section
+API8000/UI5202 serve390c3cb1f (#1595). Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -306,7 +306,7 @@ values are labeled transcription, not edition-conversion acceptance. One initial
 Bed Dragon generation failed ruleset_mismatch and remains retained; a new explicit
 edition-bound draft succeeded. Ape AI revision restored the omitted printed HP19.
 
-Native recorded table rolls are next: [reviewed design scope](../Plans/HANDOFF-PLAY-recorded-tables.md)
+Native recorded table rolls are next: [bounded design scope](../Plans/HANDOFF-PLAY-recorded-tables.md)
 uses explicit tables embedded in the existing exact Run-pinned Plan revision and
 a Play-owned append-only receipt. No new reusable Content kind is a prerequisite.
 Conks Appendix C physical page18 supplies real1d12 tables; Sheep encounter prose
