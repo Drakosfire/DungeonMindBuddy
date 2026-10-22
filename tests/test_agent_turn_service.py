@@ -2096,6 +2096,10 @@ def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
         work=None, bootstrap=bootstrap, playable_target=None, submitted_intent=None,
         existing_turn=turn, budget=budget,
     )
+    # This test supplies synthetic native bodies/receipts; metadata-wave lifetime
+    # and real body joins are exercised in test_source_anchor_wave.py.
+    from contextlib import nullcontext
+    monkeypatch.setattr(adapter, "source_read_acquisition", lambda _ids: nullcontext())
     adapter.fence = Fence()
     adapter.last_provider_attempt_id = initial_attempt_id
     adapter.producing_provider_attempt_id = initial_attempt_id
