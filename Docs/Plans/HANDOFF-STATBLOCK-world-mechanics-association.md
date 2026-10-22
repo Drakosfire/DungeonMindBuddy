@@ -35,7 +35,10 @@ mechanics. No cross-filesystem/Graph/DMS/APP atomic commit claim.
 
 Reusable Workbench panel: explicitly Load creatures, select exact typed node, then
 associate/replace. Retain exact UUID/body through lost acknowledgement and reload;
-Resume uses same request. Stale conflicts require explicit refresh/reconfirmation.
+Resume uses same request. Browser Web Locks serialize reservation and cleanup;
+full stored-request equality prevents overwriting or deleting a different view's
+recovery request. Check view lifetime after lock acquisition; unavailable locking
+fails closed. Stale conflicts require explicit refresh/reconfirmation.
 No name inference, automatic retry with new IDs, implicit publish or old-journal
 repair. Combat snapshots/consumption are next serial slice, not this PR.
 

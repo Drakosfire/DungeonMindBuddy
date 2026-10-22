@@ -28,6 +28,9 @@ async function choose() {
 }
 beforeEach(()=>{
   localStorage.clear();
+  Object.defineProperty(navigator, "locks", {configurable: true, value: {
+    request: vi.fn(async (_key: string, action: () => unknown) => action()),
+  }});
   vi.spyOn(api,"postManagedWorldGraphProjection").mockResolvedValue(view);
   vi.spyOn(api,"listWorldMechanicsAssociations").mockResolvedValue([]);
 });
@@ -66,7 +69,7 @@ describe("World mechanics explicit association",()=>{
     render(<WorldMechanicsAssociationPanel draft={draft}/>);const user=await choose();
     await user.click(screen.getByRole("button",{name:"Associate creature mechanics"}));
     await user.click(await screen.findByRole("button",{name:"Refresh after conflict"}));
-    expect(screen.queryByRole("combobox")).toBeNull();expect(localStorage.getItem(key)).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());expect(localStorage.getItem(key)).toBeNull();
     expect(api.associateWorldMechanics).toHaveBeenCalledTimes(1);
   });
   it("does not claim success for a mismatched response",async()=>{
@@ -93,4 +96,53 @@ describe("World mechanics explicit association",()=>{
     await userEvent.click(screen.getByRole("button",{name:"Load creatures"}));
     await screen.findByRole("alert");expect(screen.queryByRole("combobox")).toBeNull();
   });
+  it("does not overwrite a competing reservation before POST", async () => {
+    const save = vi.spyOn(api, "associateWorldMechanics");
+    render(<WorldMechanicsAssociationPanel draft={draft}/>); const user = await choose();
+    const other = JSON.stringify({request_id: "other-view", draft_id: draft.draft_id});
+    localStorage.setItem(key, other);
+    await user.click(screen.getByRole("button", {name: "Associate creature mechanics"}));
+    await screen.findByText(/Another view retained/);
+    expect(save).not.toHaveBeenCalled(); expect(localStorage.getItem(key)).toBe(other);
+  });
+  it("preserves another pending request when an earlier POST succeeds", async () => {
+    let finish!: (value: AssociateWorldMechanicsResponse) => void;
+    const save = vi.spyOn(api, "associateWorldMechanics").mockReturnValue(new Promise(resolve => {finish = resolve;}));
+    render(<WorldMechanicsAssociationPanel draft={draft}/>); const user = await choose();
+    await user.click(screen.getByRole("button", {name: "Associate creature mechanics"}));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const other = JSON.stringify({...save.mock.calls[0][1], request_id: "other-view"});
+    localStorage.setItem(key, other);
+    await act(async () => finish(result(save.mock.calls[0][1])));
+    await screen.findByText(/Another view retained/);
+    expect(localStorage.getItem(key)).toBe(other); expect(screen.queryByRole("status")).toBeNull();
+  });
+  it("does not clear a foreign request on stale conflict refresh", async () => {
+    const save = vi.spyOn(api, "associateWorldMechanics").mockRejectedValue(new api.LiveApiError("World changed",409));
+    render(<WorldMechanicsAssociationPanel draft={draft}/>); const user = await choose();
+    await user.click(screen.getByRole("button", {name: "Associate creature mechanics"}));
+    const refresh = await screen.findByRole("button", {name: "Refresh after conflict"});
+    const other = JSON.stringify({...save.mock.calls[0][1], request_id: "other-view"});
+    localStorage.setItem(key, other); await user.click(refresh);
+    await screen.findByText(/Another view retained/); expect(localStorage.getItem(key)).toBe(other);
+  });
+  it("does not reserve or POST after unmount while waiting for the lock", async () => {
+    let acquire!: () => unknown;
+    vi.mocked(navigator.locks.request).mockImplementation(((_key: string, action: () => unknown) =>
+      new Promise((resolve, reject) => {acquire = () => {try {resolve(action());} catch (error) {reject(error);}};})) as typeof navigator.locks.request);
+    const save = vi.spyOn(api, "associateWorldMechanics");
+    const mounted = render(<WorldMechanicsAssociationPanel draft={draft}/>); const user = await choose();
+    await user.click(screen.getByRole("button", {name: "Associate creature mechanics"}));
+    mounted.unmount(); await act(async () => {acquire();});
+    expect(localStorage.getItem(key)).toBeNull(); expect(save).not.toHaveBeenCalled();
+  });
+  it("fails closed when browser locking is unavailable", async () => {
+    Object.defineProperty(navigator, "locks", {configurable: true, value: undefined});
+    const save = vi.spyOn(api, "associateWorldMechanics");
+    render(<WorldMechanicsAssociationPanel draft={draft}/>); const user = await choose();
+    await user.click(screen.getByRole("button", {name: "Associate creature mechanics"}));
+    await screen.findByText(/cannot safely retain/);
+    expect(save).not.toHaveBeenCalled(); expect(localStorage.getItem(key)).toBeNull();
+  });
+
 });

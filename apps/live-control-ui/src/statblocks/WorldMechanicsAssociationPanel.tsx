@@ -13,6 +13,14 @@ const eligible = (kind: string, role: string) => [kind, role].some(
   value => ["npc", "threat", "creature", "monster"].includes(value.toLowerCase()),
 );
 
+async function pendingStorage<T>(key: string, live: () => boolean, action: () => T): Promise<T> {
+  if (!navigator.locks) throw new Error("This browser cannot safely retain associations across tabs.");
+  return navigator.locks.request(key, () => {
+    if (!live()) throw new Error("Association view is no longer active.");
+    return action();
+  });
+}
+
 /** Explicit association action, shared by every host of the statblock workbench. */
 export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
   const key = `dmb.worldMechanics.pending:${draft.world_id}:${draft.draft_id}`;
@@ -66,8 +74,15 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
     if (flight.current) return;
     flight.current = true; setBusy(true); setError(null);
     try {
-      // Persist before POST. A lost acknowledgement keeps the exact request.
-      localStorage.setItem(key, JSON.stringify(request));
+      // Reserve before POST without overwriting another view's recovery request.
+      await pendingStorage(key, () => live.current, () => {
+        const stored = localStorage.getItem(key);
+        if (stored !== null && stored !== JSON.stringify(request)) {
+          throw new Error("Another view retained an association request. Reload to recover it before continuing.");
+        }
+        localStorage.setItem(key, JSON.stringify(request));
+      });
+      if (!live.current) return;
       setPending(request);
       const response = await associateWorldMechanics(draft.world_id, request);
       const actual = response.association.request;
@@ -83,6 +98,7 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
           || Object.keys(locator).length !== 6) {
         throw new Error("Association response did not match the saved request; resume to verify");
       }
+      await clearPending(request);
       if (!live.current) return;
       setSaved(response.association); setSavedReplay(response.replayed);
       if (response.replayed) {
@@ -92,13 +108,33 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
         setCurrent(old => [...old.filter(r => r.request.target.node_id !== request.target.node_id), response.association]);
       }
       setPending(null); setConflict(false);
-      try { localStorage.removeItem(key); } catch { /* Retained same-key replay remains safe. */ }
     } catch (e) {
       if (live.current) {
         setError(String(e));
         setConflict(e instanceof LiveApiError && e.status === 409);
       }
     } finally { flight.current = false; if (live.current) setBusy(false); }
+  }
+
+  async function clearPending(request: AssociateWorldMechanicsRequest) {
+    await pendingStorage(key, () => live.current, () => {
+      const stored = localStorage.getItem(key);
+      if (stored !== null && stored !== JSON.stringify(request)) {
+        throw new Error("Another view retained an association request. Reload to recover it before continuing.");
+      }
+      if (stored !== null) localStorage.removeItem(key);
+    });
+  }
+
+  async function refreshAfterConflict() {
+    if (flight.current || !pending) return;
+    flight.current = true; setBusy(true);
+    try {
+      await clearPending(pending);
+      if (!live.current) return;
+      setPending(null); setConflict(false); setView(null); setSelected(""); setError(null);
+    } catch (e) { if (live.current) setError(String(e)); }
+    finally { flight.current = false; if (live.current) setBusy(false); }
   }
 
   function start() {
@@ -143,9 +179,7 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
     {pending ? <>
       <p>The exact association request is retained. Resume it to check the outcome.</p>
       <button type="button" disabled={busy || !!initial.error} onClick={() => void submit(pending)}>Resume same association</button>
-      {conflict ? <button type="button" disabled={busy} onClick={() => {
-        localStorage.removeItem(key); setPending(null); setConflict(false); setView(null); setSelected("");
-      }}>Refresh after conflict</button> : null}
+      {conflict ? <button type="button" disabled={busy} onClick={() => void refreshAfterConflict()}>Refresh after conflict</button> : null}
     </> : null}
     {saved ? <p role="status">{savedReplay
       ? `Association receipt recovered for ${saved.request.target.label}. Load creatures to check the current association.`
