@@ -665,4 +665,18 @@ describe("CombatRosterModule", () => {
     expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
   });
 
+  it("reopens its already-open clean encounter without a false other-view refusal", async () => {
+    const initial=record();
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await screen.findByLabelText('HP for Geomantic Drake');
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await waitFor(()=>expect(get).toHaveBeenCalledTimes(2));
+    expect(await screen.findByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
 });

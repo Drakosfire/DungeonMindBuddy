@@ -1,6 +1,9 @@
 # COMBAT — remove a combatant from the recoverable encounter draft
 
-ACTIVE. PRIME owns a serial slice from21e263b7ace1de519848be66a8220196034762c9,
+SETTLED by #1592 (be2860a15767c5289550d7bb8c4e8e5c64ca6e54). Lease released.
+Rendered same-view reopen race is owned by HANDOFF-COMBAT-reopen-lease.md.
+
+Original scope: PRIME owns a serial slice from21e263b7ace1de519848be66a8220196034762c9,
 branch codex/combat-remove-combatants, existing buddy-context-loop checkout.
 Remote/open PR census found no overlapping implementation lease. The ordinary
 Sheep rehearsal accepted a source-backed Noke statblock and association, but the

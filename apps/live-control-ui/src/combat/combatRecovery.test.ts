@@ -65,3 +65,48 @@ it('rejects omitted defaulted fields used directly by the renderer',async()=>{
   const raw=JSON.stringify({schema:'dmb_combat_recovery_v1',base:record,draft,pending:null});localStorage.setItem(key,raw);
   await expect(session().open(record,()=>true)).rejects.toThrow('invalid');expect(localStorage.getItem(key)).toBe(raw);
 });
+
+/** Hold the actual lock-request completion after its callback has returned. */
+function delayedOwnRelease() {
+  let finish!: () => void;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  let held = false;
+  let calls = 0;
+  const manager = {request: async (name: string, _options: unknown, callback: (lock: Lock | null) => unknown) => {
+    const call = ++calls;
+    if (held) return callback(null);
+    held = true;
+    try { return await callback({name,mode:'exclusive'} as Lock); }
+    finally { if (call === 1) await gate; held = false; }
+  }} as unknown as LockManager;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:manager});
+  return {finish, calls:()=>calls};
+}
+
+it('waits for its own lock-request release before reopening the same encounter',async()=>{
+  const locks=delayedOwnRelease(),owner=session();
+  await owner.open(record,()=>true);
+  owner.write(record,{...record.draft,title:'Keep local work'});
+  const reopening=owner.open(record,()=>true);
+  await Promise.resolve();await Promise.resolve();
+  expect(locks.calls()).toBe(1);
+  locks.finish();
+  const result=await reopening;
+  expect(locks.calls()).toBe(2);
+  expect(result.recovery?.draft.title).toBe('Keep local work');
+  await expect(session().open(record,()=>true)).rejects.toThrow('another view');
+});
+
+it.each(['close','stale'] as const)('refuses late reacquisition after %s while its prior release is pending',async(mode)=>{
+  const locks=delayedOwnRelease(),owner=session();let current=true;
+  await owner.open(record,()=>true);
+  owner.write(record,{...record.draft,title:'Retained before cancellation'});
+  const key=combatRecoveryKey(record.world_id,record.encounter_id),raw=localStorage.getItem(key);
+  const reopening=owner.open(record,()=>current);
+  if(mode==='close')owner.close();else current=false;
+  locks.finish();
+  await expect(reopening).rejects.toThrow('view changed');
+  expect(locks.calls()).toBe(1);expect(localStorage.getItem(key)).toBe(raw);
+  const next=await session().open(record,()=>true);
+  expect(next.recovery?.draft.title).toBe('Retained before cancellation');
+});
