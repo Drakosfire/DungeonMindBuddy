@@ -1,6 +1,12 @@
 # STATBLOCK — truthful saved-state copy
 
-ACTIVE. PRIME owns this serial UI-only slice on base0ad0296fc365980e92c95fe3b63c3bca4807a912,
+SETTLED: PR1581 mergede8e1514566fc401375f2d160fedfabd2160788ba runs5202.
+Bugbot independently passed143 Workbench tests/typecheck/diff check. UI-only
+rollout preserved1487 APP rows and API8000 unchanged. Actual normal Tools/history
+reopen showed the accepted proposal, exact saved locator and corrected notices;
+screenshot retained locally. Association remains the next owned contract.
+
+Historical lease: PRIME owns this serial UI-only slice on base0ad0296fc365980e92c95fe3b63c3bca4807a912,
 existing buddy-context-loop checkout, codex/statblock-saved-state-copy.
 
 Real ordinary Build generation→human name edit→AI revise→review→validate→accept

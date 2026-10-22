@@ -272,10 +272,21 @@ def create_threat_draft(
     return draft
 
 
-def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:
+@contextmanager
+def locked_threat_draft(root: Path, draft_id: str) -> Iterator[ThreatDraft]:
+    """Read a committed snapshot while excluding concurrent draft writers.
+
+    Keep consumers short: no provider or Graph calls under this lock. Consumers
+    that join APP state acquire the filesystem lock before APP transaction locks.
+    """
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
-        return _load_draft_unlocked(root, committed_id)
+        yield _load_draft_unlocked(root, committed_id)
+
+
+def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:
+    with locked_threat_draft(root, draft_id) as draft:
+        return draft
 
 
 def find_threat_draft_for_candidate(
