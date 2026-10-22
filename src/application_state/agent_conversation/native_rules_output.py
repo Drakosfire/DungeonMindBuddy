@@ -36,6 +36,7 @@ from .source_writer_output import strict_json
 from .types import (
     PlanWorldGraphContextReceiptV1,
     PlanWorldGraphCompletionV2,
+    SurfaceSourceCompletionV1,
     PlanWorldGraphExecutionV3,
     PlayWorldGraphCompletionV1,
     PlayWorldGraphContextReceiptV1,
@@ -326,7 +327,7 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
 class NativeRulesNormalizedOutputV1:
     """Pure normalization result; it is not a durable acceptance receipt."""
 
-    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | None
+    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
     composition: AnswerCompositionV1
     assistant_text: str
@@ -467,12 +468,15 @@ def sealed_native_producer(turn, rules_execution, proof):
     closures = producing_graph_closures(turn, graph_auth, proof)
     receipt = turn.graph_context_receipt
     from .session_citation_labels import producing_session_titles
+    from .surface_source_answer import producing_passages
+    passages, source_partial = producing_passages(turn, graph_auth, proof.prepared_request_json)
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
         envelope_sha256=graph_auth.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256,
         graph_revision=receipt.graph_authority.graph_revision,
         closures=tuple(closures),
+        passages=passages, source_partial=source_partial,
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),
     )
     return capture, graph_support

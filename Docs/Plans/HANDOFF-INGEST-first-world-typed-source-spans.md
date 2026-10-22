@@ -1,6 +1,15 @@
 # INGEST — adopt current typed first-World evidence
 
-ACTIVE serial PRIME implementation from Buddy7d3f9f5b482c2ae803530c6159746d4e8f020ebe,
+SETTLED by1598 merge872c751e372bb85e953cd93cc54968b62715d6f1.
+Final Bugbot approvedd2bb5643b238623ea327339d8555bb71461b1396 after3cycles.
+Ordinary fresh source review/publication produced V2 receipt and three exact Plan
+passage reads by1.6s. Writer completed4.4s but had no graph claim records and could
+not cite source-only support. This is not grounded-answer acceptance; successor
+HANDOFF-AGENT-surface-source-passage-answers.md owns that separate boundary.
+Restart retained1595APP rows, all native rows,79mechanics files and11protected
+frozen components. Historical Worlds unchanged.
+
+Historical serial PRIME implementation from Buddy7d3f9f5b482c2ae803530c6159746d4e8f020ebe,
 branch codex/buddy-first-world-typed-source-spans, existing buddy-context-loop
 checkout. Authority: OverMind52 merge ddd5631fed63f2c5d60007b7fee640fc3d027a87,
 HANDOFF-MIND-first-world-source-spans.md; Core139 merge

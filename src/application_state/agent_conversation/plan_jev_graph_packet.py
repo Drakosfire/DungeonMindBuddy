@@ -155,7 +155,8 @@ def project(turn, proof, trace):
         seen.add(passage.source_read_id)
         source_events.add(source.event_id)
         present.add(passage.evidence_ref_id)
-        passages.append({"evidence": handles[passage.evidence_ref_id], "source_name": names.get(passage.source_read_id, "Opened source"),
+        from .surface_source_answer import eligible, passage_handle
+        passages.append({**({"passage_handle": passage_handle(read)} if eligible(read) else {}), "evidence": handles[passage.evidence_ref_id], "source_name": names.get(passage.source_read_id, "Opened source"),
             "text": passage.text, "line_start": passage.line_start, "line_end": passage.line_end, "outcome": passage.outcome, "truncated": read.truncated,
             "evidence_sufficiency": read.evidence_sufficiency_status})
     if not set(names) <= seen:

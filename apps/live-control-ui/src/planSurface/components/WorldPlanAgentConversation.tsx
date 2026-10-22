@@ -9,7 +9,7 @@ import { ActionPromptInspector } from "./ActionPromptInspector";
 import { ActionTerminalDiagnostic } from "./ActionTerminalDiagnostic";
 import { PlayAnswerEvidence } from "./PlayAnswerEvidence";
 import { BuildSavedSectionEvidence, isSavedSectionTargets } from "./BuildSavedSectionEvidence";
-import { BuildSourcePassageEvidence, isBuildSourceCompletion } from "./BuildSourcePassageEvidence";
+import { BuildSourcePassageEvidence, isBuildSourceCompletion, isSurfaceSourceCompletion } from "./BuildSourcePassageEvidence";
 import { useBuildCompose } from "./BuildComposeProposal";
 import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
@@ -1022,7 +1022,10 @@ function isWorldPlanGraphReceipt(
 function isWorldPlanGraphCompletion(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
-): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 {
+): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 {
+  if (isRecord(value) && value.schema === "dmb_surface_source_completion_v1")
+    return receipt.schema === "dmb_agent_plan_world_graph_context_receipt_v1" && isSurfaceSourceCompletion(value, receipt.context_receipt_sha256, "plan");
+
   const build = receipt.schema === "dmb_build_graph_context_receipt_v1";
   const version = build || (isRecord(value) && value.schema === "dmb_plan_world_graph_completion_v2") ? 2 : 1;
   if (!hasExactKeys(value, [
@@ -1149,7 +1152,7 @@ function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecu
 function isWorldPlanSourceOpenTargets(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | null,
 ): value is WorldPlanSourceOpenTargetV2[] {
   if (!Array.isArray(value) || value.length > 64) return false;
   const citations = completion?.citation_map?.entries ?? [];
@@ -1213,7 +1216,7 @@ function isWorldPlanSourceOpenTargets(
 
 function isWorldPlanRelatedRecapStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -1235,7 +1238,7 @@ function isWorldPlanRelatedRecapStatuses(
 
 function isWorldPlanEvidenceAnchorStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -4496,7 +4499,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2") {
+    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_surface_source_completion_v1") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId

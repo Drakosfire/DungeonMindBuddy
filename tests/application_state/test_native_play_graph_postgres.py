@@ -6,6 +6,7 @@ import json
 from uuid import uuid4
 
 from alembic import command
+from alembic.script import ScriptDirectory
 import psycopg
 from psycopg.types.json import Jsonb
 import pytest
@@ -27,7 +28,7 @@ from tests.test_play_graph_records import provenance
 from tests.test_play_graph_authority import intent_wire,native_provider
 
 
-HEAD='20261020_0042'
+HEAD=ScriptDirectory.from_config(alembic_config()).get_current_head()
 
 
 def make_submission(*,edition=False):

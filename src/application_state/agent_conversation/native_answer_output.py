@@ -72,6 +72,12 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
     plan=isinstance(receipt,t.PlanWorldGraphContextReceiptV1) and isinstance(execution,t.PlanWorldGraphExecutionV3)
     if not (play or plan):
         raise NativeAnswerError('authority','native_owner_missing')
+    if isinstance(candidate, dict) and candidate.get('schema') == 'dmb_surface_source_answer_v1':
+        from .surface_source_answer import normalize_surface_answer
+        try:
+            return normalize_surface_answer(candidate, turn, producer, support)
+        except (ValueError, KeyError, TypeError, StopIteration) as exc:
+            raise NativeAnswerError('binding', 'source_passage_binding') from exc
     stage,reason='shape','top_level_shape'
     try:
         two={'answer_context_status','answer_segments'}

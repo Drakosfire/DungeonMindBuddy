@@ -86,6 +86,8 @@ def build_evidence_packet(
         sources.append(
             {
                 "anchorId": aid,
+                **({"passageHandle": result["passageHandle"]} if result.get("passageHandle") else {}),
+                **({"sourceName": result["sourceName"]} if result.get("sourceName") else {}),
                 "evidence": handles[anchor["evidenceRefId"]],
                 "outcome": result.get("outcome", "not_opened"),
                 "truncated": result.get("truncated", False),

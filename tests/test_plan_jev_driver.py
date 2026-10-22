@@ -15,7 +15,7 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1, body_chars=None):
+def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []
     @contextmanager
@@ -39,7 +39,7 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None):
             'worldId': authority.native_world_id, 'revisionId': authority.graph_revision},
             'nodes': [{'nodeId': 'pond', 'label': 'Park pond', 'kind': 'location'},
                       {'nodeId': 'bridge', 'label': 'Footbridge', 'kind': 'location'}],
-            'attributes': [] if operation == 'search' else [{'assertionId': f'assertion:{node}',
+            'attributes': [] if operation == 'search' or node_only else [{'assertionId': f'assertion:{node}',
                 'subjectNodeId': node, 'predicate': 'description', 'value': 'A recorded wooden walkway',
                 'epistemicKind': 'reported', 'temporalScope': 'past', 'evidenceRefIds': refs}],
             'sourceAnchors': [] if operation == 'search' else [{'anchorId': pin.anchor_id,
@@ -47,7 +47,7 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None):
         event = t.ValidatedGraphOperationEventV3(kind='validated_graph_operation_v3', event_id=uuid4(),
             sequence=len(execution.events), operation_id=uuid4(), operation='expand_graph_retrieval',
             request_arguments_sha256=canonical_sha256(arguments), graph_revision=authority.graph_revision,
-            result_packet_sha256=canonical_sha256(packet), assertion_ids=[] if operation == 'search' else [f'assertion:{node}'],
+            result_packet_sha256=canonical_sha256(packet), assertion_ids=[] if operation == 'search' or node_only else [f'assertion:{node}'],
             relationship_ids=[], evidence_ref_ids=[] if operation == 'search' else refs,
             evidence_sufficiency_status='insufficient' if operation == 'search' else 'sufficient',
             coverage_status='complete', truncated=False, source_opened=False, returned_source_pins=[] if operation == 'search' else pins)

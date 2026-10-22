@@ -1047,7 +1047,7 @@ export interface WorldPlayGraphCompletionV1 {
 }
 export interface WorldPlayAgentContextV1 {
   schema: "dmb_agent_play_world_graph_context_response_v1";
-  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | null;
+  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
 }
 
@@ -1110,7 +1110,7 @@ export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletio
 export interface WorldPlanAgentPlanContextV2 {
   schema: "dmb_agent_plan_world_graph_context_response_v2";
   receipt: WorldPlanGraphContextReceiptV1;
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null;
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
   source_open_targets?: WorldPlanSourceOpenTargetV2[];
@@ -1154,11 +1154,22 @@ export interface WorldBuildGraphCompletionV2 {
   citation_map: null;
   source_citations: WorldBuildSourcePassageCitationV1[];
 }
+export interface SurfaceSourceCompletionV1 {
+  schema: "dmb_surface_source_completion_v1";
+  surface_id: "plan" | "play";
+  context_receipt_sha256: string;
+  answer_basis: "opened_source_passages";
+  answer_context_status: "source_grounded" | "source_grounded_partial";
+  answer_segments: ({kind:"source_passage_claim";text:string} | {kind:"connective";text:string}
+    | {kind:"proposal";text:string;label:"invented_idea"|"image_prompt"})[];
+  citation_map: null;
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";
     world_id: string; turn_id: string; citation_index: number};
-  citation: WorldBuildSourcePassageCitationV1;
+  citation: WorldBuildSourcePassageCitationV1 | (WorldBuildSourcePassageCitationV1 & {source_name:string});
   content: string;
 }
 

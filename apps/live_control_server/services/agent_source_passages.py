@@ -9,6 +9,9 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
     BuildGraphContextReceiptV1,
+    SurfaceSourceCompletionV1,
+    PlanWorldGraphContextReceiptV1,
+    PlayWorldGraphContextReceiptV1,
 )
 from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.integrations.dungeonmind import (
@@ -46,8 +49,10 @@ def open_source_passage(
     )
     if (
         turn.status != "completed"
-        or not isinstance(turn.completion, BuildGraphCompletionV2)
-        or not isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
+        or not (isinstance(turn.completion, BuildGraphCompletionV2)
+            and isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
+            or isinstance(turn.completion, SurfaceSourceCompletionV1)
+            and isinstance(turn.graph_context_receipt, (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1)))
     ):
         raise SourcePassageOpenError("source_passage_completion_unavailable", 404)
     if citation_index >= len(turn.completion.source_citations):

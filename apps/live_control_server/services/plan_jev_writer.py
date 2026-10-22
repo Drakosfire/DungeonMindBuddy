@@ -73,6 +73,8 @@ class PlanClaimEvidence:
     graph_revision: str
     closures: tuple
     session_titles: tuple = ()
+    passages: tuple = ()
+    source_partial: bool = False
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -110,7 +112,8 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
-        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS,
+        from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as SOURCE_INSTRUCTIONS
+        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS, SOURCE_INSTRUCTIONS,
             RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
@@ -156,10 +159,12 @@ class PlanJevWriter:
         self.rules.authorize(view)
         a._capture_prepared_prompt(view, event)
         from application_state.agent_conversation.session_citation_labels import producing_session_titles
+        from application_state.agent_conversation.surface_source_answer import producing_passages
+        passages, source_partial = producing_passages(a.turn, event, view["payloadJson"])
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
             a._broker_receipt().graph_authority.graph_revision, projection.closures,
-            producing_session_titles(a.turn, event, view["payloadJson"]))
+            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial)
         self.prepared, self.authorization = prepared, event
         return True
 
