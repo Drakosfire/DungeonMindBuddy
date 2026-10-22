@@ -53,8 +53,9 @@ published graph-head existence.
 ## Current execution pickup — reconciled 2026-10-21
 
 Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for delivered work,
-remaining acceptance and the operator's next-goal discussion. Implementation is
-paused. Cards/manual editing, shared Surface navigation, Build document ingestion,
+remaining acceptance and the operator-selected sustained goal. Execution resumes
+with bounded reviewed slices for dependable planning, connected Combat and both
+adventure rehearsals, refining foundations throughout. Cards/manual editing, shared Surface navigation, Build document ingestion,
 limited native Rules lookup and Combat C0 have delivered bounded capabilities.
 They do not award J1–J6 acceptance.
 
@@ -62,8 +63,9 @@ Fresh live Plan dogfooding found a root inventory split (draft #1566, not deploy
 and a completed Jev reply that leaves the composer locked. The fresh
 conversation→image journey remains unproven; one isolated sub-10-second grounding
 pass is not a reliable latency acceptance result. The roadmap records these gaps
-and proposed goals. Do not resume implementation or an old “next” dispatch until
-the operator chooses the next goal. Mandate, ownership and full mission remain.
+and the selected sequence. Re-anchor and bound each slice; do not revive old
+“next” dispatches or prototype runtime pathways. Mandate, ownership and full
+mission remain.
 
 ## Activation and inheritance
 

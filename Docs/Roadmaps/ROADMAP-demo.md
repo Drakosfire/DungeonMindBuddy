@@ -1,14 +1,17 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product roadmap; reconciled 2026-10-21; implementation paused for operator planning.
+**Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
 **Evidence anchor:** remote main `71db547cbb3eab3c5037d0b8446ce4014ecfa9f9` (through PR #1565 and #1546).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
 This is the sole product execution ledger. Detailed history remains in Git, PRs
-and bounded contracts. The operator paused implementation to choose the next goal.
-No candidate below activates implementation. Draft #1566 remains unmerged and
-undeployed. Historical “next” instructions in settled slices do not reactivate work.
+and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
+Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
+foundation refinement throughout. Draft #1566 remains unmerged and undeployed
+at this checkpoint and is the first existing delivery candidate. Historical “next”
+instructions do not reactivate old leases; new implementation slices still require
+bounded ownership and review.
 
 ## Product decisions that remain in force
 
@@ -107,7 +110,7 @@ planning checkpoint, not a requirement to keep those revisions after delivery.
   console/SQL/manual-ID repair, including fresh World and restart. No local demo
   acceptance is awarded. Hosted v1 has separate identity/deploy/backup gates.
 
-## Proposed next goals — operator choice pending
+## Selected goal and later candidates
 
 | Candidate | First useful outcome | Completion boundary |
 |---|---|---|
@@ -117,18 +120,23 @@ planning checkpoint, not a requirement to keep those revisions after delivery.
 | 8 GB performance acceptance | Know current client cost and eliminate the largest measured waste | Current-build load/read/memory measurements, one prioritized repair and before/after evidence |
 | Hosted v1 | Authenticated laptop use at buddy.dungeonmind.net | Separate SERVER/platform contract, access controls, repeatable deployment and backup/restart proof |
 
-Choose one goal and sequence independently reviewable slices inside it. Do not
-turn the candidate table into parallel implementation authority. Rules graph
+The operator selected dependable planning, connected Combat and the two adventure
+rehearsals as one sustained goal, sequenced in independently reviewable slices.
+Foundation refinement runs throughout: shared Surface components, demand loading,
+bounded/deduplicated reads and current-build 8 GB performance evidence. The
+session-to-memory evidence boundary applies to the rehearsals; hosted v1 remains
+a separately selected candidate. This table does not grant parallel write leases. Rules graph
 experiments remain deferred until broader objectives are accepted or the operator
 explicitly activates a bounded experiment; delivered Rules lookup remains useful
 without that experiment. Semantic maps, linked speculative ideas, economics and
 identity through time remain later evidence-driven candidates.
 
-## Next priorities after dependable planning — discussion proposal
+## Selected continuation after dependable planning
 
 The operator identified the mechanical, unfilled Combat landing and nominated
 **Of Conks and Cons** and **A Wild Sheep Chase** as full adventure witnesses.
-These are proposed priorities, not an activation of old prototype/handoff leases.
+The operator included these priorities in the active goal. This does not reactivate
+old prototype/handoff leases.
 
 ### 1. Make Combat a usable table instrument
 
@@ -192,7 +200,7 @@ The target is an adventure usable at the table:
    publication cannot stand in for the whole journey. Use the second adventure
    to check generality without adventure-specific runtime branches.
 
-**Suggested sequencing:** finish the fresh Plan/Buddy/image failures, then design
+**Selected sequencing:** finish the fresh Plan/Buddy/image failures, then design
 and deliver the Combat entry/encounter/Play connection in bounded reviewed slices.
 Use one adventure as the first connected rehearsal and the other as the generality
 check; choose their order after inspecting current source/run readiness. Repair
