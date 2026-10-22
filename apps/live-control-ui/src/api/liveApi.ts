@@ -334,6 +334,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (pathname.startsWith("/api/live/combat/encounters")) return true;
+  if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (pathname==="/api/live/recap-ingest" && Array.isArray(requestBodyRecord(body)?.session_evidence) && (requestBodyRecord(body)!.session_evidence as unknown[]).length>0) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
@@ -3179,4 +3180,14 @@ export function getHistoricalRulesPassage(target: import('./rulesLookupTypes').R
   return apiFetch<import('./rulesLookupTypes').RulesHistoricalPassage>(
     `/api/live/agent/worlds/${encodeURIComponent(target.worldId)}/conversation/turns/${target.turnId}/rules-passages/${target.supportId}?${query}`,
     { signal, cache: 'no-store' });
+}
+
+
+export async function listWorldMechanicsAssociations(worldId: string): Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation[]> {
+  return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`);
+}
+export async function associateWorldMechanics(worldId: string, request: import("./worldMechanicsTypes").AssociateWorldMechanicsRequest): Promise<import("./worldMechanicsTypes").AssociateWorldMechanicsResponse> {
+  return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`, {
+    method: "POST", body: JSON.stringify(request),
+  });
 }

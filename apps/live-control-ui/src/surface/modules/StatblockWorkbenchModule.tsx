@@ -1,3 +1,4 @@
+import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -3636,6 +3637,9 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             />
           ) : null}
 
+          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
+            <WorldMechanicsAssociationPanel key={threatDraft.draft_id} draft={threatDraft} />
+          ) : null}
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <p role="status" data-testid="world-publication-unavailable">
               World-only drafts can save mechanics. Campaign graph publication is unavailable for this scope.
