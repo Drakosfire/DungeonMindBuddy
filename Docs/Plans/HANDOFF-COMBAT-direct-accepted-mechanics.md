@@ -1,6 +1,10 @@
 # COMBAT — select accepted mechanics without inventing a World creature
 
-ACTIVE. PRIME owns this serial slice from c11da4db7236d170f0ee00bf8e38e74cb929f08b,
+SETTLED by #1595 (390c3cb1f6b7b63f6144661f3f838ebe4b8663b7). Lease released.
+Exact-head Bugbot approval, guarded delivery and rendered selection/save/reload/
+restart passed; subsequent source-grounded opponent roster/turn witness passed.
+
+Original scope: PRIME owns this serial slice from c11da4db7236d170f0ee00bf8e38e74cb929f08b,
 branch codex/combat-direct-accepted-mechanics, existing buddy-context-loop checkout.
 Remote/open PR census has no overlapping active implementation lease. Architecture
 critiqued the exact-snapshot invariant; the retained Noke draft version2 has exactly

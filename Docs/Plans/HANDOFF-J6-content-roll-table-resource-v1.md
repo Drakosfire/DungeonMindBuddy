@@ -1,6 +1,10 @@
 # HANDOFF — J6 Content roll-table resource v1
 
-**Status:** PROPOSED / BLOCKED. This is a design contract, not an implementation lease.
+**Status:** DEFERRED / UNSELECTED. Independent reusable table lifecycle remains a
+later candidate. The first native J6 capability instead uses explicit authored
+tables inside the existing exact pinned Plan/Runbook revision; see
+[the embedded-table contract](HANDOFF-PLAY-recorded-tables.md). This historical
+Content proposal is not a prerequisite or implementation lease.
 
 **Owner:** APP-STATE Content in DungeonMindBuddy. **Design authority:** PRIME's 2026-10-02 J6 routing decision, informed by ARCHITECTURE's exact-reference review and RAKE's read-only product audit. **Pinned design base:** Buddy `origin/main@cfec63c6df9bd14aa7a1b5963266f926c729f8ab`. The design branch owns this file only. PRIME must re-anchor, check collisions, assign a separate implementation owner and exact write/resource lease, and mark an implementation handoff ACTIVE before code work.
 

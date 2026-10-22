@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `f168672c4d9f8e11e32f4605e6835531c1a8e7fa` (through PR #1593).
+**Evidence anchor:** remote main `390c3cb1f6b7b63f6144661f3f838ebe4b8663b7` (through PR #1595).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves21e263b7a (#1591); UI servesf168672c4 (#1593). Named saved-section
+API8000/UI5202 serve390c3cb1f (#1595). Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -292,10 +292,25 @@ lease release. Ordinary same-module Open→Open after delivery retained the same
 encounter and saved source/tracker values without reloading the page. The shared
 mechanics renderer no longer displays unrelated portrait art (#1594); actual
 portrait-free source/tracker inspection passed. Direct accepted-asset selection
-for unnamed creatures is activated in the bounded COMBAT handoff after Architecture
-critique and unique acceptance-journal proof. Agent structural card creation also
+for unnamed creatures delivered in #1595. Actual two-copy selection/save/reload/
+restart preserved exact mechanics and independent tracker state without World identity. Agent structural card creation also
 remains open; focused body editing works after manual structure creation. These
 are partial connected witnesses, not complete adventure/J1–J6 acceptance.
+
+Ordinary source-verified Workbench generation/review/revision/validation/acceptance
+added Bear, greatsword Ape and conditional Bed Dragon assets. The original fight
+now retains five opponents (three grouped Apes), round2/current Noke and independent
+HP/conditions through reload/API restart; original Plan revision11/hash unchanged.
+Restart preserved1563APP rows/79product files and frozen sources. Printed older
+values are labeled transcription, not edition-conversion acceptance. One initial
+Bed Dragon generation failed ruleset_mismatch and remains retained; a new explicit
+edition-bound draft succeeded. Ape AI revision restored the omitted printed HP19.
+
+Native recorded table rolls are next: [bounded design scope](../Plans/HANDOFF-PLAY-recorded-tables.md)
+uses explicit tables embedded in the existing exact Run-pinned Plan revision and
+a Play-owned append-only receipt. No new reusable Content kind is a prerequisite.
+Conks Appendix C physical page18 supplies real1d12 tables; Sheep encounter prose
+does not. Runtime implementation requires its separately activated bounded lease.
 
 The target is an adventure usable at the table:
 
