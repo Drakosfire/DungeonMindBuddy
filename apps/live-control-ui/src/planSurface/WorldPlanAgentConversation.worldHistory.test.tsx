@@ -2205,6 +2205,8 @@ describe("World Plan conversation consumer", () => {
   it.each([
     "Write that as an image prompt and lets generate one",
     "Please draft an image prompt for the boardwalk.",
+    "Write an image prompt based on this scene.",
+    "Write an image prompt without adding it to the Plan.",
   ])("submits image preparation as Ask and opens only the explicit Studio handoff: %s", async message => {
     const api = setupApi(history("conversation-a", 4, []));
     const prompt = "A timber walkway over dark water, with a damaged crossing.";
