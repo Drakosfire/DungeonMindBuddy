@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import ManagedWorldDataRootError, managed_world_data_root, repo_root
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
@@ -71,10 +72,11 @@ def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
 def post_threat_draft(
     body: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
 ) -> dict[str, Any]:
+    root = statblock_data_root(repo_root())
     if isinstance(body, CreateWorldThreatDraftRequest):
         _admit_world_scope(body.world_id, body.graph_context_snapshot.graph_revision_id)
     try:
-        draft = create_threat_draft(repo_root(), body)
+        draft = create_threat_draft(root, body)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)
@@ -89,7 +91,7 @@ def get_threat_drafts(
 ) -> dict[str, Any]:
     try:
         drafts, total = list_threat_drafts(
-            repo_root(),
+            statblock_data_root(repo_root()),
             campaign_id=campaign_id,
             world_id=world_id,
             limit=limit,
@@ -108,7 +110,7 @@ def get_threat_drafts(
 @router.get("/{draft_id}")
 def get_threat_draft_route(draft_id: str) -> dict[str, Any]:
     try:
-        draft = get_threat_draft(repo_root(), draft_id)
+        draft = get_threat_draft(statblock_data_root(repo_root()), draft_id)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)
@@ -117,10 +119,10 @@ def get_threat_draft_route(draft_id: str) -> dict[str, Any]:
 @router.put("/{draft_id}")
 def put_threat_draft(draft_id: str, body: UpdateThreatDraftRequest) -> dict[str, Any]:
     try:
-        existing = get_threat_draft(repo_root(), draft_id)
+        existing = get_threat_draft(statblock_data_root(repo_root()), draft_id)
         if isinstance(existing, ThreatDraftV2):
             _admit_world_scope(existing.world_id, body.graph_context_snapshot.graph_revision_id)
-        draft = update_threat_draft(repo_root(), draft_id, body)
+        draft = update_threat_draft(statblock_data_root(repo_root()), draft_id, body)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)

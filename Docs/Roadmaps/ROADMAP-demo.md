@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `af4298575fe8db2bd564da4fa3929b99d55385e9` (through PR #1577).
+**Evidence anchor:** remote main `f3a8dac3ca900cb79e9da77989ae33e9fab8858b` (through PR #1578).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -24,8 +24,10 @@ native projection. #1576 repaired owner-qualified shared-read reuse and managed
 exact-pin routing; actual Find→View NPC succeeded after reload. #1577 exposes the
 existing lazy Statblock Workbench in Build Tools. Its live Create & generate
 revealed managed-slug/native-ID confusion in head lookup and server draft
-revision admission. That provenance repair is the active serial prerequisite
-for real generation/acceptance before bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
+revision admission. #1578 repaired managed provenance and is running on8000/5202. Before paid
+generation, statblock journals were found under disposable code root instead of
+the configured persistent artifact root. That lifecycle-root repair is active
+before real generation/acceptance and bound mechanics; complete journey acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -105,7 +107,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves3846c3091 (#1574); UI5202 servesaf4298575 (#1577),
+The API backing5202 and UI5202 servef3a8dac3c (#1578),
 with all1487 existing APP rows preserved at delivery. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
