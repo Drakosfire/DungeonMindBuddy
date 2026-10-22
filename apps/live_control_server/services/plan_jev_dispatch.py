@@ -127,6 +127,9 @@ class PlanJevDispatch:
         a.turn = _require_fresh_execution_append(a.fence.append("record_plan_jev_retrieval_selection", "selection", event,
             producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True),
                 "request_json": self.prepared.body.decode(), "response_json": raw}))
+        if selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
+            a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
+                                       "code": "controller_finished_with_gaps"})
         self.selection = selected
         return selected
 

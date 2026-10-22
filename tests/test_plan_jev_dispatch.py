@@ -63,7 +63,7 @@ class Wire(httpx2.AsyncBaseTransport):
         if self.timeout: raise httpx2.ReadTimeout('synthetic ambiguous response', request=request)
         answers = {}
         for name, entry in body['questions'].items():
-            choice = self.operation if name == 'operation' else ('include' if self.operation == 'select_candidates' or self.independent_includes else 'exclude')
+            choice = ('finish_retrieval' if self.operation == 'select_candidates' else self.operation) if name == 'operation' else ('include' if self.operation == 'select_candidates' or self.independent_includes else 'exclude')
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
@@ -176,21 +176,31 @@ def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(pla
         plan_adapter._build_native_acquisition_services = None
 
 
-def test_invalid_actual_decision_is_captured_before_rejection(plan_adapter):
-    class Contradictory(Wire):
-        async def handle_async_request(self, request):
-            response = await super().handle_async_request(request)
-            payload = response.json()
-            payload['answers']['candidate_0']['choice'] = 'exclude'
-            payload['answers']['candidate_0']['probabilities'] = {'include': 0.0, 'exclude': 1.0}
-            return httpx2.Response(200, request=request, json=payload)
+def test_invalid_actual_decision_is_captured_before_rejection(plan_adapter, monkeypatch):
     dispatch = controller(plan_adapter)
-    wire = Contradictory(plan_adapter, operation='select_candidates')
-    with pytest.raises(ValueError, match='nonempty handles'):
+    wire = Wire(plan_adapter, operation='finish_retrieval')
+    def reject(*args):
+        raise ValueError('synthetic invalid typed result')
+    monkeypatch.setattr('apps.live_control_server.services.plan_jev_dispatch.decode_selection', reject)
+    with pytest.raises(ValueError, match='invalid typed result'):
         asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
     captures = [m for row in plan_adapter.context_capture.trace.observations if row.kind == 'context_snapshot'
         for m in row.materials if m.item_id.startswith('unvalidated-plan-jev-result:')]
     assert len(captures) == 1
-    assert json.loads(captures[0].text)['answers']['candidate_0']['selected'] == 'exclude'
+    assert json.loads(captures[0].text)['answers']['operation']['selected'] == 'finish_retrieval'
     assert not any(isinstance(e, t.PlanJevRetrievalSelectionV1) for e in plan_adapter._broker_execution().events)
+    assert len(wire.calls) == 1
+
+
+def test_explicit_gap_finish_is_acknowledged_and_qualifies_writer(plan_adapter):
+    dispatch = PlanJevDispatch(plan_adapter,
+        (RetrievalCandidate(handle='node:park-pond', label='Park pond', kind='location'),),
+        allowed_operations=('select_candidates', 'finish_retrieval'))
+    wire = Wire(plan_adapter, operation='finish_with_gaps')
+    selection, _ = asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
+    assert selection.operation == 'finish_retrieval'
+    assert any(isinstance(e, t.PlanJevRetrievalSelectionV1) and e.operation == 'finish_retrieval'
+        for e in plan_adapter._broker_execution().events)
+    assert any(o.kind == 'failure' and o.code == 'controller_finished_with_gaps'
+        for o in plan_adapter.context_capture.trace.observations)
     assert len(wire.calls) == 1

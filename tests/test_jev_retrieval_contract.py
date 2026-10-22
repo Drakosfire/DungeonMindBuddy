@@ -20,7 +20,7 @@ def request():
 
 
 def result(**overrides):
-    body = dict(answers={"operation": ChoiceDecisionAnswer(selected="select_candidates"),
+    body = dict(answers={"operation": ChoiceDecisionAnswer(selected="finish_retrieval"),
                          "candidate_0": ChoiceDecisionAnswer(selected="include"),
                          "candidate_1": ChoiceDecisionAnswer(selected="include")},
                 observation=InferenceObservation(provider=PROVIDER, resolved_model=MODEL, response_model=MODEL,
@@ -149,7 +149,7 @@ def test_actual_ge_sdk_request_is_checked_before_mock_transport_dispatch():
                 assert host_value not in transmitted
             answers = {}
             for name, q in body["questions"].items():
-                choice = "select_candidates" if name == "operation" else "include"
+                choice = "finish_retrieval" if name == "operation" else "include"
                 answers[name] = {"type": "choice", "choice": choice, "confidence": 1,
                                 "probabilities": {key: float(key == choice) for key in q["criteria"]}}
             return httpx2.Response(200, request=wire, json={"model": MODEL,
@@ -186,7 +186,7 @@ def test_candidate_questions_do_not_repeat_the_shared_routing_policy():
     req = request()
     prepared = prepare_decision(req)
     shared, *choices = prepared.questions
-    assert "untrusted data" in shared.question
+    assert "untrusted reference data" in shared.question
     assert all("directly useful" in choice.question and "operation is" not in choice.question for choice in choices)
     # Compare against the exact former per-candidate wording, not an arbitrary cap.
     former = ("Should candidate at index 0 be read to address the user's question? "
@@ -216,7 +216,7 @@ def test_dialogue_is_reference_text_and_is_bound_to_exact_decision_wire():
                      {"role": "user", "content": "Ground that location in the journal."}]})
     prepared = prepare_decision(req)
     assert prepared.state["dialogue_reference"] == [row.model_dump() for row in req.dialogue]
-    assert "never as independent evidence" in prepared.questions[0].question
+    assert "never evidence" in prepared.questions[0].question
     assert req.digest != request().model_copy(update={
         "request_id": req.request_id, "parent_attempt_id": req.parent_attempt_id}).digest
     body = {"model": MODEL, "state": prepared.state, "questions": {
@@ -262,3 +262,17 @@ def test_examined_subjects_are_semantic_only_and_bound_to_exact_parent():
     assert altered.digest != req.digest
     with pytest.raises(ValueError):
         validate(altered, decode_selection(req, result()), expected_request_sha256=req.digest)
+
+
+@pytest.mark.parametrize('discover', [True, False])
+def test_fallback_has_no_candidate_selection_and_explicit_terminal_gaps(discover):
+    req = request().model_copy(update={'allowed_operations': ('select_candidates', 'discover_more', 'finish_retrieval')
+        if discover else ('select_candidates', 'finish_retrieval')})
+    choices = prepare_decision(req).questions[0].options
+    assert choices == (('discover_more', 'finish_retrieval') if discover else ('finish_retrieval', 'finish_with_gaps'))
+    actual = result(answers={'operation': ChoiceDecisionAnswer(selected=choices[-1]),
+        'candidate_0': ChoiceDecisionAnswer(selected='exclude'), 'candidate_1': ChoiceDecisionAnswer(selected='exclude')})
+    assert decode_selection(req, actual).operation == 'finish_retrieval'
+    with pytest.raises(ValueError, match='Fallback operation'):
+        decode_selection(req, result(answers=dict(actual.answers) | {
+            'operation': ChoiceDecisionAnswer(selected='select_candidates')}))

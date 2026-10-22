@@ -73,7 +73,7 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
             assert body["state"]["candidates"] == [{"label": c.label, "kind": c.kind} for c in (candidate, offered_rules)]
             answers = {}
             for name, entry in body["questions"].items():
-                choice = operation if name == "operation" else ("include" if operation == "select_candidates" else "exclude")
+                choice = ("finish_retrieval" if operation == "select_candidates" else operation) if name == "operation" else ("include" if operation == "select_candidates" else "exclude")
                 answers[name] = {"type": "choice", "choice": choice, "confidence": 1.0,
                     "probabilities": {key: float(key == choice) for key in entry["criteria"]}}
             response = {"model": MODEL, "answers": answers, "usage": {}}

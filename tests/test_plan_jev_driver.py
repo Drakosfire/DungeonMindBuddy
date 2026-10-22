@@ -101,7 +101,7 @@ class Decisions(httpx2.AsyncBaseTransport):
         operation = 'select_candidates' if candidates else ('discover_more' if self.discover and len(self.calls) == 1 else 'finish_retrieval')
         answers = {}
         for name, question in body['questions'].items():
-            choice = operation if name == 'operation' else (
+            choice = ('finish_retrieval' if operation == 'select_candidates' else operation) if name == 'operation' else (
                 'include' if operation == 'select_candidates' and (not self.sequential or name == 'candidate_0') else 'exclude')
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in question['criteria']}}
