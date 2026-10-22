@@ -130,7 +130,11 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert all(row['source_name'] == 'Synthetic park journal' for row in frame['opened_passages'])
     assert len(driver.calls) == len(transport.calls) == (3 if sequential else 2)
     assert frame['dialogue_reference'] == [{'role': 'user', 'content': 'Earlier park discussion.'}]
-    assert all(set(body['state']) == {'question', 'candidates', 'dialogue_reference'} for body in transport.calls)
+    assert set(transport.calls[0]['state']) == {'question', 'candidates', 'dialogue_reference'}
+    assert all(set(body['state']) == {'question', 'candidates', 'dialogue_reference', 'examined_subjects'}
+        for body in transport.calls[1:])
+    assert transport.calls[-1]['state']['examined_subjects'] == [
+        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'}]
     assert all(body['state']['dialogue_reference'] == frame['dialogue_reference'] for body in transport.calls)
 
 

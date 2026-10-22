@@ -250,3 +250,15 @@ def test_independent_relevance_votes_take_priority_over_global_fallback(operatio
     # Keep the real response unchanged for exact capture/debug; this is parent
     # conditional interpretation, not a rewritten provider decision.
     assert actual.answers['candidate_0'].selected=='include'
+
+
+def test_examined_subjects_are_semantic_only_and_bound_to_exact_parent():
+    req = request().model_copy(update={'examined_candidates': (RetrievalCandidate(
+        handle='opaque:already-read', label='North road', kind='World entity'),)})
+    model = prepare_decision(req)
+    assert model.state['examined_subjects'] == [{'label': 'North road', 'kind': 'World entity'}]
+    assert 'opaque:already-read' not in json.dumps(model.model_dump(mode='json'))
+    altered = req.model_copy(update={'examined_candidates': ()})
+    assert altered.digest != req.digest
+    with pytest.raises(ValueError):
+        validate(altered, decode_selection(req, result()), expected_request_sha256=req.digest)

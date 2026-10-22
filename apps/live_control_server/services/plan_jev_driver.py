@@ -151,7 +151,11 @@ class PlanJevDriver:
         while not self.finished:
             operations = (("select_candidates", "finish_retrieval") if self.discovered else
                           ("select_candidates", "discover_more", "finish_retrieval"))
-            dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue, allowed_operations=operations)
+            examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
+            if self.rules is not None and self.rules.selected:
+                examined.append(rules_candidate())
+            dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
+                examined_candidates=examined, allowed_operations=operations)
             self.current = dispatch
             try:
                 await dispatch.run(transport=transport, api_key=api_key)
