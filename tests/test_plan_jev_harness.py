@@ -46,6 +46,10 @@ def test_turn_service_plan_harness_delivers_and_replays_without_another_call(pla
     response=execute_agent_turn(plan_adapter.request,**kwargs)
     assert response.answer.status=='ok' and 'proposes a park visit' in response.answer.text
     assert response.plan_context.delivery_replay is False
+    assert response.primary_work.content_basis == plan_adapter.work.content_basis
+    basis = response.model_dump(mode='json')['primary_work']['content_basis']
+    frozen = response.plan_context.receipt.plan_basis.model_dump(mode='json')
+    assert all(basis[key] == value for key, value in frozen.items())
     assert len(decisions.calls)==len(wire.calls)==1 and len(harness.calls)==2
     assert harness.calls[0]['usage']['input_tokens']==31 and harness.calls[1]['usage']['input_tokens']==600
     turn=kwargs['conversation_service'].list_turns(plan_adapter.world_id,wire.adapter.turn.conversation_id)[0]
@@ -53,6 +57,7 @@ def test_turn_service_plan_harness_delivers_and_replays_without_another_call(pla
     assert len([row for row in trace.observations if row.kind=='prompt_reference'])==2
     replay=execute_agent_turn(plan_adapter.request,**kwargs)
     assert replay.answer.text==response.answer.text and replay.plan_context.delivery_replay
+    assert replay.primary_work.content_basis is None
     assert len(decisions.calls)==len(wire.calls)==1
 
 

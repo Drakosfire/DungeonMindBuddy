@@ -66,6 +66,9 @@ class PlanJevHarness:
         response=_completed_turn_replay(adapter.request,owner=owner,turn=completed)
         payload=response.model_dump(mode='json',by_alias=True)
         payload['answer']['trace']=final
+        # The durable projection deliberately omits live work on a replay. A
+        # fresh response must carry the committed basis resolved for this turn.
+        payload['primary_work']['content_basis']=adapter.work.content_basis.model_dump(mode='json')
         if payload.get('plan_context') is not None: payload['plan_context']['delivery_replay']=False
         if payload.get('rules_context') is not None:
             for key in ('base_context','unclaimed_context'):
