@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `3f3f608650f23ba4746777fde2e4bc671db18478` (through PR #1583).
+**Evidence anchor:** remote main `110f7e9ae2d546ce254c02078d125ff8e33eebf7` (through PR #1584).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -39,8 +39,11 @@ accepted mechanics after restart. #1582 delivered explicit APP-owned World mecha
 association→reload→API restart retained1488 APP rows and59 product files, unchanged
 native head/exact DMS identity and saved association version1. #1583 delivered exact Combat snapshots with independent tracker fields. Actual UI
 save/reopen/restart retained1489APP rows/59product files, identical snapshot copies,
-HP7/16, conditions/notes and active actor. Shared Plan/Play Combat hosting with draft
-recovery is the next bounded slice; native Graph binding payloads and fake
+HP7/16, conditions/notes and active actor. #1584 delivered shared lazy Plan/Play Combat hosting with explicit exact encounter
+selection and local draft recovery. Actual Plan edit→tool close→recover→Play
+recover→Save→Plan reopen and API restart preserved the same fight, snapshots and
+independent actor state. Full page navigation exposed Plan scene-position reset;
+that is the next bounded fix. Connected journey acceptance is still open; native Graph binding payloads and fake
 campaign publication are excluded. Connected Combat acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -83,7 +86,7 @@ bounded ownership and review.
 | User/Agent Rules lookup in governed Plan and Play | #1500–#1506, #1526, #1543–#1545 | Admitted public SRD 5.2.1 occupancy corpus; not all 2024 rules, travel-rule coverage or a rules graph |
 | Build ingestion in the existing document: Worldbuilding/Recap configuration, review and recovery | #1525, #1535–#1539, #1547–#1549, #1551 | Editing accepted World facts remains separate; full source-quality/chronology acceptance is open |
 | Native publication and exact source reopen | #1552, #1560–#1563; isolated real Worldbuilding and public Recap review→selected identity publication→cold source reopen | Selected publication, not every proposed attribute/relationship; private external Session 29 extraction was reviewable but not published and had no supplements selected |
-| Native Combat C0 plus C1a World/manual actor assembly, independent copies/groups and saved World identity | #1550, #1556/#1557, #1571; actual native World selection→Save→fresh reopen/API restart | Exact-bound mechanics C1b, operational C2 and Plan/Play continuity remain open |
+| Native Combat C0 plus C1a World/manual actor assembly, independent copies/groups and saved World identity | #1550, #1556/#1557, #1571; actual native World selection→Save→fresh reopen/API restart | Exact mechanics snapshots and shared recoverable Plan/Play hosting delivered #1583/#1584; configured combat and connected journey acceptance remain open |
 | Ordinary Build Jev retrieval (#1325–#1369), plus Plan retrieval decisions, host-owned reads and one writer; actual per-call usage | #1527–#1534, #1540–#1546 | Fresh rendered response/composer repaired by #1568; latency target not reliably met |
 | Named source citations and exact lazy Debug prompt inspection, including failures | #1553–#1555, #1559, #1563 | Component and selected live evidence do not prove every fresh multi-turn/image path |
 | Real image generation from an authored/prepared prompt | #1443/#1444 and actual Build image acceptance | Build and fresh Plan prompt→generated/saved asset→library reopen proved; full journey acceptance remains open |
@@ -121,8 +124,10 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 and UI5202 serve3f3f60865 (#1583).
-All1487 prior APP rows were preserved; one association appended, and Combat rehearsal added one encounter; restart retained1489 rows. DMS7860 servesf95e92c (DMS44),
+The API backing5202 serves3f3f60865 (#1583); UI5202 serves110f7e9ae (#1584).
+Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
+18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
+and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
 with its private config and persistence unchanged. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 

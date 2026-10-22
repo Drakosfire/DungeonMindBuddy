@@ -1,3 +1,4 @@
+import { readPlanScenePosition, writePlanScenePosition } from "./planScenePosition";
 import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { useSurfaceImageStudio } from "../shared/useSurfaceImageStudio";
 import { CardSceneNavigation } from "../shared/CardSceneNavigation";
@@ -1560,7 +1561,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const navigationNodes = useMemo(() => currentCardProjection.status === "ready"
     ? flattenNodes(currentCardProjection.roots) : [], [currentCardProjection]);
   const navigationScenes = navigationNodes.filter(node => node.kind === "scene");
-  const requestedSceneId = sceneNavigation?.identity === navigationIdentity ? sceneNavigation.sceneId : null;
+  const rememberedSceneId = useMemo(() => documentId
+    ? readPlanScenePosition(worldId, documentId) : null, [worldId, documentId, navigationIdentity]);
+  const requestedSceneId = sceneNavigation?.identity === navigationIdentity
+    ? sceneNavigation.sceneId : rememberedSceneId;
   // Cards always opens a scene. Null/stale cursors cannot revive the retired outline destination.
   const navigationSceneId = navigationScenes.some(scene => scene.id === requestedSceneId)
     ? requestedSceneId : navigationScenes[0]?.id ?? null;
@@ -1576,6 +1580,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const navigatePlanScene = (sceneId: string | null) => {
     if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
     setSceneNavigation({ identity: navigationIdentity, sceneId });
+    if (documentId) writePlanScenePosition(worldId, documentId, sceneId);
     setSceneNavigationNotice(null);
     const target = sceneId ? { kind: "scene" as const, id: sceneId } : null;
     selectPlayableTarget(target && selectableTargetKeys.has(worldPlanCardTargetKey(target)) ? target : null);
@@ -1586,6 +1591,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       || currentCardProjection.status !== "ready"
       || navigationScenes.some(scene => scene.id === sceneNavigation.sceneId)) return;
     setSceneNavigation({ identity: navigationIdentity, sceneId: null });
+    if (documentId) writePlanScenePosition(worldId, documentId, null);
     setSceneNavigationNotice({ identity: navigationIdentity, message: "The selected scene is no longer in this draft. Choose another scene or use Document." });
   }, [currentCardProjection, navigationIdentity, sceneNavigation]);
   useLayoutEffect(() => {
@@ -1706,6 +1712,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       stale: false,
     });
   }, [documentId, savedBasis, selectableTargetKeys, worldId]);
+
+  useLayoutEffect(() => {
+    if (status !== "ready" || currentCardProjection.status !== "ready" || !documentId
+      || sceneNavigation?.identity === navigationIdentity || !rememberedSceneId
+      || !navigationScenes.some(scene => scene.id === rememberedSceneId)) return;
+    setSceneNavigation({ identity: navigationIdentity, sceneId: rememberedSceneId });
+    const target = { kind: "scene" as const, id: rememberedSceneId };
+    selectPlayableTarget(selectableTargetKeys.has(worldPlanCardTargetKey(target)) ? target : null);
+    if (!cardsViewActive) setDocumentSceneJump({ identity: editorIdentity, sceneId: rememberedSceneId });
+  }, [status, currentCardProjection, documentId, navigationIdentity, rememberedSceneId,
+    sceneNavigation, cardsViewActive, editorIdentity, selectableTargetKeys, selectPlayableTarget]);
 
   const selectPlayableEditTarget = useCallback((target: WorldPlanCardTarget) => {
     if (savedBasis.status !== "verified" || !documentId
