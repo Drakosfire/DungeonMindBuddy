@@ -1,5 +1,20 @@
 # AGENT — select authored blocks; materialize exact text in the host
 
+## Settlement at successor design
+
+Implementation #1617 merged `df98f6a5a554ac7ef234b1196b4f8dd3377d178a` after
+Bugbot approved exact head `ebb61c13ee520eeddbbad5e64f086ce06c4c9302` in cycle2.
+The P2 historical Play policy collision was fixed by current-submission binding;
+independent89 backend/22 unchanged UI checks passed. Guarded API/UI adoption on
+8000/5202/APP0048 preserved1757 pre-migration APP rows, native rows,79 mechanics
+files and17 frozen components. Implementation write lease is released.
+
+Original swamp/Edge, notes/reflections rendered acceptance and post-answer
+protected restart remain pending under the active goal. No successful new
+benchmark reply or full journey is claimed by migration health. The operator
+selected connected scene/encounter/revision design as the next milestone; the
+roadmap retains these residuals. Historical activation below is not a live lease.
+
 ## Authority and topology
 
 PRIME owns this bounded successor under the operator's active local Buddy goal.
@@ -9,7 +24,7 @@ branch `codex/agent-authored-excerpt-selection`; no new worktree/environment.
 Fresh remote/open-PR census found no overlapping implementation.
 
 Topology **serial**: one design-contract PR, then one dependent implementation PR.
-The original #1616 PR was design-only. The design gate was satisfied by #1616; implementation is **ACTIVE** under the
+The original #1616 PR was design-only. The design gate was satisfied by #1616; implementation was **ACTIVE** under the
 exact activation below after exact-head Bugbot review and PRIME adoption. That is a technical gate, not a new
 operator-permission request. Activation records the reviewed contract/head and
 exact implementation base before runtime edits. Location alone grants no authority.
