@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `58c81d58f7809e62555a8de424570bdf74d49808` (through PR #1587).
+**Evidence anchor:** remote main `6856752eef08a20e20eabe2ed749244be3c90570` (through PR #1588).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 and UI5202 serve58c81d58f (#1587).
+The API backing5202 serves6856752ee (#1588); UI5202 serves58c81d58f (#1587).
 Shared-tool rehearsal retained1494 APP rows and59 product files through restart;
 18 protected host tables/687 rows stayed identical. The synthetic Plan/run/note
 and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e92c (DMS44),
@@ -253,9 +253,17 @@ guarded API/UI delivery retained1498 APP rows and59 product files.
 Fresh Buddy retrieval then stopped after its first successful Jev decision:
 answer_from_sources selected, but the optional Rules vote none=.67/query:0=.33
 failed a positive-authorization threshold. Exact synthetic-score reproduction
-proved the host rejection. The active bounded repair is [optional Rules
-abstention](../Plans/HANDOFF-BUILD-rules-abstention.md). Source publication is
-proved; ordinary cited next-turn retrieval is not yet proved. PDF decorative divider lines also trigger the existing
+proved the host rejection. #1588 delivered [optional Rules
+abstention](../Plans/HANDOFF-BUILD-rules-abstention.md); fresh ordinary source-only
+Sheep grounding completed12572ms with8Jev/1writer, source citations and full-reload
+history continuity. Quality remains unaccepted: gap prose contradicts supplied
+fight-trigger details, and saved-source evidence labels omit the source name.
+A source-correction follow-up was misclassified as an uncertain positive Rules
+query (.63), which the positive authorization gate correctly refused. The active
+bounded repair is [Rules routing instructions](../Plans/HANDOFF-BUILD-rules-routing-instructions.md),
+clarifying adventure interpretation versus game-rule adjudication without
+weakening that gate. Source publication is proved; full cited multi-turn quality,
+10-second reliability and the connected adventure journey remain open. PDF decorative divider lines also trigger the existing
 visual-editor fidelity gate; exact source remains protected and reviewable.
 
 The target is an adventure usable at the table:

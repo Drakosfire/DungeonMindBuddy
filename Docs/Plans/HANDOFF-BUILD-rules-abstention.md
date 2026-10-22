@@ -1,6 +1,17 @@
 # BUILD — optional Rules abstention preserves ordinary source answers
 
-ACTIVE. PRIME owns one serial slice from58c81d58f7809e62555a8de424570bdf74d49808,
+SETTLED. #1588 merged6856752eef08a20e20eabe2ed749244be3c90570 after Bugbot
+approved7b874d2b9 and independently passed74 tests. API8000 serves the merge;
+UI5202 remains58c81d58f. Guarded delivery preserved1509APP rows,59 product files
+and frozen extraction files. Ordinary fresh Sheep grounding completed12572ms
+(8Jev/1writer), unlocked the composer and survived full reload. It remains a
+source-only, partially supported answer with contradictory gap prose and unnamed
+saved-source labels. A follow-up exposed a separate uncertain positive Rules
+misclassification, owned by HANDOFF-BUILD-rules-routing-instructions.md. Its
+positive gate correctly refused. Full multi-turn quality is not accepted.
+This implementation lease is released.
+
+PRIME owned one serial slice from58c81d58f7809e62555a8de424570bdf74d49808,
 branch codex/build-rules-abstention, existing buddy-context-loop checkout.
 Fresh remote/open PR census found no overlapping active implementation lease.
 This is Buddy product decision orchestration; no cross-owner contract changes.

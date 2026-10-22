@@ -312,7 +312,9 @@ class BuildJevDriver:
             rules = getattr(adapter, "rules_runtime", None)
             rules_guidance = (
                 "Public Rules lookup also uses answer_from_sources and the separate rules_query choice; "
-                "it does not require the saved page to be ingested or relevant to the rules question. "
+                "It serves explicit game-mechanics or rules-adjudication questions, including mixed questions; "
+                "adventure facts and source interpretation use ordinary source retrieval. "
+                "It does not require the saved page to be ingested or relevant to the rules question. "
                 "Missing Rules coverage is an answer with an evidence gap, not an unsupported operation. "
                 if rules is not None and rules.active else ""
             )
@@ -342,7 +344,12 @@ class BuildJevDriver:
         if self._selection_intent is not None and rules is not None and rules.active:
             from .rules_build_runtime import QUERY_CHOICE
             intent = intent.model_copy(update={"questions": (*intent.questions, DecisionQuestion(
-                name=QUERY_CHOICE, kind="choice", question="For answer_from_sources, which offered exact question needs public Rules lookup? Choose none for other operations or when Rules are not needed. Coverage is one occupancy section; missing rules are explicit.",
+                name=QUERY_CHOICE, kind="choice", question=("Does the current user question explicitly ask how the game's mechanical rules work or how to adjudicate them? "
+                    "Select the offered query only for that Rules request, including mixed story-and-mechanics questions. "
+                    "Select none for adventure facts, events, motives, ownership, locations, conditional plot triggers, "
+                    "citations, or corrections and contradictions in source text, even when characters fight or cast spells. "
+                    "Finding what an adventure says is source retrieval, not rules adjudication. "
+                    "Select none for other operations. Coverage is one occupancy section; missing rules are explicit."),
                 options=("none", *(f"query:{i}" for i in range(len(rules.offers))))))})
         return intent
 
