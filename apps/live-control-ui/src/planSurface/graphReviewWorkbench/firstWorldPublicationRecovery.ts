@@ -31,13 +31,14 @@ function assertFirstWorldEffect(plan:FirstWorldGraphPlan,review:ExactRunReviewPa
 }
 
 export function assertFirstWorldPlan(plan:FirstWorldGraphPlan,review:ExactRunReviewPackage,decisions?:FirstWorldDisposition[]){
+  if(plan && plan.schema !== 'dmb_first_world_graph_plan_v3') throw new Error('This saved World creation plan is out of date and has been preserved. Inspect World status, then prepare and review again.');
   const snapshot=plan?.reviewedEffect?.decision_snapshot;
-  if(!plan||plan.schema!=='dmb_first_world_graph_plan_v2'||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
+  if(!plan||plan.schema!=='dmb_first_world_graph_plan_v3'||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
     ||!nonblank(review.worldId)||plan.worldId!==review.worldId||plan.runId!==review.runId
     ||plan.sourceArtifactId!==review.sourceArtifactId||plan.sourceRevisionId!==review.sourceRevisionId||!digest(review.sourceRevisionId)
     ||!plan.nativeTarget||!/^world:[a-f0-9]{32}$/.test(plan.nativeTarget.nativeWorldId)
     ||!/^provision:[a-f0-9]{32}$/.test(plan.nativeTarget.provisioningId)||plan.nativeTarget.bindingVersion!==1
-    ||!nonblank(plan.planId)||!digest(plan.planDigest)||!digest(plan.decisionDigest)||!nonblank(plan.contributionId)
+    ||!digest(plan.sourceEvidenceSha256)||!nonblank(plan.planId)||!digest(plan.planDigest)||!digest(plan.decisionDigest)||!nonblank(plan.contributionId)
     ||!/^[a-f0-9]{64}$/.test(plan.contributionPayloadSha256)||!nonblank(plan.workspaceDocumentId)
     ||typeof plan.workspaceDocumentRevision!=='string'||!/^\d+$/.test(plan.workspaceDocumentRevision)||Number(plan.workspaceDocumentRevision)<1
     ||plan.extractionProfile!=='worldbuilding_shepherds_flock_v0@0.1'||plan.confirmable!==true
@@ -123,5 +124,38 @@ export async function releaseFirstWorldRecovery(review: ExactRunReviewPackage, p
       throw new Error('Another creation request owns recovery. Reopen this review.');
     localStorage.removeItem(key);
     if (localStorage.getItem(key)!==null) throw new Error('World creation recovery could not be released.');
+  });
+}
+
+/** Inspect only the obsolete envelope, never make its plan executable. */
+export function obsoleteUnsubmittedRecovery(review: ExactRunReviewPackage): string | null {
+  try {
+    const raw = localStorage.getItem(firstWorldRecoveryKey(review));
+    if (raw === null) return null;
+    const value = JSON.parse(raw), plan = value?.plan;
+    return value?.schema === 'dmb_first_world_publication_recovery_v1'
+      && value.scope === firstWorldScope(review) && value.submitted === false
+      && Object.keys(value).every(key => ['schema','scope','plan','submitted'].includes(key))
+      && plan?.schema === 'dmb_first_world_graph_plan_v2'
+      && plan.worldId === review.worldId && plan.runId === review.runId
+      && plan.sourceArtifactId === review.sourceArtifactId && plan.sourceRevisionId === review.sourceRevisionId
+      && nonblank(plan.planId) && digest(plan.planDigest) ? raw : null;
+  } catch { return null; }
+}
+
+export async function archiveObsoleteUnsubmittedRecovery(review: ExactRunReviewPackage, expectedRaw: string,
+  isCurrent: () => boolean) {
+  if (!navigator.locks) throw new Error('This browser cannot safely archive World creation recovery.');
+  return navigator.locks.request(firstWorldRecoveryKey(review), () => {
+    if (!isCurrent()) throw new Error('The selected source or World changed. Recovery is retained.');
+    if (obsoleteUnsubmittedRecovery(review) !== expectedRaw)
+      throw new Error('Another creation request owns recovery. Reopen this review.');
+    const key = firstWorldRecoveryKey(review), archiveKey = key + ':obsolete:' + crypto.randomUUID();
+    // Persist and verify the exact old bytes before releasing the active slot.
+    localStorage.setItem(archiveKey, expectedRaw);
+    if (localStorage.getItem(archiveKey) !== expectedRaw || localStorage.getItem(key) !== expectedRaw)
+      throw new Error('Recovery could not be archived safely. The request is retained.');
+    localStorage.removeItem(key);
+    if (localStorage.getItem(key) !== null) throw new Error('Recovery could not be released. Reopen this review.');
   });
 }

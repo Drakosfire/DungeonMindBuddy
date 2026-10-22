@@ -22,10 +22,6 @@ import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
 import apps.live_control_server.services.promotable_ingest_run as promotable_mod
 from apps.live_control_server.main import create_app
-from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
-    exported_contribution_evidence_ref_id,
-    raw_buddy_evidence_ref_id,
-)
 from apps.live_control_server.models.extract_promote import FirstWorldGraphConfirmRequest
 from apps.live_control_server.ports.world_graph_initialization import (
     WorldGraphInitializationError,
@@ -80,186 +76,6 @@ def _forbidden_imports(path: Path, names: tuple[str, ...]) -> list[str]:
             ):
                 found.append(node.module)
     return found
-
-
-def _other_shaped_command(command):
-    from dungeonmind.contracts.evidence import SourceDomain
-
-
-    assertions = [
-        item.model_copy(
-            update={
-                "evidence_refs": [
-                    ref.model_copy(update={"source_domain": SourceDomain.OTHER})
-                    for ref in item.evidence_refs
-                ]
-            }
-        )
-        for item in command.reviewed_contribution.assertions
-    ]
-    return command.model_copy(
-        update={
-            "reviewed_contribution": command.reviewed_contribution.model_copy(
-                update={"assertions": assertions}
-            )
-        }
-    )
-
-
-def _worldbuilding_artifact(*, source_domain=None, source_domain_key="worldbuilding"):
-    from dungeonmind.contracts.evidence import (
-        SourceArtifactV2,
-        SourceAuthority,
-        SourceDomain,
-        SourceStatus,
-    )
-    from dungeonmind.contracts.vocabulary import Visibility
-
-
-    now = datetime(2026, 8, 27, tzinfo=UTC)
-    return SourceArtifactV2(
-        source_artifact_id="src:notes",
-        source_domain_key=source_domain_key,
-        source_domain=source_domain or SourceDomain.WORLDBUILDING,
-        world_id="world:w",
-        campaign_id="camp",
-        session_id=None,
-        uri="object://src",
-        current_revision_id="rev:notes",
-        authority=SourceAuthority.PRIMARY,
-        visibility=Visibility.GM,
-        artifact_kind="notes",
-        document_class="worldbuilding",
-        review_state=None,
-        source_visibility_state=None,
-        workspace_document_ref=None,
-        status=SourceStatus.ACTIVE,
-        created_at=now,
-        updated_at=now,
-    )
-
-
-def _mapped_other_contribution():
-    from dungeonmind.contracts.contribution import (
-        AcceptanceState,
-        ContributionEpistemicKind,
-        ContributionSourceKind,
-        ContributionStatus,
-        GraphContributionAssertionV2,
-        GraphContributionV2,
-    )
-    from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRole, SourceDomain
-    from dungeonmind.contracts.vocabulary import Visibility
-
-
-    draft = EvidenceRef(
-        evidence_ref_id="ev:raw",
-        source_artifact_id="src:notes",
-        source_revision_id="rev:notes",
-        source_domain=SourceDomain.OTHER,
-        evidence_role=EvidenceRole.SUPPORT,
-        can_open_source=False,
-        can_highlight_span=False,
-        locator=None,
-        uri=None,
-    )
-    exported_id = exported_contribution_evidence_ref_id("ev:raw", draft)
-    ref = draft.model_copy(update={"evidence_ref_id": exported_id})
-    assertion = GraphContributionAssertionV2(
-        assertion_id="asrt:1",
-        assertion_kind="node",
-        subject_object_id="obj:1",
-        label="X",
-        evidence_refs=[ref],
-        source_artifact_id="src:notes",
-        source_revision_id="rev:notes",
-        campaign_scope="camp",
-        visibility=Visibility.GM,
-        epistemic_kind=ContributionEpistemicKind.ASSERTED,
-        acceptance_state=AcceptanceState.ACCEPTED,
-    )
-    contribution = GraphContributionV2(
-        contribution_id="contrib:1",
-        world_id="world:w",
-        source_kind=ContributionSourceKind.EXTRACTION,
-        source_artifact_id="src:notes",
-        source_revision_id="rev:notes",
-        produced_at=datetime(2026, 8, 27, tzinfo=UTC),
-        campaign_scope="camp",
-        status=ContributionStatus.ACTIVE,
-        assertions=[assertion],
-    )
-    return contribution, exported_id
-
-
-def test_align_preserves_historical_evidence_id_and_copies_artifact_domain() -> None:
-    from dungeonmind.contracts.evidence import SourceDomain
-
-
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _align_first_world_command_evidence_domains,
-    )
-
-
-    contribution, exported_id = _mapped_other_contribution()
-    aligned = _align_first_world_command_evidence_domains(
-        contribution, [_worldbuilding_artifact()]
-    )
-    ref = aligned.assertions[0].evidence_refs[0]
-    assert ref.evidence_ref_id == exported_id
-    assert ref.source_domain is SourceDomain.WORLDBUILDING
-
-
-def test_align_fails_closed_on_missing_source_artifact() -> None:
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _align_first_world_command_evidence_domains,
-    )
-
-
-    contribution, _exported_id = _mapped_other_contribution()
-    with pytest.raises(WorldGraphInitializationError) as exc:
-        _align_first_world_command_evidence_domains(contribution, [])
-    assert exc.value.code == "inexpressible"
-    assert exc.value.details["reason"] == "missing_source_artifact"
-
-
-def test_align_fails_closed_on_non_worldbuilding_artifact() -> None:
-    from dungeonmind.contracts.evidence import SourceDomain
-
-
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _align_first_world_command_evidence_domains,
-    )
-
-
-    contribution, _exported_id = _mapped_other_contribution()
-    with pytest.raises(WorldGraphInitializationError) as exc:
-        _align_first_world_command_evidence_domains(
-            contribution,
-            [
-                _worldbuilding_artifact(
-                    source_domain=SourceDomain.RULEBOOK,
-                    source_domain_key="rulebook",
-                )
-            ],
-        )
-    assert exc.value.code == "inexpressible"
-    assert exc.value.details["reason"] == "non_worldbuilding_source_artifact"
-
-
-def test_align_fails_closed_on_ambiguous_source_artifact() -> None:
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _align_first_world_command_evidence_domains,
-    )
-
-
-    contribution, _exported_id = _mapped_other_contribution()
-    first = _worldbuilding_artifact()
-    second = first.model_copy(update={"uri": "object://other"})
-    with pytest.raises(WorldGraphInitializationError) as exc:
-        _align_first_world_command_evidence_domains(contribution, [first, second])
-    assert exc.value.code == "inexpressible"
-    assert exc.value.details["reason"] == "ambiguous_source_artifact"
 
 
 def test_projection_constructor_consumes_reviewed_world_initializations() -> None:
@@ -590,6 +406,7 @@ def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRe
         source_artifact_id=plan["sourceArtifactId"],
         source_revision_id=plan["sourceRevisionId"],
         source_uri=resolved.sealed_source_uri,
+        source_evidence_sha256=plan["sourceEvidenceSha256"],
         extraction_profile=expected_profile,
         campaign_scope=plan["campaignScope"],
         workspace_document_id=plan["workspaceDocumentId"],
@@ -992,12 +809,9 @@ def test_native_empty_to_d0_topology_and_source_closure(
         assert record["source_domain"] == "worldbuilding"
         assert record["source_domain_key"] == "worldbuilding"
     for ref in contribution.assertions[0].evidence_refs:
-        raw_id = raw_buddy_evidence_ref_id(ref.evidence_ref_id)
-        historical = ref.model_copy(update={"source_domain": SourceDomain.OTHER})
-        assert ref.evidence_ref_id == exported_contribution_evidence_ref_id(
-            raw_id, historical
-        )
-        assert ref.source_domain is SourceDomain.WORLDBUILDING
+        assert ref.schema_version == "dm_evidence_ref_v2"
+        assert ref.source_span_ref_id and ref.can_open_source and ref.can_highlight_span
+        assert ":dm-extraction-v3:" in ref.evidence_ref_id
 
 
     projected, _ = _project_native(
@@ -1010,148 +824,18 @@ def test_native_empty_to_d0_topology_and_source_closure(
     assert "mystery_puddles" in admitted
 
 
-def _corrected_and_historical_commands(repo: Path, plan: dict, *, initialized_at: datetime):
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        _build_command,
-    )
-
-
-    request = _sealed_native_request(repo, plan)
-    corrected = _build_command(request, requested_initialized_at=initialized_at)
-    return request, corrected, _other_shaped_command(corrected)
-
-
-def _command_evidence_refs(command):
-    return [
-        ref
-        for assertion in command.reviewed_contribution.assertions
-        for ref in assertion.evidence_refs
-    ]
-
-
-def _assert_corrected_preserves_historical_identity(corrected, historical) -> None:
-    from dungeonmind.application.reviewed_world_initialization import (
-        reviewed_world_initialization_command_sha256,
-        reviewed_world_initialization_replay_identity,
-    )
-    from dungeonmind.contracts.evidence import SourceDomain
-
-
-    corrected_refs = _command_evidence_refs(corrected)
-    historical_refs = _command_evidence_refs(historical)
-    assert corrected_refs
-    assert [ref.evidence_ref_id for ref in corrected_refs] == [
-        ref.evidence_ref_id for ref in historical_refs
-    ]
-    assert all(ref.source_domain is SourceDomain.WORLDBUILDING for ref in corrected_refs)
-    assert all(ref.source_domain is SourceDomain.OTHER for ref in historical_refs)
-    assert all(
-        artifact.source_domain is SourceDomain.WORLDBUILDING
-        and artifact.source_domain_key == "worldbuilding"
-        for artifact in corrected.source_artifacts
-    )
-    current = reviewed_world_initialization_command_sha256(corrected)
-    historical_hash = reviewed_world_initialization_command_sha256(historical)
-    assert current != historical_hash
-    identity = reviewed_world_initialization_replay_identity(corrected)
-    assert identity.current_command_sha256 == current
-    assert identity.historical_other_normalized_sha256 is None
-
-
 @pytest.mark.integration
-def test_v2_command_has_no_historical_other_replay_identity(
-    native_first_world_client,
-) -> None:
+def test_current_command_carries_only_exact_readable_typed_spans(native_first_world_client):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import _build_command
     client, _world, repo, _dsn = native_first_world_client
-    _run_id, plan = _prepare_native_plan(client, repo, with_rejected=True)
-    _request, corrected, historical = _corrected_and_historical_commands(
-        repo,
-        plan,
-        initialized_at=datetime(2026, 8, 27, 15, 0, tzinfo=UTC),
-    )
-    _assert_corrected_preserves_historical_identity(corrected, historical)
-
-
-@pytest.mark.integration
-def test_v2_command_refuses_historical_other_receipt_without_mutation(
-    native_first_world_client,
-) -> None:
-    from dungeonmind.application.reviewed_world_initialization import (
-        initialize_reviewed_world,
-        reviewed_world_initialization_command_sha256,
-        reviewed_world_initialization_replay_identity,
-    )
-    from dungeonmind.contracts.evidence import SourceDomain
-
-
-    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
-        DungeonMindWorldGraphInitializationAdapter,
-    )
-    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-        _build_graph_reader,
-    )
-
-
-    client, _world, repo, dsn = native_first_world_client
-    _run_id, plan = _prepare_native_plan(client, repo, with_rejected=True)
-    frozen = datetime(2026, 8, 27, 15, 0, tzinfo=UTC)
-    request, corrected, historical = _corrected_and_historical_commands(
-        repo, plan, initialized_at=frozen
-    )
-    _assert_corrected_preserves_historical_identity(corrected, historical)
-
-
-    bundle = _bundle(dsn)
-    seeded = initialize_reviewed_world(
-        historical,
-        initialization_repository=bundle.reviewed_world_initializations,
-        graph_reader=_build_graph_reader(),
-    )
-    stored = bundle.world_graph.get_revision(
-        NATIVE_RESERVED_WORLD_ID, seeded.published_revision_id
-    )
-    assert stored is not None
-    assert stored.revision.parent_revision_id is None
-    historical_payload = stored.graph_payload
-    object_ids = {item["object_id"] for item in historical_payload.get("objects") or []}
-    assert "obj_session22_vial" in object_ids
-    assert "mystery_puddles" in object_ids
-    assert REJECTED_NODE_ID not in object_ids
-    for record in historical_payload.get("evidence_refs") or []:
-        assert record["source_domain"] == "other"
-        assert record["source_domain_key"] == "other"
-    historical_hash = reviewed_world_initialization_command_sha256(historical)
-    assert seeded.command_sha256 == historical_hash
-    counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
-    assert counts["revisions"] == 1
-    assert counts["receipts"] == 1
-    assert counts["adoptions"] == 0
-
-
-    with pytest.raises(WorldGraphInitializationError) as error:
-        DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(request)
-    assert error.value.code == "idempotency_conflict"
-    after = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
-    assert after is not None
-    assert after.command_sha256 == historical_hash
-    identity = reviewed_world_initialization_replay_identity(corrected)
-    assert identity.historical_other_normalized_sha256 is None
-    unchanged = bundle.world_graph.get_revision(
-        NATIVE_RESERVED_WORLD_ID, seeded.published_revision_id
-    )
-    assert unchanged is not None
-    assert unchanged.graph_payload == historical_payload
-    after_counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
-    assert after_counts["revisions"] == 1
-    assert after_counts["receipts"] == 1
-    assert after_counts["adoptions"] == 0
-
-
-    # Preserved OTHER-domain history is not silently made eligible as current
-    # World-scoped authored evidence by this rejected v2 command.
-    for record in unchanged.graph_payload.get("evidence_refs") or []:
-        assert record["source_domain"] == SourceDomain.OTHER.value
-        assert record["source_domain_key"] == "other"
+    _run, plan = _prepare_native_plan(client, repo, with_rejected=True)
+    command = _build_command(_sealed_native_request(repo, plan), requested_initialized_at=datetime(2026, 8, 27, tzinfo=UTC))
+    assert command.schema_version == "dm_reviewed_world_initialization_command_v2"
+    assert command.producer_profile == "worldbuilding_extraction"
+    assert command.reviewed_contribution.schema_version == "dm_graph_contribution_v3"
+    refs = [ref for a in command.reviewed_contribution.assertions for ref in a.evidence_refs]
+    assert refs and all(ref.source_span_ref_id and ref.can_open_source and ref.can_highlight_span for ref in refs)
+    assert all(ref.source_domain_key == "worldbuilding" for ref in refs)
 
 
 @pytest.mark.integration
@@ -1932,3 +1616,92 @@ def test_prepare_unavailability_is_not_invalid_choice_feedback(native_first_worl
     assert response.status_code == 503, response.text
     assert response.json().get("failureResult") is None
     assert spy.initializations == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("changed", ["commitment", "source", "span_index"])
+def test_frozen_source_changes_never_reach_initializer(native_first_world_client, monkeypatch, changed):
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    import json
+    client, world_root, repo, dsn = native_first_world_client
+    run_id, plan = _prepare_native_plan(client, repo)
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    spy = _install_preflight_spy(monkeypatch, world_root)
+    if changed == "commitment":
+        plan["sourceEvidenceSha256"] = "sha256:" + "f" * 64
+    elif changed == "source":
+        read_bytes = Path.read_bytes
+        target = resolved.normalized_recap_path
+        monkeypatch.setattr(Path, "read_bytes", lambda path, *args, **kwargs: (
+            b"Changed frozen source." if path == target else read_bytes(path, *args, **kwargs)
+        ))
+    else:
+        payload = json.loads(resolved.source_span_index_path.read_text())
+        payload["spans"][0]["start_line"] += 1
+        resolved.source_span_index_path.write_text(json.dumps(payload))
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code in {409, 422}, response.text
+    assert spy.initializations == spy.preflights == 0
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 0
+
+
+@pytest.mark.integration
+def test_old_plan_cannot_be_reposted_or_silently_reprepared(native_first_world_client, monkeypatch):
+    client, world_root, repo, _dsn = native_first_world_client
+    _run, plan = _prepare_native_plan(client, repo)
+    spy = _install_preflight_spy(monkeypatch, world_root)
+    plan["schema"] = "dmb_first_world_graph_plan_v2"
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+    assert spy.initializations == spy.preflights == 0
+
+
+@pytest.mark.integration
+def test_first_world_evidence_reaches_actual_buddy_read_pins(native_first_world_client):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as reads
+    client, _world, repo, _dsn = native_first_world_client
+    _run, plan = _prepare_native_plan(client, repo)
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code == 200, response.text
+    request = reads.WorldGraphObjectRequest.model_validate({
+        "schema": "dmb_world_graph_object_request_v1", "worldId": NATIVE_RESERVED_WORLD_ID,
+        "campaignId": "", "scopeMode": "world", "nodeId": "obj_session22_vial",
+        "revisionPin": response.json()["committedRevisionId"], "admissibility": "gm",
+    })
+    result = reads.get_object_with_reviewed_sources_direct_v3(reads.direct_services_from_config(NATIVE_RESERVED_WORLD_ID), request)
+    assert result.result.source_anchors
+    assert all(anchor.readable for anchor in result.result.source_anchors)
+    assert {anchor.anchor_id for anchor in result.result.source_anchors} == {pin.anchor_id for pin in result.source_pins}
+    assert all(pin.graph_revision == request.revision_pin for pin in result.source_pins)
+
+
+@pytest.mark.integration
+def test_historical_receipt_stays_readable_without_current_command_replay(native_first_world_client):
+    from dungeonmind.contracts.reviewed_world_initialization import ReviewedWorldInitializationReceiptV1
+    from dungeonmind.infrastructure.postgres.serialization import model_fingerprint
+    from psycopg.types.json import Jsonb
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import DungeonMindWorldGraphInitializationAdapter
+    client, _world, repo, dsn = native_first_world_client
+    _run, plan = _prepare_native_plan(client, repo)
+    request = _sealed_native_request(repo, plan)
+    response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert response.status_code == 200, response.text
+    bundle = _bundle(dsn)
+    current = bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID)
+    # Seed an old-format retained receipt only inside this disposable fixture.
+    historical = ReviewedWorldInitializationReceiptV1.model_validate({
+        **current.model_dump(mode="json"), "schema_version": "dm_reviewed_world_initialization_receipt_v1",
+    })
+    before = historical.model_dump(mode="json")
+    with bundle.database.transaction() as conn:
+        conn.execute("UPDATE dungeonmind.reviewed_world_initializations SET schema_version=%s,payload=%s,record_fingerprint=%s WHERE world_id=%s",
+                     (historical.schema_version, Jsonb(before), model_fingerprint(historical), NATIVE_RESERVED_WORLD_ID))
+    adapter = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
+    assert adapter.probe(NATIVE_RESERVED_WORLD_ID).state == "initialized"
+    counts = _counts(dsn, NATIVE_RESERVED_WORLD_ID)
+    with pytest.raises(WorldGraphInitializationError) as error:
+        adapter.initialize(request)
+    assert error.value.code == "already_initialized"
+    assert bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID).model_dump(mode="json") == before
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID) == counts

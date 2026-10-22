@@ -10,7 +10,7 @@ import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublis
 import {assertWorldbuildingPlan, clearUnsubmittedWorldbuildingPublication, readWorldbuildingPublicationRecovery,
   saveWorldbuildingPublicationRecovery, setAsideRejectedWorldbuildingPublication} from "./worldbuildingPublicationRecovery";
 
-import {readFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {obsoleteUnsubmittedRecovery,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
 
 type Props = {review: ExactRunReviewPackage; onConfirmInFlightChange?: (busy: boolean) => void; isCurrent?:()=>boolean};
 
@@ -36,10 +36,10 @@ function PublicationEntry(props: Props & {managedWorldId: string; onReset: () =>
   // update and discard its actual receipt. True remounts still recover explicitly.
   const [entry] = useState(() => {
     try { return {creation: readFirstWorldRecovery(props.review) !== null, error: null}; }
-    catch (reason) { return {creation: false, error: message(reason)}; }
+    catch (reason) { return {creation: obsoleteUnsubmittedRecovery(props.review)!==null, error: message(reason)}; }
   });
-  if (entry.error) return <p role="alert">{entry.error}</p>;
   if (entry.creation) return <GraphReviewFirstWorldPublishSheet {...props}/>;
+  if (entry.error) return <p role="alert">{entry.error}</p>;
   return <Publication {...props}/>;
 }
 

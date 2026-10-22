@@ -96,6 +96,7 @@ REJECTED_NODE_ID = "obj_rejected_extra"
 TEST_DSN_ENV = "DMB_CUTOVER_TEST_DATABASE_URL"
 TRUNCATE_SQL = """
 TRUNCATE TABLE
+    dungeonmind.knowledge_spaces,
     dungeonmind.semantic_documents,
     dungeonmind.active_embedding_runs,
     dungeonmind.embedding_runs,

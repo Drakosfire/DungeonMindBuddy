@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `390c3cb1f6b7b63f6144661f3f838ebe4b8663b7` (through PR #1595).
+**Evidence anchor:** remote main `7d3f9f5b482c2ae803530c6159746d4e8f020ebe` (through PR #1597).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve390c3cb1f (#1595). Named saved-section
+API8000/UI5202 serve7d3f9f5b (#1597). Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -134,10 +134,20 @@ and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e
 with its private config and persistence unchanged. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
-Prepared-table design #1596 is reviewed and merged. Its first implementation is
-active under HANDOFF-PLAY-prepared-table-implementation.md: explicit shared
-authoring and Play-owned physical-roll receipts. No recorded-roll acceptance is
-claimed until the ordinary Conks source→Plan→Run witness and restart succeed.
+Prepared tables #1597 are merged and running on8000/5202. Ordinary Conks
+source→saved Plan→Run rehearsal recorded an entered test value; the exact receipt,
+selected Scene and saved note survived reload and API restart. This verifies
+recording and deterministic resolution, not an actual physical die roll, played
+campaign event or full journey acceptance. See the settled implementation handoff.
+
+Fresh Sheep Plan grounding exposed unreadable source evidence from first-World
+initialization. OverMind52 and Core139 (617635c5) define/deliver the typed Core
+contract; Buddy consumption is ACTIVE under HANDOFF-INGEST-first-world-typed-source-spans.md.
+The live runtime remains on1597 until reviewed coordinated adoption. Existing
+Worlds are not rewritten or reinitialized; evidence correction and any governed
+successor publication remain separate. Conks exact-run review currently exposes
+nonliteral quotes, including wrong paragraph bindings. Do not substitute a literal
+quote from the wrong paragraph merely to clear qualification.
 
 ## Remaining acceptance
 
@@ -311,11 +321,12 @@ values are labeled transcription, not edition-conversion acceptance. One initial
 Bed Dragon generation failed ruleset_mismatch and remains retained; a new explicit
 edition-bound draft succeeded. Ape AI revision restored the omitted printed HP19.
 
-Native recorded table rolls are next: [bounded design scope](../Plans/HANDOFF-PLAY-recorded-tables.md)
-uses explicit tables embedded in the existing exact Run-pinned Plan revision and
-a Play-owned append-only receipt. No new reusable Content kind is a prerequisite.
-Conks Appendix C physical page18 supplies real1d12 tables; Sheep encounter prose
-does not. Runtime implementation requires its separately activated bounded lease.
+Native recorded table rolls are delivered by1597 under the
+[bounded design](../Plans/HANDOFF-PLAY-recorded-tables.md): explicit tables in the
+exact Run-pinned Plan revision and Play-owned append-only receipts. The ordinary
+Conks rehearsal passed reload/restart; actual physical-roll and full-journey
+acceptance remain open. No new reusable Content kind was required. Sheep encounter
+prose is not an explicit roll table.
 
 The target is an adventure usable at the table:
 

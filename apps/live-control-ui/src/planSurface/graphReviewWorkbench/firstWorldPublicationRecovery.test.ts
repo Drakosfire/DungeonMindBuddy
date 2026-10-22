@@ -2,11 +2,11 @@ import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 import type {ExactRunReviewPackage,FirstWorldGraphPlan} from '../../api/types';
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
 import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
-import {firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,firstWorldScope,firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
   runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'a'.repeat(64),worldId:'world-a',sourceProse:'A keeper.',diagnostics:[],
   assertions:[{assertionId:'keeper',kind:'object',label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
-const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v2',nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'plan-a',planDigest:'sha256:'+'b'.repeat(64),decisionDigest:'sha256:'+'c'.repeat(64),
+const plan:FirstWorldGraphPlan=withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'plan-a',planDigest:'sha256:'+'b'.repeat(64),decisionDigest:'sha256:'+'c'.repeat(64),
   worldId:'world-a',runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:review.sourceRevisionId,workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',
   extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion:keeper'],rejectedAssertionIds:[],contributionId:'contribution-a',
   contributionPayloadSha256:'d'.repeat(64),reviewedEffect:{decision_snapshot:[{assertion_id:'keeper',candidate_kind:'node',decision:'create_new',target_node_id:null}]},
@@ -120,4 +120,52 @@ it('retains recovery when storage refuses removal',async()=>{
   vi.spyOn(Storage.prototype,'removeItem').mockImplementation(()=>{throw new Error('storage unavailable');});
   await expect(releaseFirstWorldRecovery(review,plan,proof(),()=>true)).rejects.toThrow('storage unavailable');
   expect(readFirstWorldRecovery(review)?.submitted).toBe(true);
+});
+
+it('preserves an old submitted plan and requires explicit fresh review without reposting',()=>{
+  const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),submitted:true,plan:{...plan,schema:'dmb_first_world_graph_plan_v2'}});
+  // Use the actual current scope, retaining the old plan bytes verbatim.
+  localStorage.setItem(firstWorldRecoveryKey(review),raw);
+  expect(()=>readFirstWorldRecovery(review)).toThrow('out of date');
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+
+function obsoleteRecovery(submitted=false) {
+  const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),
+    plan:{...plan,schema:'dmb_first_world_graph_plan_v2'},submitted});
+  localStorage.setItem(firstWorldRecoveryKey(review),raw);return raw;
+}
+it('archives exact obsolete unsubmitted bytes before freeing fresh review',async()=>{
+  const raw=obsoleteRecovery();expect(obsoleteUnsubmittedRecovery(review)).toBe(raw);
+  await archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  expect(readFirstWorldRecovery(review)).toBeNull();
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  expect(readFirstWorldRecovery(review)?.plan).toEqual(plan);
+});
+it('never archives a submitted obsolete request',async()=>{
+  const raw=obsoleteRecovery(true);expect(obsoleteUnsubmittedRecovery(review)).toBeNull();
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('Another creation');
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+it('rechecks submission and source after waiting for archive ownership',async()=>{
+  const raw=obsoleteRecovery();let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>new Promise((resolve,reject)=>{
+    release=()=>{try{resolve(action());}catch(error){reject(error);}};
+  })}});
+  const pending=archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  const changed=JSON.stringify({...JSON.parse(raw),submitted:true});localStorage.setItem(firstWorldRecoveryKey(review),changed);release();
+  await expect(pending).rejects.toThrow('Another creation');
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(changed);
+});
+it('preserves the active request when archive storage fails',async()=>{
+  const raw=obsoleteRecovery();vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota');});
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('quota');
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+it('does not archive a foreign obsolete envelope or changed scope',async()=>{
+  const raw=obsoleteRecovery();
+  expect(obsoleteUnsubmittedRecovery({...review,worldId:'foreign'})).toBeNull();
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>false)).rejects.toThrow('selected source');
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
 });

@@ -8,6 +8,7 @@ and verified reservation activation are the only mounted creation path.
 from __future__ import annotations
 
 import json
+import hashlib
 
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.extract_promote import (
@@ -161,6 +162,50 @@ def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
     return world_id, lineage
 
 
+def _source_evidence_commitment(review, *, source_prose, span_index, source_artifact_id):
+    from graph_memory.source_span import source_span_index_to_dict
+    source_sha = hashlib.sha256(source_prose.encode("utf-8")).hexdigest()
+    if source_sha != span_index.content_sha256.removeprefix("sha256:") or span_index.source_artifact_id != source_artifact_id:
+        raise ExtractPromoteError("Frozen source bytes do not match the reviewed span index.", code="run_not_promotable", status_code=422)
+    payload = {
+        "schema": "dmb_first_world_source_evidence_v1",
+        "source_artifact_id": source_artifact_id,
+        "source_content_sha256": source_sha,
+        "frozen_span_index_sha256": hashlib.sha256(json.dumps(
+            source_span_index_to_dict(span_index), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")).hexdigest(),
+        "reviewed_assertions": [{
+            "assertion_id": row.assertion_id,
+            "kind": row.kind,
+            "evidence": [{
+                "source_artifact_id": ref.source_artifact_id,
+                "source_span_ref_id": ref.source_span_ref_id,
+                "anchor_quotes": list(ref.anchor_quotes),
+            } for ref in row.evidence],
+        } for row in review],
+    }
+    return "sha256:" + hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def _assert_materialized_evidence_matches_review(materialized, review):
+    expected = {row.assertion_id: row for row in review}
+    mapping = materialized.effect["candidate_effect_map"]
+    assertions = {row.assertion_id: row for row in [
+        *materialized.contribution.accepted_assertions, *materialized.contribution.rejected_assertions,
+    ]}
+    if set(mapping) != set(expected) or {identifier for ids in mapping.values() for identifier in ids} != set(assertions):
+        raise ExtractPromoteError("Materialized source evidence does not match the reviewed candidates.", code="plan_verification_failed", status_code=409)
+    for candidate_id, ids in mapping.items():
+        approved = {(ref.source_artifact_id, ref.source_span_ref_id) for ref in expected[candidate_id].evidence}
+        for identifier in ids:
+            assertion = assertions[identifier]
+            rows = (assertion.value or {}).get("evidence", [])
+            actual = {(row.get("source_artifact_id"), row.get("source_span_ref_id")) for row in rows}
+            if actual != approved or any(row.get("source_domain") != "worldbuilding" for row in rows):
+                raise ExtractPromoteError("Materialized source spans changed after review.", code="plan_verification_failed", status_code=409)
+
+
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
 ) -> FirstWorldGraphPlan:
@@ -176,8 +221,8 @@ def prepare_first_world(
         resolved, allow_gazetteer=False
     )
     try:
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except OSError as exc:
+        source_prose = resolved.normalized_recap_path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
         raise ExtractPromoteError(
             "exact-run source prose could not be read",
             code="run_not_promotable",
@@ -188,11 +233,16 @@ def prepare_first_world(
         resolved.candidate_graph_path.read_text(encoding="utf-8")
     )
     span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    _assert_and_project_candidate_evidence(
+    reviewed_evidence = _assert_and_project_candidate_evidence(
         candidate_payload=candidate_payload,
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
         span_index=span_index,
+    )
+
+    evidence_commitment = _source_evidence_commitment(
+        reviewed_evidence, source_prose=source_prose, span_index=span_index,
+        source_artifact_id=resolved.source_artifact_id,
     )
 
     _world_id, lineage = _require_first_world_admission(resolved)
@@ -207,6 +257,7 @@ def prepare_first_world(
             source_artifact_id=lineage.source_artifact_id,
             source_revision_id=lineage.source_revision_id,
             source_uri=resolved.sealed_source_uri,
+            source_evidence_sha256=evidence_commitment,
             extraction_profile=expected_profile,
             campaign_scope=lineage.campaign_scope,
             workspace_document_id=lineage.workspace_document_id,
@@ -223,7 +274,9 @@ def prepare_first_world(
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
 
+    _assert_materialized_evidence_matches_review(materialized, reviewed_evidence)
     plan = FirstWorldGraphPlan(
+        source_evidence_sha256=evidence_commitment,
         plan_id=materialized.plan_id,
         plan_digest=materialized.plan_digest,
         decision_digest=materialized.decision_digest,
@@ -429,6 +482,8 @@ def confirm_first_world(
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     plan = request.plan
+    if plan.schema_ != FIRST_WORLD_PLAN_SCHEMA:
+        raise ExtractPromoteError("This review plan is out of date. Prepare and review the source again.", code="stale_review_plan", status_code=409)
     world_root = live_config.world_graph_root()
     if (
         world_root.resolve() == live_config.live_world_graph_root().resolve()
@@ -558,8 +613,8 @@ def confirm_first_world(
         )
 
     try:
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except OSError as exc:
+        source_prose = resolved.normalized_recap_path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
         raise ExtractPromoteError(
             "exact-run source prose could not be read",
             code="run_not_promotable",
@@ -570,12 +625,19 @@ def confirm_first_world(
         resolved.candidate_graph_path.read_text(encoding="utf-8")
     )
     span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    _assert_and_project_candidate_evidence(
+    reviewed_evidence = _assert_and_project_candidate_evidence(
         candidate_payload=candidate_payload,
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
         span_index=span_index,
     )
+
+    evidence_commitment = _source_evidence_commitment(
+        reviewed_evidence, source_prose=source_prose, span_index=span_index,
+        source_artifact_id=resolved.source_artifact_id,
+    )
+    if plan.source_evidence_sha256 != evidence_commitment:
+        raise ExtractPromoteError("Reviewed source evidence changed. Prepare and review it again.", code="plan_verification_failed", status_code=409)
 
     decision_snapshot = plan.reviewed_effect.get("decision_snapshot") or []
     dispositions = [
@@ -595,6 +657,7 @@ def confirm_first_world(
             source_artifact_id=plan.source_artifact_id,
             source_revision_id=plan.source_revision_id,
             source_uri=resolved.sealed_source_uri,
+            source_evidence_sha256=evidence_commitment,
             extraction_profile=expected_profile,
             campaign_scope=plan.campaign_scope,
             workspace_document_id=plan.workspace_document_id,
@@ -604,6 +667,7 @@ def confirm_first_world(
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
 
+    _assert_materialized_evidence_matches_review(rematerialized, reviewed_evidence)
     if rematerialized.plan_digest != plan.plan_digest:
         raise ExtractPromoteError(
             "sealed first-world plan digest failed verification",

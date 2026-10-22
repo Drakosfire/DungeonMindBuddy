@@ -196,6 +196,8 @@ def confirm_recap_world_genesis(
 ) -> RecapWorldGenesisReceipt:
     """Rematerialize source authority and run the existing atomic initializer."""
     plan = request.plan
+    if plan.schema_ != RECAP_WORLD_GENESIS_PLAN_SCHEMA:
+        raise RecapWorldGenesisError("This registry review is out of date. Prepare and review it again.", code="stale_review_plan")
     rematerialized, artifact, contribution = _materialize_plan(
         RecapWorldGenesisPrepareRequest(world_id=plan.world_id, campaign_id=plan.campaign_id,
             baseline_roster_key=plan.baseline_roster_key, requested_by="confirm-rematerialization"),

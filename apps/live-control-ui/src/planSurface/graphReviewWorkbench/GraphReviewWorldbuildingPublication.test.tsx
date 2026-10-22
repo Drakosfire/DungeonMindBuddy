@@ -7,7 +7,7 @@ import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from 
 import type { WorldbuildingPlan } from "../../api/worldbuildingPublicationApi";
 import {readWorldbuildingPublicationRecovery, worldbuildingPublicationRecoveryKey, worldbuildingPublicationScope} from './worldbuildingPublicationRecovery';
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
-import {saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {firstWorldRecoveryKey,firstWorldScope,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 const selection = vi.hoisted(() => ({kind: "managed", worldId: "world-a", name: "A", documentId: null}));
 vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: () => selection}));
@@ -349,7 +349,7 @@ describe("durable exact Worldbuilding recovery", () => {
 it('routes retained creation to recovery after initialization instead of existing-World publication',async()=>{
   const bound={...review,assertions:review.assertions.map(row=>({...row,evidence:[{sourceArtifactId:review.sourceArtifactId,
     sourceSpanRefId:'span-a',paragraphText:'A source-backed claim.',anchorQuotes:['source-backed']}]}))};
-  await saveFirstWorldRecovery(bound,withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v2',nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'first-plan',planDigest:'sha256:'+'a'.repeat(64),
+  await saveFirstWorldRecovery(bound,withFirstWorldEffect({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},planId:'first-plan',planDigest:'sha256:'+'a'.repeat(64),
     decisionDigest:'sha256:'+'b'.repeat(64),worldId:'world-a',runId:review.runId,sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,
     workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['assertion-a','assertion-b','assertion-c'],
     rejectedAssertionIds:[],contributionId:'contribution-a',contributionPayloadSha256:'c'.repeat(64),
@@ -359,4 +359,22 @@ it('routes retained creation to recovery after initialization instead of existin
   render(<GraphReviewWorldbuildingPublication review={{...bound,worldState:'initialized',firstWorldPublishEligible:false}}/>);
   expect(await screen.findByText('First World review')).toBeInTheDocument();
   expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();expect(api.prepareWorldbuilding).not.toHaveBeenCalled();
+});
+
+it('routes obsolete unsubmitted creation recovery to its explicit archive UI',()=>{
+  const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),submitted:false,
+    plan:{schema:'dmb_first_world_graph_plan_v2',worldId:review.worldId,runId:review.runId,
+      sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,planId:'old-plan',planDigest:'sha256:'+'a'.repeat(64)}});
+  localStorage.setItem(firstWorldRecoveryKey(review),raw);
+  render(<GraphReviewWorldbuildingPublication review={review}/>);
+  expect(screen.getByText('First World review')).toBeInTheDocument();
+  expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+
+it('holds publication safely when browser recovery storage is unreadable',()=>{
+  vi.spyOn(Storage.prototype,'getItem').mockImplementation(()=>{throw new Error('storage denied');});
+  expect(()=>render(<GraphReviewWorldbuildingPublication review={review}/>)).not.toThrow();
+  expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
+  expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
 });

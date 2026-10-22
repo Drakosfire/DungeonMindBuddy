@@ -75,7 +75,7 @@ describe("extractPromoteApi confirm", () => {
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({
-        schema: "dmb_first_world_graph_plan_v2",
+        schema: "dmb_first_world_graph_plan_v3", sourceEvidenceSha256: "sha256:"+"d".repeat(64),
       nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
         planId: "first-world-graph-plan:abc",
         planDigest: "sha256:plan",
@@ -120,7 +120,7 @@ describe("extractPromoteApi confirm", () => {
 
   it("confirmFirstWorldGraph posts only schema and sealed plan", async () => {
     const plan = {
-      schema: "dmb_first_world_graph_plan_v2",
+      schema: "dmb_first_world_graph_plan_v3", sourceEvidenceSha256: "sha256:"+"d".repeat(64),
       nativeTarget: {nativeWorldId: "world:"+"1".repeat(32), provisioningId: "provision:"+"2".repeat(32), bindingVersion: 1},
       planId: "first-world-graph-plan:abc",
       planDigest: "sha256:plan",

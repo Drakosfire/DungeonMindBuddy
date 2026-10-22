@@ -1,8 +1,13 @@
 # PLAY — prepared tables and recorded physical rolls
 
-ACTIVE serial implementation lease. PRIME, authorized by the standing local
-adventure goal, owns branch codex/play-prepared-table-receipts in the existing
-buddy-context-loop checkout from 112f8fbcaa3ad7f9d1630d67c0a550a63adaf710.
+SETTLED: #1597 merged7d3f9f5b482c2ae803530c6159746d4e8f020ebe after exact-head
+Bugbot approval at65a5b6617e4257510505f4d89bbea81fff0a6c24. API8000/UI5202
+serve the merge. Ordinary source→Plan→Run rehearsal recorded an explicitly
+entered test value and retained the same receipt, Scene and note through reload
+and API restart. This proves deterministic recorded-table behavior, not an
+actual physical die roll, played campaign fact or full J1–J6 acceptance. Lease
+released. PRIME owned the serial implementation from
+112f8fbcaa3ad7f9d1630d67c0a550a63adaf710 in buddy-context-loop.
 Authority: HANDOFF-PLAY-recorded-tables.md at that ref (reviewed design #1596).
 The current open PR census has no overlapping prepared-table implementation.
 
