@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import ManagedWorldDataRootError, managed_world_data_root, repo_root
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
@@ -42,7 +43,7 @@ def _draft_response(draft: ThreatDraft) -> dict[str, Any]:
 def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
     """Admit ownership, not model grounding. Legacy campaign drafts are unchanged."""
     try:
-        world_root = managed_world_data_root(default=repo_root())
+        world_root = managed_world_data_root(default=statblock_data_root(repo_root()))
         get_world_container(world_root, world_id)
     except ManagedWorldDataRootError as exc:
         raise HTTPException(status_code=503, detail="Managed World storage unavailable") from exc
@@ -74,7 +75,7 @@ def post_threat_draft(
     if isinstance(body, CreateWorldThreatDraftRequest):
         _admit_world_scope(body.world_id, body.graph_context_snapshot.graph_revision_id)
     try:
-        draft = create_threat_draft(repo_root(), body)
+        draft = create_threat_draft(statblock_data_root(repo_root()), body)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)
@@ -89,7 +90,7 @@ def get_threat_drafts(
 ) -> dict[str, Any]:
     try:
         drafts, total = list_threat_drafts(
-            repo_root(),
+            statblock_data_root(repo_root()),
             campaign_id=campaign_id,
             world_id=world_id,
             limit=limit,
@@ -108,7 +109,7 @@ def get_threat_drafts(
 @router.get("/{draft_id}")
 def get_threat_draft_route(draft_id: str) -> dict[str, Any]:
     try:
-        draft = get_threat_draft(repo_root(), draft_id)
+        draft = get_threat_draft(statblock_data_root(repo_root()), draft_id)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)
@@ -117,10 +118,10 @@ def get_threat_draft_route(draft_id: str) -> dict[str, Any]:
 @router.put("/{draft_id}")
 def put_threat_draft(draft_id: str, body: UpdateThreatDraftRequest) -> dict[str, Any]:
     try:
-        existing = get_threat_draft(repo_root(), draft_id)
+        existing = get_threat_draft(statblock_data_root(repo_root()), draft_id)
         if isinstance(existing, ThreatDraftV2):
             _admit_world_scope(existing.world_id, body.graph_context_snapshot.graph_revision_id)
-        draft = update_threat_draft(repo_root(), draft_id, body)
+        draft = update_threat_draft(statblock_data_root(repo_root()), draft_id, body)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)

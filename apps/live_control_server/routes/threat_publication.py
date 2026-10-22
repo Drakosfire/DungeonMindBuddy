@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import (
@@ -99,7 +100,7 @@ def post_begin_publication_operation(
     draft_id: str, body: BeginThreatPublicationOperationRequestV1
 ) -> JSONResponse:
     safe_draft = _validated_draft_id(draft_id)
-    outcome = begin_publication_operation(repo_root(), safe_draft, body)
+    outcome = begin_publication_operation(statblock_data_root(repo_root()), safe_draft, body)
     return _json(outcome)
 
 
@@ -107,7 +108,7 @@ def post_begin_publication_operation(
 def get_publication_operation(draft_id: str, operation_id: str) -> JSONResponse:
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
-    outcome = read_publication_operation(repo_root(), safe_draft, safe_op)
+    outcome = read_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op)
     return _json(outcome)
 
 
@@ -115,7 +116,7 @@ def get_publication_operation(draft_id: str, operation_id: str) -> JSONResponse:
 def post_refresh_publication_operation(draft_id: str, operation_id: str) -> JSONResponse:
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
-    outcome = refresh_publication_operation(repo_root(), safe_draft, safe_op)
+    outcome = refresh_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op)
     return _json(outcome)
 
 
@@ -125,7 +126,7 @@ def post_cancel_publication_operation(
 ) -> JSONResponse:
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
-    outcome = cancel_publication_operation(repo_root(), safe_draft, safe_op, body)
+    outcome = cancel_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op, body)
     return _json(outcome)
 
 
@@ -135,5 +136,5 @@ def post_retry_publication_operation(
 ) -> JSONResponse:
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
-    outcome = retry_publication_operation(repo_root(), safe_draft, safe_op, body)
+    outcome = retry_publication_operation(statblock_data_root(repo_root()), safe_draft, safe_op, body)
     return _json(outcome)

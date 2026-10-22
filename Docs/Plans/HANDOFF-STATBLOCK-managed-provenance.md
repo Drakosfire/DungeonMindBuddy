@@ -1,6 +1,8 @@
 # STATBLOCK — managed World draft provenance
 
-ACTIVE. PRIME owns design/implementation/merge and guarded8000/5202 delivery.
+SOURCE DELIVERED: PR1578 mergedf3a8dac3ca900cb79e9da77989ae33e9fab8858b and runs on matchedAPI8000/UI5202, preserving1487 priorAPP rows/schema0042. Bugbot approved06993785b4b8d064071fdc9ba3e17faac0ef4a23 after resolving configured-root and malformed-envelope findings; independent71backend/159UI/typecheck/diff-check passed. Actual paid generation not yet dispatched: preflight exposed statblock product journals using disposable code root, with16 retained drafts/5acceptance/3publication JSON records in configured persistent root. HANDOFF-STATBLOCK-persistent-data-root.md owns that prerequisite; ordinary generation/acceptance acceptance remains open.
+
+Historical scope: PRIME owns design/implementation/merge and guarded8000/5202 delivery.
 Baseaf4298575fe8db2bd564da4fa3929b99d55385e9; existing buddy-context-loop checkout,
 branch codex/statblock-managed-provenance. Serial one PR; no competing lease.
 

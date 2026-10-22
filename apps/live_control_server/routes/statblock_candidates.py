@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.statblock_candidate_workflow import (
     GenerateThreatDraftCandidateRequestV1,
@@ -50,7 +51,7 @@ def post_generate_candidate(
 ) -> dict[str, Any]:
     try:
         result = generate_candidate_from_draft(
-            repo_root(),
+            statblock_data_root(repo_root()),
             draft_id=draft_id,
             request=body,
         )
@@ -66,7 +67,7 @@ def post_revise_candidate_from_edited_definition(
 ) -> dict[str, Any]:
     try:
         result = revise_candidate_from_edited_definition(
-            repo_root(),
+            statblock_data_root(repo_root()),
             draft_id=draft_id,
             request=body,
         )
@@ -81,7 +82,7 @@ def post_revise_candidate_from_edited_definition(
 
 @router.get("/statblock-candidates/{candidate_id}")
 def get_statblock_candidate(candidate_id: str) -> dict[str, Any]:
-    result = read_candidate(repo_root(), candidate_id=candidate_id)
+    result = read_candidate(statblock_data_root(repo_root()), candidate_id=candidate_id)
     return result.model_dump(mode="json", by_alias=True)
 
 
@@ -99,7 +100,7 @@ def post_accept_mechanics(
 ) -> AcceptThreatDraftMechanicsResponseV1:
     try:
         return begin_or_resume_acceptance(
-            repo_root(),
+            statblock_data_root(repo_root()),
             draft_id=draft_id,
             request=body,
         )
@@ -115,7 +116,7 @@ def get_acceptance_operation_route(
     operation_id: str,
 ) -> ReadAcceptanceOperationResponseV1:
     return read_acceptance_operation(
-        repo_root(),
+        statblock_data_root(repo_root()),
         draft_id=draft_id,
         operation_id=operation_id,
     )
@@ -130,7 +131,7 @@ def post_reconcile_acceptance(
 ) -> AcceptThreatDraftMechanicsResponseV1:
     try:
         return recover_acceptance_operation(
-            repo_root(),
+            statblock_data_root(repo_root()),
             draft_id=draft_id,
             operation_id=operation_id,
         )
