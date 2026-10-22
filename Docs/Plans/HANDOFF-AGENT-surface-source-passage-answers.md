@@ -1,6 +1,17 @@
 # AGENT — source-backed Plan and Play answers
 
-ACTIVE serial PRIME implementation from Buddy872c751e372bb85e953cd93cc54968b62715d6f1,
+MERGED1599 at1391c83551fc99ff52050474bdc0418ce63daaa5, running8000/5202.
+Bugbot approved72b9457d784b7bc9856e435a792e0343e816c24f, one cycle, no findings;
+independent137backend/APP,79UI and mounted Plan history checks passed.
+Fresh ordinary Plan answer named its source and reopened exact citation at5.9s;
+reload retained it. Migration preserved1598APP rows/all native rows/79mechanics
+files/frozen sources. Launcher spawn guard repaired operationally; restart preserved
+1604APP rows/all native rows/79mechanics/11frozen components.
+Native Play acceptance remains open: ordinary witness found current acquisition
+routed through predecessor events; HANDOFF-PLAY-native-source-acquisition.md owns
+that precise serial repair. No claim of full Play or adventure acceptance.
+
+Historical serial PRIME implementation from Buddy872c751e372bb85e953cd93cc54968b62715d6f1,
 branch codex/surface-source-passage-answers in the existing buddy-context-loop checkout.
 Operator authority: sustained local preparation/play goal and foundations refinement.
 Architecture critique: chat01a086f2-c457-7b10-b753-df6063cab1ce, turn01a16497-c8a0-72f2-8687-cd310d58fce8.
