@@ -1,5 +1,6 @@
 """Actual Jev/APP decisions with receipt-producing synthetic local reads."""
 import asyncio
+from contextlib import contextmanager
 from hashlib import sha256
 import json
 from uuid import uuid4
@@ -14,8 +15,14 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1):
+def fixture_reads(adapter, *, anchors=1, body_chars=None):
     graph_calls, source_calls = [], []
+    adapter._test_source_acquisitions = []
+    @contextmanager
+    def acquisition(anchor_ids):
+        adapter._test_source_acquisitions.append(tuple(anchor_ids))
+        yield
+    adapter.source_read_acquisition = acquisition
     def graph(message):
         arguments = message['arguments']; graph_calls.append(arguments)
         operation = arguments['operation']; node = arguments.get('targets', [{'id': 'discovery'}])[0]['id']
@@ -65,6 +72,7 @@ def fixture_reads(adapter, *, anchors=1):
         receipts, results = [], []
         for anchor in arguments['anchorIds']:
             pin = pins[anchor]; text = f'The park account describes the walkway at {anchor}.'
+            if body_chars is not None: text = text.ljust(body_chars, '.')
             receipt = t.SourceReadAnchorReceiptV2(source_read_id=f'read:{anchor}', anchor_id=anchor,
                 evidence_ref_id=pin.evidence_ref_id, source_artifact_id=pin.source_artifact_id,
                 source_revision_id=pin.source_revision_id, outcome='enough', content_sha256=sha256(text.encode()).hexdigest(),
@@ -101,7 +109,7 @@ class Decisions(httpx2.AsyncBaseTransport):
 
 
 @pytest.mark.parametrize('sequential', [False, True])
-@pytest.mark.parametrize('anchors', [1, 11])
+@pytest.mark.parametrize('anchors', [1, 11, 45])
 def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_adapter, sequential, anchors):
     plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond'),
                                                          GraphReferent(id='bridge', label='Footbridge')]
@@ -110,10 +118,12 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     transport = Decisions(sequential=sequential)
     proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
     assert [row['targets'][0]['id'] for row in graphs] == ['pond', 'bridge']
-    assert len(sources) == (1 if anchors == 1 else 2)
+    assert len(sources) == (1 if anchors == 1 else 2 if anchors == 11 else 7)
     read_anchors = [anchor for call in sources for anchor in call['anchorIds']]
     assert len(read_anchors) == len(set(read_anchors)) == anchors
     assert all(call['maxChars'] == 12000 for call in sources)
+    assert len(plan_adapter._test_source_acquisitions) == 1
+    assert len(plan_adapter._test_source_acquisitions[0]) == anchors
     frame = project(plan_adapter.fence.turn, proof,
         plan_adapter.context_capture.trace.model_dump(mode='json')).frame
     assert len(frame['graph_records']) == 2 and len(frame['opened_passages']) == anchors
@@ -207,3 +217,19 @@ def test_actual_graph_boundary_refuses_unselected_or_stale_decision_before_nativ
     reply = a.broker_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': arguments})
     assert json.loads(reply['resultJson'])['code'] == 'plan_jev_acquisition_not_current'
     assert a.operation_payloads == {} and a.failure is None
+
+
+def test_large_anchor_catalog_preserves_exhausted_character_policy(plan_adapter):
+    plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond')]
+    graphs, sources = fixture_reads(plan_adapter, anchors=45, body_chars=12000)
+    driver = PlanJevDriver(plan_adapter)
+    proof = asyncio.run(driver.run(transport=Decisions(), api_key='synthetic-not-secret'))
+    assert len(graphs) == len(sources) == 1
+    assert len(sources[0]['anchorIds']) == 8
+    execution = plan_adapter._broker_execution()
+    assert t.source_read_character_usage(execution.policy, execution.events) == 96000
+    frame = project(plan_adapter.fence.turn, proof,
+        plan_adapter.context_capture.trace.model_dump(mode='json')).frame
+    assert len(frame['opened_passages']) == 8
+    assert driver.gaps == ['source_read_over_budget']
+    assert frame['retrieval_gaps'] == [{'operation': 'source_read', 'reason': 'source_read_over_budget'}]

@@ -76,16 +76,27 @@ class PlanJevDriver:
                 identity = (pin.anchor_id, pin.evidence_ref_id, pin.source_artifact_id, pin.source_revision_id)
                 if identity not in self.attempted_anchors: pending[anchor] = identity
         anchors = sorted(pending)
-        for start in range(0, len(anchors), 8):
-            batch = anchors[start:start + 8]
-            self.attempted_anchors.update(pending[anchor] for anchor in batch)
-            before = set(a.source_payloads)
-            reply = a.broker_source_read({"toolName": "read_graph_source", "arguments": {
-                "retrievalSessionId": a.bootstrap.retrieval_session.id, "anchorIds": batch,
-                "maxChars": a._broker_execution().policy.max_chars_per_source_read}}, bundle_internal=True)
-            if a.failure is not None: raise a.failure
-            if len(set(a.source_payloads) - before) != 1:
-                self.gaps.append(json.loads(reply["resultJson"]).get("code", "source_read_unavailable"))
+        if not anchors:
+            return
+        with a.source_read_acquisition(anchors):
+            while anchors:
+                execution = a._broker_execution()
+                remaining = execution.policy.max_source_read_chars - t.source_read_character_usage(
+                    execution.policy, execution.events)
+                if remaining <= 0:
+                    self.gaps.append("source_read_over_budget")
+                    break
+                max_chars = min(execution.policy.max_chars_per_source_read, remaining)
+                count = min(8, len(anchors), remaining // max_chars)
+                batch, anchors = anchors[:count], anchors[count:]
+                self.attempted_anchors.update(pending[anchor] for anchor in batch)
+                before = set(a.source_payloads)
+                reply = a.broker_source_read({"toolName": "read_graph_source", "arguments": {
+                    "retrievalSessionId": a.bootstrap.retrieval_session.id, "anchorIds": batch,
+                    "maxChars": max_chars}}, bundle_internal=True)
+                if a.failure is not None: raise a.failure
+                if len(set(a.source_payloads) - before) != 1:
+                    self.gaps.append(json.loads(reply["resultJson"]).get("code", "source_read_unavailable"))
 
     def apply(self, dispatch):
         if self.finished or dispatch is not self.current or dispatch.selection is None:
