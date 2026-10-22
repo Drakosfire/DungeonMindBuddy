@@ -1,6 +1,8 @@
 # PLAY — carry the current answer policy once across the worker boundary
 
-ACTIVE serial PRIME delivery repair from f18c7574a0a277c550202707dc7a983a3b0781db,
+SETTLED delivery repair (PR #1613); original serial authority follows.
+
+ACTIVE-at-dispatch serial PRIME delivery repair from f18c7574a0a277c550202707dc7a983a3b0781db,
 branch codex/play-current-answer-carrier in the existing buddy-context-loop checkout.
 Fresh remote/open-PR census checked; no overlapping active implementation lane.
 Operator goal authorizes native Plan/Play delivery and removal of duplicate context.
@@ -34,3 +36,17 @@ Bugbot, PRIME merge, paired guarded8000/5202 delivery, explicit ordinary UI retr
 the saved pre-provider request using original IDs, source/quote acceptance and exact
 passage reopening, protected restart and retained state. Settle1612 honestly in this
 consuming change; full journeys and cross-turn read reuse remain open.
+
+
+## Delivered predecessor evidence
+
+PR #1613 merged as `8f43d37b301f7ddbbc8d56c6fadf109a3f996e7c`; Bugbot approved
+exact `9d1f73be79ed34199f9a100876f58ace96d78aa7`. Paired 8000/5202 runs that merge.
+Ordinary Retry exact saved turn resumed the original pre-provider request and
+completed in 8.7 seconds with two actual model calls. The answer separated a literal
+saved-scene note from one cited adventure passage; the exact passage reopened.
+Protected restart retained 1737 APP rows, all native rows, 79 mechanics files and
+17 frozen extraction components. The accepted answer and citation reopened after
+restart. No Plan or Run edit was performed by that answer. This settles this IPC
+repair and the mixed-contract Play witness; full connected journeys remain open.
+Successor `HANDOFF-AGENT-retained-passage-reuse.md` owns the cross-turn read boundary.
