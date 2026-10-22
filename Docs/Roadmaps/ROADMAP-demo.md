@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `76c5f5148dc324b46bd183a45aefc0dfa80361c2` (through PR #1600).
+**Evidence anchor:** remote main `5e3cb2f42623ff32038621a27bd7ec579934cce8` (through PR #1601).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve76c5f514 (#1600), with Core617635c. Named saved-section
+API8000/UI5202 serve5e3cb2f4 (#1601), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -150,9 +150,10 @@ truth. Shared source-answer code delivered1599. A fresh ordinary Plan reply answ
 correctly with named citations and exact passage reopening in5.9s; reload retained
 it. Native Play remains unaccepted: live witness exposed predecessor Graph/read
 routing in its shared broker. The current-type repair delivered1600. A further ordinary Play witness exposed
-zero read capacity when initial discovery has no anchors. ACTIVE
-HANDOFF-PLAY-discovered-source-capacity.md owns that setup repair, preserving
-exact dynamic pin authority and existing settled budgets.
+zero read capacity when initial discovery has no anchors. That setup repair delivered1601; fresh Play opens source passages. Its actual
+next provider authorization still drops read IDs, so source-proof validation
+fails closed. ACTIVE HANDOFF-PLAY-source-provider-inclusion.md owns the handoff
+repair; exact authority and settled budgets remain binding.
 No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing

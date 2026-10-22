@@ -1,6 +1,13 @@
 # PLAY — preserve capacity for discovered source anchors
 
-ACTIVE serial PRIME successor from76c5f5148dc324b46bd183a45aefc0dfa80361c2.
+MERGED1601 at5e3cb2f42623ff32038621a27bd7ec579934cce8, running8000/5202.
+Bugbot approvedd0c67442a1e6b4881c446e0c58e3e773a0c5bc11, one cycle, no findings;
+30independent tests passed. Delivery preserved1623APP rows, all native rows,
+79mechanics files and frozen sources. Fresh Play now opens source passages, but
+its actual next provider authorization discards their included read IDs and fails
+closed. HANDOFF-PLAY-source-provider-inclusion.md owns that exact handoff repair.
+
+Historical serial PRIME successor from76c5f5148dc324b46bd183a45aefc0dfa80361c2.
 Branch codex/play-discovered-source-capacity, existing buddy-context-loop checkout.
 Operator goal authorizes dependable shared Play source acquisition. Architecture
 critique turn01a164bf-90d3-7820-9805-4b5d031542e2 already requires actual empty/budget

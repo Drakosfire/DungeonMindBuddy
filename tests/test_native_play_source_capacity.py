@@ -19,9 +19,7 @@ from tests.test_settled_source_read_accounting import (
 )
 
 
-def test_actual_empty_discovery_owner_freeze_allows_only_later_exact_pins(
-    application_state_dsn, monkeypatch
-):
+def prepare_empty_owner(application_state_dsn, monkeypatch):
     service, sub, frame = make_submission()
     body = {
         "model": "synthetic",
@@ -114,6 +112,29 @@ def test_actual_empty_discovery_owner_freeze_allows_only_later_exact_pins(
                 outcome=value,
             ),
         )
+    return SimpleNamespace(
+        service=service,
+        sub=sub,
+        turn=turn,
+        provider=provider,
+        raw=raw,
+        receipt=receipt,
+        execution=execution,
+        authority=authority,
+    )
+
+
+def test_actual_empty_discovery_owner_freeze_allows_only_later_exact_pins(
+    application_state_dsn, monkeypatch
+):
+    case = prepare_empty_owner(application_state_dsn, monkeypatch)
+    service, turn, receipt, execution, authority = (
+        case.service,
+        case.turn,
+        case.receipt,
+        case.execution,
+        case.authority,
+    )
     pin = t.GraphSourceScopeAnchorV2(
         anchor_id="new-anchor",
         evidence_ref_id="new-evidence",
