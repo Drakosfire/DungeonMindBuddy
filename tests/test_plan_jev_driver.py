@@ -281,3 +281,19 @@ def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adap
     assert event.assertion_ids==['assertion:pond'] and event.evidence_ref_ids==['evidence:pond']
     assert event.coverage_status=='complete' and event.evidence_sufficiency_status=='sufficient'
     assert a._broker_execution().effective_source_pins()['anchor:pond'].source_revision_id=='source:pond:1'
+
+
+@pytest.mark.parametrize('matching', [True, False])
+def test_exact_successful_bootstrap_discovery_is_not_repeated(plan_adapter, matching):
+    from dataclasses import replace
+    plan_adapter.bootstrap = replace(plan_adapter.bootstrap, completed_discovery_query=(
+        plan_adapter.request.message if matching else 'A different earlier query'))
+    graphs, sources = fixture_reads(plan_adapter)
+    driver = PlanJevDriver(plan_adapter)
+    transport = Decisions(discover=not matching)
+    proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    assert [g['operation'] for g in graphs] == ([] if matching else ['search', 'object', 'object'])
+    assert driver.finished
+    assert len(proof['graph_packets']) == (0 if matching else 3)
+    assert 'discover_more' not in transport.calls[0]['questions']['operation']['criteria'] if matching else (
+        'discover_more' in transport.calls[0]['questions']['operation']['criteria'])

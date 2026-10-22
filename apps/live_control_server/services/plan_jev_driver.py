@@ -16,7 +16,7 @@ class PlanJevDriver:
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
         self.attempted_nodes, self.attempted_anchors = set(), set()
-        self.discovered = False
+        self.discovered = adapter.bootstrap.completed_discovery_query == adapter.request.message
         self.finished = False
         self.calls = []
         self.gaps = []

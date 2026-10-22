@@ -1409,6 +1409,7 @@ class AgentPlanWorldGraphBootstrap:
     assembler_version: str = "agent_harness_final_request_v1"
     build_source_discovery: Mapping[str, Any] | None = None
     navigation_candidates: tuple[tuple[str, str], ...] = ()
+    completed_discovery_query: str | None = None
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]

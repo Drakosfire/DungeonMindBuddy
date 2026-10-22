@@ -1376,6 +1376,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     bootstrap = agent_route._plan_context_resolver(
         body, {"kind": "world", "id": managed.world_id}, work, None,
     )
+    assert bootstrap.completed_discovery_query == body.message
     assert bootstrap.world_scope.world_id == NATIVE_ID
     assert bootstrap.world_scope.revision_id == published.revision_id
     assert bootstrap.graph_envelope["revision_id"] == published.revision_id
