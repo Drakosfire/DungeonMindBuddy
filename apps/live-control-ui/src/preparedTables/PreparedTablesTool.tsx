@@ -83,12 +83,15 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     let sent=false;
     try{
       await locked(()=>{
+        if(props.current.blocked)throw new Error('Save or resolve session changes before recording a roll.');
+        if(!retry&&inventory&&(inventory.run.run_revision!==props.current.run.run_revision||!samePin(inventory.source,props.current.run)))throw new Error('Session changed. Refresh the saved preparation before submitting.');
         const stored=localStorage.getItem(key);
         if(retry ? stored!==raw : stored!==null)throw new Error('Another view changed the pending roll. Reopen Prepared tables to recover it.');
         if(!retry)localStorage.setItem(key,raw);
         setPending(submitted);props.current.onHeld(true);
       });
       if(!current())return;
+      if(props.current.blocked)throw new Error('Session changes need resolving. The reserved command is retained for explicit retry.');
       sent=true;
       const result=await call(`${base}/commands/${submitted.id}?${query}`,{method:'PUT',body:JSON.stringify(submitted.body)});
       validateReceipt(result.receipt,run,submitted);validateRun(result.run,run);
@@ -113,7 +116,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
         }catch{setStorageBlocked(true);props.current.onHeld(true);setError('Another view changed recovery. Its saved command was retained. Reopen Prepared tables.');}
       }else{
         setError(sent?'The save outcome is unknown. Retry the exact saved command to recover its receipt.':(cause instanceof Error?cause.message:String(cause)));
-        if(!sent){setStorageBlocked(true);let retained=true;try{retained=localStorage.getItem(key)!==null;}catch{/* Fail closed if storage is unreadable. */}props.current.onHeld(retained);}
+        if(!sent){let retained=true;try{retained=localStorage.getItem(key)!==null;}catch{/* Fail closed if storage is unreadable. */}setStorageBlocked(retained||!navigator.locks);props.current.onHeld(retained);}
       }
     }finally{if(current()){sending.current=false;setBusy(false);}}
   };

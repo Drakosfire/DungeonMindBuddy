@@ -108,3 +108,18 @@ it('does not post after its view closes while waiting for a browser lock',async(
   expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).toBeNull();
   expect(request.mock.calls.every(([path])=>!String(path).includes('/commands/'))).toBe(true);
 });
+
+
+it.each(['blocked','revision'])('revalidates host %s after waiting for the browser lock',async change=>{
+  let action:(()=>unknown)|undefined;
+  const acquire=vi.fn((_name:string,callback:()=>unknown)=>new Promise((resolve,reject)=>{action=()=>{try{resolve(callback())}catch(e){reject(e)}}}));
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:acquire}});
+  const onRun=vi.fn(),onHeld=vi.fn();
+  const mounted=render(<PreparedTablesTool run={run} blocked={false} onRun={onRun} onHeld={onHeld}/>);
+  await screen.findByLabelText('Physical roll');fireEvent.change(screen.getByLabelText('Physical roll'),{target:{value:'2'}});fireEvent.click(screen.getByText('Record outcome'));
+  await waitFor(()=>expect(action).toBeDefined());
+  mounted.rerender(<PreparedTablesTool run={change==='revision'?{...run,run_revision:2}:run} blocked={change==='blocked'} onRun={onRun} onHeld={onHeld}/>);action!();
+  await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent(change==='blocked'?'Save or resolve':'Session changed'));
+  expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).toBeNull();
+  expect(request.mock.calls.every(([path])=>!String(path).includes('/commands/'))).toBe(true);
+});
