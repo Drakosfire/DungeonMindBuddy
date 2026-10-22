@@ -204,7 +204,8 @@ def test_play_source_claim_cannot_use_changed_or_unincluded_read(change):
 
 
 @pytest.mark.parametrize('with_quote',[False,True])
-def test_play_source_answer_persists_through_native_output_owner(application_state_dsn,with_quote):
+@pytest.mark.parametrize('historical_policy',[None,'v1','v2'])
+def test_play_source_answer_persists_through_native_output_owner(application_state_dsn,with_quote,historical_policy):
     """Real APP accept/read/input/output/reopen; synthetic provider, no SQL forging."""
     from tests.application_state.test_native_play_input_postgres import (
         prepared_native,
@@ -285,6 +286,16 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
         outcome="enough",
     )
     body = json.loads(raw)
+    current_carrier = json.loads(body['messages'][0]['content'])
+    if historical_policy:
+        from application_state.agent_conversation.play_graph_input import NativePlayInputV2,unpack_play_frame
+        if historical_policy == 'v1':
+            old = NativePlayInputV2(submission_id=uuid4(),message='An earlier scene question.',
+                source_frame=unpack_play_frame(current_carrier['source_frame']))
+            historical = old.model_dump(mode='json',by_alias=True)
+        else:
+            historical = current_carrier | {'submission_id':str(uuid4()),'message':'An earlier scene question.'}
+        body['messages'].insert(0,dict(role='user',content=json.dumps(historical)))
     body["messages"].extend(
         [
             {
@@ -356,8 +367,7 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
         )
     )
     if with_quote:
-        carrier=json.loads(json.loads(raw)['messages'][0]['content'])
-        frame=carrier['source_frame']
+        frame=current_carrier['source_frame']
         payload=json.loads(output)
         payload['answer_segments'].append(dict(kind='authored_excerpt',block_handle=frame['sources'][0]['text_blocks'][0]['block_handle']))
         output=json.dumps(payload)

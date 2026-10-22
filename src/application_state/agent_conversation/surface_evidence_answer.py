@@ -190,21 +190,27 @@ def producing_authored(turn, auth, raw):
     return tuple(result)
 
 
-def require_current_policy(auth, raw):
+def require_current_policy(turn, auth, raw):
     body = strict_json(raw)
     if isinstance(auth, t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
         return frame_in_request(raw).get('answer_policy') if frame_in_request(raw).get('answer_policy') in {POLICY,HISTORICAL_POLICY} else False
     from .play_graph_input import _user_texts
-    policies = {_current_carrier(text) for text in _user_texts(body, auth.api_mode)} - {False}
+    policies = {_current_carrier(text, turn.idempotency_key) for text in _user_texts(body, auth.api_mode)} - {False}
     if len(policies)>1: raise ValueError('Ambiguous current answer policy')
     return next(iter(policies),False)
 
 
-def _current_carrier(text):
+def _current_carrier(text, submission_id):
     try: row = strict_json(text)
     except (ValueError, TypeError): return False
     if not isinstance(row,dict): return False
+    # Retained user carriers describe earlier turns, never the current policy.
+    from uuid import UUID
+    try:
+        if UUID(str(row.get('submission_id'))) != submission_id: return False
+    except ValueError:
+        return False
     return POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 

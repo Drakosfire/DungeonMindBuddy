@@ -480,7 +480,7 @@ def sealed_native_producer(turn, rules_execution, proof):
         closures=tuple(closures),
         passages=passages, source_partial=source_partial,
         authored=producing_authored(turn, graph_auth, proof.prepared_request_json),
-        current_policy=require_current_policy(graph_auth, proof.prepared_request_json),
+        current_policy=require_current_policy(turn, graph_auth, proof.prepared_request_json),
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),
     )
     return capture, graph_support

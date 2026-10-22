@@ -2309,7 +2309,7 @@ class _PolicyExecutionAdapter:
                     producing_session_titles(updated, event, view["payloadJson"]),
                     passages, source_partial,
                     producing_authored(updated, event, view["payloadJson"]) if is_native_play else (),
-                    require_current_policy(event, view["payloadJson"]) if is_native_play else False,
+                    require_current_policy(updated, event, view["payloadJson"]) if is_native_play else False,
                 )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body)

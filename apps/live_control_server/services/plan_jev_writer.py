@@ -142,7 +142,7 @@ class PlanJevWriter:
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
             a._broker_receipt().graph_authority.graph_revision, projection.closures,
             producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial,
-            producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(event, view["payloadJson"]))
+            producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 
