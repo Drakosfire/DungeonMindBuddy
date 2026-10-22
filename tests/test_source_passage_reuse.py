@@ -59,12 +59,15 @@ def next_adapter(first):
         expected_conversation_id=first.turn.conversation_id)
 
 
-def stage_reuse(first, monkeypatch, holder=None, *, anchors=2):
+def stage_reuse(first, monkeypatch, holder=None, *, anchors=2, internal=False):
     adapter = next_adapter(first)
     if holder is not None: holder.append(adapter)
     _, fresh_calls = fixture_reads(adapter, anchors=anchors, node_only=True)
     adapter._broker_fresh_source_read = adapter.broker_source_read
     adapter.broker_source_read = MethodType(owner._PolicyExecutionAdapter.broker_source_read, adapter)
+    if internal:
+        broker = adapter.broker_source_read
+        adapter.broker_source_read = lambda message, **kwargs: broker(message, bundle_internal=True)
     def session(_):
         actual = adapter.bootstrap.retrieval_session
         pins = adapter._broker_execution().effective_source_pins()
@@ -299,3 +302,71 @@ def test_mixed_batch_reads_only_the_new_anchor(plan_adapter,monkeypatch):
         auth=next(e for e in completed.graph_context_execution.events if isinstance(e,t.PlanJevWriterAuthorizedV2))
         assert len(auth.included_source_read_event_ids)==1 and len(auth.included_source_reuse_event_ids)==2
     finally: second.fence.stop()
+
+
+@pytest.mark.parametrize('compact_refs', [False, True])
+def test_internal_reuse_has_no_unseen_donors_in_actual_bundle(plan_adapter, monkeypatch, compact_refs):
+    complete_origin(plan_adapter)
+    second, _writer, reads = stage_reuse(plan_adapter, monkeypatch, internal=True)
+    try:
+        assert not reads and second.failure is None
+        graph_id, graph_raw = next(iter(second.operation_payloads.items()))
+        bundle = second._tool_presentation().present_bundle(graph_raw, graph_id,
+            list(second.source_payloads.items()), compact_refs=compact_refs,
+            source_pins=second._broker_execution().effective_source_pins())
+        exposures = second._tool_presentation().bundled_source_inclusion([bundle])
+        assert {e.event_id for e in exposures} == set(second.source_payloads)
+        assert all(e.complete for e in exposures)
+        packet = json.loads(bundle)
+        assert all(row.get('content') and not row.get('contentRef') for row in packet['sources'])
+    finally:
+        second.fence.stop()
+
+
+@pytest.mark.parametrize('phase', ['empty', 'authorized', 'sdk_entered'])
+def test_native_play_admission_requires_current_acknowledged_provider(application_state_dsn, phase):
+    from tests.application_state.test_native_play_input_postgres import prepared_native, append
+    from application_state.errors import ApplicationStateValidationError
+    service, sub, turn, provider, raw = prepared_native(application_state_dsn)
+    if phase != 'empty':
+        turn, _ = append(service, sub, turn, provider, raw)
+    if phase == 'sdk_entered':
+        turn, _ = service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt,
+            outcome=t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(),
+                sequence=len(turn.graph_context_execution.events),
+                provider_attempt_id=provider.provider_attempt_id, outcome='sdk_entered'))
+    with pytest.raises(ApplicationStateValidationError, match='acknowledged current provider'):
+        service.admit_retained_source_passages(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt,
+            request=dict(anchor_ids=['anchor:new'], max_chars=4000, elapsed_ms=0, request_id=str(uuid4())))
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.revision == turn.revision
+    assert reopened.graph_context_execution == turn.graph_context_execution
+
+
+def test_rules_final_writer_blocks_new_admission_but_allows_exact_replay(plan_adapter, monkeypatch):
+    from application_state.errors import ApplicationStateValidationError
+    from application_state.agent_conversation.rules_authority_events import RulesPlanPacketProviderAuthorizedV1
+    complete_origin(plan_adapter)
+    second, _writer, _reads = stage_reuse(plan_adapter, monkeypatch)
+    try:
+        current = second.fence.turn
+        event = next(e for e in current.graph_context_execution.events if isinstance(e, t.SourcePassageReuseEventV1))
+        request = dict(anchor_ids=['anchor:park:0', 'anchor:park:1'], max_chars=12000,
+            elapsed_ms=second.context_capture.elapsed_ms, request_id=str(event.reuse_request_id))
+        # Supply the typed final-writer state at its separate Rules-store boundary.
+        monkeypatch.setattr('application_state.agent_conversation.rules_authority_store.load_turn_rules_locked',
+            lambda conn, turn: SimpleNamespace(execution=SimpleNamespace(events=[
+                RulesPlanPacketProviderAuthorizedV1.model_construct()])))
+        replay, changed = second.service.admit_retained_source_passages(current.world_id,
+            current.conversation_id, current.turn_id, expected_revision=event.request_turn_revision,
+            expected_attempt=current.attempt, request=request)
+        assert not changed and replay.revision == current.revision
+        with pytest.raises(ApplicationStateValidationError, match='final writer forbids'):
+            second.service.admit_retained_source_passages(current.world_id, current.conversation_id,
+                current.turn_id, expected_revision=current.revision, expected_attempt=current.attempt,
+                request={**request, 'request_id':str(uuid4())})
+        assert second.service.inspect_turn(world_id=current.world_id, turn_id=current.turn_id).revision == current.revision
+    finally:
+        second.fence.stop()

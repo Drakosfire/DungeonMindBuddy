@@ -3484,6 +3484,19 @@ class _PolicyExecutionAdapter:
                 added = [(e.event_id, self.source_payloads[e.event_id]) for e in updated.graph_context_execution.events
                     if isinstance(e, types.SourcePassageReuseEventV1)
                     and any(r.anchor_id in reused for r in e.receipts)]
+            if bundle_internal:
+                # Only the final composite bundle is visible to the provider.
+                # Registering internal replies would create unseen literal donors.
+                rows = []
+                for _event_id, raw in added:
+                    payload = json.loads(raw)
+                    rows.extend(payload.get("reads", [payload]))
+                payload = rows[0] if len(rows) == 1 else {
+                    "schema": "dmb_read_graph_source_batch_v1", "reads": rows,
+                    "retrievalSessionId": scope.retrieval_session_id,
+                }
+                return {"resultJson": json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                    "retrievalSession": session.project_for_hermes()}
             result = self._tool_presentation().present_source_batch(arguments, added, source_pins=pins)
             return {"resultJson": result, "retrievalSession": session.project_for_hermes()}
         except Exception:

@@ -1640,6 +1640,19 @@ class AgentConversationService:
                 return turn, False
             if turn.revision != expected_revision:
                 raise ApplicationStateConflictError("retained passage admission lost its revision")
+            latest_provider = next((e for e in reversed(execution.events)
+                if isinstance(e, (t.ProviderAttemptAuthorizedEventV1, t.ProviderAttemptAuthorizedEventV2))), None)
+            latest_outcome = next((e for e in reversed(execution.events)
+                if isinstance(e, t.ProviderOutcomeEventV1) and latest_provider is not None
+                and e.provider_attempt_id == latest_provider.provider_attempt_id), None)
+            if latest_provider is None or latest_outcome is None or latest_outcome.outcome != "response_received":
+                raise ApplicationStateValidationError("retained passage admission requires an acknowledged current provider")
+            if isinstance(execution, t.PlanWorldGraphExecutionV3):
+                from .rules_authority_store import load_turn_rules_locked
+                from .rules_authority_events import RulesPlanPacketProviderAuthorizedV1
+                rules = load_turn_rules_locked(conn, turn)
+                if rules and any(isinstance(e, RulesPlanPacketProviderAuthorizedV1) for e in rules.execution.events):
+                    raise ApplicationStateValidationError("Plan packet final writer forbids later Graph reads or providers")
             pins = execution.effective_source_pins()
             if any(a not in pins for a in request["anchor_ids"]) or request["max_chars"] > execution.policy.max_chars_per_source_read:
                 raise ApplicationStateValidationError("retained passage selection differs from current scope")
