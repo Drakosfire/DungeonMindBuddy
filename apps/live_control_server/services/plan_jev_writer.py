@@ -117,7 +117,7 @@ class PlanJevWriter:
         a = self.adapter
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
             'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': {'type': 'json_object'}},
-            'tools': [], 'stream': False, 'reasoning': {'effort': 'low'}, 'service_tier': 'fast'}
+            'tools': [], 'stream': False, 'reasoning': {'effort': 'none'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
@@ -190,7 +190,7 @@ class PlanJevWriter:
             usage['uncached_input_tokens'] = observation.input_tokens - observation.cached_input_tokens
         if all(v is not None for v in counts.values()): usage['total_tokens']=sum(counts.values())
         self.call.update(status=status,response_model=observation.response_model,usage=usage,
-            request_summary={'reasoning_effort': 'low'})
+            request_summary={'reasoning_effort': 'none'})
 
     async def run(self, *, transport=None, api_key=None):
         from generationengine import GenerationClient, TextRequest
@@ -205,7 +205,7 @@ class PlanJevWriter:
         try:
             result = await client.generate_text(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
-                temperature=None,reasoning_effort='low',max_output_tokens=self.adapter.budget['outputReserveTokens'],
+                temperature=None,reasoning_effort='none',max_output_tokens=self.adapter.budget['outputReserveTokens'],
                 json_object=True,max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:

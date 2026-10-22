@@ -62,7 +62,7 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     assert entry.evidence_ref_ids == ['evidence:park:0']
     assert writer.call['usage'] == {'status':'reported','input_tokens':600,'output_tokens':100,
         'total_tokens':700,'cached_input_tokens':400,'uncached_input_tokens':200,'reasoning_tokens':60}
-    assert writer.call['request_summary'] == {'reasoning_effort':'low'}
+    assert writer.call['request_summary'] == {'reasoning_effort':'none'}
     prompts=[row for row in plan_adapter.context_capture.trace.observations if row.kind=='prompt_reference']
     assert prompts[-1].payload_sha256==writer.prepared.body_sha256
     assert prompts[-1].api_mode=='responses'
@@ -71,7 +71,7 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     body = json.loads(wire.calls[0].content)
     assert body['service_tier'] == 'fast'
     assert writer.call['response_service_tier'] == 'fast'
-    assert body['reasoning'] == {'effort':'low'}
+    assert body['reasoning'] == {'effort':'none'}
     frame = json.loads(body['input'][0]['content'])
     assert all('assertion_ids' not in row and 'relationship_ids' not in row
                for row in frame['retrieval_results'])
