@@ -285,33 +285,34 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
             remaining.difference_update(batch_anchors)
     anchor_ids = sorted(remaining)
     stop_code = None
-    for offset in range(0, len(anchor_ids), 8):
-        before_sources = set(adapter.source_payloads)
-        source_reply = adapter.broker_source_read(
-            {
-                "toolName": "read_graph_source",
-                "arguments": {
-                    "retrievalSessionId": request.retrieval_session_id,
-                    "anchorIds": anchor_ids[offset : offset + 8],
-                    "maxChars": 4000,
+    with adapter.source_read_acquisition(anchor_ids):
+        for offset in range(0, len(anchor_ids), 8):
+            before_sources = set(adapter.source_payloads)
+            source_reply = adapter.broker_source_read(
+                {
+                    "toolName": "read_graph_source",
+                    "arguments": {
+                        "retrievalSessionId": request.retrieval_session_id,
+                        "anchorIds": anchor_ids[offset : offset + 8],
+                        "maxChars": 4000,
+                    },
                 },
-            },
-            bundle_internal=True,
-        )
-        if adapter.failure is not None:
-            return source_reply
-        added_sources = set(adapter.source_payloads) - before_sources
-        if len(added_sources) != 1:
-            refusal = json.loads(source_reply["resultJson"])
-            if refusal.get("statusCode", 500) >= 500:
+                bundle_internal=True,
+            )
+            if adapter.failure is not None:
                 return source_reply
-            stop_code = refusal.get("code", "source_read_refused")
-            # A known refusal admits no new body. Do not repeat the read.
-            break
-        sid = added_sources.pop()
-        source_events.append((sid, adapter.source_payloads[sid]))
-        if isinstance(source_reply.get("retrievalSession"), dict):
-            latest_session_packet = source_reply["retrievalSession"]
+            added_sources = set(adapter.source_payloads) - before_sources
+            if len(added_sources) != 1:
+                refusal = json.loads(source_reply["resultJson"])
+                if refusal.get("statusCode", 500) >= 500:
+                    return source_reply
+                stop_code = refusal.get("code", "source_read_refused")
+                # A known refusal admits no new body. Do not repeat the read.
+                break
+            sid = added_sources.pop()
+            source_events.append((sid, adapter.source_payloads[sid]))
+            if isinstance(source_reply.get("retrievalSession"), dict):
+                latest_session_packet = source_reply["retrievalSession"]
     request_context = getattr(adapter, "request", None)
     from .agent_turn_service import _governed_build_turn
 

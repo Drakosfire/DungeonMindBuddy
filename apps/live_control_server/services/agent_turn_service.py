@@ -2693,6 +2693,43 @@ class _PolicyExecutionAdapter:
             return False
 
     @contextmanager
+    def source_read_acquisition(self, anchor_ids):
+        """Share exact native metadata across authorized body batches, never inference."""
+        if len(anchor_ids) <= 8 or getattr(self, "_build_native_acquisition_services", None) is not None:
+            yield
+            return
+        from graph_memory.interaction.expansion_executor import _request_context_payload, _focus_for_request
+        from graph_memory.interaction.session_store import get_session
+        from graph_memory.retrieval.models import WorldGraphSourceAnchorReadRequest
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+        from apps.live_control_server.integrations.dungeonmind.source_anchor_wave import source_anchor_wave
+
+        execution = self._broker_execution()
+        scope = execution.policy.source_read_scope
+        session = get_session(scope.retrieval_session_id)
+        authority = self._broker_receipt().graph_authority
+        pins = execution.effective_source_pins()
+        admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
+        if (self.failure is not None or self.fence is None or self.last_provider_attempt_id is None
+                or len(set(anchor_ids)) != len(anchor_ids)
+                or session.snapshot.world_id != authority.native_world_id
+                or session.snapshot.revision_id != scope.graph_revision
+                or session.snapshot.campaign_id != (scope.campaign_id or "")
+                or any(key not in pins or key not in admitted or not admitted[key].readable for key in anchor_ids)):
+            raise ValueError("source acquisition requires current admitted selectors")
+        request = WorldGraphSourceAnchorReadRequest.model_validate({
+            **_request_context_payload(session, _focus_for_request(session.snapshot.focus)),
+            "schema": "dmb_world_graph_source_anchor_read_request_v1", "anchorId": anchor_ids[0],
+        })
+        services = world_graph_reads.direct_services_from_config(authority.native_world_id)
+        with source_anchor_wave(services, request, tuple(anchor_ids)) as bound:
+            self._build_native_acquisition_services = bound
+            try:
+                yield
+            finally:
+                self._build_native_acquisition_services = None
+
+    @contextmanager
     def build_native_acquisition(self, driver):
         """One parent-owned native read lifetime, never across inference."""
         from .build_jev_transitions import AcquisitionIntent

@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from contextlib import nullcontext
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -288,6 +289,7 @@ def acquisition_fixture(*, source_failure=False):
         adapter.source_payloads[uuid4()] = json.dumps(source)
         return {"resultJson": json.dumps(source)}
 
+    adapter.source_read_acquisition = lambda ids: nullcontext()
     adapter.broker_graph_operation = graph_read
     adapter.broker_source_read = source_read
     message = {
