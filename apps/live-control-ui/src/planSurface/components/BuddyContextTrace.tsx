@@ -82,16 +82,50 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
   }
 }
 
+type TraceRow = { event: BuddyTraceObservation; observations: BuddyTraceObservation[] }
+
+/** Presentation only: immutable lifecycle and usage observations remain inspectable. */
+function traceRows(observations: BuddyTraceObservation[]): TraceRow[] {
+  const rows: TraceRow[] = []
+  const responses = new Map<string, number>()
+  const measured = ['input_tokens', 'output_tokens', 'duration_ms'] as const
+  for (const event of observations) {
+    if (event.kind !== 'provider_call' || event.outcome !== 'response_received' || !event.provider_attempt_id) {
+      rows.push({ event, observations: [event] })
+      continue
+    }
+    const key = JSON.stringify([event.provider_attempt_id, event.provider, event.model])
+    const index = responses.get(key)
+    const row = index == null ? undefined : rows[index]
+    const previous = row?.event
+    if (row && previous?.kind === 'provider_call'
+      && measured.every(field => previous[field] == null || event[field] == null || previous[field] === event[field])) {
+      const merged = { ...previous }
+      for (const field of measured) merged[field] = previous[field] ?? event[field]
+      row.event = merged
+      row.observations.push(event)
+    } else {
+      responses.set(key, rows.length)
+      rows.push({ event, observations: [event] })
+    }
+  }
+  return rows
+}
+
 export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
+  const rows = traceRows(trace.observations)
   const last = trace.observations.at(-1)
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>How Buddy built this reply</h4><p>Observable execution · attempt {trace.attempt}</p></div>
-      <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+      <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
-    <ol>{trace.observations.map(event => <li key={event.sequence}>
+    <ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
-      <div><Event event={event} passages={passages} /></div></li>)}</ol>
+      <div><Event event={event} passages={passages} />
+        {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
+          <JsonDetails label="Recorded provider observations" value={observations} /></>}
+      </div></li>)}</ol>
   </section>
 }

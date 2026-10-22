@@ -1,0 +1,9 @@
+# PLAN — reconcile provider response observations
+
+ACTIVE serial slice under the operator preparation/play goal. Base7b904dccd063758c4b1be73c072f10b8080fb180; branch codex/trace-provider-reconciliation, existing buddy-context-loop checkout. PRIME designs/implements/merges; independent Bugbot reviews exact head. Existing hosted, ingestion and historical Combat open PRs do not own these paths. One implementation PR; no new environment.
+
+Capability: Debug renders one response row for compatible observations with the same captured provider attempt, provider and model. Late measured usage enriches the original chronological row. Authorization/failure/unknown lifecycle observations remain separate; unidentified calls and contradictory measurements never coalesce. Original immutable observations remain inspectable in the reconciled row. Counts are provider reported, never estimated or summed across duplicate observations. The displayed trace window is explicitly a capture window, not end-to-end request latency.
+
+Exclusive writes: this handoff, predecessor HANDOFF-PLAN-image-prompt-handoff.md, ROADMAP-demo.md, UI planSurface/components/BuddyContextTrace.tsx and its owning tests. No API/storage/schema/telemetry mutation, no provider request changes or new limits.
+
+Verify rendered reconciliation against real saved trace, distinct/missing identities, conflicts, zero/partial usage, lifecycle preservation and raw observation inspection; focused tests, history integration, typecheck/build and exact cumulative Bugbot. Deliver reviewed merge on5202 preserving APP rows. Settle predecessor truthfully: PR1569 merged7b904dccd; fresh typed prompt5.201s, real generation/Save succeeded, saved asset reopened from Image library on a fresh page without Plan insertion. Full goal and latency acceptance remain open.
