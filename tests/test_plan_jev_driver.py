@@ -224,7 +224,9 @@ def test_large_anchor_catalog_preserves_exhausted_character_policy(plan_adapter)
     graphs, sources = fixture_reads(plan_adapter, anchors=45, body_chars=12000)
     driver = PlanJevDriver(plan_adapter)
     proof = asyncio.run(driver.run(transport=Decisions(), api_key='synthetic-not-secret'))
-    assert len(graphs) == len(sources) == 1
+    assert len(graphs) == 2 and len(sources) == 1
+    assert len(plan_adapter._test_source_acquisitions) == 1
+    assert len(driver.attempted_anchors) == 45
     assert len(sources[0]['anchorIds']) == 8
     execution = plan_adapter._broker_execution()
     assert t.source_read_character_usage(execution.policy, execution.events) == 96000

@@ -78,13 +78,26 @@ class PlanJevDriver:
         anchors = sorted(pending)
         if not anchors:
             return
+        def exhausted(unread):
+            # A host refusal is terminal for these exact pins in this turn.
+            # Persist its qualification through the same protected trace the
+            # writer uses; an in-memory diagnostic is not producing authority.
+            self.attempted_anchors.update(pending[anchor] for anchor in unread)
+            if "source_read_over_budget" not in self.gaps:
+                self.gaps.append("source_read_over_budget")
+                a.context_capture.observe({"kind": "failure", "phase": "source_read",
+                                           "code": "source_read_over_budget"})
+        execution = a._broker_execution()
+        if t.source_read_character_usage(execution.policy, execution.events) >= execution.policy.max_source_read_chars:
+            exhausted(anchors)
+            return
         with a.source_read_acquisition(anchors):
             while anchors:
                 execution = a._broker_execution()
                 remaining = execution.policy.max_source_read_chars - t.source_read_character_usage(
                     execution.policy, execution.events)
                 if remaining <= 0:
-                    self.gaps.append("source_read_over_budget")
+                    exhausted(anchors)
                     break
                 max_chars = min(execution.policy.max_chars_per_source_read, remaining)
                 count = min(8, len(anchors), remaining // max_chars)
