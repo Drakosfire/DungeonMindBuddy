@@ -196,7 +196,7 @@ def test_plan_writer_refuses_completion_when_renewal_error_is_reported(plan_adap
     assert turn.status!='completed'
 
 
-@pytest.mark.parametrize('existing_link',[False,True])
+@pytest.mark.parametrize('existing_link',[False,True,'bare_wrong_label'])
 def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,existing_link):
     from dataclasses import replace
     from uuid import uuid4
@@ -213,7 +213,8 @@ def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,exist
     proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
     url='/play?'+urlencode({'world':a.world_id,'run':run,'evidence_revision':54})
-    text=(f'[Session 54 scene notes]( {url} ) describe a submerged boardwalk.' if existing_link
+    text=(f'[Session 54 scene notes]( {url} ) describe a submerged boardwalk.' if existing_link is True
+        else 'Session 54 recap describes a submerged boardwalk.' if existing_link == 'bare_wrong_label'
         else 'Scene notes describe a submerged boardwalk.')
     candidate={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
         {'kind':'session_evidence_claim','text':text,'run_id':run,'review_revision':54}]}
@@ -223,7 +224,14 @@ def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,exist
     instructions=json.loads(wire.calls[0].content)['instructions']
     assert 'dmb_surface_source_answer_v1' not in instructions
     assert 'session_evidence_claim' in instructions and 'plan_claim' in instructions
-    assert 'Session 54' not in completed.assistant_text
+    from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
+    assert SOURCE_ATTRIBUTION_INSTRUCTIONS in instructions
+    assert 'Use source names in attribution' not in instructions
+    if existing_link == 'bare_wrong_label':
+        # Citation authority is exact; free prose is not silently repaired or fact-validated.
+        assert text in completed.assistant_text
+    else:
+        assert 'Session 54' not in completed.assistant_text
     assert completed.assistant_text.count(url)==1
     assert '[Approach to Edge — Session Prep — notes and reflections]' in completed.assistant_text
     assert completed.completion.answer_segments[0].evidence_sha256==packet['sha256']

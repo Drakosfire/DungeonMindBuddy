@@ -414,3 +414,15 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
         )
         == completed
     )
+
+
+def test_current_plan_and_play_source_instructions_share_host_attribution():
+    from application_state.agent_conversation.surface_source_answer import (
+        INSTRUCTIONS, SOURCE_ATTRIBUTION_INSTRUCTIONS,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _PLAN_GRAPH_ANSWER_INSTRUCTIONS,
+    )
+    assert SOURCE_ATTRIBUTION_INSTRUCTIONS in INSTRUCTIONS
+    assert SOURCE_ATTRIBUTION_INSTRUCTIONS in _PLAN_GRAPH_ANSWER_INSTRUCTIONS
+    assert "Use source names in prose" not in INSTRUCTIONS

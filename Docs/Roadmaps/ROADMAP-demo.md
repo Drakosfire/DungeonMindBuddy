@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `8dc5c44fb3c80be8a5d1037b0be30fe979f76c4a` (through PR #1604).
+**Evidence anchor:** remote main `5f4fc7e0c49b6ca11ce9c2a5375c6839239a844b` (through PR #1605).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve8dc5c44f (#1604), with Core617635c. Named saved-section
+API8000/UI5202 serve5f4fc7e0 (#1605), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -165,8 +165,12 @@ That decision repair delivered1604. Real corpus-grounded runs took10.431s,9.556s
 and14.929s; exact citation reopening passed after restart with1676APP rows, native
 rows,79mechanics files and11frozen components unchanged. The clean conversation
 followed a peripheral NPC and mislabeled some notes as a recap in prose; reliable
-latency and citation wording remain open. ACTIVE HANDOFF-SURFACE-image-prompt-intent.md
-owns image requests defaulting to Plan change; full adventure acceptance remains open.
+latency and citation wording remain open. Image composer repair delivered1605:
+the original follow-up automatically routed to Question, completed a typed prompt
+and reopened the exact Studio prompt after restart;1690APP rows, native rows,
+79mechanics files and11frozen components were unchanged. ACTIVE
+HANDOFF-AGENT-source-attribution-prose.md owns unsupported session/recap labels
+in claim prose; full adventure acceptance remains open.
 No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing
