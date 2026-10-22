@@ -7,7 +7,7 @@ import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from 
 import type { WorldbuildingPlan } from "../../api/worldbuildingPublicationApi";
 import {readWorldbuildingPublicationRecovery, worldbuildingPublicationRecoveryKey, worldbuildingPublicationScope} from './worldbuildingPublicationRecovery';
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
-import {saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {firstWorldRecoveryKey,firstWorldScope,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 const selection = vi.hoisted(() => ({kind: "managed", worldId: "world-a", name: "A", documentId: null}));
 vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: () => selection}));
@@ -359,4 +359,15 @@ it('routes retained creation to recovery after initialization instead of existin
   render(<GraphReviewWorldbuildingPublication review={{...bound,worldState:'initialized',firstWorldPublishEligible:false}}/>);
   expect(await screen.findByText('First World review')).toBeInTheDocument();
   expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();expect(api.prepareWorldbuilding).not.toHaveBeenCalled();
+});
+
+it('routes obsolete unsubmitted creation recovery to its explicit archive UI',()=>{
+  const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),submitted:false,
+    plan:{schema:'dmb_first_world_graph_plan_v2',worldId:review.worldId,runId:review.runId,
+      sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,planId:'old-plan',planDigest:'sha256:'+'a'.repeat(64)}});
+  localStorage.setItem(firstWorldRecoveryKey(review),raw);
+  render(<GraphReviewWorldbuildingPublication review={review}/>);
+  expect(screen.getByText('First World review')).toBeInTheDocument();
+  expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
 });

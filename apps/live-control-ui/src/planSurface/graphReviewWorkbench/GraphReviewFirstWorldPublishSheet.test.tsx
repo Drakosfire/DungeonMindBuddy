@@ -9,7 +9,7 @@ import type {
   FirstWorldGraphPlan,
 } from "../../api/types";
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
-import {firstWorldRecoveryKey,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {firstWorldScope,firstWorldRecoveryKey,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import {
   buildFirstWorldDecisions,
   GraphReviewFirstWorldPublishSheet,
@@ -157,6 +157,26 @@ describe("GraphReviewFirstWorldPublishSheet", () => {
     cleanup();vi.restoreAllMocks();
   });
 
+  it('offers explicit archive and fresh review only for an unsubmitted obsolete plan',async()=>{
+    const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(baseReview),
+      plan:{...sealedPlan(),schema:'dmb_first_world_graph_plan_v2'},submitted:false});
+    localStorage.setItem(firstWorldRecoveryKey(baseReview),raw);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    await userEvent.click(screen.getByRole('button',{name:'Archive old plan and review again'}));
+    expect(await screen.findByTestId('graph-review-first-world-create-cta')).toBeInTheDocument();
+    expect(extractPromoteApi.prepareFirstWorldGraph).not.toHaveBeenCalled();
+    expect(extractPromoteApi.confirmFirstWorldGraph).not.toHaveBeenCalled();
+    expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+  });
+  it('holds submitted obsolete recovery without an archive or publish action',()=>{
+    const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(baseReview),
+      plan:{...sealedPlan(),schema:'dmb_first_world_graph_plan_v2'},submitted:true});
+    localStorage.setItem(firstWorldRecoveryKey(baseReview),raw);
+    render(<GraphReviewFirstWorldPublishSheet review={baseReview}/>);
+    expect(screen.getByRole('alert')).toHaveTextContent('out of date');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(localStorage.getItem(firstWorldRecoveryKey(baseReview))).toBe(raw);
+  });
   it("shows world identity and Create World Graph CTA when eligible", () => {
     render(<GraphReviewFirstWorldPublishSheet review={baseReview} />);
 

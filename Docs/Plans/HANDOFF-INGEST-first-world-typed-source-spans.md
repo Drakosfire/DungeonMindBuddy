@@ -29,6 +29,7 @@ Exclusive expected writes:
 - apps/live-control-ui/src/api/types.ts, api/extractPromoteApi.test.ts;
   planSurface/graphReviewWorkbench/{firstWorldPublicationRecovery.ts,
   firstWorldPublicationRecovery.test.ts,firstWorldPublicationContinuity.test.tsx,
+  GraphReviewFirstWorldPublishSheet.tsx,GraphReviewWorldbuildingPublication.tsx,
   GraphReviewFirstWorldPublishSheet.test.tsx,GraphReviewWorldbuildingPublication.test.tsx}.
 - tests/{test_cutover_dungeonmind_first_world_initialization.py,
   test_recap_world_genesis.py,test_first_world_typed_evidence.py,
@@ -55,3 +56,8 @@ passage plus reload/restart. No private story material in GitHub or fixtures.
 Old submitted unknown outcomes stay retained; no schema error grants deletion or
 permission to repost. Existing Worlds require governed successor evidence repair,
 not reinitialization. J1–J6 and both adventure journeys remain open.
+
+Bugbot cycle1 at1d979634b found an obsolete unsubmitted recovery dead end.
+PRIME activates the two publication host paths above solely for explicit locked
+archival of exact unsubmitted obsolete envelopes and return to fresh review.
+Submitted/unknown requests remain held; archival never translates or sends them.

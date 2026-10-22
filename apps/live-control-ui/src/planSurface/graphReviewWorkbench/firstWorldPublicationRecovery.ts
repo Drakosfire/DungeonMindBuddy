@@ -126,3 +126,36 @@ export async function releaseFirstWorldRecovery(review: ExactRunReviewPackage, p
     if (localStorage.getItem(key)!==null) throw new Error('World creation recovery could not be released.');
   });
 }
+
+/** Inspect only the obsolete envelope, never make its plan executable. */
+export function obsoleteUnsubmittedRecovery(review: ExactRunReviewPackage): string | null {
+  const raw = localStorage.getItem(firstWorldRecoveryKey(review));
+  if (raw === null) return null;
+  try {
+    const value = JSON.parse(raw), plan = value?.plan;
+    return value?.schema === 'dmb_first_world_publication_recovery_v1'
+      && value.scope === firstWorldScope(review) && value.submitted === false
+      && Object.keys(value).every(key => ['schema','scope','plan','submitted'].includes(key))
+      && plan?.schema === 'dmb_first_world_graph_plan_v2'
+      && plan.worldId === review.worldId && plan.runId === review.runId
+      && plan.sourceArtifactId === review.sourceArtifactId && plan.sourceRevisionId === review.sourceRevisionId
+      && nonblank(plan.planId) && digest(plan.planDigest) ? raw : null;
+  } catch { return null; }
+}
+
+export async function archiveObsoleteUnsubmittedRecovery(review: ExactRunReviewPackage, expectedRaw: string,
+  isCurrent: () => boolean) {
+  if (!navigator.locks) throw new Error('This browser cannot safely archive World creation recovery.');
+  return navigator.locks.request(firstWorldRecoveryKey(review), () => {
+    if (!isCurrent()) throw new Error('The selected source or World changed. Recovery is retained.');
+    if (obsoleteUnsubmittedRecovery(review) !== expectedRaw)
+      throw new Error('Another creation request owns recovery. Reopen this review.');
+    const key = firstWorldRecoveryKey(review), archiveKey = key + ':obsolete:' + crypto.randomUUID();
+    // Persist and verify the exact old bytes before releasing the active slot.
+    localStorage.setItem(archiveKey, expectedRaw);
+    if (localStorage.getItem(archiveKey) !== expectedRaw || localStorage.getItem(key) !== expectedRaw)
+      throw new Error('Recovery could not be archived safely. The request is retained.');
+    localStorage.removeItem(key);
+    if (localStorage.getItem(key) !== null) throw new Error('Recovery could not be released. Reopen this review.');
+  });
+}

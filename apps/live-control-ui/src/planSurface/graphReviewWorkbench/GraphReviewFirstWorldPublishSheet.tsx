@@ -16,7 +16,7 @@ import type {
 } from "../../api/types";
 
 import {assertFirstWorldPlan,assertFirstWorldReceipt,firstWorldDecisions,firstWorldScope,
-  readFirstWorldRecovery,saveFirstWorldRecovery,firstWorldNonapplication,releaseFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
+  obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,readFirstWorldRecovery,saveFirstWorldRecovery,firstWorldNonapplication,releaseFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
 
 export interface GraphReviewFirstWorldPublishSheetProps {
   review: ExactRunReviewPackage;
@@ -143,12 +143,35 @@ function publishErrorMessage(error: unknown): string {
  */
 export function GraphReviewFirstWorldPublishSheet(props:GraphReviewFirstWorldPublishSheetProps){
   const scope=firstWorldScope(props.review),currentScope=useRef(scope);currentScope.current=scope;
+  const [epoch,setEpoch]=useState(0);
+  const isCurrent=()=>currentScope.current===scope&&(props.isCurrent?.()??true);
   let saved:FirstWorldRecovery|null;
   try {saved=readFirstWorldRecovery(props.review);}
-  catch(reason){return <p role="alert">{publishErrorMessage(reason)}</p>;}
+  catch(reason){return <ObsoleteCreationRecovery key={`${scope}:${epoch}`} review={props.review}
+    message={publishErrorMessage(reason)} isCurrent={isCurrent} onArchived={()=>setEpoch(n=>n+1)}/>;}
   if(props.review.firstWorldPublishEligible!==true&&!saved)return null;
-  return <FirstWorldPublish key={scope} {...props} saved={saved}
+  return <FirstWorldPublish key={`${scope}:${epoch}`} {...props} saved={saved}
     isScopeCurrent={()=>currentScope.current===scope&&(props.isCurrent?.()??true)}/>;
+}
+function ObsoleteCreationRecovery({review,message,isCurrent,onArchived}: {
+  review:ExactRunReviewPackage;message:string;isCurrent:()=>boolean;onArchived:()=>void;
+}) {
+  const [raw]=useState(()=>obsoleteUnsubmittedRecovery(review));
+  const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false);
+  const alive=useRef(true),locked=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const archive=async()=>{
+    if(!raw||locked.current)return;
+    locked.current=true;setBusy(true);
+    try {await archiveObsoleteUnsubmittedRecovery(review,raw,()=>alive.current&&isCurrent());
+      if(alive.current&&isCurrent())onArchived();
+    } catch(reason){if(alive.current)setError(publishErrorMessage(reason));}
+    finally{locked.current=false;if(alive.current)setBusy(false);}
+  };
+  return <section><p role="alert">{error??message}</p>{raw?<>
+    <p>This plan was never submitted. Archive it to review the source again. No publication will be sent.</p>
+    <button disabled={busy} onClick={()=>void archive()}>Archive old plan and review again</button>
+  </>:null}</section>;
 }
 function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}:GraphReviewFirstWorldPublishSheetProps&{
   saved:FirstWorldRecovery|null;isScopeCurrent:()=>boolean;
