@@ -1,3 +1,4 @@
+import { classifySurfaceComposerIntent } from "../agentInteraction/surfaceComposerIntent";
 vi.mock("../api/buildDocumentProposalApi", async original => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
 }));
@@ -56,7 +57,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { WorldAgentConversationProvider } from "../agentInteraction/WorldAgentConversation";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
-import { commandCanonicalDigest, verifiedCommandResolution, confirmedNewConversationStatus, newConversationRequestFingerprint, classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { commandCanonicalDigest, verifiedCommandResolution, confirmedNewConversationStatus, newConversationRequestFingerprint, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import { PlanEditGuardError, captureWorldPlanEditTarget, previewWorldPlanEditProposal, type WorldPlanEditEditorState } from "./agentEdit/planAgentEditProposal";
 import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
@@ -1686,6 +1687,11 @@ describe("World Plan conversation consumer", () => {
         worldId, documentId, baseRevision: 7, baseContentSha256: contentSha256,
       }, expect.any(Function)));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Write that as an image prompt." },
+    });
+    expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Her mother." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
@@ -2193,16 +2199,75 @@ describe("World Plan conversation consumer", () => {
     ["For this Plan, if we propose appending a GM cue, would that help?", "discuss"],
     ["Should we propose appending a GM cue?", "discuss"],
   ] as const)("routes a single composer message by its intent: %s", (message, intent) => {
-    expect(classifyPlanComposerIntent(message)).toBe(intent);
+    expect(classifySurfaceComposerIntent(message)).toBe(intent);
   });
 
-  it("lets the user correct an inferred route for the current message", async () => {
+  it.each([
+    "Write that as an image prompt and lets generate one",
+    "Please draft an image prompt for the boardwalk.",
+    "Write an image prompt based on this scene.",
+    "Write an image prompt without adding it to the Plan.",
+    "Write an image prompt and add details from the Plan.",
+  ])("submits image preparation as Ask and opens only the explicit Studio handoff: %s", async message => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const prompt = "A timber walkway over dark water, with a damaged crossing.";
+    const open = vi.fn(() => true);
+    const capture = vi.fn();
+    const apply = vi.fn();
+    const propose = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal");
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async request => {
+      const response = await policyResponse(request, "conversation-a", prompt, "plan_only_insufficient_evidence");
+      response.plan_context!.completion!.answer_segments = [{ kind: "proposal", label: "image_prompt", text: prompt }];
+      api.setCurrent(await historyV2("conversation-a", 5, [{
+        ...historyTurnForAsk(request, prompt), plan_context: response.plan_context,
+      }]));
+      return response;
+    });
+    harness.agent.setPaneOpen = vi.fn();
+    render(conversationElement({ editBridge: { capture, apply }, imagePromptHost: { open, unavailableReason: null } }));
+    await waitForConversationReady();
+    fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), { target: { value: message } });
+    expect(screen.queryByRole("button", { name: "Propose edit" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    const studio = await screen.findByRole("button", { name: "Open Image Studio" });
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(ask.mock.calls[0]![0].message).toBe(message);
+    expect(propose).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.click(studio);
+    expect(open).toHaveBeenCalledExactlyOnceWith(prompt);
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Write an image prompt and add a paragraph to this scene.",
+    "Prepare an image prompt; append a GM cue to the selected scene.",
+    "Write an image prompt and revise the paragraph in the selected scene.",
+  ])("keeps an explicit separate surface mutation behind proposal preview: %s", async message => {
+    setupApi(history("conversation-a", 1, []));
+    const capture = vi.fn();
+    const apply = vi.fn();
+    const open = vi.fn();
+    render(conversationElement({ editBridge: { capture, apply }, imagePromptHost: { open, unavailableReason: null } }));
+    await waitForConversationReady();
+    fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), { target: { value: message } });
+    expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
+    expect(capture).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it.each(["This scene needs a location.", "Write that as an image prompt."])(
+    "lets the user correct an inferred route for the current message: %s", async message => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({ editBridge: {} }));
     await waitForConversationReady();
 
     const input = screen.getByRole("textbox", { name: "Message DungeonBuddy" });
-    fireEvent.change(input, { target: { value: "This scene needs a location." } });
+    fireEvent.change(input, { target: { value: message } });
     expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
     fireEvent.click(screen.getByText("Question · Change"));
     fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
