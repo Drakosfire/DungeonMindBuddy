@@ -1,3 +1,4 @@
+import "./GraphReviewPublicationReview.css";
 import {CandidateReviewSemantics} from './CandidateReviewSemantics';
 import {relationshipEndpoints, hasReviewSemantics, candidateSemanticDescription} from './candidateReviewSemantics';
 import { useEffect, useMemo, useRef, useState } from "react";
