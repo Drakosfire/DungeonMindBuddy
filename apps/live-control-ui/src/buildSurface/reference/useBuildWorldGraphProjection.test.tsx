@@ -795,6 +795,12 @@ describe("managed Build discovery", () => {
     const {result}=renderHook(()=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity}));
     await waitFor(()=>expect(statusOf(result.current)).toBe("integrity_error"));expect(itemsOf(result.current)).toEqual([]);expect(native).not.toHaveBeenCalled();
   });
+  it.each(["loading", "error"] as const)("does not reinterpret a %s managed selection as native",async(kind)=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");const managed=vi.spyOn(liveApi,"postManagedWorldGraphProjection");
+    vi.mocked(selectedWorld.useSelectedWorld).mockReturnValue(kind === "loading" ? {kind,requestedWorldId:"new-world"} : {kind,message:"unavailable"});
+    const {result}=renderHook(()=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity,sharedProjection:shared(),sharedChannel:channel()}));
+    expect(result.current.request).toBeNull();expect(result.current.channel).toBeNull();expect(native).not.toHaveBeenCalled();expect(managed).not.toHaveBeenCalled();
+  });
   it("discards pending results on a managed owner switch",async()=>{
     let resolve!: (value:ManagedWorldGraphProjectionResponse)=>void;
     vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockReturnValue(new Promise(r=>{resolve=r;}));const native=vi.spyOn(liveApi,"postWorldGraphProjection");
