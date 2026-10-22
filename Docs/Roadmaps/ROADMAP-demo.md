@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `2687cf712603370ebde61e05889540df05689fb5` (through PR #1579).
+**Evidence anchor:** remote main `0ad0296fc365980e92c95fe3b63c3bca4807a912` (through PR #1580).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -32,8 +32,11 @@ saved request resumed and generated a real candidate. Review correctly exposed a
 invalid phase reference. AI revise completed in DMS but Buddy rejected its source
 digest because its mirror omits a field current DMS canonicalization serializes
 as null. The original revise remains unresolved and preserved; the bounded
-canonical-digest-parity repair is active. No accepted mechanics, World association
-or connected Combat acceptance is awarded. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
+#1580 canonical-digest-parity repair is merged and running. A fresh ordinary
+Build generation→manual edit→AI revise→review→validate→accept succeeded; exact
+DMS integrity passed. API restart retained1487 APP rows and59 product files.
+UI reopen and truthful saved-state copy remain the next acceptance boundary.
+World mechanics association and connected Combat acceptance remain open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -113,7 +116,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves2687cf71 (#1579); UI5202 servesf3a8dac3c (#1578).
+The API backing5202 serves0ad0296f (#1580); UI5202 servesf3a8dac3c (#1578).
 All1487 existing APP rows were preserved at delivery. DMS7860 servesf95e92c (DMS44),
 with its private config and persistence unchanged. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
