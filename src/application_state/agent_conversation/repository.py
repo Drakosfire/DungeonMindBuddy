@@ -21,6 +21,8 @@ from application_state.agent_conversation.types import (
     LegacyImportReceipt,
     PlanAskContextBasis,
     PlanAskHistoryAttributionV1,
+    PlanEvidenceHistoryAttributionV1,
+    SurfaceEvidenceCompletionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
     GraphTurnExecution,
@@ -822,7 +824,7 @@ def list_completed_plan_ask_context(
 
 def _plan_ask_history_attribution(
     turn: TurnReadModel,
-) -> PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None:
+) -> PlanAskHistoryAttributionV1 | PlanEvidenceHistoryAttributionV1 | MixedHistoryAttributionV1 | None:
     """Project validated receipt/completion metadata without inferring legacy provenance."""
     if isinstance(turn, MixedCompletedTurnV1):
         base = (_plan_ask_history_attribution(turn.base_projection.turn)
@@ -910,7 +912,10 @@ def _plan_ask_history_attribution(
             "Graph Ask completion segments do not match the stored answer text"
         )
 
-    return PlanAskHistoryAttributionV1(
+    current = isinstance(completion, SurfaceEvidenceCompletionV1)
+    history_type = PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    return history_type(
+        **({'source_citations':completion.source_citations} if current else {}),
         source_turn_id=turn.turn_id,
         source_conversation_id=turn.conversation_id,
         source_sequence=turn.sequence,

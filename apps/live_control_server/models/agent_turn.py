@@ -28,6 +28,7 @@ from application_state.agent_conversation.types import (
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
     SurfaceSourceCompletionV1,
+    SurfaceEvidenceCompletionV1,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -648,7 +649,7 @@ class AgentPlanWorldGraphContextResponseV2(BaseModel):
         default="dmb_agent_plan_world_graph_context_response_v2", alias="schema"
     )
     receipt: PlanWorldGraphContextReceiptV1
-    completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | SurfaceSourceCompletionV1 | None
+    completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     source_open_targets: list[AgentSourceOpenTargetV2] = Field(default_factory=list)
@@ -667,7 +668,7 @@ class AgentPlayWorldGraphContextResponseV1(BaseModel):
         default="dmb_agent_play_world_graph_context_response_v1", alias="schema"
     )
     receipt: PlayWorldGraphContextReceiptV1
-    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | None
+    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 

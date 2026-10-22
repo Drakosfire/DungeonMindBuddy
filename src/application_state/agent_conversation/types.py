@@ -1465,6 +1465,10 @@ def validate_session_evidence_claims(segments,provenance):
     from urllib.parse import urlencode
     allowed={(ref.object_id,int(ref.revision),ref.content_sha256) for ref in provenance.supporting_work if ref.kind=="session_evidence_v1" and ref.resolution=="resolved"}
     for segment in segments:
+        if isinstance(segment, SurfaceAuthoredQuoteV1) and segment.source_kind == 'session':
+            if (segment.object_id, int(segment.revision), segment.owner_sha256) not in allowed:
+                raise ValueError("Session quote is not bound to frozen turn provenance")
+            continue
         if not isinstance(segment,SessionEvidenceClaimV1):continue
         if (segment.run_id,segment.review_revision,segment.evidence_sha256) not in allowed:
             raise ValueError("Session evidence claim is not bound to frozen turn provenance")
@@ -1913,7 +1917,50 @@ class BuildImagePreparationCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+class SurfaceAuthoredQuoteV1(StrictModel):
+    kind: Literal["authored_quote"]
+    text: str
+    source_handle: str
+    source_kind: Literal["plan", "session", "play"]
+    source_name: str
+    object_id: str
+    revision: str
+    body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    owner_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SurfaceLimitationV1(StrictModel):
+    kind: Literal["limitation"]
+    code: Literal["missing_requested_details", "partial_retrieval", "unresolved_conflict"]
+    text: str
+    question_phrase: str | None = None
+
+
+SurfaceEvidenceStatusV1 = Literal["graph_grounded", "graph_grounded_partial", "source_grounded", "source_grounded_partial",
+    "authored_grounded", "authored_grounded_partial", "insufficient_evidence", "creative_proposal"]
+SurfaceEvidenceSegmentV1 = Annotated[PlanWorldGraphClaimSegmentV1 | SourcePassageClaimV1 | SurfaceAuthoredQuoteV1
+    | PlanWorldGraphProposalSegmentV1 | SurfaceLimitationV1, Field(discriminator="kind")]
+
+
+class SurfaceEvidenceCompletionV1(StrictModel):
+    """Mixed evidence with selected source receipts and literal authored excerpts."""
+    schema_: Literal["dmb_surface_evidence_completion_v1"] = Field(default="dmb_surface_evidence_completion_v1", alias="schema")
+    surface_id: Literal["plan", "play"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["mixed_evidence"] = "mixed_evidence"
+    answer_context_status: SurfaceEvidenceStatusV1
+    answer_segments: list[SurfaceEvidenceSegmentV1] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(default_factory=list, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def exact_evidence(self):
+        from .surface_evidence_answer import validate_shape
+        validate_shape(self)
+        return self
+
+
+GraphTurnCompletion = SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2005,6 +2052,23 @@ class PlanAskHistoryAttributionV1(StrictModel):
         return self
 
 
+class PlanEvidenceHistoryAttributionV1(PlanAskHistoryAttributionV1):
+    """Current Plan history retains exact mixed evidence citations and authored owners."""
+    schema_: Literal["dmb_plan_evidence_history_attribution_v1"] = Field(default="dmb_plan_evidence_history_attribution_v1", alias="schema")
+    answer_basis: Literal["mixed_evidence"]
+    answer_context_status: SurfaceEvidenceStatusV1
+    answer_segments: list[SurfaceEvidenceSegmentV1]
+    citation_map: PlanWorldGraphCitationMapV2 | None
+    source_citations: list[SurfaceSourcePassageCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV1(surface_id='plan', context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis,answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments,citation_map=self.citation_map,source_citations=self.source_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2014,7 +2078,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":
@@ -4683,6 +4747,10 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, SurfaceEvidenceCompletionV1):
+        from .surface_evidence_answer import validate_completion
+        validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(completion, SurfaceSourceCompletionV1):
         from .surface_source_answer import validate_surface_completion
         validate_surface_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
@@ -5125,7 +5193,7 @@ def validate_turn_graph_fields(
             if bindings or assistant_text is not None:
                 raise ValueError("Native Play completion binding/text requires its completion")
             return
-        if not isinstance(completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1)) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
+        if not isinstance(completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
             raise ValueError("Stored native Play answer requires its exact typed completion and binding")
         binding = bindings[0]
         validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
@@ -5288,7 +5356,7 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if isinstance(self.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1)) and (
+        if isinstance(self.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")

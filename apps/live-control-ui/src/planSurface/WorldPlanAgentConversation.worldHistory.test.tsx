@@ -5068,7 +5068,7 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(target);
   });
 
-  it("rehydrates passage-backed Plan history and opens its named source",async()=>{
+  it.each([false,true])("rehydrates passage-backed Plan history and opens its named source (mixed=%s)",async(mixed)=>{
     const context=await planGraphContext('graph_grounded');
     const turnId='11111111-1111-4111-8111-111111111111',passage='The keeper lights three copper lanterns.';
     const hash=await sha256Hex(passage);
@@ -5079,12 +5079,21 @@ describe("World Plan conversation consumer", () => {
     context.completion={schema:'dmb_surface_source_completion_v1',surface_id:'plan',context_receipt_sha256:context.receipt.context_receipt_sha256,
       answer_basis:'opened_source_passages',answer_context_status:'source_grounded',
       answer_segments:[{kind:'source_passage_claim',text:passage}],citation_map:null,source_citations:[citation]};
+    if(mixed) {
+      const b=context.receipt.plan_basis;
+      context.completion={...context.completion,schema:'dmb_surface_evidence_completion_v1',answer_basis:'mixed_evidence',answer_segments:[
+        {kind:'source_passage_claim',text:passage},
+        {kind:'authored_quote',text:'A proposed outing.',source_kind:'plan',source_handle:'q1',source_name:'Committed Plan',
+          object_id:b.document_id,revision:b.work_revision_id,body_sha256:b.content_sha256,owner_sha256:b.content_sha256}]};
+    }
     context.source_open_targets=[];context.evidence_anchor_statuses=[];context.related_recap_context_statuses=[];
-    const turn=policyHistoryTurn(1,turnId,'What does the source say?',passage,context);
+    const answer=context.completion!.answer_segments.map(s=>s.text).join('\n');
+    const turn=policyHistoryTurn(1,turnId,'What does the source say?',answer,context);
     setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:[turn]} as WorldAgentConversationHistoryResponse);
     const open=vi.spyOn(liveApi,'getAgentSourcePassage').mockResolvedValue({schema:'dmb_agent_source_passage_read_v1',
       target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:worldId,turn_id:turnId,citation_index:0},citation,content:passage});
     mountComponent();await screen.findByText('What does the source say?');
+    if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
     expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
     fireEvent.click(screen.getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));

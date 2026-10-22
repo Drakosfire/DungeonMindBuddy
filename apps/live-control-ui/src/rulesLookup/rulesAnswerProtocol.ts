@@ -46,7 +46,7 @@ export function isRulesAnswerContext(value: unknown, text: unknown, worldId: str
     const base = value.base_context;
     if (!validateBase(base) || !rec(base) || !rec(base.completion) || !Array.isArray(base.completion.answer_segments)
       || typeof base.completion.answer_basis !== 'string'
-      || b.graph_used !== base.completion.answer_basis.includes('world_graph')) return false;
+      || b.graph_used !== base.completion.answer_segments.some(s => rec(s) && s.kind === 'graph_claim')) return false;
     if (!base.completion.answer_segments.every(s => rec(s) && typeof s.text === 'string')) return false;
     baseSegments = base.completion.answer_segments.map(s => (s as {text: string}).text);
   }

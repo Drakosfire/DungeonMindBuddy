@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { getAgentSourcePassage } from "../../api/liveApi";
-import type { WorldBuildGraphCompletionV2, SurfaceSourceCompletionV1 } from "../../api/types";
+import type { WorldBuildGraphCompletionV2, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1 } from "../../api/types";
 import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
 
 import {exact,canonical} from "../../shared/sourcePassageProtocol";
 export {isBuildSourceCompletion,isSurfaceSourceCompletion} from "../../shared/sourcePassageProtocol";
 
 export function BuildSourcePassageEvidence({ completion, worldId, turnId }: {
-  completion: WorldBuildGraphCompletionV2 | SurfaceSourceCompletionV1; worldId: string; turnId: string;
+  completion: WorldBuildGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1; worldId: string; turnId: string;
 }) {
   const epoch = useRef(0);
   const [opened, setOpened] = useState<{index: number; status: "loading" | "ready" | "unavailable"; content?: string} | null>(null);

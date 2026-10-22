@@ -10,6 +10,7 @@ from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
     BuildGraphContextReceiptV1,
     SurfaceSourceCompletionV1,
+    SurfaceEvidenceCompletionV1,
     PlanWorldGraphContextReceiptV1,
     PlayWorldGraphContextReceiptV1,
 )
@@ -51,7 +52,7 @@ def open_source_passage(
         turn.status != "completed"
         or not (isinstance(turn.completion, BuildGraphCompletionV2)
             and isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
-            or isinstance(turn.completion, SurfaceSourceCompletionV1)
+            or isinstance(turn.completion, (SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1))
             and isinstance(turn.graph_context_receipt, (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1)))
     ):
         raise SourcePassageOpenError("source_passage_completion_unavailable", 404)

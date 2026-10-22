@@ -283,9 +283,9 @@ def _validated_base_execution_locked(
         BuildCitedSourceActionControllerWriterPolicyV1,
     )
 
-    from .types import PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1
+    from .types import PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1
     from .native_rules_output import NativeRulesNormalizedOutputV1
-    if (isinstance(result.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1))
+    if (isinstance(result.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1))
             and not native_output_verified
             and not isinstance(mixed_output_context, NativeRulesNormalizedOutputV1)):
         raise ApplicationStateValidationError("Native Play requires its actual producing-output proof owner before completion")
@@ -2112,7 +2112,7 @@ class AgentConversationService:
                 execution = _validated_base_execution_locked(conn, turn, base_result, mixed_output_context=output_context)
                 completion = base_result.completion
                 segments = tuple(item.text for item in completion.answer_segments)
-                graph_used = "world_graph" in completion.answer_basis
+                graph_used = any(item.kind == "graph_claim" for item in completion.answer_segments)
             elif disposition == "absent":
                 if turn.graph_context_receipt is not None or execution is not None:
                     raise ApplicationStateValidationError(

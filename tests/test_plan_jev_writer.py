@@ -39,8 +39,11 @@ class WriterWire(httpx.AsyncBaseTransport):
 
 
 def graph_answer():
-    return {'answer_context_status':'graph_grounded','answer_segments':[{'kind':'graph_claim','claim_id':'claim:1',
-        'text':'The park journal reports a wooden walkway.','target_kind':'assertion','target_id':'assertion:pond'}]}
+    return {'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'graph_claim','claim_id':'claim:1',
+        'text':'The park journal reports a wooden walkway.','target_kind':'assertion','target_id':'assertion:pond',
+        'passage_handles':[]}]}
+
 
 
 def stage_graph(adapter):
@@ -58,7 +61,7 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
     assert completed.status == 'completed' and len(wire.calls)==1 and wire.closed
     entry=completed.completion.citation_map.entries[0]
-    assert entry.source_opened and entry.source_read_ids == ['read:anchor:park:0']
+    assert not entry.source_opened and entry.source_read_ids == []
     assert entry.evidence_ref_ids == ['evidence:park:0']
     assert writer.call['usage'] == {'status':'reported','input_tokens':600,'output_tokens':100,
         'total_tokens':700,'cached_input_tokens':400,'uncached_input_tokens':200,'reasoning_tokens':60}
@@ -83,7 +86,7 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
         assert field not in frame
         assert field not in passage
     assert entry.target_id == 'assertion:pond'
-    assert entry.source_read_ids == ['read:anchor:park:0']
+    assert entry.source_read_ids == []
 
 
 def test_actual_plan_writer_accepts_rules_and_no_graph(plan_adapter):
@@ -141,16 +144,14 @@ def test_transport_close_failure_does_not_hide_an_already_accepted_turn(plan_ada
     assert len(wire.calls)==1 and wire.closed and turn.status!='completed'
 
 
-def test_unused_available_graph_uses_exact_plan_status_without_repair(plan_adapter):
+def test_unused_graph_can_return_a_labeled_proposal_without_factual_connective(plan_adapter):
     writer=stage_graph(plan_adapter)
-    assert 'means graph_unused' not in writer.instructions
-    assert 'Use plan_only_graph_unused' in writer.instructions
-    answer={'answer_context_status':'plan_only_graph_unused','answer_segments':[
-        {'kind':'connective','text':'We can discuss the image direction before choosing any established details.'}]}
+    answer={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'proposal','label':'invented_idea','text':'We could begin beside the pond.'}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
     assert completed.status=='completed' and len(wire.calls)==1
-    assert completed.completion.answer_context_status=='plan_only_graph_unused'
+    assert completed.completion.answer_context_status=='creative_proposal'
 
 
 def test_plan_writer_stops_renewal_and_uses_its_final_revision(plan_adapter,monkeypatch):
@@ -196,15 +197,13 @@ def test_plan_writer_refuses_completion_when_renewal_error_is_reported(plan_adap
     assert turn.status!='completed'
 
 
-@pytest.mark.parametrize('existing_link',[False,True,'bare_wrong_label'])
-def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,existing_link):
+def test_session_quote_name_and_owner_come_from_exact_writer_input(plan_adapter):
     from dataclasses import replace
     from uuid import uuid4
-    from urllib.parse import urlencode
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
     a=plan_adapter
     run=str(uuid4())
-    packet={'title':'Approach to Edge — Session Prep','world_id':a.world_id,'run_id':run,
+    packet={'title':'Synthetic park outing','world_id':a.world_id,'run_id':run,
         'review_revision':54,'ended_at':'2026-10-18T12:51:00Z',
         'sources':[{'kind':'scene_note','element_id':'crossing','text':'The boardwalk was pulled under.'}]}
     packet['sha256']=canonical_sha256(packet)
@@ -212,31 +211,17 @@ def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,exist
     rules=PlanRulesRuntime(a,rules_capability(graph=True))
     proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
-    url='/play?'+urlencode({'world':a.world_id,'run':run,'evidence_revision':54})
-    text=(f'[Session 54 scene notes]( {url} ) describe a submerged boardwalk.' if existing_link is True
-        else 'Session 54 recap describes a submerged boardwalk.' if existing_link == 'bare_wrong_label'
-        else 'Scene notes describe a submerged boardwalk.')
-    candidate={'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
-        {'kind':'session_evidence_claim','text':text,'run_id':run,'review_revision':54}]}
+    source=next(row for row in writer.projection.frame['authored_sources'] if row['source_kind']=='session')
+    candidate={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'authored_quote','text':packet['sources'][0]['text'],'source_handle':source['handle']}]}
     wire=WriterWire(a,json.dumps(candidate))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
-    assert writer.projection.frame['opened_passages']==[]
-    instructions=json.loads(wire.calls[0].content)['instructions']
-    assert 'dmb_surface_source_answer_v1' not in instructions
-    assert 'session_evidence_claim' in instructions and 'plan_claim' in instructions
-    from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
-    assert SOURCE_ATTRIBUTION_INSTRUCTIONS in instructions
-    assert 'Use source names in attribution' not in instructions
-    if existing_link == 'bare_wrong_label':
-        # Citation authority is exact; free prose is not silently repaired or fact-validated.
-        assert text in completed.assistant_text
-    else:
-        assert 'Session 54' not in completed.assistant_text
-    assert completed.assistant_text.count(url)==1
-    assert '[Approach to Edge — Session Prep — notes and reflections]' in completed.assistant_text
-    assert completed.completion.answer_segments[0].evidence_sha256==packet['sha256']
+    assert len(wire.calls)==1
+    segment=completed.completion.answer_segments[0]
+    assert segment.source_name=='Synthetic park outing — notes and reflections'
+    assert segment.owner_sha256==packet['sha256'] and segment.object_id==run and segment.revision=='54'
     saved=AgentConversationService().list_turns(a.world_id,completed.conversation_id)[-1]
-    assert saved.assistant_text==completed.assistant_text
+    assert saved.completion==completed.completion
 
 
 @pytest.mark.parametrize("field", ["_build_native_acquisition_services", "_plan_graph_read_services"])
@@ -258,7 +243,7 @@ def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_se
 def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_adapter):
     writer=stage_graph(plan_adapter)
     prompt='A broken timber boardwalk above dark fen water. No town or tower.'
-    answer={'answer_context_status':'plan_only_graph_unused','answer_segments':[
+    answer={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],'answer_segments':[
         {'kind':'proposal','label':'image_prompt','text':prompt}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))

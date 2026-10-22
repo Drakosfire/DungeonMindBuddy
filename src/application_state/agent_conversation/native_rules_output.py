@@ -37,6 +37,7 @@ from .types import (
     PlanWorldGraphContextReceiptV1,
     PlanWorldGraphCompletionV2,
     SurfaceSourceCompletionV1,
+    SurfaceEvidenceCompletionV1,
     PlanWorldGraphExecutionV3,
     PlayWorldGraphCompletionV1,
     PlayWorldGraphContextReceiptV1,
@@ -327,7 +328,7 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
 class NativeRulesNormalizedOutputV1:
     """Pure normalization result; it is not a durable acceptance receipt."""
 
-    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | None
+    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
     composition: AnswerCompositionV1
     assistant_text: str
@@ -404,7 +405,7 @@ def normalize_native_mixed_output(
         if base_text != "\n".join(base_segments):
             raise ValueError("Native Graph base text differs from its normalized segments")
         disposition = "approved"
-        graph_used = "world_graph" in base_completion.answer_basis
+        graph_used = any(segment.kind == "graph_claim" for segment in base_completion.answer_segments)
     elif not rules_only and (turn.graph_context_receipt is None or turn.graph_context_execution is None):
         raise ValueError("Native Rules without a base partition requires frozen Graph scope")
 
@@ -470,6 +471,7 @@ def sealed_native_producer(turn, rules_execution, proof):
     from .session_citation_labels import producing_session_titles
     from .surface_source_answer import producing_passages
     passages, source_partial = producing_passages(turn, graph_auth, proof.prepared_request_json)
+    from .surface_evidence_answer import producing_authored, require_current_policy
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
         envelope_sha256=graph_auth.envelope_sha256,
@@ -477,6 +479,8 @@ def sealed_native_producer(turn, rules_execution, proof):
         graph_revision=receipt.graph_authority.graph_revision,
         closures=tuple(closures),
         passages=passages, source_partial=source_partial,
+        authored=producing_authored(turn, graph_auth, proof.prepared_request_json),
+        current_policy=require_current_policy(graph_auth, proof.prepared_request_json),
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),
     )
     return capture, graph_support

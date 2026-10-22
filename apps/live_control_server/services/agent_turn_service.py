@@ -766,6 +766,8 @@ class _BuildClaimEvidence:
     session_titles: tuple = ()
     passages: tuple = ()
     source_partial: bool = False
+    authored: tuple = ()
+    current_policy: bool = False
 
 
 def _build_initial_claim_evidence(
@@ -2295,6 +2297,7 @@ class _PolicyExecutionAdapter:
                 if is_native_play:
                     from application_state.agent_conversation.surface_source_answer import producing_passages
                     passages, source_partial = producing_passages(updated, event, view["payloadJson"])
+                from application_state.agent_conversation.surface_evidence_answer import producing_authored, require_current_policy
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
                     updated.graph_context_receipt.context_receipt_sha256,
@@ -2302,6 +2305,8 @@ class _PolicyExecutionAdapter:
                     tuple(sorted(set(build_closures))),
                     producing_session_titles(updated, event, view["payloadJson"]),
                     passages, source_partial,
+                    producing_authored(updated, event, view["payloadJson"]) if is_native_play else (),
+                    require_current_policy(event, view["payloadJson"]) if is_native_play else False,
                 )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body)

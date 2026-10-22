@@ -72,6 +72,14 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
     plan=isinstance(receipt,t.PlanWorldGraphContextReceiptV1) and isinstance(execution,t.PlanWorldGraphExecutionV3)
     if not (play or plan):
         raise NativeAnswerError('authority','native_owner_missing')
+    from .surface_evidence_answer import POLICY, normalize as normalize_evidence
+    if isinstance(candidate, dict) and candidate.get('schema') == POLICY:
+        try:
+            return normalize_evidence(candidate, turn, producer, support)
+        except (ValueError, KeyError, TypeError, StopIteration) as exc:
+            raise NativeAnswerError('binding', 'mixed_evidence_binding') from exc
+    if getattr(support, 'current_policy', False):
+        raise NativeAnswerError('shape', 'current_evidence_contract_required')
     if isinstance(candidate, dict) and candidate.get('schema') == 'dmb_surface_source_answer_v1':
         from .surface_source_answer import normalize_surface_answer
         try:

@@ -432,8 +432,8 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
     assert f.adapter.record_lifecycle({"transition": "sdk_entered"})
     assert f.adapter.record_lifecycle({"transition": "response_received"})
     answer = {
-        "schema": "dmb_surface_source_answer_v1",
-        "answer_context_status": "source_grounded",
+        "schema": "dmb_surface_evidence_answer_v1",
+        "limitations": [], "requested_detail_gaps": [],
         "answer_segments": [
             {
                 "kind": "source_passage_claim",

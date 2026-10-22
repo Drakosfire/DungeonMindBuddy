@@ -167,7 +167,10 @@ def project(turn, proof, trace):
         if failure.phase in {"graph_retrieval", "source_read"}})
     if incomplete_closure:
         gaps = sorted(set(gaps) | {("graph_retrieval", "incomplete_evidence_closure")})
-    frame = {"schema": SCHEMA, "user_question": turn.user_text, "committed_plan_markdown": markdown,
+    from .surface_evidence_answer import POLICY, plan_authored_sources, authored_frame_rows
+    frame = {"schema": SCHEMA, "answer_policy": POLICY,
+        "authored_sources": authored_frame_rows(plan_authored_sources(turn, markdown, sessions), sessions),
+        "user_question": turn.user_text, "committed_plan_markdown": markdown,
         "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at") if key in session}
             | {"sources": [{key: source[key] for key in ("kind", "element_id", "text") if key in source}
                 for source in session.get("sources", [])]} for session in sessions],
