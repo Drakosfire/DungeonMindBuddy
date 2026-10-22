@@ -127,6 +127,26 @@ Bugbot reviews every cumulative head; PRIME merges and settles on5202.
 - Entered table test values prove recording/resolution, not an observed physical
   roll. Prepared rosters, source packets and isolated tests do not close J1–J6.
 
+### Adventure acceptance retained across this milestone
+
+Both adventures must still prove the complete source-grounded preparation/play
+journey, beyond the selected enemy-revision transition:
+
+1. Retain the exact saved source, review supported knowledge and publish explicitly
+   with useful named citations. Authored possibilities and GM secrets are not played facts.
+2. Ask Buddy about people, places, motives, alternative routes and encounter triggers;
+   verify source-backed answers and omissions against the adventure itself.
+3. Prepare meaningful scene choices and linked NPCs, locations, tables and mechanics.
+   Preserve branches, callbacks and conditional progression instead of flattening
+   the adventure into an asserted history.
+4. Follow different routes in Play, reach the appropriate real encounter and record
+   combat/table outcomes in session notes and closing recollections. Resume the same
+   story position after reload/restart. Recording an outcome never automatically
+   publishes it as a World fact or manufactures an external recap.
+5. Complete applicable J1–J6 twice, including real generation, next-turn knowledge
+   retrieval and retained-state/restart proof; use the second adventure to check
+   generality without special runtime paths. Isolated fixtures do not substitute.
+
 ## Remaining priorities and separately selected work
 
 After the connected encounter milestone, finish the remaining acceptance below
