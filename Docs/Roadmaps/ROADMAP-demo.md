@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `e6bf88f72d3e13772cc0603a0281bb4b39079977` (through PR #1573).
+**Evidence anchor:** remote main `3846c309109096bdfff0342cc77ded30bfb2fc9f` (through PR #1574).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -13,8 +13,12 @@ hydration is delivered (#1572), with no bound-mechanics claim. Fresh World sourc
 provisioning and reviewed Graph initialization now precede the positive mechanics
 publication witness. #1573 delivered durable source reservations and ordinary
 fresh-World source admission, confirmed in Build through saved source revision2
-and browser reload. Reviewed first Graph initialization and activation remain the
-active serial successor; source KnowledgeSpace genesis grants no Graph authority. Historical “next”
+and browser reload. #1574 delivered reviewed first Graph initialization and
+verified binding activation: the ordinary rehearsal published3 assertions, created
+one D0 and reopened Ready/2nodes; source evidence and prior World heads stayed
+unchanged. The first success receipt remounted into recovery, which retrieved the
+same D0. Fixing that UI continuity gap precedes bound mechanics; complete journey
+acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -94,8 +98,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves e6bf88f72 (#1573); unchanged UI5202 serves
-4fbb09115 (#1572). These are the observed
+The API backing5202 and UI5202 serve3846c3091 (#1574). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance

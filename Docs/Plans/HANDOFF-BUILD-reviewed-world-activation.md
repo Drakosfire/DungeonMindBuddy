@@ -1,6 +1,16 @@
 # BUILD — reviewed first Graph publication and activation
 
-ACTIVE. PRIME designs/implements/merges under the operator's sustained local goal.
+SETTLED — #1574 merged3846c309109096bdfff0342cc77ded30bfb2fc9f; Bugbot approved
+fixed head5372abd78f296602c7b2b720e67041bb288b3c22 after the actual transport
+auth-classifier finding was fixed. Independent132backend+281UI tests and typecheck.
+API/UI5202 adopted with1484 prior APP rows retained, schema unchanged. Ordinary
+Build synthetic source→real extraction→review3assertions→native D0/activation
+succeeded. Source receipt and all previous native World heads unchanged; exactly
+one new Graph revision. Reload shows Ready/2nodes. First success receipt remounted
+into recovery; exact recovery returned the same D0. UI continuity successor is
+HANDOFF-BUILD-first-publication-receipt.md; full journey acceptance remains open.
+
+Historical authorization: PRIME designs/implements/merges under the operator's sustained local goal.
 Base e6bf88f72d3e13772cc0603a0281bb4b39079977 (#1573 source reservation/admission).
 Lane codex/reviewed-world-provisioning-activation; existing buddy-context-loop.
 Topology serial, one implementation PR. No overlapping active implementation PR.
