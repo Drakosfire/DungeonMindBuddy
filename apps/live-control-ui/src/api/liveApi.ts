@@ -341,6 +341,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;

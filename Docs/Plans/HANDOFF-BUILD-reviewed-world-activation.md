@@ -30,7 +30,8 @@ selection or automatic fact acceptance.
 ## Exclusive writes and evidence
 
 Owning initialization models/port/services/adapter, managed binding/source resolution
-and registry, first-publication UI/recovery/API types, relevant test fixtures/tests; recap_world_genesis moves its existing deterministic
+and registry, first-publication UI/recovery/API types; liveApi.ts exact first-publication auth
+classification and liveApi.test.ts actual transport-boundary witnesses; relevant test fixtures/tests; recap_world_genesis moves its existing deterministic
 operation helper into its own module unchanged (no recap behavior expansion);
 this contract, predecessor provisioning handoff and canonical ROADMAP-demo.
 No Core/runtime or DMS code edits. Separate source-space and Graph authority remain
