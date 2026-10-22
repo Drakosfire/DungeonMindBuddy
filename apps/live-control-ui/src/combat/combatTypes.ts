@@ -29,7 +29,7 @@ export interface CombatEntityProvenance {
 
 export interface CombatWorldIdentity {
   managed_world_id: string; native_world_id: string; binding_version: number;
-  graph_revision_id: string; node_id: string; label: string; kind: string; role: string;
+  graph_revision_id: string; node_id: string; label: string; kind: string; role: string; campaign_scope: string | null;
 }
 
 export interface CombatEntity {

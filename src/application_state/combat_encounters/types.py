@@ -57,6 +57,7 @@ class CombatWorldIdentity(BaseModel):
     label: str
     kind: str
     role: str
+    campaign_scope: str | None
 
 
 class CombatEntity(BaseModel):

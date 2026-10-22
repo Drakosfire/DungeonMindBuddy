@@ -494,7 +494,7 @@ export function CombatRosterModule() {
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} disabled={busy !== null}
+                worldId={worldId} disabled={busy !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => updateDraft(current => ({...current,
                   entities: [...current.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
                   groups: group ? [...current.groups, group] : current.groups,

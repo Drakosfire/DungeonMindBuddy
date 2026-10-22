@@ -10,9 +10,9 @@ const world = {managedWorldId:'elderwyld', nativeWorldId:'native-world', binding
     {nodeId:'location-a',label:'Scout Camp',kind:'location',role:'location',aliases:[]},
   ]}} as ManagedWorldGraphProjectionResponse;
 afterEach(() => vi.restoreAllMocks());
-function mount(disabled = false) {
+function mount(disabled = false, remainingSlots = 100) {
   const onAdd = vi.fn();
-  const view = render(<CombatEncounterAssembly worldId="elderwyld" disabled={disabled} onAdd={onAdd} />);
+  const view = render(<CombatEncounterAssembly worldId="elderwyld" disabled={disabled} remainingSlots={remainingSlots} onAdd={onAdd} />);
   fireEvent.click(screen.getByText('Add combatants'));
   return {...view,onAdd};
 }
@@ -30,11 +30,11 @@ it('adds independent grouped manual actors to the draft without fetching or inve
 it('requires explicit World selection, searches locally and stores exact identity without inferred mechanics', async () => {
   const read=vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue(world);const {onAdd}=mount();
   await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
-  await screen.findByRole('button',{name:'World Scout npc'});
+  await screen.findByRole('button',{name:'World Scout npc · World · npc-a'});
   expect(screen.queryByRole('button',{name:'Scout Camp location'})).not.toBeInTheDocument();
   expect(screen.getByLabelText('Combatant name')).toHaveValue('');
   await userEvent.type(screen.getByLabelText('Search World creatures'),'Scout');
-  await userEvent.click(screen.getByRole('button',{name:'World Scout npc'}));
+  await userEvent.click(screen.getByRole('button',{name:'World Scout npc · World · npc-a'}));
   await userEvent.type(screen.getByLabelText('Combatant HP'),'18');
   await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
   expect(read).toHaveBeenCalledTimes(1);
@@ -45,7 +45,7 @@ it('ignores a pending discovery from an unmounted World/encounter', async () => 
   let resolve!: (value: ManagedWorldGraphProjectionResponse)=>void;
   vi.spyOn(api,'postManagedWorldGraphProjection').mockReturnValue(new Promise(r=>{resolve=r}));
   const {unmount}=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));unmount();
-  mount();resolve(world);await waitFor(()=>expect(screen.queryByRole('button',{name:'World Scout npc'})).not.toBeInTheDocument());
+  mount();resolve(world);await waitFor(()=>expect(screen.queryByRole('button',{name:'World Scout npc · World · npc-a'})).not.toBeInTheDocument());
 });
 it('refuses a foreign projection and preserves manually entered name', async () => {
   vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue({...world,managedWorldId:'other-world'});
@@ -57,4 +57,32 @@ it('refuses a foreign projection and preserves manually entered name', async () 
 it('prevents assembly while the host is saving or replacing a draft', () => {
   mount(true);expect(screen.getByRole('button',{name:'Find World creatures'})).toBeDisabled();
   expect(screen.getByLabelText('Combatant name')).toBeDisabled();expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
+});
+
+it.each([
+  ['Combatant initiative','1000','Initiative must be'], ['Combatant HP','1000000','HP must be'],
+  ['Combatant AC','1000000','AC must be'], ['Combatant HP','-1','HP must be'],
+  ['Combatant name','x'.repeat(160),'including any copy number'],
+])('rejects inherited schema violations before draft append: %s', async (label,value,message) => {
+  const {onAdd}=mount();fireEvent.change(screen.getByLabelText('Combatant name'),{target:{value:'Scout'}});
+  if(label==='Combatant name') fireEvent.change(screen.getByLabelText('Combatant copies'),{target:{value:'2'}});
+  fireEvent.change(screen.getByLabelText(label),{target:{value}});
+  expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent(message);expect(onAdd).not.toHaveBeenCalled();
+});
+it('keeps copies within the remaining owning draft capacity', () => {
+  mount(false,1);fireEvent.change(screen.getByLabelText('Combatant name'),{target:{value:'Scout'}});
+  fireEvent.change(screen.getByLabelText('Combatant copies'),{target:{value:'2'}});
+  expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('between 1 and 1');
+});
+it('distinguishes same-name World identities by campaign and exact node', async () => {
+  vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue({...world,projection:{...world.projection,nodes:[
+    {...world.projection.nodes[0],campaignScope:'campaign-one'},
+    {...world.projection.nodes[0],nodeId:'npc-b',campaignScope:'campaign-two'},
+  ]}});
+  const {onAdd}=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
+  await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · campaign-two · npc-b'}));
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+  expect(onAdd.mock.calls[0][0][0].world_identity).toMatchObject({node_id:'npc-b',campaign_scope:'campaign-two'});
 });

@@ -133,7 +133,7 @@ def save_encounter(
             elif entity.world_identity is not None:
                 if (verified_world_identities or {}).get(entity.id) != entity.world_identity:
                     raise ApplicationStateValidationError("New World combatant identity must be verified")
-                if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint:
+                if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint or entity.tags:
                     raise ApplicationStateValidationError("World identity alone supplies no statblock mechanics")
         saved = repo.cas_replace_draft(
             conn,

@@ -375,7 +375,7 @@ def _manual_world_actor():
             "source": "manual", "hp": 18, "max_hp": 18, "world_identity": {
                 "managed_world_id": "elderwyld", "native_world_id": "native-elderwyld",
                 "binding_version": 1, "graph_revision_id": "graph-a", "node_id": "scout-node",
-                "label": "Scout", "kind": "npc", "role": "npc"}}
+                "label": "Scout", "kind": "npc", "role": "npc", "campaign_scope": "campaign-c2"}}
 
 
 def _mock_world_identity(monkeypatch):
@@ -385,7 +385,7 @@ def _mock_world_identity(monkeypatch):
         calls.append(request)
         return SimpleNamespace(managed_world_id="elderwyld", native_world_id="native-elderwyld", binding_version=1,
             projection=SimpleNamespace(snapshot=SimpleNamespace(revision_id="graph-a"),
-                nodes=[SimpleNamespace(node_id="scout-node", label="Scout", kind="npc", role="npc")]))
+                nodes=[SimpleNamespace(node_id="scout-node", label="Scout", kind="npc", role="npc", campaign_scope="campaign-c2")]))
     monkeypatch.setattr(projection, "project_managed_world_graph", project)
     return calls
 
@@ -446,3 +446,14 @@ def test_combat_requires_native_gm_access(client):
     test_client.headers.pop("authorization")
     response = test_client.get("/api/live/combat/encounters?world_id=elderwyld")
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize("field,value", [("statblock_title", "Pretend mechanics"), ("corpus_fingerprint", "unverified"), ("tags", ["generated_statblock"])])
+def test_manual_world_identity_cannot_claim_mechanics(client, monkeypatch, field, value):
+    test_client, _ = client
+    _mock_world_identity(monkeypatch)
+    created = _create(test_client); actor = _manual_world_actor(); actor[field] = value
+    path = f'/api/live/combat/encounters/{created["encounter_id"]}?world_id=elderwyld'
+    refused = test_client.put(path,json={"expected_revision":1,"draft":{**created["draft"],"entities":[actor]}})
+    assert refused.status_code == 422, refused.text
+    assert test_client.get(path).json() == created

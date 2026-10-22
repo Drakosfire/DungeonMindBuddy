@@ -253,7 +253,7 @@ def test_new_world_identity_requires_server_verification(application_state_dsn):
     from application_state.combat_encounters.types import CombatWorldIdentity
     created = create_encounter(world_id="elderwyld", request=CreateCombatEncounterRequest(title="Manual assembly"))
     identity = CombatWorldIdentity(managed_world_id="elderwyld", native_world_id="native-world", binding_version=1,
-        graph_revision_id="graph-a", node_id="npc-a", label="Scout", kind="npc", role="npc")
+        graph_revision_id="graph-a", node_id="npc-a", label="Scout", kind="npc", role="npc", campaign_scope=None)
     actor = _entity("scout-a", "Scout", 1).model_copy(update={"world_identity": identity})
     with pytest.raises(ApplicationStateValidationError, match="must be verified"):
         save_encounter(world_id="elderwyld", encounter_id=created.encounter_id,

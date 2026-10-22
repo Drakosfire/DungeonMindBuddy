@@ -78,7 +78,7 @@ def save_world_combat_encounter(
         expected = CombatWorldIdentity(
             managed_world_id=projected.managed_world_id, native_world_id=projected.native_world_id,
             binding_version=projected.binding_version, graph_revision_id=projected.projection.snapshot.revision_id,
-            node_id=node.node_id, label=node.label, kind=node.kind, role=node.role,
+            node_id=node.node_id, label=node.label, kind=node.kind, role=node.role, campaign_scope=node.campaign_scope,
         )
         if identity != expected or not is_combat_candidate(node.kind, node.role):
             raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
@@ -232,5 +232,5 @@ def _copy_suffix(index: int) -> str:
 
 
 def is_combat_candidate(kind: str, role: str) -> bool:
-    admitted = {"npc", "threat", "creature", "monster", "character", "person", "pc"}
+    admitted = {"npc", "threat", "creature", "monster"}
     return kind.casefold() in admitted or role.casefold() in admitted

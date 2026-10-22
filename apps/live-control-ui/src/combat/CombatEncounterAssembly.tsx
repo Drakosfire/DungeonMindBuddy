@@ -4,11 +4,11 @@ import type { ManagedWorldGraphProjectionResponse } from '../api/types';
 import type { CombatEntity, CombatGroup, CombatWorldIdentity } from './combatTypes';
 import './combatAssembly.css';
 
-const actorKinds = new Set(['npc', 'threat', 'creature', 'monster', 'character', 'person', 'pc']);
+const actorKinds = new Set(['npc', 'threat', 'creature', 'monster']);
 
 /** A Surface-owned draft editor. Loading identity never invents or loads mechanics. */
-export function CombatEncounterAssembly({ worldId, disabled, onAdd }: {
-  worldId: string; disabled: boolean;
+export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onAdd }: {
+  worldId: string; disabled: boolean; remainingSlots: number;
   onAdd: (entities: CombatEntity[], group: CombatGroup | null) => void;
 }) {
   const [world, setWorld] = useState<ManagedWorldGraphProjectionResponse | null>(null);
@@ -45,8 +45,17 @@ export function CombatEncounterAssembly({ worldId, disabled, onAdd }: {
   const copies = Number(count);
   const optionalNumber = (value: string) => value.trim() === '' ? null : Number(value);
   const numeric = [initiative, ac, hp].every(value => value.trim() === '' || Number.isSafeInteger(Number(value)));
-  const canAdd = !disabled && !loading && name.trim() !== '' && numeric && Number.isSafeInteger(copies) && copies >= 1 && copies <= 20
-    && (optionalNumber(hp) ?? 0) >= 0;
+  // Mirror the existing owning draft/entity bounds; never append an unsaveable actor.
+  const validationError = remainingSlots === 0 ? 'This encounter is full (100 combatants).'
+    : !Number.isSafeInteger(copies) || copies < 1 || copies > Math.min(20, remainingSlots)
+      ? `Choose between 1 and ${Math.min(20, remainingSlots)} copies.`
+    : !numeric ? 'Use whole numbers for initiative, AC and HP.'
+    : Math.abs(optionalNumber(initiative) ?? 0) > 999 ? 'Initiative must be between -999 and 999.'
+    : Math.abs(optionalNumber(ac) ?? 0) > 999999 ? 'AC must be between -999999 and 999999.'
+    : (optionalNumber(hp) ?? 0) < 0 || (optionalNumber(hp) ?? 0) > 999999 ? 'HP must be between 0 and 999999.'
+    : name.trim().length + (copies > 1 ? ` ${copies}`.length : 0) > 160 ? 'The name, including any copy number, must fit within 160 characters.'
+    : null;
+  const canAdd = !disabled && !loading && name.trim() !== '' && validationError === null;
 
   function add() {
     if (!canAdd) return;
@@ -71,9 +80,9 @@ export function CombatEncounterAssembly({ worldId, disabled, onAdd }: {
         <ul aria-label="World creatures" className="combat-assembly__candidates">{candidates.map(node => <li key={node.nodeId}>
           <button type="button" disabled={disabled} aria-pressed={selected?.node_id === node.nodeId} onClick={() => {
             setSelected({managed_world_id: worldId, native_world_id: world.nativeWorldId, binding_version: world.bindingVersion,
-              graph_revision_id: world.projection.snapshot.revisionId, node_id: node.nodeId, label: node.label, kind: node.kind, role: node.role});
+              graph_revision_id: world.projection.snapshot.revisionId, node_id: node.nodeId, label: node.label, kind: node.kind, role: node.role, campaign_scope: node.campaignScope ?? null});
             setName(node.label);
-          }}>{node.label} <small>{node.kind}</small></button>
+          }}>{node.label} <small>{node.kind} · {node.campaignScope || 'World'} · {node.nodeId}</small></button>
         </li>)}</ul>
         {candidates.length === 0 && <p>No matching creatures. You can enter a manual combatant below.</p>}
       </>}
@@ -85,12 +94,13 @@ export function CombatEncounterAssembly({ worldId, disabled, onAdd }: {
       <label>Team<select aria-label="Combatant team" value={team} disabled={disabled} onChange={event => setTeam(event.target.value as CombatEntity['team'])}>
         <option value="pc">PC</option><option value="ally">Ally</option><option value="enemy">Enemy</option><option value="neutral">Neutral</option>
       </select></label>
-      <label>Copies<input aria-label="Combatant copies" type="number" min="1" max="20" value={count} disabled={disabled} onChange={event => setCount(event.target.value)} /></label>
+      <label>Copies<input aria-label="Combatant copies" type="number" min="1" max={Math.min(20, remainingSlots)} value={count} disabled={disabled} onChange={event => setCount(event.target.value)} /></label>
       <label>Initiative<input aria-label="Combatant initiative" type="number" value={initiative} disabled={disabled} onChange={event => setInitiative(event.target.value)} /></label>
       <label>AC<input aria-label="Combatant AC" type="number" value={ac} disabled={disabled} onChange={event => setAc(event.target.value)} /></label>
-      <label>HP<input aria-label="Combatant HP" type="number" min="0" value={hp} disabled={disabled} onChange={event => setHp(event.target.value)} /></label>
+      <label>Max HP (starts full)<input aria-label="Combatant HP" type="number" min="0" value={hp} disabled={disabled} onChange={event => setHp(event.target.value)} /></label>
       <button type="button" disabled={!canAdd} onClick={add}>Add to encounter draft</button>
     </div>
+    {validationError && <p role="status">{validationError}</p>}
     <p className="module-muted">Save the encounter to keep these combatants.</p>
   </details>;
 }
