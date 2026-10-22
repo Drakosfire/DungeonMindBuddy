@@ -35,7 +35,7 @@ class NativePlayInputV1(ClosedRulesModel):
         return self
 
 
-from .surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS, POLICY as EVIDENCE_POLICY
+from .surface_evidence_answer import HISTORICAL_INSTRUCTIONS as EVIDENCE_INSTRUCTIONS, HISTORICAL_POLICY as EVIDENCE_POLICY
 
 class NativePlayInputV2(NativePlayInputV1):
     schema_: Literal["dmb_native_play_input_v2"] = Field(default="dmb_native_play_input_v2", alias="schema")
@@ -47,6 +47,48 @@ class NativePlayInputV2(NativePlayInputV1):
         if self.answer_instructions != EVIDENCE_INSTRUCTIONS:
             raise ValueError('Play requires the current owned answer contract')
         return self
+
+
+def pack_play_frame(frame):
+    from .authored_excerpt_blocks import project_blocks
+    value=frame.model_dump(mode='json',by_alias=True)
+    value['schema']='dmb_play_block_frame_v1'
+    for source,entry in zip(value['sources'],frame.manifest.entries,strict=True):
+        source['schema']='dmb_play_block_payload_v1'
+        source['text_blocks']=project_blocks(source.pop('text'),entry.source_id)
+    return value
+
+
+def unpack_play_frame(value):
+    from .authored_excerpt_blocks import restore_blocks
+    from copy import deepcopy
+    if not isinstance(value,dict) or value.get('schema')!='dmb_play_block_frame_v1':
+        raise ValueError('Play block frame has wrong schema')
+    raw=deepcopy(value);raw['schema']='dmb_play_source_frame_v1'
+    for source in raw.get('sources',[]):
+        if source.get('schema')!='dmb_play_block_payload_v1':raise ValueError('Play block source has wrong schema')
+        source['schema']='dmb_play_source_payload_v1'
+        source['text']=restore_blocks(source.pop('text_blocks'))
+    frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(raw))
+    if pack_play_frame(frame)!=value:raise ValueError('Play block projection changed exact frozen spans')
+    return frame
+
+
+class NativePlayInputV3(NativePlayInputV1):
+    schema_: Literal['dmb_native_play_input_v3'] = Field(default='dmb_native_play_input_v3',alias='schema')
+    source_frame: dict
+    answer_policy: Literal['dmb_surface_evidence_answer_v2'] = 'dmb_surface_evidence_answer_v2'
+    answer_instructions: str
+
+    @model_validator(mode='after')
+    def exact_block_policy(self):
+        from .surface_evidence_answer import INSTRUCTIONS
+        if self.answer_instructions!=INSTRUCTIONS:raise ValueError('Play requires exact block-selection policy')
+        self.resolved_source_frame()
+        return self
+
+    def resolved_source_frame(self):
+        return unpack_play_frame(self.source_frame)
 
 
 def _user_texts(body, mode):
@@ -101,15 +143,15 @@ def prove_play_source_input(
             value = strict_json(text)
         except (ValueError, TypeError):
             continue
-        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2"}:
+        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2", "dmb_native_play_input_v3"}:
             continue
-        model = NativePlayInputV2 if value.get("schema") == "dmb_native_play_input_v2" else NativePlayInputV1
+        model = {"dmb_native_play_input_v1":NativePlayInputV1,"dmb_native_play_input_v2":NativePlayInputV2,"dmb_native_play_input_v3":NativePlayInputV3}[value["schema"]]
         carrier = model.model_validate_json(json.dumps(value, ensure_ascii=False))
         if carrier.submission_id == submission_id:
             carriers.append(carrier)
     if len(carriers) != 1 or carriers[0].message != original_message:
         raise ValueError("Native Play request lacks one exact current-submission source carrier")
-    frame = carriers[0].source_frame
+    frame = carriers[0].resolved_source_frame() if isinstance(carriers[0],NativePlayInputV3) else carriers[0].source_frame
     if frame.manifest != receipt.play_sources or t.canonical_sha256(frame) != receipt.play_source_frame_sha256:
         raise ValueError("Native Play source frame differs from its frozen receipt")
     if owner_resolver is not None:

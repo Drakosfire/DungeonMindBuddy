@@ -37,7 +37,7 @@ from .types import (
     PlanWorldGraphContextReceiptV1,
     PlanWorldGraphCompletionV2,
     SurfaceSourceCompletionV1,
-    SurfaceEvidenceCompletionV1,
+    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2,
     PlanWorldGraphExecutionV3,
     PlayWorldGraphCompletionV1,
     PlayWorldGraphContextReceiptV1,
@@ -328,7 +328,7 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
 class NativeRulesNormalizedOutputV1:
     """Pure normalization result; it is not a durable acceptance receipt."""
 
-    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | None
+    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
     composition: AnswerCompositionV1
     assistant_text: str

@@ -1,14 +1,14 @@
-import type {SurfaceEvidenceCompletionV1} from "../../api/types";
+import type {SurfaceEvidenceCompletion} from "../../api/types";
 import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 import {BuildSourcePassageEvidence} from "./BuildSourcePassageEvidence";
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
 export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
-  completion:SurfaceEvidenceCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;
+  completion:SurfaceEvidenceCompletion;composition?:Composition;worldId?:string|null;turnId?:string;
 }) {
-  const renderSegment=(s:SurfaceEvidenceCompletionV1['answer_segments'][number],index:number,key:number) => {
-    if(s.kind === 'authored_quote') return <figure key={key}><figcaption>{s.source_name} · quoted excerpt</figcaption>
+  const renderSegment=(s:SurfaceEvidenceCompletion['answer_segments'][number],index:number,key:number) => {
+    if(s.kind === 'authored_quote' || s.kind === 'authored_excerpt') return <figure key={key}><figcaption>{s.source_name} · quoted excerpt</figcaption>
       <blockquote><WorldPlanAgentAnswer answer={s.text}/></blockquote></figure>;
     const graph=s.kind === 'graph_claim', source=s.kind === 'source_passage_claim';
     const selected=completion.source_citations.filter(c=>c.segment_index === index);

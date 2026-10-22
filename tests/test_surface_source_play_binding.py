@@ -344,7 +344,7 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
     turn = outcome(turn, producer)
     output = json.dumps(
         dict(
-            schema="dmb_surface_evidence_answer_v1",
+            schema="dmb_surface_evidence_answer_v2",
             limitations=[], requested_detail_gaps=[],
             answer_segments=[
                 dict(
@@ -359,8 +359,7 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
         carrier=json.loads(json.loads(raw)['messages'][0]['content'])
         frame=carrier['source_frame']
         payload=json.loads(output)
-        payload['answer_segments'].append(dict(kind='authored_quote',text=frame['sources'][0]['text'],
-            source_handle=frame['manifest']['entries'][0]['source_id']))
+        payload['answer_segments'].append(dict(kind='authored_excerpt',block_handle=frame['sources'][0]['text_blocks'][0]['block_handle']))
         output=json.dumps(payload)
     capture = SimpleNamespace(
         authorization_id="synthetic-native",

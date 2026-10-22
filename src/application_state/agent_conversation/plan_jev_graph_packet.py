@@ -14,7 +14,7 @@ from .source_writer_output import strict_json
 from .rules_authority_types import canonical_bytes, canonical_sha256
 from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
-SCHEMA = "dmb_plan_jev_writer_frame_v1"
+SCHEMA = "dmb_plan_jev_writer_frame_v2"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
 _TARGETS = (("attributes", "assertion", "assertionId"), ("reviewedSourceObservations", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))
@@ -178,6 +178,20 @@ def project(turn, proof, trace):
         "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
         "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
         "unopened_evidence": [handles[ref] for ref in sorted(refs - present)]}
+    from .authored_excerpt_blocks import project_blocks
+    authored = plan_authored_sources(turn,markdown,frame['session_evidence'],block_policy=True)
+    rows = authored_frame_rows(authored,frame['session_evidence'])
+    for source,row in zip(authored,rows,strict=True):
+        path=row['body_path']; parent=frame
+        for key in path[:-1]: parent=parent[key]
+        parent[path[-1]]=project_blocks(source.text,source.handle)
+    plan_body=frame.pop('committed_plan_markdown')
+    frame['committed_plan_blocks']=plan_body if isinstance(plan_body,list) else project_blocks(plan_body,'unselectable-blank-plan')
+    for session in frame['session_evidence']:
+        for source in session['sources']:
+            source_body=source.pop('text','')
+            source['text_blocks']=source_body if isinstance(source_body,list) else project_blocks(source_body,'unselectable-blank-session')
+    frame['authored_sources']=[{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in rows]
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
 
@@ -201,7 +215,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") == SCHEMA:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")

@@ -1012,8 +1012,8 @@ function isWorldPlanGraphReceipt(
 function isWorldPlanGraphCompletion(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
-): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletionV1 {
-  if (isRecord(value) && value.schema === "dmb_surface_evidence_completion_v1")
+): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletion {
+  if (isRecord(value) && (value.schema === "dmb_surface_evidence_completion_v1" || value.schema === "dmb_surface_evidence_completion_v2"))
     return receipt.schema === "dmb_agent_plan_world_graph_context_receipt_v1" && isSurfaceEvidenceCompletion(value, receipt.context_receipt_sha256, "plan") && surfaceEvidenceReceiptBound(value,receipt);
   if (isRecord(value) && value.schema === "dmb_surface_source_completion_v1")
     return receipt.schema === "dmb_agent_plan_world_graph_context_receipt_v1" && isSurfaceSourceCompletion(value, receipt.context_receipt_sha256, "plan");
@@ -1144,7 +1144,7 @@ function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecu
 function isWorldPlanSourceOpenTargets(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletion | null,
 ): value is WorldPlanSourceOpenTargetV2[] {
   if (!Array.isArray(value) || value.length > 64) return false;
   const citations = completion?.citation_map?.entries ?? [];
@@ -1208,7 +1208,7 @@ function isWorldPlanSourceOpenTargets(
 
 function isWorldPlanRelatedRecapStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletion | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -1230,7 +1230,7 @@ function isWorldPlanRelatedRecapStatuses(
 
 function isWorldPlanEvidenceAnchorStatuses(
   value: unknown,
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletionV1 | null,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletion | null,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
   const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
@@ -4019,7 +4019,7 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletionV1["answer_context_status"] | "proposal_ready" | "image_preparation_ready"): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready"): string {
     switch (status) {
       case "authored_grounded": return "Literal excerpts from frozen authored material.";
       case "authored_grounded_partial": return "Literal authored excerpts; coverage was incomplete.";
@@ -4045,7 +4045,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletionV1["answer_context_status"] | "proposal_ready" | "image_preparation_ready", surface: string | null): string | null {
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready", surface: string | null): string | null {
     const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
       case "authored_grounded": return "Quoted material";
@@ -4499,7 +4499,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1") {
+    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -5482,8 +5482,8 @@ export function WorldPlanAgentConversation({
                 {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
               </span>}
             </div>
-            {graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1"
-              ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletionV1}
+            {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2")
+              ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : <WorldPlanAgentAnswer
               answer={turn.assistant_text}

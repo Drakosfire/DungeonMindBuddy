@@ -20,8 +20,8 @@ INSTRUCTIONS = SOURCE_ATTRIBUTION_INSTRUCTIONS + EVIDENCE_INSTRUCTIONS + """
 Answer the current co-GM question directly using relevant supplied material. Preserve
 beliefs, time and authored versus played events. Entity labels and dialogue are
 navigation/context, not evidence. Read short evidence handles only as passage joins.
-For authored quotes, authored_sources.body_path points to the exact existing
-Plan/session body in this frame; use its opaque handle. Do not quote unrelated evidence.
+For authored excerpts, select an exact block_handle from the ordered authored blocks.
+The host supplies its literal text; never emit quote text or the whole-source handle. Do not quote unrelated evidence.
 For image grounding give a coherent visual brief and unresolved composition question;
 prepare an image_prompt only when requested. No edit or generation happened.
 """
@@ -48,7 +48,7 @@ class PlanClaimEvidence:
     passages: tuple = ()
     source_partial: bool = False
     authored: tuple = ()
-    current_policy: bool = False
+    current_policy: bool | str = False
 
 
 class PlanWriterProvider(OpenAITextProvider):

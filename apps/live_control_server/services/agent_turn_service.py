@@ -769,7 +769,7 @@ class _BuildClaimEvidence:
     passages: tuple = ()
     source_partial: bool = False
     authored: tuple = ()
-    current_policy: bool = False
+    current_policy: bool | str = False
 
 
 def _build_initial_claim_evidence(

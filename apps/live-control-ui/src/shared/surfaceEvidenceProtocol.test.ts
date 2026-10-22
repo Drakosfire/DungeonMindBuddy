@@ -31,3 +31,26 @@ describe('mixed surface evidence',()=>{
     expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),'plan')).toBe(false);
   });
 });
+
+describe('host-materialized authored blocks',()=>{
+  function current(){
+    const old=evidence();
+    const quote=old.answer_segments[1]!;
+    return {...old,schema:'dmb_surface_evidence_completion_v2',answer_segments:[old.answer_segments[0],{
+      ...quote,kind:'authored_excerpt',block_handle:'b'+'f'.repeat(64),partition_version:'markdown_source_blocks_v1',
+      byte_start:12,byte_end:12+new TextEncoder().encode(quote.text).length,block_sha256:'e'.repeat(64),entry_identity:null}]};
+  }
+  it.each(['plan','play'] as const)('admits versioned exact stored blocks in %s',surface=>{
+    const c={...current(),surface_id:surface};expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),surface)).toBe(true);
+  });
+  it.each(['legacy kind','span','partition','entry','duplicate','extra'])('rejects altered %s',change=>{
+    const c=current(),s=c.answer_segments[1]!;
+    if(change==='legacy kind')Object.assign(s,{kind:'authored_quote'});
+    if(change==='span')Object.assign(s,{byte_end:1});
+    if(change==='partition')Object.assign(s,{partition_version:'folded_v1'});
+    if(change==='entry')Object.assign(s,{entry_identity:'unknown'});
+    if(change==='duplicate')c.answer_segments.push(s);
+    if(change==='extra')Object.assign(s,{model_text:'A rewritten quote.'});
+    expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),'plan')).toBe(false);
+  });
+});

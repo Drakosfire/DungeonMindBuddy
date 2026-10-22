@@ -39,7 +39,7 @@ class WriterWire(httpx.AsyncBaseTransport):
 
 
 def graph_answer():
-    return {'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
+    return {'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'graph_claim','claim_id':'claim:1',
         'text':'The park journal reports a wooden walkway.','target_kind':'assertion','target_id':'assertion:pond',
         'passage_handles':[]}]}
@@ -146,7 +146,7 @@ def test_transport_close_failure_does_not_hide_an_already_accepted_turn(plan_ada
 
 def test_unused_graph_can_return_a_labeled_proposal_without_factual_connective(plan_adapter):
     writer=stage_graph(plan_adapter)
-    answer={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
+    answer={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'proposal','label':'invented_idea','text':'We could begin beside the pond.'}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
@@ -212,8 +212,8 @@ def test_session_quote_name_and_owner_come_from_exact_writer_input(plan_adapter)
     proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
     source=next(row for row in writer.projection.frame['authored_sources'] if row['source_kind']=='session')
-    candidate={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],
-        'answer_segments':[{'kind':'authored_quote','text':packet['sources'][0]['text'],'source_handle':source['handle']}]}
+    candidate={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'authored_excerpt','block_handle':writer.projection.frame['session_evidence'][0]['sources'][0]['text_blocks'][0]['block_handle']}]}
     wire=WriterWire(a,json.dumps(candidate))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
     assert len(wire.calls)==1
@@ -243,7 +243,7 @@ def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_se
 def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_adapter):
     writer=stage_graph(plan_adapter)
     prompt='A broken timber boardwalk above dark fen water. No town or tower.'
-    answer={'schema':'dmb_surface_evidence_answer_v1','limitations':[],'requested_detail_gaps':[],'answer_segments':[
+    answer={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],'answer_segments':[
         {'kind':'proposal','label':'image_prompt','text':prompt}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
@@ -256,3 +256,31 @@ def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_
     body=json.loads(wire.calls[0].content)
     assert '"label":"image_prompt"' in body['instructions']
     assert body['tools']==[]
+
+
+def test_identical_notes_and_closing_reflections_select_distinct_frozen_entries(plan_adapter):
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    a=plan_adapter; run=str(uuid4());text='A saved recollection.\r\n'
+    packet=dict(title='Synthetic park outing',world_id=a.world_id,run_id=run,review_revision=4,
+        sources=[dict(kind='scene_note',element_id='one',text=text),
+                 dict(kind='scene_note',element_id='two',text=text),
+                 dict(kind='closing_reflections',text=text)])
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    rules=PlanRulesRuntime(a,rules_capability(graph=True))
+    proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic'))
+    writer=PlanJevWriter(a,proof,rules)
+    entries=writer.projection.frame['session_evidence'][0]['sources']
+    handles=[entry['text_blocks'][0]['block_handle'] for entry in entries]
+    assert len(set(handles))==3
+    payload=dict(schema='dmb_surface_evidence_answer_v2',limitations=[],requested_detail_gaps=[],
+        answer_segments=[dict(kind='authored_excerpt',block_handle=handle) for handle in handles])
+    wire=WriterWire(a,json.dumps(payload));completed=asyncio.run(writer.run(transport=wire,api_key='synthetic'))
+    segments=completed.completion.answer_segments
+    assert [s.text for s in segments]==[text]*3
+    assert len({s.source_handle for s in segments})==3 and len({s.entry_identity for s in segments})==3
+    assert all(s.owner_sha256==packet['sha256'] and s.source_kind=='session' for s in segments)
+    reopened=AgentConversationService().inspect_turn(world_id=a.world_id,turn_id=a.turn.turn_id)
+    assert reopened.completion==completed.completion and len(wire.calls)==1

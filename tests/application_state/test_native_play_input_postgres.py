@@ -8,7 +8,7 @@ import pytest
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.play_graph_authority import play_source_frame,play_graph_execution_policy_digest
-from application_state.agent_conversation.play_graph_input import NativePlayInputV2
+from application_state.agent_conversation.play_graph_input import NativePlayInputV3,pack_play_frame
 from application_state.agent_conversation import play_graph_source_owner as owner
 from application_state.errors import ApplicationStateValidationError,ApplicationStateConflictError,ApplicationStateNotFoundError
 from application_state.agent_conversation.rules_authority_types import canonical_bytes
@@ -25,7 +25,8 @@ def prepared_native(dsn,*,moment=True,edition=False,forged_moment=False):
         if forged_moment:text+=' Invented scene detail.'
         frame=play_source_frame((*frame.sources,t.PlaySourcePayloadV1(source_kind='current_moment',
             locator=t.play_source_locator(sub.play_context_receipt),text=text)))
-    carrier=NativePlayInputV2(submission_id=sub.idempotency_key,message=sub.user_text,source_frame=frame)
+    from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS
+    carrier=NativePlayInputV3(submission_id=sub.idempotency_key,message=sub.user_text,source_frame=pack_play_frame(frame),answer_instructions=INSTRUCTIONS)
     raw=json.dumps({'model':'synthetic','messages':[{'role':'user','content':canonical_bytes(carrier).decode()}],'tools':[]},ensure_ascii=False)
     digest=sha256(raw.encode()).hexdigest();wire=sub.graph_context_receipt.model_dump(mode='json',by_alias=True)
     wire.update(play_sources=frame.manifest.model_dump(mode='json',by_alias=True),play_source_frame_sha256=t.canonical_sha256(frame))

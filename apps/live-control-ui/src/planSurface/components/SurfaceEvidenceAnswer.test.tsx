@@ -37,3 +37,15 @@ it('shows unopened Graph authority and opens the selected named source at its or
   await screen.findByText(passage);
   expect(getAgentSourcePassage).toHaveBeenCalledWith('w',id,1);
 });
+
+it('renders host-materialized excerpts with saved-source attribution',()=>{
+  const old=evidence(),quote=old.answer_segments[0]!;
+  if(quote.kind!=='authored_quote')throw new Error('fixture');
+  const completion:import('../../api/types').SurfaceEvidenceCompletionV2={...old,schema:'dmb_surface_evidence_completion_v2',
+    answer_segments:[{...quote,kind:'authored_excerpt',text:'A saved 🐸 observation.\r\n',
+      block_handle:'b'+'d'.repeat(64),partition_version:'markdown_source_blocks_v1',byte_start:0,
+      byte_end:new TextEncoder().encode('A saved 🐸 observation.\r\n').length,block_sha256:'e'.repeat(64),entry_identity:null}]};
+  render(<SurfaceEvidenceAnswer completion={completion}/>);
+  expect(screen.getByText('A saved 🐸 observation.').closest('blockquote')).not.toBeNull();
+  expect(screen.getByText('Committed Plan · quoted excerpt')).toBeTruthy();
+});

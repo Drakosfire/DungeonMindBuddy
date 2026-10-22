@@ -73,7 +73,7 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
     if not (play or plan):
         raise NativeAnswerError('authority','native_owner_missing')
     from .surface_evidence_answer import POLICY, normalize as normalize_evidence
-    if isinstance(candidate, dict) and candidate.get('schema') == POLICY:
+    if isinstance(candidate, dict) and candidate.get('schema') in {POLICY,'dmb_surface_evidence_answer_v1'}:
         try:
             return normalize_evidence(candidate, turn, producer, support)
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
