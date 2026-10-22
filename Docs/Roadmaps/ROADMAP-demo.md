@@ -1,180 +1,212 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product roadmap; reconciled 2026-10-19.
-**Evidence anchor:** remote main `74a604ce3542fbb0501ac0baf2ff9a32cdfa42a5` (PR #1458).
+**Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
+**Evidence anchor:** remote main `71db547cbb3eab3c5037d0b8446ce4014ecfa9f9` (through PR #1565 and #1546).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
-This checkpoint replaces the accumulated “next”, “immediate” and historical
-execution instructions previously embedded here. No implementation is activated
-by this audit. The operator has selected the cards/navigation design examination
-described below. Detailed execution history
-is retained in Git, merged PRs and existing bounded contracts; do not copy it
-back into the active roadmap. The pre-pruning document is available at the
-[evidence anchor](https://github.com/Drakosfire/DungeonMindBuddy/blob/fcaab28ab1db7ce2c024152d15ca844e4c3bb3ef/Docs/Roadmaps/ROADMAP-demo.md).
+This is the sole product execution ledger. Detailed history remains in Git, PRs
+and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
+Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
+foundation refinement throughout. Draft #1566 remains unmerged and undeployed
+at this checkpoint and is the first existing delivery candidate. Historical “next”
+instructions do not reactivate old leases; new implementation slices still require
+bounded ownership and review.
 
 ## Product decisions that remain in force
 
-- **Build, Plan and Play share one writing system:** Markdown, semantic blocks,
-  tables and the existing media object. Keep that media boundary under scrutiny
-  as needs grow; no replacement is presumed.
-- **Plan replaces Prep. Play is the table-use mode.** A coherent shared Plan/Play
-  workspace is still a design/continuity objective; shared components and separate
-  routes alone do not establish that complete experience.
-- **Play edits save to the session copy.** Preserve the Plan, original accepted
-  Run basis, history, scene notes and progress. Existing scenes first; structural
-  editing follows separately.
-- Human and optional Agent authoring use the same owning mutation boundaries.
-  Agent proposals, document saves, played recollections and published World facts
-  remain distinct.
-- **Recaps are external documents.** Ending a session asks for optional final
-  thoughts/recollections. Scene notes and reflections supplement planning and
-  external recap extraction; Buddy does not manufacture a recap on close.
-- Real user journeys, reopen/restart retention, narrow-screen use and operator
-  feedback matter. A merge or isolated test does not prove overall acceptance.
+- Build, Plan and Play share Markdown, semantic blocks, tables and the existing
+  media object, using shared Surface components and each surface's owning writer.
+- Connected scene cards, scene lenses, choices and map/location navigation remain
+  adopted direction; presentation does not create storage/runtime authority.
+- Plan replaces Prep. Play edits the session copy; preserve the Plan, accepted
+  Run basis, scene notes, progress and history.
+- Human and Agent edits share mutation boundaries. Drafts, played recollections,
+  generated candidates and accepted World facts retain distinct authority.
+- **Recaps are external documents.** Closing a session asks for optional final
+  recollections. Notes/reflections supplement planning and external recap ingestion;
+  closing does not manufacture a recap or publish World facts.
+- Ingestion belongs inherently in Build: one saved document/editor, frozen run
+  configuration, review and explicit acceptance. Existing exact run links must
+  remain recoverable; do not add a backwards-compatibility runtime pathway.
+- Source citations should name the source. Technical revision/receipt information
+  belongs in Debug or inspection, with exact provenance retained behind it.
+- Target an older laptop with 8 GB RAM. Do not impose new character/token caps to
+  substitute for efficient retrieval, deduplication and code loading.
+- A merge, component test or isolated witness does not award connected journey,
+  hosted readiness or operator acceptance. Keep unproven transitions visible.
 
-## Delivered baseline — keep and build on it
+## Delivered baseline — capabilities and their limits
 
 | Capability | Evidence | Practical limit |
 |---|---|---|
-| Build/Plan autosave; Plan Markdown entry/help and tables/callouts | #1415–#1419; later #1442 import-fidelity reuse | Does not prove every content shape across every view |
-| Saved media projection and editing in Play | #1421, #1422, #1425–#1429; normal 5202 edit/save/reopen/history witnesses | Existing scenes; session edits preserve Plan |
-| Prominent movable/collapsible scene notes; compact Play navigation and chat below navbar | #1420, #1431–#1437; desktop/narrow and retained-state evidence | Cards still need their own coherent design |
-| Buddy reads saved session content and notes; reviewed scene edits | #1438–#1441; real and disposable acceptance | Saved context, not unsaved keystrokes; existing scene targets |
-| Image authoring in Plan and Play | #1443/#1444; generation/selection/insertion delivered | Media availability, navigation and consistent use remain dogfood concerns |
-| Recoverable Trash across Build, Plan and Play | #1445–#1447 | Reversible document/session lifecycle; not a universal source-artifact purge contract |
-| Shared compact navbar actions and actionable draft recovery | #1448–#1451; root Plan route included | Further layout issues require concrete reproduction |
-| Plan Cards navigation and Document continuity | #1458 merged `74a604ce`; Architecture Cycle 1 PASS on `d6936b0e`; PRIME desktop/narrow and 12 protected-response preservation checks passed | Existing-scene browsing; direct card editing and dense-scene facets remain open |
-| Useful root Play landing | #1452 | Old #1190 welcome proposal is not the current delivery plan |
-| End/reopen sessions and retain final recollections separately | #1453 corrected by #1454 | External recap remains separate |
-| Next-session planning from notes/reflections with active exact-revision citations | #1455; actual saved-session planning answer and pinned citation navigation on 5202 | Recent ended active sessions, bounded context; not automatic Graph truth |
-| Explicit session-evidence supplements for external recap ingestion | #1455; same-World/ref/digest checks, sealed lineage and unchanged recap bytes | Production adapter verified synthetically; real external-recap use remains open |
-| Ingest exact candidate/source navigation and correction safeguards | #1315, #1375, #1391, #1395/#1396, #1399–#1407 | Extraction quality and complete chronology still need source-based evaluation |
-| Ordinary Build Jev retrieval and one evidence-bound writer | #1325 and subsequent accounting/coverage fixes through #1369 | Generality, coverage, latency and cost are separate from one successful answer |
-| Agent service regression baseline | `tests/test_agent_turn_service.py`: 164 passed on 2026-10-19 after repairing seven inherited fixture failures; [bounded handoff](../Plans/HANDOFF-TEST-agent-baseline.md) | Specific suite baseline; not repository-wide test or J1–J6 acceptance |
-| Shared document-reference inspection across Build, Plan and Play | #1471 plus core-shell correction #1472; Architecture review and actual desktop/narrow open/Back/Close, exact Plan revision, draft/scene/Notes retention and protected-state checks on 5202; [settled contract](../Plans/HANDOFF-SURFACE-reference-peek-slot.md) | Build/Plan document targets; unavailable historical Build revisions stay unavailable, no silent current fallback |
-| Unused surface modules and forwarding paths retired | #1481; Architecture Cycle2 approval, production build, canonical owner tests and5202 nonregression checks; [settled scope](../Plans/HANDOFF-SURFACE-unused-paths.md) | Finite no-behavior cleanup;17 removed files. Combat preview delivery and Build Find receipt remain unaccepted |
+| Shared writing, autosave, semantic blocks, tables and media | #1415–#1429, #1442–#1444 | Representative cross-surface round-trip and recovery still require connected acceptance |
+| Plan Cards and Document continuity, vertical deck, manual focused-card editing | #1458–#1465 | Structural create/reorder/remove and dense-scene acceptance remain separate |
+| Shared Contents/book collapse, reference inspection, paper layout and navbar width | #1471–#1478, #1507 | Shared presentation retains surface-specific state/save ownership |
+| Legacy card paths and unused surface forwarding removed | #1479–#1481 | Finite cleanup, not proof that every unused path is gone |
+| Session-copy editing, notes, close/reopen and final recollections | #1420–#1437, #1453/#1454 | Real table use occurred; not full J5/J6 acceptance |
+| Saved session evidence for cited planning and explicit recap supplements | #1438–#1441, #1455 | Saved content only; real external recap with matching supplements through publication/retrieval remains open |
+| Recoverable Trash and actionable draft recovery | #1445–#1451 | Not a universal source/artifact purge contract |
+| Demand loading and bounded/deduplicated history, evidence and graph reads | #1482–#1499, #1511, #1515–#1524, #1558, #1564/#1565 | No actual 8 GB hardware acceptance or complete latency/memory distribution yet |
+| User/Agent Rules lookup in governed Plan and Play | #1500–#1506, #1526, #1543–#1545 | Admitted public SRD 5.2.1 occupancy corpus; not all 2024 rules, travel-rule coverage or a rules graph |
+| Build ingestion in the existing document: Worldbuilding/Recap configuration, review and recovery | #1525, #1535–#1539, #1547–#1549, #1551 | Editing accepted World facts remains separate; full source-quality/chronology acceptance is open |
+| Native publication and exact source reopen | #1552, #1560–#1563; isolated real Worldbuilding and public Recap review→selected identity publication→cold source reopen | Selected publication, not every proposed attribute/relationship; private external Session 29 extraction was reviewable but not published and had no supplements selected |
+| Native Combat C0 Surface module, artifact lookup, roster state save/reopen and responsive layout | #1550, #1556/#1557; isolated rendered persistence witness | Not connected Play continuity, C1–C4, graph roster selection or live generated-statblock acceptance |
+| Ordinary Build Jev retrieval (#1325–#1369), plus Plan retrieval decisions, host-owned reads and one writer; actual per-call usage | #1527–#1534, #1540–#1546 | Fresh rendered response has a contract defect below; latency target not reliably met |
+| Named source citations and exact lazy Debug prompt inspection, including failures | #1553–#1555, #1559, #1563 | Component and selected live evidence do not prove every fresh multi-turn/image path |
+| Real image generation from an authored/prepared prompt | #1443/#1444 and actual Build image acceptance | Build prompt→generated asset proved; fresh Plan conversation→prompt→image completion has not |
 
-The operator ran a real session: Play helped improvisation and scene note-taking.
-They identified media access and navigation as major weaknesses. This is useful
-real-use evidence; it is not blanket acceptance of J1–J6, all views, all sources
-or hosted readiness. The latest real planning witness used separately attributed saved notes/reflections
-with source links and no Plan or Graph mutation. Its campaign content remains private.
+The operator's played session established useful improvisation and note-taking.
+It also exposed navigation and media weaknesses. Preserve that evidence without
+calling the full local demo accepted.
 
-## Remaining acceptance — do not erase these gaps
+## Current dogfood failures — next-goal inputs
 
-1. **Authoring/view continuity:** prove representative Markdown, blocks, tables
-   and media through Build, Plan and Play, Document/Cards switching, manual and
-   Agent edits, autosave/reopen, navigation and conflict recovery. Preserve each
-   document/session authority. Cross-surface availability is not arbitrary
-   bidirectional synchronization.
+1. **Root Plan inventory:** `/plan?documentId=…` still enters the old campaign
+   inventory and omits native Session 29 Plans. The Plans exist under the native
+   Elderwyld route. Draft [#1566](https://github.com/Drakosfire/DungeonMindBuddy/pull/1566)
+   replaces the root fallback with shared World selection. Source review found
+   no actionable product issue; rendered delivery remains pending. Its inherited
+   Plan test cohort is not wholly green. Do not mark this fixed on 5202.
+2. **Fresh reply completion:** an actual native Plan grounding request completed
+   durably and rendered named evidence, but the composer stayed locked. Fresh Jev
+   responses retain a replay-only null content basis; the UI rejects their fresh
+   response contract. Fix and verify at the response/UI boundary, preserving true
+   replay semantics. History/pending client-versus-durable turn correlation also
+   needs examination for recovery. No fix has been implemented yet.
+3. **Grounding latency:** the exact swamp/Edge question achieved one isolated
+   9.841-second pass; the fresh browser request took 12.046 seconds. The requested
+   roughly 10-second experience is not a reliable accepted target yet. Measure
+   actual decision/read/writer times and quality; do not report a single pass as SLA.
+4. **Fresh image continuation:** the fresh browser flow stopped at the locked
+   composer before follow-up/image generation. A prior Build image witness cannot
+   close this gap or establish a one-click image action in Plan.
 
-   **Build document ingestion — delivered foundation and remaining acceptance:**
-   Existing-World Worldbuilding request recovery is delivered by PR1547 (merge3181282828969dbf35ac3e6a3e78620903f63f36). The [Recap correction/review slice](../Plans/HANDOFF-BUILD-recap-correction-review.md) is delivered by PR1548 (merge8ef16fe8d14f897975ff7e046a4198c6023ba31b): literal evidence repair followed by explicit interpretation review, with separate World publication. [First-World recovery](../Plans/HANDOFF-BUILD-first-world-recovery.md) is delivered by PR1549. [Correction recovery across modes](../Plans/HANDOFF-BUILD-correction-recovery-parity.md) is delivered by PR1551. [Native publication acceptance](../Plans/HANDOFF-BUILD-native-publication-acceptance.md) is active; real-corpus end-to-end acceptance remains open.
-   [Build document ingestion as one workflow](../Design/DESIGN-build-ingestion-as-document-workflow.md)
-   folds exact-run evidence review, candidate decisions, correction/recovery and
-   accepted receipts into the existing Build document context. Recap is a frozen
-   run configuration over that exact saved Markdown; this does not add a second
-   editor or change an existing run when the mode selector changes. Re-anchor
-   against the delivered [shared navigation-width handoff](../Plans/HANDOFF-SURFACE-navigation-width.md)
-   ([PR #1507](https://github.com/Drakosfire/DungeonMindBuddy/pull/1507)); superseded #1510 is closed.
-   The [inline Worldbuilding review slice](../Plans/HANDOFF-BUILD-inline-extraction-review.md) is delivered by PR1535;
-   its [exact-document Recap source adapter](../Plans/HANDOFF-BUILD-recap-source-adapter.md) is delivered by PR1536;
-   [recoverable Recap launch](../Plans/HANDOFF-BUILD-recap-launch-recovery.md) is delivered by PR1537;
-   [Build Recap controls](../Plans/HANDOFF-BUILD-recap-controls.md) are delivered by PR1538;
-   [Recap publication recovery](../Plans/HANDOFF-BUILD-recap-publication-recovery.md) is delivered by PR1539.
-   Publication request recovery is delivered for Recap (#1539), existing-World Worldbuilding (#1547), and [first-World creation](../Plans/HANDOFF-BUILD-first-world-recovery.md) (#1549). Real-corpus receipt/recovery acceptance remains open. This does not replace the roadmap's
-   focused-card/Play-adapter direction or PRIME's active Rules→Combat sequence
-   ([Rules lookup PR #1506](https://github.com/Drakosfire/DungeonMindBuddy/pull/1506);
-   [native Combat surface composition](../Plans/HANDOFF-COMBAT-native-surface.md)).
-   Do not dispatch this work in parallel with those owners. Remove Ingest from
-   primary customer navigation only after Build supports both modes and old
-   `/ingest` run links still recover the exact original run. Editing existing
-   accepted World facts remains a separate follow-on.
+The API backing 5202 is at the evidence-anchor revision; the UI serves
+`a65de0de8ffa428efbfa00631b54eec1d2608ea7` (#1561). These are the observed
+planning checkpoint, not a requirement to keep those revisions after delivery.
 
-2. **Cards:** the reviewed design distinguishes scene navigation from bounded card
-   presentation; Plan navigation/view continuity has delivered. Direct focused-scene
-   editing, dense-content acceptance, visible boundaries, reorder/create/remove and
-   the full content-first workflow remain open. The navigation slice does not prove
-   Plan Cards' entire workflow.
-3. **Connected knowledge:** ordinary Plan access to the published Session 29 recap,
-   historical authored-source availability and the song callback remain specific open
-   witnesses unless demonstrated. The delivered shared read-only document interaction is bounded by
-   the [surface reference contract](../Plans/HANDOFF-SURFACE-document-references.md):
-   Build/Plan links share one peek interaction across Build, Plan and Play. Exact
-   historical Build reads without an admitted owner API remain unavailable; the
-   former Edge revision-8 href is absent from the current saved Plan. #1455 proves session-note use, not these recap
-   and authored-source journeys.
-4. **Session-to-memory loop:** exercise a real externally authored recap with
-   explicit notes/reflections attached; review discrepancies and publish through
-   the existing governed path. Retain source attribution and chronology.
-5. **Semantic richness:** maps, roster/table collections, people, economics,
-   refugee/survivor identity through time and linked speculative GM ideas need
-   evidenced relationships and useful retrieval. A heading or media wrapper alone
-   does not establish those graph semantics.
-6. **Rules and table tools:** cited 2024 travel-rule retrieval and the connected
-   statblock/combat/recorded-roll journeys remain acceptance work; the prepared
-   rules text and a standalone statblock do not prove those tools. The cleanup smoke
-   confirmed that5202 `/combat` currently resolves Index; the unchanged preview/static
-   serving gap is the active native Combat surface composition slice; native C0 persistence is already serving. Build Find also reports
-   `authority_receipt_missing` for Elderwyld. Neither is a successful tool-adoption
-   witness; #1481 did not change those owners or restore retired paths.
-7. **Full local acceptance:** first-World preparation and J1–J6 twice without
-   console repair remain unaccepted. Existing selected-World use is not full
-   corpus or fresh-World proof. The Agent service suite baseline is now green;
-   keep failures in other suites and repository-wide coverage limits explicit.
+## Remaining acceptance
 
-## Current chosen design focus
+- **Authoring and continuity:** representative prose/blocks/tables/media through
+  Build, Plan and Play; human/Agent edits, Document/Cards position, drafts, autosave,
+  reload/restart and conflict recovery. Direct focused Plan editing has delivered;
+  structural card operations and dense-content acceptance have not.
+- **Connected knowledge:** ordinary retrieval of published recap/authored sources,
+  callbacks and relationships with exact named citations. Source availability in
+  an isolated publication witness is not ordinary next-turn retrieval acceptance.
+  The previously reported Build Find `authority_receipt_missing` failure has no
+  recorded fresh acceptance here and must not be silently considered resolved.
+- **Session-to-memory:** real external recap plus explicitly matching scene notes
+  and closing recollections → discrepancy review → selected publication → ordinary
+  cited next-session planning. Keep chronology and separate evidence authority.
+- **Rules/assets/table tools:** cited 2024 travel rules, real async statblock
+  generation/retrieval/editing, selected image association, connected Combat and
+  recorded roll results. Current Rules corpus and Combat C0 do not close this.
+- **Performance:** fresh/current-build measurements on the 8 GB target or an
+  explicitly stated proxy; cold/warm load, repeated reads, latency and retained
+  memory. Historical frontend assessment numbers are not current measurements.
+- **Full local acceptance:** J1–J6 below, twice in a resettable environment without
+  console/SQL/manual-ID repair, including fresh World and restart. No local demo
+  acceptance is awarded. Hosted v1 has separate identity/deploy/backup gates.
 
-The operator selected cards/navigation on 2026-10-19. Architecture's
-[Plan/Play cards proposal](../Design/DESIGN-plan-play-cards-navigation.md) examines
-card purpose, capacity, editing and context-preserving navigation against the
-current code. It recommends Plan scene-navigation/view continuity first, then
-focused existing-scene editing through each surface's owning writer. The design
-was independently reviewed and merged as #1457. The first bounded navigation/
-continuity slice is now [settled](../Plans/HANDOFF-CARDS-plan-navigation-continuity.md)
-after #1458 review, merge and PRIME's final delivery/preservation checks. Its source
-leases are released. The follow-up
-[thumbnail deck](../Plans/HANDOFF-CARDS-plan-thumbnail-deck.md) is also settled:
-#1460 merged `4a6d758b` after Architecture Cycle 2 PASS and PRIME's desktop/narrow,
-14-scene draft/media continuity and protected-state acceptance. Cards uses the
-vertical deck; Plan selection remains in the navbar. One scene is one deck entry;
-this does not deliver direct editing or dense-scene facets. Its leases are released.
-The follow-up [shared Contents/top-alignment slice](../Plans/HANDOFF-CARDS-shared-contents.md)
-is settled as #1461 (`6f4092d0`), Architecture Cycle 1 PASS. PRIME verified Plan
-alignment and shared Play thumbnails at desktop/narrow widths, preserved inspection
-versus current-scene/Notes targeting, and all 12 protected responses. Contents
-shares presentation; each surface retains its existing state/save owners. Leases
-are released; this adds no editing or structural capability.
-Direct focused-card editing in Plan is the next proposed
-capability, followed by the Play adapter; neither is authorized by this settlement.
+## Selected goal and later candidates
 
-## Other candidates for a later operator decision
+| Candidate | First useful outcome | Completion boundary |
+|---|---|---|
+| **Recommended: dependable Plan/Buddy/image journey** | Find Session 29 normally, ground a multi-turn discussion, inspect named evidence/exact Debug prompts and generate/reopen the chosen image | Root entry and fresh response fixed; ordinary 5202 workflow twice with no manual repair, retained drafts/scene position, honest measured latency and operator review |
+| Session-to-memory continuation | Use the real external recap with matching played evidence in next-session planning | Review selected supplements, publish explicitly, retrieve/cite the accepted result on a fresh turn and after restart |
+| Connected table tools | Use Rules and generated mechanics during Play | Select one bounded Rules coverage or Combat continuation slice; prove actual use and retained session state |
+| 8 GB performance acceptance | Know current client cost and eliminate the largest measured waste | Current-build load/read/memory measurements, one prioritized repair and before/after evidence |
+| Hosted v1 | Authenticated laptop use at buddy.dungeonmind.net | Separate SERVER/platform contract, access controls, repeatable deployment and backup/restart proof |
 
-These remain options, not a newly activated implementation sequence.
+The operator selected dependable planning, connected Combat and the two adventure
+rehearsals as one sustained goal, sequenced in independently reviewable slices.
+Foundation refinement runs throughout: shared Surface components, demand loading,
+bounded/deduplicated reads and current-build 8 GB performance evidence. The
+session-to-memory evidence boundary applies to the rehearsals; hosted v1 remains
+a separately selected candidate. This table does not grant parallel write leases. Rules graph
+experiments remain deferred until broader objectives are accepted or the operator
+explicitly activates a bounded experiment; delivered Rules lookup remains useful
+without that experiment. Semantic maps, linked speculative ideas, economics and
+identity through time remain later evidence-driven candidates.
 
-| Candidate | User value / first useful outcome |
-|---|---|
-| Real session-to-memory continuation | Attach the next external recap, compare with saved notes, review/publish and use it in ordinary next-session planning |
-| Graph-aware authoring and continuity | Preserve authored table/map meaning; connect song/people/refugees and resurface ideas without turning proposals into facts |
-| Rules/statblock/combat integration | Retrieve cited 2024 rules and use the prepared mechanics through actual table controls |
-| Hosted v1 | Authenticated laptop use of the retained World at buddy.dungeonmind.net, repeatable deploy/update, backup/restore and restart proof |
+## Selected continuation after dependable planning
 
-Next discussion: bound direct focused-card editing and its representative
-shared-authoring acceptance journey before expanding that UI;
-use the next external recap as the memory-loop witness when it exists. Hosted v1
-can be chosen independently, but needs its own bounded SERVER/platform contract.
-No provider-parity program or platform-wide rewrite is an automatic prerequisite.
+The operator identified the mechanical, unfilled Combat landing and nominated
+**Of Conks and Cons** and **A Wild Sheep Chase** as full adventure witnesses.
+The operator included these priorities in the active goal. This does not reactivate
+old prototype/handoff leases.
 
-## Card adoption direction — operator decision, 2026-10-03
+### 1. Make Combat a usable table instrument
 
-Connected scene cards, scene lenses, choices and map/location navigation remain
-adopted product direction. The document/card/Play projections and shared authoring
-now provide a substantial implementation baseline. The operator's later explicit
-request for a serious card-design pass governs the next design examination:
-purpose, capacity, overflow/splitting, editing and accessible detail. Prototype
-appearance is evidence, not accepted storage or runtime authority. Preserve J2/J5
-acceptance and the same document/Run controller seams.
+Start with an evidence-based design comparison of the played Session 22/23/26
+trackers, Session 24 dogfood feedback and current native Combat. The existing
+[generic command-board contract](../Plans/HANDOFF-COMBAT-generic-command-board-experience.md)
+and [played tracker feedback](../Plans/HANDOFF-c2s24-live-combat-tracker-design.md)
+are design inputs; their old ACTIVE/base/runtime statements do not grant a new
+lease. Inspect current code before adopting any historical implementation claim.
+
+Prioritize the actual GM flow:
+
+- A useful empty/returning landing explains how to assemble an encounter and resume
+  a saved fight. Show real saved work; do not fill it with invented sample encounters.
+- Select creatures or exact statblock versions from available World/assets, adjust
+  the encounter, then open that same encounter from the relevant Plan/Play scene.
+- Keep current/next actor, initiative/round, HP/temp HP, damage/healing, conditions,
+  notes and one-step statblock inspection usable during a fight. Carry forward
+  proven initiative/grouping interactions after checking their current gaps.
+- Navigate away, reload and restart, then resume the exact fight and scene without
+  silently replacing the roster, Plan, mechanics versions or player notes.
+- Keep Combat an embeddable Surface module with durable encounter ownership.
+  Rules lookup uses the admitted Rules tool; a rules graph is not a prerequisite.
+  Summon placement, timed conditions and richer automation are separately bounded
+  follow-ons informed by the played feedback, not implicitly delivered by C0.
+
+**Acceptance:** use a source-grounded adventure encounter through normal controls:
+assemble → enter from Play → run several turns and state changes → leave/reopen →
+restart/resume. Compare the experience against the played prototypes. Preserve
+original historical saves; do not import prototype adapters or campaign mappings
+into the runtime to make the demonstration work.
+
+### 2. Adventure ingestion through a winding story and combat
+
+Use both named adventures to exercise the same general Build→Plan→Play→Combat
+workflow. Begin by locating and verifying the permitted local source editions,
+existing imports/runs, source digests and retained Worlds. Current main contains
+historical Of Conks evidence and derived-candidate correction (#778), but that
+record explicitly did not confirm publication or close J1. It is not proof of a
+current accepted import. A current Wild Sheep Chase source/run has not yet been
+verified in this reconciliation. Preserve useful existing work before deciding
+whether any extraction must be repeated. Keep licensed text out of Git fixtures.
+
+The target is an adventure usable at the table:
+
+1. Build retains the exact saved source, extracts/reviews candidates and publishes
+   selected supported knowledge with named citations. Distinguish authored options,
+   conditional encounters and GM secrets from events that have actually happened.
+2. Buddy can answer representative questions about people, places, motives,
+   alternative routes and encounter triggers from that accepted source. Review
+   omissions and unsupported connections against the adventure, not candidate counts.
+3. Plan supports meaningful scene choices and linked NPCs, locations, tables and
+   mechanics. Preserve branches, callbacks and conditional progression; do not
+   flatten the adventure into an asserted chronological history.
+4. Play can follow different routes and reach a real encounter. Open its creatures/
+   statblocks in Combat, record turn/HP/notes and any table results, then resume the
+   same story position after reload/restart. Return combat outcomes to the session
+   record without silently publishing them as World facts.
+5. Complete the connected J1–J6 acceptance applicable to this rehearsal, including
+   real generation where required. A prepared packet, fixture roster or API-only
+   publication cannot stand in for the whole journey. Use the second adventure
+   to check generality without adventure-specific runtime branches.
+
+**Selected sequencing:** finish the fresh Plan/Buddy/image failures, then design
+and deliver the Combat entry/encounter/Play connection in bounded reviewed slices.
+Use one adventure as the first connected rehearsal and the other as the generality
+check; choose their order after inspecting current source/run readiness. Repair
+missing ingestion or knowledge contracts at the owning boundary as the rehearsal
+exposes them. The session-to-memory loop remains another useful bounded goal,
+with external recaps and explicit note supplements rather than generated history.
 
 ## Scope and ownership
 
