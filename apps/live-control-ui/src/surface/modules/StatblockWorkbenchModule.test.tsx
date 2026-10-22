@@ -14,6 +14,7 @@ import type {
   ThreatDraftV1,
   ThreatDraftV2,
   WorldGraphProjection,
+  ManagedWorldGraphProjectionResponse,
   GenerateThreatDraftCandidateRequestV1,
 } from "../../api/types";
 import { persistGenerationAttempt, readGenerationAttempt, scopedWorkbenchJoinKey, type StatblockDraftScope } from "./statblockDraftScope";
@@ -130,6 +131,12 @@ describe("World-scoped mounted Workbench", () => {
     };
   }
 
+  function managedProjection(scope: StatblockDraftScope = a): ManagedWorldGraphProjectionResponse {
+    const nativeWorldId = `world:native-${scope.worldId}`;
+    return { schema: "dmb_managed_world_graph_projection_v1", managedWorldId: scope.worldId, nativeWorldId, bindingVersion: 1,
+      projection: { ...projection(scope), snapshot: { ...projection(scope).snapshot, worldId: nativeWorldId } } };
+  }
+
   function draft(scope: StatblockDraftScope = a, id = "draft-a"): ThreatDraftV2 {
     return {
       schema: "dmb_threat_draft_v2", scope_mode: "world", world_id: scope.worldId, campaign_id: null,
@@ -163,10 +170,8 @@ describe("World-scoped mounted Workbench", () => {
       if (!value) throw new Error("Unknown candidate");
       return structuredClone(value);
     });
-    const project = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => projection(
-      request.scopeMode === "world" ? { mode: "world", worldId: request.worldId, campaignId: null }
-        : { mode: "campaign", worldId: request.worldId, campaignId: request.campaignId },
-    ));
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async () => { throw new Error("Managed World must not use native route"); });
+    const project = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockImplementation(async request => managedProjection({mode:"world",worldId:request.managedWorldId,campaignId:null}));
     const create = vi.spyOn(liveApi, "createThreatDraft").mockImplementation(async (request) => {
       const scope = request.campaign_id === null ? { mode: "world" as const, worldId: request.world_id, campaignId: null }
         : { mode: "campaign" as const, worldId: request.world_id, campaignId: request.campaign_id };
@@ -263,7 +268,8 @@ describe("World-scoped mounted Workbench", () => {
     });
     await create(user);
     await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
-    expect(h.project.mock.calls[0][0]).toMatchObject({ worldId: a.worldId, campaignId: "", scopeMode: "world" });
+    expect(h.project.mock.calls[0][0]).toEqual({schema:"dmb_managed_world_graph_projection_request_v1",managedWorldId:a.worldId});
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
     expect(h.create.mock.calls[0][0]).toMatchObject({ world_id: a.worldId, campaign_id: null, scope_mode: "world" });
     const name = screen.getByDisplayValue("Ironhide Brute");
     await user.clear(name);
@@ -283,7 +289,7 @@ describe("World-scoped mounted Workbench", () => {
 
   it("does not create after an A head response arrives in B", async () => {
     const h = harness();
-    const pending = deferred<WorldGraphProjection>();
+    const pending = deferred<ManagedWorldGraphProjectionResponse>();
     h.project.mockReturnValue(pending.promise);
     const user = userEvent.setup();
     const view = render(<StatblockWorkbenchModule />);
@@ -546,9 +552,22 @@ describe("World-scoped mounted Workbench", () => {
     expect(h.generate).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["native_identity", "binding_version", "non_head"] as const)("rejects invalid managed %s provenance even with freestanding opt-in", async (fault) => {
+    const h = harness(); const invalid = managedProjection();
+    if (fault === "native_identity") invalid.nativeWorldId = "world:foreign";
+    if (fault === "binding_version") invalid.bindingVersion = 0;
+    if (fault === "non_head") invalid.projection.snapshot.isHead = false;
+    h.project.mockResolvedValue(invalid);
+    const user = userEvent.setup(); render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("create-threat-allow-freestanding")); await create(user);
+    await waitFor(() => expect(screen.getByTestId("create-threat-error")).toBeTruthy());
+    expect(h.create).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+  });
+
   it("rejects contradictory projection even with freestanding opt-in", async () => {
     const h = harness();
-    h.project.mockResolvedValue(projection(b));
+    h.project.mockResolvedValue(managedProjection(b));
     const user = userEvent.setup();
     render(<StatblockWorkbenchModule />);
     await user.click(screen.getByTestId("create-threat-allow-freestanding"));
@@ -638,6 +657,7 @@ describe("World-scoped mounted Workbench", () => {
   it.each(["longmont-c1", "longmont-c2"])("preserves admitted legacy %s creation with no fake scope/version upgrade", async (campaignId) => {
     const h = harness();
     h.selection.mockReturnValue({ kind: "legacy" });
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({ ...legacyProjectionFixture("rev:owned"), snapshot: { ...legacyProjectionFixture("rev:owned").snapshot, campaignId } });
     vi.spyOn(interaction, "useOptionalAgentInteraction").mockReturnValue({
       surfaceInteractionPublication: {
         surfaceId: "plan", label: "Plan", identity: { surfaceId: "plan", instanceKey: campaignId },
