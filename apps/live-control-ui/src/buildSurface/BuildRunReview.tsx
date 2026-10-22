@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { correctExactRunEvidence, correctRecapRunEvidence, getExactRunReviewPackage } from '../api/extractPromoteApi';
+import { correctExactRunEvidence, correctRecapRunEvidence, getExactRunReviewPackage, getWorldbuildingFrozenSpans } from '../api/extractPromoteApi';
 import type { ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage,
-  ExtractionRunRecord, GraphReviewHandoffPayload, WorkspaceDocumentRecord } from '../api/types';
+  ExtractionRunRecord, GraphReviewHandoffPayload, WorkspaceDocumentRecord, WorldbuildingEvidenceCorrectionRequest, WorldbuildingFrozenSpanCatalog } from '../api/types';
 import { GraphReviewExactRunProjection } from '../planSurface/graphReviewWorkbench/GraphReviewExactRunProjection';
 import { GraphReviewWorldbuildingPublication } from '../planSurface/graphReviewWorkbench/GraphReviewWorldbuildingPublication';
 import {BuildRecapPublication} from './BuildRecapPublication';
 import {assertRecapQuoteParent, type BuildCorrectionReceipt} from './buildRecapCorrection';
 import {BuildRecapSemanticReview} from './BuildRecapSemanticReview';
 import type {RecapSemanticDecisionReceipt} from '../api/recapSemanticReviewApi';
-import { exactRunCorrectionDigest } from '../api/exactRunCorrectionIdentity';
+import {WorldbuildingEvidenceCorrection,validFrozenCatalog,validWorldbuildingCorrection} from './WorldbuildingEvidenceCorrection';
+import { exactRunCorrectionDigest, worldbuildingEvidenceCorrectionDigest } from '../api/exactRunCorrectionIdentity';
 import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 
-type CorrectionRequest = { parentRunId: string; parentCandidateSha256: string; corrections: ExactRunEvidenceQuoteCorrection[] };
+type RecapCorrectionRequest = { parentRunId: string; parentCandidateSha256: string; corrections: ExactRunEvidenceQuoteCorrection[] };
+type CorrectionRequest = RecapCorrectionRequest | WorldbuildingEvidenceCorrectionRequest;
 type Props = { document: WorkspaceDocumentRecord; currentRevision: number; run: ExtractionRunRecord;
   handoff: GraphReviewHandoffPayload; sourceContentSha256: string; onClose: () => void;
   onDerivedRun: (receipt: BuildCorrectionReceipt, expectedDigest: string, isCurrent: () => boolean) => Promise<() => void>; onBusyChange: (busy: boolean) => void;
@@ -24,9 +26,10 @@ async function correctionStorage<T>(key:string,action:()=>T):Promise<T>{
   return navigator.locks.request(key,action);
 }
 
-function validCorrection(value: unknown, review: ExactRunReviewPackage, run: ExtractionRunRecord): value is CorrectionRequest {
+function validCorrection(value: unknown, review: ExactRunReviewPackage, run: ExtractionRunRecord, catalog: WorldbuildingFrozenSpanCatalog|null): value is CorrectionRequest {
+  if(run.source_domain==='worldbuilding')return validWorldbuildingCorrection(value,catalog,review);
   if (!value || typeof value !== 'object') return false;
-  const request = value as CorrectionRequest;
+  const request = value as RecapCorrectionRequest;
   if (request.parentRunId !== run.run_id || !digest(request.parentCandidateSha256)
     || digest(request.parentCandidateSha256) !== digest(run.components?.candidate_graph?.sha256)
     || !Array.isArray(request.corrections) || !request.corrections.length) return false;
@@ -63,13 +66,14 @@ export function BuildRunReview(props: Props) {
 
 function ExactReview({ document, currentRevision, run, handoff, sourceContentSha256, worldId, onClose, onDerivedRun, onBusyChange, isScopeCurrent, onSemanticDecision }: Props & {worldId:string; isScopeCurrent: () => boolean}) {
   const [review, setReview] = useState<ExactRunReviewPackage | null>(null);
+  const [catalog,setCatalog] = useState<WorldbuildingFrozenSpanCatalog|null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [correcting, setCorrecting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const alive = useRef(true), lock = useRef(false);
-  const key = (run.source_domain==='recap'?'dmb.buildRecapEvidenceCorrection.v1:':'dmb.buildEvidenceCorrection.v1:') + JSON.stringify([worldId,document.document_id,run.run_id,run.components?.candidate_graph?.sha256]);
+  const key = (run.source_domain==='recap'?'dmb.buildRecapEvidenceCorrection.v1:':'dmb.buildEvidenceCorrection.v2:') + JSON.stringify([worldId,document.document_id,run.run_id,run.components?.candidate_graph?.sha256]);
   const recoveryRaw=useRef<string|null>(null);
   const [recovery, setRecovery] = useState<unknown>(() => {
     try { const saved = localStorage.getItem(key); recoveryRaw.current=saved; return saved ? JSON.parse(saved) : null; }
@@ -81,8 +85,9 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
   }, [onBusyChange]);
   useEffect(() => { onBusyChange(correcting || confirming); }, [correcting,confirming,onBusyChange]);
   useEffect(() => {
-    let current = true; setReview(null); setError(null);
-    void getExactRunReviewPackage(run.run_id).then(result => {
+    let current = true; setReview(null); setCatalog(null); setError(null);
+    void getExactRunReviewPackage(run.run_id).then(async result => {
+      const spans=run.source_domain==='worldbuilding'&&result.inspectionStatus==='invalid_evidence'?await getWorldbuildingFrozenSpans(run.run_id):null;
       if (!current) return;
       const recap=run.source_domain==='recap';
       const context=run.lineage?.world_campaign_ingest_context as Record<string,unknown>|undefined;
@@ -97,16 +102,17 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
         || (run.lineage?.parent_run_id && result.derivedFromRunId !== run.lineage.parent_run_id)) {
         throw new Error('The review does not match this saved document, run, source revision and World.');
       }
-      setReview(result);
+      if(run.source_domain==='worldbuilding'&&result.inspectionStatus==='invalid_evidence'&&(!spans||!validFrozenCatalog(spans,result,run,worldId)))throw new Error('The frozen source paragraphs do not match this exact extraction. Reopen its review.');
+      setCatalog(spans);setReview(result);
     }).catch(reason => { if(current) setError(message(reason)); });
     return () => {current = false;};
   }, [run, handoff, document.document_id, sourceContentSha256, worldId, reload]);
 
-  const recoveryValid = review !== null && validCorrection(recovery, review, run);
-  async function submit(corrections?: ExactRunEvidenceQuoteCorrection[]) {
+  const recoveryValid = review !== null && validCorrection(recovery, review, run, catalog);
+  async function submit(corrections?: ExactRunEvidenceQuoteCorrection[]|WorldbuildingEvidenceCorrectionRequest) {
     if (!review || lock.current || confirming) return;
-    const request: unknown = corrections ? {parentRunId:run.run_id,parentCandidateSha256:run.components?.candidate_graph?.sha256,corrections} : recovery;
-    if (!validCorrection(request, review, run)) {setCorrectionError('The saved correction does not match this exact source. No request was sent.'); return;}
+    const request: unknown = corrections ? (run.source_domain==='worldbuilding'?corrections:{parentRunId:run.run_id,parentCandidateSha256:run.components?.candidate_graph?.sha256,corrections}) : recovery;
+    if (!validCorrection(request, review, run, catalog)) {setCorrectionError('The saved correction does not match this exact source. No request was sent.'); return;}
     let encoded: string;
     lock.current=true;setCorrecting(true);setCorrectionError(null);
     try {
@@ -123,9 +129,9 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     if(!alive.current||!isScopeCurrent()){lock.current=false;return;}
     recoveryRaw.current=encoded;setRecovery(request);
     try {
-      const expectedDigest = await exactRunCorrectionDigest(request);
+      const expectedDigest = await (run.source_domain==='worldbuilding'?worldbuildingEvidenceCorrectionDigest(request as WorldbuildingEvidenceCorrectionRequest):exactRunCorrectionDigest(request as RecapCorrectionRequest));
       if (!alive.current || !isScopeCurrent()) return;
-      const result = run.source_domain==='recap' ? await correctRecapRunEvidence(request) : await correctExactRunEvidence(request);
+      const result = run.source_domain==='recap' ? await correctRecapRunEvidence(request as RecapCorrectionRequest) : await correctExactRunEvidence(request as WorldbuildingEvidenceCorrectionRequest);
       if (!alive.current) return;
       const commit=await onDerivedRun(result, expectedDigest, () => alive.current && isScopeCurrent());
       const adopt=()=>{
@@ -162,10 +168,13 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {review && <>
       {recovery !== null && !recoveryValid && <p role="alert">Saved correction details are unavailable or do not match this run. Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
-        correctionEnabled={['worldbuilding','recap'].includes(run.source_domain) && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
+        correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
         correctionPending={correcting} recoveryPending={recovery !== null} correctionError={correctionError}
-        correctionRecoveryAvailable={recoveryValid} recoveryChanges={recoveryValid ? (recovery as CorrectionRequest).corrections : []}
+        correctionRecoveryAvailable={recoveryValid} recoveryChanges={recoveryValid ? (recovery as RecapCorrectionRequest).corrections : []}
         onCorrectEvidence={changes=>void submit(changes)} onRetryCorrection={()=>void submit()} onAbandonCorrection={abandon} />
+      {run.source_domain==='worldbuilding'&&catalog&&<WorldbuildingEvidenceCorrection review={review} catalog={catalog} busy={correcting}
+        recovery={recoveryValid?recovery as WorldbuildingEvidenceCorrectionRequest:null} hasRecovery={recovery!==null} error={correctionError}
+        onSubmit={request=>void submit(request)} onRetry={()=>void submit()} onAbandon={()=>void abandon()}/>}
       {run.source_domain==='recap' && <BuildRecapSemanticReview run={run} review={review} worldId={worldId}
         onBusy={setConfirming} isCurrent={()=>alive.current&&isScopeCurrent()} onDecided={onSemanticDecision}/>}
       {review.inspectionStatus === 'ready' && (run.source_domain==='recap'

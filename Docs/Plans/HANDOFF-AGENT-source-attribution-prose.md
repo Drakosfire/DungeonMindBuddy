@@ -1,6 +1,13 @@
 # AGENT — source attribution in answer prose
 
-ACTIVE serial PRIME successor from 5f4fc7e0c49b6ca11ce9c2a5375c6839239a844b,
+DELIVERED in PR #1606, reviewed head d068cc4a7d855e053145e4f3d07ce06056b242c9,
+merge12ce584156581aae04b101437f7034a85f71a30c after one Bugbot cycle.
+Fresh original grounding used correct notes/reflections names and distinct recap
+citations; exact passage reopened after API restart with1698APP/native rows,
+79mechanics files and11frozen components unchanged. Debug capture13.8s; reliable
+10s and full adventure acceptance remain open.
+
+Historical serial PRIME successor from 5f4fc7e0c49b6ca11ce9c2a5375c6839239a844b,
 branch codex/agent-source-attribution-prose, existing buddy-context-loop checkout.
 Operator goal authorizes truthful named source attribution across Plan/Play.
 Remote main and open PR census checked; no overlapping active implementation.

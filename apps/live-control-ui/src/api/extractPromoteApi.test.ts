@@ -242,3 +242,18 @@ describe("recap correction adapter", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+
+it('sends the current worldbuilding partition wire directly without a quote-only fallback',async()=>{
+  const {correctExactRunEvidence,getWorldbuildingFrozenSpans}=await import('./extractPromoteApi');
+  const request={schema:'dmb_worldbuilding_evidence_correction_request_v2',parentRunId:'run/a',expectedParentRevision:7,
+    expectedParentStatus:'reviewable',worldId:'world',sourceArtifactId:'source',sourceSha256:'a'.repeat(64),spanIndexSha256:'b'.repeat(64),
+    parentCandidateSha256:'c'.repeat(64),corrections:[]} as import('./types').WorldbuildingEvidenceCorrectionRequest;
+  const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(mockJsonResponse({status:'reviewable'}));
+  await correctExactRunEvidence(request);
+  expect(String(fetch.mock.calls[0][0])).toContain('/runs/run%2Fa/evidence-corrections');
+  expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(request);
+  await getWorldbuildingFrozenSpans('run/a');
+  expect(String(fetch.mock.calls[1][0])).toContain('/runs/run%2Fa/frozen-source-spans');
+  expect(fetch).toHaveBeenCalledTimes(2);fetch.mockRestore();
+});

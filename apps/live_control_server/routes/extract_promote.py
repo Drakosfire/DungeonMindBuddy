@@ -24,6 +24,8 @@ from apps.live_control_server.models.extract_promote import (
     RecapSemanticDecisionRequest,
     RecapSemanticDecisionResponse,
     ExactRunEvidenceCorrectionRequest,
+    WorldbuildingEvidenceCorrectionRequest,
+    WorldbuildingFrozenSpanCatalog,
     ExactRunEvidenceCorrectionResponse,
     RecapEvidenceCorrectionResponse,
     RecapCandidateCorrectionRequest,
@@ -73,6 +75,7 @@ from apps.live_control_server.services.extract_promote import (
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
+    get_worldbuilding_frozen_spans,
     correct_recap_run_evidence,
 )
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
@@ -223,13 +226,22 @@ def get_extract_promote_exact_run_review(
     return response.model_dump(mode="json", by_alias=True)
 
 
+@router.get("/runs/{run_id}/frozen-source-spans", response_model=WorldbuildingFrozenSpanCatalog)
+def get_exact_run_frozen_source_spans(request_context: Request, run_id: str):
+    try:
+        _reject_selector_query(request_context)
+        return get_worldbuilding_frozen_spans(run_id).model_dump(mode="json", by_alias=True)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+
+
 @router.post("/runs/{run_id}/evidence-corrections", response_model=ExactRunEvidenceCorrectionResponse)
 def post_exact_run_evidence_corrections(
     request_context: Request,
     run_id: str,
-    request: ExactRunEvidenceCorrectionRequest,
+    request: WorldbuildingEvidenceCorrectionRequest,
 ) -> dict[str, Any] | JSONResponse:
-    """Create a quote-only child ExtractionRun; never publish to World."""
+    """Partition exact frozen evidence into an unpublished child."""
     try:
         _reject_selector_query(request_context)
         if run_id != request.parent_run_id:

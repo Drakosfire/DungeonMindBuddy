@@ -18,7 +18,6 @@ import type {
 import {
   ExtractPromoteApiError,
   getExactRunReviewPackage,
-  correctExactRunEvidence,
   correctRecapRunEvidence,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
@@ -741,43 +740,8 @@ export function GraphReviewWorkbenchModule({
     corrections: ExactRunEvidenceQuoteCorrection[],
   ) => {
     if (exactRun?.source_domain === "recap") { await runRecapQuoteCorrection(corrections); return; }
-    if (effectiveSourceReviewOnly) return;
-    const parentRunId = exactRun?.run_id;
-    const parentCandidateSha256 = exactRun?.components?.candidate_graph?.sha256;
-    if (!parentRunId || !parentCandidateSha256 || exactReview?.inspectionStatus !== "invalid_evidence") {
-      setExactCorrectionError("Exact parent candidate identity is unavailable.");
-      return;
-    }
-    const operationGeneration = operationScopeRef.current.generation;
-    setExactCorrecting(true);
-    setExactCorrectionError(null);
-    try {
-      const child = await correctExactRunEvidence({
-        parentRunId,
-        parentCandidateSha256,
-        corrections,
-      });
-      if (child.parentRunId !== parentRunId || child.parentCandidateSha256 !== parentCandidateSha256) {
-        throw new Error("Corrected child identity does not match the exact parent run.");
-      }
-      if (operationScopeRef.current.generation !== operationGeneration) return;
-      const url = new URL(window.location.href);
-      url.searchParams.set("extractionRunId", child.runId);
-      window.history.replaceState(window.history.state, "", url);
-      onLocationSearchChange?.(url.search);
-      setExactPrepared(null);
-      setInternalExactHandoff((current) => current ? { ...current, extractionRunId: child.runId } : current);
-    } catch (error) {
-      if (operationScopeRef.current.generation !== operationGeneration) return;
-      setExactCorrectionError(
-        error instanceof Error ? error.message : "Could not create a reviewed child candidate.",
-      );
-    } finally {
-      if (operationScopeRef.current.generation === operationGeneration) {
-        setExactCorrecting(false);
-      }
-    }
-  }, [exactRun, exactReview, effectiveSourceReviewOnly, onLocationSearchChange, runRecapQuoteCorrection]);
+    setExactCorrectionError("Correct this saved source’s evidence in Build.");
+  }, [exactRun, runRecapQuoteCorrection]);
 
   const onPrepareExactRun = useCallback(async () => {
     if (effectiveSourceReviewOnly) return;
@@ -1082,16 +1046,15 @@ function GraphReviewExactRunBranch(props: {
           recoveryChanges={props.recapRecoveryChanges}
           onRetryCorrection={props.onRetryCorrection}
           onAbandonCorrection={props.onAbandonCorrection}
-          correctionEnabled={props.recapCorrection || (props.exactRun.source_domain === "worldbuilding"
-            && !props.sourceReviewOnly
-            && props.exactRun.profile_id === "worldbuilding_shepherds_flock_v0@0.1"
-            && Boolean(props.exactRun.components?.candidate_graph?.sha256)
-            && props.exactReview.inspectionStatus === "invalid_evidence")}
+          correctionEnabled={props.recapCorrection}
           correctionPending={props.exactCorrecting}
           correctionError={props.exactCorrectionError}
           onCorrectEvidence={props.onCorrectEvidence}
         />
       ) : null}
+      {props.exactRun.source_domain === "worldbuilding" && props.exactReview?.inspectionStatus === "invalid_evidence" && <p>
+        Correct this saved source’s evidence in <a href={`/build?world=${encodeURIComponent(props.exactReview?.worldId ?? '')}`}>Build</a>.
+      </p>}
       {historicalRecapInspectable && props.historicalRecapProjection
         ? (
           <GraphReviewHistoricalRecapProjection projection={props.historicalRecapProjection} />

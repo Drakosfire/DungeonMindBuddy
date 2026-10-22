@@ -849,7 +849,7 @@ describe("recap quote correction owning UI", () => {
 });
 
 
-it("preserves the existing worldbuilding correction action", async () => {
+it("directs worldbuilding corrections to Build without the retired quote-only mutation", async () => {
   vi.restoreAllMocks(); mockCatalogApis();
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ records: managedWorlds }));
   const f = recapFixture();
@@ -860,10 +860,10 @@ it("preserves the existing worldbuilding correction action", async () => {
   vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue(review);
   const correction = vi.spyOn(extractPromoteApi, "correctExactRunEvidence").mockImplementation(() => new Promise(() => {}));
   const recap = vi.spyOn(extractPromoteApi, "correctRecapRunEvidence");
-  renderModule(); const user = userEvent.setup();
-  await user.type(await screen.findByRole("textbox", { name: /Literal replacement/ }), "literal words");
-  await user.click(screen.getByRole("button", { name: "Create reviewed child candidate" }));
-  expect(correction).toHaveBeenCalledTimes(1); expect(recap).not.toHaveBeenCalled();
+  renderModule();
+  expect(await screen.findByRole("link",{name:"Build"})).toHaveAttribute("href",expect.stringContaining("/build?world="));
+  expect(screen.queryByRole("textbox",{name:/Literal replacement/})).not.toBeInTheDocument();
+  expect(correction).not.toHaveBeenCalled(); expect(recap).not.toHaveBeenCalled();
 });
 
 

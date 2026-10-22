@@ -4778,6 +4778,28 @@ export interface ExactRunEvidenceQuoteCorrection {
   replacementQuote: string;
 }
 
+export interface WorldbuildingEvidenceRefCorrection {
+  assertionId: string;
+  evidenceIndex: number;
+  expectedRefSha256: string;
+  parts: {sourceSpanRefId: string; quoteAssignments: {originalQuoteIndex: number; replacementQuote: string}[]}[];
+}
+export interface WorldbuildingFrozenSpanCatalog {
+  schema: "dmb_worldbuilding_frozen_span_catalog_v1";
+  parentRunId: string; parentRevision: number; parentStatus: "reviewable";
+  worldId: string; sourceArtifactId: string; sourceSha256: string;
+  spanIndexSha256: string; parentCandidateSha256: string;
+  spans: {sourceSpanRefId: string; startLine: number; endLine: number; paragraphText: string}[];
+  evidenceRefs: {assertionId: string; evidenceIndex: number; refSha256: string}[];
+}
+export interface WorldbuildingEvidenceCorrectionRequest {
+  schema: "dmb_worldbuilding_evidence_correction_request_v2";
+  parentRunId: string; expectedParentRevision: number; expectedParentStatus: "reviewable";
+  worldId: string; sourceArtifactId: string; sourceSha256: string;
+  spanIndexSha256: string; parentCandidateSha256: string;
+  corrections: WorldbuildingEvidenceRefCorrection[];
+}
+
 export interface ExactRunEvidenceCorrectionResponse {
   schema: "dmb_exact_run_evidence_correction_response_v1";
   runId: string;

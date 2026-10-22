@@ -10,8 +10,10 @@ from types import SimpleNamespace
 import pytest
 
 from apps.live_control_server.models.extract_promote import (
-    ExactRunEvidenceCorrectionRequest,
-    ExactRunEvidenceQuoteCorrection,
+    WorldbuildingEvidenceCorrectionRequest,
+    WorldbuildingEvidenceRefCorrection,
+    WorldbuildingEvidencePart,
+    WorldbuildingEvidenceQuoteAssignment,
 )
 from apps.live_control_server.services import (
     candidate_graph_admission,
@@ -64,11 +66,13 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     parent = SimpleNamespace(
         run_id="parent", source_artifact_id=artifact_id, source_domain="worldbuilding",
         campaign_id="demo", session_id=None, profile_id=correction._PROFILE,
-        components=components, status=ExtractionRunStatus.REVIEWABLE,
+        components=components, status=ExtractionRunStatus.REVIEWABLE, revision=7,
     )
+    span_path = tmp_path / "span-index.json"
+    span_path.write_text("frozen span index")
     resolved = SimpleNamespace(
         run_id="parent", candidate_graph_path=parent_path,
-        normalized_recap_path=source, source_artifact_id=artifact_id,
+        normalized_recap_path=source, source_span_index_path=span_path, source_artifact_id=artifact_id,
         campaign_id="demo", session_id=None, source_domain="worldbuilding",
         extraction_profile=correction._PROFILE, world_id="demo",
     )
@@ -124,15 +128,21 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
 
 
 def _request(sha: str, span_id: str, replacement: str = "who bought the strange seed"):
-    return ExactRunEvidenceCorrectionRequest(
-        parent_run_id="parent",
+    artifact = span_id.split(":span:")[0]
+    ref = {"source_artifact_id":artifact, "source_span_ref_id":span_id,
+        "anchor_quotes":["Torbin bought the strange seed"]}
+    return WorldbuildingEvidenceCorrectionRequest(
+        parent_run_id="parent", expected_parent_revision=7, world_id="demo",
+        source_artifact_id=artifact, source_sha256=hashlib.sha256(
+            b"Torbin, who bought the strange seed, repaired the roof.\n").hexdigest(),
+        span_index_sha256=hashlib.sha256(b"frozen span index").hexdigest(),
         parent_candidate_sha256=sha,
-        corrections=[ExactRunEvidenceQuoteCorrection(
-            assertion_id="torbin", evidence_index=0, source_span_ref_id=span_id,
-            quote_index=0, original_quote="Torbin bought the strange seed",
-            replacement_quote=replacement,
-        )],
-    )
+        corrections=[WorldbuildingEvidenceRefCorrection(
+            assertion_id="torbin", evidence_index=0,
+            expected_ref_sha256=correction._sha(correction._canonical_bytes(ref)),
+            parts=[WorldbuildingEvidencePart(source_span_ref_id=span_id, quote_assignments=[
+                WorldbuildingEvidenceQuoteAssignment(original_quote_index=0,replacement_quote=replacement)])])])
+
 
 
 def test_literal_child_is_reviewable_idempotent_and_parent_is_frozen(monkeypatch, tmp_path):
@@ -187,7 +197,7 @@ def test_partial_correction_and_stale_target_do_not_create_a_child(monkeypatch, 
         correction.correct_exact_run_evidence(_request(sha, span_id))
     assert not children
     request = _request(sha, span_id)
-    request.corrections[0].original_quote = "a different quote"
+    request.corrections[0].expected_ref_sha256 = "0" * 64
     with pytest.raises(correction.ExtractPromoteError):
         correction.correct_exact_run_evidence(request)
     assert not children
