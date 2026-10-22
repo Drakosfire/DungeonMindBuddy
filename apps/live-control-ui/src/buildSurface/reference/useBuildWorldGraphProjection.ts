@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { postWorldGraphProjection } from "../../api/liveApi";
+import { postManagedWorldGraphProjection, postWorldGraphProjection } from "../../api/liveApi";
 import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../../api/types";
 import type { WorldGraphLensProjectionValue } from "../../graphLens/useWorldGraphLensProjection";
 import {
@@ -11,6 +11,7 @@ import {
   createSurfaceInformationChannel,
   type SurfaceInformationChannel,
 } from "../../surfaceInformation";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import { worldGraphProjectionRequestKey } from "../../worldGraph/worldGraphProjectionRequestKey";
 import { buildBuildWorldGraphProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
 import {
@@ -128,17 +129,19 @@ export function buildBuildGraphProjectionLoadKey(input: {
 function sharedChannelMatchesRequest(
   channel: SurfaceInformationChannel<WorldGraphProjection> | null,
   request: WorldGraphProjectionRequest | null,
+  ownerKind: "managed" | "native",
 ): channel is SurfaceInformationChannel<WorldGraphProjection> {
   if (!channel || !request) return false;
-  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request).channelId;
+  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request, ownerKind).channelId;
 }
 
 function secondaryChannelMatchesRequest(
   channel: SurfaceInformationChannel<WorldGraphProjection> | null,
   request: WorldGraphProjectionRequest | null,
+  ownerKind: "managed" | "native",
 ): channel is SurfaceInformationChannel<WorldGraphProjection> {
   if (!channel || !request) return false;
-  return channel.descriptor.channelId === buildWorldGraphInformationDescriptor(request).channelId;
+  return channel.descriptor.channelId === buildWorldGraphInformationDescriptor(request, ownerKind).channelId;
 }
 
 /**
@@ -154,6 +157,9 @@ export function useBuildWorldGraphProjection(
     sharedProjection = null,
     sharedChannel = null,
   } = input;
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const ownerKind = managedWorldId ? "managed" : "native";
   const revisionFields = useMemo(() => resolveRevisionFields(lens), [lens]);
 
   const loadKey = useMemo(
@@ -165,6 +171,18 @@ export function useBuildWorldGraphProjection(
   // or clone it with the Build revision pin — never re-derive a divergent union anchor.
   const request = useMemo(() => {
     if (lens.status !== "ready") return null;
+    if (managedWorldId) {
+      if (lens.worldId !== managedWorldId) return null;
+      return {
+        schema: "dmb_world_graph_projection_request_v1" as const,
+        worldId: managedWorldId,
+        campaignId: "",
+        scopeMode: "world" as const,
+        focus: { kind: "none" as const, sessionId: null },
+        admissibility: "gm" as const,
+        revisionPin: lens.revision.kind === "pinned" ? lens.revision.revisionId : null,
+      };
+    }
     const sharedRequest = sharedProjection?.request ?? null;
     if (sharedRequest && sharedRequest.worldId === lens.worldId) {
       if (lens.revision.kind === "pinned") {
@@ -179,11 +197,11 @@ export function useBuildWorldGraphProjection(
       };
     }
     return buildBuildWorldGraphRequestFromLens(lens);
-  }, [lens, sharedProjection?.request]);
+  }, [lens, managedWorldId, sharedProjection?.request]);
 
   const requestKey = useMemo(
-    () => (request ? worldGraphProjectionRequestKey(request) : null),
-    [request],
+    () => (request ? `${ownerKind}:${worldGraphProjectionRequestKey(request)}` : null),
+    [request, ownerKind],
   );
 
   const desiredKeysMatch =
@@ -204,7 +222,7 @@ export function useBuildWorldGraphProjection(
     }
     const ownedRequest = request;
     const channel = createSurfaceInformationChannel<WorldGraphProjection>(
-      buildWorldGraphInformationDescriptor(ownedRequest),
+      buildWorldGraphInformationDescriptor(ownedRequest, ownerKind),
     );
     setSecondaryChannel(channel);
     return () => {
@@ -215,7 +233,7 @@ export function useBuildWorldGraphProjection(
   }, [ownsSecondary, requestKey]);
 
   useEffect(() => {
-    if (!ownsSecondary || !request || !secondaryChannelMatchesRequest(secondaryChannel, request)) {
+    if (!ownsSecondary || !request || !secondaryChannelMatchesRequest(secondaryChannel, request, ownerKind)) {
       return;
     }
     const loadRequest = request;
@@ -227,11 +245,21 @@ export function useBuildWorldGraphProjection(
     let cancelled = false;
     void (async () => {
       try {
-        const response = await postWorldGraphProjection(loadRequest);
+        const managedResponse = managedWorldId
+          ? await postManagedWorldGraphProjection({
+              schema: "dmb_managed_world_graph_projection_request_v1",
+              managedWorldId,
+              revisionPin: loadRequest.revisionPin ?? null,
+              queryText: loadRequest.queryText ?? null,
+            })
+          : null;
+        const response = managedWorldId
+          ? managedResponse!.projection
+          : await postWorldGraphProjection(loadRequest);
         if (cancelled) return;
         loadChannel.commit(
           ticket,
-          mapWorldGraphLensObservation({ request: loadRequest, response }),
+          mapWorldGraphLensObservation({ request: loadRequest, response, managedResponse }),
         );
       } catch (error) {
         if (cancelled) return;
@@ -246,11 +274,11 @@ export function useBuildWorldGraphProjection(
     };
   }, [ownsSecondary, requestKey, secondaryChannel]);
 
-  const matchingSharedChannel = desiredKeysMatch && sharedChannelMatchesRequest(sharedChannel, request)
+  const matchingSharedChannel = desiredKeysMatch && sharedChannelMatchesRequest(sharedChannel, request, ownerKind)
     ? sharedChannel
     : null;
   const matchingSecondaryChannel =
-    ownsSecondary && secondaryChannelMatchesRequest(secondaryChannel, request)
+    ownsSecondary && secondaryChannelMatchesRequest(secondaryChannel, request, ownerKind)
       ? secondaryChannel
       : null;
 

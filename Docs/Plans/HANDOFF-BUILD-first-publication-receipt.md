@@ -1,6 +1,8 @@
 # BUILD — first-publication receipt continuity
 
-ACTIVE. PRIME owns design/implementation/merge under the operator's sustained goal.
+SETTLED: PR1575 merged0dc43538a1becbe65b8330aadd978c3849cd882e and delivered UI5202, keeping API3846c309 unchanged. Bugbot approved exact9e144e0ac168a916829c51b21422b9261bf3f0df; independently125 UI tests/typecheck/diff-check passed. All1484 APP rows preserved. Ordinary synthetic Build create/save/admit/extract/review publication showed its first receipt directly without Recover. Reload Ready; three nodes, exactly one D0 rev:2ae81f814b510041b43d751f814b3ac3; both prior native heads and exact source admission unchanged. Build Find separately failed by sending managed slug to native route; successor HANDOFF-BUILD-managed-object-find.md owns that repair.
+
+Historical scope: PRIME owns design/implementation/merge under the operator's sustained goal.
 Base3846c309109096bdfff0342cc77ded30bfb2fc9f (#1574). Existing buddy-context-loop
 checkout; branch codex/first-publication-receipt-continuity. Serial, one PR.
 

@@ -1,6 +1,10 @@
+import { createElement, type ReactNode } from "react";
+import { WorldGraphLensProjectionProvider, useOptionalWorldGraphLensProjection, useOptionalWorldGraphLensInformationChannel, useWorldGraphLensProjectionDemand } from "../../graphLens/useWorldGraphLensProjection";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
+import type { ManagedWorldGraphProjectionResponse } from "../../api/types";
 import * as liveApi from "../../api/liveApi";
 import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import type { WorldGraphLensProjectionValue } from "../../graphLens/useWorldGraphLensProjection";
@@ -634,7 +638,7 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
     const request = headRequest();
     return {
       request,
-      requestKey: worldGraphProjectionRequestKey(request),
+      requestKey: `native:${worldGraphProjectionRequestKey(request)}`,
       projection: headProjection(),
       projectionState: "ready",
       projectionError: null,
@@ -648,7 +652,7 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
   it("reuses the shared channel when exact request keys match (zero Build POSTs)", async () => {
     const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
     const request = headRequest();
-    const shared = sharedValue({ request, requestKey: worldGraphProjectionRequestKey(request) });
+    const shared = sharedValue({ request, requestKey: `native:${worldGraphProjectionRequestKey(request)}` });
     const sharedChannel = commitSharedChannel(request, headProjection());
 
     const lens = readyLens();
@@ -673,7 +677,7 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
     const matchingRequest = headRequest("longmont-c1");
     const shared = sharedValue({
       request: matchingRequest,
-      requestKey: worldGraphProjectionRequestKey(matchingRequest),
+      requestKey: `native:${worldGraphProjectionRequestKey(matchingRequest)}`,
     });
     const staleRequest = headRequest("longmont-c2");
     const staleChannel = createSurfaceInformationChannel(
@@ -710,7 +714,7 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
       headProjection("rev-pinned"),
     );
     const request = headRequest();
-    const shared = sharedValue({ request, requestKey: worldGraphProjectionRequestKey(request) });
+    const shared = sharedValue({ request, requestKey: `native:${worldGraphProjectionRequestKey(request)}` });
     const sharedChannel = commitSharedChannel(request, headProjection());
 
     const lens = readyLens({ revision: { kind: "pinned", revisionId: "rev-pinned" } });
@@ -732,5 +736,71 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
       expect.objectContaining({ revisionPin: "rev-pinned" }),
     );
     expect(revisionOf(result.current)).toBe("rev-pinned");
+  });
+});
+
+
+describe("managed Build discovery", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(selectedWorld, "useSelectedWorld").mockReturnValue({kind:"managed",worldId:"new-world",name:"New World",documentId:null});
+  });
+  const lens = () => readyLens({worldId:"new-world",documentCampaignId:"new-world",campaignId:"",scopeMode:"world"});
+  const request = () => ({...headRequest(""),worldId:"new-world",scopeMode:"world" as const});
+  const response = (revision="rev-head"): ManagedWorldGraphProjectionResponse => ({
+    schema:"dmb_managed_world_graph_projection_v1",managedWorldId:"new-world",nativeWorldId:"world:opaque",bindingVersion:1,
+    projection:{...headProjection(revision,""),snapshot:{...headProjection(revision,"").snapshot,worldId:"world:opaque",scopeMode:"world"}},
+  });
+  const identity = {documentId:"doc-1",campaignId:"new-world"};
+  function shared(): WorldGraphLensProjectionValue {
+    return {request:request(),requestKey:`managed:${worldGraphProjectionRequestKey(request())}`,projection:response().projection,
+      projectionState:"ready",projectionError:null,nodeCount:1,lastProjectionLoadMs:1,lastProjectionLoadOutcome:"ready"};
+  }
+  function channel() {
+    const value=createSurfaceInformationChannel<WorldGraphProjection>(worldGraphLensInformationDescriptor(request(),"managed"));
+    value.commit(value.beginObservation()!,mapWorldGraphLensObservation({request:request(),managedResponse:response()}));return value;
+  }
+  it("composes with the actual shared provider and issues only one managed read",async()=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");const managed=vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValue(response());
+    const wrapper=({children}:{children:ReactNode})=>createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"",children});
+    const {result}=renderHook(()=>{
+      useWorldGraphLensProjectionDemand(true);
+      return useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity,sharedProjection:useOptionalWorldGraphLensProjection(),sharedChannel:useOptionalWorldGraphLensInformationChannel()});
+    },{wrapper});
+    await waitFor(()=>expect(statusOf(result.current)).toBe("ready"));expect(result.current.source).toBe("shared");
+    expect(itemsOf(result.current)).toHaveLength(1);expect(managed).toHaveBeenCalledTimes(1);expect(native).not.toHaveBeenCalled();
+  });
+  it("reuses managed bytes without duplicate reads",()=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");const managed=vi.spyOn(liveApi,"postManagedWorldGraphProjection");const retained=channel();
+    const {result}=renderHook(()=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity,sharedProjection:shared(),sharedChannel:retained}));
+    expect(result.current.source).toBe("shared");expect(result.current.channel).toBe(retained);expect(statusOf(result.current)).toBe("ready");
+    expect(native).not.toHaveBeenCalled();expect(managed).not.toHaveBeenCalled();
+  });
+  it("waits for the managed channel and refuses a native channel with the same request",()=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");const managed=vi.spyOn(liveApi,"postManagedWorldGraphProjection");
+    const foreign=createSurfaceInformationChannel<WorldGraphProjection>(worldGraphLensInformationDescriptor(request()));
+    const {result,rerender}=renderHook(({current})=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity,sharedProjection:shared(),sharedChannel:current}),{initialProps:{current:foreign}});
+    expect(result.current.source).toBe("shared_pending");expect(result.current.channel).toBeNull();
+    const retained=channel();rerender({current:retained});expect(result.current.channel).toBe(retained);
+    expect(native).not.toHaveBeenCalled();expect(managed).not.toHaveBeenCalled();
+  });
+  it("reads a distinct managed pin through the managed route",async()=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");const managed=vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValue(response("rev-pin"));
+    const retained=channel();const {result}=renderHook(()=>useBuildWorldGraphProjection({lens:{...lens(),revision:{kind:"pinned",revisionId:"rev-pin"}},documentIdentity:identity,sharedProjection:shared(),sharedChannel:retained}));
+    await waitFor(()=>expect(statusOf(result.current)).toBe("ready"));expect(revisionOf(result.current)).toBe("rev-pin");expect(managed).toHaveBeenCalledTimes(1);
+    expect(managed).toHaveBeenCalledWith({schema:"dmb_managed_world_graph_projection_request_v1",managedWorldId:"new-world",revisionPin:"rev-pin",queryText:null});expect(native).not.toHaveBeenCalled();
+  });
+  it("rejects foreign envelope bytes without a native fallback",async()=>{
+    const native=vi.spyOn(liveApi,"postWorldGraphProjection");vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockResolvedValue({...response(),managedWorldId:"foreign"});
+    const {result}=renderHook(()=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity}));
+    await waitFor(()=>expect(statusOf(result.current)).toBe("integrity_error"));expect(itemsOf(result.current)).toEqual([]);expect(native).not.toHaveBeenCalled();
+  });
+  it("discards pending results on a managed owner switch",async()=>{
+    let resolve!: (value:ManagedWorldGraphProjectionResponse)=>void;
+    vi.spyOn(liveApi,"postManagedWorldGraphProjection").mockReturnValue(new Promise(r=>{resolve=r;}));const native=vi.spyOn(liveApi,"postWorldGraphProjection");
+    const {result,rerender}=renderHook(()=>useBuildWorldGraphProjection({lens:lens(),documentIdentity:identity}));
+    await waitFor(()=>expect(resolve).toBeDefined());
+    vi.mocked(selectedWorld.useSelectedWorld).mockReturnValue({kind:"managed",worldId:"other",name:"Other",documentId:null});rerender();
+    await act(async()=>resolve(response()));expect(result.current.channel).toBeNull();expect(itemsOf(result.current)).toEqual([]);expect(native).not.toHaveBeenCalled();
   });
 });

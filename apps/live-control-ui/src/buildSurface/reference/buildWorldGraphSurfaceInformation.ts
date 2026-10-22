@@ -33,12 +33,13 @@ export const BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT: SurfaceInformationSnapshot<Wor
 
 export function buildWorldGraphInformationDescriptor(
   request: WorldGraphProjectionRequest,
+  ownerKind: "managed" | "native" = "native",
 ): SurfaceInformationDescriptor {
-  const base = worldGraphLensInformationDescriptor(request);
+  const base = worldGraphLensInformationDescriptor(request, ownerKind);
   const requestKey = worldGraphLensRequestKey(request);
   return {
     ...base,
-    channelId: `build-world-graph:${requestKey}`,
+    channelId: `build-world-graph:${ownerKind}:${requestKey}`,
     informationKind: BUILD_WORLD_GRAPH_INFORMATION_KIND,
     providerId: BUILD_WORLD_GRAPH_PROVIDER_ID,
   };

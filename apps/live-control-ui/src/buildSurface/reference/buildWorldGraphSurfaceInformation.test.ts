@@ -74,7 +74,7 @@ describe("buildWorldGraphInformationDescriptor", () => {
     expect(descriptor.subject).toEqual({ kind: "world", id: "eldyrwild" });
     expect(descriptor.scope).toEqual(lens.scope);
     expect(descriptor.channelId).toBe(
-      `build-world-graph:${lens.channelId.slice("world-graph-lens:".length)}`,
+      `build-world-graph:native:${lens.channelId.slice("world-graph-lens:".length)}`,
     );
     expect(descriptor.channelId).not.toBe(lens.channelId);
     expect(descriptor.providerId).not.toBe(lens.providerId);
