@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `207145a5c5892ececfc5cafb011e1ab43a71c315` (through PR #1608).
+**Evidence anchor:** remote main `c0c6aa2b1687ca20be9ae8905149ba20d21a165f` (through PR #1609).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -61,6 +61,11 @@ disambiguation. The retained Conks review exposes mismatched predicates before
 publication; no Graph was created. Restart retained APP/native/source/mechanics.
 Actual Build rendering exposed shared publication styles still owned by Plan;
 readable cross-surface presentation remains the immediate foundation repair.
+
+#1609 moved publication-review styles to shared consumer-owned imports. Wide
+Build review is readable and keyboard focus works; restart retained saved data.
+The640px check found an outer Build implicit-grid containment defect despite
+wrapping item bodies. Narrow rendered acceptance remains open pending that fix.
 
 ## Product decisions that remain in force
 
