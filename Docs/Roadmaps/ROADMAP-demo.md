@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `872c751e372bb85e953cd93cc54968b62715d6f1` (through PR #1598).
+**Evidence anchor:** remote main `1391c83551fc99ff52050474bdc0418ce63daaa5` (through PR #1599).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve872c751e (#1598), with Core617635c. Named saved-section
+API8000/UI5202 serve1391c835 (#1599), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -146,8 +146,12 @@ contract; Buddy1598 adopted it and is running8000/5202. A fresh ordinary saved
 source→review→selected publication produced V2 receipt; Plan opened three correct
 named passages by1.6s. Its4.4s final answer still could not cite them because no
 complete Graph claim records existed. Source evidence is not Graph assertion
-truth. The shared Plan/Play source-answer successor is ACTIVE under
-HANDOFF-AGENT-surface-source-passage-answers.md; it has not been delivered.
+truth. Shared source-answer code delivered1599. A fresh ordinary Plan reply answered
+correctly with named citations and exact passage reopening in5.9s; reload retained
+it. Native Play remains unaccepted: live witness exposed predecessor Graph/read
+routing in its shared broker. ACTIVE HANDOFF-PLAY-native-source-acquisition.md
+owns the bounded current-type repair, preserving Play's distinct settled budgets.
+No full-journey or reliable latency acceptance is awarded.
 Restart retained1595APP rows, all native rows,79mechanics files and11protected
 frozen components. Existing
 Worlds are not rewritten or reinitialized; evidence correction and any governed

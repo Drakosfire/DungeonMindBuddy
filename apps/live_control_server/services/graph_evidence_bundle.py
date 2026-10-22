@@ -211,9 +211,9 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
             "this request within an unavailable or failed turn.",
         )
     execution = adapter._broker_execution()
-    from application_state.agent_conversation.types import PlanWorldGraphExecutionV3
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV3, PlayWorldGraphExecutionV1
 
-    if not isinstance(execution, PlanWorldGraphExecutionV3):
+    if not isinstance(execution, (PlanWorldGraphExecutionV3, PlayWorldGraphExecutionV1)):
         raise EvidenceBundleRefusal(
             "evidence_bundle_policy_unavailable",
             "This turn does not admit bundled source acquisition. Use its existing "

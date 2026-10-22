@@ -3596,11 +3596,16 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         return self
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
-        pins = {pin.anchor_id: pin for pin in self.policy.source_read_scope.admitted_anchors}
-        for event in self.events:
-            if isinstance(event, SourceScopeExtensionEventV3):
-                pins.update({pin.anchor_id: pin for pin in event.pins})
-        return pins
+        return _effective_source_pins(self)
+
+
+def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
+    """Read the exact frozen and extended pins from an already validated ledger."""
+    pins = {pin.anchor_id: pin for pin in execution.policy.source_read_scope.admitted_anchors}
+    for event in execution.events:
+        if isinstance(event, SourceScopeExtensionEventV3):
+            pins.update({pin.anchor_id: pin for pin in event.pins})
+    return pins
 
 
 def build_sections_digest(reads) -> str:
@@ -3907,12 +3912,15 @@ def validate_play_source_inclusion_events(execution) -> None:
 
 
 class PlayWorldGraphExecutionV1(ClosedRulesModel):
-    """Standalone pure Play ledger, not registered with durable codecs yet."""
+    """Native Play ledger with durable exact source and provider proofs."""
     schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
     context_receipt_sha256: Digest
     execution_policy_sha256: Digest
     policy: NativePlayGraphPolicyV1
     events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
+
+    def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
+        return _effective_source_pins(self)
 
     @model_validator(mode="after")
     def exact_execution(self):

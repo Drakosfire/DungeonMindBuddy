@@ -2898,7 +2898,7 @@ class _PolicyExecutionAdapter:
             DirectWorldGraphReadError, direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
             get_object_direct, search_world_graph_direct,
             get_evidence_direct_v3, get_neighborhood_direct_v3,
-            get_object_direct_v3, search_world_graph_direct_v3, get_object_with_reviewed_sources_direct_v3,
+            search_world_graph_direct_v3, get_object_with_reviewed_sources_direct_v3,
         )
 
         def denied(code: str, status: int = 502) -> Mapping[str, Any]:
@@ -3017,17 +3017,14 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
-                if self._is_build_turn() or isinstance(execution, graph_types.PlanWorldGraphExecutionV3):
+                if self._is_build_turn() or isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)):
                     reviewed = get_object_with_reviewed_sources_direct_v3(
                         services, effective_request,
                         **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),
                     )
                     resolved = reviewed
                 else:
-                    resolved = (
-                        get_object_direct_v3(services, effective_request)
-                        if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
-                    )
+                    resolved = None
                 result = resolved.result if resolved is not None else get_object_direct(services, effective_request)
             elif request.operation == "neighborhood":
                 if not 1 <= len(target_ids) <= 8:
@@ -3038,7 +3035,7 @@ class _PolicyExecutionAdapter:
                 })
                 resolved = (
                     get_neighborhood_direct_v3(services, effective_request)
-                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
                 )
                 result = resolved.result if resolved is not None else get_neighborhood_direct(services, effective_request)
             elif request.operation == "support":
@@ -3050,7 +3047,7 @@ class _PolicyExecutionAdapter:
                 })
                 resolved = (
                     get_evidence_direct_v3(services, effective_request)
-                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
                 )
                 result = resolved.result if resolved is not None else get_evidence_direct(services, effective_request)
             else:
@@ -3061,7 +3058,7 @@ class _PolicyExecutionAdapter:
                 })
                 resolved = (
                     search_world_graph_direct_v3(services, effective_request)
-                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
                 )
                 result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
             stage = "result_validation"
@@ -3136,7 +3133,7 @@ class _PolicyExecutionAdapter:
             event_id = uuid4()
             event_type = (
                 graph_types.ValidatedGraphOperationEventV3
-                if isinstance(self._broker_execution(), graph_types.PlanWorldGraphExecutionV3)
+                if isinstance(self._broker_execution(), (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                 else graph_types.ValidatedGraphOperationEventV1
             )
             event_fields = dict(
@@ -3174,7 +3171,7 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             if (
-                isinstance(self._broker_execution(), graph_types.PlanWorldGraphExecutionV3)
+                isinstance(self._broker_execution(), (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                 and returned_source_pins
             ):
                 receipt = self._broker_receipt()
@@ -3420,7 +3417,7 @@ class _PolicyExecutionAdapter:
                 return denied("source_read_before_authorization", 409)
             graph_types = _app_state_graph_execution_types()
             execution = self._broker_execution()
-            if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
+            if not isinstance(execution, (graph_types.PlanWorldGraphExecutionV2, graph_types.PlayWorldGraphExecutionV1)):
                 return denied("source_read_not_enabled", 403)
             arguments = message.get("arguments")
             if not isinstance(arguments, Mapping):
@@ -3448,7 +3445,7 @@ class _PolicyExecutionAdapter:
             admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
             frozen = (
                 execution.effective_source_pins()
-                if isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
+                if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                 else {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
             )
             if any(
@@ -3459,7 +3456,7 @@ class _PolicyExecutionAdapter:
                 return denied("source_anchor_not_admitted", 403)
             prior_auth = [event for event in execution.events if getattr(event, "kind", None) == "source_read_authorized_v2"]
             if (
-                (not isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
+                (not isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                  and (
                     len(prior_auth) >= execution.policy.max_source_read_calls
                     or sum(len(event.anchors) for event in prior_auth) + len(request.anchor_ids)
