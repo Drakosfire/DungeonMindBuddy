@@ -18,8 +18,14 @@ export function classifySurfaceComposerIntent(message: string): "discuss" | "pro
         return /^\s+(?:into|to|in|on)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(destination)
           || /^\s+at\s+(?:(?:the|my|current|editor)\s+)+cursor\b/i.test(destination);
       }
-      return /^(?:replace|edit|revise|rewrite|update|change|remove|delete)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)+(?:plan|page|document|scene|card|beat)\b/i.test(action)
-        || /^(?:insert|add|append|put|place|remove|delete)\s+(?:it|this|that|(?:(?:a|an|the|this|that|our|my|new|generated|resulting|prepared|saved)\s+)+(?:image(?:\s+prompt)?|prompt|illustration|map))\s+(?:into|to|in|on|from)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(action);
+      if (/^(?:replace|edit|revise|rewrite|update|change|remove|delete)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)+(?:plan|page|document|scene|card|beat)\b/i.test(action)) return true;
+      const insertion = /^(?:insert|add|append|put|place|remove|delete)\s+(.+)$/i.exec(action);
+      if (!insertion) return false;
+      // The inserted object can be prose or a GM cue as well as an image.
+      // Stop before contextual or negated wording so it cannot supply a target.
+      const positiveObject = insertion[1].split(/\b(?:based on|using|without|instead of|rather than|do not|don't)\b/i)[0];
+      return /\b(?:into|to|in|on|from)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(positiveObject);
+
     });
     return surfaceMutation ? "propose" : "discuss";
   }

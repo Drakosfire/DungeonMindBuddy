@@ -2240,6 +2240,24 @@ describe("World Plan conversation consumer", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "Write an image prompt and add a paragraph to this scene.",
+    "Prepare an image prompt; append a GM cue to the selected scene.",
+  ])("keeps an explicit separate surface mutation behind proposal preview: %s", async message => {
+    setupApi(history("conversation-a", 1, []));
+    const capture = vi.fn();
+    const apply = vi.fn();
+    const open = vi.fn();
+    render(conversationElement({ editBridge: { capture, apply }, imagePromptHost: { open, unavailableReason: null } }));
+    await waitForConversationReady();
+    fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), { target: { value: message } });
+    expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
+    expect(capture).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it.each(["This scene needs a location.", "Write that as an image prompt."])(
     "lets the user correct an inferred route for the current message: %s", async message => {
     setupApi(history("conversation-a", 1, []));

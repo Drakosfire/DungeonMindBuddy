@@ -17,6 +17,8 @@ describe("image artifacts versus surface edits", () => {
     "Write an image prompt without adding it to the Plan.",
     "Write an image prompt for an image of this scene.",
     "Write an image prompt and add rain to the picture.",
+    "Write an image prompt and add detail based on this scene.",
+    "Write an image prompt and do not add a paragraph to this scene.",
     "Write an image prompt, but do not insert it into the Plan.",
     "Write an image prompt and don't insert anything into the Plan.",
   ])("prepares an artifact without a surface edit: %s", message => {
@@ -28,6 +30,8 @@ describe("image artifacts versus surface edits", () => {
     "Add a paragraph describing the image to this scene.",
     "Write an image prompt in the selected card.",
     "Prepare an image prompt in the selected card.",
+    "Write an image prompt and add a paragraph to this scene.",
+    "Prepare an image prompt; append a GM cue to the selected scene.",
     "Draft an image prompt using the Plan, then insert it into this page.",
     "Prepare an image prompt and could you insert the resulting image into the Plan?",
     "Rewrite the image prompt in this scene.",
