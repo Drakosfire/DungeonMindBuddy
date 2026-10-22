@@ -2207,6 +2207,7 @@ describe("World Plan conversation consumer", () => {
     "Please draft an image prompt for the boardwalk.",
     "Write an image prompt based on this scene.",
     "Write an image prompt without adding it to the Plan.",
+    "Write an image prompt and add details from the Plan.",
   ])("submits image preparation as Ask and opens only the explicit Studio handoff: %s", async message => {
     const api = setupApi(history("conversation-a", 4, []));
     const prompt = "A timber walkway over dark water, with a damaged crossing.";
@@ -2243,6 +2244,7 @@ describe("World Plan conversation consumer", () => {
   it.each([
     "Write an image prompt and add a paragraph to this scene.",
     "Prepare an image prompt; append a GM cue to the selected scene.",
+    "Write an image prompt and revise the paragraph in the selected scene.",
   ])("keeps an explicit separate surface mutation behind proposal preview: %s", async message => {
     setupApi(history("conversation-a", 1, []));
     const capture = vi.fn();

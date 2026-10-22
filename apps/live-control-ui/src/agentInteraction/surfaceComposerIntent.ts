@@ -19,13 +19,13 @@ export function classifySurfaceComposerIntent(message: string): "discuss" | "pro
           || /^\s+at\s+(?:(?:the|my|current|editor)\s+)+cursor\b/i.test(destination);
       }
       if (/^(?:replace|edit|revise|rewrite|update|change|remove|delete)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)+(?:plan|page|document|scene|card|beat)\b/i.test(action)) return true;
-      const insertion = /^(?:insert|add|append|put|place|remove|delete)\s+(.+)$/i.exec(action);
-      if (!insertion) return false;
-      // The inserted object can be prose or a GM cue as well as an image.
+      const mutation = /^(insert|add|append|put|place|remove|delete|replace|edit|revise|rewrite|update|change)\s+(.+)$/i.exec(action);
+      if (!mutation) return false;
+      // The changed object can be prose or a GM cue as well as an image.
       // Stop before contextual or negated wording so it cannot supply a target.
-      const positiveObject = insertion[1].split(/\b(?:based on|using|without|instead of|rather than|do not|don't)\b/i)[0];
-      return /\b(?:into|to|in|on|from)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(positiveObject);
-
+      const positiveObject = mutation[2].split(/\b(?:based on|using|without|instead of|rather than|do not|don't)\b/i)[0];
+      return /\b(?:into|to|in|on)\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(positiveObject)
+        || (/^(?:remove|delete)$/i.test(mutation[1]) && /\bfrom\s+(?:(?:this|the|our|my|selected|saved|current)\s+)*(?:plan|page|document|scene|card|beat)\b/i.test(positiveObject));
     });
     return surfaceMutation ? "propose" : "discuss";
   }
