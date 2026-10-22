@@ -162,11 +162,10 @@ def test_actual_app_composes_relevant_candidate_before_global_finish(plan_adapte
     assert event.operation=='select_candidates' and event.selected_handles==['node:park-pond']
 
 
-@pytest.mark.parametrize("field", ["_build_native_acquisition_services", "_plan_object_acquisition"])
-def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(plan_adapter, field):
+def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(plan_adapter):
     dispatch = controller(plan_adapter)
     wire = Wire(plan_adapter)
-    setattr(plan_adapter, field, object())
+    plan_adapter._build_native_acquisition_services = object()
     try:
         with pytest.raises(GenerationEngineError):
             asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
@@ -174,7 +173,7 @@ def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(pla
         assert plan_adapter.fence is None
         assert dispatch.prepared is None
     finally:
-        setattr(plan_adapter, field, None)
+        plan_adapter._build_native_acquisition_services = None
 
 
 def test_invalid_actual_decision_is_captured_before_rejection(plan_adapter, monkeypatch):

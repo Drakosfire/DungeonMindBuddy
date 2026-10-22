@@ -23,10 +23,6 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None):
         adapter._test_source_acquisitions.append(tuple(anchor_ids))
         yield
     adapter.source_read_acquisition = acquisition
-    @contextmanager
-    def objects(nodes):
-        yield
-    adapter.plan_object_acquisition = objects
     def graph(message):
         arguments = message['arguments']; graph_calls.append(arguments)
         operation = arguments['operation']; node = arguments.get('targets', [{'id': 'discovery'}])[0]['id']
@@ -245,8 +241,7 @@ def test_large_anchor_catalog_preserves_exhausted_character_policy(plan_adapter)
     assert frame['retrieval_gaps'] == [{'operation': 'source_read', 'reason': 'source_read_over_budget'}]
 
 
-@pytest.mark.parametrize("prefetch", [False, True])
-def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adapter, monkeypatch, prefetch):
+def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adapter, monkeypatch):
     from types import SimpleNamespace
     from graph_memory.retrieval.models import WorldGraphRetrievalResult
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
@@ -274,13 +269,8 @@ def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adap
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',lambda *_:object())
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.get_object_with_reviewed_sources_direct_v3',lambda *_:native)
     monkeypatch.setattr(a,'_related_recap_offers',lambda *_:pytest.fail('Plan Jev cannot consume recap routes'))
-    from contextlib import nullcontext
-    with a.plan_object_acquisition(('pond',)) if prefetch else nullcontext():
-        reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
-            'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
-        if prefetch:
-            assert not a._plan_object_acquisition.futures
-    assert getattr(a, '_plan_object_acquisition', None) is None
+    reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
+        'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
     assert a.failure is None
     assert 'resultJson' in reply
     packet=json.loads(next(iter(a.operation_payloads.values())))
