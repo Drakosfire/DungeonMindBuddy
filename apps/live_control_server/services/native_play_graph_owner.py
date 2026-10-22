@@ -187,7 +187,9 @@ def freeze_play_receipt(
         source_opened=False,
         source_read_scope=scope,
         source_read_accounting="settled_receipts_v1",
-        max_source_read_chars=96000 if anchors else 0,
+        # Initial discovery may have no anchors. Later exact scope extensions
+        # admit reads; pin availability never changes this existing capacity.
+        max_source_read_chars=96000,
         max_chars_per_source_read=12000,
     )
     execution = t.PlayWorldGraphExecutionV1(

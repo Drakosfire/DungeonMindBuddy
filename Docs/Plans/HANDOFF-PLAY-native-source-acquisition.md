@@ -1,6 +1,14 @@
 # PLAY — native typed source acquisition
 
-ACTIVE after Architecture critique in chat01a086f2-c457-7b10-b753-df6063cab1ce, turn01a164bf-90d3-7820-9805-4b5d031542e2; serial successor from1391c83551fc99ff52050474bdc0418ce63daaa5,
+MERGED1600 at76c5f5148dc324b46bd183a45aefc0dfa80361c2, running8000/5202.
+Bugbot approved8d6ee4f7b78fe4412712de4bd394eea86e4625d3, one cycle, no findings;
+196independent tests passed. Delivery preserved1613APP rows, native rows,
+79mechanics files and frozen sources. Fresh ordinary Play now persists typed
+operations, but an empty initial anchor set freezes zero source capacity, so reads
+were refused and no source answer was accepted. Successor
+HANDOFF-PLAY-discovered-source-capacity.md owns that exact setup repair.
+
+Historical activation after Architecture critique in chat01a086f2-c457-7b10-b753-df6063cab1ce, turn01a164bf-90d3-7820-9805-4b5d031542e2; serial successor from1391c83551fc99ff52050474bdc0418ce63daaa5,
 branch codex/native-play-source-routing, existing buddy-context-loop checkout.
 PRIME designs/implements/reviews delivery under the active operator adventure goal.
 No concurrent ACTIVE implementation overlap in the fetched PR census.
