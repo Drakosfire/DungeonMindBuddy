@@ -105,6 +105,7 @@ def list_encounters(*, world_id: str) -> list[CombatEncounterRecord]:
 def save_encounter(
     *, world_id: str, encounter_id: UUID | str, request: SaveCombatEncounterRequest,
     verified_world_identities: dict[str, CombatWorldIdentity] | None = None,
+    verified_mechanics_snapshots: dict | None = None,
 ) -> CombatEncounterRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
@@ -122,8 +123,15 @@ def save_encounter(
         if before.revision != request.expected_revision:
             raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
         existing = {entity.id: entity for entity in before.draft.entities}
+        new_snapshots = []
         for entity in request.draft.entities:
             prior = existing.get(entity.id)
+            if entity.mechanics_snapshot is not None and prior is None:
+                if (verified_mechanics_snapshots or {}).get(entity.id) != entity.mechanics_snapshot:
+                    raise ApplicationStateValidationError("New mechanics snapshot must be independently verified")
+                new_snapshots.append(entity.mechanics_snapshot)
+            if prior is not None and entity.mechanics_snapshot != prior.mechanics_snapshot:
+                raise ApplicationStateValidationError("Saved combatant mechanics snapshot cannot be changed")
             if prior is not None:
                 if (entity.world_identity, entity.provenance, entity.statblock_artifact_id,
                     entity.statblock_path, entity.statblock_title, entity.corpus_fingerprint, entity.source) != (
@@ -135,6 +143,8 @@ def save_encounter(
                     raise ApplicationStateValidationError("New World combatant identity must be verified")
                 if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint or entity.tags:
                     raise ApplicationStateValidationError("World identity alone supplies no statblock mechanics")
+        from application_state.world_mechanics.service import verify_current_slots
+        verify_current_slots(conn, world_id=canonical_world_id, snapshots=new_snapshots)
         saved = repo.cas_replace_draft(
             conn,
             encounter_id=canonical_encounter_id,

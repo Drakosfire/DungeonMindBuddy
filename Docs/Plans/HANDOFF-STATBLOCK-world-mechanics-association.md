@@ -1,6 +1,14 @@
 # STATBLOCK — explicit World mechanics association
 
-ACTIVE. PRIME owns design, implementation, exact-head merge and guarded8000/5202
+SETTLED. #1582 merged b5fc320c9cad2e8958499b8419404e3323c39c81 and runs8000/5202.
+Bugbot approved b74583cd7270748619211513d447d458587495ee after fixing cross-tab
+recovery ownership (Web Locks and exact stored-body comparisons). Independently12
+UI/API and19 backend tests passed. Ordinary Build associated real saved mechanics
+with the selected existing World NPC; native head/exact DMS identity unchanged.
+Restart preserved1488 APP rows and59 product files; normal history/Load creatures
+reopened version1. Combat consumption remains separate.
+
+Historical scope: PRIME owned design, implementation, exact-head merge and guarded
 adoption under the preparation/play goal. Basee8e1514566fc401375f2d160fedfabd2160788ba;
 reuse buddy-context-loop, codex/world-mechanics-association. Serial one PR; checked
 open work has no competing association/schema lease. Architecture chat01a086f2

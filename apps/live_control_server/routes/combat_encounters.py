@@ -10,12 +10,14 @@ from application_state.combat_encounters.types import (
     AddGeneratedStatblockRequest,
     AddGeneratedStatblockResponse,
     CombatEncounterRecord,
+    CombatMechanicsSelection, CombatMechanicsSnapshot,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import managed_world_data_root, repo_root
-from apps.live_control_server.services import combat_encounters
+from apps.live_control_server.services import combat_encounters, combat_mechanics
+from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
 from apps.live_control_server.services.managed_world_graph_projection import (
     WorldGraphProjectionServiceError,
     resolve_managed_world_binding,
@@ -93,6 +95,8 @@ def save_encounter_route(
         return combat_encounters.save_world_combat_encounter(
             world_id=owner, encounter_id=encounter_id, request=body
         ).model_dump(mode="json")
+    except StatblockIntegrationError as exc:
+        raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
     except WorldGraphProjectionServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ApplicationStateError as exc:
@@ -127,3 +131,16 @@ def add_generated_statblock_route(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=getattr(exc, "status_code", 422), detail=str(exc)) from exc
+
+
+@router.post("/world-mechanics/preview", response_model=CombatMechanicsSnapshot)
+def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: CombatMechanicsSelection):
+    owner = _verified_world(world_id)
+    try:
+        return combat_mechanics.preview(world_id=owner, selection=body)
+    except ApplicationStateError as exc:
+        _raise_state_error(exc)
+    except WorldGraphProjectionServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except StatblockIntegrationError as exc:
+        raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc

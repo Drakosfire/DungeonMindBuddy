@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { act, cleanup } from '@testing-library/react';
+import * as mechanicsApi from './combatApi';
+import type { WorldMechanicsAssociation } from '../api/worldMechanicsTypes';
+import type { CombatMechanicsSnapshot } from './combatTypes';
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import * as api from '../api/liveApi';
 import { CombatEncounterAssembly } from './CombatEncounterAssembly';
 import type { ManagedWorldGraphProjectionResponse } from '../api/types';
@@ -9,7 +13,8 @@ const world = {managedWorldId:'elderwyld', nativeWorldId:'native-world', binding
     {nodeId:'npc-a',label:'World Scout',kind:'npc',role:'npc',aliases:['Scout']},
     {nodeId:'location-a',label:'Scout Camp',kind:'location',role:'location',aliases:[]},
   ]}} as ManagedWorldGraphProjectionResponse;
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => {vi.spyOn(api, 'listWorldMechanicsAssociations').mockResolvedValue([]);});
+afterEach(() => {cleanup();vi.restoreAllMocks();});
 function mount(disabled = false, remainingSlots = 100) {
   const onAdd = vi.fn();
   const view = render(<CombatEncounterAssembly worldId="elderwyld" disabled={disabled} remainingSlots={remainingSlots} onAdd={onAdd} />);
@@ -85,4 +90,55 @@ it('distinguishes same-name World identities by campaign and exact node', async 
   await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · campaign-two · npc-b'}));
   await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
   expect(onAdd.mock.calls[0][0][0].world_identity).toMatchObject({node_id:'npc-b',campaign_scope:'campaign-two'});
+});
+
+
+const associated = {association_id:'association-one',version:1,request:{target:{node_id:'npc-a',managed_world_id:'elderwyld'}}} as WorldMechanicsAssociation;
+const mechanics = {association_id:'association-one',association_version:1,
+  target:{managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:2,graph_revision_id:'revision-a',node_id:'npc-a',label:'World Scout',kind:'npc',role:'npc',campaign_scope:null},
+  resource:{definition:{identity:{name:'Saved Scout'}}},snapshot_digest:'sha256:verified'} as CombatMechanicsSnapshot;
+async function selectAssociated() {
+  vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([associated]);
+  vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue(world);
+  const mounted=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
+  await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · World · npc-a'}));
+  return mounted;
+}
+it('loads mechanics only explicitly and copies exact snapshots without inferring tracker stats',async()=>{
+  const preview=vi.spyOn(mechanicsApi,'previewWorldCombatMechanics').mockResolvedValue(mechanics);
+  const {onAdd}=await selectAssociated();expect(preview).not.toHaveBeenCalled();
+  await userEvent.type(screen.getByLabelText('Search World creatures'),'Scout');
+  await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
+  await screen.findByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.');
+  fireEvent.change(screen.getByLabelText('Combatant copies'),{target:{value:'2'}});
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+  const actors=onAdd.mock.calls[0][0];expect(actors).toHaveLength(2);
+  expect(actors[0].id).not.toEqual(actors[1].id);
+  expect(actors[0].mechanics_snapshot).toEqual(mechanics);expect(actors[1].mechanics_snapshot).toEqual(mechanics);
+  expect(actors[0]).toMatchObject({ac:null,hp:null,max_hp:null,init:null,source:'manual'});
+  expect(preview).toHaveBeenCalledTimes(1);expect(api.postManagedWorldGraphProjection).toHaveBeenCalledTimes(1);
+  expect(api.listWorldMechanicsAssociations).toHaveBeenCalledTimes(1);
+});
+it('removes loaded mechanics before adding a manual actor',async()=>{
+  vi.spyOn(mechanicsApi,'previewWorldCombatMechanics').mockResolvedValue(mechanics);
+  const {onAdd}=await selectAssociated();await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
+  await userEvent.click(await screen.findByRole('button',{name:'Remove loaded mechanics'}));
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
+  expect(onAdd.mock.calls[0][0][0].mechanics_snapshot).toBeNull();
+});
+it('discards a late mechanics preview after removing the selected identity',async()=>{
+  let finish!:(snapshot:CombatMechanicsSnapshot)=>void;
+  vi.spyOn(mechanicsApi,'previewWorldCombatMechanics').mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const {onAdd}=await selectAssociated();await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
+  expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
+  await userEvent.click(screen.getByRole('button',{name:'Use name only'}));
+  await act(async()=>finish(mechanics));expect(screen.queryByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.')).toBeNull();
+  await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));expect(onAdd.mock.calls[0][0][0]).toMatchObject({world_identity:null,mechanics_snapshot:null});
+});
+it('discards a late preview on World or encounter unmount',async()=>{
+  let finish!:(snapshot:CombatMechanicsSnapshot)=>void;
+  vi.spyOn(mechanicsApi,'previewWorldCombatMechanics').mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const mounted=await selectAssociated();await userEvent.click(screen.getByRole('button',{name:'Load associated mechanics'}));
+  mounted.unmount();mount();await act(async()=>finish(mechanics));
+  expect(screen.queryByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.')).toBeNull();
 });

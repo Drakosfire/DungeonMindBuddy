@@ -81,3 +81,10 @@ export async function addGeneratedStatblockToEncounter(
     body: JSON.stringify(request),
   }));
 }
+
+
+export async function previewWorldCombatMechanics(worldId: string, selection: import('./combatTypes').CombatMechanicsSelection): Promise<import('./combatTypes').CombatMechanicsSnapshot> {
+  return readJson(await fetchCombat(scopedPath(worldId, '/world-mechanics/preview'), {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(selection),
+  }));
+}

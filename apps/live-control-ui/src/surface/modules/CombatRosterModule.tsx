@@ -7,6 +7,7 @@ import {
   saveWorldCombatEncounter,
 } from "../../combat/combatApi";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
+import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
@@ -101,6 +102,7 @@ function RosterRow({
         <div className="module-muted">
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
+        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} />}
       </td>
       <td>
         <select

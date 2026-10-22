@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `e8e1514566fc401375f2d160fedfabd2160788ba` (through PR #1581).
+**Evidence anchor:** remote main `b5fc320c9cad2e8958499b8419404e3323c39c81` (through PR #1582).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -35,8 +35,10 @@ as null. The original revise remains unresolved and preserved; #1580 canonical-d
 Build generation→manual edit→AI revise→review→validate→accept succeeded; exact
 DMS integrity passed. API restart retained1487 APP rows and59 product files.
 #1581 corrected saved-state notices. Actual normal Tools/history reopen showed
-accepted mechanics after restart. The next active bounded slice is explicit
-APP-owned World mechanics association; native Graph binding payloads and fake
+accepted mechanics after restart. #1582 delivered explicit APP-owned World mechanics association. Ordinary Build
+association→reload→API restart retained1488 APP rows and59 product files, unchanged
+native head/exact DMS identity and saved association version1. Combat exact snapshot
+consumption is the next bounded slice; native Graph binding payloads and fake
 campaign publication are excluded. Connected Combat acceptance remains open. Source KnowledgeSpace genesis grants no Graph authority. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
@@ -117,8 +119,8 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-The API backing5202 serves0ad0296f (#1580); UI5202 servese8e15145 (#1581).
-All1487 existing APP rows were preserved at delivery. DMS7860 servesf95e92c (DMS44),
+The API backing5202 and UI5202 serveb5fc320c9 (#1582).
+All1487 prior APP rows were preserved; one association appended, and restart retained1488 rows. DMS7860 servesf95e92c (DMS44),
 with its private config and persistence unchanged. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
