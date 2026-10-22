@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
-import { BuildSourcePassageEvidence, isBuildSourceCompletion } from './BuildSourcePassageEvidence';
+import { BuildSourcePassageEvidence, isBuildSourceCompletion, isSurfaceSourceCompletion } from './BuildSourcePassageEvidence';
 import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
 import { getAgentSourcePassage } from '../../api/liveApi';
-import type { AgentSourcePassageReadResponseV1, WorldBuildGraphCompletionV2 } from '../../api/types';
+import type { AgentSourcePassageReadResponseV1, WorldBuildGraphCompletionV2, SurfaceSourceCompletionV1 } from '../../api/types';
 vi.mock('../../api/liveApi', () => ({ getAgentSourcePassage: vi.fn() }));
 const load = vi.mocked(getAgentSourcePassage);
 const text = 'Frank believes the **western gate** is haunted. 🐐';
@@ -87,4 +87,18 @@ describe('source-only evidence', () => {
     expect(valid({...c, answer_context_status: 'source_insufficient_evidence'})).toBe(false);
     expect(valid({...c, source_citations: [{...c.source_citations[0], extra: 'forged'}]})).toBe(false);
   });
+});
+
+it.each(['plan','play'] as const)('opens a named source citation for %s using the shared component',async surface=>{
+  const c:SurfaceSourceCompletionV1={...completion(),schema:'dmb_surface_source_completion_v1',surface_id:surface,
+    answer_basis:'opened_source_passages',answer_context_status:'source_grounded',
+    answer_segments:[{kind:'source_passage_claim',text:'Frank believes the gate is haunted.'}],
+    source_citations:completion().source_citations.map(c=>({...c,source_name:'Gatekeepers journal'}))};
+  expect(isSurfaceSourceCompletion(c,'a'.repeat(64),surface)).toBe(true);
+  expect(isSurfaceSourceCompletion(c,'a'.repeat(64),surface==='plan'?'play':'plan')).toBe(false);
+  load.mockResolvedValue({schema:'dmb_agent_source_passage_read_v1',target:{schema:'dmb_agent_source_passage_open_target_v1',
+    kind:'source_passage',world_id:'world',turn_id:id,citation_index:0},citation:c.source_citations[0]!,content:text});
+  render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Read Gatekeepers journal · lines 1–1'}));
+  await screen.findByText('western gate');expect(load).toHaveBeenCalledWith('world',id,0);
 });

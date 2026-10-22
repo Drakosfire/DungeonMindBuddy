@@ -763,6 +763,8 @@ class _BuildClaimEvidence:
     graph_revision: str
     closures: tuple[tuple[str, str, tuple[str, ...]], ...]
     session_titles: tuple = ()
+    passages: tuple = ()
+    source_partial: bool = False
 
 
 def _build_initial_claim_evidence(
@@ -2288,12 +2290,17 @@ class _PolicyExecutionAdapter:
                     ) from exc
             if capture_target_support:
                 from application_state.agent_conversation.session_citation_labels import producing_session_titles
+                passages, source_partial = (), False
+                if is_native_play:
+                    from application_state.agent_conversation.surface_source_answer import producing_passages
+                    passages, source_partial = producing_passages(updated, event, view["payloadJson"])
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
                     updated.graph_context_receipt.context_receipt_sha256,
                     updated.graph_context_receipt.graph_authority.graph_revision,
                     tuple(sorted(set(build_closures))),
                     producing_session_titles(updated, event, view["payloadJson"]),
+                    passages, source_partial,
                 )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body)
@@ -3570,6 +3577,10 @@ class _PolicyExecutionAdapter:
                     self.fence.append("record_validated_source_read", "receipt", event)
                 )
             self.turn = updated
+            from application_state.agent_conversation.surface_source_answer import eligible, passage_handle
+            for source_result, source_receipt in zip(results, receipts, strict=True):
+                if eligible(source_receipt):
+                    source_result["passageHandle"] = passage_handle(source_receipt)
             public = (
                 {**results[0], "retrievalSessionId": scope.retrieval_session_id}
                 if len(results) == 1 else {

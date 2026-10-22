@@ -162,3 +162,22 @@ it('admits only a sealed Graph-off Play source identity without source text or G
   expect(isPlaySourceProvenanceBound(context,{...provenance,supporting_work:[...provenance.supporting_work,
     provenance.supporting_work[0]]},r.owner_scope.world_id)).toBe(false);
 });
+
+it.each(['valid', 'foreign-surface', 'missing-name', 'partial-read', 'graph-cast'])('validates named source-backed Play history: %s', async change => {
+  const {nativePlayContextFixture, nativePlayRequestFixture} = await import('../test/nativePlayContextFixture');
+  const {isWorldPlayContextProjection} = await import('./playContextProtocol');
+  const c = nativePlayContextFixture(nativePlayRequestFixture());
+  c.completion = {schema:'dmb_surface_source_completion_v1', surface_id:'play',
+    context_receipt_sha256:c.receipt.context_receipt_sha256, answer_basis:'opened_source_passages',
+    answer_context_status:'source_grounded', answer_segments:[{kind:'source_passage_claim',text:'Reedbridge notes describe three lanterns.'}],
+    citation_map:null, source_citations:[{segment_index:0, text_sha256:'a'.repeat(64),
+      provider_attempt_id:'11111111-1111-4111-8111-111111111111', envelope_sha256:'b'.repeat(64),
+      read_event_id:'22222222-2222-4222-8222-222222222222', source_name:'Reedbridge notes',
+      receipt:{source_read_id:'read-one',anchor_id:'anchor',evidence_ref_id:'evidence',source_artifact_id:'source',source_revision_id:'revision',
+        outcome:'enough',content_sha256:'c'.repeat(64),line_start:5,line_end:5,returned_chars:40,truncated:false,evidence_sufficiency_status:'sufficient'}}]};
+  if (change==='foreign-surface') c.completion.surface_id='plan';
+  if (change==='missing-name') c.completion.source_citations[0]!.source_name='';
+  if (change==='partial-read') c.completion.source_citations[0]!.receipt.truncated=true as never;
+  if (change==='graph-cast') Object.assign(c.completion.answer_segments[0]!,{kind:'graph_claim',target_id:'invented'});
+  expect(isWorldPlayContextProjection(c,()=>true)).toBe(change==='valid');
+});

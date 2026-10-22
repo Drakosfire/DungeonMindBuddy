@@ -1,3 +1,4 @@
+import { isSurfaceSourceCompletion } from "../shared/sourcePassageProtocol";
 import type { WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1, WorldPlaySourceContextV1 } from '../api/types';
 import { rulesCanonical, rulesDigest } from './rulesCanonical';
 import { isSurfaceGraphInput } from './surfaceGraphInput';
@@ -103,7 +104,8 @@ export async function playReceiptDigestsBound(value: unknown): Promise<boolean> 
 }
 
 /** Native Play segments and citations retain their own source domain. */
-export function isWorldPlayGraphCompletion(value: unknown, receipt: WorldPlayGraphContextReceiptV1): value is import('../api/types').WorldPlayGraphCompletionV1 {
+export function isWorldPlayGraphCompletion(value: unknown, receipt: WorldPlayGraphContextReceiptV1): value is import('../api/types').WorldPlayGraphCompletionV1 | import('../api/types').SurfaceSourceCompletionV1 {
+  if (isSurfaceSourceCompletion(value, receipt.context_receipt_sha256, 'play')) return true;
   if (!keys(value, ['schema', 'context_receipt_sha256', 'answer_basis', 'answer_context_status', 'answer_segments', 'citation_map'])
     || value.schema !== 'dmb_play_world_graph_completion_v1' || value.context_receipt_sha256 !== receipt.context_receipt_sha256
     || !['graph_grounded', 'graph_grounded_partial', 'play_only_insufficient_evidence', 'play_only_graph_unused'].includes(String(value.answer_context_status))

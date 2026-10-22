@@ -283,9 +283,9 @@ def _validated_base_execution_locked(
         BuildCitedSourceActionControllerWriterPolicyV1,
     )
 
-    from .types import PlayWorldGraphCompletionV1
+    from .types import PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1
     from .native_rules_output import NativeRulesNormalizedOutputV1
-    if (isinstance(result.completion, PlayWorldGraphCompletionV1)
+    if (isinstance(result.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1))
             and not native_output_verified
             and not isinstance(mixed_output_context, NativeRulesNormalizedOutputV1)):
         raise ApplicationStateValidationError("Native Play requires its actual producing-output proof owner before completion")

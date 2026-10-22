@@ -21,7 +21,7 @@ _TARGETS = (("attributes", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))
 
 
-def _tool_outputs(body):
+def _tool_outputs(body, *, tool_name="expand_graph_retrieval"):
     calls, outputs = {}, {}
     if isinstance(body.get("input"), list) and "messages" not in body:
         for item in body["input"]:
@@ -55,7 +55,7 @@ def _tool_outputs(body):
     else:
         raise ValueError("Graph proof has an unknown provider shape")
     return [strict_json(raw) for identity, raw in outputs.items()
-            if calls[identity] == "expand_graph_retrieval"]
+            if calls[identity] == tool_name]
 
 
 def _complete_page_records(pages):

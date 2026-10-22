@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `7d3f9f5b482c2ae803530c6159746d4e8f020ebe` (through PR #1597).
+**Evidence anchor:** remote main `872c751e372bb85e953cd93cc54968b62715d6f1` (through PR #1598).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -124,7 +124,7 @@ calling the full local demo accepted.
    four durable response observations as two measured call rows. The capture window
    is labeled separately from end-to-end request latency.
 
-API8000/UI5202 serve7d3f9f5b (#1597). Named saved-section
+API8000/UI5202 serve872c751e (#1598), with Core617635c. Named saved-section
 evidence was verified after reload in the ordinary Sheep conversation and opened
 its exact historical passage. Guarded delivery retained1533 APP rows,59 product
 files and frozen extraction components. Contradictory answer/gap quality remains open.
@@ -142,8 +142,14 @@ campaign event or full journey acceptance. See the settled implementation handof
 
 Fresh Sheep Plan grounding exposed unreadable source evidence from first-World
 initialization. OverMind52 and Core139 (617635c5) define/deliver the typed Core
-contract; Buddy consumption is ACTIVE under HANDOFF-INGEST-first-world-typed-source-spans.md.
-The live runtime remains on1597 until reviewed coordinated adoption. Existing
+contract; Buddy1598 adopted it and is running8000/5202. A fresh ordinary saved
+source→review→selected publication produced V2 receipt; Plan opened three correct
+named passages by1.6s. Its4.4s final answer still could not cite them because no
+complete Graph claim records existed. Source evidence is not Graph assertion
+truth. The shared Plan/Play source-answer successor is ACTIVE under
+HANDOFF-AGENT-surface-source-passage-answers.md; it has not been delivered.
+Restart retained1595APP rows, all native rows,79mechanics files and11protected
+frozen components. Existing
 Worlds are not rewritten or reinitialized; evidence correction and any governed
 successor publication remain separate. Conks exact-run review currently exposes
 nonliteral quotes, including wrong paragraph bindings. Do not substitute a literal

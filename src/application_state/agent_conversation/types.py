@@ -1826,6 +1826,45 @@ class BuildGraphCompletionV2(StrictModel):
         return self
 
 
+class SurfaceSourcePassageCitationV1(BuildSourcePassageCitationV1):
+    """Shared exact passage receipt with its producing-input display name."""
+    source_name: str = Field(min_length=1)
+
+
+class SurfaceSourceCompletionV1(StrictModel):
+    """Authored source evidence for Plan/Play, never an admitted Graph claim."""
+    schema_: Literal["dmb_surface_source_completion_v1"] = Field(default="dmb_surface_source_completion_v1", alias="schema")
+    surface_id: Literal["plan", "play"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["opened_source_passages"] = "opened_source_passages"
+    answer_context_status: Literal["source_grounded", "source_grounded_partial"]
+    answer_segments: list[Annotated[
+        SourcePassageClaimV1 | PlanWorldGraphConnectiveSegmentV1 | PlanWorldGraphProposalSegmentV1,
+        Field(discriminator="kind"),
+    ]] = Field(min_length=1, max_length=128)
+    citation_map: None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(min_length=1, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+    @model_validator(mode="after")
+    def validate_source_claims(self):
+        claims = {i: s for i, s in enumerate(self.answer_segments) if isinstance(s, SourcePassageClaimV1)}
+        if not claims or {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Every surface passage claim requires exact source citations")
+        keys = [(c.segment_index, c.read_event_id, c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Surface passage citations must be distinct")
+        for c in self.source_citations:
+            if c.text_sha256 != hashlib.sha256(claims[c.segment_index].text.encode()).hexdigest():
+                raise ValueError("Surface passage citation text differs")
+            if (c.receipt.outcome != "enough" or c.receipt.truncated
+                    or c.receipt.evidence_sufficiency_status != "sufficient"
+                    or not c.receipt.content_sha256 or not c.receipt.source_revision_id or not c.source_name.strip()):
+                raise ValueError("Surface passage citation requires complete sufficient named source evidence")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Surface completion exceeds existing storage size limit")
+        return self
+
+
 BUILD_PROPOSAL_READY_TEXT = "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
 
 
@@ -1874,7 +1913,7 @@ class BuildImagePreparationCompletionV1(StrictModel):
         return self
 
 
-GraphTurnCompletion = PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -4636,6 +4675,10 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, SurfaceSourceCompletionV1):
+        from .surface_source_answer import validate_surface_completion
+        validate_surface_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(completion, PlayWorldGraphCompletionV1) or isinstance(receipt, PlayWorldGraphContextReceiptV1) or isinstance(execution, PlayWorldGraphExecutionV1):
         from .play_graph_completion import validate_play_graph_completion
         if not (isinstance(completion, PlayWorldGraphCompletionV1) and isinstance(receipt, PlayWorldGraphContextReceiptV1)
@@ -5074,10 +5117,10 @@ def validate_turn_graph_fields(
             if bindings or assistant_text is not None:
                 raise ValueError("Native Play completion binding/text requires its completion")
             return
-        if not isinstance(completion, PlayWorldGraphCompletionV1) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
+        if not isinstance(completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1)) or len(bindings) != 1 or assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
             raise ValueError("Stored native Play answer requires its exact typed completion and binding")
         binding = bindings[0]
-        validate_play_graph_completion(completion, graph_context_receipt, graph_context_execution,
+        validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
             binding.provider_attempt_id, binding.claim_graph_event_ids)
         return
     if completion is not None:
@@ -5237,7 +5280,7 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if isinstance(self.completion, PlayWorldGraphCompletionV1) and (
+        if isinstance(self.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1)) and (
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
