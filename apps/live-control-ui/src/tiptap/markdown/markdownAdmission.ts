@@ -1,3 +1,4 @@
+import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { webSourceHref } from "./webSourceHref";
 import { mediaAssetId, imagePresentation } from "../../media/mediaReferences";
 import type {
@@ -1278,6 +1279,16 @@ function visitBlockNode(node: RootContent, context: AdmissionContext, state: Vis
     case "table":
       return visitTable(node, context, state);
     case "code": {
+      if (node.lang === 'dmb-roll-table-v1' && context === 'document') {
+        const source=spanLines(node,state).join('\n');
+        try {
+          parseTableFence(source);
+          return [{type:'preparedTable',attrs:{source}}];
+        } catch {
+          warn(state,'Invalid or unclosed prepared table.',nodeStartLine(node));
+          return [paragraphFromText(node.value)];
+        }
+      }
       const firstLine = spanLines(node, state)[0] ?? "";
       const fenced = node.lang != null || /`{3,}|~{3,}/.test(firstLine);
       warn(
@@ -1348,5 +1359,12 @@ export function analyzeMarkdownBody(
     diagnostics: [],
   };
   const content = visitBlockChildren(parseMarkdownAst(markdownBody).children, "document", state);
+  const tableIds=new Set<string>();
+  for(const node of content) {
+    if(node.type !== 'preparedTable')continue;
+    const table=parseTableFence(String(node.attrs?.source));
+    if(tableIds.has(table.table_id))warn(state,'Duplicate prepared table ID.',1);
+    tableIds.add(table.table_id);
+  }
   return { content, diagnostics: dedupeDiagnostics(state.diagnostics) };
 }

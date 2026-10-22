@@ -1,3 +1,5 @@
+import {PreparedTableNode} from "../preparedTables/PreparedTableNode";
+import {parseTableFence} from "../preparedTables/tableGrammar";
 import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { SavedMediaImage } from "../media/SavedMediaImage";
@@ -77,7 +79,7 @@ function mediaImageExtension(): AnyExtension {
 }
 
 function readOnlyBodyExtensions(activatable: boolean): AnyExtension[] {
-  return [StarterKit, WebSourceLink, PlayableElementHeadingAttributes, CalloutNode,
+  return [StarterKit, PreparedTableNode, WebSourceLink, PlayableElementHeadingAttributes, CalloutNode,
     ...DECISION_CONSEQUENCE_EXTENSIONS, ...PLAN_TABLE_EXTENSIONS, READ_ONLY_RUNBOOK_REFERENCE,
     graphNodeReferenceExtension(activatable), mediaImageExtension()];
 }
@@ -97,6 +99,9 @@ function unsupportedBodyContentReason(content: readonly JSONContent[]): string |
         ? record.attrs as Record<string, unknown>
         : null;
     if (attrs == null) return "malformed node attributes";
+    if(record.type === 'preparedTable') {
+      try {parseTableFence(String(attrs.source));} catch {return 'invalid prepared table';}
+    }
 
     if (["image", "video", "audio", "iframe", "embed"].includes(record.type)) {
       const src = typeof attrs.src === "string" ? attrs.src : "";

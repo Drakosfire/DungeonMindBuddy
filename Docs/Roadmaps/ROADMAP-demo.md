@@ -134,6 +134,11 @@ and Combat encounter are retained ordinary rehearsal records. DMS7860 servesf95e
 with its private config and persistence unchanged. These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
+Prepared-table design #1596 is reviewed and merged. Its first implementation is
+active under HANDOFF-PLAY-prepared-table-implementation.md: explicit shared
+authoring and Play-owned physical-roll receipts. No recorded-roll acceptance is
+claimed until the ordinary Conks source→Plan→Run witness and restart succeed.
+
 ## Remaining acceptance
 
 - **Authoring and continuity:** representative prose/blocks/tables/media through

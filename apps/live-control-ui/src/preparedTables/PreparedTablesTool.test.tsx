@@ -1,0 +1,55 @@
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+import {PreparedTablesTool} from './PreparedTablesTool';
+import {pendingTableKey} from './preparedTablesProjection';
+import type {WorldPlayRunRecordV2} from '../api/types';
+const request=vi.hoisted(()=>vi.fn());
+vi.mock('../api/liveApi',()=>({authenticatedApiFetch:request,LiveApiError:class extends Error{status:number;constructor(message:string,status:number){super(message);this.status=status;}}}));
+const run={schema_version:'dmb_world_play_run_record_v2',world_id:'world',run_id:'11111111-1111-4111-8111-111111111111',playable_artifact_id:'22222222-2222-4222-8222-222222222222',playable_revision:1,playable_work_revision_id:'33333333-3333-4333-8333-333333333333',playable_content_sha256:'a'.repeat(64),run_revision:1,progress:{notes_by_element_id:{'scene:gate':'Kept note'}},created_at:'2026-10-22T00:00:00Z',updated_at:'2026-10-22T00:00:00Z'} as WorldPlayRunRecordV2;
+const source={playable_artifact_id:run.playable_artifact_id,playable_revision:1,playable_work_revision_id:run.playable_work_revision_id,playable_content_sha256:run.playable_content_sha256};
+const table={schema_version:'dmb_roll_table_v1',table_id:'table:weather',title:'Weather',die_sides:6,rows:[{row_id:'row:rain',min:1,max:6,outcome:'Rain'}],table_sha256:'b'.repeat(64)};
+const inventory={run,source,source_title:'Journey',can_record:true,tables:[table]};
+const ok=(body:unknown,status=200)=>({response:{ok:status<400,status,json:async()=>body}});
+const receipt=(id:string,body:any)=>({schema_version:'dmb_prepared_table_receipt_v1',world_id:run.world_id,run_id:run.run_id,command_id:id,source,source_title:'Journey',table_id:body.table_id,table_sha256:body.table_sha256,table_title:'Weather',die_sides:6,physical_value:body.physical_value,row_id:'row:rain',outcome:'Rain',expected_run_revision:1,resulting_run_revision:2,recorded_at:'2026-10-22T00:00:00Z'});
+beforeEach(()=>{cleanup();localStorage.clear();request.mockReset();request.mockImplementation(async(path:string)=>ok(path.includes('/receipts')?{receipts:[],next_before:null}:inventory));});
+describe('prepared table pending command',()=>{
+  it('persists before sending, recovers unknown outcome and explicitly retries exact identity',async()=>{
+    const onRun=vi.fn(),onHeld=vi.fn();let firstId='';let firstBody='';let attempts=0;
+    request.mockImplementation(async(path:string,init:RequestInit)=>{
+      if(!path.includes('/commands/'))return ok(inventory);
+      expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).not.toBeNull();
+      attempts++;const id=path.split('/commands/')[1].split('?')[0];const raw=String(init.body);
+      if(attempts===1){firstId=id;firstBody=raw;throw new Error('connection lost');}
+      expect(id).toBe(firstId);expect(raw).toBe(firstBody);
+      return ok({receipt:receipt(id,JSON.parse(raw)),run:{...run,run_revision:2},replayed:true});
+    });
+    const first=render(<PreparedTablesTool run={run} blocked={false} onRun={onRun} onHeld={onHeld}/>);
+    await screen.findByLabelText('Physical roll');fireEvent.change(screen.getByLabelText('Physical roll'),{target:{value:'4'}});
+    fireEvent.click(screen.getByText('Record outcome'));await screen.findByText(/save outcome is unknown/);
+    first.unmount();
+    render(<PreparedTablesTool run={run} blocked={false} onRun={onRun} onHeld={onHeld}/>);
+    await screen.findByText('Retry saved command');expect(attempts).toBe(1);
+    expect(screen.getByLabelText('Physical roll')).toBeDisabled();
+    fireEvent.click(screen.getByText('Retry saved command'));
+    await waitFor(()=>expect(onRun).toHaveBeenCalledWith({...run,run_revision:2}));
+    expect(onHeld).toHaveBeenLastCalledWith(false);
+    expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).toBeNull();
+  });
+  it('retains entered values after a known conflict and requires refresh',async()=>{
+    request.mockImplementation(async(path:string)=>path.includes('/commands/')?ok({detail:'Session changed'},409):ok(inventory));
+    const onHeld=vi.fn();render(<PreparedTablesTool run={run} blocked={false} onHeld={onHeld} onRun={vi.fn()}/>);
+    await screen.findByLabelText('Physical roll');fireEvent.change(screen.getByLabelText('Physical roll'),{target:{value:'3'}});fireEvent.click(screen.getByText('Record outcome'));
+    await screen.findByText(/Your entered value is retained/);expect(screen.queryByText('Record outcome')).toBeNull();
+    fireEvent.click(screen.getByText('Refresh saved preparation'));await screen.findByLabelText('Physical roll');expect(screen.getByLabelText('Physical roll')).toHaveValue('3');expect(onHeld).toHaveBeenLastCalledWith(false);
+  });
+  it('does not send a roll while notes/session edits are held',async()=>{
+    render(<PreparedTablesTool run={run} blocked onRun={vi.fn()} onHeld={vi.fn()}/>);
+    await screen.findByLabelText('Physical roll');expect(screen.getByText('Record outcome')).toBeDisabled();expect(request.mock.calls.every(([path])=>!String(path).includes('/commands/'))).toBe(true);
+  });
+  it('keeps an unknown command frozen when response identity is wrong',async()=>{
+    request.mockImplementation(async(path:string,init:RequestInit)=>path.includes('/commands/')?ok({receipt:{...receipt(path.split('/commands/')[1].split('?')[0],JSON.parse(String(init.body))),run_id:'other'},run}):ok(inventory));
+    const onRun=vi.fn();render(<PreparedTablesTool run={run} blocked={false} onRun={onRun} onHeld={vi.fn()}/>);
+    await screen.findByLabelText('Physical roll');fireEvent.change(screen.getByLabelText('Physical roll'),{target:{value:'2'}});fireEvent.click(screen.getByText('Record outcome'));
+    await screen.findByText(/save outcome is unknown/);expect(onRun).not.toHaveBeenCalled();expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).not.toBeNull();
+  });
+});

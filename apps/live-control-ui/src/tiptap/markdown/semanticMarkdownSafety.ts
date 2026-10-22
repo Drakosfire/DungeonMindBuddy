@@ -1,3 +1,4 @@
+import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { mediaMarkdown } from "../../media/mediaReferences";
 import { webSourceHref } from "./webSourceHref";
 import {
@@ -100,6 +101,11 @@ export function semanticMarkdownSerializationDiagnostics(
     const children = childNodes(node);
 
     switch (type) {
+      case "preparedTable":
+        if(parentType !== 'doc')diagnostics.push(warning('Prepared tables must be document blocks.',type));
+        try {parseTableFence(String(node.attrs?.source));} catch {diagnostics.push(warning('Invalid prepared table.',type));}
+        if(children.length)diagnostics.push(warning('Prepared table has unexpected children.',type));
+        break;
       case "doc":
         for (const child of children) visit(child, type);
         return;
