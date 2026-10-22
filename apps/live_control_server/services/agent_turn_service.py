@@ -1974,7 +1974,8 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
-        if self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None:
+        if (self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None
+                or getattr(self, "_plan_object_acquisition", None) is not None):
             return False
         if (self.budget.get("apiMode") == "typesafe_decision"
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
@@ -2713,6 +2714,12 @@ class _PolicyExecutionAdapter:
             return False
 
     @contextmanager
+    def plan_object_acquisition(self, nodes):
+        from .plan_jev_acquisition import object_acquisition
+        with object_acquisition(self, nodes):
+            yield
+
+    @contextmanager
     def source_read_acquisition(self, anchor_ids):
         """Share exact native metadata across authorized body batches, never inference."""
         if len(anchor_ids) <= 8 or getattr(self, "_build_native_acquisition_services", None) is not None:
@@ -2969,7 +2976,11 @@ class _PolicyExecutionAdapter:
             services = getattr(self, "_build_native_acquisition_services", None)
             if services is not None and request.operation != "observations":
                 return denied("native_acquisition_operation_mismatch", 409)
-            if services is None:
+            object_wave = getattr(self, "_plan_object_acquisition", None)
+            if object_wave is not None and (request.operation != "object"
+                    or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
+                return denied("native_acquisition_operation_mismatch", 409)
+            if services is None and object_wave is None:
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
@@ -2998,10 +3009,13 @@ class _PolicyExecutionAdapter:
                     "nodeId": target_ids[0],
                 })
                 if self._is_build_turn() or isinstance(execution, graph_types.PlanWorldGraphExecutionV3):
-                    reviewed = get_object_with_reviewed_sources_direct_v3(
-                        services, effective_request,
-                        **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),
-                    )
+                    if object_wave is not None:
+                        services, reviewed = object_wave.consume(effective_request)
+                    else:
+                        reviewed = get_object_with_reviewed_sources_direct_v3(
+                            services, effective_request,
+                            **({"observation_ids": tuple(request.observation_ids)} if request.observation_ids else {}),
+                        )
                     resolved = reviewed
                 else:
                     resolved = (

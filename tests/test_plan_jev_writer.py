@@ -225,11 +225,12 @@ def test_session_citation_title_comes_from_exact_writer_input(plan_adapter,exist
     assert saved.assistant_text==completed.assistant_text
 
 
-def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_send(plan_adapter):
+@pytest.mark.parametrize("field", ["_build_native_acquisition_services", "_plan_object_acquisition"])
+def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_send(plan_adapter, field):
     writer = stage_graph(plan_adapter)
     before = plan_adapter.fence.turn.graph_context_execution.model_dump(mode='json')
     wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
-    plan_adapter._build_native_acquisition_services = object()
+    setattr(plan_adapter, field, object())
     try:
         with pytest.raises(GenerationEngineError):
             asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
@@ -237,4 +238,4 @@ def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_se
         assert writer.prepared is None
         assert plan_adapter.fence.turn.graph_context_execution.model_dump(mode='json') == before
     finally:
-        plan_adapter._build_native_acquisition_services = None
+        setattr(plan_adapter, field, None)
