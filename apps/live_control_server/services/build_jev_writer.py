@@ -78,8 +78,12 @@ source_passage_claim with exact passage_handles or saved_source_claim with exact
 Saved sections are authored material, not played truth. Do not emit arbitrary connective prose.
 Creative suggestions must be explicitly hypothetical and use kind suggestion. The host labels them.
 Select limitations from missing_requested_details, partial_retrieval, unresolved_conflict.
-Include partial_retrieval when host coverage is heuristic_partial or heuristic_exclusions; include
-missing_requested_details for insufficient_evidence; unresolved_conflict for that host status.
+Include partial_retrieval when host coverage is heuristic_partial or heuristic_exclusions.
+An insufficient_evidence acquisition stop requires partial or insufficient answer status,
+not a claim that an answered detail is missing. If selected excerpts answer the question,
+use source_grounded_partial with partial_retrieval and no requested_detail_gaps.
+Use missing_requested_details for actual unsupported requested details or empty abstention;
+include unresolved_conflict for that host status. Never claim corpus completeness.
 Partial answers require at least one limitation; source_insufficient_evidence has no factual segments
 and at least one limitation. Missing requested specifics does not require total abstention.
 When supplied evidence offers directly relevant context, give a brief cited partial answer
@@ -100,6 +104,10 @@ factual claims. Include missing_requested_details when gaps exist. Use wholly in
 only when the selected excerpts support no useful part. If an exact requested value is unavailable
 but evidence gives a relevant qualitative constraint, state that supported constraint and mark
 the exact requested value as missing. Preserve exceptions and conflicts.
+Before returning, compare each proposed gap against your cited answer: remove a gap when
+your cited facts establish that requested detail. For partial specificity, quote only the
+unsupported part of the request; a missing exact value must not erase a supported qualitative
+answer. Do not use a broad question phrase that also covers details you have answered.
 The host renders limitation messages. No tools, further reads, corpus-completeness claims, Graph
 authority, receipt fields or hashes. Follow the supplied output schema.
 """
