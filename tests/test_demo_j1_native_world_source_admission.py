@@ -27,19 +27,21 @@ def _committed_source(
     *,
     markdown: str = "# Source\n\nA private world source.\n",
     world=None,
+    provisioned: bool = False,
 ):
     if world is None:
         world = create_world_container(root, name="J1 Test World")
-    registry_path = root / "out/registries/world_containers.json"
-    registry_data = json.loads(registry_path.read_text())
-    for entry in registry_data["records"]:
-        if entry["world_id"] == world.world_id:
-            entry["native_graph_binding"] = {
-                "native_world_id": world.world_id, "binding_version": 1,
-                "status": "active", "validated_at": "2026-10-14T00:00:00Z",
-                "validated_head_revision_id": "rev:fixture",
-            }
-    registry_path.write_text(json.dumps(registry_data))
+    if not provisioned:
+        registry_path = root / "out/registries/world_containers.json"
+        registry_data = json.loads(registry_path.read_text())
+        for entry in registry_data["records"]:
+            if entry["world_id"] == world.world_id:
+                entry["native_graph_binding"] = {
+                    "native_world_id": world.world_id, "binding_version": 1,
+                    "status": "active", "validated_at": "2026-10-14T00:00:00Z",
+                    "validated_head_revision_id": "rev:fixture",
+                }
+        registry_path.write_text(json.dumps(registry_data))
     record = create_workspace_document(
         root,
         title="Test Source",
@@ -579,3 +581,39 @@ def test_committed_source_recovery_does_not_hide_binding_change(tmp_path, monkey
         _admit(tmp_path, record.document_id)
     assert error.value.code == "native_graph_binding_changed"
     assert memory_repository.get_head(world.world_id) is not None
+
+
+def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
+    tmp_path: Path, memory_repository: InMemoryNativeSourceEvidenceRepository,
+) -> None:
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    world, record = _committed_source(tmp_path, provisioned=True)
+    reservation = get_world_container(tmp_path, world.world_id).native_graph_binding
+    assert reservation.status == "provisioning"
+    before = (tmp_path / "out/registries/world_containers.json").read_bytes()
+    assert memory_repository.get_head(reservation.native_world_id) is None
+    admitted = _admit(tmp_path, record.document_id)
+    assert admitted.state == "admitted"
+    assert admitted.world_id == world.world_id
+    assert admitted.space_id == reservation.native_world_id != world.world_id
+    assert _admit(tmp_path, record.document_id) == admitted
+    assert (tmp_path / "out/registries/world_containers.json").read_bytes() == before
+    assert get_world_container(tmp_path, world.world_id).native_graph_binding == reservation
+
+
+def test_reserved_operation_change_during_admission_fails_closed(
+    tmp_path, monkeypatch, memory_repository,
+):
+    world, record = _committed_source(tmp_path, provisioned=True)
+    original = native.initialize_empty_knowledge_space
+    def changed_operation(**kwargs):
+        result = original(**kwargs)
+        path = tmp_path / "out/registries/world_containers.json"
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["provisioning_id"] = "provision:" + "f" * 32
+        path.write_text(json.dumps(data))
+        return result
+    monkeypatch.setattr(native, "initialize_empty_knowledge_space", changed_operation)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"

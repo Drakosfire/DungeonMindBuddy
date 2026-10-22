@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product roadmap; reconciled 2026-10-21; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `a3eed957d451e21c0ff317c397895beca7fe9694` (through PR #1571).
+**Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
+**Evidence anchor:** remote main `4fbb0911538ef11c2695c52069d43b728f6c1557` (through PR #1572).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -9,7 +9,11 @@ This is the sole product execution ledger. Detailed history remains in Git, PRs
 and bounded contracts. The operator selected a sustained local preparation/play goal: dependable
 Plan/Buddy/image use → usable connected Combat → both adventure rehearsals, with
 foundation refinement throughout. PR #1566 is now merged and running on 5202; the shared image-prompt handoff is delivered. Trace response reconciliation is delivered; native World manual encounter assembly is delivered. Exact World-scope Threat
-hydration is the next prerequisite to bound mechanics. Historical “next”
+hydration is delivered (#1572), with no bound-mechanics claim. Fresh World source
+provisioning and reviewed Graph initialization now precede the positive mechanics
+publication witness: ordinary World creation currently leaves no active binding,
+while initial source admission requires one. The active serial provisioning
+contract separates source reservation from verified Graph activation. Historical “next”
 instructions do not reactivate old leases; new implementation slices still require
 bounded ownership and review.
 
@@ -90,7 +94,7 @@ calling the full local demo accepted.
    is labeled separately from end-to-end request latency.
 
 The API backing5202 and UI5202 serve the evidence anchor
-a3eed957d (#1571). These are the observed
+4fbb09115 (#1572). These are the observed
 planning checkpoint, not a requirement to keep those revisions after delivery.
 
 ## Remaining acceptance

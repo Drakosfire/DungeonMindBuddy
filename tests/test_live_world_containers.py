@@ -47,8 +47,8 @@ def test_create_and_list_world_container(client: TestClient, root: Path) -> None
     assert created["source_root_relpath"] == "corpus/the-glass-orchard-markdown"
     assert created["schema_version"] == PUBLIC_RECORD_SCHEMA
     assert created["native_graph_binding"] == {
-        "status": "unbound",
-        "binding_version": 0,
+        "status": "provisioning",
+        "binding_version": 1,
     }
     assert "world_id" in created
     assert (root / created["source_root_relpath"]).is_dir()

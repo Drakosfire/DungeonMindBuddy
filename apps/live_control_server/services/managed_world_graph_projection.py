@@ -12,6 +12,7 @@ from pydantic.alias_generators import to_camel
 from apps.live_control_server import config
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRecord,
+    NativeGraphProvisioningRecord,
     WorldContainerRegistryError,
     get_world_container,
     world_source_root_relpath,
@@ -70,6 +71,17 @@ class VerifiedManagedWorldBinding:
     source_root_relpath: str
 
 
+@dataclass(frozen=True)
+class ManagedWorldSourceIdentity:
+    """Private source-space ownership; grants no Graph read or write authority."""
+
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int
+    source_root_relpath: str
+    provisioning_id: str | None = None
+
+
 def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContainerRecord:
     try:
         record = get_world_container(root, managed_world_id)
@@ -105,6 +117,11 @@ def _active_binding(record: WorldContainerRecord) -> tuple[str, int]:
             "Managed World has no native Graph binding.",
             code="native_graph_binding_missing",
             status_code=409,
+        )
+    if binding.status == "provisioning":
+        raise WorldGraphProjectionServiceError(
+            "World sources can be ingested; reviewed Graph publication is pending.",
+            code="native_graph_provisioning_pending", status_code=409,
         )
     if binding.status != "active":
         raise WorldGraphProjectionServiceError(
@@ -142,6 +159,38 @@ def resolve_managed_world_binding(
         native_world_id=native_world_id,
         binding_version=binding_version,
         source_root_relpath=record.source_root_relpath,
+    )
+
+
+def resolve_managed_source_identity(
+    managed_world_id: str, *, root: Path | None = None,
+) -> ManagedWorldSourceIdentity:
+    """Resolve source ownership, permitting a reserved source KnowledgeSpace.
+
+    This value grants no Graph read/publication authority. Promotion to an active
+    binding requires a separately verified reviewed Graph initialization.
+    """
+    try:
+        registry_root = root if root is not None else config.managed_world_data_root()
+    except config.ManagedWorldDataRootError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Managed World storage is unavailable.",
+            code="managed_world_unavailable", status_code=503,
+        ) from exc
+    record = _verified_managed_record(registry_root, managed_world_id)
+    binding = record.native_graph_binding
+    if isinstance(binding, NativeGraphProvisioningRecord):
+        return ManagedWorldSourceIdentity(
+            managed_world_id=record.world_id,
+            native_world_id=binding.native_world_id,
+            binding_version=binding.binding_version,
+            source_root_relpath=record.source_root_relpath,
+            provisioning_id=binding.provisioning_id,
+        )
+    active = resolve_managed_world_binding(managed_world_id, root=registry_root)
+    return ManagedWorldSourceIdentity(
+        managed_world_id=active.managed_world_id, native_world_id=active.native_world_id,
+        binding_version=active.binding_version, source_root_relpath=active.source_root_relpath,
     )
 
 
