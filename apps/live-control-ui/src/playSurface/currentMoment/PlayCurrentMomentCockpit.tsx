@@ -40,6 +40,7 @@ import { PlaySurfaceContext, playSurfaceContextIdentity } from "../components/Pl
 export interface PlayCurrentMomentCockpitProps {
   deck: NativeRunbookReadyV2;
   mutationStatus: RunbookMutationStatus;
+  externalMutationBlocked?: boolean;
   onMutationStatus: (status: RunbookMutationStatus) => void;
   onAuthoritativeRun: (run: AnyPlayRunRecord) => void;
   onNoteUnsubmittedChange?: (hasUnsubmitted: boolean) => void;
@@ -350,6 +351,7 @@ function BeatContext({
 export function PlayCurrentMomentCockpit({
   deck,
   mutationStatus,
+  externalMutationBlocked = false,
   onMutationStatus,
   onAuthoritativeRun,
   onNoteUnsubmittedChange,
@@ -366,7 +368,7 @@ export function PlayCurrentMomentCockpit({
       run.playable_content_sha256,
     ])
     : JSON.stringify([run.schema_version, run.run_id]);
-  const mutationsOpen = mutationStatus === "idle" || mutationStatus === "saving";
+  const mutationsOpen = !externalMutationBlocked && (mutationStatus === "idle" || mutationStatus === "saving");
   const [workspace, setWorkspace] = useState<PlayWorkspace>({ kind: "current" });
   const [beatCollapsed, setBeatCollapsed] = useState(narrowPlayViewport);
   const [glanceCollapsed, setGlanceCollapsed] = useState(true);
@@ -487,7 +489,7 @@ export function PlayCurrentMomentCockpit({
   const replaceProgress = async (next: PlayRunProgress, options?: ProgressReplacementOptions) => {
     const explicitRetryIsCurrent = options?.allowExplicitRetry === true
       && (mutationStatus === "idle" || exactRereadSucceeded);
-    if ((!mutationsOpen && !explicitRetryIsCurrent) || mutationStatus === "saving" || inFlightRef.current) return;
+    if (externalMutationBlocked || (!mutationsOpen && !explicitRetryIsCurrent) || mutationStatus === "saving" || inFlightRef.current) return;
     const boundRunId = run.run_id;
     const boundRunIdentity = runIdentity;
     const expected = run.run_revision;
@@ -715,12 +717,12 @@ export function PlayCurrentMomentCockpit({
 
   useEffect(() => {
     if (!sceneNoteScope || activeSceneNoteDraft?.state !== "editing"
-      || sceneNoteChangedOnServer || mutationStatus !== "idle") return;
+      || externalMutationBlocked || sceneNoteChangedOnServer || mutationStatus !== "idle") return;
     const scope = sceneNoteScope;
     const timer = window.setTimeout(() => saveSceneNoteRef.current(scope), 450);
     return () => window.clearTimeout(timer);
   }, [sceneNoteScope, activeSceneNoteDraft?.state, activeSceneNoteDraft?.text,
-    sceneNoteChangedOnServer, mutationStatus, run.run_revision]);
+    sceneNoteChangedOnServer, externalMutationBlocked, mutationStatus, run.run_revision]);
 
   const makeSceneCurrent = (scene: NativeRunbookSceneV2) => {
     void replaceProgress({
@@ -900,6 +902,7 @@ export function PlayCurrentMomentCockpit({
         </p>
       ) : null}
 
+      {externalMutationBlocked ? <p role="status">Confirm the pending roll in Prepared tables before changing saved session progress.</p> : null}
       {mutationStatus === "conflict" ? (
         <p className="play-banner" role="alert" data-testid="play-cas-conflict">
           Another writer updated this Run. Reloaded the exact Run. Progress was not retried or merged.
@@ -1154,7 +1157,7 @@ export function PlayCurrentMomentCockpit({
                   {activeSceneNoteDraft ? (
                     <button
                       type="button"
-                      disabled={saving || (mutationStatus !== "idle" && !exactRereadSucceeded)}
+                      disabled={externalMutationBlocked || saving || (mutationStatus !== "idle" && !exactRereadSucceeded)}
                       onClick={() => saveSceneNote(sceneNoteScope, true)}
                     >
                       {activeSceneNoteDraft.state === "saving"

@@ -53,7 +53,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     }catch(cause){if(live.current&&turn===generation.current)setError(cause instanceof Error?cause.message:String(cause));}
   },[base,query,run.run_id,run.world_id]);
   useEffect(()=>{
-    try{const raw=localStorage.getItem(key);if(raw){const saved=JSON.parse(raw) as Pending;if(!validCommand(saved))throw new Error('Unreadable pending table command');setPending(saved);setTableId(saved.body.table_id);setValue(String(saved.body.physical_value));onHeld(true);}}
+    try{const raw=localStorage.getItem(key);if(raw){const saved=JSON.parse(raw) as Pending;if(!validCommand(saved))throw new Error('Unreadable pending table command');setPending(saved);setTableId(saved.body.table_id);setValue(String(saved.body.physical_value));onHeld(true);}else onHeld(false);}
     catch{setStorageBlocked(true);setError('Browser recovery data could not be read. Keep it intact and resolve it before recording another roll.');onHeld(true);}
     void refresh();
   },[key,refresh]);
@@ -66,29 +66,56 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
       if(inventory.run.run_revision!==props.current.run.run_revision||!samePin(inventory.source,props.current.run)){setError('Session changed. Refresh the saved preparation before submitting.');return;}
       if(!/^\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<1||Number(value)>table.die_sides){setError(`Enter an integer from 1 to ${table.die_sides}.`);return;}
       command={id:crypto.randomUUID(),body:{...inventory.source,expected_run_revision:inventory.run.run_revision,table_id:table.table_id,table_sha256:table.table_sha256,physical_value:Number(value)}};
-      try{localStorage.setItem(key,JSON.stringify(command));}catch{setError('Browser recovery could not be saved. The roll was not sent.');return;}
-      setPending(command);
     }
     if(!command)return;
-    sending.current=true;setBusy(true);setError(null);props.current.onHeld(true);
+    const submitted=command;
+    const raw=JSON.stringify(submitted);
     const turn=generation.current;
+    const current=()=>live.current&&turn===generation.current;
+    const locked=async<T,>(action:()=>T):Promise<T>=>{
+      if(!navigator.locks)throw new Error('Browser locking is required for safe roll recovery.');
+      return navigator.locks.request(key,()=>{
+        if(!current())throw new Error('This table view has closed.');
+        return action();
+      });
+    };
+    sending.current=true;setBusy(true);setError(null);
+    let sent=false;
     try{
-      const result=await call(`${base}/commands/${command.id}?${query}`,{method:'PUT',body:JSON.stringify(command.body)});
-      validateReceipt(result.receipt,run,command);validateRun(result.run,run);
+      await locked(()=>{
+        const stored=localStorage.getItem(key);
+        if(retry ? stored!==raw : stored!==null)throw new Error('Another view changed the pending roll. Reopen Prepared tables to recover it.');
+        if(!retry)localStorage.setItem(key,raw);
+        setPending(submitted);props.current.onHeld(true);
+      });
+      if(!current())return;
+      sent=true;
+      const result=await call(`${base}/commands/${submitted.id}?${query}`,{method:'PUT',body:JSON.stringify(submitted.body)});
+      validateReceipt(result.receipt,run,submitted);validateRun(result.run,run);
       if(result.run.run_revision<result.receipt.resulting_run_revision)throw new Error('Receipt revision exceeds saved session');
-      if(!live.current||turn!==generation.current)return;
-      // Exact request remains recoverable if the host cannot admit its response.
-      props.current.onRun(result.run);
-      localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
-      setHistory(prior=>[result.receipt,...prior.filter(r=>r.command_id!==result.receipt.command_id)]);
-      setInventory(prior=>prior?{...prior,run:result.run}:prior);
+      await locked(()=>{
+        if(localStorage.getItem(key)!==raw)throw new Error('Pending roll changed in another view. Its recovery copy was retained.');
+        // Admit the host response before releasing its exact recovery command.
+        props.current.onRun(result.run);
+        localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
+        setHistory(prior=>[result.receipt,...prior.filter(r=>r.command_id!==result.receipt.command_id)]);
+        setInventory(prior=>prior?{...prior,run:result.run}:prior);
+      });
     }catch(cause){
-      if(!live.current||turn!==generation.current)return;
-      if(cause instanceof LiveApiError&&cause.status>=400&&cause.status<500&&![408,429].includes(cause.status)){
-        try{localStorage.removeItem(key);setPending(null);props.current.onHeld(false);}catch{setStorageBlocked(true);}
-        setError(`${cause.message}. Your entered value is retained; refresh before a new submission.`);setInventory(null);
-      }else setError('The save outcome is unknown. Retry the exact saved command to recover its receipt.');
-    }finally{if(live.current){sending.current=false;setBusy(false);}}
+      if(!current())return;
+      if(!retry&&sent&&cause instanceof LiveApiError&&cause.status>=400&&cause.status<500&&![408,429].includes(cause.status)){
+        try{
+          await locked(()=>{
+            if(localStorage.getItem(key)!==raw)throw new Error('Another view changed recovery.');
+            localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
+          });
+          setError(`${cause.message}. Your entered value is retained; refresh before a new submission.`);setInventory(null);
+        }catch{setStorageBlocked(true);props.current.onHeld(true);setError('Another view changed recovery. Its saved command was retained. Reopen Prepared tables.');}
+      }else{
+        setError(sent?'The save outcome is unknown. Retry the exact saved command to recover its receipt.':(cause instanceof Error?cause.message:String(cause)));
+        if(!sent){setStorageBlocked(true);let retained=true;try{retained=localStorage.getItem(key)!==null;}catch{/* Fail closed if storage is unreadable. */}props.current.onHeld(retained);}
+      }
+    }finally{if(current()){sending.current=false;setBusy(false);}}
   };
   const readHistory=async(older=false)=>{
     const turn=generation.current;

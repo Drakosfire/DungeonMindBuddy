@@ -1122,7 +1122,8 @@ function PlayRuntimePage() {
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}
-            mutationStatus={tableHeld ? "unknown" : mutationStatus}
+            externalMutationBlocked={tableHeld}
+            mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onNoteUnsubmittedChange={onNoteDraftStateChange}
             onAuthoritativeRun={(nextRun) => {

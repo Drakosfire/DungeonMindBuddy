@@ -29,7 +29,8 @@ not tables. Invalid typed blocks cannot pass the writing fidelity gate.
 - apps/live-control-ui/src/tiptap/MarkdownEditorCore.tsx,
   tiptap/markdown/markdownAdmission.ts, tiptap/markdown/calloutMarkdown.ts,
   tiptap/markdown/semanticMarkdownSafety.ts, markdownReader/ReadOnlyBodyContent.tsx,
-  playSurface/PlaySurfacePage.tsx and playSurface/content/PlaySessionContentEditor.tsx.
+  playSurface/PlaySurfacePage.tsx, playSurface/currentMoment/PlayCurrentMomentCockpit.tsx
+  and playSurface/content/PlaySessionContentEditor.tsx.
 - tests/test_prepared_tables.py, tests/test_prepared_tables_api.py,
   tests/application_state/test_prepared_table_receipts_postgres.py.
 
