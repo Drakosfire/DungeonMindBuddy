@@ -3240,50 +3240,73 @@ class _PolicyExecutionAdapter:
                 and snapshot.revision_id == authority.graph_revision
             )
 
+        from copy import deepcopy
+        identity = (authority.managed_world_id, authority.native_world_id,
+                    authority.binding_version, authority.graph_revision,
+                    authority.scope_mode, authority.campaign_id, authority.admissibility_version)
+        cache = getattr(self, "_related_recap_offer_metadata", None)
+        if cache is None or cache["identity"] != identity:
+            cache = {"identity": identity, "evidence": {}}
+            self._related_recap_offer_metadata = cache
         try:
-            index = services.retrieval.list_source_context_index(
-                SourceContextIndexRequest(projection=projection, max_entries=512, selector_policy="markdown-session-recap-v2")
-            )
-            if (
-                index.status != "complete" or index.max_entries != 512
-                or index.eligible_count != len(index.entries)
-                or not exact_snapshot(index.snapshot)
-            ):
-                return []
-            descriptors: dict[tuple[str, str], list[Any]] = {}
-            seen_context_ids: set[str] = set()
-            for item in index.entries:
-                selector = item.section_selector
+            if "descriptors" not in cache:
+                # Mark before IO: optional metadata failure is not permission to
+                # retry the same immutable read later in this turn.
+                cache["descriptors"] = {}
+                index = services.retrieval.list_source_context_index(
+                    SourceContextIndexRequest(projection=projection, max_entries=512, selector_policy="markdown-session-recap-v2")
+                )
                 if (
-                    item.world_id != authority.native_world_id
-                    or item.graph_revision_id != authority.graph_revision
-                    or not item.source_uri.startswith("repo://")
-                    or item.context_anchor_id in seen_context_ids
-                    or selector.schema_version != "dm_recap_context_section_selector_v2"
-                    or selector.kind != "recap_section"
-                    or selector.policy != "markdown-session-recap-v2"
+                    index.status != "complete" or index.max_entries != 512
+                    or index.eligible_count != len(index.entries)
+                    or not exact_snapshot(index.snapshot)
                 ):
                     return []
-                seen_context_ids.add(item.context_anchor_id)
-                descriptors.setdefault((
-                    item.source_artifact_id, item.source_revision_id,
-                ), []).append(item)
+                descriptors: dict[tuple[str, str], list[Any]] = {}
+                seen_context_ids: set[str] = set()
+                for item in index.entries:
+                    selector = item.section_selector
+                    if (
+                        item.world_id != authority.native_world_id
+                        or item.graph_revision_id != authority.graph_revision
+                        or not item.source_uri.startswith("repo://")
+                        or item.context_anchor_id in seen_context_ids
+                        or selector.schema_version != "dm_recap_context_section_selector_v2"
+                        or selector.kind != "recap_section"
+                        or selector.policy != "markdown-session-recap-v2"
+                    ):
+                        return []
+                    seen_context_ids.add(item.context_anchor_id)
+                    descriptors.setdefault((
+                        item.source_artifact_id, item.source_revision_id,
+                    ), []).append(item)
+                cache["descriptors"] = deepcopy(descriptors)
+            descriptors = deepcopy(cache["descriptors"])
+            if not descriptors:
+                return []
             offers: list[dict[str, Any]] = []
             for kind, target_id, refs in sorted(candidates)[:8]:
                 if not refs or len(refs) > 64 or refs != tuple(sorted(set(refs))):
                     continue
-                evidence = services.retrieval.get_evidence(
-                    projection, target=EvidenceTarget(kind=kind, target_id=target_id),
-                    max_anchors=32,
-                )
-                if (
-                    not evidence.found or evidence.target.kind != kind
-                    or evidence.target.target_id != target_id
-                    or not exact_snapshot(evidence.snapshot)
-                    or evidence.coverage.truncated_fields
-                    or evidence.coverage.gap_codes
-                    or evidence.coverage.missing_ids
-                ):
+                target_key = (kind, target_id, refs)
+                if target_key not in cache["evidence"]:
+                    cache["evidence"][target_key] = None
+                    evidence = services.retrieval.get_evidence(
+                        projection, target=EvidenceTarget(kind=kind, target_id=target_id),
+                        max_anchors=32,
+                    )
+                    if (
+                        not evidence.found or evidence.target.kind != kind
+                        or evidence.target.target_id != target_id
+                        or not exact_snapshot(evidence.snapshot)
+                        or evidence.coverage.truncated_fields
+                        or evidence.coverage.gap_codes
+                        or evidence.coverage.missing_ids
+                    ):
+                        continue
+                    cache["evidence"][target_key] = deepcopy(evidence)
+                evidence = deepcopy(cache["evidence"][target_key])
+                if evidence is None:
                     continue
                 pairs = []
                 for ref in refs:
