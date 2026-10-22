@@ -6,16 +6,17 @@ import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
 import {exact,canonical} from "../../shared/sourcePassageProtocol";
 export {isBuildSourceCompletion,isSurfaceSourceCompletion} from "../../shared/sourcePassageProtocol";
 
-export function BuildSourcePassageEvidence({ completion, worldId, turnId }: {
-  completion: WorldBuildGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1; worldId: string; turnId: string;
+export function BuildSourcePassageEvidence({ completion, worldId, turnId, segmentIndex, showClaimText = true }: {
+  completion: WorldBuildGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1; worldId: string; turnId: string; segmentIndex?: number; showClaimText?: boolean;
 }) {
   const epoch = useRef(0);
   const [opened, setOpened] = useState<{index: number; status: "loading" | "ready" | "unavailable"; content?: string} | null>(null);
   const [visible, setVisible] = useState(8);
-  const identity = `${worldId}/${turnId}/${canonical(completion)}`;
+  const identity = `${worldId}/${turnId}/${segmentIndex ?? "all"}/${canonical(completion)}`;
   useLayoutEffect(() => { epoch.current++; setOpened(null); setVisible(8); return () => { epoch.current++; }; }, [identity]);
   const seen = new Set<string>();
   const choices = completion.source_citations.flatMap((citation, index) => {
+    if (segmentIndex !== undefined && citation.segment_index !== segmentIndex) return [];
     const r = citation.receipt;
     const key = canonical([citation.segment_index, r.source_artifact_id, r.source_revision_id, r.content_sha256, r.line_start, r.line_end]);
     if (seen.has(key)) return [];
@@ -45,7 +46,7 @@ export function BuildSourcePassageEvidence({ completion, worldId, turnId }: {
   return <section aria-label="Source passages">
     {!choices.length ? <p>No passage-backed claims were made in this answer.</p> : null}
     {choices.slice(0, visible).map(({citation, index}, choice) => <div key={index}>
-      <p>{completion.answer_segments[citation.segment_index]?.text}</p>
+      {showClaimText ? <p>{completion.answer_segments[citation.segment_index]?.text}</p> : null}
       <button type="button" onClick={() => { void open(index); }}>{"source_name" in citation ? `Read ${citation.source_name} · ${citation.receipt.line_start === null ? "passage" : `lines ${citation.receipt.line_start}–${citation.receipt.line_end}`}` : `Read passage ${choice + 1}`}</button>
     </div>)}
     {visible < choices.length ? <button type="button" onClick={() => setVisible(v => v + 8)}>Show more passages</button> : null}

@@ -5484,7 +5484,7 @@ export function WorldPlanAgentConversation({
             </div>
             {graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1"
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletionV1}
-                composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
+                worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : <WorldPlanAgentAnswer
               answer={turn.assistant_text}
               inlineCitations={inlineSourceCitations(turn)}

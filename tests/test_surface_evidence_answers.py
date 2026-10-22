@@ -107,7 +107,8 @@ def test_closed_limitation_text_is_derived_by_host(plan_adapter):
     assert completed.completion.answer_context_status=='insufficient_evidence'
 
 
-def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapter):
+@pytest.mark.parametrize('with_graph',[False,True])
+def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapter,monkeypatch,with_graph):
     from application_state.agent_conversation.rules_authority_policy import rules_capability
     from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
@@ -118,12 +119,22 @@ def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapt
     a=plan_adapter
     a.request=a.request.model_copy(update={'message':args().question})
     a.submitted_intent=owner._submitted_turn_intent(a.request,world_id=a.world_id)
+    if with_graph:
+        from graph_memory.interaction.session import GraphReferent
+        from tests.test_plan_jev_driver import fixture_reads
+        a.bootstrap.retrieval_session.referents=[GraphReferent(id='pond',label='Park pond')]
+        fixture_reads(a)
     rules=PlanRulesRuntime(a,rules_capability(graph=True))
     proof=asyncio.run(PlanJevDriver(a,rules=rules).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
     capsule=rules.frame().supports[0]
     quoted=writer.projection.frame['committed_plan_markdown'].splitlines()[0]
     base=wire_answer([dict(kind='authored_quote',text=quoted,source_handle=writer.projection.frame['authored_sources'][0]['handle'])])
+    if with_graph:
+        handle=writer.projection.frame['opened_passages'][0]['passage_handle']
+        base['answer_segments'] += [dict(kind='graph_claim',claim_id='claim:1',text='The pond has a wooden walkway.',
+            target_kind='assertion',target_id='assertion:pond',passage_handles=[handle]),
+            dict(kind='source_passage_claim',text='The journal describes a wooden walkway.',passage_handles=[handle])]
     payload=dict(schema='dmb_rules_mixed_answer_v1',base_output=base,
         rules_segments=[dict(kind='rules_claim',text=capsule.excerpt_text,support_ids=[str(capsule.support_id)])],
         ordered_refs=[dict(domain='base',segment_index=None),dict(domain='rules',segment_index=0)])
@@ -135,6 +146,29 @@ def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapt
     assert stored.base_projection.turn.completion.answer_segments[0].text==quoted
     pairs=AgentConversationService().list_completed_plan_ask_context(a.world_id,stored.base_projection.turn.graph_context_receipt.plan_basis)
     assert pairs[-1].history_attribution.base_attribution.answer_segments[0].text==quoted
+    assert stored.accepted_binding.graph_used==with_graph
+    if with_graph:
+        from types import SimpleNamespace
+        from apps.live_control_server.services.agent_source_passages import open_source_passage
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+        turn=stored.base_projection.turn
+        citation=turn.completion.source_citations[1];r=citation.receipt
+        authority=turn.graph_context_receipt.graph_authority
+        body=writer.projection.frame['opened_passages'][0]['text']
+        snapshot=SimpleNamespace(world_id=authority.native_world_id,revision_id=authority.graph_revision,
+            scope_mode='world',campaign_id='',admissibility='gm',focus=SimpleNamespace(kind='none',session_id=None,campaign_id=None))
+        result=SimpleNamespace(snapshot=snapshot,anchor_id=r.anchor_id,evidence_ref_id=r.evidence_ref_id,
+            source_artifact_id=r.source_artifact_id,outcome='enough',truncated=False,content=body,
+            content_sha256='f'*64,line_start=r.line_start,line_end=r.line_end)
+        opened=SimpleNamespace(result=result,graph_revision=authority.graph_revision,source_revision_id=r.source_revision_id,
+            source_artifact_id=r.source_artifact_id,evidence_ref_id=r.evidence_ref_id,source_revision_sha256='f'*64)
+        calls=[]
+        monkeypatch.setattr(direct,'direct_services_from_config',lambda *_:object())
+        def read(_services,request,**_kwargs): calls.append(request);return opened
+        monkeypatch.setattr(direct,'read_source_anchor_direct_v2',read)
+        response=open_source_passage(world_id=a.world_id,turn_id=a.turn.turn_id,citation_index=1)
+        assert response.citation==citation and response.content==body and response.target.citation_index==1
+        assert len(calls)==1 and calls[0].revision_pin==authority.graph_revision
 
 
 def test_two_windows_sharing_graph_evidence_only_bind_the_selected_passage(plan_adapter):

@@ -5096,7 +5096,7 @@ describe("World Plan conversation consumer", () => {
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
     expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
-    fireEvent.click(screen.getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
+    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : screen).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
