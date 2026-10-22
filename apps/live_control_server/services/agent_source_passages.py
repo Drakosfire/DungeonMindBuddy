@@ -6,10 +6,12 @@ from hashlib import sha256
 from uuid import UUID
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
     BuildGraphContextReceiptV1,
     SurfaceSourceCompletionV1,
+    SurfaceEvidenceCompletionV1,
     PlanWorldGraphContextReceiptV1,
     PlayWorldGraphContextReceiptV1,
 )
@@ -47,11 +49,18 @@ def open_source_passage(
     turn = (service or AgentConversationService()).inspect_turn(
         world_id=world_id, turn_id=turn_id
     )
+    if isinstance(turn, MixedCompletedTurnV1):
+        # inspect_turn validated the accepted composition, base owner and completion seal.
+        if turn.base_projection.kind != "approved":
+            raise SourcePassageOpenError("source_passage_completion_unavailable", 404)
+        turn = turn.base_projection.turn
+    if turn.world_id != world_id or turn.turn_id != turn_id:
+        raise SourcePassageOpenError("source_passage_binding_invalid")
     if (
         turn.status != "completed"
         or not (isinstance(turn.completion, BuildGraphCompletionV2)
             and isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
-            or isinstance(turn.completion, SurfaceSourceCompletionV1)
+            or isinstance(turn.completion, (SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1))
             and isinstance(turn.graph_context_receipt, (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1)))
     ):
         raise SourcePassageOpenError("source_passage_completion_unavailable", 404)

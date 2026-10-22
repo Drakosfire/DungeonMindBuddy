@@ -1517,6 +1517,23 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['plan','play'] as const)('rehydrates quoted Play evidence on %s with the same source authority',async initial=>{
+    const base=nativePlayContextFixture(nativePlayRequestFixture());
+    const entry=base.receipt.play_sources.entries[0]!;
+    const text='Frozen Play quotation.';
+    base.completion={schema:'dmb_surface_evidence_completion_v1',surface_id:'play',context_receipt_sha256:base.receipt.context_receipt_sha256,
+      answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],answer_segments:[
+        {kind:'authored_quote',text,source_kind:'play',source_handle:entry.source_id,source_name:'Saved Play scene',
+          object_id:entry.locator.run_id,revision:String(entry.locator.run_revision),body_sha256:entry.text_sha256,owner_sha256:entry.payload_sha256}]};
+    const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    render(<Harness initial={initial}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    expect((await screen.findByText(text)).closest('blockquote')).not.toBeNull();
+    expect(screen.getByText('Saved Play scene · quoted excerpt')).toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
   it.each(['plan', 'play', 'build'] as const)('hosts native Play mixed evidence on %s without source reads or composer replacement', async initial => {
     const base = nativePlayContextFixture(nativePlayRequestFixture(), 'The saved scene note describes the crossing.');
     const f = rulesAnswerFixture(base), b = f.context.accepted_binding;

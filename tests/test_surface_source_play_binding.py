@@ -203,7 +203,8 @@ def test_play_source_claim_cannot_use_changed_or_unincluded_read(change):
         producing_passages(turn, provider, raw)
 
 
-def test_play_source_answer_persists_through_native_output_owner(application_state_dsn):
+@pytest.mark.parametrize('with_quote',[False,True])
+def test_play_source_answer_persists_through_native_output_owner(application_state_dsn,with_quote):
     """Real APP accept/read/input/output/reopen; synthetic provider, no SQL forging."""
     from tests.application_state.test_native_play_input_postgres import (
         prepared_native,
@@ -343,8 +344,8 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
     turn = outcome(turn, producer)
     output = json.dumps(
         dict(
-            schema="dmb_surface_source_answer_v1",
-            answer_context_status="source_grounded",
+            schema="dmb_surface_evidence_answer_v1",
+            limitations=[], requested_detail_gaps=[],
             answer_segments=[
                 dict(
                     kind="source_passage_claim",
@@ -354,6 +355,13 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
             ],
         )
     )
+    if with_quote:
+        carrier=json.loads(json.loads(raw)['messages'][0]['content'])
+        frame=carrier['source_frame']
+        payload=json.loads(output)
+        payload['answer_segments'].append(dict(kind='authored_quote',text=frame['sources'][0]['text'],
+            source_handle=frame['manifest']['entries'][0]['source_id']))
+        output=json.dumps(payload)
     capture = SimpleNamespace(
         authorization_id="synthetic-native",
         api_request_id="synthetic-answer",

@@ -1047,7 +1047,7 @@ export interface WorldPlayGraphCompletionV1 {
 }
 export interface WorldPlayAgentContextV1 {
   schema: "dmb_agent_play_world_graph_context_response_v1";
-  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | null;
+  receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
 }
 
@@ -1110,7 +1110,7 @@ export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletio
 export interface WorldPlanAgentPlanContextV2 {
   schema: "dmb_agent_plan_world_graph_context_response_v2";
   receipt: WorldPlanGraphContextReceiptV1;
-  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | null;
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV1 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
   source_open_targets?: WorldPlanSourceOpenTargetV2[];
@@ -1163,6 +1163,20 @@ export interface SurfaceSourceCompletionV1 {
   answer_segments: ({kind:"source_passage_claim";text:string} | {kind:"connective";text:string}
     | {kind:"proposal";text:string;label:"invented_idea"|"image_prompt"})[];
   citation_map: null;
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
+export interface SurfaceEvidenceCompletionV1 {
+  schema: "dmb_surface_evidence_completion_v1";
+  surface_id: "plan" | "play";
+  context_receipt_sha256: string;
+  answer_basis: "mixed_evidence";
+  answer_context_status: "graph_grounded" | "graph_grounded_partial" | "source_grounded" | "source_grounded_partial"
+    | "authored_grounded" | "authored_grounded_partial" | "insufficient_evidence" | "creative_proposal";
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, {kind:"graph_claim"|"proposal"}> | {kind:"source_passage_claim";text:string}
+    | {kind:"authored_quote";text:string;source_handle:string;source_kind:"plan"|"session"|"play";source_name:string;
+        object_id:string;revision:string;body_sha256:string;owner_sha256:string}
+    | {kind:"limitation";code:"missing_requested_details"|"partial_retrieval"|"unresolved_conflict";text:string;question_phrase:string|null})[];
+  citation_map: WorldPlanGraphCitationMapV2 | null;
   source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
 }
 export interface AgentSourcePassageReadResponseV1 {

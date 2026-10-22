@@ -15,7 +15,7 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False):
+def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []
     @contextmanager
@@ -31,9 +31,10 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False):
         arguments = message['arguments']; graph_calls.append(arguments)
         operation = arguments['operation']; node = arguments.get('targets', [{'id': 'discovery'}])[0]['id']
         execution = adapter._broker_execution(); authority = adapter._broker_receipt().graph_authority
-        refs = sorted(f'evidence:park:{i}' for i in range(anchors))
+        anchor_refs = [f'evidence:park:{0 if shared_ref else i}' for i in range(anchors)]
+        refs = sorted(set(anchor_refs))
         pins = [t.GraphSourceScopeAnchorV2(anchor_id=f'anchor:park:{i}', evidence_ref_id=ref,
-            source_artifact_id='artifact:park', source_revision_id='revision:park:1') for i, ref in enumerate(refs)]
+            source_artifact_id='artifact:park', source_revision_id='revision:park:1') for i, ref in enumerate(anchor_refs)]
         pins.sort(key=lambda pin: pin.anchor_id)
         packet = {'schema': 'dmb_world_graph_retrieval_result_v1', 'snapshot': {
             'worldId': authority.native_world_id, 'revisionId': authority.graph_revision},

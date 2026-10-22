@@ -1,6 +1,15 @@
 # BUILD — finish nested document grid containment
 
-ACTIVE serial PRIME slice from aeb9e6d94d80e292e3a203625f6349d54f7ddadc,
+SETTLED: PR #1611 merged as acccb12ba4383a074dedb3e08d08029e3dff09ff;
+one Bugbot cycle approved dea722107dbcdfe0f95632e21131cfd7b1a6f888. Delivered
+paired8000/5202. Actual CSS widths1164/582/436 contain workspace, source/paper/
+editor and review with scrollWidth==clientWidth. Focus/vertical scroll preserved;
+restart/reopen retained APP/native,79 mechanics and17 frozen components including
+Conks parent/child. Ordinary Conks publication and receipt recovery subsequently
+proved41 selected changes at one exact Graph revision. Attribution correctness in
+next-turn replies remains open and is owned by the successor.
+
+Original serial PRIME slice from aeb9e6d94d80e292e3a203625f6349d54f7ddadc,
 branch codex/build-document-grid-containment, existing buddy-context-loop checkout.
 Operator goal authorizes shared surface foundation repair. Architecture critique
 01a16550-976e-76a1-b731-968c169a4e9b applies: shrink actual owning grid tracks,

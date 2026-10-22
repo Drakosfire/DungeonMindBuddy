@@ -21,6 +21,7 @@ from .rules_authority_types import (
 from .types import (
     Turn,
     PlanAskHistoryAttributionV1,
+    PlanEvidenceHistoryAttributionV1,
     TurnProvenance,
     GraphContextReceipt,
     GraphTurnExecution,
@@ -222,7 +223,7 @@ class MixedCompletedTurnV1(ClosedRulesModel):
                     raise ValueError(
                         "Approved base owner/lifecycle differs from mixed envelope"
                     )
-            if binding.graph_used != ("world_graph" in turn.completion.answer_basis):
+            if binding.graph_used != (any(s.kind == "graph_claim" for s in turn.completion.answer_segments)):
                 raise ValueError("Mixed summary cannot relabel base Graph grounding")
             segments = tuple(item.text for item in turn.completion.answer_segments)
             if turn.assistant_text != "\n".join(segments):
@@ -273,7 +274,7 @@ class MixedHistoryAttributionV1(ClosedRulesModel):
     schema_: Literal["dmb_mixed_history_attribution_v1"] = Field(alias="schema")
     source_sequence: Annotated[int, Field(ge=1)]
     accepted_binding: RulesAcceptedBindingV1
-    base_attribution: "PlanAskHistoryAttributionV1 | None"
+    base_attribution: "PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
 
     @model_validator(mode="after")
     def exact_base_attribution(self):
@@ -292,7 +293,7 @@ class MixedHistoryAttributionV1(ClosedRulesModel):
                 "Mixed Plan history base attribution differs from its owner"
             )
         if base is not None and binding.graph_used != (
-            "world_graph" in base.answer_basis
+            any(s.kind == "graph_claim" for s in base.answer_segments)
         ):
             raise ValueError("Mixed Plan history cannot relabel Graph grounding")
         return self

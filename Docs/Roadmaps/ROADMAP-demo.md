@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product roadmap; reconciled 2026-10-22; goal activated by the operator on 2026-10-21.
-**Evidence anchor:** remote main `aeb9e6d94d80e292e3a203625f6349d54f7ddadc` (through PR #1610).
+**Evidence anchor:** remote main `acccb12ba4383a074dedb3e08d08029e3dff09ff` (through PR #1611).
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 **Purpose:** distinguish delivered capabilities, remaining acceptance and choices for the next goal.
 
@@ -70,6 +70,16 @@ wrapping item bodies. Narrow rendered acceptance remains open pending that fix.
 #1610 contains the review host and sheets at wide/640/480 requested sizes. Actual
 whole-document measurements reveal the same implicit-track defect in the nested
 source editor; narrow whole-document acceptance remains open until that is fixed.
+
+#1611 finishes measured document/review containment at actual CSS widths1164,
+582 and436; protected restart/reopen retains saved data. Ordinary Conks selected
+publication accepted41 changes/omitted15 and recovered the same Graph revision
+after restart. A separate new Plan saved through ordinary controls. Two grounded
+questions completed8.3s/4.6s with truthful per-call usage, but corpus facts were
+stored as Plan claims despite that Plan containing only a preparation instruction.
+One follow-up also repeated a previously opened source anchor. Mixed evidence
+attribution is the immediate owning repair; read reuse follows separately. These
+are partial journey witnesses, not J1–J6 or consistent latency acceptance.
 
 ## Product decisions that remain in force
 

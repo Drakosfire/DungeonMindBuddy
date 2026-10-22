@@ -35,6 +35,20 @@ class NativePlayInputV1(ClosedRulesModel):
         return self
 
 
+from .surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS, POLICY as EVIDENCE_POLICY
+
+class NativePlayInputV2(NativePlayInputV1):
+    schema_: Literal["dmb_native_play_input_v2"] = Field(default="dmb_native_play_input_v2", alias="schema")
+    answer_policy: Literal["dmb_surface_evidence_answer_v1"] = EVIDENCE_POLICY
+    answer_instructions: str = EVIDENCE_INSTRUCTIONS
+
+    @model_validator(mode="after")
+    def exact_answer_policy(self):
+        if self.answer_instructions != EVIDENCE_INSTRUCTIONS:
+            raise ValueError('Play requires the current owned answer contract')
+        return self
+
+
 def _user_texts(body, mode):
     if mode == "chat_completions" and "input" not in body:
         messages, block_type = body.get("messages"), "text"
@@ -87,9 +101,10 @@ def prove_play_source_input(
             value = strict_json(text)
         except (ValueError, TypeError):
             continue
-        if not isinstance(value, dict) or value.get("schema") != "dmb_native_play_input_v1":
+        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2"}:
             continue
-        carrier = NativePlayInputV1.model_validate_json(json.dumps(value, ensure_ascii=False))
+        model = NativePlayInputV2 if value.get("schema") == "dmb_native_play_input_v2" else NativePlayInputV1
+        carrier = model.model_validate_json(json.dumps(value, ensure_ascii=False))
         if carrier.submission_id == submission_id:
             carriers.append(carrier)
     if len(carriers) != 1 or carriers[0].message != original_message:
