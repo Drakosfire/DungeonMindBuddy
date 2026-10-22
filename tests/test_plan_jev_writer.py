@@ -32,7 +32,8 @@ class WriterWire(httpx.AsyncBaseTransport):
         return httpx.Response(200,request=request,json={'id':'resp_plan_writer','object':'response','created_at':1,
             'status':self.status,'model':'gpt-6-luna','output':[{'type':'message','id':'msg_plan_writer',
                 'role':'assistant','status':'completed','content':[{'type':'output_text','text':self.text,'annotations':[]} ]},
-                *self.extra_output], 'usage':{'input_tokens':600,'output_tokens':100,'total_tokens':700},
+                *self.extra_output], 'usage':{'input_tokens':600,'output_tokens':100,'total_tokens':700,
+                    'input_tokens_details':{'cached_tokens':400},'output_tokens_details':{'reasoning_tokens':60}},
             **({'incomplete_details':{'reason':'max_output_tokens'}} if self.status=='incomplete' else {})})
     async def aclose(self): self.closed=True
 
@@ -59,13 +60,16 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     entry=completed.completion.citation_map.entries[0]
     assert entry.source_opened and entry.source_read_ids == ['read:anchor:park:0']
     assert entry.evidence_ref_ids == ['evidence:park:0']
-    assert writer.call['usage']['input_tokens']==600 and writer.call['usage']['output_tokens']==100
+    assert writer.call['usage'] == {'status':'reported','input_tokens':600,'output_tokens':100,
+        'total_tokens':700,'cached_input_tokens':400,'uncached_input_tokens':200,'reasoning_tokens':60}
+    assert writer.call['request_summary'] == {'reasoning_effort':'low'}
     prompts=[row for row in plan_adapter.context_capture.trace.observations if row.kind=='prompt_reference']
     assert prompts[-1].payload_sha256==writer.prepared.body_sha256
     assert prompts[-1].api_mode=='responses'
     assert not writer.authorize(writer.prepared)
     # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
     body = json.loads(wire.calls[0].content)
+    assert body['reasoning'] == {'effort':'low'}
     frame = json.loads(body['input'][0]['content'])
     assert all('assertion_ids' not in row and 'relationship_ids' not in row
                for row in frame['retrieval_results'])
