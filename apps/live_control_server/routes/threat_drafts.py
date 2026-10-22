@@ -43,7 +43,7 @@ def _draft_response(draft: ThreatDraft) -> dict[str, Any]:
 def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
     """Admit ownership, not model grounding. Legacy campaign drafts are unchanged."""
     try:
-        world_root = managed_world_data_root(default=statblock_data_root(repo_root()))
+        world_root = managed_world_data_root(default=repo_root())
         get_world_container(world_root, world_id)
     except ManagedWorldDataRootError as exc:
         raise HTTPException(status_code=503, detail="Managed World storage unavailable") from exc
@@ -72,10 +72,11 @@ def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
 def post_threat_draft(
     body: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
 ) -> dict[str, Any]:
+    root = statblock_data_root(repo_root())
     if isinstance(body, CreateWorldThreatDraftRequest):
         _admit_world_scope(body.world_id, body.graph_context_snapshot.graph_revision_id)
     try:
-        draft = create_threat_draft(statblock_data_root(repo_root()), body)
+        draft = create_threat_draft(root, body)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)

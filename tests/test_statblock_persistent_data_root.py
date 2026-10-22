@@ -96,3 +96,23 @@ def test_http_generation_acceptance_survives_code_root_switch(monkeypatch, tmp_p
     assert reopened.post(f"/api/live/threat-drafts/{draft_id}/mechanics:accept", json=request).status_code == 503
     assert (dms.generate_calls, dms.create_calls) == (1, 1)
     assert not list(code_a.iterdir()) and not list(code_b.iterdir())
+
+
+def test_artifact_root_does_not_change_default_managed_registry(monkeypatch, tmp_path):
+    code, data = tmp_path / "code", tmp_path / "data"
+    code.mkdir(); data.mkdir()
+    world = create_world_container(code, name="Independent roots")
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(data))
+    monkeypatch.delenv("DMB_MANAGED_WORLD_DATA_ROOT", raising=False)
+    monkeypatch.setattr(drafts, "repo_root", lambda: code)
+    client = TestClient(create_app())
+    response = client.post("/api/live/threat-drafts", json={
+        "scope_mode":"world", "world_id":world.world_id, "campaign_id":None,
+        "name":"Keeper", "description":"Synthetic", "threat_kind":"creature",
+        "generation_intent":{"ruleset":{"system":"dnd5e","edition":"2024"}},
+        "graph_context_snapshot":{"graph_revision_id":None,"selected_node_ids":[],"admitted_source_anchor_ids":[]}, "created_by":"gm",
+    })
+    assert response.status_code == 200, response.text
+    assert (data / "out/threat_drafts").is_dir()
+    assert not (code / "out/threat_drafts").exists()
+    assert not (data / "out/registries/world_containers.json").exists()
