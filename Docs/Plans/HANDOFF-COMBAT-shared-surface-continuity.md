@@ -1,6 +1,16 @@
 # COMBAT — shared recoverable Plan/Play tool
 
-ACTIVE. Architecture reviewed2026-10-22: one exact World encounter can be explicitly
+SETTLED. #1584 merged110f7e9ae2d546ce254c02078d125ff8e33eebf7 and UI5202
+adopted that revision; API remains3f3f60865. Bugbot approved exact1fb02706 after
+one fix cycle (nested recovery validation and pending-Save retry status).
+Rendered Plan tool edit→close→recover→Play recover→Save revision3→Plan reopen
+proved exact encounter continuity. API restart retained1494 APP rows/59 product
+files;18 host tables/687 rows stayed identical. Exact snapshots, independent HP7/16,
+conditions, notes and World association/Graph head remained unchanged. Full page
+navigation reset Plan's scene; HANDOFF-PLAN-scene-position-recovery.md owns that
+follow-up. No full J1–J6 award. The implementation lease below is released.
+
+Architecture reviewed2026-10-22: one exact World encounter can be explicitly
 resumed across Plan/Play without a scene/run ownership link. PRIME owns serial
 implementation in buddy-context-loop, codex/combat-shared-surface-continuity,
 base3f3f608650f23ba4746777fde2e4bc671db18478. Relevant open work has no overlapping lease.

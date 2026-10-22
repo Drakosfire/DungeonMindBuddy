@@ -199,6 +199,18 @@ const twoScenePlanMarkdown = [
   "A lantern moves behind the loading door.",
 ].join("\n") + "\n";
 
+const currentTwoScenePlanMarkdown = `# Saved Plan
+
+<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->
+## Road
+<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->
+### Arrival
+The keeper waits beneath the black arch.
+<!-- dmb-playable-element:v2 kind=scene id=scene:warehouse -->
+### Warehouse
+A lantern moves behind the loading door.
+`;
+
 it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
   const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("## Arrival", "## Quiet test scene"));
   const prepareSave = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Explicit Save test stop"));
@@ -735,6 +747,7 @@ afterEach(() => {
   liveApi.setNativeGraphAccessToken(null);
   vi.restoreAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
   window.history.replaceState({}, "", "/");
   chromeCapture.editorTools = null;
 });
@@ -4100,6 +4113,7 @@ Second body.
   vi.spyOn(liveApi,"authenticatedApiFetch").mockResolvedValue({response:Response.json({asset_id:assetId,state:"ready"}),csrf:null,requestEpoch:0});
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${record.document_id}`}><VerifiedPlanPage /></SelectedWorldProvider>);
   const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+ await waitFor(()=>expect(surface).toHaveTextContent("First body."));
   const dom=surface.querySelector(".ProseMirror") as HTMLElement & {editor:import("@tiptap/core").Editor};
   const editor=dom.editor;
   await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
@@ -4142,10 +4156,11 @@ Second body.
 });
 
 it("keeps Contents beside the same editor and a fixed control set in Document and Cards", async () => {
-  mockSavedPlanForAgent(savedAgentPlanId,7,7,twoScenePlanMarkdown);
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,currentTwoScenePlanMarkdown);
   const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>);
   const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+ await waitFor(()=>expect(surface).toHaveTextContent("A lantern moves behind"));
   const dom=surface.querySelector(".ProseMirror");
   await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
   const contents=screen.getByRole("navigation",{name:"Contents"});
@@ -4171,10 +4186,11 @@ it("keeps Contents beside the same editor and a fixed control set in Document an
 });
 
 it("browses Cards with reader arrows while retaining the mounted editor and local draft",async()=>{
- mockSavedPlanForAgent(savedAgentPlanId,7,7,twoScenePlanMarkdown);
+ mockSavedPlanForAgent(savedAgentPlanId,7,7,currentTwoScenePlanMarkdown);
  const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>);
  const surface=await screen.findByTestId("world-owned-plan-markdown-editor");
+ await waitFor(()=>expect(surface).toHaveTextContent("A lantern moves behind"));
  await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
  expect(screen.queryByRole("navigation",{name:"Card navigation"})).toBeNull();
  fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
@@ -4248,4 +4264,56 @@ it("root Plan exposes World selection instead of the campaign inventory and pres
   expect(screen.queryByRole("combobox", {name: "Plan document"})).toBeNull();
   expect(legacyRead).not.toHaveBeenCalled();
   expect(localStorage.getItem(recoveryKey)).toBe(oldDraft);
+});
+
+
+it.each(["cards", "document"])("restores the selected Plan scene after host remount in %s without a content write", async (view) => {
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,currentTwoScenePlanMarkdown);
+  const prepare = vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi,"commitWorldOwnedPlanMarkdownWrite");
+  const scroll = vi.fn();
+  const priorScroll = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = scroll;
+  try {
+    const tree = <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><VerifiedPlanPage /></SelectedWorldProvider>;
+    let page = render(tree);
+    await screen.findByTestId("world-owned-plan-markdown-editor");
+    await screen.findByRole("button",{name:"Show scene: Warehouse"});
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Cards",exact:true})).toBeEnabled());
+    fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+    fireEvent.click(screen.getByRole("button",{name:"Show scene: Warehouse"}));
+    expect(screen.getByRole("button",{name:"Show scene: Warehouse"})).toHaveAttribute("aria-current","true");
+    page.unmount();
+    const url = `/plan?world=${worldId}&documentId=${savedAgentPlanId}${view === "cards" ? "&view=cards" : ""}`;
+    window.history.replaceState({},"",url);
+    scroll.mockClear();
+    page = render(<SelectedWorldProvider locationSnapshot={url}><VerifiedPlanPage /></SelectedWorldProvider>);
+    await screen.findByTestId("world-owned-plan-markdown-editor");
+    await screen.findByRole("button",{name:"Show scene: Warehouse"});
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Show scene: Warehouse"})).toHaveAttribute("aria-current","true"));
+    if (view === "cards") {
+      expect(screen.getByRole("button",{name:"Next scene",exact:true})).toBeDisabled();
+      expect(screen.getByRole("button",{name:"Previous scene",exact:true})).toBeEnabled();
+    } else {
+      await waitFor(()=>expect(scroll).toHaveBeenCalled());
+      expect(scroll.mock.instances.some(element => element?.getAttribute("data-dmb-playable-id") === "scene:warehouse")).toBe(true);
+    }
+    expect(prepare).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    page.unmount();
+  } finally { HTMLElement.prototype.scrollIntoView = priorScroll; }
+});
+
+it("does not restore a scene absent from the current Plan draft", async () => {
+  const {writePlanScenePosition} = await import("./planScenePosition");
+  writePlanScenePosition(worldId,savedAgentPlanId,"scene:removed");
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,currentTwoScenePlanMarkdown);
+  const prepare = vi.spyOn(liveApi,"prepareTiptapMarkdownWrite");
+  window.history.replaceState({},"",`/plan?world=${worldId}&documentId=${savedAgentPlanId}&view=cards`);
+  render(<SelectedWorldProvider locationSnapshot={window.location.pathname+window.location.search}><VerifiedPlanPage /></SelectedWorldProvider>);
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  const arrival = await screen.findByRole("button",{name:"Show scene: Arrival"});
+  await waitFor(()=>expect(arrival).toHaveAttribute("aria-current","true"));
+  expect(screen.getByRole("button",{name:"Previous scene",exact:true})).toBeDisabled();
+  expect(prepare).not.toHaveBeenCalled();
 });
