@@ -1974,7 +1974,8 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
-        if self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None:
+        if (self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None
+                or getattr(self, "_plan_graph_read_services", None) is not None):
             return False
         if (self.budget.get("apiMode") == "typesafe_decision"
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
@@ -2713,6 +2714,12 @@ class _PolicyExecutionAdapter:
             return False
 
     @contextmanager
+    def plan_graph_acquisition(self, nodes):
+        from .plan_jev_acquisition import graph_acquisition
+        with graph_acquisition(self, nodes):
+            yield
+
+    @contextmanager
     def source_read_acquisition(self, anchor_ids):
         """Share exact native metadata across authorized body batches, never inference."""
         if len(anchor_ids) <= 8 or getattr(self, "_build_native_acquisition_services", None) is not None:
@@ -2969,6 +2976,12 @@ class _PolicyExecutionAdapter:
             services = getattr(self, "_build_native_acquisition_services", None)
             if services is not None and request.operation != "observations":
                 return denied("native_acquisition_operation_mismatch", 409)
+            plan_services = getattr(self, "_plan_graph_read_services", None)
+            if plan_services is not None:
+                if (services is not None or request.operation != "object"
+                        or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
+                    return denied("native_acquisition_operation_mismatch", 409)
+                services = plan_services.resolve()
             if services is None:
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None

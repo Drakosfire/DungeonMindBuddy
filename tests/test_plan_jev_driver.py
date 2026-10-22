@@ -23,6 +23,10 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None):
         adapter._test_source_acquisitions.append(tuple(anchor_ids))
         yield
     adapter.source_read_acquisition = acquisition
+    @contextmanager
+    def objects(nodes):
+        yield
+    adapter.plan_graph_acquisition = objects
     def graph(message):
         arguments = message['arguments']; graph_calls.append(arguments)
         operation = arguments['operation']; node = arguments.get('targets', [{'id': 'discovery'}])[0]['id']
@@ -241,7 +245,8 @@ def test_large_anchor_catalog_preserves_exhausted_character_policy(plan_adapter)
     assert frame['retrieval_gaps'] == [{'operation': 'source_read', 'reason': 'source_read_over_budget'}]
 
 
-def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adapter, monkeypatch):
+@pytest.mark.parametrize("reuse_services", [False, True])
+def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adapter, monkeypatch, reuse_services):
     from types import SimpleNamespace
     from graph_memory.retrieval.models import WorldGraphRetrievalResult
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
@@ -269,8 +274,11 @@ def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adap
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',lambda *_:object())
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.get_object_with_reviewed_sources_direct_v3',lambda *_:native)
     monkeypatch.setattr(a,'_related_recap_offers',lambda *_:pytest.fail('Plan Jev cannot consume recap routes'))
-    reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
-        'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
+    from contextlib import nullcontext
+    with a.plan_graph_acquisition(('pond',)) if reuse_services else nullcontext():
+        reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
+            'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
+    assert getattr(a, '_plan_graph_read_services', None) is None
     assert a.failure is None
     assert 'resultJson' in reply
     packet=json.loads(next(iter(a.operation_payloads.values())))
@@ -333,3 +341,26 @@ def test_decision_http_client_is_owned_once_per_turn_and_closes_on_failure(plan_
     events = plan_adapter._broker_execution().events
     authorizations = [e for e in events if isinstance(e, t.PlanJevProviderAuthorizedV1)]
     assert len({e.provider_attempt_id for e in authorizations}) == expected
+
+
+def test_reused_binding_failure_keeps_broker_interruption_semantics(plan_adapter, monkeypatch):
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    a = plan_adapter
+    selected = RetrievalCandidate(handle="node:pond", label="Park pond", kind="location")
+    asyncio.run(PlanJevDispatch(a, (selected,)).run(transport=Decisions(), api_key="synthetic-not-secret"))
+    calls = []
+    def unavailable(world):
+        calls.append(world)
+        raise DirectWorldGraphReadError("Native unavailable", code="authority_unavailable", status_code=503)
+    monkeypatch.setattr("apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config", unavailable)
+    with a.plan_graph_acquisition(("pond",)):
+        assert calls == []
+        reply = a.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": {
+            "retrievalSessionId": a.bootstrap.retrieval_session.id, "operation": "object",
+            "targets": [{"kind": "node", "id": "pond"}]}})
+        assert a.failure.code == "graph_operation_indeterminate"
+        assert json.loads(reply["resultJson"])["code"] == "graph_operation_unavailable"
+    assert calls == [a.bootstrap.world_scope.world_id]
+    assert a._plan_graph_read_services is None and not a.operation_payloads

@@ -66,7 +66,8 @@ class PlanJevDispatch:
         validate_prepared_decision(self.parent, prepared)
         a = self.adapter
         if (a.failure is not None or self.prepared is not None
-                or getattr(a, "_build_native_acquisition_services", None) is not None):
+                or getattr(a, "_build_native_acquisition_services", None) is not None
+                or getattr(a, "_plan_graph_read_services", None) is not None):
             return False
         view = {"provider": PROVIDER, "model": MODEL, "apiMode": "decision",
             "payloadJson": prepared.body.decode(), "payloadSha256": prepared.body_sha256,

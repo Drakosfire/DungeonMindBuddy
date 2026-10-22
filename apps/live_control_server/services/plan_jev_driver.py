@@ -136,15 +136,20 @@ class PlanJevDriver:
             offered = {candidate.handle for candidate in dispatch.parent.candidates}
             if not set(selected.selected_handles) <= offered:
                 raise ValueError("Plan selection changed its offered catalog")
-            for handle in selected.selected_handles:
-                if handle == rules_candidate().handle:
-                    if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
-                    self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
-                    continue
-                node, _ = self.catalog[handle]
-                if node in self.attempted_nodes: raise ValueError("Plan object cannot be reacquired")
-                self.attempted_nodes.add(node)  # mark before IO, including failures
-                operations.update(self._graph_read("object", node))
+            nodes = [self.catalog[handle][0] for handle in selected.selected_handles
+                     if handle != rules_candidate().handle]
+            if any(node in self.attempted_nodes for node in nodes):
+                raise ValueError("Plan object cannot be reacquired")
+            with self.adapter.plan_graph_acquisition(nodes):
+                for handle in selected.selected_handles:
+                    if handle == rules_candidate().handle:
+                        if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
+                        self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
+                        continue
+                    node, _ = self.catalog[handle]
+                    if node in self.attempted_nodes: raise ValueError("Plan object cannot be reacquired")
+                    self.attempted_nodes.add(node)  # mark before IO, including failures
+                    operations.update(self._graph_read("object", node))
         self._read_new_sources(operations)
 
     async def run(self, *, transport=None, api_key=None):

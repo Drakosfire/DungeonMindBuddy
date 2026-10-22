@@ -113,7 +113,8 @@ class PlanJevWriter:
         from generationengine.text_dispatch import PreparedTextDispatch
         from .agent_turn_service import _json_node_count, _require_fresh_execution_append
         if (self.prepared is not None or self.adapter.failure is not None
-                or getattr(self.adapter, "_build_native_acquisition_services", None) is not None):
+                or getattr(self.adapter, "_build_native_acquisition_services", None) is not None
+                or getattr(self.adapter, "_plan_graph_read_services", None) is not None):
             return False
         if (not isinstance(prepared, PreparedTextDispatch)
                 or (prepared.provider, prepared.model, prepared.api_mode, prepared.method, prepared.url)
