@@ -96,8 +96,9 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
     for index, _candidate in enumerate(request.candidates):
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
-            question=(f"Would {_candidate.label} ({_candidate.kind}) add directly useful evidence beyond examined subjects? "
-                      "Include if useful; exclude peripheral associations.")))
+            question=(f"To answer the user's question, would evidence about {_candidate.label} ({_candidate.kind}) "
+                      "add directly useful information beyond examined subjects? "
+                      "Include only for a missing requested topic; otherwise exclude.")))
     state = {"question": request.question,
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
     if request.examined_candidates:
