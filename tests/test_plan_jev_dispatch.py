@@ -160,3 +160,17 @@ def test_actual_app_composes_relevant_candidate_before_global_finish(plan_adapte
     assert result.answers['candidate_0'].selected=='include'
     event=plan_adapter.fence.turn.graph_context_execution.events[-1]
     assert event.operation=='select_candidates' and event.selected_handles==['node:park-pond']
+
+
+def test_active_native_acquisition_refuses_decision_before_claim_or_sdk_send(plan_adapter):
+    dispatch = controller(plan_adapter)
+    wire = Wire(plan_adapter)
+    plan_adapter._build_native_acquisition_services = object()
+    try:
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
+        assert wire.calls == []
+        assert plan_adapter.fence is None
+        assert dispatch.prepared is None
+    finally:
+        plan_adapter._build_native_acquisition_services = None
