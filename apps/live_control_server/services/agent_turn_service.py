@@ -124,7 +124,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3",
+        "provider_attempt_authorized_v3", "plan_jev_provider_authorized_v1", "plan_jev_writer_authorized_v1",
     }
 
 
@@ -836,7 +836,9 @@ def _admitted_initial_policy_bootstrap(
         ref.model_copy(update={"label": None, "match_reasons": []})
         for ref in session.referents
     ]
-    return replace(bootstrap, retrieval_session=session)
+    navigation = tuple((ref.id, ref.label) for ref in bootstrap.retrieval_session.referents
+        if ref.kind == "node" and isinstance(ref.label, str) and ref.label.strip())
+    return replace(bootstrap, retrieval_session=session, navigation_candidates=navigation)
 
 
 def _restore_v2_retry_bootstrap(
@@ -943,7 +945,12 @@ def _verify_policy_plan_payload(
     build_writer_projection: Any = None,
     build_jev_accounting: Any = None,
     build_writer_context_budget: Any = None,
+    plan_jev_request: Any = None,
 ) -> None:
+    if plan_jev_request is not None:
+        from .plan_jev_dispatch import verify_initial_input
+        verify_initial_input(view, request, work, plan_jev_request)
+        return
     if request.surface.surface_id == "play" and request.play_target is not None:
         from .native_play_graph_owner import verify_play_input_message
         verify_play_input_message(view, request, work)
@@ -1004,6 +1011,7 @@ def _freeze_policy_receipt(
     included_history: tuple = (),
     build_jev_expected_state: Mapping[str, Any] | None = None,
     build_jev_accounting: Any = None,
+    plan_jev_request: Any = None,
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     if request.surface.surface_id == "play" and request.play_target is not None:
@@ -1028,12 +1036,15 @@ def _freeze_policy_receipt(
         raise ValueError("initial controller accounting lacks trusted preparation")
     _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
         build_jev_expected_state=build_jev_expected_state,
-        build_jev_accounting=build_jev_accounting if initial_accounting is not None else None)
-    packet = _initial_claim_packet_from_view(
-        type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
-        bootstrap,
-    )
-    assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
+        build_jev_accounting=build_jev_accounting if initial_accounting is not None else None,
+        plan_jev_request=plan_jev_request)
+    # Jev sees labels only. The initial Graph packet remains a host discovery
+    # commitment, never evidence exposure to the decision model.
+    packet = (_expected_initial_claim_packet(bootstrap) if plan_jev_request is not None else
+        _initial_claim_packet_from_view(
+            type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(), bootstrap))
+    assertions, relationships, evidence = (([], [], []) if plan_jev_request is not None else
+        _initial_packet_membership(packet, bootstrap))
     basis = work.build_source if _governed_build_turn(request) else work.content_basis
     if basis is None or not _governed_graph_turn(request):
         raise AgentTurnServiceError("The committed Plan basis is unavailable for receipt freeze.", code="receipt_freeze_failed", status_code=503, provider_dispatched=False)
@@ -1142,7 +1153,8 @@ def _freeze_policy_receipt(
             },
             "assembled_input": {
                 "assembler_version": bootstrap.assembler_version,
-                "budget_policy_version": ("build_jev_initial_estimate_v1" if initial_accounting is not None else
+                "budget_policy_version": ("plan_jev_semantic_initial_v1" if plan_jev_request is not None else
+                    "build_jev_initial_estimate_v1" if initial_accounting is not None else
                     "build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
                 "provider_model_name": view["model"],
                 "provider_model_version": view["model"],
@@ -1204,7 +1216,7 @@ def _freeze_policy_receipt(
                 ),
                 source_opened=False,
         )
-        if bootstrap.source_scope_anchors or selected_index or context_read_enabled or _governed_build_turn(request):
+        if plan_jev_request is not None or bootstrap.source_scope_anchors or selected_index or context_read_enabled or _governed_build_turn(request):
             scope_class = graph_types.GraphSelectedSourceReadScopeV2 if selected_index else graph_types.GraphSourceReadScopeV2
             scope = scope_class(
                 retrieval_session_id=bootstrap.retrieval_session.id,
@@ -1219,7 +1231,7 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.BuildImageActionPolicyV1
+            policy_class = (graph_types.PlanJevRetrievalPolicyV1 if plan_jev_request is not None else graph_types.BuildImageActionPolicyV1
                 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildEncodedAssessmentPolicyV1
                 if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
@@ -1253,6 +1265,7 @@ def _freeze_policy_receipt(
                 graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
             policy = policy_class(
+                **({"driver_schema": "dmb_plan_jev_retrieval_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
@@ -1395,6 +1408,8 @@ class AgentPlanWorldGraphBootstrap:
     source_index_commitment: Mapping[str, Any] | None = None
     assembler_version: str = "agent_harness_final_request_v1"
     build_source_discovery: Mapping[str, Any] | None = None
+    navigation_candidates: tuple[tuple[str, str], ...] = ()
+    completed_discovery_query: str | None = None
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]
@@ -1779,8 +1794,10 @@ class _PolicyExecutionAdapter:
     def _ensure_claimed(
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
+        plan_jev_request = getattr(self, "_active_plan_jev_request", None)
         _verify_policy_plan_payload(
             view, self.request, self.work, self.playable_target, self.bootstrap,
+            plan_jev_request=plan_jev_request,
             build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
             build_writer_projection=getattr(self, "_active_build_writer_projection", None),
             build_writer_context_budget=self._frozen_build_writer_budget(),
@@ -1806,12 +1823,14 @@ class _PolicyExecutionAdapter:
                     raise ValueError("Continuation differs from the frozen receipt and acknowledged attempt")
                 # A historical commitment is not an exposure of those initial records.
                 return self.fence.turn, [], [], []
-        initial = _initial_claim_packet_from_view(
-            type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
-            self.bootstrap,
-            frozen_projection=self.initial_session_projection,
-        )
-        membership = _initial_packet_membership(initial, self.bootstrap)
+        if plan_jev_request is not None and self.fence is not None:
+            return self.fence.turn, [], [], []
+        initial = (_expected_initial_claim_packet(self.bootstrap) if plan_jev_request is not None else
+            _initial_claim_packet_from_view(
+                type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
+                self.bootstrap, frozen_projection=self.initial_session_projection))
+        membership = (([], [], []) if plan_jev_request is not None else
+            _initial_packet_membership(initial, self.bootstrap))
         if self.fence is not None:
             receipt = self.fence.turn.graph_context_receipt
             if receipt is None:
@@ -1834,6 +1853,7 @@ class _PolicyExecutionAdapter:
                 build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
                 included_history=getattr(self, "build_history_for_inclusion", ()),
                 build_jev_accounting=getattr(self, "_build_jev_accounting", None),
+                plan_jev_request=plan_jev_request,
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -1939,7 +1959,7 @@ class _PolicyExecutionAdapter:
             self.trace.bind_durable_turn(claim.turn)
         self.fence = _ClaimFence(self.service, claim.turn)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
-        if (self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+        if (plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
             self.context_capture = ContextTraceCollector(self.fence)
             if self.context_compaction_report is not None:
@@ -1954,7 +1974,8 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
-        if self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None:
+        if (self.failure is not None or getattr(self, "_build_native_acquisition_services", None) is not None
+                or getattr(self, "_plan_graph_read_services", None) is not None):
             return False
         if (self.budget.get("apiMode") == "typesafe_decision"
                 and getattr(self, "_prepared_build_authorizing", None) is not view):
@@ -2693,6 +2714,12 @@ class _PolicyExecutionAdapter:
             return False
 
     @contextmanager
+    def plan_graph_acquisition(self, nodes):
+        from .plan_jev_acquisition import graph_acquisition
+        with graph_acquisition(self, nodes):
+            yield
+
+    @contextmanager
     def source_read_acquisition(self, anchor_ids):
         """Share exact native metadata across authorized body batches, never inference."""
         if len(anchor_ids) <= 8 or getattr(self, "_build_native_acquisition_services", None) is not None:
@@ -2908,6 +2935,23 @@ class _PolicyExecutionAdapter:
                     _safe_graph_request_validation_message(exc),
                     arguments=arguments,
                 )
+            if isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1):
+                from application_state.agent_conversation.plan_jev_decision import current_selection
+                try:
+                    selection = current_selection(self.fence.turn)
+                    if request.operation == "object":
+                        if (selection.operation != "select_candidates" or len(request.targets) != 1
+                                or f"node:{request.targets[0].id}" not in selection.selected_handles
+                                or request.observation_ids or request.query_text is not None):
+                            raise ValueError("Plan object was not selected by its current decision")
+                    elif request.operation == "search":
+                        if (selection.operation != "discover_more" or request.targets
+                                or request.observation_ids or request.query_text != self.request.message):
+                            raise ValueError("Plan discovery differs from its selected full question")
+                    else:
+                        raise ValueError("Plan decision does not authorize this Graph operation")
+                except ValueError:
+                    return denied("plan_jev_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
             if request.retrieval_session_id != session.id or (
                 request.historical_revision_id is not None
@@ -2932,6 +2976,12 @@ class _PolicyExecutionAdapter:
             services = getattr(self, "_build_native_acquisition_services", None)
             if services is not None and request.operation != "observations":
                 return denied("native_acquisition_operation_mismatch", 409)
+            plan_services = getattr(self, "_plan_graph_read_services", None)
+            if plan_services is not None:
+                if (services is not None or request.operation != "object"
+                        or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
+                    return denied("native_acquisition_operation_mismatch", 409)
+                services = plan_services.resolve()
             if services is None:
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
@@ -3068,7 +3118,11 @@ class _PolicyExecutionAdapter:
             truncated = result.outcome == "truncated" or bool(
                 result.coverage.truncated_fields
             ) or bool(reviewed is not None and (reviewed.observation_gap_codes or reviewed.observation_missing_ids))
-            if sufficient and not truncated:
+            # Plan Jev's fixed acquisition contract cannot open related recap
+            # routes, and its writer never receives them. Do not derive an
+            # unused context index or re-read target evidence for this owner.
+            if (sufficient and not truncated
+                    and not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                 offers = self._related_recap_offers(result, services)
                 if offers:
                     result_payload["relatedRecapContexts"] = offers
@@ -5309,7 +5363,7 @@ def _evidence_anchor_open_projection(
         (
             event for event in execution.events
             if getattr(event, "kind", None) in {
-                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3",
+                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "plan_jev_writer_authorized_v1",
             }
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id
@@ -6732,15 +6786,19 @@ def execute_agent_turn(
     try:
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
+            from .plan_jev_harness import PlanJevHarness, default_plan_jev_runtime
             from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
             # Saved Build and Rules remain usable before source ingestion. The
             # current driver validates discovery status; never silently switch to
             # a different runtime without its Rules capability.
             default_build_jev = _governed_build_turn(request) and policy_bootstrap is not None
+            default_plan_jev = (request.surface.surface_id == "plan"
+                and request.plan_context_policy is not None and policy_bootstrap is not None)
             selected_runtime = runtime or (
                 runtime_factory() if runtime_factory is not None else None
             ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()
-                if default_build_jev else default_hermes_agent_runtime())
+                if default_build_jev else default_plan_jev_runtime()
+                if default_plan_jev else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)
@@ -6792,7 +6850,7 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, BuildJevHarness)
+        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
@@ -6824,6 +6882,25 @@ def execute_agent_turn(
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
+        if isinstance(selected_runtime, PlanJevHarness):
+            # Jev has no Hermes session memory. Read the canonical conversation
+            # once, then share the same reference-only snapshot with every
+            # decision and the writer. Client thread IDs never select history.
+            history = []
+            if policy_conversation_id is not None or durable_turn is not None:
+                conversation_id = (durable_turn.conversation_id if durable_turn is not None
+                    else policy_conversation_id)
+                previous_turns = conversation_service.list_turns(
+                    canonical_world_id, conversation_id,
+                    **({"before_sequence": durable_turn.sequence} if durable_turn is not None else {}),
+                )
+                for previous in previous_turns:
+                    envelope = previous.envelope if isinstance(previous, MixedCompletedTurnV1) else previous
+                    if envelope.status == "completed" and previous.assistant_text:
+                        history.extend([{"role": "user", "content": envelope.user_text},
+                            {"role": "assistant", "content": previous.assistant_text}])
+            return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace,
+                dialogue=history)
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(

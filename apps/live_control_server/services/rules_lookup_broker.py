@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation.rules_authority_events import (
     RulesExecutionV1, RulesQueryObservedV1, RulesToolAuthorizedV1,
-    RulesBuildToolAuthorizedV1, build_rules_operation_id,
+    RulesBuildToolAuthorizedV1, RulesPlanJevToolAuthorizedV1, build_rules_operation_id,
     normalized_question, query_identity, ref_map,
 )
 from application_state.agent_conversation.rules_authority_packet import (
@@ -117,9 +117,23 @@ def prepare_lookup(execution: RulesExecutionV1, call_id: str,
                    arguments: LookupRulesArguments, *,
                    current_context_refs: tuple[RulesSupportRefV1, ...] = ()) -> RulesLookupPreparedV1:
     """Read/reuse under a prior durable authorization; caller seals before delivery."""
-    _check_scope(execution)
     arguments = LookupRulesArguments.model_validate(arguments)
-    question = normalized_question(arguments.question)
+    return _prepare_authorized_lookup(execution, call_id, arguments.question, current_context_refs)
+
+
+def prepare_plan_lookup(execution: RulesExecutionV1, call_id: str, question: str, *,
+                        current_context_refs: tuple[RulesSupportRefV1, ...] = ()) -> RulesLookupPreparedV1:
+    """Read an exact host-selected Plan question, without fake native tool args."""
+    if not any(isinstance(e, RulesPlanJevToolAuthorizedV1) and e.call_id == call_id for e in execution.events):
+        raise ValueError("Direct Plan Rules read lacks its typed decision operation")
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("Direct Plan Rules read requires the complete nonblank question")
+    return _prepare_authorized_lookup(execution, call_id, question, current_context_refs, plan_reader=True)
+
+
+def _prepare_authorized_lookup(execution, call_id, raw_question, current_context_refs, *, plan_reader=False):
+    _check_scope(execution)
+    question = normalized_question(raw_question)
     auths = [e for e in execution.events if isinstance(e, RulesToolAuthorizedV1) and e.call_id == call_id]
     if (len(auths) != 1 or auths[0].normalized_question != question
             or any(isinstance(e, RulesQueryObservedV1) and e.call_id == call_id for e in execution.events)):
@@ -138,7 +152,8 @@ def prepare_lookup(execution: RulesExecutionV1, call_id: str,
         supports = tuple(execution.supports[ref.support_id].support for ref in cached.support_refs)
     else:
         try:
-            packet = reader.query_rules(execution.scope.corpus_sha256, arguments.question, 4)
+            packet = (reader.query_plan_rules(execution.scope.corpus_sha256, raw_question) if plan_reader
+                else reader.query_rules(execution.scope.corpus_sha256, raw_question, 4))
             bundle = reader.admitted_bundle(execution.scope.corpus_sha256)
             if (packet.get("corpus") != execution.scope.corpus_sha256
                     or packet.get("ruleset_id") != execution.scope.ruleset_id

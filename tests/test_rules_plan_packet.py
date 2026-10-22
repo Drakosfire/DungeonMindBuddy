@@ -44,7 +44,10 @@ def test_real_rules_capsule_is_exposed_without_tool_call_and_without_source_rere
     from apps.live_control_server.services import rules_lookup
     monkeypatch.setattr(rules_lookup, "query_rules", lambda *a, **kw: pytest.fail("source re-read"))
     frame = build_plan_rules_frame(owner, (result.observation.call_id,))
-    assert frame.packets[0].support_capsules == packet(result).support_capsules
+    assert len(frame.supports) == len(packet(result).support_capsules)
+    for support, capsule in zip(frame.supports, sorted(packet(result).support_capsules, key=lambda x: str(x.support_id))):
+        assert support.model_dump() == {name: getattr(capsule, name) for name in type(support).model_fields}
+    assert len(canonical_bytes(frame)) < len(canonical_bytes(packet(result)))
     proof = verify(turn, owner, body)
     assert proof.plan_context_receipt_sha256 == turn.graph_context_receipt.context_receipt_sha256
     assert proof.rules_execution_id == owner.scope.execution_id
@@ -52,21 +55,34 @@ def test_real_rules_capsule_is_exposed_without_tool_call_and_without_source_rere
     assert proof.matched_outputs[0].packet_sha256 == result.observation.packet_sha256
     # Host identities stay out of model context; the verifier joins them separately.
     text = body["input"][0]["content"]
-    for value in (str(turn.turn_id), str(turn.conversation_id), proof.plan_context_receipt_sha256):
+    for value in (str(turn.turn_id), str(turn.conversation_id), proof.plan_context_receipt_sha256,
+                  packet(result).call_id, packet(result).query_id, packet(result).normalized_question,
+                  packet(result).corpus_sha256, result.observation.packet_sha256):
         assert value not in text
+    for capsule in packet(result).support_capsules:
+        for digest in (capsule.corpus_sha256, capsule.full_text_sha256, capsule.excerpt_sha256,
+                       capsule.source_sha256, capsule.page_fingerprint):
+            if digest is not None:
+                assert digest not in text
+    assert not {"excerpt_start", "excerpt_end", "unit_id", "pdf_page_index"} & set(json.loads(text)["supports"][0])
 
 
-@pytest.mark.parametrize("mutation", ["excerpt", "corpus", "call", "query", "extra", "withheld_capsule"])
+@pytest.mark.parametrize("mutation", ["excerpt", "corpus", "lookup", "support", "title", "section", "uri", "ruleset", "extra", "withheld", "duplicate", "legacy"])
 def test_changed_or_unsealed_packet_refuses(mutation):
     turn, owner, result, body = case()
-    frame = json.loads(body["input"][0]["content"]); p = frame["packets"][0]
-    if mutation == "excerpt": p["support_capsules"][0]["excerpt_text"] += " invented"
-    elif mutation == "corpus": p["corpus_sha256"] = "0" * 64
-    elif mutation == "call": p["call_id"] = "unread"
-    elif mutation == "query": p["query_id"] = "0" * 64
+    frame = json.loads(body["input"][0]["content"])
+    if mutation == "excerpt": frame["supports"][0]["excerpt_text"] += " invented"
+    elif mutation == "corpus": frame["corpus_sha256"] = "0" * 64
+    elif mutation == "lookup": frame["lookups"][0]["lookup"] = 999
+    elif mutation == "support": frame["supports"][0]["support_id"] = str(uuid4())
+    elif mutation == "title": frame["supports"][0]["source_title"] = "Other book"
+    elif mutation == "section": frame["supports"][0]["section"] = "Other section"
+    elif mutation == "uri": frame["supports"][0]["source_uri"] = "https://other.example/rules"
+    elif mutation == "ruleset": frame["ruleset"] = "other_edition"
     elif mutation == "extra": frame["citation_authority"] = True
-    else:
-        p["support_capsules"] = []; p["previous_support_ids"] = p["emitted_support_ids"]; p["emitted_support_ids"] = []
+    elif mutation == "withheld": frame["supports"] = []
+    elif mutation == "duplicate": frame["supports"].append(deepcopy(frame["supports"][0]))
+    else: frame = {"schema": "dmb_plan_rules_packet_frame_v1", "packets": [packet(result).model_dump(mode="json", by_alias=True)]}
     body["input"][0]["content"] = json.dumps(frame)
     with pytest.raises(ValueError): verify(turn, owner, body)
 
@@ -91,7 +107,7 @@ def test_not_a_tool_free_unique_actual_input_refuses(mutation):
     elif mutation == "call_transcript": body["input"].insert(0, {"type": "function_call", "name": "lookup_rules", "call_id": "fake"})
     elif mutation == "duplicate_frame": body["input"].append(deepcopy(body["input"][0]))
     elif mutation == "duplicate_call":
-        frame = json.loads(body["input"][0]["content"]); frame["packets"].append(deepcopy(frame["packets"][0])); body["input"][0]["content"] = json.dumps(frame)
+        frame = json.loads(body["input"][0]["content"]); frame["lookups"].append(deepcopy(frame["lookups"][0])); body["input"][0]["content"] = json.dumps(frame)
     elif mutation == "assistant_only": body["input"][0]["role"] = "assistant"
     else: body["input"][0]["content"] = "No Rules material supplied."
     with pytest.raises(ValueError): verify(turn, owner, body)
@@ -115,6 +131,8 @@ def test_cached_handle_alone_grants_no_capsule_exposure():
     frame = build_plan_rules_frame(owner, (first.observation.call_id, cached.observation.call_id))
     body["input"][0]["content"] = canonical_bytes(frame).decode()
     assert verify(turn, owner, body).support_refs == first.observation.support_refs
+    assert len(frame.supports) == len(packet(first).support_capsules)
+    assert [item.lookup for item in frame.lookups] == [0, 1]
 
 
 @pytest.mark.parametrize("mutation", ["authorization", "policy", "rules_only_policy", "submission", "idempotency", "missing_submission"])

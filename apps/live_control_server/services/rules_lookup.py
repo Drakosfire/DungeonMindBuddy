@@ -117,6 +117,22 @@ def _identity(corpus: str, bundle: RulesBundle, unit: RulesUnit) -> dict:
 def query_rules(corpus: str, question: str, limit: int = 4) -> dict:
     if not isinstance(question, str) or not 1 <= len(question) <= 800 or not question.strip() or not 1 <= limit <= 8:
         raise ValueError("Invalid rules query")
+    return _query_rules(corpus, question, limit)
+
+
+def query_plan_rules(corpus: str, question: str) -> dict:
+    """Internal Plan decision reader, called only after typed APP authorization.
+
+    This is not exposed by the HTTP route or native tool. Their existing input
+    contracts remain at query_rules/LookupRulesArguments. Exact Plan question
+    identity, ledger and packet storage are checked by the authorizing broker.
+    """
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("Invalid Plan Rules query")
+    return _query_rules(corpus, question, 4)
+
+
+def _query_rules(corpus: str, question: str, limit: int) -> dict:
     bundle = admitted_bundle(corpus)
     normalized = normalize_query(question)
     terms = _terms(normalized)

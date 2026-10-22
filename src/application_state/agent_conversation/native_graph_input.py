@@ -141,6 +141,10 @@ def producing_graph_closures(turn, authorization, proof):
     packets = proof.graph_packets
     if len(packets) > 64 or sum(len(raw.encode()) for raw in packets.values()) > MAX_PACKET_PROOF_BYTES:
         raise ValueError("Native Graph packet proof exceeds its bound")
+    from .types import PlanJevWriterAuthorizedV1
+    if isinstance(authorization, PlanJevWriterAuthorizedV1):
+        from .plan_jev_graph_packet import producing_closures
+        return producing_closures(turn, authorization, proof)
     events = {event.event_id: event for event in turn.graph_context_execution.events
               if isinstance(event, ValidatedGraphOperationEventV1)}
     included = set(authorization.included_graph_event_ids)

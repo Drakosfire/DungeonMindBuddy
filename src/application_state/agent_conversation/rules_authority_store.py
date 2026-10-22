@@ -27,7 +27,7 @@ from .rules_authority_events import (
     RulesProviderOutcomeV1,
     RulesPlanPacketProviderAuthorizedV1, RulesPlanPacketProviderIncludedV1,
     RulesQueryObservedV1,
-    RulesToolAuthorizedV1,
+    RulesToolAuthorizedV1, RulesPlanJevToolAuthorizedV1,
     empty_execution,
 )
 from .rules_authority_packet import append_observed_output
@@ -206,12 +206,13 @@ def require_open_plan_jev_acquisition_locked(conn, scope):
     turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
     execution = getattr(turn, "graph_context_execution", None)
     if execution is None or not isinstance(execution.policy, PlanJevRetrievalPolicyV1):
-        return
+        return turn
     selections = [event for event in execution.events if isinstance(event, PlanJevRetrievalSelectionV1)]
     providers = [event for event in execution.events if isinstance(event, ProviderAttemptAuthorizedEventV1)]
     if (not selections or not providers or selections[-1].operation == "finish_retrieval"
             or selections[-1].controller_attempt_id != providers[-1].provider_attempt_id):
         raise ApplicationStateValidationError("Rules read requires an open Plan Jev acquisition phase")
+    return turn
 
 
 def append_lookup_event_locked(
@@ -223,6 +224,7 @@ def append_lookup_event_locked(
     event: RulesToolAuthorizedV1 | RulesQueryObservedV1,
     raw_output: str | None = None,
     new_supports: tuple[RulesSupportV1, ...] = (),
+    plan_jev_parent_request_json: str | None = None,
 ) -> tuple[RulesLedgerRecordV1, bool]:
     """Append only lookup events; provider exposure requires its own raw proof seam."""
     _lock_current_claim(conn, scope, expected_turn_revision)
@@ -259,11 +261,17 @@ def append_lookup_event_locked(
                         "Rules event identity was reused with different content"
                     )
                 return current, False
-            require_open_plan_jev_acquisition_locked(conn, scope)
+            turn = require_open_plan_jev_acquisition_locked(conn, scope)
+            from .types import PlanJevRetrievalPolicyV1
+            if isinstance(event, RulesPlanJevToolAuthorizedV1):
+                from .plan_jev_rules_lookup import verify_authorization
+                verify_authorization(current.execution, turn, event, plan_jev_parent_request_json)
+            elif turn.graph_context_execution is not None and isinstance(turn.graph_context_execution.policy, PlanJevRetrievalPolicyV1):
+                raise ValueError("Plan Jev Rules lookup requires its actual selected decision proof")
             data = current.execution.model_dump(mode="json", by_alias=True)
             data["events"].append(event.model_dump(mode="json", by_alias=True))
             calls = [
-                item for item in data["events"] if item["kind"] in {"tool_authorized", "build_tool_authorized"}
+                item for item in data["events"] if item["kind"] in {"tool_authorized", "build_tool_authorized", "plan_jev_tool_authorized"}
             ]
             data["budget_use"]["calls"] = len(calls)
             data["budget_use"]["distinct_questions"] = len(
@@ -341,7 +349,7 @@ def append_provider_event_locked(
                 # current owner before accepting the new Plan-only carrier.
                 from . import repository
                 plan_turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
-                from .types import ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1
+                from .types import ProviderAttemptAuthorizedEventV3, ProviderOutcomeEventV1, PlanJevWriterAuthorizedV1
                 graph_execution = getattr(plan_turn, "graph_context_execution", None)
                 attempts = [item for item in getattr(graph_execution, "events", ())
                             if isinstance(item, ProviderAttemptAuthorizedEventV3)]
@@ -349,7 +357,9 @@ def append_provider_event_locked(
                 body = json.loads(prepared_request_json)
                 if (not isinstance(body, dict) or graph_auth is None or graph_auth.provider_attempt_id != event.provider_attempt_id
                         or graph_auth.envelope_sha256 != event.request_envelope_sha256
-                        or graph_auth.api_mode != "codex_responses" or body.get("model") != graph_auth.model):
+                        or (graph_auth.api_mode != "codex_responses" and not (
+                            isinstance(graph_auth, PlanJevWriterAuthorizedV1) and graph_auth.api_mode == "responses"))
+                        or body.get("model") != graph_auth.model):
                     raise ValueError("Plan packet provider lacks its actual current Graph authorization")
                 if prior is None and any(isinstance(item, ProviderOutcomeEventV1)
                         and item.provider_attempt_id == graph_auth.provider_attempt_id

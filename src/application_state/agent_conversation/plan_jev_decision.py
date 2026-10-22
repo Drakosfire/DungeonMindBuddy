@@ -119,7 +119,7 @@ def validate_decision_phases(execution):
     from . import types as t
     active = isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)
     if not active:
-        if any(isinstance(e, (t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1)) for e in execution.events):
+        if any(isinstance(e, (t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1, t.PlanJevWriterAuthorizedV1)) for e in execution.events):
             raise ValueError("Plan Jev events require their frozen Plan policy")
         return
     auth = None
@@ -141,7 +141,7 @@ def validate_decision_phases(execution):
                 request_ids.add(event.decision_request_id)
                 auth, outcome, selected = event, None, None
             else:
-                if selected is None or selected.operation != "finish_retrieval":
+                if selected is None or selected.operation != "finish_retrieval" or not isinstance(event, t.PlanJevWriterAuthorizedV1):
                     raise ValueError("Plan writer requires an explicit completed retrieval finish")
                 writer = event.provider_attempt_id
         elif isinstance(event, t.ProviderOutcomeEventV1) and auth is not None and event.provider_attempt_id == auth.provider_attempt_id:
@@ -173,3 +173,20 @@ def validate_decision_phases(execution):
                 pending_sources.add(("related_recap", event.read_call_id))
             elif isinstance(event, t.ValidatedRelatedRecapContextEventV2):
                 pending_sources.discard(("related_recap", event.read_call_id))
+
+
+def current_selection(turn):
+    """Resolve the current acknowledged controller before any parent acquisition."""
+    from . import types as t
+    _, execution = _owner(turn)
+    providers = [event for event in execution.events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
+    selections = [event for event in execution.events if isinstance(event, t.PlanJevRetrievalSelectionV1)]
+    if (not providers or not selections or not isinstance(providers[-1], t.PlanJevProviderAuthorizedV1)
+            or selections[-1].controller_attempt_id != providers[-1].provider_attempt_id
+            or selections[-1].decision_request_id != providers[-1].decision_request_id):
+        raise ValueError("Plan acquisition decision is no longer current")
+    outcomes = [event for event in execution.events if isinstance(event, t.ProviderOutcomeEventV1)
+                and event.provider_attempt_id == providers[-1].provider_attempt_id]
+    if not outcomes or outcomes[-1].outcome != "response_received":
+        raise ValueError("Plan acquisition controller has no settled response")
+    return selections[-1]

@@ -127,11 +127,16 @@ def verify_native_reply(
         or getattr(capture, "finish_reason", None) != "stop"
         or getattr(capture, "tool_calls", ())
         or getattr(capture, "api_mode", None)
-        not in {"chat_completions", "codex_responses"}
+        not in {"chat_completions", "codex_responses", "responses"}
     ):
         raise ValueError(
             "Native Rules output is not a complete final assistant message"
         )
+    if getattr(capture, "api_mode", None) == "responses":
+        from .types import PlanJevWriterAuthorizedV1
+        if graph_execution is None or not any(isinstance(event, PlanJevWriterAuthorizedV1)
+                and event.provider_attempt_id == proof.producing_provider_attempt_id for event in graph_execution.events):
+            raise ValueError("Direct Responses capture requires its exact Plan Jev writer")
     raw = proof.raw_output_json
     try:
         request_bytes = proof.prepared_request_json.encode("utf-8")

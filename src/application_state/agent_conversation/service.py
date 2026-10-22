@@ -901,6 +901,18 @@ class AgentConversationService:
                 expected_ledger_revision=expected_ledger_revision, event=event)
         return record
 
+    def authorize_plan_jev_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+            expected_ledger_revision: int, event, parent_request_json: str) -> RulesLedgerRecordV1:
+        from .rules_authority_events import RulesPlanJevToolAuthorizedV1
+        from .rules_authority_store import append_lookup_event_locked
+        if not isinstance(event, RulesPlanJevToolAuthorizedV1):
+            raise ApplicationStateValidationError("Plan Jev Rules lookup requires its typed decision operation")
+        with unit_of_work(_ready_dsn()) as conn:
+            record, _ = append_lookup_event_locked(conn, scope,
+                expected_turn_revision=expected_turn_revision, expected_ledger_revision=expected_ledger_revision,
+                event=event, plan_jev_parent_request_json=parent_request_json)
+        return record
+
     def execute_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
                              call_id: str, local_reader: RulesLocalReader) -> RulesLookupDeliveryV1:
         """Serialize/reload/read/seal; return source bytes only after commit.
@@ -1224,6 +1236,7 @@ class AgentConversationService:
         native_play_prepared_request_json: str | None = None,
         plan_jev_input_proof: dict | None = None,
         plan_jev_selection_proof: dict | None = None,
+        plan_jev_writer_proof: dict | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1241,6 +1254,22 @@ class AgentConversationService:
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
             from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
+            from .types import PlanJevWriterAuthorizedV1
+            if isinstance(event, PlanJevWriterAuthorizedV1):
+                from .plan_jev_graph_packet import verify_writer_input
+                try:
+                    if not isinstance(plan_jev_writer_proof, dict) or set(plan_jev_writer_proof) != {"prepared_request_json", "evidence"}:
+                        raise ValueError("Plan writer requires its actual prepared-input proof")
+                    captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt)).fetchone()
+                    verify_writer_input(turn, event, plan_jev_writer_proof["prepared_request_json"],
+                        plan_jev_writer_proof["evidence"], captured[0] if captured else None)
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif (isinstance(execution.policy, PlanJevRetrievalPolicyV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()):
+                raise ApplicationStateValidationError("Plan Jev writer requires its exact evidence projection admission")
             if isinstance(event, PlanJevProviderAuthorizedV1):
                 from .plan_jev_decision import verify_input
                 try:
@@ -1482,6 +1511,15 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
         )
+
+    def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, producer_proof):
+        from .types import PlanJevWriterAuthorizedV1
+        if not isinstance(authorization, PlanJevWriterAuthorizedV1):
+            raise ApplicationStateValidationError("Typed Plan Jev writer authorization required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="provider_attempt_id", plan_jev_writer_proof=producer_proof)
 
     def authorize_plan_jev_provider(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, producer_proof):

@@ -1229,6 +1229,7 @@ def _plan_context_resolver(
         session, reusable_source_session=source_session_id is not None,
     )
     bootstrap = AgentPlanWorldGraphBootstrap(
+        completed_discovery_query=body.message if not valid_seeds else None,
         build_source_discovery=build_discovery,
         graph_envelope={
             "world_id": native_world_id,
