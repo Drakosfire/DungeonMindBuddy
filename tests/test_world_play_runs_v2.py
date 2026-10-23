@@ -19,8 +19,8 @@ from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV
 from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.services.world_container_registry import create_world_container
 from tests.application_state.play_runtime_helpers import (
-    SOURCE_MARKDOWN,
-    SURVIVING_TARGET_MARKDOWN,
+    V2_SOURCE_MARKDOWN as SOURCE_MARKDOWN,
+    V2_SURVIVING_TARGET_MARKDOWN as SURVIVING_TARGET_MARKDOWN,
     corrupt_play_run_manifest_document,
     fetch_play_runtime_state,
     gate_progress,
@@ -32,6 +32,18 @@ WORLD_RUN_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
 WORLD_RUN_ID_2 = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 
 
+@pytest.fixture(autouse=True)
+def current_session_admission(monkeypatch):
+    # These tests own APP/HTTP identity; managed World admission has separate tests.
+    monkeypatch.setattr('apps.live_control_server.routes.play_runs._verified_world', lambda world_id: world_id)
+
+
+def gm_client(app):
+    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal, NativeGraphPrincipal
+    app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal('test-gm', 'gm', 'local_session')
+    return TestClient(app)
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     from apps.live_control_server.main import create_app
@@ -40,7 +52,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "apps.live_control_server.routes.play_runs.repo_root",
         lambda: tmp_path,
     )
-    return TestClient(create_app())
+    return gm_client(create_app())
 
 
 @pytest.fixture
@@ -53,7 +65,7 @@ def world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "apps.live_control_server.routes.live",
     ):
         monkeypatch.setattr(f"{module}.repo_root", lambda: tmp_path)
-    return TestClient(create_app())
+    return gm_client(create_app())
 
 
 @pytest.fixture
@@ -73,7 +85,7 @@ def split_root_world_client(
         "apps.live_control_server.routes.live",
     ):
         monkeypatch.setattr(f"{module}.repo_root", lambda: code_root)
-    return TestClient(create_app()), code_root, managed_root
+    return gm_client(create_app()), code_root, managed_root
 
 
 @pytest.fixture
@@ -84,7 +96,7 @@ def play_runs_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestCli
     )
     app = FastAPI()
     app.include_router(play_runs_router)
-    return TestClient(app)
+    return gm_client(app)
 
 
 def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
@@ -98,11 +110,10 @@ def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
 
 
 def _create_body(work_object, revision) -> dict[str, object]:
-    return {
-        "playable_artifact_id": str(work_object.work_object_id),
-        "expected_playable_revision": revision.revision_n,
-        "expected_playable_content_sha256": revision.content_sha256,
-    }
+    from tests.application_state.session_encounter_helpers import session_request
+    return session_request(world_id=work_object.world_id, playable_artifact_id=work_object.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256).model_dump(mode='json')
 
 
 def test_world_plan_http_run_reopens_exact_pin_after_save_and_discard(
@@ -121,7 +132,7 @@ def test_world_plan_http_run_reopens_exact_pin_after_save_and_discard(
         path, params={"world_id": world_id}, json=_create_body(plan, pinned_revision)
     )
     assert created.status_code == 200, created.text
-    pinned_run = created.json()
+    pinned_run = created.json()["run"]
     assert pinned_run["playable_work_revision_id"] == str(
         pinned_revision.work_revision_id
     )
@@ -152,7 +163,7 @@ def test_world_plan_http_run_reopens_exact_pin_after_save_and_discard(
         path, params={"world_id": world_id}, json=_create_body(plan, pinned_revision)
     )
     assert replayed.status_code == 200, replayed.text
-    assert replayed.json() == pinned_run
+    assert replayed.json()["run"] == pinned_run
 
 
 def test_world_v2_create_and_get_return_initial_opening_beat(
@@ -183,7 +194,7 @@ def test_world_v2_create_and_get_return_initial_opening_beat(
         json=_create_body(plan, revision),
     )
     assert created.status_code == 200, created.text
-    record = created.json()
+    record = created.json()["run"]
     assert record["run_revision"] == 1
     assert record["progress"] == {
         "current_scene_id": None,
@@ -495,6 +506,7 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
 ) -> None:
     from application_state.content.service import commit_runbook, create_runbook
     from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
+    from apps.live_control_server.services.play_run_edition_structure import structure_signature
 
     world_a = create_world_container(tmp_path, name="Play Context Owner A")
     world_b = create_world_container(tmp_path, name="Play Context Owner B")
@@ -548,14 +560,19 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
         f"/api/live/world-play-runs/v2/{world_run_id}",
         params={"world_id": world_a.world_id},
         json={
+            "schema_version": "dmb_world_session_create_v1",
             "playable_artifact_id": document_id,
             "expected_playable_revision": pinned["revision_n"],
+            "expected_playable_work_revision_id": pinned["work_revision_id"],
             "expected_playable_content_sha256": pinned["content_sha256"],
+            "entry_scene_id": "scene:gate-line",
+            "encounters": [{"scene_id": item["scene_id"], "template": None} for item in
+                structure_signature(C2S27_SHAPED_V2_MARKDOWN)['membership']['scenes']],
         },
     )
     assert world_run.status_code == 200, world_run.text
     manifest_path = f"/api/live/world-play-runs/v2/{world_run_id}/reference-manifest"
-    seal = world_client.put(manifest_path, params={"world_id": world_a.world_id})
+    seal = world_client.get(manifest_path, params={"world_id": world_a.world_id})
     assert seal.status_code == 200, seal.text
     progress = world_client.put(
         f"/api/live/world-play-runs/v2/{world_run_id}/progress",
@@ -623,7 +640,7 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
 
     stale = query(
         outer_world_id=world_a.world_id,
-        context={**valid_context, "run_revision": current_run_revision - 1},
+        context={**valid_context, "run_revision": current_run_revision + 1},
     )
     assert stale.status_code == 409, stale.text
     assert len(captured) == 1
@@ -708,7 +725,7 @@ def test_world_v2_create_replay_progress_manifest_and_campaign_v1_fence(
 
     created_response = client.put(path, params={"world_id": "demo-world-a"}, json=body)
     assert created_response.status_code == 200, created_response.text
-    created = created_response.json()
+    created = created_response.json()["run"]
     assert created["schema_version"] == "dmb_world_play_run_record_v2"
     assert created["run_id"] == WORLD_RUN_ID
     assert created["world_id"] == "demo-world-a"
@@ -720,7 +737,7 @@ def test_world_v2_create_replay_progress_manifest_and_campaign_v1_fence(
 
     replayed = client.put(path, params={"world_id": "demo-world-a"}, json=body)
     assert replayed.status_code == 200, replayed.text
-    assert replayed.json() == created
+    assert replayed.json()["run"] == created
     loaded = client.get(path, params={"world_id": "demo-world-a"})
     assert loaded.status_code == 200
     assert loaded.json() == created
@@ -744,8 +761,7 @@ def test_world_v2_create_replay_progress_manifest_and_campaign_v1_fence(
     assert manifest.json()["playable_revision"] == _revision.revision_n
     assert client.get(manifest_url, params={"world_id": "demo-world-b"}).status_code == 404
     sealed = client.put(manifest_url, params={"world_id": "demo-world-a"})
-    assert sealed.status_code == 200
-    assert sealed.json() == manifest.json()
+    assert sealed.status_code == 405
 
     progressed = client.put(
         f"{path}/progress",
@@ -913,7 +929,7 @@ def test_world_run_keeps_its_exact_pin_after_source_runbook_is_discarded(
         json=_create_body(work_object, pinned_revision),
     )
     assert created.status_code == 200, created.text
-    created_record = created.json()
+    created_record = created.json()["run"]
     assert created_record["playable_revision"] == pinned_revision.revision_n
     assert created_record["playable_work_revision_id"] == str(
         pinned_revision.work_revision_id
@@ -948,7 +964,7 @@ def test_world_run_keeps_its_exact_pin_after_source_runbook_is_discarded(
         json=_create_body(work_object, pinned_revision),
     )
     assert replay.status_code == 200, replay.text
-    assert replay.json() == created_record
+    assert replay.json()["run"] == created_record
 
     progressed = client.put(
         f"{path}/progress",
@@ -976,8 +992,7 @@ def test_world_run_keeps_its_exact_pin_after_source_runbook_is_discarded(
     assert manifest["playable_revision"] == pinned_revision.revision_n
     assert manifest["playable_content_sha256"] == pinned_revision.content_sha256
     sealed_manifest = client.put(manifest_path, params={"world_id": world_id})
-    assert sealed_manifest.status_code == 200, sealed_manifest.text
-    assert sealed_manifest.json() == manifest
+    assert sealed_manifest.status_code == 405, sealed_manifest.text
 
     rebase_after_discard = client.put(
         f"{path}/rebase",
@@ -1007,11 +1022,11 @@ def test_world_rebase_is_same_owner_newer_only_and_uses_run_revision_cas(
 ) -> None:
     work_object, first_revision = _create_world_runbook("demo-world-a")
     path = f"/api/live/world-play-runs/v2/{WORLD_RUN_ID}"
-    created = client.put(
-        path,
-        params={"world_id": "demo-world-a"},
-        json=_create_body(work_object, first_revision),
-    ).json()
+    from tests.application_state.session_encounter_helpers import historical_world_run
+    historical_world_run(world_id='demo-world-a', run_id=WORLD_RUN_ID,
+        playable_artifact_id=work_object.work_object_id, expected_playable_revision=first_revision.revision_n,
+        expected_playable_content_sha256=first_revision.content_sha256)
+    created = client.get(path, params={"world_id": "demo-world-a"}).json()
     target_work_object, second_revision = commit_runbook(
         str(work_object.work_object_id),
         SURVIVING_TARGET_MARKDOWN,

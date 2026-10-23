@@ -44,7 +44,7 @@ SceneEncounterLauncher.tsx; shared surface/modules/CombatRosterModule.tsx and te
 New owning HTTP/APP/concurrency tests/test_run_scene_encounters.py and
 application_state/test_run_scene_encounters_postgres.py; current World creation
 fixture helper tests/application_state/session_encounter_helpers.py and affected
-existing test_rules_only_parent.py,test_agent_turn_route.py,test_agent_play_surface_context.py,application_state/
+existing test_world_play_runs_v2.py,test_rules_only_parent.py,test_agent_turn_route.py,test_agent_play_surface_context.py,application_state/
 {test_play_active_run_postgres.py,test_play_runtime_world_runs_postgres.py,
 test_native_play_graph_postgres.py,test_play_run_editions_postgres.py,
 test_agent_conversation_postgres.py}, product_continuity/test_inventory_postgres.py.
