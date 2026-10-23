@@ -1,6 +1,15 @@
 # AGENT — request-local authored selections
 
-ACTIVE serial PRIME implementation, base828942beed73a76177771e916426ee54654615f2,
+SHIPPED #1644, merge49ccd53c4d64fd7513090062d182e4cd643f56de.
+Bugbot approved b94d5788add9fbdb6b80923ce4f4f57f5fa7b5f8 in one cycle,115
+independent checks;262 author checks passed. Protected API delivery retained1888
+APP rows, all native rows,85 mechanics files and17 frozen components. Two ordinary
+fresh swamp queries completed in13.4s/14.8s with5/6 exact authored excerpts and
+named source citations. Citation and saved session review54 reopened, including
+after reload. This closes the reproduced selector-copy failure, not the latency
+target or complete image/adventure journeys. fal generation approval remains pending.
+
+Historical implementation authority: base828942beed73a76177771e916426ee54654615f2,
 branch codex/authored-selection-codec, existing buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected API delivery on
 8000/5202. No overlapping open lane in current census. Architecture supplied a

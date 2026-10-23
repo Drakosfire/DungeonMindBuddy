@@ -1502,6 +1502,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         startPlayRequestRef.current !== request
         || !selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
       ) return;
+      // The authoring writer collapses trailing LF before the content owner
+      // normalizes CRLF/CR. Keep the editor's bytes/undo intact while comparing
+      // against that exact directional transformation, never arbitrary trimming.
+      const savedAuthoringMarkdown = (serverMarkdownRef.current.replace(/\n+$/, "") + "\n")
+        .replace(/\r\n?/g, "\n");
       if (
         committed.schema_version !== "dmb_workspace_committed_revision_v2"
         || committed.scope_mode !== "world"
@@ -1513,7 +1518,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         || committed.has_divergent_working_copy
         || committed.object_revision !== selectedBasis.revision
         || committed.content_sha256 !== selectedBasis.contentSha256
-        || committed.markdown !== serverMarkdownRef.current
+        || (committed.markdown !== serverMarkdownRef.current && committed.markdown !== savedAuthoringMarkdown)
         || revisionRef.current !== selectedBasis.revision
         || serverDigestRef.current !== selectedBasis.contentSha256
         || !isCanonicalUuid(committed.work_revision_id)

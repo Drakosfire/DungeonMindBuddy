@@ -1,8 +1,9 @@
 # Buddy roadmap — author, plan, play, remember
 
-**Status:** current product execution ledger; reconciled2026-10-22.
-**Evidence anchor:** remote main/live Buddy `5cdc29f77e87f16d03735a5d286944e96a65768e`
-(#1623), API8000/UI5202, APP0051/native0017, Core617635c.
+**Status:** current product execution ledger; reconciled2026-10-23.
+**Evidence anchor:** remote main/API `49ccd53c4d64fd7513090062d182e4cd643f56de`
+(#1644), UI `e95a363a5a3d236215f2b676783e388b4000e497`, ports8000/5202,
+APP0057/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -26,9 +27,9 @@ this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 | Goal area | Delivered or directly witnessed | Still open |
 |---|---|---|
 | Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
-| Evidence efficiency and exact excerpts | #1615 retained-source reuse: Plan4.590s/Play13.191s, each one reuse/zero fresh reads; #1617 host-materialized authored blocks with current-submission policy fencing | #1617 original-query/notes/reflections rendered acceptance and post-answer protected restart; five reused passages in the preceding9.042s failed answer are not successful latency evidence |
+| Evidence efficiency and exact excerpts | Retained-source reuse; #1640–#1643 exact native source navigation and acquisition progress; #1644 request-local authored selectors with canonical saved excerpts. Two original swamp queries completed in13.4s/14.8s; named sources and exact session review reopened after reload | Repeated roughly10-second quality/latency acceptance, remaining unavailable reads and complete image journey |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
-| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Exact Run capture/materialization and the complete operator-selected journey |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witness passed once. Sheep successor/adoption passed; save→Start canonical-byte refusal is the current bounded correction. Full repeated journey remains open |
 | Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
 | Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
@@ -134,9 +135,15 @@ after reload. It still selected18 sections. [Retrieval progress](../Plans/HANDOF
 shipped #1643 and is live: acquisition outcomes now inform selection. Fresh Conks
 selected14 sections with4 native citations, but took14.7s; no latency win claimed.
 Original swamp grounding completed once in10.5s; its9.9s repeat failed because the
-writer truncated one long authored-block handle and repeated another. The active
+writer truncated one long authored-block handle and repeated another. The shipped
 [authored selection codec](../Plans/HANDOFF-AGENT-authored-selection-codec.md)
-introduces request-local selectors while preserving exact durable ownership.
+introduced request-local selectors in #1644, reviewed and live. Two fresh original
+queries completed in13.4s/14.8s with exact saved excerpts and named citations; source
+and saved-review reopening passed. Latency and full image acceptance remain open.
+Sheep generality now has a scene-owned five-enemy encounter, original/successor
+manual mechanics reopening and explicit Noke-only adoption. Save→Start Play exposed
+a canonical trailing-newline mismatch; [saved authoring handoff](../Plans/HANDOFF-PLAN-saved-authoring-handoff.md)
+owns that bounded correction. The new session handoff is not yet proven.
 Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.
