@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationDock } from "./ConversationDock";
 
@@ -18,6 +18,36 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("defers context effects until requested and retains context state and updates after hiding", () => {
+    const mounted = vi.fn(), unmounted = vi.fn();
+    function Context({ label }: { label: string }) {
+      useEffect(() => { mounted(); return unmounted; }, []);
+      return <><p>{label}</p><input aria-label="Context query" defaultValue="" /></>;
+    }
+    const props = { reader: <input aria-label="Reader" defaultValue="Draft" />, messages: "Answer", composer: <input aria-label="Question" defaultValue="Unsent" />, initialExpanded: true };
+    const view = render(<ConversationDock {...props} contextDetails={<Context label="Original scope" />} />);
+    expect(mounted).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Context query")).toBeNull();
+    const reader = screen.getByLabelText("Reader"), composer = screen.getByLabelText("Question");
+    fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
+    expect(mounted).toHaveBeenCalledTimes(1);
+    const query = screen.getByLabelText("Context query");
+    fireEvent.change(query, { target: { value: "Saved search" } });
+    fireEvent.click(screen.getByRole("button", { name: "Hide Context" }));
+    view.rerender(<ConversationDock {...props} contextDetails={<Context label="Updated scope" />} />);
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
+    expect(screen.getByText("Updated scope")).toBeVisible();
+    expect(screen.getByLabelText("Context query")).toBe(query);
+    expect(query).toHaveValue("Saved search");
+    expect(screen.getByLabelText("Reader")).toBe(reader);
+    expect(screen.getByLabelText("Question")).toBe(composer);
+    expect(composer).toHaveValue("Unsent");
+    expect(mounted).toHaveBeenCalledTimes(1);
+    expect(unmounted).not.toHaveBeenCalled();
+  });
+
   it("uses accessible icons for fullscreen and close without removing their keyboard names", () => {
     render(<ConversationDock reader={<p>Plan</p>} messages={<p>Reply</p>} composer={<textarea aria-label="Message Buddy" />} collapseMode="launcher" fullscreenEnabled initialExpanded />);
     const fullscreen = screen.getByRole("button", { name: "Expand conversation fullscreen" });

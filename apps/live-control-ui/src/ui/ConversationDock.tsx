@@ -29,7 +29,8 @@ export interface ConversationDockProps {
 
 /**
  * A height-owning workspace's reader and bottom conversation layout.
- * Slots retain their mounted state through collapse. Callers own messages,
+ * Context mounts on first opening, then retains its state through collapse.
+ * Other slots stay mounted throughout. Callers own messages,
  * compact composer behavior, verified context and all external actions.
  * Paint through --conversation-dock-* variables; no application providers.
  */
@@ -53,6 +54,7 @@ export function ConversationDock({
   const expanded = controlledExpanded ?? localExpanded;
   const previousExpanded = useRef(expanded);
   const [contextOpen, setContextOpen] = useState(false);
+  const [contextVisited, setContextVisited] = useState(false);
   const [requestedHeight, setRequestedHeight] = useState(initialHeight);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
@@ -185,7 +187,7 @@ export function ConversationDock({
           {showTitle && <strong>{title}</strong>}
           {hasContext && <button type="button" className="conversation-dock__context-toggle"
             aria-expanded={contextOpen} aria-controls={`${id}-context`} title={`${contextOpen ? "Hide" : "Show"} ${contextLabel}`}
-            onClick={() => { changeExpanded(true); setContextOpen(!contextOpen); }}>
+            onClick={() => { changeExpanded(true); setContextVisited(true); setContextOpen(!contextOpen); }}>
             <span>{contextOpen ? "Hide" : "Show"} {contextLabel}</span><span aria-hidden="true">{contextOpen ? "▴" : "▾"}</span>
           </button>}
           <div className="conversation-dock__actions">{headerActions}</div>
@@ -197,7 +199,7 @@ export function ConversationDock({
             {expanded ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d={collapseMode === "launcher" ? "M6 6l12 12M18 6 6 18" : "m6 9 6 6 6-6"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg> : "Open chat"}
           </button>
         </header>
-        <div id={`${id}-context`} className="conversation-dock__context" hidden={!contextOpen}>{contextDetails}</div>
+        <div id={`${id}-context`} className="conversation-dock__context" hidden={!contextOpen}>{contextVisited ? contextDetails : null}</div>
         <div ref={messageRegion} id={`${id}-messages`} className="conversation-dock__messages" role="log"
           aria-label={`${title} messages`} hidden={!expanded}
           onScroll={() => { if (expanded) scrollPosition.current = messageRegion.current?.scrollTop ?? 0; }}>{messages}</div>

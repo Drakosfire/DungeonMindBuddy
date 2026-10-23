@@ -14,7 +14,7 @@ function Plugin({hosts}:{hosts:PlanConversationPresentationHosts}) {
   return <>
     {hosts.composer&&createPortal(<label>Message Buddy<input value={draft} onChange={e=>setDraft(e.target.value)}/></label>,hosts.composer)}
     {hosts.messages&&createPortal(<p>Existing reply</p>,hosts.messages)}
-    {hosts.context&&createPortal(<p>Full committed Plan context</p>,hosts.context)}
+    {hosts.context&&createPortal(<><p>Full committed Plan context</p><input aria-label="Context search" defaultValue="" /></>,hosts.context)}
   </>;
 }
 function Fixture() {
@@ -39,7 +39,7 @@ describe("PlanConversationDockAdapter",()=>{
       expect(resize).toHaveAttribute("aria-valuemax","720");
       expect(resize).toHaveAttribute("aria-valuenow","720");
       fireEvent.keyDown(resize,{key:"Home"});
-      expect(resize).toHaveAttribute("aria-valuenow","240");
+      expect(resize).toHaveAttribute("aria-valuenow","280");
       expect(screen.getByLabelText("Plan draft")).toBe(reader);
       expect(reader).toHaveValue("Preparation");
       expect(input).toHaveValue("Unsent question");
@@ -51,7 +51,7 @@ describe("PlanConversationDockAdapter",()=>{
     const input=await screen.findByLabelText("Message Buddy"),reader=screen.getByLabelText("Plan draft");
     await user.type(input,"Remember the sleepers");
     await waitFor(()=>expect(screen.getByRole("log")).toBeVisible());
-    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "360");
+    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "420");
     await user.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
     expect(screen.getByLabelText("Message Buddy")).toBe(input);
     expect(input).toHaveValue("Remember the sleepers");
@@ -74,8 +74,16 @@ describe("PlanConversationDockAdapter",()=>{
   it("uses inspectable context without opening another overlay or submitting a request",async()=>{
     const user=userEvent.setup();render(<Fixture/>);
     await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
-    await user.click(screen.getByRole("button",{name:"What Buddy sees"}));
+    expect(screen.queryByText("Full committed Plan context")).toBeNull();
+    await user.click(screen.getByRole("button",{name:"Show context"}));
     expect(screen.getByText("Full committed Plan context")).toBeVisible();
+    const search = screen.getByLabelText("Context search");
+    await user.type(search, "Retain search");
+    await user.click(screen.getByRole("button",{name:"Close conversation"}));
+    await user.click(screen.getByRole("button",{name:"Open",exact:true}));
+    await user.click(screen.getByRole("button",{name:"Show context"}));
+    expect(screen.getByLabelText("Context search")).toBe(search);
+    expect(search).toHaveValue("Retain search");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
@@ -86,7 +94,7 @@ it("uses the existing dragon entrance for fullscreen and full close without open
   await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
   const draft=screen.getByLabelText("Message Buddy");await user.type(draft,"Unsent plan question");
   await user.click(screen.getByRole("button",{name:"Expand conversation fullscreen"}));
-  expect(screen.getByRole("dialog",{name:"Saved World Plan conversation"})).toContainElement(draft);
+  expect(screen.getByRole("dialog",{name:"World conversation"})).toContainElement(draft);
   await user.click(screen.getByRole("button",{name:"Restore conversation dock"}));
   await user.click(screen.getByRole("button",{name:"Close conversation"}));
   const entrance=screen.getByRole("button",{name:"Open",exact:true});expect(entrance).toHaveFocus();
