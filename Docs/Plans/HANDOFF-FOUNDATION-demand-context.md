@@ -1,6 +1,12 @@
 # FOUNDATION — demand-mounted conversation context
 
-ACTIVE serial PRIME slice, base 5fed2e70378b12897dae7974ba34e798c6c64f66,
+SETTLED: #1650 merged c1d1818fb9a3a1dab197f40b2e1b3750e7002392 after exact-head
+Bugbot approval24/24 and author24/24 plus UI build. UI delivered on5202 with
+1970 APP rows/native/mechanics/frozen data retained. Rendered Plan/Play draft and
+context state retained; same-Plan initial DOM1141→689, unopened context452→0.
+This is a DOM proxy, not8GB hardware/heap acceptance.
+
+Historical serial PRIME slice, base 5fed2e70378b12897dae7974ba34e798c6c64f66,
 branch codex/demand-mount-conversation-context, reused buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected UI delivery on5202.
 Current fetched open-PR census contains no overlapping shared dock implementation.

@@ -29,9 +29,9 @@ this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 | Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
 | Evidence efficiency and exact excerpts | Retained-source reuse; #1640–#1643 exact native source navigation and acquisition progress; #1644 request-local authored selectors with canonical saved excerpts. Original swamp queries completed in13.4s/14.8s; #1647 shared registered naming measured10.26s/12.36s with named exact citations. #1648 removes ineligible catalog calls; repeated13.43s/12.10s runs still make4 decisions with peripheral entity exploration; named sources and exact session review reopened after reload. #1649 candidate-local relevance guidance is merged/API-delivered with synthetic Jev controls; final original-query benchmark awaits destination consent | Repeated roughly10-second quality/latency acceptance, remaining unavailable reads and complete image journey |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
-| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witness passed once. Sheep successor/adoption passed; save→Start canonical-byte correction shipped #1645. Sheep connected rehearsal passed once through restart and closing reflections; full repeated journey remains open |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witnesses passed twice (second Run preserved through navigation/reload/API restart; original versions/template/prior fight isolated). Sheep successor/adoption passed; save→Start canonical-byte correction shipped #1645. Sheep connected rehearsal passed once through restart and closing reflections; full repeated journey remains open |
 | Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
-| Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
+| Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery. #1650 defers unopened context: same-Plan DOM1141→689; Plan/Play drafts and context survive collapse (DOM proxy only) | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
 #1617 merged after two Bugbot cycles at the exact reviewed head. Guarded adoption
 preserved1757 pre-migration APP rows, all native rows,79 mechanics product files
@@ -316,6 +316,15 @@ accepted policy; graph publication is a separate governed action. Unknown
 component payloads cannot become executable code or silently vanish on save.
 
 ## DEMO-J3 — create knowledge and use it next turn
+
+Fresh wholly synthetic World witness: blank Plan before corpus; saved Build source
+revision2 admitted via visible retry; extraction review deferred three unsupported
+candidates; seven selected changes explicitly initialized the graph. A separate
+fact-free Plan/new conversation retrieved named source evidence in5.96s and4.94s
+after restart. Exact native node/revision and reviewed relationship inspected.
+This proves first-world publication/retrieval, not manual highlight authoring.
+Architecture identified the missing Build adapter and canonical-versus-run-pinned
+span verification join; the prerequisite correction has its own bounded handoff.
 
 **Acceptance:** Highlight source content, create a node and an edge through the
 accepted preparation/confirmation path, inspect their exact durable identities,

@@ -1083,6 +1083,38 @@ def _selected_passage(
     return matches[0]
 
 
+def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str, digest: str, text: str):
+    """Join manual assertions to the exact run's frozen index, never registry latest."""
+    from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+
+    path = getattr(resolved_source, "source_span_index_path", None)
+    try:
+        if not isinstance(path, Path) or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError("Missing or escaped run-pinned source index")
+        raw = path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+        if (not isinstance(payload, dict) or not isinstance(payload.get("spans"), list)
+                or any(type(span.get(field)) is not int
+                       for span in payload["spans"] for field in ("start_line", "end_line"))):
+            raise ValueError("Frozen source span ranges must be integers")
+        index = source_span_index_from_dict(payload)
+        validate_source_span_index(index, source_artifact_id=artifact_id, content_sha256=digest)
+        lines, seen, previous_end = text.splitlines(), set(), 0
+        passages = []
+        for span in index.spans:
+            if (span.source_span_id in seen or span.start_line <= previous_end
+                    or span.end_line < span.start_line or span.end_line > len(lines)):
+                raise ValueError("Invalid or overlapping frozen source spans")
+            seen.add(span.source_span_id)
+            previous_end = span.end_line
+            passages.append((span.source_span_id, "\n".join(lines[span.start_line - 1:span.end_line])))
+        return passages, hashlib.sha256(raw).hexdigest()
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        raise _source_span_error(
+            "The exact run's frozen source span index is unreadable or changed. Prepare again.", drift=True,
+        ) from exc
+
+
 def verify_graph_review_assertion_spans(
     *,
     assertions: list[AuthoredGraphAssertion],
@@ -1096,11 +1128,6 @@ def verify_graph_review_assertion_spans(
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
         extract_span_from_revision_bound_text,
         split_recap_body_paragraphs,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        load_source_span_index,
-        source_span_index_path,
     )
     from apps.live_control_server.services.worldbuilding_source_span_read import (
         read_admitted_worldbuilding_span,
@@ -1147,18 +1174,9 @@ def verify_graph_review_assertion_spans(
 
     index_digest: str | None = None
     if domain == "worldbuilding":
-        try:
-            index = load_source_span_index(source_root, artifact_id)
-            index_digest = hashlib.sha256(
-                source_span_index_path(source_root, artifact_id).read_bytes()
-            ).hexdigest()
-        except (SourceArtifactRegistryError, OSError) as exc:
-            raise _source_span_error("The registered source span index is unreadable. Prepare again.", drift=True) from exc
-        lines = text.splitlines()
-        passages = [
-            (span.source_span_id, "\n".join(lines[span.start_line - 1 : span.end_line]))
-            for span in index.spans
-        ]
+        passages, index_digest = _worldbuilding_run_passages(
+            resolved_source, root=root, artifact_id=artifact_id, digest=digest, text=text,
+        )
     elif domain == "session_recap":
         passages = [
             (f"{artifact_id}:paragraph:{ordinal}", paragraph)
@@ -1171,6 +1189,14 @@ def verify_graph_review_assertion_spans(
     for assertion in assertions:
         span_id, passage = _selected_passage(assertion.source_anchor, passages)
         if domain == "worldbuilding":
+            anchor = assertion.source_anchor
+            selected = normalize_selected_text(anchor.selected_text)
+            normalized = normalize_selected_text(passage)
+            first = normalized.find(selected)
+            if (not anchor.source_span_ref_id or normalized.find(selected, first + 1) != -1):
+                raise _source_span_error(
+                    "Select one unique occurrence in an exact frozen source span, then prepare again."
+                )
             try:
                 read = read_admitted_worldbuilding_span(
                     root=source_root,
