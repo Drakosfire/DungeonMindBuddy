@@ -60,7 +60,8 @@ Conks first/Sheep generality and full goal acceptance remain open.
   and confirmation; source changes invalidate confirmation without losing its work.
 - The selected scene must be in the pinned manifest. Initialize current_scene_id to
   that scene and current_beat_id to its actual parent Beat, even if it is not the
-  opening Beat. When the source has no scenes, explicit null seeds only the authored
+  opening Beat. If scenes exist, null is rejected; the GM must confirm a valid
+  scene. When the source has no scenes, explicit null seeds only the authored
   opening Beat. Entry selection does not create played facts or completed scenes.
 - Persist the exact complete request and canonical scope/body digest with the Run,
   manifest and immutable per-scene choices in **one APP transaction**. A separate
@@ -132,7 +133,10 @@ No new limits, resource generation, balancing claim or World association update.
   Reuse returned bound records when mounting shared Combat; avoid an immediate
   duplicate encounter GET. A dirty/recoverable draft cannot be silently replaced by
   a refresh or another scene. Original encounter recovery remains World/encounter
-  scoped; globally fresh IDs make the Run binding unambiguous.
+  scoped; globally fresh IDs make the Run binding unambiguous. Scoped Plan/Play
+  recovery must not overwrite the standalone World chooser selection key. The
+  current recovery open helper writes that key unconditionally; separate selection
+  remembrance from draft ownership as part of the shared scoped-host integration.
 
 ## 3. Server ownership, lifecycle and shared Surface
 
@@ -158,9 +162,10 @@ No new limits, resource generation, balancing claim or World association update.
   Reuse the Run lock shared by review/Trash so closing or trashing serializes with
   mutations. Read/recovery inspection and cancellation may verify retained bindings
   in ended/trashed state, without resuming play or rolling back applied commands.
-- Rebase refuses whenever immutable preparation selections or scene encounters exist,
-  including explicit no-template selections, until an explicit reconciliation design
-  is selected. Trash retains all preparation/fight/history; restore/reopen recovers
+- Rebase refuses whenever the immutable preparation/creation receipt exists, even
+  a zero-scene capture with an empty selection set, or scene encounters exist. It
+  also refuses explicit no-template selections, until an explicit reconciliation
+  design is selected. Trash retains all preparation/fight/history; restore/reopen recovers
   the same identities. Run editions with unchanged scene markers keep their binding.
 - Plan and Play use the same scene-level encounter launcher, scoped projection host,
   CombatRosterModule, manual editor, version adoption and recovery. Keep authored
