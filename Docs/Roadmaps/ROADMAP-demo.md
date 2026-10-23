@@ -97,8 +97,9 @@ UI proved selected-actor AC/HP adoption, unaffected sibling, tracker turns and e
 revision4 reload after protected restart. New saved revisions do not inherit World
 acceptance. The next [scene ownership contract](../Plans/HANDOFF-COMBAT-scene-template.md)
 splits C into Plan template preparation then exact Run-owned encounter creation.
-It is under design review; neither C implementation nor real adventure acceptance
-is complete.
+The contract shipped #1622 after one Bugbot cycle. C1 Plan template implementation
+is ACTIVE on its fresh base; C2 Run materialization and real adventure acceptance
+remain open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable

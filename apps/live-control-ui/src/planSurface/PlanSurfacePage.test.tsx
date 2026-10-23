@@ -4317,3 +4317,15 @@ it("does not restore a scene absent from the current Plan draft", async () => {
   expect(screen.getByRole("button",{name:"Previous scene",exact:true})).toBeDisabled();
   expect(prepare).not.toHaveBeenCalled();
 });
+
+it('opens the current scene encounter tool while retaining the mounted Plan editor and scene position',async()=>{
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,currentTwoScenePlanMarkdown);
+  const sceneApi=await import('../combat/sceneTemplatesApi');vi.spyOn(sceneApi,'getSceneTemplate').mockResolvedValue(null);
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentInteractionProvider><AskPluginSlotProvider><PlanSurfacePage/><ToolHost/><LegacyProjectionHostAdapter/></AskPluginSlotProvider></AgentInteractionProvider></SelectedWorldProvider>);
+  const button=await screen.findByRole('button',{name:'Encounter · Arrival'});
+  const editor=screen.getByTestId('world-owned-plan-editor');const before=editor.querySelector('.ProseMirror');
+  fireEvent.click(button);
+  await screen.findByRole('region',{name:'Encounter preparation for Arrival'});
+  expect(before?.isConnected).toBe(true);expect(editor.querySelector('.ProseMirror')).toBe(before);
+  expect(sceneApi.getSceneTemplate).toHaveBeenCalledWith(expect.objectContaining({worldId,documentId:savedAgentPlanId,sceneId:'scene:arrival'}));
+});

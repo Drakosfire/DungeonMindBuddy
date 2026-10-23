@@ -228,9 +228,10 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export function CombatRosterModule() {
+export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord};
+export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   const selectedWorld = useSelectedWorld();
-  const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const worldId = selectedWorld.kind === "managed" && (!scope || scope.worldId === selectedWorld.worldId) ? selectedWorld.worldId : null;
   const worldRequestGeneration = useRef(0);
   const recoverySession = useRef(new CombatRecoverySession());
   const draftRef = useRef<CombatEncounterDraft | null>(null);
@@ -257,7 +258,7 @@ export function CombatRosterModule() {
       worldRequestGeneration.current += 1;
       recoverySession.current.close();
     };
-  }, [worldId]);
+  }, [worldId, scope?.encounterId]);
 
   useEffect(() => {
     let alive = true;
@@ -275,6 +276,16 @@ export function CombatRosterModule() {
       return () => { alive = false; };
     }
     setLoading(true);
+    if (scope) {
+      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getWorldCombatEncounter(worldId, scope.encounterId);
+      void opening.then(async opened => {
+        if (!alive || generation !== worldRequestGeneration.current) return;
+        await adoptRecord(opened,worldId,scope.encounterId,generation);
+        if (alive && generation === worldRequestGeneration.current) setLoadedWorldId(worldId);
+      }).catch(caught => {if(alive && generation===worldRequestGeneration.current)setError(String(caught));})
+        .finally(()=>{if(alive && generation===worldRequestGeneration.current)setLoading(false);});
+      return ()=>{alive=false;};
+    }
     void listWorldCombatEncounters(worldId)
       .then((items) => {
         if (alive && generation === worldRequestGeneration.current) {
@@ -294,7 +305,7 @@ export function CombatRosterModule() {
         if (alive && generation === worldRequestGeneration.current) setLoading(false);
       });
     return () => { alive = false; };
-  }, [worldId]);
+  }, [worldId, scope?.encounterId]);
 
   const visibleRecord = record?.world_id === worldId ? record : null;
   const visibleDraft = visibleRecord ? draft : null;
@@ -511,7 +522,9 @@ export function CombatRosterModule() {
     }));
   }
 
-  const worldMessage = selectedWorld.kind === "loading"
+  const worldMessage = scope && selectedWorld.kind === "managed" && scope.worldId !== selectedWorld.worldId
+    ? "This encounter belongs to another World. Reopen its scene in that World."
+    : selectedWorld.kind === "loading"
     ? "Verifying selected World…"
     : selectedWorld.kind === "error"
       ? selectedWorld.message
@@ -527,6 +540,7 @@ export function CombatRosterModule() {
       {worldId ? (
         <>
           <section className="combat-roster-save-rail" aria-label="Encounter selection and save">
+            {scope ? <p>{scope.label}</p> : <>
             <label>
               <span className="eyebrow">Encounter</span>
               <select
@@ -553,6 +567,7 @@ export function CombatRosterModule() {
             <button type="button" disabled={operationsBlocked || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
               Create
             </button>
+            </>}
             <button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>

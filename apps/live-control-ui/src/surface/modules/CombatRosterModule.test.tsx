@@ -718,4 +718,29 @@ describe("CombatRosterModule", () => {
     }finally{vi.unstubAllGlobals();}
   });
 
+  it('opens scoped scene encounter directly and never uses the World selection fallback',async()=>{
+    vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'elderwyld',name:'Elderwyld',documentId:null});
+    const list=vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([]);
+    const get=vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(record());
+    localStorage.setItem(combatSelectionKeyForTest(),'unrelated-fight');
+    const view=render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Gate · prepared encounter'}}/>);
+    await screen.findByLabelText('HP for Geomantic Drake');
+    expect(get).toHaveBeenCalledWith('elderwyld',record().encounter_id);expect(list).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Encounter',{exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Create',exact:true})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('HP for Geomantic Drake'),{target:{value:'50'}});
+    view.unmount();
+    render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Gate · prepared encounter'}}/>);
+    await screen.findByRole('button',{name:'Recover local Combat draft'});
+    await userEvent.click(screen.getByRole('button',{name:'Recover local Combat draft'}));
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('50');
+    function combatSelectionKeyForTest(){return 'dmb-combat-selected-encounter:elderwyld';}
+  });
+  it('does not open a scoped encounter under a different selected World',async()=>{
+    vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'other-world',name:'Other',documentId:null});
+    const get=vi.spyOn(combatApi,'getWorldCombatEncounter');const list=vi.spyOn(combatApi,'listWorldCombatEncounters');
+    render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Wrong World'}}/>);
+    await waitFor(()=>expect(get).not.toHaveBeenCalled());expect(list).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('HP for Geomantic Drake')).not.toBeInTheDocument();
+  });
+
 });
