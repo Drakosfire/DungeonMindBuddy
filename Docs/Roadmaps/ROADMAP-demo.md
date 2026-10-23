@@ -128,8 +128,11 @@ on5202 with APP0057; protected delivery preserved retained state. A fresh6.8-sec
 Conks query selected appendix navigation but source loading refused the registered
 Build campaign-to-native-World projection. Its owning-boundary correction #1641 is merged and live. The actual appendix
 now loads, but the real answer cites encounter excerpts for appendix-only facts
-and selects19 sections. [Evidence routing](../Plans/HANDOFF-AGENT-native-evidence-routing.md)
-is active; source/appendix rendered acceptance remains open. Prerequisite tests do not establish ordinary
+and selected19 sections. Evidence routing #1642 is merged/live: a fresh11.5-second
+lookup produced3 actual native appendix citations and reopened original bytes
+after reload. It still selected18 sections. [Retrieval progress](../Plans/HANDOFF-AGENT-native-retrieval-progress.md)
+is active to expose omitted native acquisition outcomes and improve comparative
+section choice. Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.
 

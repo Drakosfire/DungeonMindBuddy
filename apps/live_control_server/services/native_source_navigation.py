@@ -31,7 +31,10 @@ def section_query_terms(markdown,sections,question):
     query=set(re.findall(r"\w+",question.casefold())) - _QUERY_GRAMMAR
     words={s.section_id:set(re.findall(r"\w+",markdown[s.char_start:s.char_end].casefold())) for s in sections}
     frequency=Counter(term for values in words.values() for term in values & query)
-    return {key:sorted(values & query,key=lambda term:(frequency[term],term)) for key,values in words.items()}
+    # Terms found in every section cannot distinguish sections. Keep hints for
+    # a single-section source, where there is no comparative catalog.
+    distinctive={term for term in query if len(words)<=1 or frequency[term]<len(words)}
+    return {key:sorted(values & distinctive,key=lambda term:(frequency[term],term)) for key,values in words.items()}
 
 
 def navigator(adapter):
@@ -78,15 +81,38 @@ class NativeSourceNavigator:
                 self.sources[handle] = (donor,pin,label)
                 existing.add(key)
 
+    def _section_candidate(self,handle,*,kind='Exact source section'):
+        _,section,name = self.sections[handle]
+        terms=self.query_matches.get(handle,[])
+        hint=(f'; discriminating query-term coverage: {len(terms)}; matches: '+', '.join(terms)
+            if terms else '; no discriminating query-term matches')
+        return RetrievalCandidate(handle=handle,label=name+' — '+section.label+hint,kind=kind)
+
     def offered(self):
         self.collect()
         browse = [RetrievalCandidate(handle=handle,label='Explore '+entry[2],
             kind='Source navigation: appendices, tables and statblocks')
             for handle,entry in self.sources.items() if handle not in self.attempted_sources]
-        sections = [RetrievalCandidate(handle=handle,label=name+' — '+section.label
-            + ('; mentions query terms: '+', '.join(self.query_matches.get(handle,[])) if self.query_matches.get(handle) else ''),kind='Exact source section')
-            for handle,(_,section,name) in self.sections.items() if handle not in self.attempted_sections]
+        sections = [self._section_candidate(handle)
+            for handle in self.sections if handle not in self.attempted_sections]
         return tuple([*browse,*sections])
+
+    def examined(self):
+        """Acquisition outcome metadata for decisions, never evidence prose."""
+        rows=[]
+        for handle,entry in self.sources.items():
+            if handle not in self.attempted_sources:continue
+            catalog=self.catalogs.get(handle)
+            outcome='Acquired' if catalog is not None and catalog.outcome=='complete' else 'Unavailable'
+            rows.append(RetrievalCandidate(handle=handle,label=entry[2],
+                kind=outcome+' source section catalog; navigation only'))
+        for handle in self.sections:
+            if handle not in self.attempted_sections:continue
+            read=self.reads.get(handle)
+            outcome='Acquired' if read is not None and read.outcome=='complete' else 'Unavailable'
+            rows.append(self._section_candidate(handle,
+                kind=outcome+' exact source section; navigation only, not evidence sufficiency'))
+        return tuple(rows)
 
     def _plan_selection(self,handles):
         from application_state.agent_conversation.plan_jev_decision import current_selection

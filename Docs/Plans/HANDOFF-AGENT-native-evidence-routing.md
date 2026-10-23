@@ -1,6 +1,13 @@
 # AGENT — native evidence routing
 
-ACTIVE serial PRIME slice, base a24cc6381343c22c553a23c1f78e343f67bbbfdd,
+MERGED #1642 at d7ace50cbe6ab644696f4f8eb6b1e3aad58e8bc7, reviewed
+head24b1ebbda48d4c5a6f72764e7220d727f10e486c, one Bugbot cycle,60 independent
+checks with one expected skip. Protected delivery and ordinary Conks lookup
+produced3 actual native appendix citations. Exact appendix reopening passed after
+reload. Runtime11.5s and18 sections: citation routing reproduction passed once,
+over-selection remains. Consuming lease: HANDOFF-AGENT-native-retrieval-progress.md.
+
+Original ACTIVE serial PRIME slice, base a24cc6381343c22c553a23c1f78e343f67bbbfdd,
 branch codex/native-evidence-routing, existing buddy-context-loop checkout.
 No overlapping open lane in current census. One Bugbot-reviewed PR, PRIME merge,
 protected API delivery and ordinary rendered lookup on5202.

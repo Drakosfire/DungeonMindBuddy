@@ -181,6 +181,7 @@ class PlanJevDriver:
                 examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
                 if self.rules is not None and self.rules.selected:
                     examined.append(rules_candidate())
+                examined.extend(self.native_sources.examined())
                 dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
                     examined_candidates=examined, allowed_operations=operations)
                 self.current = dispatch

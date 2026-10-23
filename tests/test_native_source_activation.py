@@ -52,6 +52,13 @@ class SectionDecisions(httpx2.AsyncBaseTransport):
         body=json.loads(request.content);phase=len(self.calls);self.calls.append(body)
         assert 'native-source:' not in request.content.decode() and 'native-section:' not in request.content.decode()
         candidates=body['state']['candidates'];answers={}
+        examined=body['state'].get('examined_subjects',[])
+        if phase>=2:
+            assert any(row['kind'].startswith('Acquired source section catalog') for row in examined)
+        if phase>=3:
+            assert any(row['kind'].startswith('Acquired exact source section') and 'Appendix A' in row['label'] for row in examined)
+        assert 'Tree mechanics.' not in request.content.decode()
+
         for name,question in body['questions'].items():
             choice='finish_retrieval'
             if name!='operation':
