@@ -123,6 +123,7 @@ def prove_play_source_input(
     *, prepared_request_json: str, submission_id: UUID, original_message: str,
     event_id: UUID, owner_resolved_current_moment_text: str | None = None,
     owner_resolver: Callable[[t.PlaySourceFrameV1], str | None] | None = None,
+    native_section_inclusion: t.NativeSourceProviderInclusionV1 | None = None,
 ) -> t.PlaySourceProviderInclusionV1:
     """Derive a witness only from the exact current producing request body.
 
@@ -167,5 +168,16 @@ def prove_play_source_input(
     pending = t.PlayWorldGraphExecutionV1.model_validate_json(json.dumps(wire))
     # The inclusion precedes the exact same authorization, never an arbitrary
     # earlier producer or an unaccounted source projection.
-    validate_play_graph_provider_authorization(receipt, pending, authorization)
+    if native_section_inclusion is None:
+        validate_play_graph_provider_authorization(receipt, pending, authorization)
+    else:
+        # Both witnesses commit with the same provider authorization. Validate the
+        # complete prospective transaction instead of an intentionally incomplete
+        # intermediate prefix lacking the native-section input attachment.
+        from .play_graph_context import validate_play_graph_execution_binding
+        t.validate_graph_provider_envelope(receipt, pending, authorization)
+        wire["events"].extend([authorization.model_dump(mode="json",by_alias=True),
+            native_section_inclusion.model_dump(mode="json",by_alias=True)])
+        complete = t.PlayWorldGraphExecutionV1.model_validate(wire)
+        validate_play_graph_execution_binding(receipt,complete)
     return included

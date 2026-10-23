@@ -1267,9 +1267,9 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
-            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1
+            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1
             if native_source_materializer is None and isinstance(event, (NativeSourceCatalogObservedV1,
-                    NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1)):
+                    NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
                 raise ApplicationStateValidationError("Native source event requires its immutable source transaction owner")
             from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
             from .types import PlanJevWriterAuthorizedV1
@@ -1404,6 +1404,21 @@ class AgentConversationService:
                                 raise ValueError("Plan retrieval cannot finish with an unresolved Rules read")
                 except (ValueError, TypeError, KeyError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            section_inclusion = None
+            from .native_source_input import CAPABILITIES, prove_input
+            if (isinstance(execution.policy, CAPABILITIES)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV3)
+                    and not isinstance(event, PlanJevProviderAuthorizedV1)
+                    and any(isinstance(e, NativeSourceSectionObservedV1) and e.outcome == "complete"
+                            for e in execution.events)):
+                raw = (plan_jev_writer_proof.get("prepared_request_json")
+                    if isinstance(plan_jev_writer_proof,dict) else native_play_prepared_request_json)
+                try:
+                    if not isinstance(raw,str):
+                        raise ValueError("Native sections require the exact prepared producing input")
+                    section_inclusion = prove_input(turn,event,raw,sequence=event.sequence+1)
+                except (ValueError,TypeError,KeyError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             native_inclusion = None
             if native_play_prepared_request_json is not None:
                 from .types import PlayWorldGraphContextReceiptV1
@@ -1417,7 +1432,8 @@ class AgentConversationService:
                     native_inclusion = prove_play_source_input(turn.graph_context_receipt, execution, event,
                         prepared_request_json=native_play_prepared_request_json,
                         submission_id=turn.idempotency_key, original_message=turn.user_text, event_id=uuid4(),
-                        owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame))
+                        owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame),
+                        native_section_inclusion=section_inclusion)
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             # Materialize only after every existing owner/Rules writer fence.
@@ -1475,7 +1491,8 @@ class AgentConversationService:
                     validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
-            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), event]
+            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), event,
+                *([section_inclusion] if section_inclusion is not None else [])]
             try:
                 execution_type = type(execution)
                 updated_execution = execution_type.model_validate(

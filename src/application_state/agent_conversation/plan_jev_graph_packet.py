@@ -192,6 +192,10 @@ def project(turn, proof, trace):
             source_body=source.pop('text','')
             source['text_blocks']=source_body if isinstance(source_body,list) else project_blocks(source_body,'unselectable-blank-session')
     frame['authored_sources']=[{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in rows]
+    from .native_source_input import project_sections
+    native_sections = project_sections(execution)
+    if native_sections is not None:
+        frame["native_source_sections"] = native_sections
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
 
