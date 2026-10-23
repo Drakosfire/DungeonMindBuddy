@@ -1,13 +1,20 @@
-import {NativeSourceSectionEvidence} from './NativeSourceSectionEvidence';
+import {SourceCitationEvidence} from './SourceCitationEvidence';
+import {passageChoices,nativeChoices} from './sourceCitationReads';
+import {canonical} from '../../shared/sourcePassageProtocol';
 import type {SurfaceEvidenceCompletion} from "../../api/types";
 import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
-import {BuildSourcePassageEvidence} from "./BuildSourcePassageEvidence";
+
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
 export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
   completion:SurfaceEvidenceCompletion;composition?:Composition;worldId?:string|null;turnId?:string;
 }) {
+  // Number visible citations across this answer, independent of transport indexes.
+  let nextNumber=0;
+  const choicesBySegment=completion.answer_segments.map((_,index)=>worldId && turnId
+    ? [...passageChoices(completion,worldId,turnId,index),...(completion.schema==='dmb_surface_evidence_completion_v3'
+      ? nativeChoices(completion,worldId,turnId,index):[])].map(c=>({...c,number:++nextNumber})) : []);
   const renderSegment=(s:SurfaceEvidenceCompletion['answer_segments'][number],index:number,key:number) => {
     if(s.kind === 'authored_quote' || s.kind === 'authored_excerpt') {
       const sessionUrl=s.source_kind === 'session' && worldId
@@ -20,13 +27,12 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
     const selected=completion.source_citations.filter(c=>c.segment_index === index);
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>
       {graph ? <small>{selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
-      {s.kind === 'proposal' ? <small>Proposed idea</small> : null}<WorldPlanAgentAnswer answer={s.text}/>
-      {completion.schema==='dmb_surface_evidence_completion_v3' && completion.native_source_citations.some(c=>c.segment_index===index)
-        ? worldId && turnId ? <NativeSourceSectionEvidence completion={completion} worldId={worldId} turnId={turnId} segmentIndex={index}/>
-          : completion.native_source_citations.filter(c=>c.segment_index===index).map((c,i)=><cite key={i}>{c.source_name} · {c.section_title}</cite>):null}
-      {selected.length ? worldId && turnId
-        ? <BuildSourcePassageEvidence completion={completion} worldId={worldId} turnId={turnId} segmentIndex={index} showClaimText={false}/>
-        : selected.map((c,i)=><cite key={i}>{c.source_name}</cite>) : null}
+      {s.kind === 'proposal' ? <small>Proposed idea</small> : null}
+      {choicesBySegment[index]!.length ? <SourceCitationEvidence identity={canonical([completion,worldId,turnId,index])}
+        statements={[{text:s.text,choices:choicesBySegment[index]!}]}/> : <WorldPlanAgentAnswer answer={s.text}/>}
+      {!worldId || !turnId ? <>{selected.map((c,i)=><cite key={i}>{c.source_name}</cite>)}
+        {completion.schema==='dmb_surface_evidence_completion_v3' ? completion.native_source_citations.filter(c=>c.segment_index===index)
+          .map((c,i)=><cite key={`native-${i}`}>{c.source_name} · {c.section_title}</cite>):null}</>:null}
     </section>;
   };
   const chars=composition ? Array.from(composition.text) : [];
