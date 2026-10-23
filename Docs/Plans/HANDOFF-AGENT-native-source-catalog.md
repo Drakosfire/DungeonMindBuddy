@@ -1,6 +1,11 @@
 # AGENT — immutable native source catalog read
 
-ACTIVE serial PRIME slice; basebe68ef9c0e033825ad5b28435619db64267bef73,
+SETTLED: #1634 merged9360eb9b48d8fb5d80815f3f4f7ab6643e8da128 after one
+Bugbot cycle; independent36 tests passed/1 expected Plan-only skip. Catalog body
+loads are exact, claim/writer fenced and deduplicated; no model or serving
+activation, and retained databases remain unchanged. Implementation lease ended.
+
+Original serial PRIME slice; basebe68ef9c0e033825ad5b28435619db64267bef73,
 branch codex/native-source-catalog-read, existing buddy-context-loop checkout.
 Predecessor #1633 navigation admission is merged; parent #1631 section design.
 One independently Bugbot-reviewed PR, PRIME merge. Ordinary routing/serving, writer

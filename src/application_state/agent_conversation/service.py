@@ -1267,9 +1267,10 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
-            from .types import NativeSourceCatalogObservedV1
-            if native_source_materializer is None and isinstance(event, NativeSourceCatalogObservedV1):
-                raise ApplicationStateValidationError("Catalog receipt requires its immutable source transaction owner")
+            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1
+            if native_source_materializer is None and isinstance(event, (NativeSourceCatalogObservedV1,
+                    NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1)):
+                raise ApplicationStateValidationError("Native source event requires its immutable source transaction owner")
             from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
             from .types import PlanJevWriterAuthorizedV1
             if isinstance(event, PlanJevWriterAuthorizedV1):
@@ -1600,6 +1601,31 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
+
+    def authorize_native_source_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, event_id: UUID, read_id: UUID, catalog_event_id: UUID, section_id: str,
+    ) -> tuple[Turn, bool]:
+        from .native_source_sections import authorize_section_locked
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=None, duplicate_key="event_id",
+            native_source_materializer=lambda conn, turn: authorize_section_locked(conn, turn,
+                event_id=event_id, read_id=read_id, catalog_event_id=catalog_event_id, section_id=section_id))
+
+    def materialize_native_source_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, event_id: UUID, read_id: UUID, material,
+    ):
+        from .native_source_sections import materialize_section_locked
+        observed = []
+        def produce(conn, turn):
+            event = materialize_section_locked(conn, turn, event_id=event_id, read_id=read_id, material=material)
+            observed.append(event)
+            return event
+        turn, fresh = self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=None,
+            duplicate_key="event_id", native_source_materializer=produce)
+        return turn, fresh, observed[0]
 
     def materialize_native_source_catalog(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
