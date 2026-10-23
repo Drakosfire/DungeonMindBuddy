@@ -611,10 +611,10 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     import json
     from dataclasses import replace
     from uuid import uuid4
-    from application_state.agent_conversation.play_graph_input import NativePlayInputV4, pack_play_frame, unpack_play_frame
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV5, pack_selector_play_frame, unpack_selector_play_frame
     from application_state.agent_conversation.play_graph_authority import play_source_frame
     from application_state.agent_conversation.rules_authority_types import canonical_bytes
-    from application_state.agent_conversation.surface_evidence_answer import NATIVE_INSTRUCTIONS as INSTRUCTIONS,NATIVE_POLICY as POLICY
+    from application_state.agent_conversation.surface_evidence_answer import SELECTOR_INSTRUCTIONS as INSTRUCTIONS,SELECTOR_POLICY as POLICY
     from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as OBSOLETE
     from apps.live_control_server.services.agent_runtime import AgentSurfaceContext,AgentPlayCurrentMomentContext,AgentPlayCurrentElementContext
     from apps.live_control_server.services.hermes_graph_agent_contract import MAX_SURFACE_CONTEXT_BLOCK_CHARS
@@ -622,7 +622,8 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     body='Frozen scene quotation sentinel. '+('A boardwalk stretches north. '*100)
     note='Saved note sentinel.'
     frame=play_source_frame((payload(text=body),payload('scene_note',text=note)))
-    carrier=NativePlayInputV4(submission_id=uuid4(),message='Quote the saved note exactly.',source_frame=pack_play_frame(frame),answer_instructions=INSTRUCTIONS)
+    submission=uuid4()
+    carrier=NativePlayInputV5(submission_id=submission,message='Quote the saved note exactly.',source_frame=pack_selector_play_frame(frame,str(submission)),answer_instructions=INSTRUCTIONS)
     question=canonical_bytes(carrier).decode()
     surface=AgentSurfaceContext(surface_id='play',current_play=AgentPlayCurrentMomentContext(
         run_id='run-one',playable_artifact_id='plan-one',playable_revision=1,
@@ -637,9 +638,9 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     assert len(restored.surface_context_block or '')<=MAX_SURFACE_CONTEXT_BLOCK_CHARS
     assert INSTRUCTIONS not in (restored.surface_context_block or '')
     assert OBSOLETE not in (restored.surface_context_block or '')
-    parsed=NativePlayInputV4.model_validate_json(restored.question)
+    parsed=NativePlayInputV5.model_validate_json(restored.question)
     assert parsed.answer_policy==POLICY and parsed.answer_instructions==INSTRUCTIONS
-    assert unpack_play_frame(parsed.source_frame)==frame
+    assert unpack_selector_play_frame(parsed.source_frame,str(submission))==frame
     assert restored.question.count('Frozen scene quotation sentinel.')==1
     assert restored.question.count('Saved note sentinel.')==1
     assert body not in (restored.surface_context_block or '') and note not in (restored.surface_context_block or '')

@@ -8,7 +8,7 @@ import pytest
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY
+from application_state.agent_conversation.surface_evidence_answer import SELECTOR_POLICY
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import stage_graph,WriterWire
 from tests.application_state import test_native_source_catalog_postgres as catalogs
@@ -78,7 +78,7 @@ def answer(writer,**changes):
     row = {'kind':'native_source_claim','text':'The appendix describes the tree mechanics.',
         'section_handles':[section['section_handle']]}
     row.update(changes)
-    return {'schema':NATIVE_POLICY,'answer_segments':[row],'limitations':[],'requested_detail_gaps':[]}
+    return {'schema':SELECTOR_POLICY,'answer_segments':[row],'limitations':[],'requested_detail_gaps':[]}
 
 
 def finish(writer,payload=None):
@@ -157,7 +157,7 @@ def test_native_graph_passage_and_authored_block_keep_separate_support(native_wr
             'passage_handles':[frame['opened_passages'][0]['passage_handle']]},
         {'kind':'graph_claim','claim_id':'claim:1','text':'The pond has a walkway.',
             'target_kind':'assertion','target_id':'assertion:pond','passage_handles':[]},
-        {'kind':'authored_excerpt','block_handle':frame['committed_plan_blocks'][1]['block_handle']}]
+        {'kind':'authored_excerpt','selection_id':frame['committed_plan_blocks'][1]['selection_id']}]
     completed = finish(native_writer,payload)
     assert len(completed.completion.native_source_citations) == 1
     assert completed.completion.native_source_citations[0].segment_index == 0
@@ -174,13 +174,15 @@ def test_shared_plan_play_normalization_uses_actual_admitted_section_input(input
     from types import SimpleNamespace
     from application_state.agent_conversation.native_source_answer import producing_sections
     from application_state.agent_conversation.native_answer_output import normalize_native_answer
-    from application_state.agent_conversation.surface_evidence_answer import NATIVE_INSTRUCTIONS,require_current_policy
+    from application_state.agent_conversation.surface_evidence_answer import SELECTOR_INSTRUCTIONS,require_current_policy
     service,_,_ = input_case
     turn,auth,raw,proof = prepare(input_case)
     if turn.provenance.surface_id == 'play':
         body = json.loads(raw)
         carrier = json.loads(body['messages'][0]['content'])
-        carrier.update(schema='dmb_native_play_input_v4',answer_policy=NATIVE_POLICY,answer_instructions=NATIVE_INSTRUCTIONS)
+        from application_state.agent_conversation.play_graph_input import unpack_play_frame,pack_selector_play_frame
+        carrier['source_frame']=pack_selector_play_frame(unpack_play_frame(carrier['source_frame']),str(turn.idempotency_key))
+        carrier.update(schema='dmb_native_play_input_v5',answer_policy=SELECTOR_POLICY,answer_instructions=SELECTOR_INSTRUCTIONS)
         body['messages'][0]['content'] = json.dumps(carrier)
         raw = json.dumps(body,ensure_ascii=False)
         auth = auth.model_copy(update={'envelope_sha256':sha256(raw.encode()).hexdigest()})
@@ -195,7 +197,7 @@ def test_shared_plan_play_normalization_uses_actual_admitted_section_input(input
         context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,
         graph_revision=turn.graph_context_receipt.graph_authority.graph_revision,closures=(),passages=(),authored=(),
         native_sections=sections,current_policy=require_current_policy(turn,auth,raw),source_partial=False)
-    completion,bindings,text = normalize_native_answer({'schema':NATIVE_POLICY,'limitations':[],
+    completion,bindings,text = normalize_native_answer({'schema':support.current_policy,'limitations':[],
         'requested_detail_gaps':[],'answer_segments':[{'kind':'native_source_claim',
             'text':'The appendix describes a tree.','section_handles':[sections[0].handle]}]},
         turn,auth.provider_attempt_id,support=support)

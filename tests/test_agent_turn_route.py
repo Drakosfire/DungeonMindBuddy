@@ -727,8 +727,10 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 api_request_id = str(uuid4())
             else:
                 final_text = json.dumps({
-                    "schema":"dmb_surface_evidence_answer_v3", "limitations":[], "requested_detail_gaps":[],
-                    "answer_segments":[{"kind":"proposal","label":"invented_idea","text":"We could begin beside the bridge."}],
+                    "schema":"dmb_surface_evidence_answer_v4", "limitations":[], "requested_detail_gaps":[],
+                    "answer_segments":[{"kind":"authored_excerpt","selection_id":next(
+                        block['selection_id'] for source in json.loads(play_input)['source_frame']['sources']
+                        for block in source['text_blocks'] if block['text'].strip())}],
                 })
             if native_rules_capture_required:
                 assert callable(on_native_provider_reply)
@@ -765,7 +767,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                     expected_rules_revision=expected_rules_revision + 1)
             rejected_proofs.append("stale")
             candidate = json.loads(output_proof.raw_output_json)
-            candidate['answer_segments'][0]['text'] += ' forged'
+            candidate['answer_segments'][0]['selection_id'] += '-forged'
             raw = json.dumps(candidate)
             assert raw != output_proof.raw_output_json
             forged = output_proof.model_copy(update={"raw_output_json": raw,
@@ -841,6 +843,10 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
             assert rules_record.execution.budget_use.calls == (0 if rules_case == "unused" else 2)
             assert bool(rules_record.execution.supports) == (rules_case == "occupancy")
         if rules_case == "unused":
+            excerpt=saved_turn.completion.answer_segments[0]
+            assert excerpt.kind=='authored_excerpt' and excerpt.block_handle.startswith('b')
+            assert len(excerpt.block_handle)==65
+            assert first_turn.json()['answer']['text']==excerpt.text
             authority = first_turn.json()["play_context"]["receipt"]["graph_authority"]
         else:
             assert first_turn.json()["schema"] == "dmb_agent_rules_turn_response_v1"

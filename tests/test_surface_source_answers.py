@@ -34,7 +34,7 @@ def stage(adapter):
 
 def answer(writer):
     return {
-        "schema": "dmb_surface_evidence_answer_v3",
+        "schema": "dmb_surface_evidence_answer_v4",
         "limitations": [], "requested_detail_gaps": [],
         "answer_segments": [
             {
@@ -61,9 +61,10 @@ def test_actual_plan_source_only_writer_persists_exact_receipts_and_reopens(
     from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
     assert instructions.count(SOURCE_ATTRIBUTION_INSTRUCTIONS) == 1
     assert "Use source names in prose" not in instructions
-    assert "dmb_surface_evidence_answer_v3" in instructions
+    assert "dmb_surface_evidence_answer_v4" in instructions
     assert "passage_handles" in instructions
     assert "authored_excerpt" in instructions
+    assert "selection_id" in instructions
 
     assert isinstance(completed.completion, t.SurfaceEvidenceCompletionV1)
     assert (

@@ -14,7 +14,7 @@ from .source_writer_output import strict_json
 from .rules_authority_types import canonical_bytes, canonical_sha256
 from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
-SCHEMA = "dmb_plan_jev_writer_frame_v2"
+SCHEMA = "dmb_plan_jev_writer_frame_v3"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
 _TARGETS = (("attributes", "assertion", "assertionId"), ("reviewedSourceObservations", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))
@@ -58,6 +58,8 @@ def _covered_by_native(read, native_reads):
 def project(turn, proof, trace):
     from . import types as t
     receipt, execution = _owner(turn)
+    if not isinstance(execution.policy,t.PlanNativeSourceSectionsPolicyV1):
+        raise ValueError('Current Plan writer requires its native selector capability')
     if (not isinstance(proof, dict) or set(proof) != {
             "graph_packets", "source_names", "plan_markdown", "session_evidence", "dialogue"}):
         raise ValueError("Plan writer requires its complete host evidence proof")
@@ -204,25 +206,29 @@ def project(turn, proof, trace):
         "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
         "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
         "unopened_evidence": [handles[ref] for ref in sorted(refs - present)]}
-    from .authored_excerpt_blocks import project_blocks
+    from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
     authored = plan_authored_sources(turn,markdown,frame['session_evidence'],block_policy=True)
     rows = authored_frame_rows(authored,frame['session_evidence'])
+    catalog=selection_catalog(((source.handle,source.text) for source in authored),str(turn.idempotency_key))
+    def blank_blocks(text):
+        if text.strip():raise ValueError('Nonblank authored body has no exact selectable owner')
+        return [{'selection_id':None,'text':text}] if text else []
     for source,row in zip(authored,rows,strict=True):
         path=row['body_path']; parent=frame
         for key in path[:-1]: parent=parent[key]
-        parent[path[-1]]=project_blocks(source.text,source.handle)
+        parent[path[-1]]=project_selection_blocks(source.text,source.handle,catalog)
     plan_body=frame.pop('committed_plan_markdown')
-    frame['committed_plan_blocks']=plan_body if isinstance(plan_body,list) else project_blocks(plan_body,'unselectable-blank-plan')
+    frame['committed_plan_blocks']=plan_body if isinstance(plan_body,list) else blank_blocks(plan_body)
     for session in frame['session_evidence']:
         for source in session['sources']:
             source_body=source.pop('text','')
-            source['text_blocks']=source_body if isinstance(source_body,list) else project_blocks(source_body,'unselectable-blank-session')
+            source['text_blocks']=source_body if isinstance(source_body,list) else blank_blocks(source_body)
     frame['authored_sources']=[{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in rows]
     from .native_source_input import project_sections
     native_sections = project_sections(execution)
     if native_sections is not None:
-        from .surface_evidence_answer import NATIVE_POLICY
-        frame["answer_policy"] = NATIVE_POLICY
+        from .surface_evidence_answer import SELECTOR_POLICY
+        frame["answer_policy"] = SELECTOR_POLICY
         frame["native_source_sections"] = native_sections
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
@@ -247,7 +253,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")

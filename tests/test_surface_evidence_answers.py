@@ -4,7 +4,7 @@ import json
 import pytest
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY as POLICY
+from application_state.agent_conversation.surface_evidence_answer import SELECTOR_POLICY as POLICY
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import WriterWire, stage_graph
 from tests.test_surface_source_answers import stage
@@ -21,7 +21,7 @@ def test_actual_mixed_source_and_literal_plan_quote_persist(plan_adapter,applica
     payload = wire_answer([
         dict(kind='source_passage_claim', text='The journal describes a wooden walkway.',
             passage_handles=[frame['opened_passages'][0]['passage_handle']]),
-        dict(kind='authored_excerpt',block_handle=frame['committed_plan_blocks'][1]['block_handle']),
+        dict(kind='authored_excerpt',selection_id=frame['committed_plan_blocks'][1]['selection_id']),
         dict(kind='proposal', text='We could begin beside the pond.', label='invented_idea')])
     wire = WriterWire(plan_adapter, json.dumps(payload))
     completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
@@ -129,7 +129,7 @@ def test_current_mixed_contract_includes_rules_without_another_writer(plan_adapt
     writer=PlanJevWriter(a,proof,rules)
     capsule=rules.frame().supports[0]
     quoted=writer.projection.frame['committed_plan_blocks'][0]['text']
-    base=wire_answer([dict(kind='authored_excerpt',block_handle=writer.projection.frame['committed_plan_blocks'][0]['block_handle'])])
+    base=wire_answer([dict(kind='authored_excerpt',selection_id=writer.projection.frame['committed_plan_blocks'][0]['selection_id'])])
     if with_graph:
         handle=writer.projection.frame['opened_passages'][0]['passage_handle']
         base['answer_segments'] += [dict(kind='graph_claim',claim_id='claim:1',text='The pond has a wooden walkway.',
@@ -194,13 +194,19 @@ def test_two_windows_sharing_graph_evidence_only_bind_the_selected_passage(plan_
     assert completed.completion.citation_map.entries[0].source_read_ids==[selected.source_read_id]
 
 
-@pytest.mark.parametrize('change',['model_text','unknown','duplicate','legacy_wire'])
+@pytest.mark.parametrize('change',['model_text','unknown','duplicate','legacy_wire','foreign_scope','internal','truncated'])
 def test_current_authored_selector_rejects_generated_or_unexposed_material(plan_adapter,change):
     writer=stage(plan_adapter)
     block=writer.projection.frame['committed_plan_blocks'][0]
-    segment=dict(kind='authored_excerpt',block_handle=block['block_handle'])
+    segment=dict(kind='authored_excerpt',selection_id=block['selection_id'])
     if change=='model_text':segment['text']=block['text']
-    if change=='unknown':segment['block_handle']='b'+'e'*64
+    if change=='unknown':segment['selection_id']='b'+'e'*64
+    if change in {'foreign_scope','internal'}:
+        from application_state.agent_conversation.authored_excerpt_blocks import selection_catalog
+        source=writer.projection.frame['authored_sources'][0]['handle']
+        catalog=selection_catalog([(source,plan_adapter.work.plan_markdown)],'foreign-submission')
+        segment['selection_id']=catalog[0].selection_id if change=='foreign_scope' else catalog[0].block.block_handle
+    if change=='truncated':segment['selection_id']=segment['selection_id'][:-1]
     payload=wire_answer([segment,segment] if change=='duplicate' else [segment])
     if change=='legacy_wire':payload['schema']='dmb_surface_evidence_answer_v1'
     wire=WriterWire(plan_adapter,json.dumps(payload))

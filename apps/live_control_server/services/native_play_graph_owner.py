@@ -58,14 +58,14 @@ def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, 
 
 def native_play_input_message(request: Any, frame: t.PlaySourceFrameV1) -> str:
     """Carrier included as the user message and tied to the accepted submission."""
-    from application_state.agent_conversation.play_graph_input import NativePlayInputV4,pack_play_frame
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV5,pack_selector_play_frame
 
     submission_id = uuid5(NAMESPACE_URL, f"dmb-agent-turn:{request.owner_scope.world_id}:{request.turn_id}")
-    from application_state.agent_conversation.surface_evidence_answer import NATIVE_INSTRUCTIONS as INSTRUCTIONS
-    carrier = NativePlayInputV4(
+    from application_state.agent_conversation.surface_evidence_answer import SELECTOR_INSTRUCTIONS as INSTRUCTIONS
+    carrier = NativePlayInputV5(
         submission_id=submission_id,
         message=request.message,
-        source_frame=pack_play_frame(frame),
+        source_frame=pack_selector_play_frame(frame,str(submission_id)),
         answer_instructions=INSTRUCTIONS,
     )
     return json.dumps(carrier.model_dump(mode="json", by_alias=True), ensure_ascii=False,
@@ -236,7 +236,7 @@ def _text_values(value: Any) -> list[str]:
 
 def verify_play_input_message(view: Mapping[str, Any], request: Any, work: Any) -> t.PlaySourceFrameV1:
     """Check the exact current source carrier before claiming the provider attempt."""
-    from application_state.agent_conversation.play_graph_input import NativePlayInputV4
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV5
     from application_state.agent_conversation.source_writer_output import strict_json
     from application_state.agent_conversation.play_graph_input import _user_texts
 
@@ -250,8 +250,8 @@ def verify_play_input_message(view: Mapping[str, Any], request: Any, work: Any) 
                 candidate = strict_json(text)
             except (ValueError, TypeError):
                 continue
-            if isinstance(candidate, dict) and candidate.get("schema") == "dmb_native_play_input_v4":
-                parsed = NativePlayInputV4.model_validate_json(json.dumps(candidate, ensure_ascii=False))
+            if isinstance(candidate, dict) and candidate.get("schema") == "dmb_native_play_input_v5":
+                parsed = NativePlayInputV5.model_validate_json(json.dumps(candidate, ensure_ascii=False))
                 expected_id = uuid5(NAMESPACE_URL, f"dmb-agent-turn:{request.owner_scope.world_id}:{request.turn_id}")
                 if parsed.submission_id == expected_id:
                     carriers.append(parsed)

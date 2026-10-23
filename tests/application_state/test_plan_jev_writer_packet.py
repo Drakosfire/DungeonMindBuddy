@@ -12,6 +12,24 @@ from tests.application_state.test_plan_jev_decision_admission import prepare_cas
 from tests.application_state.test_agent_conversation_postgres import _provider_authorization_event
 
 
+
+@pytest.fixture(autouse=True)
+def current_native_writer_policy(monkeypatch):
+    from application_state.agent_conversation import AgentConversationService
+    original=AgentConversationService.accept_turn
+    def accept(service,submission):
+        execution=submission.graph_context_execution
+        if isinstance(execution.policy,t.PlanJevRetrievalPolicyV1) and not isinstance(execution.policy,t.PlanNativeSourceSectionsPolicyV1):
+            policy=t.PlanNativeSourceSectionsPolicyV1.model_validate(execution.policy.model_dump(mode='json',by_alias=True)|{
+                'native_source_section_policy':'exact_native_source_sections_v1'})
+            wire=execution.model_dump(mode='json',by_alias=True)
+            wire['policy']=policy.model_dump(mode='json',by_alias=True)
+            wire['execution_policy_sha256']=t.canonical_sha256({'schema':execution.schema_,
+                'context_receipt_sha256':execution.context_receipt_sha256,'policy':wire['policy']})
+            submission=submission.model_copy(update={'graph_context_execution':type(execution).model_validate(wire)})
+        return original(service,submission)
+    monkeypatch.setattr(AgentConversationService,'accept_turn',accept)
+
 def trace(case):
     with psycopg.connect(case.dsn) as conn:
         return conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
@@ -217,7 +235,7 @@ def test_native_plan_writer_accepts_opened_source_citation_atomically(applicatio
     graph_finish(case, case.producer)
     from application_state.agent_conversation.plan_jev_graph_packet import frame_in_request
     selected = frame_in_request(case.raw)['opened_passages'][0]['passage_handle']
-    raw_output = json.dumps({"schema":"dmb_surface_evidence_answer_v2","limitations":[],"requested_detail_gaps":[],"answer_segments": [
+    raw_output = json.dumps({"schema":"dmb_surface_evidence_answer_v4","limitations":[],"requested_detail_gaps":[],"answer_segments": [
         {"kind": "graph_claim", "claim_id": "pond-description", "text": "The account reports a wooden walkway by Park Pond.",
          "target_kind": "assertion", "target_id": "pond-road", "passage_handles":[selected]}]})
     capture = SimpleNamespace(authorization_id="synthetic-plan-packet", api_request_id="synthetic-graph-writer",

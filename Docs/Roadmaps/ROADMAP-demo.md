@@ -131,8 +131,13 @@ now loads, but the real answer cites encounter excerpts for appendix-only facts
 and selected19 sections. Evidence routing #1642 is merged/live: a fresh11.5-second
 lookup produced3 actual native appendix citations and reopened original bytes
 after reload. It still selected18 sections. [Retrieval progress](../Plans/HANDOFF-AGENT-native-retrieval-progress.md)
-is active to expose omitted native acquisition outcomes and improve comparative
-section choice. Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
+shipped #1643 and is live: acquisition outcomes now inform selection. Fresh Conks
+selected14 sections with4 native citations, but took14.7s; no latency win claimed.
+Original swamp grounding completed once in10.5s; its9.9s repeat failed because the
+writer truncated one long authored-block handle and repeated another. The active
+[authored selection codec](../Plans/HANDOFF-AGENT-authored-selection-codec.md)
+introduces request-local selectors while preserving exact durable ownership.
+Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.
 
