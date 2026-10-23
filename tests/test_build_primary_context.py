@@ -232,3 +232,33 @@ def test_primary_context_rejects_foreign_basis_and_excludes_late_reads(completed
         == packet["artifact_under_edit"]
     )
     assert late.read_id not in primary.writer_read_ids(extended)
+
+
+@pytest.mark.parametrize("mutation", ["numeric_type", "uuid_encoding"])
+def test_historical_saved_sections_keep_exact_serialized_types(completed, mutation):
+    turn, packet, _, _, _, _ = completed
+    old_policy = t.BuildEncodedAssessmentPolicyV1.model_validate(
+        turn.graph_context_execution.policy.model_dump(
+            by_alias=True, exclude={"primary_work_context_policy"}
+        )
+    )
+    historical = turn.graph_context_execution.model_copy(update={"policy": old_policy})
+    old_packet = deepcopy(packet)
+    old_packet["schema"] = "dmb_build_source_passage_writer_v1"
+    del old_packet["artifact_under_edit"]
+    old_packet["exposure"]["saved_sections"] = [
+        e.model_dump(mode="json", by_alias=True)
+        for e in primary.records(turn.graph_context_execution)
+    ]
+    assert primary.validate_packet(
+        old_packet, historical, turn.graph_context_receipt.source_basis
+    )
+    row = old_packet["exposure"]["saved_sections"][0]
+    if mutation == "numeric_type":
+        row["line_start"] = str(row["line_start"])
+    else:
+        row["event_id"] = row["event_id"].upper()
+    with pytest.raises(ValueError):
+        primary.validate_packet(
+            old_packet, historical, turn.graph_context_receipt.source_basis
+        )

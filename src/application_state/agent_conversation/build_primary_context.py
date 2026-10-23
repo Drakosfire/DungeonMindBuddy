@@ -116,7 +116,12 @@ def validate_packet(packet, execution, basis):
     if not enabled(execution.policy):
         if "artifact_under_edit" in packet or packet.get("schema") == SCHEMA:
             raise ValueError("Historical policy cannot gain primary work context")
-        return [ValidatedBuildSectionReadV1.model_validate(e) for e in selected]
+        rows = [ValidatedBuildSectionReadV1.model_validate(e) for e in selected]
+        if [e.model_dump(mode="json", by_alias=True) for e in rows] != selected:
+            raise ValueError(
+                "Historical saved section differs from exact serialized read"
+            )
+        return rows
     packet_rows(packet)
     expected = project(execution, basis)
     if packet.get("artifact_under_edit") != expected:
