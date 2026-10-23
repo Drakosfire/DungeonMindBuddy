@@ -29,9 +29,15 @@ def route_case(a,tmp_path,*,status='completed'):
         def execute(self,adapter,**kwargs):
             wire.adapter=adapter
             return super().execute(adapter,**kwargs)
-    answer=json.dumps({'answer_context_status':'plan_only_insufficient_evidence','answer_segments':[
-        {'kind':'plan_claim','text':'The authored Plan proposes a park visit.'}]})
-    wire=WriterWire(None,answer,status=status)
+    class AuthoredWire(WriterWire):
+        async def handle_async_request(self, request):
+            frame=json.loads(json.loads(request.content)['input'][0]['content'])
+            block=next(block for block in frame['committed_plan_blocks'] if 'proposed visit' in block['text'])
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v2',
+                'answer_segments':[{'kind':'authored_excerpt','block_handle':block['block_handle']}],
+                'limitations':[], 'requested_detail_gaps':[]})
+            return await super().handle_async_request(request)
+    wire=AuthoredWire(None,'',status=status)
     harness=Harness(decision_transport=decisions,writer_transport=wire,
         decision_api_key='synthetic-not-secret',writer_api_key='synthetic-not-secret')
     kwargs=dict(root=tmp_path,pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
@@ -44,7 +50,7 @@ def route_case(a,tmp_path,*,status='completed'):
 def test_turn_service_plan_harness_delivers_and_replays_without_another_call(plan_adapter,tmp_path):
     harness,decisions,wire,kwargs=route_case(plan_adapter,tmp_path)
     response=execute_agent_turn(plan_adapter.request,**kwargs)
-    assert response.answer.status=='ok' and 'proposes a park visit' in response.answer.text
+    assert response.answer.status=='ok' and 'proposed visit' in response.answer.text
     assert response.plan_context.delivery_replay is False
     assert response.primary_work.content_basis == plan_adapter.work.content_basis
     basis = response.model_dump(mode='json')['primary_work']['content_basis']
@@ -84,11 +90,20 @@ def test_owner_loads_completed_canonical_dialogue_once_for_followup(plan_adapter
         reads.append((args,kwargs))
         return original(*args,**kwargs)
     monkeypatch.setattr(service,'list_turns',counted)
+    navigation_reads=[]
+    original_navigation=service.retained_graph_navigation
+    def navigation_counted(**kwargs):
+        navigation_reads.append(kwargs)
+        return original_navigation(**kwargs)
+    monkeypatch.setattr(service,'retained_graph_navigation',navigation_counted)
     second=plan_adapter.request.model_copy(update={'turn_id':str(uuid4()),
         'message':'Ground that location in the journal.'})
     response=execute_agent_turn(second,**kwargs)
     assert response.answer.status == 'ok'
     assert len(reads)==1
+    assert len(navigation_reads)==1
+    assert len(navigation_reads[0]['previous_turns'])==1
+    assert navigation_reads[0]['conversation_id']==wire.adapter.turn.conversation_id
     expected=[{'role':'user','content':plan_adapter.request.message},
               {'role':'assistant','content':first.answer.text}]
     state=json.loads(decisions.calls[-1].content)['state']
@@ -193,3 +208,61 @@ def test_owner_offers_navigation_labels_without_admitting_discovery_as_claims(pl
     assert receipt.assembled_input.dispatched_assertion_ids==[]
     assert receipt.assembled_input.dispatched_evidence_ref_ids==[]
     assert result.plan_context.completion.citation_map is None
+
+
+def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_citation(plan_adapter,tmp_path,monkeypatch):
+    from dataclasses import replace
+    from uuid import uuid4
+    from graph_memory.interaction.session import GraphRetrievalSession, CoverageState
+    from tests.test_source_passage_reuse import complete_origin
+    from tests.test_plan_jev_driver import fixture_reads
+    origin,_=complete_origin(plan_adapter)
+    session=GraphRetrievalSession(snapshot=plan_adapter.bootstrap.retrieval_session.snapshot,
+        question='Prepare the next encounter from the journal.',coverage=CoverageState(state='empty'))
+    bootstrap=replace(plan_adapter.bootstrap,retrieval_session=session,navigation_candidates=(),
+        completed_discovery_query=session.question)
+    acquisitions=[]
+    class NavigationChoices(Finish):
+        async def handle_async_request(self,request):
+            self.calls.append(request);body=json.loads(request.content);answers={}
+            for name,question in body['questions'].items():
+                choice='finish_retrieval' if name=='operation' else (
+                    'include' if body['state']['candidates'][int(name.split('_')[1])]['kind'].startswith('Previously explored') else 'exclude')
+                answers[name]={'type':'choice','choice':choice,'confidence':1,
+                    'probabilities':{key:float(key==choice) for key in question['criteria']}}
+            return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,'usage':{}})
+    class CurrentSourceWire(WriterWire):
+        async def handle_async_request(self,request):
+            frame=json.loads(json.loads(request.content)['input'][0]['content'])
+            assert frame['opened_passages']
+            assert 'Previously explored' not in json.dumps(frame['entity_index'])
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v2','limitations':[],
+                'requested_detail_gaps':[],'answer_segments':[{'kind':'source_passage_claim',
+                'text':'The park account describes a walkway.',
+                'passage_handles':[frame['opened_passages'][0]['passage_handle']]}]})
+            return await super().handle_async_request(request)
+    wire=CurrentSourceWire(None,'')
+    class RecoveryHarness(PlanJevHarness):
+        def execute(self,adapter,**kwargs):
+            wire.adapter=adapter
+            acquisitions.append(fixture_reads(adapter))
+            return super().execute(adapter,**kwargs)
+    choices=NavigationChoices()
+    harness=RecoveryHarness(decision_transport=choices,writer_transport=wire,
+        decision_api_key='synthetic',writer_api_key='synthetic')
+    _,_,_,kwargs=route_case(plan_adapter,tmp_path)
+    kwargs.update(runtime=harness,plan_graph_resolver=lambda *_args:bootstrap)
+    service=kwargs['conversation_service'];original=service.list_turns;history_reads=[]
+    def counted(*args,**kw):
+        history_reads.append((args,kw));return original(*args,**kw)
+    monkeypatch.setattr(service,'list_turns',counted)
+    followup=plan_adapter.request.model_copy(update={'turn_id':str(uuid4()),'message':session.question})
+    response=execute_agent_turn(followup,**kwargs)
+    assert response.answer.status=='ok' and 'walkway' in response.answer.text
+    assert len(history_reads)==1 and len(wire.calls)==1
+    graph_calls,source_calls=acquisitions[0]
+    assert [call['operation'] for call in graph_calls]==['object','object']
+    assert len(source_calls)==1
+    assert response.plan_context.completion.source_citations[0].source_name=='Synthetic park journal'
+    assert all(row['kind'].startswith('Previously explored') for row in
+        json.loads(choices.calls[0].content)['state']['candidates'] if row['kind']!='public_rules_lookup')

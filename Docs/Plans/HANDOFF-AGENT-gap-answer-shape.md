@@ -1,6 +1,6 @@
 # AGENT — exact missing-detail answer shape
 
-ACTIVE serial PRIME implementation on15b31ebc55038b664ae622ef5125b3230848aae6,
+SETTLED serial PRIME implementation on15b31ebc55038b664ae622ef5125b3230848aae6,
 branch codex/agent-gap-answer-shape, existing buddy-context-loop checkout. Operator
 active goal authorizes dependable grounding, inspectable prompts and foundations.
 No overlapping open runtime lane. One implementation PR, independent Bugbot review,
@@ -24,3 +24,12 @@ retrieval can produce a completed typed gap answer in one writer call, with no
 citations or invented facts. Malformed string gaps must remain rejected. Review
 the exact cumulative diff; continue discovery correction and fresh real-source
 rehearsal before claiming the preparation goal achieved.
+
+#1627 shipped after one Bugbot cycle, reviewedc5978103c6d42bd2e055db34f48f678844e25756,
+mergee2b6da5a7c4f8b9bbf37081028190193eefbeabe. API8000 serves that merge; UI remains
+15b31ebc/APP0052.15 writer and21 shared answer tests passed. Protected1778 APP rows,
+native rows,79 mechanics files and17 frozen components retained. Ordinary fresh
+repeat of the failed broad request now completed with honest Needs more context
+and typed requested-detail limitations, no fabricated evidence. Discovery still
+empty; this is not a grounded-answer success. Lease released to retained-navigation
+successor; original benchmark/adventures/fullgoal acceptance remain open.

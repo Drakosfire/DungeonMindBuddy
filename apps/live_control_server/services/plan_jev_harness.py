@@ -28,10 +28,10 @@ class PlanJevHarness:
     def run_with_provider_authorization(self, *args, **kwargs):
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
-    def execute(self, adapter, *, dialogue=()):
+    def execute(self, adapter, *, dialogue=(), retained_navigation=()):
         self.calls=[]
         rules=PlanRulesRuntime(adapter,rules_capability(graph=True))
-        driver=PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
+        driver=PlanJevDriver(adapter,dialogue=dialogue,rules=rules,retained_navigation=retained_navigation)
         writer=None
         try:
             proof=asyncio.run(driver.run(transport=self.decision_transport,api_key=self.decision_api_key))
@@ -45,11 +45,11 @@ class PlanJevHarness:
             if adapter.fence is not None:
                 adapter.stop()
 
-    def execute_response(self, adapter, *, owner, trace, dialogue=()):
+    def execute_response(self, adapter, *, owner, trace, dialogue=(), retained_navigation=()):
         from .agent_turn_service import AgentTurnServiceError, _completed_turn_replay, _interrupt_policy_delivery
         span=trace.start_phase('runtime_dispatch')
         try:
-            completed=self.execute(adapter,dialogue=dialogue)
+            completed=self.execute(adapter,dialogue=dialogue,retained_navigation=retained_navigation)
         except BaseException as exc:
             trace.complete_phase(span,status='error')
             if adapter.fence is not None:

@@ -396,3 +396,30 @@ def test_reused_binding_failure_keeps_broker_interruption_semantics(plan_adapter
         assert json.loads(reply["resultJson"])["code"] == "graph_operation_unavailable"
     assert calls == [a.bootstrap.world_scope.world_id]
     assert a._plan_graph_read_services is None and not a.operation_payloads
+
+
+@pytest.mark.parametrize('missing', [False, True])
+def test_empty_initial_search_uses_retained_navigation_once_without_repeating_query(plan_adapter, missing):
+    from application_state.agent_conversation.retained_graph_navigation import RetainedGraphSubject
+    from dataclasses import replace
+    plan_adapter.bootstrap=replace(plan_adapter.bootstrap,completed_discovery_query=plan_adapter.request.message)
+    graphs,sources=fixture_reads(plan_adapter)
+    if missing:
+        def unavailable(message):
+            graphs.append(message['arguments'])
+            return plan_adapter._denied_tool_result('expand_graph_retrieval','object_not_found',404,'Selected subject is absent.',arguments=message['arguments'])
+        plan_adapter.broker_graph_operation=unavailable
+    subjects=(RetainedGraphSubject('pond','Park pond','location'),RetainedGraphSubject('bridge','Footbridge','location'))
+    driver=PlanJevDriver(plan_adapter,retained_navigation=subjects)
+    decisions=Decisions()
+    proof=asyncio.run(driver.run(transport=decisions,api_key='synthetic-not-secret'))
+    assert [row['operation'] for row in graphs]==['object','object']
+    assert {row['targets'][0]['id'] for row in graphs}=={'pond','bridge'}
+    assert all('navigation only' in row['kind'] for row in decisions.calls[0]['state']['candidates'])
+    assert driver.finished and not driver.offered()
+    if missing:
+        assert driver.gaps==['object_not_found','object_not_found']
+        assert proof['graph_packets']=={} and not sources
+    else:
+        assert len(sources)==1 and len(proof['graph_packets'])==2
+    assert 'retained_navigation' not in proof

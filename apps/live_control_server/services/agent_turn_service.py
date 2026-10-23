@@ -7007,6 +7007,8 @@ def execute_agent_turn(
             # once, then share the same reference-only snapshot with every
             # decision and the writer. Client thread IDs never select history.
             history = []
+            previous_turns = []
+            retained_navigation = ()
             if policy_conversation_id is not None or durable_turn is not None:
                 conversation_id = (durable_turn.conversation_id if durable_turn is not None
                     else policy_conversation_id)
@@ -7019,8 +7021,17 @@ def execute_agent_turn(
                     if envelope.status == "completed" and previous.assistant_text:
                         history.extend([{"role": "user", "content": envelope.user_text},
                             {"role": "assistant", "content": previous.assistant_text}])
+            if (previous_turns and not adapter.bootstrap.navigation_candidates
+                    and not adapter.bootstrap.retrieval_session.referents):
+                authority = _app_state_graph_execution_types().PlanWorldGraphAuthorityV1(
+                    managed_world_id=canonical_world_id, native_world_id=adapter.bootstrap.world_scope.world_id,
+                    binding_version=adapter.bootstrap.binding_version, scope_mode='world',
+                    admissibility_version='gm-v1', graph_revision=adapter.bootstrap.world_scope.revision_id)
+                retained_navigation = conversation_service.retained_graph_navigation(
+                    world_id=canonical_world_id, conversation_id=conversation_id,
+                    authority=authority, previous_turns=previous_turns)
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace,
-                dialogue=history)
+                dialogue=history, retained_navigation=retained_navigation)
         span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(
