@@ -12,7 +12,7 @@ def agent_readiness(*, surface: Literal["build", "plan", "play"], world_graph: b
     missing = []
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         missing.append("Answer provider is not configured.")
-    if (surface == "build" or world_graph) and not os.environ.get("TYPESAFE_JEV_API_KEY", "").strip():
+    if (surface == "build" or (surface == "plan" and world_graph)) and not os.environ.get("TYPESAFE_JEV_API_KEY", "").strip():
         missing.append("Decision provider is not configured.")
     if surface == "build" and not (
         isinstance(build_runtime, PreparedBuildJevRuntime)

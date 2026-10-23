@@ -19,7 +19,7 @@ def test_missing_config_does_not_expose_values(monkeypatch):
     assert "API_KEY" not in str(result)
 
 
-@pytest.mark.parametrize("surface,graph,expected", [("build", False, False), ("plan", False, True), ("play", False, True), ("plan", True, False), ("play", True, False)])
+@pytest.mark.parametrize("surface,graph,expected", [("build", False, False), ("plan", False, True), ("play", False, True), ("plan", True, False), ("play", True, True)])
 def test_decision_requirement_matches_route(monkeypatch, surface, graph, expected):
     monkeypatch.setenv("OPENAI_API_KEY", "secret-answer")
     monkeypatch.delenv("TYPESAFE_JEV_API_KEY", raising=False)
@@ -54,3 +54,11 @@ def test_route_auth_and_surface_validation(monkeypatch):
         raise HTTPException(401, "Not authorized")
     monkeypatch.setattr(agent, "enforce_native_graph_gm", reject)
     assert client.get("/api/live/agent/readiness?surface=build").status_code == 401
+
+
+def test_play_requirement_matches_hermes_inference_owner(monkeypatch):
+    from apps.live_control_server.services.hermes_graph_agent import _resolve_hermes_openai_inference
+    monkeypatch.setenv("OPENAI_API_KEY", "synthetic-answer")
+    monkeypatch.delenv("TYPESAFE_JEV_API_KEY", raising=False)
+    assert not isinstance(_resolve_hermes_openai_inference(require_api_key=True), str)
+    assert agent_readiness(surface="play", world_graph=True, build_runtime=None)["configured"]
