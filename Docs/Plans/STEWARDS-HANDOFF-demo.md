@@ -59,8 +59,12 @@ adoption→Play→reload/restart/resume. The bounded
 [design contract](HANDOFF-COMBAT-scene-encounter-revision.md) owns its critique and
 serial activation; shared module hosting alone does not establish this journey.
 
-Buddy #1617/APP0048 is merged and deployed on8000/5202, preserving retained
-sources/state. Root discovery/composer repairs and Session29 selector/reload are
+Buddy #1621/APP0050 is merged and deployed on8000/5202, preserving retained
+sources/state. Manual immutable revisions and explicit selected-actor adoption are
+proved in a synthetic encounter, including tracker changes and protected restart.
+The next [scene ownership contract](HANDOFF-COMBAT-scene-template.md) sequences
+Plan template preparation before exact Run-owned encounter materialization; its
+implementation and real adventure acceptance remain open. Root discovery/composer repairs and Session29 selector/reload are
 witnessed. The new exact excerpt fix still requires its original-query live
 acceptance; repeated roughly10-second grounding, connected image follow-through,
 external recap/memory, full two-adventure J1–J6 twice and8GB evidence remain open.
