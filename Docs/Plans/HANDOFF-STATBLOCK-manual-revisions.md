@@ -1,8 +1,11 @@
 # STATBLOCK — durable manual revisions of saved mechanics
 
-## ACTIVE serial implementation authority
+## Merged implementation; live repair successor
 
-PRIME activates slice A of adopted #1618 under the operator's revised active goal.
+#1619 merged at `3389249e9cdf07bd9ee89aa01151605eb82d67b5` after two Bugbot cycles.
+The implementation lease is released; live HP editing repair is ACTIVE under
+[the serial successor](HANDOFF-STATBLOCK-hp-edit-consistency.md).
+Original activation: PRIME activates slice A of adopted #1618 under the operator's revised active goal.
 Base `05a6fe0c95d68e337ce589677012bdb0e32da08c`, existing buddy-context-loop
 checkout, branch `codex/statblock-manual-revisions`. Fresh remote/open-PR census
 found no overlapping implementation. One implementation PR; no new environment.
