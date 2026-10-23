@@ -98,6 +98,7 @@ class PromotableIngestRun:
     # Review/prepare must load this URI — never re-derive the registry canonical
     # index from source_artifact_id alone.
     source_span_index_path: Path | None = None
+    source_span_index_sha256: str | None = None
     # Immutable MIND membership/head observation captured before recap extraction.
     ingest_context: dict[str, Any] | None = None
 
@@ -445,6 +446,7 @@ def _resolve_promotable_extraction_run(
             else None
         ),
         source_span_index_path=span_index_path,
+        source_span_index_sha256=run.components["source_span_index"].sha256,
     )
 
 
