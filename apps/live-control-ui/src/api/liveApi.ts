@@ -1653,6 +1653,10 @@ export async function verifyGraphGoldAuthoringCommit(
   );
 }
 
+export async function getGraphObjectAuthoringKinds(): Promise<{objectKinds: string[]}> {
+  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds");
+}
+
 export async function prepareGraphObjectAuthoringWrite(
   request: GraphObjectAuthoringPrepareRequest,
 ): Promise<GraphObjectAuthoringPrepareResponse> {

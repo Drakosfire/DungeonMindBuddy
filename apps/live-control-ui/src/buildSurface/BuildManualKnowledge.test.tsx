@@ -6,7 +6,7 @@ import * as extract from '../api/extractPromoteApi';
 import {knowledgeKey,type ManualKnowledgeScope} from './buildManualKnowledge';
 const state=vi.hoisted(()=>({session:{} as any,current:true}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useMarkdownCanvasSession:()=>state.session}));
-vi.mock('../api/liveApi',()=>({postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
+vi.mock('../api/liveApi',async(importOriginal)=>({...await importOriginal<typeof import('../api/liveApi')>(),getGraphObjectAuthoringKinds:vi.fn(),postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
 vi.mock('../api/extractPromoteApi',()=>({getWorldbuildingFrozenSpans:vi.fn()}));
 const hash='b'.repeat(64),candidate='a'.repeat(64),index='e'.repeat(64);
 const props:any={worldId:'world-a',document:{document_id:'doc-a',world_id:'world-a',kind:'worldbuilding_source'},
@@ -26,6 +26,7 @@ beforeEach(()=>{vi.resetAllMocks();localStorage.clear();state.current=true;
  state.session={phase:'ready_clean',dirty:false,record:props.document,snapshot:{loaded_revision:2,content_sha256:hash},
  editor:{state:{selection:{from:1,to:5},doc:{textBetween:()=> 'Mara'}}}};
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>fn()}});
+ vi.mocked(api.getGraphObjectAuthoringKinds).mockResolvedValue({objectKinds:['npc','item','location']});
  vi.mocked(extract.getWorldbuildingFrozenSpans).mockResolvedValue(catalog);
  vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue({schema:'dmb_managed_world_graph_projection_v1',managedWorldId:'world-a',nativeWorldId:'native-a',bindingVersion:1,
  projection:{schema:'dmb_world_graph_projection_v1',snapshot:{worldId:'native-a',campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm',isHead:true,revisionId:'head-a',headRevisionId:'head-a'},nodes:[
@@ -142,4 +143,37 @@ it('mounts the frozen paragraph list only when explicitly expanded',async()=>{
  const details=screen.getByText('Choose a saved passage').closest('details')!;
  details.open=true;fireEvent(details,new Event('toggle'));
  await screen.findByRole('button',{name:'Use passage · lines 1–1'});
+});
+
+it('offers native publication kinds and no legacy object/concept choices',async()=>{
+ render(<BuildManualKnowledge {...props}/>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
+ expect([...((screen.getByLabelText('Kind')) as HTMLSelectElement).options].map(o=>o.value)).toEqual(['npc','item','location']);
+});
+it('allows explicit editing after a known prepublication refusal and restores the source and fields',async()=>{
+ const view=render(<BuildManualKnowledge {...props}/>);await stage();view.unmount();
+ const saved=JSON.parse(localStorage.getItem(knowledgeKey(scope))!);
+ saved.submitted=true;saved.request.proposals[0].objectRef.kind='object';
+ saved.request.proposals[0].objectRef.summary='Keep the original description.';
+ localStorage.setItem(knowledgeKey(scope),JSON.stringify(saved));
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new api.LiveApiError('Unsupported kind',409,{code:'authoring_kind_unsupported'}));
+ render(<BuildManualKnowledge {...props}/>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Retry exact confirmation'})).toBeEnabled());
+ expect(screen.queryByRole('button',{name:'Edit proposal'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Retry exact confirmation'}));
+ await screen.findByRole('button',{name:'Edit proposal'});
+ expect(vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[0][0].proposals).toEqual(saved.request.proposals);
+ fireEvent.click(screen.getByRole('button',{name:'Edit proposal'}));
+ await screen.findByLabelText('Kind');expect(screen.getByLabelText('Kind')).toHaveValue('object');
+ expect(screen.getByLabelText('Name')).toHaveValue('Mara');expect(screen.getByLabelText('Description')).toHaveValue('Keep the original description.');
+ expect(screen.getByRole('button',{name:'Preview World change'})).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Kind'),{target:{value:'item'}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByRole('button',{name:'Confirm World change'});
+ expect(vi.mocked(api.prepareGraphObjectAuthoringWrite).mock.calls.at(-1)?.[0].proposals[0]).toMatchObject({objectRef:{kind:'item',summary:'Keep the original description.'},selection:saved.request.proposals[0].selection});
+});
+it.each(['stale_parent','authority_unavailable','governed_write_inexpressible'])('keeps exact retry for %s',async(code)=>{
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new api.LiveApiError('Refused',409,{code}));
+ render(<BuildManualKnowledge {...props}/>);await stage();fireEvent.click(screen.getByRole('button',{name:'Confirm World change'}));
+ await screen.findByText(/exact request is retained for retry/);
+ expect(screen.queryByRole('button',{name:'Edit proposal'})).not.toBeInTheDocument();
 });

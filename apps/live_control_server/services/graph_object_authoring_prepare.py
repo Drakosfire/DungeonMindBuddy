@@ -1608,6 +1608,27 @@ def prove_graph_review_source(
     return admitted.source_artifact_id, admitted.source_revision_id
 
 
+def graph_review_supported_object_kinds() -> tuple[str, ...]:
+    """Choices come from the exact native target used by the publication writer."""
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_V5_TARGET,
+    )
+
+    return tuple(sorted(CURRENT_V5_TARGET.buddy_to_dm_kind))
+
+
+def validate_graph_review_object_kinds(assertions: list[AuthoredGraphAssertion]) -> None:
+    supported = graph_review_supported_object_kinds()
+    for assertion in assertions:
+        if assertion.assertion_kind == "object" and assertion.object_ref.kind not in supported:
+            raise GraphObjectAuthoringError(
+                f"Object kind '{assertion.object_ref.kind}' is not supported for World publication. "
+                "Edit the proposal and explicitly choose a supported kind.",
+                code="authoring_kind_unsupported",
+                status_code=409,
+            )
+
+
 def prepare_graph_object_authoring_write(
     request: GraphObjectAuthoringPrepareRequest,
     *,
@@ -1633,6 +1654,8 @@ def prepare_graph_object_authoring_write(
         )
     if not assertions:
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
+
+    validate_graph_review_object_kinds(assertions)
 
     overlap_warnings = detect_prepare_overlap_warnings(request)
     prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)

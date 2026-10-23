@@ -25,6 +25,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     translate_assertions_to_contribution,
     verify_graph_review_assertion_spans,
     validate_authoring_campaign_scope,
+    validate_graph_review_object_kinds,
     _blocking_assertion_diagnostics,
 )
 
@@ -278,6 +279,9 @@ def commit_graph_object_authoring_write(
 
     receipt = recovered
     if recovered is None:
+        # A recovered publication wins over newer capability checks. This explicit
+        # refusal happens before publish and is safe for deliberate proposal editing.
+        validate_graph_review_object_kinds(assertions)
         try:
             head = mounted.current_head(world_id)
         except WorldGraphAuthorityError as exc:
