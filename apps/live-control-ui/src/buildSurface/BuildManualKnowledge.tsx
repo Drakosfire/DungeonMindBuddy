@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {commitGraphObjectAuthoringWrite,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
 import {getWorldbuildingFrozenSpans} from '../api/extractPromoteApi';
 import type {ExactRunReviewPackage,ExtractionRunRecord,GraphObjectAuthoringProposalPayload,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog,WorldGraphProjectionNodeView} from '../api/types';
+import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
 import {useMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
 import {buildGraphObjectAuthoringProposal,buildGraphObjectAuthoringRelationshipProposal,buildObjectRefFromInspectedNode,
   createDefaultGraphObjectAuthoringFormState,createDefaultGraphObjectAuthoringRelationshipFormState,
@@ -45,7 +46,10 @@ export function BuildManualKnowledge(props:Props){
   useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setError('');
     void Promise.all([getWorldbuildingFrozenSpans(scope.runId),postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([spans,graph])=>{
       if(!active||!props.isScopeCurrent())return;
-      if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId)||graph.managedWorldId!==scope.worldId)throw new Error('Frozen source or World does not match this review.');
+      const graphError=verifyManagedWorldGraphProjectionResponse({managedWorldId:scope.worldId,
+        request:{schema:'dmb_world_graph_projection_request_v1',worldId:scope.worldId,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},
+        response:graph,revisionKind:'head'});
+      if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId)||graphError)throw new Error(graphError||'Frozen source does not match this review.');
       setCatalog(spans);setNodes(graph.projection.nodes);
     }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
   },[key,reload]);
@@ -99,6 +103,14 @@ export function BuildManualKnowledge(props:Props){
       await store({...retained,receipt:result},false);if(alive.current&&props.isScopeCurrent())setReload(n=>n+1);
     }catch(e){if(alive.current)setError(message(e)+' The exact request is retained for retry.');}finally{busyRef.current=false;if(alive.current)setBusy(false);}
   }
+  function nodeCaption(node:WorldGraphProjectionNodeView){
+    const detail=[node.kind,node.role!==node.kind?node.role:null,node.summary].filter(Boolean).join(' · ');
+    return node.label+(detail?' · '+detail:'')+(nodes.filter(n=>n.label===node.label).length>1?' · '+node.nodeId:'');
+  }
+  function endpointCaption(ref:Record<string,unknown>|null|undefined){
+    const node=nodes.find(n=>n.nodeId===ref?.nodeId);
+    return node?nodeCaption(node):String(ref?.label??'Unavailable object')+' · '+String(ref?.nodeId??'');
+  }
   const ready=exact()&&!storageError&&!busy&&!!catalog;
   return <section aria-label="Author World knowledge" className="graph-object-authoring-surface">
     <h3>Author World knowledge</h3><p>Choose saved source text, declare an object or relationship, then review and confirm it.</p>
@@ -113,14 +125,18 @@ export function BuildManualKnowledge(props:Props){
       <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
       {mode==='object'?<><label>Name<input value={label} onChange={e=>setLabel(e.target.value)}/></label>
         <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{GRAPH_OBJECT_AUTHORING_KIND_OPTIONS.map(k=><option key={k}>{k}</option>)}</select></label></>
-      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{n.label}</option>)}</select></label>
+      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label>
         <label>Relationship<input value={predicate} onChange={e=>setPredicate(e.target.value)}/></label>
-        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{n.label}</option>)}</select></label></>}
+        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label></>}
       <label>Description<textarea value={summary} onChange={e=>setSummary(e.target.value)}/></label>
       <button type="button" disabled={!selection} onClick={()=>void prepare()}>Preview World change</button>
     </fieldset>}
     {recovery&&!recovery.receipt&&<><blockquote>{String(recovery.request.proposals[0].selection?.selectedText??'')}</blockquote>
-      {recovery.prepared?<><ul>{recovery.prepared.assertions_preview.map(row=><li key={row.assertion_id}>{row.summary}</li>)}</ul>
+      {recovery.prepared?<>{recovery.request.proposals[0].proposalKind==='relationship'&&<dl>
+        <dt>From</dt><dd>{endpointCaption(recovery.request.proposals[0].sourceObjectRef)}</dd>
+        <dt>Relationship</dt><dd>{recovery.request.proposals[0].relationshipType}</dd>
+        <dt>To</dt><dd>{endpointCaption(recovery.request.proposals[0].targetObjectRef)}</dd></dl>}
+        <ul>{recovery.prepared.assertions_preview.map(row=><li key={row.assertion_id}>{row.summary}</li>)}</ul>
         <p>Confirming publishes this reviewed assertion to the World. Your source document stays unchanged.</p>
         <button type="button" disabled={!ready} onClick={()=>void confirm()}>{recovery.submitted?'Retry exact confirmation':'Confirm World change'}</button></>
         :<button type="button" disabled={!ready} onClick={()=>void prepare()}>Retry exact preview</button>}

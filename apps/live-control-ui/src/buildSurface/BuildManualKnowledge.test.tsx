@@ -27,7 +27,8 @@ beforeEach(()=>{vi.resetAllMocks();localStorage.clear();state.current=true;
  editor:{state:{selection:{from:1,to:5},doc:{textBetween:()=> 'Mara'}}}};
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>fn()}});
  vi.mocked(extract.getWorldbuildingFrozenSpans).mockResolvedValue(catalog);
- vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue({managedWorldId:'world-a',projection:{nodes:[
+ vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue({schema:'dmb_managed_world_graph_projection_v1',managedWorldId:'world-a',nativeWorldId:'native-a',bindingVersion:1,
+ projection:{schema:'dmb_world_graph_projection_v1',snapshot:{worldId:'native-a',campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm',isHead:true,revisionId:'head-a',headRevisionId:'head-a'},nodes:[
  {nodeId:'mara',label:'Mara',kind:'npc',role:'keeper'},{nodeId:'quarry',label:'Quarry',kind:'location',role:'location'}]}} as any);
  vi.mocked(api.prepareGraphObjectAuthoringWrite).mockResolvedValue(prepared);
  vi.mocked(api.commitGraphObjectAuthoringWrite).mockResolvedValue(receipt);
@@ -91,4 +92,26 @@ it('stages a relationship between exact current World nodes',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByRole('button',{name:'Confirm World change'});
  expect(vi.mocked(api.prepareGraphObjectAuthoringWrite).mock.calls[0][0].proposals[0]).toMatchObject({proposalKind:'relationship',
  sourceObjectRef:{nodeId:'mara'},targetObjectRef:{nodeId:'quarry'},relationshipType:'located_in'});
+});
+
+it('rejects contradictory native provenance before exposing endpoint nodes',async()=>{
+ const response=await api.postManagedWorldGraphProjection({} as any);response.projection.snapshot.worldId='foreign-native';
+ vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue(response);
+ render(<BuildManualKnowledge {...props}/>);await screen.findByText(/does not match envelope world/);
+ expect(screen.getByRole('button',{name:'Use selected document text'})).toBeDisabled();
+ expect(api.prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
+it('distinguishes same-name endpoints in choices and retained directional preview',async()=>{
+ const response=await api.postManagedWorldGraphProjection({} as any);
+ response.projection.nodes=[{nodeId:'mara-east',label:'Mara',kind:'npc',role:'keeper',summary:'East gate keeper'},
+ {nodeId:'mara-west',label:'Mara',kind:'npc',role:'keeper',summary:'West gate keeper'}] as any;
+ vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue(response);
+ render(<BuildManualKnowledge {...props}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Use selected document text'}));fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
+ const from=screen.getByLabelText('From') as HTMLSelectElement,to=screen.getByLabelText('To') as HTMLSelectElement;
+ expect([...from.options].map(o=>o.label)).toEqual(['Choose object','Mara · npc · keeper · East gate keeper · mara-east','Mara · npc · keeper · West gate keeper · mara-west']);
+ fireEvent.change(from,{target:{value:'mara-west'}});fireEvent.change(to,{target:{value:'mara-east'}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByRole('button',{name:'Confirm World change'});
+ const terms=[...screen.getByLabelText('Author World knowledge').querySelectorAll('dd')].map(n=>n.textContent);
+ expect(terms).toEqual(['Mara · npc · keeper · West gate keeper · mara-west','located_in','Mara · npc · keeper · East gate keeper · mara-east']);
 });
