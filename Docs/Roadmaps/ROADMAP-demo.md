@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-22.
-**Evidence anchor:** remote main/live Buddy `0cea62670164ded25646d0686693022b851ad220`
-(#1621), API8000/UI5202, APP0050/native0017, Core617635c.
+**Evidence anchor:** remote main/live Buddy `5cdc29f77e87f16d03735a5d286944e96a65768e`
+(#1623), API8000/UI5202, APP0051/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -28,7 +28,7 @@ this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 | Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
 | Evidence efficiency and exact excerpts | #1615 retained-source reuse: Plan4.590s/Play13.191s, each one reuse/zero fresh reads; #1617 host-materialized authored blocks with current-submission policy fencing | #1617 original-query/notes/reflections rendered acceptance and post-answer protected restart; five reused passages in the preceding9.042s failed answer are not successful latency evidence |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
-| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart | Durable scene connection and the complete operator-selected journey |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Exact Run capture/materialization and the complete operator-selected journey |
 | Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
 | Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
@@ -97,9 +97,12 @@ UI proved selected-actor AC/HP adoption, unaffected sibling, tracker turns and e
 revision4 reload after protected restart. New saved revisions do not inherit World
 acceptance. The next [scene ownership contract](../Plans/HANDOFF-COMBAT-scene-template.md)
 splits C into Plan template preparation then exact Run-owned encounter creation.
-The contract shipped #1622 after one Bugbot cycle. C1 Plan template implementation
-is ACTIVE on its fresh base; C2 Run materialization and real adventure acceptance
-remain open.
+The contract shipped #1622 after one Bugbot cycle. C1 shipped #1623 after two
+Bugbot cycles and is live on5202/APP0051. Ordinary synthetic Plan scene creation,
+two actors, Document/Cards draft recovery, four versions and exact revision4
+reopen/restart passed. [C2 Run scene ownership](../Plans/HANDOFF-COMBAT-run-scene-encounters.md)
+closes complete session capture, initialization and server access gates in design
+review; its implementation and real adventure acceptance remain open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable

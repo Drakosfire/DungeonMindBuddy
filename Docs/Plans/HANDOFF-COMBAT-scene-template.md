@@ -38,7 +38,7 @@ scene position, exact mechanics and session isolation. No AI is needed to create
 edit, save, select or materialize a prepared encounter. Existing shared Combat
 editing, source verification, adoption and recovery remain the owning mechanisms.
 
-## ACTIVE C1 implementation lease
+## SETTLED C1 implementation lease
 
 PRIME activates C1 on `abaafa2b554f7dae0e1cae89f321942079d34e58`, branch
 `codex/combat-plan-scene-templates`, existing checkout, serial one implementation PR.
@@ -225,3 +225,15 @@ family with existing authenticated transport and proving bearer/session/CSRF/
 loopback behavior. PlanSceneEncounter validates the existing160-character encounter
 title contract before persisting intent; long headings receive a valid editable
 default. These fix C1 review findings, not new capabilities or new output caps.
+
+## Consuming C2 settlement — #1623
+
+C1 shipped #1623, final Bugbot-reviewed head
+`baaf0163d1c383eed414e49c29b7789951753c4a` in cycle2, merge/live
+`5cdc29f77e87f16d03735a5d286944e96a65768e`, APP0051. The C1 write lease is released.
+Ordinary synthetic Plan scene creation, two actors, Document/Cards draft recovery,
+Save/adoption and four immutable versions passed; protected API restart retained
+exact revision4, note and versions. Other five fights and protected source/agent/
+association state stayed unchanged. The consuming C2 design is
+[Run scene encounters](HANDOFF-COMBAT-run-scene-encounters.md); no real adventure
+or full connected journey completion is inferred.
