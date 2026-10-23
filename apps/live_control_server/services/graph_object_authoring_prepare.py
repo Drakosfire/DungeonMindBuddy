@@ -1092,6 +1092,9 @@ def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str
         if not isinstance(path, Path) or not path.resolve().is_relative_to(root.resolve()):
             raise ValueError("Missing or escaped run-pinned source index")
         raw = path.read_bytes()
+        expected = getattr(resolved_source, "source_span_index_sha256", None)
+        if not isinstance(expected, str) or hashlib.sha256(raw).hexdigest() != expected:
+            raise ValueError("Frozen source index differs from the run's component digest")
         payload = json.loads(raw.decode("utf-8"))
         if (not isinstance(payload, dict) or not isinstance(payload.get("spans"), list)
                 or any(type(span.get(field)) is not int

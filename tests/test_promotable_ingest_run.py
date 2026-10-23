@@ -888,6 +888,7 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.normalized_recap_path.is_file()
     assert resolved.source_span_index_path is not None
     assert resolved.source_span_index_path.is_file()
+    assert resolved.source_span_index_sha256 == hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest()
     assert "session_scope=null" in resolved.diagnostics
     # Registry-owned source bytes are sealed by digest, not read in place, and the
     # run's own artifact directory is never mutated to make that possible.
@@ -1058,6 +1059,7 @@ def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path)
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
     assert resolved.source_span_index_path is not None
     assert resolved.source_span_index_path.name == "alt_source_span_index.json"
+    assert resolved.source_span_index_sha256 == hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest()
     from apps.live_control_server.services.source_artifact_registry import (
         source_span_index_path,
     )

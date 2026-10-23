@@ -39,6 +39,7 @@ def frozen(tmp_path, monkeypatch):
     path = tmp_path / "frozen-index.json"
     path.write_text(json.dumps(source_span_index_to_dict(index)))
     resolved.source_span_index_path = path
+    resolved.source_span_index_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
     proposal = object_proposal(selection={
         "selectionKind": "text_span", "selectedText": "Mara", "normalizedSelectedText": "Mara",
         "sourceSpanRefId": index.spans[0].source_span_id,
@@ -69,6 +70,7 @@ def test_uses_run_pinned_index_and_seals_exact_bytes(frozen, monkeypatch):
 
 def test_canonical_only_span_is_not_a_member_of_selected_run(frozen):
     frozen.path.write_text(json.dumps(source_span_index_to_dict(replace(frozen.index, spans=frozen.index.spans[1:]))))
+    frozen.resolved.source_span_index_sha256 = hashlib.sha256(frozen.path.read_bytes()).hexdigest()
     with pytest.raises(GraphObjectAuthoringError, match="one current source passage"):
         verify(frozen)
     frozen.reader.assert_not_called()
@@ -100,6 +102,7 @@ def test_bad_frozen_index_fails_before_registered_reader(frozen, damage):
     elif damage == "malformed":
         payload = []
     frozen.path.write_text(json.dumps(payload))
+    frozen.resolved.source_span_index_sha256 = hashlib.sha256(frozen.path.read_bytes()).hexdigest()
     with pytest.raises(GraphObjectAuthoringError) as error:
         verify(frozen)
     assert error.value.code == "source_span_drift"
@@ -121,6 +124,7 @@ def test_repeated_quote_inside_one_frozen_span_is_ambiguous(frozen):
     index = build_source_span_index_for_text(source_artifact_id=frozen.index.source_artifact_id,
                                             content_sha256=digest, text=text)
     frozen.path.write_text(json.dumps(source_span_index_to_dict(index)))
+    frozen.resolved.source_span_index_sha256 = hashlib.sha256(frozen.path.read_bytes()).hexdigest()
     frozen.assertions[0].source_anchor.source_span_ref_id = index.spans[0].source_span_id
     with pytest.raises(GraphObjectAuthoringError, match="unique occurrence"):
         verify(frozen)
@@ -143,6 +147,7 @@ def test_prepare_confirm_reverifies_frozen_index_before_native_append(frozen, ch
     if change_index:
         # Same selected passage, different frozen component bytes. No silent rebind.
         frozen.path.write_text(json.dumps(source_span_index_to_dict(frozen.index), indent=2))
+        frozen.resolved.source_span_index_sha256 = hashlib.sha256(frozen.path.read_bytes()).hexdigest()
         with pytest.raises(GraphObjectAuthoringError) as error:
             commit_graph_object_authoring_write(request, corpus_root=frozen.root, authority=authority,
                 source_admission=admission, resolved_source=frozen.resolved)
@@ -153,3 +158,15 @@ def test_prepare_confirm_reverifies_frozen_index_before_native_append(frozen, ch
             source_admission=admission, resolved_source=frozen.resolved)
         assert receipt.published_revision_id == "rev:d1"
         assert authority.publish_calls == 1
+
+
+@pytest.mark.parametrize("changed", ["bytes", "missing_digest"])
+def test_resolver_to_verifier_component_drift_is_refused(frozen, changed):
+    if changed == "bytes":
+        frozen.path.write_bytes(frozen.path.read_bytes() + b"\n")
+    else:
+        frozen.resolved.source_span_index_sha256 = None
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        verify(frozen)
+    assert error.value.code == "source_span_drift"
+    frozen.reader.assert_not_called()

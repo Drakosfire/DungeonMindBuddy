@@ -31,7 +31,8 @@ agreement. Missing pinned index must fail closed. A source-span digest change
 between prepare and confirm must change the signed contribution and refuse append.
 
 Exclusive writes: this handoff; apps/live_control_server/services/
-graph_object_authoring_prepare.py; new tests/test_graph_object_authoring_run_spans.py;
+graph_object_authoring_prepare.py and promotable_ingest_run.py;
+tests/test_promotable_ingest_run.py and new tests/test_graph_object_authoring_run_spans.py;
 predecessor settlement in Docs/Plans/HANDOFF-FOUNDATION-demand-context.md and
 Docs/Roadmaps/ROADMAP-demo.md. No UI/API model/schema/dependency/source changes.
 
@@ -47,3 +48,8 @@ cannot collect because it imports deleted tests.test_graph_memory_merge_reconcil
 That module is absent from the fetched base as well; no legacy fixture is restored.
 The current prepare/commit/routes/recap/registered-run and merge-prepare cohorts
 remain required; report that unrelated collection failure explicitly.
+
+Author audit extends the same proof join: carry the exact component sha256 from
+the canonical ExtractionRun record into its internal resolved run and compare the
+bytes before parsing. A path alone leaves resolver→read drift unproved. This is
+not a new public selector or a second capability; the same review/PR owns it.
