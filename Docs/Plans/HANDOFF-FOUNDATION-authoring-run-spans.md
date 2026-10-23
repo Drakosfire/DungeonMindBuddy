@@ -1,6 +1,8 @@
 # FOUNDATION — exact extraction-run authoring spans
 
-ACTIVE serial PRIME slice on c1d1818fb9a3a1dab197f40b2e1b3750e7002392,
+SETTLED: PR #1651 merged at dabac84b1a00f9553c126eefe739225557f1ef8c;
+protected API delivery retained APP/native/mechanics/frozen source state.
+Original serial PRIME slice on c1d1818fb9a3a1dab197f40b2e1b3750e7002392,
 branch codex/exact-run-authoring-spans in reused buddy-context-loop checkout.
 One Bugbot-reviewed PR, PRIME merge and protected API delivery on8000 for5202.
 Current open1235 source-observation UI review has no overlapping backend writes.

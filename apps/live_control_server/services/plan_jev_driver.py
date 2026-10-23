@@ -17,6 +17,8 @@ class PlanJevDriver:
         self.native_sources = navigator(adapter)
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
+        self.node_kinds = {}
+        self._remember_node_kinds(adapter.bootstrap.graph_envelope.get("nodes", []), "node_id")
         self.attempted_nodes, self.attempted_anchors = set(), set()
         self.discovered = adapter.bootstrap.completed_discovery_query == adapter.request.message
         self.finished = False
@@ -31,13 +33,24 @@ class PlanJevDriver:
                 handle=f"node:{subject.node_id}", label=subject.label,
                 kind=f"Previously explored {subject.kind}; navigation only, not current evidence")))
 
+    def _remember_node_kinds(self, nodes, id_key):
+        """Navigation metadata only; kinds never supply claims or read authority."""
+        for node in nodes:
+            node_id, kind = node.get(id_key), node.get("kind")
+            if node_id and isinstance(kind, str) and kind.strip():
+                self.node_kinds[node_id] = kind
+
     def _collect_candidates(self, session):
         for row in session.get("candidates", []):
             if row.get("kind") != "node" or not row.get("label") or not row.get("id"):
                 continue
             node = row["id"]
-            self.catalog.setdefault(f"node:{node}", (node, RetrievalCandidate(
-                handle=f"node:{node}", label=row["label"], kind="World entity")))
+            handle = f"node:{node}"
+            kind = self.node_kinds.get(node)
+            if handle not in self.catalog or kind is not None:
+                self.catalog[handle] = (node, RetrievalCandidate(
+                    handle=handle, label=row["label"],
+                    kind=f"World entity: {kind}" if kind is not None else "World entity"))
 
     def offered(self):
         if self.finished:return ()
@@ -59,6 +72,7 @@ class PlanJevDriver:
         added = set(a.operation_payloads) - before
         for identity in added:
             packet = json.loads(a.operation_payloads[identity])
+            self._remember_node_kinds(packet.get("nodes", []), "nodeId")
             self._collect_candidates({"candidates": [{"kind": "node", "id": node.get("nodeId"),
                 "label": node.get("label")} for node in packet.get("nodes", [])]})
         if len(added) != 1:
