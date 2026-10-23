@@ -100,3 +100,13 @@ it('does not unlock an absent Save until explicit recovery fences the original r
   expect(screen.getByLabelText('Creature name').matches(':disabled')).toBe(false);
   expect((screen.getByLabelText('Creature name') as HTMLInputElement).value).toBe('Stronger keeper');
 });
+
+it('reports unavailable validation without blaming or discarding edited mechanics',async()=>{
+  vi.mocked(api.validateStatblockDefinition).mockResolvedValue({schema:'dmb_statblock_definition_validation_v1',outcome:'failure',failure_category:'downstream_timeout',failure_message:'timeout'});
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();
+  await userEvent.click(screen.getByRole('button',{name:'Validate new version'}));
+  await screen.findByText('Mechanics validation is unavailable. Your edits are retained; try again when it is available.');
+  expect((screen.getByLabelText('Creature name') as HTMLInputElement).value).toBe('Stronger keeper');
+  expect(screen.getByLabelText('Creature name').matches(':disabled')).toBe(false);
+  expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});

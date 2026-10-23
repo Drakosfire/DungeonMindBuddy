@@ -48,7 +48,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       const retained=localStorage.getItem(`${scope}:pending`);
       const operation=page.pending?.operation_id??retained;
       setPending(operation);
-      if(offset&&history)return; // Paging metadata must not reopen or replace dirty source content.
+      if(offset&&history){setMessage(operation?'A Save needs its outcome checked. Recover it before making another version.':'');return;} // Metadata paging preserves dirty source content.
       const selected=revision??page.pending?.base.revision_id??localStorage.getItem(`${scope}:selected`)??page.original.revision_id;
       const exact=await openSavedMechanicsVersion(draftId,worldId,selected);
       if(token!==epoch.current)return;
@@ -73,7 +73,8 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setMessage('Validating new mechanics…');
     try {
       const result=await validateStatblockDefinition({definition:working});if(token!==epoch.current)return;
-      if(result.outcome!=='success'||!result.validation_receipt||result.validation_receipt.status==='invalid'
+      if(result.outcome!=='success'||!result.validation_receipt)throw new Error('Mechanics validation is unavailable. Your edits are retained; try again when it is available.');
+      if(result.validation_receipt.status==='invalid'
         ||result.validation_receipt.issues?.some(issue=>issue.severity==='error'))throw new Error('Correct validation errors before saving.');
       setValidated(fingerprintDefinition(working));setMessage('Validated. Save creates a new version; encounters stay unchanged.');
     }catch(error){if(token===epoch.current){setValidated(null);setMessage(error instanceof Error?error.message:String(error));}}

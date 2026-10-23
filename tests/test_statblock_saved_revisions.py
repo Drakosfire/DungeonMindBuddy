@@ -224,3 +224,26 @@ def test_source_media_bindings_survive_nullable_input_output_projection(revision
     assert result.status_code==200,result.text
     assert result.json()['state']=='committed'
     assert p.manual.versions[result.json()['result']['revision_id']].asset_bindings==[binding]
+
+
+def test_validation_outage_is_unavailable_not_a_bad_mechanics_claim(revision_case,monkeypatch):
+    p=revision_case
+    def timeout(_body):raise downstream_timeout()
+    monkeypatch.setattr(p.manual,'validate_definition',timeout)
+    response=p.client.post(p.url,json=p.request)
+    assert response.status_code==503,response.text
+    assert 'validation is unavailable' in response.json()['detail']
+    assert p.manual.appends==0
+    status=p.client.get(p.url.replace('mechanics-revisions','mechanics-revision-operations')+'/'+p.request['operation_id'],params={'world_id':'elderwyld'})
+    assert status.status_code==200 and status.json()['operation'] is None
+
+
+def test_invalid_mechanics_is_a_correction_request_not_a_provider_outage(revision_case,monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus
+    p=revision_case;validate=p.manual.validate_definition
+    def invalid(body):
+        result=validate(body);result.validation_receipt.status=ValidationStatus.invalid;return result
+    monkeypatch.setattr(p.manual,'validate_definition',invalid)
+    response=p.client.post(p.url,json=p.request)
+    assert response.status_code==409,response.text
+    assert 'correct the mechanics' in response.json()['detail'] and p.manual.appends==0

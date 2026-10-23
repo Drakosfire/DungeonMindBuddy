@@ -2,7 +2,7 @@
 from datetime import UTC,datetime
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input
 from uuid import UUID
-from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError
+from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError,ApplicationStateUnavailableError
 from application_state.mechanics_revisions import service as operations
 from application_state.mechanics_revisions.types import RevisionOperation,digest
 from application_state.world_mechanics.types import MechanicsLocator
@@ -120,8 +120,9 @@ def save(root,*,draft_id,request,client=None):
         if request.definition.ruleset.model_dump(mode='json')!=exact.definition.ruleset.model_dump(mode='json'):
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
         validation=validate_definition(definition=request.definition,client=active)
-        if (validation.outcome!='success' or validation.validation_receipt is None
-            or validation.validation_receipt.status==ValidationStatus.invalid
+        if validation.outcome!='success' or validation.validation_receipt is None:
+            raise ApplicationStateUnavailableError('Mechanics validation is unavailable. Your edits are retained; try again when it is available.')
+        if (validation.validation_receipt.status==ValidationStatus.invalid
             or any(issue.severity==ValidationSeverity.error for issue in validation.validation_receipt.issues or [])):
             raise ApplicationStateConflictError('Validate and correct the mechanics before saving')
         expected=source_definition_digest_from_body(intent['definition'])
