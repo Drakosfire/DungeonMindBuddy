@@ -37,6 +37,7 @@ vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
 }));
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
+  getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
@@ -549,6 +550,30 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["plan", "play", "build"] as const)("restores a terminal %s question without replaying it or replacing another draft", async surface => {
+    const prior = turn(surface === "build" ? "plan" : surface, 1, "");
+    const terminal = {...prior, lifecycle_status: "interrupted" as const,
+      provenance: {...prior.provenance, surface_id: surface,
+        primary_work: {...prior.provenance.primary_work,
+          object_id: surface === "build" ? "source-one" : prior.provenance.primary_work.object_id}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    render(<Harness initial={surface} />);
+    fireEvent.click(await screen.findByRole("button", {name:"Open"}));
+    const retry = await screen.findByRole("button", {name:"Retry question…"});
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveValue(prior.user_text);
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.change(input, {target:{value:"Keep my unsent draft"}});
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+    expect(input).toHaveValue("Keep my unsent draft");
+    expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
+  });
+
   it.each(["failed", "interrupted"] as const)("labels a historical Build %s with its saved source while viewing Plan", async lifecycle => {
     const historical = { ...turn("plan", 1, ""), lifecycle_status: lifecycle,
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
@@ -560,6 +585,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByText(lifecycle === "failed"
       ? "Buddy couldn’t finish this reply. Your saved source was not changed."
       : "This reply stopped before it finished. Your saved source was not changed.");
+    expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Retry question…"})).not.toBeInTheDocument();
     expect(screen.queryByText(/Your Plan was not changed/)).not.toBeInTheDocument();
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });

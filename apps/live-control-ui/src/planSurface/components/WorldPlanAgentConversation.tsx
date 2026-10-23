@@ -18,6 +18,8 @@ import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { BuddyReadiness } from "../../agentInteraction/BuddyReadiness";
+import { ConversationRecovery } from "../../agentInteraction/ConversationRecovery";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
@@ -5446,12 +5448,6 @@ export function WorldPlanAgentConversation({
       ? uncertainPlanNoticeRef.current.message
       : null;
     const targetReceipt = historyTurnPlayableTargetLabel(turn);
-    const rawHistoricalCardKind = turn.provenance.supporting_work
-      .find((reference) => reference.kind === "dmb_plan_playable_target_v1")?.object_id?.split(":", 1)[0] ?? null;
-    const historicalCardKind = rawHistoricalCardKind && ["scene", "beat", "choice", "option"].includes(rawHistoricalCardKind)
-      ? rawHistoricalCardKind : null;
-    const turnSurfaceLabel = turn.provenance.surface_id === "plan" ? `Plan${historicalCardKind ? ` · ${historicalCardKind}` : ""}`
-      : turn.provenance.surface_id === "play" ? "Play · Run" : turn.provenance.surface_id ?? "World";
     return (
       <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ""}
         conversationId={history?.conversation_id ?? ""} turnId={turn.turn_id}
@@ -5460,7 +5456,6 @@ export function WorldPlanAgentConversation({
         className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
         data-sequence={turn.sequence}
       >
-        {turnSurfaceLabel !== "Plan" ? <p className="world-plan-agent-conversation__context" aria-label="Turn surface">{turnSurfaceLabel}</p> : null}
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
           <span className="world-plan-agent-conversation__speaker">You</span>
           <p>{turn.user_text}</p>
@@ -5507,11 +5502,21 @@ export function WorldPlanAgentConversation({
             {renderSourceActions(turn)}
           </div>
         ) : failed || interrupted ? (
-          <p className="world-plan-agent-conversation__turn-status" role="status">
+          <div className="world-plan-agent-conversation__turn-status">
+          <p role="status">
             {failed
               ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : turn.provenance.surface_id === "build" ? "Buddy couldn’t finish this reply. Your saved source was not changed." : "Buddy couldn’t finish this reply. Your Plan was not changed."
               : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
           </p>
+          {turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+            && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
+            ? <ConversationRecovery question={turn.user_text} draft={composerMessage} blocked={composerBusy}
+                onRestore={(question) => {
+                  setComposerMessage(question);
+                  composerEditGenerationRef.current += 1;
+                  requestAnimationFrame(() => composerInputRef.current?.focus());
+                }} /> : null}
+          </div>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
           <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
@@ -6011,6 +6016,15 @@ export function WorldPlanAgentConversation({
         {composing || buildCompose.busy ? "Preparing your edit…" : "Working on your reply…"}
       </div> : null}
 
+      <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
+        worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
+          sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
+          : pendingPlayTurn || sharedConversation?.pendingTurn || pendingPlayLoadError || pendingPlayRecoveryHydrating
+            ? "Resolve the saved request in Conversation options before sending another."
+            : historyError ? "Conversation history could not be checked."
+            : historyLoading || !history ? "Checking saved conversation history."
+            : "Current work is not ready for submission."
+        ) : null} />
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
         {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
