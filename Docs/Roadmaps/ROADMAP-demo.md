@@ -29,7 +29,7 @@ this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 | Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
 | Evidence efficiency and exact excerpts | Retained-source reuse; #1640–#1643 exact native source navigation and acquisition progress; #1644 request-local authored selectors with canonical saved excerpts. Two original swamp queries completed in13.4s/14.8s; named sources and exact session review reopened after reload | Repeated roughly10-second quality/latency acceptance, remaining unavailable reads and complete image journey |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
-| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witness passed once. Sheep successor/adoption passed; save→Start canonical-byte refusal is the current bounded correction. Full repeated journey remains open |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witness passed once. Sheep successor/adoption passed; save→Start canonical-byte correction shipped #1645. Sheep connected rehearsal passed once through restart and closing reflections; full repeated journey remains open |
 | Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
 | Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
@@ -143,7 +143,11 @@ and saved-review reopening passed. Latency and full image acceptance remain open
 Sheep generality now has a scene-owned five-enemy encounter, original/successor
 manual mechanics reopening and explicit Noke-only adoption. Save→Start Play exposed
 a canonical trailing-newline mismatch; [saved authoring handoff](../Plans/HANDOFF-PLAN-saved-authoring-handoff.md)
-owns that bounded correction. The new session handoff is not yet proven.
+shipped #1645. Ordinary saved edit→session capture passed without reopening. The
+Sheep fight retained its exact revised mechanics and combat state through scene
+navigation, reload and API restart; notes and closing reflections persisted.
+This is one connected rehearsal. Current integration-test cleanup owns the52
+inherited Plan/Card failures identified by exact-base comparison.
 Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.

@@ -1,6 +1,17 @@
 # PLAN — saved authoring bytes at Play entry
 
-ACTIVE serial PRIME slice on49ccd53c4d64fd7513090062d182e4cd643f56de,
+SHIPPED #1645, mergebaf0a6644c33c6ab1fcdedc0687511e5545c3687. Bugbot approved
+669ac5ec0e5411468e8c3b9d4b72f307eb67f562 in one cycle,11 independent mounted
+checks. Typecheck/build passed. Exact-base broad comparison retained52 inherited
+failures with no new failures; successor HANDOFF-PLAN-current-integration-contracts.md
+owns their cleanup. Protected UI delivery preserved1913 APP rows, native rows,85
+mechanics files and17 frozen components. Ordinary edit/save→Start passed without
+reopen, capturing the intended Sheep scene/template. The new Run fight retained
+its exact successor, round2, HP/condition/notes through navigation/reload/API restart.
+Plan preparation and the prior fight stayed unchanged. Notes/closing reflections
+saved and reopened. This is one connected Sheep rehearsal, not full acceptance.
+
+Historical authority: serial PRIME slice on49ccd53c4d64fd7513090062d182e4cd643f56de,
 branch codex/plan-saved-authoring-handoff, existing buddy-context-loop checkout.
 One independently Bugbot-reviewed implementation PR, PRIME merge and protected
 UI delivery on5202. API49ccd53c/APP0057 stays unchanged. Current remote/open-PR
