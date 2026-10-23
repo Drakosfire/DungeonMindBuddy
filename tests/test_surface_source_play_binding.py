@@ -451,7 +451,7 @@ def test_current_plan_and_play_source_instructions_share_host_attribution():
     assert SOURCE_ATTRIBUTION_INSTRUCTIONS in _PLAN_GRAPH_ANSWER_INSTRUCTIONS
     assert "Use source names in prose" not in INSTRUCTIONS
     for current in (INSTRUCTIONS, _PLAN_GRAPH_ANSWER_INSTRUCTIONS):
-        assert current.count("Ground each factual clause in the exact passage handles selected for that claim.") == 1
+        assert current.count("Ground each factual clause in that claim's own admitted evidence.") == 1
         assert "Do not turn a request," in current
         assert "select its authored_excerpt instead" in current
 

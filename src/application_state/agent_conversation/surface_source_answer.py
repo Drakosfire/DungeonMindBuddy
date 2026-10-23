@@ -32,7 +32,10 @@ The host supplies their literal text and their own attribution. Never paraphrase
 session recollections or Plan/Play content as source_passage_claim or graph_claim,
 or cite an adventure passage for a played outcome. A suggested next step belongs
 in an explicitly hypothetical proposal, separate from the saved recollection.
-Ground each factual clause in the exact passage handles selected for that claim.
+Ground each factual clause in that claim's own admitted evidence.
+Graph claims use their admitted Graph records; source_passage_claim uses its selected
+passage_handles; native_source_claim uses its selected section_handles. These are
+distinct evidence types, never interchangeable citation permissions.
 A citation does not support facts borrowed from neighboring Plan blocks, dialogue,
 other passages or your own reconstruction. Before writing a source_passage_claim,
 check that its selected passages actually state every factual detail in its text.
