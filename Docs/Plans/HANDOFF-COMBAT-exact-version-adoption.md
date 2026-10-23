@@ -1,8 +1,8 @@
 # COMBAT — explicit exact mechanics adoption
 
-## ACTIVE serial implementation authority
+## SETTLED serial implementation authority
 
-PRIME's next authorized serial slice B under the operator-selected connected
+PRIME's completed serial slice B under the operator-selected connected
 scene/encounter/manual revision goal. Base/live
 `a6684f1aedff28b46a32770dc32b08b60bfb5bae`, existing buddy-context-loop checkout,
 branch `codex/combat-exact-version-adoption`. Fresh open-PR census found no competing
@@ -142,3 +142,15 @@ Proof reads are operation-local and deduplicated: one exact producer read for a
 selected version regardless of actor count; shared historical association rows and
 saved-revision proofs are reused within the short APP transaction. Every actor's
 individual target/locator/digest checks still run. Replay uses zero producer reads.
+
+## Consuming settlement — #1621
+
+Reviewed head `6bd4641aae344f670d7ae0d335eb19f9b21f2c85`, one independent Bugbot
+cycle, merged/live `0cea62670164ded25646d0686693022b851ad220`, APP0050. The runtime
+write lease is released. Independent verification covered31 backend/schema and48
+mounted UI/recovery tests. Ordinary retained synthetic UI adopted AC16/HP28 for one
+actor while preserving HP10/temp7/Prone/note and its sibling. Subsequent turns saved
+first HP12, second HP11/current, revision4; protected API restart and ordinary
+reload reopened that exact state. Other encounters, associations, revision proofs
+and agent turns remained unchanged. No AI call. Full scene ownership/Conks/Sheep
+acceptance remains open; the consuming contract is HANDOFF-COMBAT-scene-template.md.

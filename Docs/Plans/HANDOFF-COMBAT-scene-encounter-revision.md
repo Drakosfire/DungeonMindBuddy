@@ -7,8 +7,10 @@ active local Buddy goal. **ADOPTED DESIGN** in #1618, merge
 `05a6fe0c95d68e337ce589677012bdb0e32da08c`, after Bugbot approved
 `e24fdb038eea32f52b3a8dc2125ef055a2e90449` in cycle2. The design lease is released.
 Slice A shipped #1619/#1620 with real manual armor/HP revisions and protected restart.
-B is ACTIVE under [exact-version adoption](HANDOFF-COMBAT-exact-version-adoption.md).
-C and the full connected milestone remain unimplemented; B is not yet reviewed/live.
+B shipped #1621, reviewed and running on5202 with selected-actor adoption, normal
+tracker changes and protected restart/reopen. C is split into Plan templates then
+Run-owned encounters under [the scene ownership contract](HANDOFF-COMBAT-scene-template.md).
+C implementation and the full connected milestone remain unproven.
 Base `df98f6a5a554ac7ef234b1196b4f8dd3377d178a` (#1617), existing
 buddy-context-loop checkout, branch `codex/combat-connected-revision-design`.
 Topology **serial**: this bounded design/reconciliation PR, then independently
