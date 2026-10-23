@@ -2637,6 +2637,47 @@ class NativeSourceNavigationAuthorizedV1(GraphExecutionEventBaseV1):
         return self
 
 
+class NativeSourceSectionDescriptorV1(StrictModel):
+    section_id: Digest
+    label: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    char_start: int = Field(strict=True, ge=0)
+    char_end: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def exact_range(self):
+        if self.line_end < self.line_start or self.char_end <= self.char_start:
+            raise ValueError("Native section range is invalid")
+        return self
+
+
+class NativeSourceCatalogObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_catalog_observed_v1"]
+    navigation_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    content_sha256: Digest
+    app_source_revision_id: UUID | None
+    selector_policy: Literal["markdown_sections_v1"]
+    outcome: Literal["complete", "unavailable"]
+    failure_code: str | None
+    sections: list[NativeSourceSectionDescriptorV1]
+    catalog_sha256: Digest
+    lineage_sha256: Digest | None
+    observed_body_sha256: Digest | None
+    body_read_bytes: int = Field(strict=True, ge=0)
+    body_read_chars: int = Field(strict=True, ge=0)
+    body_read_elapsed_ms: int = Field(strict=True, ge=0)
+    catalog_elapsed_ms: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_catalog(self):
+        from .native_source_catalog import validate_catalog_record
+        validate_catalog_record(self)
+        return self
+
+
 class SourceScopeExtensionEventV3(GraphExecutionEventBaseV1):
     kind: Literal["source_scope_extension_v3"]
     origin_graph_event_id: UUID
@@ -3414,6 +3455,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     _validate_related_recap_context_events(execution)
     from .native_source_navigation import validate_navigation_events
     validate_navigation_events(execution)
+    from .native_source_catalog import validate_catalog_events
+    validate_catalog_events(execution)
 
     # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
     legacy_events: list[dict[str, object]] = []
@@ -3422,7 +3465,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         if isinstance(
             event,
             (
-                PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1,
+                PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
                 ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
@@ -3679,7 +3722,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
-    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1,
+    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1,
     Field(discriminator="kind"),
 ]
 
@@ -3706,7 +3749,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         writer_selection = None
         authorized_by_id = {}
         acquisition_events = (
-            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1,
+            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
             BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
@@ -4078,7 +4121,7 @@ PlayGraphExecutionEventV1 = Annotated[
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
-    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1,
+    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1,
     Field(discriminator="kind"),
 ]
 

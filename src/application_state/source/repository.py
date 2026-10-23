@@ -27,13 +27,15 @@ def _record_from_row(row: dict) -> SourceMarkdownRecord:
 def get_source_artifact(
     conn: psycopg.Connection,
     source_artifact_id: str,
+    *, lock: bool = False,
 ) -> dict | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
+            f"""
             SELECT source_artifact_id, source_domain, campaign_id, session_id, world_id
             FROM source.artifact
             WHERE source_artifact_id = %s
+            {"FOR SHARE" if lock else ""}
             """,
             (source_artifact_id,),
         )

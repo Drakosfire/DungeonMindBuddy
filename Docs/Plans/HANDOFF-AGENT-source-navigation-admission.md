@@ -1,6 +1,11 @@
 # AGENT — durable native source navigation admission
 
-ACTIVE serial PRIME slice; basef2ce54282ea8c1d6aef9c2e3dd59de11d2ce91cf,
+SETTLED: #1633 mergedbe68ef9c0e033825ad5b28435619db64267bef73 after two
+Bugbot cycles. Independent final APP cohort41passed/1 expected Plan-only skip;
+evidence-reference joins and immutable revision digest rebinding were corrected.
+Metadata admission only; no serving or retained migration was performed. Lease ended.
+
+Original serial PRIME slice; basef2ce54282ea8c1d6aef9c2e3dd59de11d2ce91cf,
 branch codex/native-source-navigation-admission, existing buddy-context-loop checkout.
 Parent exact-native-source-sections design #1631; prerequisite verifier #1632 merged.
 One Bugbot-reviewed implementation PR, PRIME merge. No serving/provider/source-body
