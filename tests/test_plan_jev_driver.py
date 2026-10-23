@@ -140,7 +140,7 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert all(set(body['state']) == {'question', 'candidates', 'dialogue_reference', 'examined_subjects'}
         for body in transport.calls[1:])
     assert transport.calls[-1]['state']['examined_subjects'] == [
-        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'},
+        {'label': 'Park pond', 'kind': 'World entity: location'}, {'label': 'Footbridge', 'kind': 'World entity: location'},
         {'label': 'Synthetic park journal', 'kind': 'Unavailable source section catalog; navigation only'}]
     assert all(body['state']['dialogue_reference'] == frame['dialogue_reference'] for body in transport.calls)
 
@@ -173,7 +173,7 @@ def test_prior_dialogue_does_not_supply_current_attempt_source_authority(plan_ad
     # Dialogue remains reference text; actual current receipts produce the evidence.
     assert frame['dialogue_reference'] == dialogue
     assert transport.calls[-1]['state']['examined_subjects'] == [
-        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'},
+        {'label': 'Park pond', 'kind': 'World entity: location'}, {'label': 'Footbridge', 'kind': 'World entity: location'},
         {'label': 'Synthetic park journal', 'kind': 'Unavailable source section catalog; navigation only'}]
 
 
@@ -426,3 +426,55 @@ def test_empty_initial_search_uses_retained_navigation_once_without_repeating_qu
     else:
         assert len(sources)==1 and len(proof['graph_packets'])==2
     assert 'retained_navigation' not in proof
+
+
+def test_initial_typed_navigation_reaches_jev_without_offering_unselected_nodes(plan_adapter):  # noqa: F811
+    from dataclasses import replace
+    plan_adapter.bootstrap.retrieval_session.referents = [
+        GraphReferent(id='pond', label='Park pond'), GraphReferent(id='bridge', label='Footbridge')]
+    plan_adapter.bootstrap = replace(plan_adapter.bootstrap, graph_envelope={
+        **plan_adapter.bootstrap.graph_envelope,
+        'nodes': [{'node_id': 'pond', 'kind': 'location'},
+                  {'node_id': 'bridge', 'kind': 'location'},
+                  {'node_id': 'keeper', 'label': 'Park keeper', 'kind': 'npc'}]})
+    graphs, sources = fixture_reads(plan_adapter)
+    driver = PlanJevDriver(plan_adapter)
+    transport = Decisions()
+    proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    assert transport.calls[0]['state']['candidates'] == [
+        {'label': 'Park pond', 'kind': 'World entity: location'},
+        {'label': 'Footbridge', 'kind': 'World entity: location'}]
+    assert 'node:keeper' not in driver.catalog
+    assert [call['targets'][0]['id'] for call in graphs] == ['pond', 'bridge']
+    assert len(sources) == 1
+    assert len(project(plan_adapter.fence.turn, proof,
+        plan_adapter.context_capture.trace.model_dump(mode='json')).frame['opened_passages']) == 1
+
+
+def test_navigation_only_labels_use_resolved_kind_without_claim_authority(plan_adapter):  # noqa: F811
+    from dataclasses import replace
+    plan_adapter.bootstrap = replace(plan_adapter.bootstrap,
+        navigation_candidates=(('keeper', 'Park keeper'), ('unknown', 'Unnamed place')),
+        graph_envelope={**plan_adapter.bootstrap.graph_envelope,
+                        'nodes': [{'node_id': 'keeper', 'kind': 'npc'}]})
+    driver = PlanJevDriver(plan_adapter)
+    assert [(item.label, item.kind) for item in driver.offered()] == [
+        ('Park keeper', 'World entity: npc'), ('Unnamed place', 'World entity')]
+    assert plan_adapter.bootstrap.retrieval_session.claims == []
+    assert driver.attempted_nodes == driver.attempted_anchors == set()
+
+
+def test_discovery_types_reach_next_decision_without_repeating_attempted_nodes(plan_adapter):  # noqa: F811
+    graphs, sources = fixture_reads(plan_adapter)
+    driver = PlanJevDriver(plan_adapter)
+    transport = Decisions(discover=True)
+    asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
+    assert transport.calls[1]['state']['candidates'] == [
+        {'label': 'Park pond', 'kind': 'World entity: location'},
+        {'label': 'Footbridge', 'kind': 'World entity: location'}]
+    assert [call['operation'] for call in graphs] == ['search', 'object', 'object']
+    assert len(sources) == 1
+    # A session refresh cannot erase a kind supplied by the current graph packet.
+    driver._collect_candidates({'candidates': [{'kind': 'node', 'id': 'pond', 'label': 'Park pond'}]})
+    assert driver.catalog['node:pond'][1].kind == 'World entity: location'
+    assert driver.offered() == ()
