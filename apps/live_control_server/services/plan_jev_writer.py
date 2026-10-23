@@ -79,6 +79,13 @@ class PlanWriterProvider(OpenAITextProvider):
         return options
 
 
+class _ReplyRejected(ValueError):
+    """Fixed local diagnostics; never expose arbitrary provider/exception text."""
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -170,21 +177,26 @@ class PlanJevWriter:
         return acknowledged
 
     def capture(self, result, response):
-        if (self.prepared is None or response is None or response.status != 'completed' or response.error is not None
-                or response.model != self.model or result.observation.state.value != 'completed'
-                or result.observation.retry_count != 0 or result.observation.provider_attempt_count != 1
+        if self.prepared is None or response is None or response.status != 'completed' or response.error is not None:
+            raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
+        if response.model != self.model:
+            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Plan writer has no complete exact SDK reply')
+        if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
+                or result.observation.provider_attempt_count != 1
                 or result.text != response.output_text or not result.text):
-            raise ValueError('Plan writer has no complete exact SDK reply')
+            raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
         for item in response.output:
             if item.type == 'reasoning': continue
             if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
                     or any(part.type != 'output_text' for part in item.content)):
-                raise ValueError('Plan writer reply contains an unexpected tool/refusal message')
+                raise _ReplyRejected('plan_writer_unexpected_output', 'Plan writer reply contains an unexpected tool/refusal message')
         raw = result.text
         native = self.rules.native
         reply = NativeProviderReply(str(native.authorization_id), f'generationengine:{self.prepared.attempt_id}',
             'openai',self.model,'responses',self.prepared.body_sha256,'stop','answered',raw,sha256(raw.encode()).hexdigest(),len(raw.encode()),())
-        if not self.rules.capture_reply(reply): raise ValueError('Plan writer reply capture was not acknowledged')
+        if not self.rules.capture_reply(reply):
+            raise _ReplyRejected('plan_writer_native_capture_unacknowledged',
+                'Plan writer reply capture was not acknowledged')
         return reply
 
     def capture_draft(self, response):
@@ -237,14 +249,19 @@ class PlanJevWriter:
                 self.adapter.context_capture.provider_usage([self.call])
                 self._usage_recorded = True
         except BaseException as exc:
-            self.observe(getattr(exc,'observation',None),status='error')
             response=provider.actual_response
-            self.capture_draft(response)
-            self.adapter.context_capture.observe({'kind':'failure',
-                'phase':'provider' if stage == 'generation' else 'delivery',
-                'code':f'plan_writer_{stage}_rejected'})
             if response is not None and getattr(response,'status',None)=='incomplete':
                 self.output_limit_exceeded = getattr(getattr(response,'incomplete_details',None),'reason',None)=='max_output_tokens'
+            self.observe(getattr(exc,'observation',None),status='error')
+            self.adapter.context_capture.observe({'kind':'failure',
+                'phase':'provider' if stage == 'generation' else 'delivery',
+                'code':exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
+            try:
+                self.capture_draft(response)
+            except BaseException as draft_error:
+                self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
+                    'code':'plan_writer_draft_rejected'})
+                raise exc from draft_error
             raise
         finally:
             try:
