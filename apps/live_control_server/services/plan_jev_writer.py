@@ -79,6 +79,13 @@ class PlanWriterProvider(OpenAITextProvider):
         return options
 
 
+class _ReplyRejected(ValueError):
+    """Fixed local diagnostics; never expose arbitrary provider/exception text."""
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -99,6 +106,7 @@ class PlanJevWriter:
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
         self._usage_recorded = False
+        self._draft_capture_attempted = False
         self.output_limit_exceeded = False
 
     def authorize(self, prepared):
@@ -169,23 +177,36 @@ class PlanJevWriter:
         return acknowledged
 
     def capture(self, result, response):
-        if (self.prepared is None or response is None or response.status != 'completed' or response.error is not None
-                or response.model != self.model or result.observation.state.value != 'completed'
-                or result.observation.retry_count != 0 or result.observation.provider_attempt_count != 1
+        if self.prepared is None or response is None or response.status != 'completed' or response.error is not None:
+            raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
+        if response.model != self.model:
+            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Plan writer has no complete exact SDK reply')
+        if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
+                or result.observation.provider_attempt_count != 1
                 or result.text != response.output_text or not result.text):
-            raise ValueError('Plan writer has no complete exact SDK reply')
+            raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
         for item in response.output:
             if item.type == 'reasoning': continue
             if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
                     or any(part.type != 'output_text' for part in item.content)):
-                raise ValueError('Plan writer reply contains an unexpected tool/refusal message')
+                raise _ReplyRejected('plan_writer_unexpected_output', 'Plan writer reply contains an unexpected tool/refusal message')
         raw = result.text
         native = self.rules.native
         reply = NativeProviderReply(str(native.authorization_id), f'generationengine:{self.prepared.attempt_id}',
             'openai',self.model,'responses',self.prepared.body_sha256,'stop','answered',raw,sha256(raw.encode()).hexdigest(),len(raw.encode()),())
-        if not self.rules.capture_reply(reply): raise ValueError('Plan writer reply capture was not acknowledged')
-        self.adapter.context_capture.answer_draft(raw, producing_provider_attempt_id=self.authorization.provider_attempt_id)
+        if not self.rules.capture_reply(reply):
+            raise _ReplyRejected('plan_writer_native_capture_unacknowledged',
+                'Plan writer reply capture was not acknowledged')
         return reply
+
+    def capture_draft(self, response):
+        """Debug only: retain actual unvalidated text before receipt/answer checks."""
+        text = getattr(response, "output_text", None)
+        if (not self._draft_capture_attempted and self.authorization is not None
+                and isinstance(text, str) and text):
+            self._draft_capture_attempted = True
+            self.adapter.context_capture.answer_draft(
+                text, producing_provider_attempt_id=self.authorization.provider_attempt_id)
 
     def observe(self, observation, *, status):
         if self.call is None or observation is None: return
@@ -210,6 +231,7 @@ class PlanJevWriter:
         provider = PlanWriterProvider(**options)
         client = GenerationClient(text_providers={'openai':provider})
         started = perf_counter()
+        stage = "generation"
         try:
             result = await client.generate_text(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
@@ -218,27 +240,46 @@ class PlanJevWriter:
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:
                 self.call['response_service_tier'] = provider.actual_response.service_tier
+            stage = 'draft'
+            self.capture_draft(provider.actual_response)
+            stage = 'capture'
             reply = self.capture(result,provider.actual_response)
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])
                 self._usage_recorded = True
         except BaseException as exc:
-            self.observe(getattr(exc,'observation',None),status='error')
             response=provider.actual_response
             if response is not None and getattr(response,'status',None)=='incomplete':
                 self.output_limit_exceeded = getattr(getattr(response,'incomplete_details',None),'reason',None)=='max_output_tokens'
-                partial=getattr(response,'output_text',None)
-                if partial and self.authorization is not None:
-                    self.adapter.context_capture.answer_draft(partial,
-                        producing_provider_attempt_id=self.authorization.provider_attempt_id)
+            self.observe(getattr(exc,'observation',None),status='error')
+            self.adapter.context_capture.observe({'kind':'failure',
+                'phase':'provider' if stage == 'generation' else 'delivery',
+                'code':exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
+            try:
+                self.capture_draft(response)
+            except BaseException as draft_error:
+                self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
+                    'code':'plan_writer_draft_rejected'})
+                raise exc from draft_error
             raise
         finally:
             try:
                 if self.call is not None and not self._usage_recorded:
                     self.call['duration_ms']=(perf_counter()-started)*1000
                     self.adapter.context_capture.provider_usage([self.call])
-            finally: await client.aclose()
-        final_turn=self.adapter.stop()
-        if final_turn is None: raise ValueError('Plan writer lost its current completion claim')
-        return self.rules.complete(final_turn,reply)
+            finally:
+                try:
+                    await client.aclose()
+                except BaseException:
+                    self.adapter.context_capture.observe({"kind":"failure", "phase":"delivery",
+                        "code":"plan_writer_cleanup_rejected"})
+                    raise
+        try:
+            final_turn=self.adapter.stop()
+            if final_turn is None: raise ValueError('Plan writer lost its current completion claim')
+            return self.rules.complete(final_turn,reply)
+        except BaseException:
+            self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
+                'code':'plan_writer_completion_rejected'})
+            raise
