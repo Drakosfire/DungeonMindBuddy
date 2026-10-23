@@ -300,7 +300,7 @@ def test_empty_acquisition_completes_typed_gaps_without_repair_or_fabricated_evi
         'requested_detail_gaps':[plan_adapter.request.message if malformed else {'question_phrase':plan_adapter.request.message}]}
     wire = WriterWire(plan_adapter, json.dumps(answer))
     if malformed:
-        with pytest.raises(ValueError):
+        with pytest.raises(GenerationEngineError):
             asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
         assert plan_adapter.fence.turn.status != 'completed'
     else:
@@ -515,3 +515,19 @@ def test_incomplete_reply_preserves_primary_failure_when_debug_capture_fails(pla
     assert plan_adapter.fence.turn.completion is None
     assert writer.call['usage']['input_tokens'] == 600
     assert writer.call['usage']['output_tokens'] == 100
+
+
+def test_structured_writer_rejects_empty_source_support_in_one_actual_sdk_call(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps({'schema':'dmb_surface_evidence_answer_v4', 'limitations':[], 'requested_detail_gaps':[],
+        'answer_segments':[{'kind':'source_passage_claim','text':'Unsupported claim.','passage_handles':[]}]})
+    wire = WriterWire(plan_adapter, raw)
+    with pytest.raises(GenerationEngineError) as error:
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert error.value.failure.code.value == 'STRUCTURED_OUTPUT_INVALID'
+    assert len(wire.calls) == 1 and wire.closed
+    assert json.loads(wire.calls[0].content)['text']['format'] == writer.output_format
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+    assert writer.call['usage']['input_tokens'] == 600 and writer.call['usage']['output_tokens'] == 100

@@ -276,6 +276,9 @@ def verify_writer_input(turn, authorization, raw, proof, trace):
             or tuple(authorization.included_relationship_ids) != projected.relationship_ids
             or tuple(authorization.included_evidence_ref_ids) != projected.evidence_ref_ids):
         raise ValueError("Plan writer actual input differs from its exact opened evidence projection")
+    from .plan_writer_output_schema import verify_format
+    from .rules_authority_plan_packet import _frame_in_actual_request
+    verify_format(body, projected.frame, _frame_in_actual_request(body))
     return projected
 
 
