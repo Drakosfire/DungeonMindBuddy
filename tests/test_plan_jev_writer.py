@@ -73,6 +73,8 @@ def test_actual_plan_writer_accepts_source_citation_and_exact_prompt(plan_adapte
     # Check actual SDK bytes: evidence appears once, machine proof remains host-side.
     body = json.loads(wire.calls[0].content)
     assert 'dmb_surface_source_answer_v1' not in body['instructions']
+    assert body['instructions'].count('Ground each factual clause in the exact passage handles selected for that claim.') == 1
+    assert 'A source saying someone asked for a description does not supply that description' in body['instructions']
     assert body['service_tier'] == 'fast'
     assert writer.call['response_service_tier'] == 'fast'
     assert body['reasoning'] == {'effort':'none'}

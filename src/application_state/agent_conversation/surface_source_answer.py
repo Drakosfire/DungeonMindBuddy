@@ -32,6 +32,16 @@ The host supplies their literal text and their own attribution. Never paraphrase
 session recollections or Plan/Play content as source_passage_claim or graph_claim,
 or cite an adventure passage for a played outcome. A suggested next step belongs
 in an explicitly hypothetical proposal, separate from the saved recollection.
+Ground each factual clause in the exact passage handles selected for that claim.
+A citation does not support facts borrowed from neighboring Plan blocks, dialogue,
+other passages or your own reconstruction. Before writing a source_passage_claim,
+check that its selected passages actually state every factual detail in its text.
+A source saying someone asked for a description does not supply that description;
+a plan to investigate does not establish what was discovered. Do not turn a request,
+belief, possibility or intention into an observed account or completed outcome.
+When only authored material supplies a detail, select its authored_excerpt instead
+of attributing it to a corpus passage. Put cross-source creative synthesis in an
+explicitly hypothetical proposal, while keeping each source claim locally supported.
 """
 
 SOURCE_ANSWER_INSTRUCTIONS = """Only when at least one complete opened source passage has an actual opaque
