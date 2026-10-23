@@ -8,8 +8,9 @@ from uuid import uuid4
 import pytest
 from application_state.agent_conversation import types as t
 from application_state.errors import ApplicationStateValidationError
-from application_state.agent_conversation.play_graph_input import NativePlayInputV1
+from application_state.agent_conversation.play_graph_input import NativePlayInputV4, pack_play_frame
 from application_state.agent_conversation.rules_authority_types import canonical_bytes
+from application_state.agent_conversation.surface_evidence_answer import NATIVE_INSTRUCTIONS
 from apps.live_control_server.services import native_play_graph_owner as owner
 from tests.application_state.test_native_play_graph_postgres import make_submission
 from tests.application_state.test_native_play_input_postgres import append
@@ -27,10 +28,11 @@ def prepare_empty_owner(application_state_dsn, monkeypatch):
             {
                 "role": "user",
                 "content": canonical_bytes(
-                    NativePlayInputV1(
+                    NativePlayInputV4(
                         submission_id=sub.idempotency_key,
                         message=sub.user_text,
-                        source_frame=frame,
+                        source_frame=pack_play_frame(frame),
+                        answer_instructions=NATIVE_INSTRUCTIONS,
                     )
                 ).decode(),
             }

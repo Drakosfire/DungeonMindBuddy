@@ -1238,7 +1238,7 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.PlanJevRetrievalPolicyV1 if plan_jev_request is not None else graph_types.BuildImageActionPolicyV1
+            policy_class = (graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildImageActionPolicyV1
                 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildEncodedAssessmentPolicyV1
                 if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
@@ -1272,7 +1272,8 @@ def _freeze_policy_receipt(
                 graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
             policy = policy_class(
-                **({"driver_schema": "dmb_plan_jev_retrieval_v1"} if plan_jev_request is not None else {}),
+                **({"driver_schema": "dmb_plan_jev_retrieval_v1",
+                    "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
@@ -1638,6 +1639,8 @@ class _PolicyExecutionAdapter:
         expected_conversation_id: UUID | None = None,
     ) -> None:
         self.rules_runtime = None
+        self.native_source_reply = None
+        self.native_source_provider_id = None
         self.pending_native_rules_capability = None
         self.expected_conversation_id = expected_conversation_id
         self.service = service
@@ -1720,7 +1723,13 @@ class _PolicyExecutionAdapter:
         # The isolated host has already correlated the transport authorization
         # ID with its exact provider request witness before calling this owner.
         # Durable Rules receipts use the stable submission authorization ID.
-        return bool(capture(replace(reply, authorization_id=str(authorization_id))))
+        accepted = bool(capture(replace(reply, authorization_id=str(authorization_id))))
+        if accepted:
+            # Rules may consume its mutable lookup reply while sibling source
+            # calls from this same captured SDK response still await delivery.
+            self.native_source_reply = reply
+            self.native_source_provider_id = self.last_provider_attempt_id
+        return accepted
 
     def _tool_presentation(self):
         from .graph_tool_presentation import GraphToolPresentation
@@ -2281,6 +2290,8 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
+            self.native_source_reply = None
+            self.native_source_provider_id = None
             self._activate_native_rules_runtime()
             if self.rules_runtime is not None:
                 self.rules_runtime.authorize(view)
@@ -2886,6 +2897,17 @@ class _PolicyExecutionAdapter:
                     413 if str(exc) == "evidence_bundle_overflow" else 409,
                     "Evidence bundle unavailable. Narrow the detail request; uncertain reads were not repeated.",
                     arguments=arguments)
+        if message.get("toolName") in {"browse_native_source_sections","read_native_source_sections"}:
+            from .native_source_navigation import navigator
+            from application_state.errors import ApplicationStateValidationError
+            owner = navigator(self)
+            try:
+                result = owner.tool(message["toolName"],message.get("arguments"),call_id=message.get("modelCallId"))
+            except ApplicationStateConflictError:
+                raise
+            except (ValueError,ApplicationStateValidationError):
+                result = owner.unavailable('source_section_unavailable')
+            return {"resultJson":json.dumps(result,ensure_ascii=False),"retrievalSession":None}
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
         if message.get("toolName") == "read_related_recap_context":
@@ -7038,6 +7060,9 @@ def execute_agent_turn(
                 assembly.invocation, plan_continuity_turn=plan_continuity,
                 graph_read_profile=("governed_build" if _governed_build_turn(request) else "world_graph"),
             )
+            if request.surface.surface_id == 'play':
+                invocation = replace(invocation,capability_policy=replace(invocation.capability_policy,
+                    native_source_sections=True))
             native_rules_enabled = _native_rules_enabled(request)
             if native_rules_enabled:
                 from application_state.agent_conversation.rules_authority_policy import rules_capability

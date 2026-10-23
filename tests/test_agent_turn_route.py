@@ -727,7 +727,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 api_request_id = str(uuid4())
             else:
                 final_text = json.dumps({
-                    "schema":"dmb_surface_evidence_answer_v2", "limitations":[], "requested_detail_gaps":[],
+                    "schema":"dmb_surface_evidence_answer_v3", "limitations":[], "requested_detail_gaps":[],
                     "answer_segments":[{"kind":"proposal","label":"invented_idea","text":"We could begin beside the bridge."}],
                 })
             if native_rules_capture_required:

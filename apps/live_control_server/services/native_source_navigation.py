@@ -1,0 +1,241 @@
+"""Shared parent-owned Plan/Play source navigation; no model-selected paths."""
+import re
+from collections import Counter
+from uuid import uuid4
+
+from application_state.agent_conversation import types as t
+from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+from application_state.agent_conversation.native_source_input import section_row, CAPABILITIES
+from application_state.agent_conversation.source_writer_output import strict_json
+from .managed_world_graph_projection import resolve_managed_world_binding
+from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
+from ..integrations.dungeonmind.source_origin import verify_native_source_origin
+from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
+
+BROWSE = 'browse_native_source_sections'
+READ = 'read_native_source_sections'
+TOOLS = frozenset({BROWSE,READ})
+RESULT = 'dmb_native_source_section_result_v1'
+UNAVAILABLE = 'dmb_native_source_section_unavailable_v1'
+
+
+class NativeSourceUnavailable(ValueError):
+    pass
+
+
+def section_query_terms(markdown,sections,question):
+    """Navigation-only term matches; no uncited source prose enters a model."""
+    query=set(re.findall(r"\w+",question.casefold()))
+    words={s.section_id:set(re.findall(r"\w+",markdown[s.char_start:s.char_end].casefold())) for s in sections}
+    frequency=Counter(term for values in words.values() for term in values & query)
+    return {key:sorted(values & query,key=lambda term:(frequency[term],term)) for key,values in words.items()}
+
+
+def navigator(adapter):
+    if getattr(adapter,'_native_source_navigator',None) is None:
+        adapter._native_source_navigator = NativeSourceNavigator(adapter)
+    return adapter._native_source_navigator
+
+
+class NativeSourceNavigator:
+    def __init__(self,adapter):
+        self.adapter = adapter
+        self.sources, self.catalogs, self.materials, self.sections, self.reads = {}, {}, {}, {}, {}
+        self.call_results = {}
+        self.catalog_names, self.query_matches = {}, {}
+        self.attempted_sources = set()
+        self.attempted_sections = set()
+
+    def enabled(self):
+        fence = self.adapter.fence
+        return fence is not None and isinstance(fence.turn.graph_context_execution.policy,CAPABILITIES)
+
+    def collect(self):
+        if not self.enabled():return
+        turn = self.adapter.fence.turn
+        execution = turn.graph_context_execution
+        names = {}
+        capture = getattr(self.adapter,'context_capture',None)
+        trace = getattr(capture,'trace',None)
+        for row in getattr(trace,'observations',()):
+            name = getattr(row,'source_name',None)
+            if isinstance(name,str) and name.strip():
+                artifact,revision = getattr(row,'source_artifact_id',None),getattr(row,'source_revision_id',None)
+                if isinstance(artifact,str) and isinstance(revision,str):names[(artifact,revision)] = name.strip()
+        existing = {(entry[1].source_artifact_id,entry[1].source_revision_id) for entry in self.sources.values()}
+        pins = execution.effective_source_pins()
+        for donor in execution.events:
+            if not isinstance(donor,t.ValidatedGraphOperationEventV3):continue
+            for pin in donor.returned_source_pins:
+                key = (pin.source_artifact_id,pin.source_revision_id)
+                if key in existing or pins.get(pin.anchor_id) != pin:continue
+                handle = 'native-source:'+t.canonical_sha256({'turn_id':str(turn.turn_id),
+                    'donor':str(donor.event_id),'source_artifact_id':key[0],'native_source_revision_id':key[1]})
+                label = names.get(key,'Source sections')
+                self.sources[handle] = (donor,pin,label)
+                existing.add(key)
+
+    def offered(self):
+        self.collect()
+        browse = [RetrievalCandidate(handle=handle,label='Explore '+entry[2],
+            kind='Source navigation: appendices, tables and statblocks')
+            for handle,entry in self.sources.items() if handle not in self.attempted_sources]
+        sections = [RetrievalCandidate(handle=handle,label=name+' — '+section.label
+            + ('; mentions query terms: '+', '.join(self.query_matches.get(handle,[])) if self.query_matches.get(handle) else ''),kind='Exact source section')
+            for handle,(_,section,name) in self.sections.items() if handle not in self.attempted_sections]
+        return tuple([*browse,*sections])
+
+    def _plan_selection(self,handles):
+        from application_state.agent_conversation.plan_jev_decision import current_selection
+        selected = current_selection(self.adapter.fence.turn)
+        if selected.operation != 'select_candidates' or not set(handles) <= set(selected.selected_handles):
+            raise NativeSourceUnavailable('source_section_not_selected')
+
+    def _access(self,entry):
+        turn = self.adapter.fence.renewer._turn
+        authority = turn.graph_context_receipt.graph_authority
+        binding = resolve_managed_world_binding(turn.world_id)
+        if (binding.managed_world_id != turn.world_id or binding.native_world_id != authority.native_world_id
+                or binding.binding_version != authority.binding_version):
+            raise NativeSourceUnavailable('source_navigation_unavailable')
+        projection = WorldGraphProjectionRequestV2.model_validate({'world_id':authority.native_world_id,
+            'campaign_id':None,'admissibility':'gm','scope_mode':'world_cross_campaign',
+            'focus':{'kind':'none','session_id':None},'revision_pin':authority.graph_revision})
+        return verify_native_source_origin(direct_services_from_config(authority.native_world_id),
+            projection=projection,donor=entry[0],pin=entry[1])
+
+    def _commit(self,method,**fields):
+        a = self.adapter
+        turn = a.fence.renewer._turn
+        result = getattr(a.service,method)(turn.world_id,turn.conversation_id,turn.turn_id,
+            expected_revision=turn.revision,expected_attempt=turn.attempt,**fields)
+        a.fence.renewer._turn = result[0]
+        a.turn = result[0]
+        return result
+
+    def browse(self,handle,*,plan=False):
+        self.collect()
+        if handle not in self.sources:raise NativeSourceUnavailable('source_navigation_unavailable')
+        if plan:self._plan_selection([handle])
+        a = self.adapter
+        with a.fence.renewer._lock:
+            if handle in self.attempted_sources and handle not in self.catalogs:
+                raise NativeSourceUnavailable('source_navigation_unavailable')
+            self.attempted_sources.add(handle)
+            origin = self._access(self.sources[handle])
+            proof = strict_json(origin.proof_json)
+            lineage = proof['resolution']['artifact'].get('lineage',{})
+            name = lineage.get('source_name')
+            if not isinstance(name,str) or not name.strip():
+                raise NativeSourceUnavailable('source_navigation_unavailable')
+            if handle not in self.catalogs:
+                turn = a.fence.renewer._turn
+                execution = turn.graph_context_execution
+                provider = next(e for e in reversed(execution.events) if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
+                nav = t.NativeSourceNavigationAuthorizedV1(kind='native_source_navigation_authorized_v1',
+                    event_id=uuid4(),sequence=len(execution.events),navigation_id=uuid4(),
+                    provider_attempt_id=provider.provider_attempt_id,
+                    context_receipt_sha256=execution.context_receipt_sha256,
+                    execution_policy_sha256=execution.execution_policy_sha256,world_id=turn.world_id,
+                    native_world_id=turn.graph_context_receipt.graph_authority.native_world_id,
+                    binding_version=turn.graph_context_receipt.graph_authority.binding_version,
+                    origin_proof_json=origin.proof_json,origin_proof_sha256=origin.proof_sha256)
+                self._commit('authorize_native_source_navigation',authorization=nav)
+                turn,_,material = self._commit('materialize_native_source_catalog',navigation_id=nav.navigation_id,event_id=uuid4())
+                catalog = turn.graph_context_execution.events[-1]
+                self.catalogs[handle] = catalog
+                self.catalog_names[handle] = name.strip()
+                self.materials[catalog.event_id] = material
+                if catalog.outcome == 'complete':
+                    matches=section_query_terms(material.markdown,catalog.sections,a.fence.renewer._turn.user_text) if material is not None else {}
+                    for section in catalog.sections:
+                        self.query_matches['native-section:'+section.section_id]=matches.get(section.section_id,[])
+                        self.sections['native-section:'+section.section_id] = (handle,section,name.strip())
+            catalog = self.catalogs[handle]
+            if catalog.outcome != 'complete':raise NativeSourceUnavailable('source_navigation_unavailable')
+            return {'schema':'dmb_native_source_catalog_v1','source_name':self.catalog_names[handle],
+                'sections':[{'section_handle':'native-section:'+section.section_id,'title':section.label,
+                    'matched_query_terms':self.query_matches.get('native-section:'+section.section_id,[])}
+                    for section in catalog.sections]}
+
+    def _read_one(self,handle):
+        a = self.adapter
+        source_handle,section,_name = self.sections[handle]
+        prior = self.reads.get(handle)
+        if handle in self.attempted_sections and prior is None:
+            raise NativeSourceUnavailable('source_section_unavailable')
+        self.attempted_sections.add(handle)
+        self._access(self.sources[source_handle])
+        if prior is not None:
+            if prior.outcome != 'complete':raise NativeSourceUnavailable('source_section_unavailable')
+            from application_state.agent_conversation.native_source_input import section_handle
+            return None,section_handle(prior)
+        catalog = self.catalogs[source_handle]
+        turn,_ = self._commit('authorize_native_source_section',event_id=uuid4(),read_id=uuid4(),
+            catalog_event_id=catalog.event_id,section_id=section.section_id)
+        auth = turn.graph_context_execution.events[-1]
+        turn,_,observed = self._commit('materialize_native_source_section',event_id=uuid4(),
+            read_id=auth.read_id,material=self.materials.get(catalog.event_id))
+        self.reads[handle] = observed
+        if observed.outcome != 'complete':raise NativeSourceUnavailable('source_section_cache_unavailable')
+        return section_row(turn.graph_context_execution,observed),None
+
+    def read(self,handles,*,plan=False):
+        if (not isinstance(handles,list) or not handles or any(not isinstance(h,str) for h in handles)
+                or len(set(handles)) != len(handles) or any(h not in self.sections for h in handles)):
+            raise NativeSourceUnavailable('source_section_unavailable')
+        if plan:self._plan_selection(handles)
+        rows, reused, partial = [], [], False
+        from application_state.errors import ApplicationStateValidationError
+        with self.adapter.fence.renewer._lock:
+            for handle in handles:
+                try:
+                    row,reference = self._read_one(handle)
+                    if row is not None:rows.append(row)
+                    if reference is not None:reused.append(reference)
+                except (ValueError,ApplicationStateValidationError):
+                    # Keep earlier committed/exposed successes in a mixed batch.
+                    # Claim conflicts and indeterminate storage errors propagate;
+                    # they never become another read or false success.
+                    partial = True
+                    self.unavailable('source_section_unavailable')
+        return {'schema':RESULT,'sections':rows,'reused_section_handles':reused,'partial':partial}
+
+    def select(self,handles):
+        for handle in handles:
+            if handle in self.sources:self.browse(handle,plan=True)
+            elif handle in self.sections:self.read([handle],plan=True)
+            else:raise NativeSourceUnavailable('source_section_not_selected')
+
+    def tool(self,name,arguments,*,call_id):
+        if (not self.enabled() or not isinstance(self.adapter.fence.turn.graph_context_execution.policy,t.PlayNativeSourceSectionsPolicyV1)
+                or name not in TOOLS or not isinstance(arguments,dict)):
+            raise NativeSourceUnavailable('native_source_call_unverified')
+        reply = getattr(self.adapter,'native_source_reply',None)
+        latest = next((e for e in reversed(self.adapter.fence.turn.graph_context_execution.events)
+            if isinstance(e,t.ProviderAttemptAuthorizedEventV1)),None)
+        producing = getattr(self.adapter,'native_source_provider_id',None)
+        if (latest is None or reply is None or getattr(reply,'request_sha256',None) != latest.envelope_sha256
+                or producing != latest.provider_attempt_id):
+            raise NativeSourceUnavailable('native_source_call_unverified')
+        calls = [call for call in getattr(reply,'tool_calls',()) if call.call_id == call_id]
+        if (reply.status != 'tool_calls' or len(calls) != 1 or calls[0].name != name
+                or strict_json(calls[0].arguments_json) != arguments):
+            raise NativeSourceUnavailable('native_source_call_unverified')
+        identity = (reply.api_request_id,calls[0].call_id)
+        if identity in self.call_results:return self.call_results[identity]
+        if name == BROWSE and set(arguments) == {'anchor_id'}:
+            self.collect()
+            matches = [handle for handle,entry in self.sources.items() if entry[1].anchor_id == arguments['anchor_id']]
+            if len(matches) != 1:raise NativeSourceUnavailable('source_navigation_unavailable')
+            result = self.browse(matches[0])
+        elif name == READ and set(arguments) == {'section_handles'}:
+            result = self.read(arguments['section_handles'])
+        else:raise NativeSourceUnavailable('native_source_call_unverified')
+        self.call_results[identity] = result
+        return result
+
+    def unavailable(self,code):
+        capture = getattr(self.adapter,'context_capture',None)
+        if capture is not None:capture.observe({'kind':'failure','phase':'source_read','code':code})
+        return {'schema':UNAVAILABLE,'code':code}

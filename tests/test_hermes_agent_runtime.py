@@ -269,7 +269,7 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert (
         request.capability_policy.enabled_tool_names == tuple(
             name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image"}
+            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image", "browse_native_source_sections", "read_native_source_sections"}
         )
     )
     assert all(
@@ -611,10 +611,10 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     import json
     from dataclasses import replace
     from uuid import uuid4
-    from application_state.agent_conversation.play_graph_input import NativePlayInputV2
+    from application_state.agent_conversation.play_graph_input import NativePlayInputV4, pack_play_frame, unpack_play_frame
     from application_state.agent_conversation.play_graph_authority import play_source_frame
     from application_state.agent_conversation.rules_authority_types import canonical_bytes
-    from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS,POLICY
+    from application_state.agent_conversation.surface_evidence_answer import NATIVE_INSTRUCTIONS as INSTRUCTIONS,NATIVE_POLICY as POLICY
     from application_state.agent_conversation.surface_source_answer import INSTRUCTIONS as OBSOLETE
     from apps.live_control_server.services.agent_runtime import AgentSurfaceContext,AgentPlayCurrentMomentContext,AgentPlayCurrentElementContext
     from apps.live_control_server.services.hermes_graph_agent_contract import MAX_SURFACE_CONTEXT_BLOCK_CHARS
@@ -622,7 +622,7 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     body='Frozen scene quotation sentinel. '+('A boardwalk stretches north. '*100)
     note='Saved note sentinel.'
     frame=play_source_frame((payload(text=body),payload('scene_note',text=note)))
-    carrier=NativePlayInputV2(submission_id=uuid4(),message='Quote the saved note exactly.',source_frame=frame)
+    carrier=NativePlayInputV4(submission_id=uuid4(),message='Quote the saved note exactly.',source_frame=pack_play_frame(frame),answer_instructions=INSTRUCTIONS)
     question=canonical_bytes(carrier).decode()
     surface=AgentSurfaceContext(surface_id='play',current_play=AgentPlayCurrentMomentContext(
         run_id='run-one',playable_artifact_id='plan-one',playable_revision=1,
@@ -637,10 +637,36 @@ def test_current_native_play_policy_and_source_cross_worker_ipc_once():
     assert len(restored.surface_context_block or '')<=MAX_SURFACE_CONTEXT_BLOCK_CHARS
     assert INSTRUCTIONS not in (restored.surface_context_block or '')
     assert OBSOLETE not in (restored.surface_context_block or '')
-    parsed=NativePlayInputV2.model_validate_json(restored.question)
+    parsed=NativePlayInputV4.model_validate_json(restored.question)
     assert parsed.answer_policy==POLICY and parsed.answer_instructions==INSTRUCTIONS
-    assert parsed.source_frame==frame
+    assert unpack_play_frame(parsed.source_frame)==frame
     assert restored.question.count('Frozen scene quotation sentinel.')==1
     assert restored.question.count('Saved note sentinel.')==1
     assert body not in (restored.surface_context_block or '') and note not in (restored.surface_context_block or '')
     assert json.loads(restored.question)['answer_instructions']==INSTRUCTIONS
+
+
+def test_native_source_tools_are_explicit_play_read_capabilities():
+    import pytest
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_runtime import AgentSurfaceContext
+    class Host(_FakeHost):
+        def execute(self,request,**kwargs):self.calls.append(request);return self.result
+    host=Host(_hermes_ok_result());runtime=HermesAgentRuntimeAdapter(host_factory=lambda:host)
+    base=_invocation()
+    native=replace(base,capability_policy=replace(base.capability_policy,native_source_sections=True),
+        context_packet=replace(base.context_packet,surface_context=AgentSurfaceContext(surface_id='play')))
+    budget={'schema':'dmb_hermes_request_budget_policy_v1','provider':'openai-api','model':'gpt-6-luna','apiMode':'codex_responses',
+        'estimator':'utf8_json_bytes_plus_64_per_node_v1','contextLimitTokens':100000,'outputReserveTokens':100,
+        'maxProviderAttempts':4,'maxToolCapableAttempts':3,'maxGraphOperations':8}
+    runtime.run_with_provider_authorization(native,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})
+    policy=host.calls[-1].capability_policy
+    for name in ('browse_native_source_sections','read_native_source_sections'):
+        assert name in policy.enabled_tool_names
+        assert policy.rule_for(name).allowed_effects==frozenset({'read'})
+    restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(host.calls[-1]))
+    assert restored.capability_policy==policy
+    for surface in ('plan','build'):
+        invalid=replace(native,context_packet=replace(native.context_packet,surface_context=AgentSurfaceContext(surface_id=surface)))
+        with pytest.raises(ValueError,match='Play surface'):
+            runtime.run_with_provider_authorization(invalid,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})

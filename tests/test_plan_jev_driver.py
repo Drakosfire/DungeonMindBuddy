@@ -15,7 +15,7 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False):
+def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1)):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []
     @contextmanager
@@ -76,15 +76,15 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, share
         adapter.turn, _ = adapter.fence.append('authorize_source_read', 'authorization', auth)
         receipts, results = [], []
         for anchor in arguments['anchorIds']:
-            pin = pins[anchor]; text = f'The park account describes the walkway at {anchor}.'
+            pin = pins[anchor]; text = source_text if source_text is not None else f'The park account describes the walkway at {anchor}.'
             if body_chars is not None: text = text.ljust(body_chars, '.')
             receipt = t.SourceReadAnchorReceiptV2(source_read_id=f'read:{anchor}', anchor_id=anchor,
                 evidence_ref_id=pin.evidence_ref_id, source_artifact_id=pin.source_artifact_id,
                 source_revision_id=pin.source_revision_id, outcome='enough', content_sha256=sha256(text.encode()).hexdigest(),
-                line_start=1, line_end=1, returned_chars=len(text), truncated=False, evidence_sufficiency_status='sufficient')
+                line_start=source_lines[0], line_end=source_lines[1], returned_chars=len(text), truncated=False, evidence_sufficiency_status='sufficient')
             receipts.append(receipt)
             results.append({'anchorId': anchor, 'sourceName': 'Synthetic park journal', 'content': text,
-                'lineStart': 1, 'lineEnd': 1, 'outcome': 'enough'})
+                'lineStart': source_lines[0], 'lineEnd': source_lines[1], 'outcome': 'enough'})
         event = t.ValidatedSourceReadEventV2(kind='validated_source_read_v2', event_id=uuid4(),
             sequence=len(adapter._broker_execution().events), read_call_id=auth.read_call_id, receipts=receipts)
         adapter.turn, fresh, captured = adapter.context_capture.persist_source_receipt(event, results,
@@ -107,7 +107,8 @@ class Decisions(httpx2.AsyncBaseTransport):
         answers = {}
         for name, question in body['questions'].items():
             choice = ('finish_retrieval' if operation == 'select_candidates' else operation) if name == 'operation' else (
-                'include' if operation == 'select_candidates' and (not self.sequential or name == 'candidate_0') else 'exclude')
+                'include' if operation == 'select_candidates' and (not self.sequential or name == 'candidate_0')
+                and not (name.startswith('candidate_') and candidates[int(name.split('_')[-1])]['kind'].startswith(('Source navigation:','Exact source section'))) else 'exclude')
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in question['criteria']}}
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers, 'usage': {}})

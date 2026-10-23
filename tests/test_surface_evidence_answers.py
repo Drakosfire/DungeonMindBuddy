@@ -4,7 +4,7 @@ import json
 import pytest
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.surface_evidence_answer import POLICY
+from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY as POLICY
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import WriterWire, stage_graph
 from tests.test_surface_source_answers import stage
@@ -45,12 +45,12 @@ def test_actual_mixed_source_and_literal_plan_quote_persist(plan_adapter,applica
     from sqlalchemy import create_engine
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
-    migration=import_module('application_state.migrations.versions.20261022_0048_authored_excerpt_blocks')
+    migration=import_module('application_state.migrations.versions.20261023_0057_native_source_citations')
     engine=create_engine(application_state_dsn.replace('postgresql://','postgresql+psycopg://'))
     try:
         with engine.begin() as conn:
             with Operations.context(MigrationContext.configure(conn)):
-                with pytest.raises(RuntimeError,match='retained authored block'):
+                with pytest.raises(RuntimeError,match='retained native source'):
                     migration.downgrade()
     finally: engine.dispose()
 

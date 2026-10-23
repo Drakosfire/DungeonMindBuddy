@@ -1565,6 +1565,10 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             "question": "Can I end my move in an occupied space?",
             "ruleset_id": "dnd_2024_srd_5_2_1",
         }
+    source_tool=os.environ.get("DMB_HERMES_TEST_SOURCE_TOOL")
+    if source_tool:
+        tool_args=({'anchor_id':'source-anchor:v1:proof'} if source_tool=='browse_native_source_sections'
+            else {'section_handles':['native-section:proof']})
     responses_streams = [
         [
             SimpleNamespace(
@@ -1573,7 +1577,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     type="function_call",
                     id="fc_1",
                     call_id="call-graph-1",
-                    name="lookup_rules" if rules_lookup else "expand_graph_retrieval",
+                    name=source_tool or ("lookup_rules" if rules_lookup else "expand_graph_retrieval"),
                     arguments=json_mod.dumps(tool_args),
                     status="completed",
                 ),
@@ -1806,7 +1810,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     "toolName": tool_name,
                     "arguments": dict(arguments),
                 }
-                if tool_name == "lookup_rules":
+                if tool_name in {"lookup_rules","browse_native_source_sections","read_native_source_sections"}:
                     from graph_memory.hermes_graph_plugin import (
                         get_active_rules_call_id,
                     )
@@ -4096,3 +4100,47 @@ def test_real_worker_size_failure_is_explicit_and_large_request_authorizes(
         assert len(views) == (0 if expected else 1)
     finally:
         host.shutdown()
+
+
+@pytest.mark.parametrize('source_tool',['browse_native_source_sections','read_native_source_sections'])
+def test_native_source_call_and_exact_output_cross_real_sdk_worker(tmp_path,monkeypatch,source_tool):
+    """Real Hermes SDK hooks and host IPC; synthetic provider, no network or APP writes."""
+    from dataclasses import replace
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy,rules_capability_policy,HermesToolCapabilityRule
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    monkeypatch.setenv('DUNGEONMIND_HERMES_GRAPH_MODEL','test-model')
+    monkeypatch.setenv('DMB_HERMES_TEST_SOURCE_TOOL',source_tool)
+    monkeypatch.setenv('DMB_HERMES_TEST_FINAL_TEXT','Synthetic exact source answer.')
+    witness=tmp_path/'source-navigation.json'
+    monkeypatch.setenv('DMB_HERMES_HOST_OFFLINE_WITNESS',str(witness))
+    scope=HermesGraphScope(world_id='world:eldyrwild',campaign_id='',focus={'kind':'none','sessionId':None},
+        admissibility='gm',revision_pin='revision:test',scope_mode='world')
+    policy=rules_capability_policy(rules_capability(graph=True),graph_policy=parent_brokered_graph_expansion_policy(scope))
+    policy=replace(policy,enabled_tool_names=(*policy.enabled_tool_names,source_tool),
+        tool_rules=(*policy.tool_rules,HermesToolCapabilityRule(tool_name=source_tool,require_graph_scope=False,allowed_effects=frozenset({'read'}))))
+    request=HermesGraphAgentTurnRequest(question='Find the appendix.',world_id=scope.world_id,campaign_id='',scope_mode='world',
+        focus=dict(scope.focus),admissibility='gm',revision_pin=scope.revision_pin,root=tmp_path/'graph',capability_policy=policy,
+        retrieval_session_id='sess:SPOOF',retrieval_session={'retrieval_session_id':'sess:SPOOF','candidates':[], 'claim_ledger':[], 'intent_hint':None,'available_expansions':['search']},
+        request_budget=_synthetic_request_budget(),provider_authorization_required=True,parent_graph_broker_required=True,native_rules_capture_required=True)
+    captures=[];operations=[];prepared=[]
+    result_payload=({'schema':'dmb_native_source_catalog_v1','source_name':'Synthetic adventure','sections':[{'section_handle':'native-section:proof','title':'Appendix A','matched_query_terms':['appendix']}]} if source_tool.startswith('browse')
+        else {'schema':'dmb_native_source_section_result_v1','sections':[{'section_handle':'n-proof','source_name':'Synthetic adventure','section_title':'Appendix A','line_start':1,'line_end':1,'text':'Synthetic mechanics sentinel.'}],'reused_section_handles':[],'partial':False})
+    def capture(reply):captures.append(reply);return True
+    def authorize(view):prepared.append(view);return True
+    def broker(message):
+        operations.append(message)
+        assert captures[-1].status=='tool_calls' and captures[-1].tool_calls[0].call_id==message['modelCallId']
+        assert message['toolName']==source_tool
+        assert json.loads(captures[-1].tool_calls[0].arguments_json)==message['arguments']
+        return {'resultJson':json.dumps(result_payload),'retrievalSession':None}
+    host=HermesGraphAgentHost(worker_target=_tool_using_aiagent_host_worker,turn_timeout_s=120,ready_timeout_s=90,accept_timeout_s=30,session_profiles_root=tmp_path/'profiles')
+    try:
+        result=host.execute(request,on_provider_authorization=authorize,on_provider_lifecycle=lambda _:True,
+            on_graph_operation=broker,on_native_provider_reply=capture)
+        assert result.status=='ok',(result.error_code,result.error_message)
+        assert result.final_response=='Synthetic exact source answer.'
+    finally:host.shutdown()
+    assert len(operations)==1 and len(prepared)==2 and captures[-1].status=='answered'
+    assert 'Synthetic adventure' in prepared[-1]['payloadJson']
+    if source_tool.startswith('read'):assert prepared[-1]['payloadJson'].count('Synthetic mechanics sentinel.')==1
+    assert json.loads(witness.read_text())['network_attempts']==[]

@@ -8,6 +8,11 @@ from .source_writer_output import strict_json
 
 SCHEMA = "dmb_native_source_sections_frame_v1"
 TOOL = "read_native_source_sections"
+RESULT_SCHEMA = "dmb_native_source_section_result_v1"
+UNAVAILABLE_SCHEMA = "dmb_native_source_section_unavailable_v1"
+GAP_CODES = frozenset({"source_navigation_unavailable","source_section_unavailable",
+    "source_section_over_budget","source_section_cache_unavailable","source_section_not_selected",
+    "native_source_call_unverified"})
 CAPABILITIES = (t.PlanNativeSourceSectionsPolicyV1, t.PlayNativeSourceSectionsPolicyV1)
 
 
@@ -48,7 +53,7 @@ def project_sections(execution):
     return {"schema": SCHEMA, "sections": [section_row(execution,e) for e in reads]}
 
 
-def _current_tool_outputs(turn, body, api_mode):
+def _current_tool_outputs(turn, body, api_mode, tool_name=TOOL):
     from .play_graph_input import _user_texts
     from .native_graph_input import _tool_outputs
     key = "messages" if api_mode == "chat_completions" else "input"
@@ -71,7 +76,7 @@ def _current_tool_outputs(turn, body, api_mode):
         raise ValueError("Native section input requires one exact current submission carrier")
     # Prior-turn tool frames remain ordinary historical context. Only outputs
     # after this exact submission can donate current-turn section handles.
-    return _tool_outputs({key:messages[starts[0]:]},tool_name=TOOL)
+    return _tool_outputs({key:messages[starts[0]:]},tool_name=tool_name)
 
 
 def prove_input(turn, authorization, request_json, *, sequence, event_id=None):
@@ -93,24 +98,33 @@ def prove_input(turn, authorization, request_json, *, sequence, event_id=None):
         if not isinstance(execution,t.PlayWorldGraphExecutionV1):
             raise ValueError("Native section tool proof belongs to native Play")
         frames = _current_tool_outputs(turn,body,authorization.api_mode)
-    rows = []
-    for frame in frames:
-        if (not isinstance(frame,dict) or set(frame) != {"schema","sections"}
-                or frame["schema"] != SCHEMA or not isinstance(frame["sections"],list)):
-            raise ValueError("Native section frame has invalid fields")
-        rows.extend(frame["sections"])
     reads = {section_handle(e):e for e in execution.events
         if isinstance(e,t.NativeSourceSectionObservedV1) and e.outcome == "complete"}
     selected, seen = [], set()
-    for row in rows:
-        if not isinstance(row,dict) or not isinstance(row.get("section_handle"),str):
-            raise ValueError("Native section input has malformed selectors")
-        handle = row["section_handle"]
-        read = reads.get(handle)
-        if read is None or handle in seen or t.canonical_sha256(row) != t.canonical_sha256(section_row(execution,read)):
-            raise ValueError("Native section input differs from one exact successful named receipt")
-        seen.add(handle)
-        selected.append(read)
+    for frame in frames:
+        if (isinstance(frame,dict) and set(frame) == {"schema","code"}
+                and frame["schema"] == UNAVAILABLE_SCHEMA and frame["code"] in GAP_CODES):
+            continue
+        result = isinstance(frame,dict) and frame.get("schema") == RESULT_SCHEMA
+        fields = {"schema","sections","reused_section_handles","partial"} if result else {"schema","sections"}
+        if (not isinstance(frame,dict) or set(frame) != fields
+                or frame["schema"] not in {SCHEMA,RESULT_SCHEMA} or not isinstance(frame["sections"],list)):
+            raise ValueError("Native section frame has invalid fields")
+        prior = set(seen)
+        for row in frame["sections"]:
+            if not isinstance(row,dict) or not isinstance(row.get("section_handle"),str):
+                raise ValueError("Native section input has malformed selectors")
+            handle = row["section_handle"]
+            read = reads.get(handle)
+            if read is None or handle in seen or t.canonical_sha256(row) != t.canonical_sha256(section_row(execution,read)):
+                raise ValueError("Native section input differs from one exact successful named receipt")
+            seen.add(handle)
+            selected.append(read)
+        if result:
+            refs = frame['reused_section_handles']
+            if (not isinstance(frame['partial'],bool) or not isinstance(refs,list)
+                    or any(not isinstance(h,str) or h not in prior for h in refs) or len(set(refs)) != len(refs)):
+                raise ValueError('Native section references lack earlier literal producing material')
     if not selected:
         raise ValueError("Native section input lacks an exact successful section")
     # Catalog selection already forbids overlapping/repeated source sections.
@@ -155,3 +169,15 @@ def validate_inclusions(execution):
             included.add(event.provider_attempt_id)
     if pending is not None:
         raise ValueError("Native source provider requires its input witness in the same transaction")
+
+
+def partial_input(turn, authorization, raw):
+    if (not isinstance(turn.graph_context_execution.policy,CAPABILITIES)
+            or isinstance(authorization,t.PlanJevWriterAuthorizedV1)):return False
+    body = strict_json(raw)
+    for tool in (TOOL,'browse_native_source_sections'):
+        for row in _current_tool_outputs(turn,body,authorization.api_mode,tool):
+            if (isinstance(row,dict) and row.get('schema') == UNAVAILABLE_SCHEMA
+                    or isinstance(row,dict) and row.get('schema') == RESULT_SCHEMA and row.get('partial') is True):
+                return True
+    return False

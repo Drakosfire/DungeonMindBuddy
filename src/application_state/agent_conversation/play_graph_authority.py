@@ -41,5 +41,6 @@ def validate_play_source_owner_join(frame: t.PlaySourceFrameV1, basis: t.PlayRun
 
 
 def play_graph_execution_policy_digest(context_receipt_sha256: str, policy: t.NativePlayGraphPolicyV1) -> str:
-    checked = t.NativePlayGraphPolicyV1.model_validate_json(policy.model_dump_json(by_alias=True))
+    cls = t.PlayNativeSourceSectionsPolicyV1 if isinstance(policy,t.PlayNativeSourceSectionsPolicyV1) else t.NativePlayGraphPolicyV1
+    checked = cls.model_validate_json(policy.model_dump_json(by_alias=True))
     return canonical_sha256({'schema': 'dmb_play_world_graph_execution_v1', 'context_receipt_sha256': context_receipt_sha256, 'policy': checked.model_dump(mode='json', by_alias=True)})
