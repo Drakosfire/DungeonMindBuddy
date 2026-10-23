@@ -182,6 +182,9 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
     expected = build_plan_rules_frame(execution, call_ids)
     if canonical_bytes(frame) != canonical_bytes(expected):
         raise ValueError("Plan Rules evidence differs from sealed outputs")
+    from .plan_jev_graph_packet import frame_in_request
+    from .plan_writer_output_schema import verify_format
+    verify_format(body, frame_in_request(prepared_request_json), expected)
     outputs, supports = [], {}
     for packet in _sealed_packets(execution, call_ids):
         _auth, observed = _observed(execution, packet.call_id)

@@ -70,8 +70,9 @@ def prepared(dsn, *, build=False, with_writer=True, uncapped=False):
     delivery = service.execute_rules_lookup(scope, expected_turn_revision=turn.revision, call_id="rules:1",
         local_reader=lambda current: broker.prepare_lookup(current, "rules:1", args()))
     frame = build_plan_rules_frame(delivery.record.execution, ("rules:1",))
-    raw = json.dumps({"model": "synthetic-model", "tools": [], "input": [
-        {"role": "user", "content": canonical_bytes(frame).decode()}]}, ensure_ascii=False)
+    from tests.plan_writer_schema_fixture import with_plan_schema
+    raw = json.dumps(with_plan_schema({"model": "synthetic-model", "tools": [], "input": [
+        {"role": "user", "content": canonical_bytes(frame).decode()}]}, frame), ensure_ascii=False)
     case = SimpleNamespace(dsn=dsn, service=service, turn=turn, scope=scope, record=delivery.record,
         raw=raw, producer=uuid4(), packet=delivery.prepared)
     if not build:

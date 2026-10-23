@@ -31,7 +31,8 @@ def case():
     owner, result = lookup(owner)
     frame = build_plan_rules_frame(owner, (result.observation.call_id,))
     body = {"model": "gpt-6-luna", "input": [{"role": "user", "content": canonical_bytes(frame).decode()}]}
-    return turn, owner, result, body
+    from tests.plan_writer_schema_fixture import with_plan_schema
+    return turn, owner, result, with_plan_schema(body, frame)
 
 
 def verify(turn, owner, body):
@@ -126,10 +127,14 @@ def test_cached_handle_alone_grants_no_capsule_exposure():
     assert packet(cached).support_capsules == ()
     frame = build_plan_rules_frame(owner, (cached.observation.call_id,))
     body["input"][0]["content"] = canonical_bytes(frame).decode()
+    from application_state.agent_conversation.plan_writer_output_schema import output_format
+    body['text']['format'] = output_format(json.loads(body['input'][1]['content']), frame)
     assert verify(turn, owner, body).support_refs == ()
     # Include the actual original capsule once, then cache refs do not duplicate it.
     frame = build_plan_rules_frame(owner, (first.observation.call_id, cached.observation.call_id))
     body["input"][0]["content"] = canonical_bytes(frame).decode()
+    from application_state.agent_conversation.plan_writer_output_schema import output_format
+    body['text']['format'] = output_format(json.loads(body['input'][1]['content']), frame)
     assert verify(turn, owner, body).support_refs == first.observation.support_refs
     assert len(frame.supports) == len(packet(first).support_capsules)
     assert [item.lookup for item in frame.lookups] == [0, 1]
@@ -166,8 +171,24 @@ def test_all_unadmitted_tool_transcript_families_refused(item):
     with pytest.raises(ValueError): verify(turn, owner, body)
 
 
-def test_actual_input_text_message_shape_exposes_same_source():
+def test_multipart_input_is_not_the_current_plan_writer_text_contract():
     turn, owner, first, body = case()
     content = body["input"][0]["content"]
     body["input"][0] = {"type": "message", "role": "user", "content": [{"type": "input_text", "text": content}]}
-    assert verify(turn, owner, body).support_refs == first.observation.support_refs
+    with pytest.raises(ValueError, match='exact text messages'):
+        verify(turn, owner, body)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'json_object', 'foreign_support'])
+def test_rules_owner_refuses_changed_output_format_with_unchanged_evidence(mutation):
+    turn, owner, _result, body = case()
+    if mutation == 'missing':
+        body.pop('text')
+    elif mutation == 'json_object':
+        body['text']['format'] = {'type': 'json_object'}
+    else:
+        choices = body['text']['format']['schema']['properties']['rules_segments']['items']['anyOf']
+        claim = next(row for row in choices if row['properties']['kind']['const'] == 'rules_claim')
+        claim['properties']['support_ids']['items']['enum'].append(str(uuid4()))
+    with pytest.raises(ValueError, match='output format'):
+        verify(turn, owner, body)

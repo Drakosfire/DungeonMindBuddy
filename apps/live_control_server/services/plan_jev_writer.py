@@ -91,6 +91,8 @@ class PlanJevWriter:
         self.adapter, self.proof, self.rules = adapter, proof, rules
         self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
         rule_frame = rules.frame()
+        from application_state.agent_conversation.plan_writer_output_schema import output_format
+        self.output_format = output_format(self.projection.frame, rule_frame)
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
@@ -123,7 +125,7 @@ class PlanJevWriter:
             raise ValueError('Plan writer actual dispatch identity differs')
         a = self.adapter
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
-            'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': {'type': 'json_object'}},
+            'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': self.output_format},
             'tools': [], 'stream': False, 'reasoning': {'effort': 'none'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
@@ -233,10 +235,11 @@ class PlanJevWriter:
         started = perf_counter()
         stage = "generation"
         try:
-            result = await client.generate_text(TextRequest(provider='openai',model=self.model,
+            result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
                 temperature=None,reasoning_effort='none',max_output_tokens=self.adapter.budget['outputReserveTokens'],
-                json_object=True,max_conformance_retries=0,max_transport_retries=0))
+                json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
+                max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:
                 self.call['response_service_tier'] = provider.actual_response.service_tier

@@ -1,6 +1,10 @@
 # FOUNDATION — inspect failed Plan writer replies
 
-ACTIVE serial PRIME lane on cd247904438ecbd3e68183bc765dd3d0f6e4c604,
+SETTLED: PR #1653 merged at 8a30fd11c3d47685a5a3d6401c1e7a9d949f8c19;
+protected API delivery retained APP/native/mechanics/frozen sources.
+Ordinary failed-turn Debug exposed exact unvalidated output, rejecting completion
+phase and prepared writer prompt. An empty support list was correctly refused.
+Original serial PRIME lane on cd247904438ecbd3e68183bc765dd3d0f6e4c604,
 branch codex/jev-writer-failure-evidence in reused buddy-context-loop checkout.
 One Bugbot-reviewed PR and protected API delivery. Open census has no overlapping
 writer/collector tests. Product runtime remains Buddy-owned.

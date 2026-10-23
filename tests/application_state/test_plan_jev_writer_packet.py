@@ -41,10 +41,15 @@ def evidence(case, packets=None):
         "session_evidence": [], "dialogue": [{"role": "user", "content": "Earlier conversation reference."}]}
 
 
-def writer_request(case, proof, extra_messages=()):
+def writer_request(case, proof, extra_messages=(), rules_frame=None):
     projection = project(case.turn, proof, trace(case))
+    from application_state.agent_conversation.plan_writer_output_schema import output_format
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    rules = rules_frame or PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1', ruleset='synthetic', lookups=(), supports=())
     raw = json.dumps({"model": "synthetic-model", "tools": [], "input": [
-        {"role": "user", "content": canonical_bytes(projection.frame).decode()}, *extra_messages]}, ensure_ascii=False)
+        {"role": "user", "content": canonical_bytes(projection.frame).decode()},
+        {"role": "user", "content": canonical_bytes(rules).decode()}, *extra_messages],
+        'text': {'format': output_format(projection.frame, rules)}}, ensure_ascii=False)
     producer = uuid4()
     base = _provider_authorization_event(attempt_id=producer, sequence=len(case.turn.graph_context_execution.events))
     auth = t.PlanJevWriterAuthorizedV1.model_validate(base.model_dump(mode="python") | {
@@ -55,9 +60,9 @@ def writer_request(case, proof, extra_messages=()):
     return auth, raw
 
 
-def admit_writer(case, *, packets=None, extra_messages=()):
+def admit_writer(case, *, packets=None, extra_messages=(), rules_frame=None):
     proof = evidence(case, packets)
-    auth, raw = writer_request(case, proof, extra_messages)
+    auth, raw = writer_request(case, proof, extra_messages, rules_frame)
     case.turn, fresh = case.service.authorize_plan_jev_writer(case.turn.world_id, case.turn.conversation_id,
         case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
         authorization=auth, producer_proof={"prepared_request_json": raw, "evidence": proof})
@@ -219,7 +224,7 @@ def test_native_plan_writer_accepts_opened_source_citation_atomically(applicatio
     scope = rules_scope(case)
     record = case.service.begin_rules_execution(scope, expected_turn_revision=case.turn.revision)
     rules_frame = build_plan_rules_frame(record.execution, ())
-    admit_writer(case, packets=packets, extra_messages=({"role": "user", "content": canonical_bytes(rules_frame).decode()},))
+    admit_writer(case, packets=packets, rules_frame=rules_frame)
     auth = RulesPlanPacketProviderAuthorizedV1(kind="plan_packet_provider_authorized", event_id=uuid4(),
         sequence=len(record.execution.events), execution_id=scope.execution_id, provider_attempt_id=case.producer,
         request_envelope_sha256=digest(case.raw), plan_context_receipt_sha256=case.turn.graph_context_receipt.context_receipt_sha256,
@@ -313,3 +318,32 @@ def test_bounded_search_qualifies_unclosed_records_without_aborting_writer(appli
     assert {'operation': 'graph_retrieval', 'reason': 'incomplete_evidence_closure'} in projected.frame['retrieval_gaps']
     assert producing_closures(case.turn, auth, SimpleNamespace(prepared_request_json=case.raw,
         graph_packets=packets)) == (('assertion', 'pond-road', ('evidence:pond',)),)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'json_object', 'foreign_selector', 'numeric_strict'])
+def test_app_recomputes_output_format_even_with_same_frame_and_rehashed_request(application_state_dsn, mutation):
+    case = prepare_case(application_state_dsn)
+    append(case)
+    case.redecide('finish_retrieval')
+    append(case)
+    proof = evidence(case)
+    auth, raw = writer_request(case, proof)
+    body = json.loads(raw)
+    if mutation == 'missing':
+        body.pop('text')
+    elif mutation == 'json_object':
+        body['text']['format'] = {'type':'json_object'}
+    elif mutation == 'numeric_strict':
+        body['text']['format']['strict'] = 1
+    else:
+        variants = body['text']['format']['schema']['properties']['answer_segments']['items']['anyOf']
+        authored = next(v for v in variants if v['properties']['kind']['const'] == 'authored_excerpt')
+        authored['properties']['selection_id']['enum'].append('a-foreign')
+    raw = json.dumps(body)
+    auth = auth.model_copy(update={'envelope_sha256':digest(raw)})
+    before = snapshot(case)
+    with pytest.raises(ApplicationStateValidationError, match='output format'):
+        case.service.authorize_plan_jev_writer(case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            authorization=auth, producer_proof={'prepared_request_json':raw, 'evidence':proof})
+    assert snapshot(case) == before
