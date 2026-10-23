@@ -102,8 +102,9 @@ Bugbot cycles and is live on5202/APP0051. Ordinary synthetic Plan scene creation
 two actors, Document/Cards draft recovery, four versions and exact revision4
 reopen/restart passed. [C2 Run scene ownership](../Plans/HANDOFF-COMBAT-run-scene-encounters.md)
 shipped #1624 after two Bugbot cycles, closing complete capture, initialization
-and server access design gates. C2 runtime implementation is ACTIVE on its exact
-fresh base; real adventure and full connected acceptance remain open.
+and server access design gates. C2 runtime shipped #1625 after three Bugbot cycles and is live on5202/APP0052.
+Rendered confirmation placement needs a shared Surface correction before the
+connected rehearsal can finish; real adventure acceptance remains open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable
