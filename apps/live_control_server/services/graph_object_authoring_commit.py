@@ -134,12 +134,6 @@ def commit_graph_object_authoring_write(
     world_id = authored_world_id(request)
     actor = graph_review_actor(request.campaign_id)
     assertions_digest = proposed_assertions_digest(assertions)
-    if str(intent.get("world_id") or "") != world_id:
-        raise GraphObjectAuthoringError(
-            "Confirm token does not match the prepared publication intent.",
-            code="confirmation_invalid",
-            status_code=409,
-        )
     if str(intent.get("campaign_id") or "") != request.campaign_id:
         raise GraphObjectAuthoringError(
             "Confirm token does not match the prepared publication intent.",
@@ -214,6 +208,16 @@ def commit_graph_object_authoring_write(
         world_id=world_id,
         campaign_id=request.campaign_id,
     )
+    from apps.live_control_server.services.graph_object_authoring_binding import resolve_publication_context
+
+    context = resolve_publication_context(request, resolved, source_root=(corpus_root or repo_root()).resolve())
+    world_id = context.world_id
+    if (intent.get("publication_binding") != context.binding
+            or intent.get("world_id") != world_id):
+        raise GraphObjectAuthoringError(
+            "Prepared World/source binding changed. Prepare again.",
+            code="world_binding_changed", status_code=409,
+        )
     admitted_artifact, admitted_revision = prove_graph_review_source(
         world_id=world_id,
         source_artifact_id=source_artifact_id,
@@ -246,7 +250,7 @@ def commit_graph_object_authoring_write(
 
     contribution = translate_assertions_to_contribution(
         world_id=world_id,
-        campaign_id=request.campaign_id,
+        campaign_id=context.campaign_scope,
         actor=actor,
         source_artifact_id=buddy_artifact_id,
         source_revision_id=buddy_revision_id,

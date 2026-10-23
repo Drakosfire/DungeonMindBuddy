@@ -22,6 +22,12 @@ from tests.test_graph_object_authoring_prepare import (
 
 @pytest.fixture
 def frozen(tmp_path, monkeypatch):
+    # This suite owns frozen occurrence proof; the binding suite exercises managed/native routing.
+    from apps.live_control_server.services.graph_object_authoring_binding import GraphReviewPublicationContext
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
+        lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "synthetic-run-span-test")
     text = "Mara keeps the copper bell.\n\nOren works at the quarry.\n"
