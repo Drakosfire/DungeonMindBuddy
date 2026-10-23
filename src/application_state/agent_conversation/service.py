@@ -992,8 +992,6 @@ class AgentConversationService:
         if world_id != authority.managed_world_id:
             raise ApplicationStateValidationError('Navigation authority belongs to another World')
         with unit_of_work(_ready_dsn()) as conn:
-            if repo.get_conversation(conn, world_id, conversation_id) is None:
-                raise ApplicationStateNotFoundError('conversation not found in verified World')
             return from_history(conn, world_id=world_id, conversation_id=conversation_id,
                 authority=authority, previous_turns=previous_turns)
 
