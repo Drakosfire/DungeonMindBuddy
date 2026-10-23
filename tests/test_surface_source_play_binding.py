@@ -453,7 +453,7 @@ def test_current_plan_and_play_source_instructions_share_host_attribution():
     for current in (INSTRUCTIONS, _PLAN_GRAPH_ANSWER_INSTRUCTIONS):
         assert current.count("Ground each factual clause in that claim's own admitted evidence.") == 1
         assert "Do not turn a request," in current
-        assert "select its authored_excerpt instead" in current
+        assert "use its authored_excerpt if offered" in current
 
 
 def test_play_typed_gap_derives_flag_through_native_owner(application_state_dsn):

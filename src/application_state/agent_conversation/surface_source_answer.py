@@ -42,8 +42,8 @@ check that its selected passages actually state every factual detail in its text
 A source saying someone asked for a description does not supply that description;
 a plan to investigate does not establish what was discovered. Do not turn a request,
 belief, possibility or intention into an observed account or completed outcome.
-When only authored material supplies a detail, select its authored_excerpt instead
-of attributing it to a corpus passage. Put cross-source creative synthesis in an
+When only authored material supplies a detail, use its authored_excerpt if offered;
+otherwise omit that detail from factual claims rather than cite a corpus passage. Put cross-source creative synthesis in an
 explicitly hypothetical proposal, while keeping each source claim locally supported.
 """
 
