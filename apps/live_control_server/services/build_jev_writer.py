@@ -488,6 +488,8 @@ def source_projection(
         packet["schema"] = primary.SCHEMA
         packet["artifact_under_edit"] = primary.project(execution)
         packet["exposure"]["saved_sections"] = []
+        if getattr(execution.policy, "writer_status_policy", None) is not None:
+            packet["writer_status_policy"] = execution.policy.writer_status_policy
     return WriterProjection(
         json.dumps(
             packet,

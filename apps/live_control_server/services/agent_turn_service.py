@@ -1276,6 +1276,10 @@ def _freeze_policy_receipt(
                 if budget.get("savedSourceInputPolicy") == "selected_saved_build_sections_v1" else
                 graph_types.ControllerWriterGraphExecutionPolicyV3
                 if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
+            if (budget.get("buildJevActions") or {}).get("writer_status_policy") is not None:
+                policy_class = (graph_types.BuildPrimaryWorkStatusImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildPrimaryWorkStatusPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),

@@ -100,6 +100,8 @@ class BuildJevHarness:
             budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
             from application_state.agent_conversation.build_primary_context import POLICY as PRIMARY_POLICY
             budget["buildJevActions"]["primary_work_context_policy"] = PRIMARY_POLICY
+            from application_state.agent_conversation.build_primary_context import STATUS_POLICY
+            budget["buildJevActions"]["writer_status_policy"] = STATUS_POLICY
         if accounting is not None and cap is not None:
             from application_state.build_proposal.types import ImageDirectionV2
             budget["buildJevActions"]["image_preparation_schema_sha256"] = digest(ImageDirectionV2.model_json_schema())
@@ -231,6 +233,9 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
+            if adapter.context_capture:
+                adapter.context_capture.answer_draft(result.text,
+                    producing_provider_attempt_id=adapter.producing_provider_attempt_id)
             if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
                     or (isinstance(terminal, FrontierDisposition)
                         and terminal.coverage_status != "catalog_exhausted")):
@@ -241,6 +246,9 @@ class BuildJevHarness:
                     "source_grounded",
                     "graph_grounded",
                 }:
+                    if adapter.context_capture:
+                        adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                            "code": "build_writer_strengthened_partial_retrieval"})
                     raise ValueError(
                         "Writer claimed full support despite unresolved retrieval"
                     )

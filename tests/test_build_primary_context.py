@@ -4,6 +4,7 @@ import json
 from copy import deepcopy
 from uuid import uuid4
 
+import httpx
 import httpx2
 import pytest
 
@@ -186,13 +187,16 @@ def test_finite_schema_exposes_only_actual_primary_selectors(completed):
     ] == [packet["artifact_under_edit"]["sections"][0]["read_id"]]
     old_policy = t.BuildEncodedAssessmentPolicyV1.model_validate(
         turn.graph_context_execution.policy.model_dump(
-            by_alias=True, exclude={"primary_work_context_policy"}
+            by_alias=True,
+            exclude={"primary_work_context_policy", "writer_status_policy"},
         )
     )
     historical = turn.graph_context_execution.model_copy(update={"policy": old_policy})
+    historical_packet = deepcopy(packet)
+    historical_packet.pop("writer_status_policy", None)
     with pytest.raises(ValueError, match="Historical policy"):
         primary.validate_packet(
-            packet, historical, turn.graph_context_receipt.source_basis
+            historical_packet, historical, turn.graph_context_receipt.source_basis
         )
 
 
@@ -239,11 +243,13 @@ def test_historical_saved_sections_keep_exact_serialized_types(completed, mutati
     turn, packet, _, _, _, _ = completed
     old_policy = t.BuildEncodedAssessmentPolicyV1.model_validate(
         turn.graph_context_execution.policy.model_dump(
-            by_alias=True, exclude={"primary_work_context_policy"}
+            by_alias=True,
+            exclude={"primary_work_context_policy", "writer_status_policy"},
         )
     )
     historical = turn.graph_context_execution.model_copy(update={"policy": old_policy})
     old_packet = deepcopy(packet)
+    old_packet.pop("writer_status_policy", None)
     old_packet["schema"] = "dmb_build_source_passage_writer_v1"
     del old_packet["artifact_under_edit"]
     old_packet["exposure"]["saved_sections"] = [
@@ -262,3 +268,86 @@ def test_historical_saved_sections_keep_exact_serialized_types(completed, mutati
         primary.validate_packet(
             old_packet, historical, turn.graph_context_receipt.source_basis
         )
+
+
+@pytest.mark.parametrize(
+    "status,coverage,partial",
+    [
+        ("insufficient_evidence", "catalog_exhausted", True),
+        ("unresolved_conflict", "catalog_exhausted", True),
+        ("provisionally_supported", "heuristic_partial", True),
+        ("provisionally_supported", "catalog_exhausted", False),
+    ],
+)
+def test_status_schema_matches_existing_host_admission(
+    completed, status, coverage, partial
+):
+    turn, packet, _, _, _, _ = completed
+    assert isinstance(
+        turn.graph_context_execution.policy, t.BuildPrimaryWorkStatusPolicyV1
+    )
+    current = deepcopy(packet)
+    current["retrieval_disposition"].update(status=status, coverage_status=coverage)
+    schema = finite_output_schema(current, requested_detail_gaps=True)
+    allowed = schema["properties"]["answer_context_status"]["enum"]
+    assert ("source_grounded" not in allowed) == partial
+    historical = deepcopy(current)
+    del historical["writer_status_policy"]
+    assert (
+        "source_grounded"
+        in finite_output_schema(historical, requested_detail_gaps=True)["properties"][
+            "answer_context_status"
+        ]["enum"]
+    )
+    del current["writer_status_policy"]
+    with pytest.raises(ValueError, match="status capability"):
+        primary.validate_packet(
+            current,
+            turn.graph_context_execution,
+            turn.graph_context_receipt.source_basis,
+        )
+
+
+class FullSupportWriter(AuthoredWriter):
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        body = response.json()
+        output = json.loads(body["output"][0]["content"][0]["text"])
+        output.update(answer_context_status="source_grounded", limitations=[])
+        self.output = body["output"][0]["content"][0]["text"] = json.dumps(output)
+        return httpx.Response(200, request=request, json=body)
+
+
+def test_refused_full_support_is_captured_before_terminal_check(
+    build_case, monkeypatch, tmp_path
+):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    writer = FullSupportWriter()
+    harness = BuildJevHarness(
+        decision_transport=Decisions(), writer_transport=writer, accounting=counter()
+    )
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with pytest.raises(AgentTurnServiceError) as failure:
+        execute(case, tmp_path, harness)
+    assert "full support" in str(failure.value.__cause__)
+    service = AgentConversationService()
+    (turn,) = service.list_turns(
+        "elderwyld", service.get_world_pointer("elderwyld").active_conversation_id
+    )
+    traces = service.list_context_trace_attempts(
+        world_id="elderwyld", turn_id=turn.turn_id
+    )
+    materials = [
+        m
+        for tr in traces
+        for o in tr.observations
+        if o.kind == "context_snapshot"
+        for m in o.materials
+    ]
+    assert sum(m.text == writer.output for m in materials) == 1
+    assert any(
+        o.kind == "failure" and o.code == "build_writer_strengthened_partial_retrieval"
+        for tr in traces
+        for o in tr.observations
+    )
+    assert turn.completion is None and len(writer.calls) == 1

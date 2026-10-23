@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+STATUS_POLICY = "host_retrieval_status_finite_output_v1"
 POLICY = "exact_acquired_primary_work_context_v1"
 SCHEMA = "dmb_build_primary_context_writer_v1"
 ROLE = "authored_page_under_edit_not_world_or_played_truth"
@@ -112,6 +113,9 @@ def validate_packet(packet, execution, basis):
     """Reconstruct lane membership and exact text independently of a worker."""
     from .types import ValidatedBuildSectionReadV1
 
+    status_policy = getattr(execution.policy, "writer_status_policy", None)
+    if packet.get("writer_status_policy") != status_policy:
+        raise ValueError("Writer status capability differs from frozen policy")
     selected = packet.get("exposure", {}).get("saved_sections", [])
     if not enabled(execution.policy):
         if "artifact_under_edit" in packet or packet.get("schema") == SCHEMA:
