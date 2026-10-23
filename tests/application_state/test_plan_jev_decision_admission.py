@@ -69,7 +69,7 @@ def prepare_case(dsn, *, operation="select_candidates", missing_usage=False, unk
         async def handle_async_request(self, wire):
             case.sent.append(wire)
             body = json.loads(wire.content)
-            assert set(body["state"]) == {"question", "candidates"}
+            assert set(body["state"]) == {"question", "relevance_guidance", "candidates"}
             assert body["state"]["candidates"] == [{"label": c.label, "kind": c.kind} for c in (candidate, offered_rules)]
             answers = {}
             for name, entry in body["questions"].items():

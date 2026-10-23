@@ -136,8 +136,8 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert all(row['source_name'] == 'Synthetic park journal' for row in frame['opened_passages'])
     assert len(driver.calls) == len(transport.calls) == (3 if sequential else 2)
     assert frame['dialogue_reference'] == [{'role': 'user', 'content': 'Earlier park discussion.'}]
-    assert set(transport.calls[0]['state']) == {'question', 'candidates', 'dialogue_reference'}
-    assert all(set(body['state']) == {'question', 'candidates', 'dialogue_reference', 'examined_subjects'}
+    assert set(transport.calls[0]['state']) == {'question', 'relevance_guidance', 'candidates', 'dialogue_reference'}
+    assert all(set(body['state']) == {'question', 'relevance_guidance', 'candidates', 'dialogue_reference', 'examined_subjects'}
         for body in transport.calls[1:])
     assert transport.calls[-1]['state']['examined_subjects'] == [
         {'label': 'Park pond', 'kind': 'World entity: location'}, {'label': 'Footbridge', 'kind': 'World entity: location'},
@@ -160,8 +160,7 @@ def test_prior_dialogue_does_not_supply_current_attempt_source_authority(plan_ad
     first = transport.calls[0]
     assert first['state']['dialogue_reference'] == dialogue
     assert 'examined_subjects' not in first['state']
-    assert all('Prior answers do not satisfy a new corpus request' in question['instructions']
-               for name, question in first['questions'].items() if name != 'operation')
+    assert 'Prior answers do not satisfy a new corpus request' in first['state']['relevance_guidance']
     assert [call['targets'][0]['id'] for call in graphs] == ['pond', 'bridge']
     assert len(sources) == 1  # shared anchors deduplicate despite two relevant objects
     frame = project(plan_adapter.fence.turn, proof,
