@@ -1,3 +1,4 @@
+import {SavedMechanicsRevisionEditor} from "../../statblocks/revision/SavedMechanicsRevisionEditor";
 import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -55,7 +56,6 @@ import {
   type ThreatPublicationDockModel,
 } from "../../statblocks/publication/ThreatPublicationPanel";
 import {
-  MechanicsSavedAppendBoundary,
   ProposalHistoryPanel,
   ReviseWithAiPanel,
 } from "../../statblocks/revision/StatblockRevisePanels";
@@ -1702,7 +1702,7 @@ function AcceptMechanicsFlow({
 
   return (
     <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
-      {mechanicsSavedDraft ? <MechanicsSavedAppendBoundary /> : null}
+      {mechanicsSavedDraft ? <p>These mechanics are saved. Editing this candidate does not change a saved version.</p> : null}
       {restorePending && !acceptResult && !existenceUnresolved ? (
         <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
           Restoring acceptance operation…
@@ -3636,6 +3636,8 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               publicationDock={publicationDock}
             />
           ) : null}
+
+          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && <SavedMechanicsRevisionEditor key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>}
 
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <WorldMechanicsAssociationPanel key={threatDraft.draft_id} draft={threatDraft} />

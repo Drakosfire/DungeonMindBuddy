@@ -4344,7 +4344,7 @@ describe("StatblockWorkbenchModule", () => {
       );
       await loadId("cand_fixture1");
       await waitFor(() => expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy());
-      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByText("These mechanics are saved. Editing this candidate does not change a saved version.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
     });
 
@@ -5162,7 +5162,7 @@ describe("StatblockWorkbenchModule", () => {
       });
       const user = await loadMechanicsSavedDraft();
       expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
-      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByText("These mechanics are saved. Editing this candidate does not change a saved version.")).toBeTruthy();
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
       expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();

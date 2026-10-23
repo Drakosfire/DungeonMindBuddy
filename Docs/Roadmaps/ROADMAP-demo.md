@@ -1,8 +1,9 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-22.
-**Evidence anchor:** remote/live Buddy `df98f6a5a554ac7ef234b1196b4f8dd3377d178a`
-(#1617), API8000/UI5202, APP0048/native0017, Core617635c.
+**Evidence anchor:** remote main `05a6fe0c95d68e337ce589677012bdb0e32da08c`
+(#1618); live Buddy `df98f6a5a554ac7ef234b1196b4f8dd3377d178a` (#1617),
+API8000/UI5202, APP0048/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -86,6 +87,13 @@ It also exposed navigation and media weaknesses. Preserve that evidence without
 calling the full local demo accepted.
 
 ## Next work — connected encounter revision
+
+The first slice is active under [manual revision Save](../Plans/HANDOFF-STATBLOCK-manual-revisions.md).
+DMS already has immutable append/parent-CAS/idempotency; Buddy is integrating the
+shared editor and explicit saved-revision/recovery receipts. Original acceptance,
+World associations and fight snapshots remain unchanged. New saved revisions do
+not inherit World acceptance; encounter adoption is the next separate command.
+Implementation review, merge and rendered acceptance are pending; this is not live.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable

@@ -222,12 +222,3 @@ export function ReviseWithAiPanel({
     </section>
   );
 }
-
-export function MechanicsSavedAppendBoundary() {
-  return (
-    <p className="module-muted statblock-sbw13-boundary" data-testid="sbw13-append-boundary">
-      Mechanics are saved for this draft. Further edits stay in the working copy; saving another
-      mechanics revision is not available yet.
-    </p>
-  );
-}

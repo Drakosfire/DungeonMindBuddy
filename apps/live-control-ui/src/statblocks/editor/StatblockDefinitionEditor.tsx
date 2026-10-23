@@ -28,6 +28,7 @@ const ABILITY_NAMES: AbilityName[] = [
 
 export type StatblockDefinitionEditorProps = {
   output: StatblockDefinitionV1_Output;
+  recoveryHint?: string;
   editorState?: StatblockEditorState;
   onEditorStateChange?: (state: StatblockEditorState) => void;
 };
@@ -82,6 +83,7 @@ export function StatblockDefinitionEditor({
   output,
   editorState: controlledState,
   onEditorStateChange,
+  recoveryHint,
 }: StatblockDefinitionEditorProps) {
   const [uncontrolledState, setUncontrolledState] = useState(() => createEditorStateFromOutput(output));
   const state = controlledState ?? uncontrolledState;
@@ -107,7 +109,7 @@ export function StatblockDefinitionEditor({
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
       <p className="statblock-definition-editor__disclosure">
-        Session-only working copy. Changes are unsaved and will be lost on refresh.
+        {recoveryHint ?? "Session-only working copy. Changes are unsaved and will be lost on refresh."}
       </p>
       <p className="statblock-definition-editor__status" data-testid="editor-ui-status">
         Status: {uiStatus}
