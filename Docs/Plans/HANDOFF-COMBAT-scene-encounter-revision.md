@@ -6,8 +6,9 @@ The operator explicitly selected this next segment on2026-10-22 under PRIME's
 active local Buddy goal. **ADOPTED DESIGN** in #1618, merge
 `05a6fe0c95d68e337ce589677012bdb0e32da08c`, after Bugbot approved
 `e24fdb038eea32f52b3a8dc2125ef055a2e90449` in cycle2. The design lease is released.
-Slice A is ACTIVE only under [its exact successor lease](HANDOFF-STATBLOCK-manual-revisions.md);
-B/C and the full connected milestone remain unimplemented.
+Slice A shipped #1619/#1620 with real manual armor/HP revisions and protected restart.
+B is ACTIVE under [exact-version adoption](HANDOFF-COMBAT-exact-version-adoption.md).
+C and the full connected milestone remain unimplemented; B is not yet reviewed/live.
 Base `df98f6a5a554ac7ef234b1196b4f8dd3377d178a` (#1617), existing
 buddy-context-loop checkout, branch `codex/combat-connected-revision-design`.
 Topology **serial**: this bounded design/reconciliation PR, then independently

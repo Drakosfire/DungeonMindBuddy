@@ -156,3 +156,14 @@ def recover(root,*,world_id,draft_id,operation_id,client=None):
 def inspect_operation(root,*,world_id,draft_id,operation_id):
     record=operations.read(world_id=world_id,draft_id=draft_id,operation_id=operation_id)
     return dict(operation=summary(record) if record else None)
+
+
+def resolve_saved_source(root,*,world_id,draft_id,locator,client=None):
+    """Exact owned source plus original/successor proof for explicit consumers."""
+    draft,origin,anchor,selected=_selected(root,world_id,draft_id,locator.revision_id)
+    if selected!=locator:raise ApplicationStateConflictError('Selected mechanics identity changed')
+    record=None if selected==origin else operations.find_revision(world_id=world_id,draft_id=draft_id,revision_id=selected.revision_id)
+    owns=client is None;active=client or build_statblock_v1_client()
+    try:return draft,origin,anchor,record.operation_id if record else None,_exact(active,selected)
+    finally:
+        if owns:active.close()

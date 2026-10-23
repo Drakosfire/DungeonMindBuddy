@@ -108,3 +108,14 @@ export async function listAcceptedCombatMechanics(worldId: string, offset = 0): 
     .map(draft => ({draft_id: draft.draft_id, draft_version: draft.version, name: draft.name})),
     nextOffset: page.offset + page.limit < page.total ? page.offset + page.limit : null};
 }
+
+export async function previewSavedCombatMechanics(worldId:string,draftId:string,locator:import('./combatTypes').SavedCombatMechanicsSnapshot['locator']):Promise<import('./combatTypes').MechanicsAdoptionPreview> {
+  return readJson(await fetchCombat(scopedPath(worldId,'/saved-mechanics/preview'),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({draft_id:draftId,locator}),
+  }));
+}
+export async function adoptCombatMechanics(worldId:string,encounterId:string,request:import('./combatTypes').AdoptMechanicsRequest,cancel=false):Promise<import('./combatTypes').MechanicsAdoptionOutcome> {
+  return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions${cancel?':cancel':''}`),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),
+  }));
+}

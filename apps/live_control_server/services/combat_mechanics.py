@@ -113,3 +113,36 @@ def preview_accepted(*, world_id: str, selection: AcceptedCombatMechanicsSelecti
     draft, snapshot = prepare_accepted_snapshot(world_id=world_id, selection=selection)
     with accepted_drafts_guard([draft]):
         return snapshot
+
+
+def prepare_saved_override(*,world_id,draft_id,locator):
+    from apps.live_control_server.services.statblock_saved_revision import resolve_saved_source
+    from application_state.combat_encounters.types import SavedCombatMechanicsSnapshot
+    draft,origin,anchor,operation,exact=resolve_saved_source(artifact_data_root(default=repo_root()),
+        world_id=world_id,draft_id=draft_id,locator=locator)
+    if exact.validation_receipt.status=='invalid' or any(issue.severity=='error' for issue in exact.validation_receipt.issues or []):
+        raise ApplicationStateIntegrityError('Selected mechanics have an invalid validation receipt')
+    resource=exact.model_dump(mode='json');resource['definition']=json.loads(exact.canonical_definition)
+    payload=dict(origin='buddy_saved_mechanics_override_v1',managed_world_id=world_id,draft_id=str(draft_id),
+        origin_acceptance_operation_id=str(anchor),revision_operation_id=str(operation) if operation else None,
+        locator=locator.model_dump(mode='json'),resource=resource)
+    snapshot=SavedCombatMechanicsSnapshot(**payload,snapshot_digest=SavedCombatMechanicsSnapshot.digest_payload(payload))
+    return draft,origin,snapshot
+
+
+def preview_saved_override(*,world_id,draft_id,locator):
+    from application_state.combat_encounters.adoption import numeric_defaults
+    from application_state.combat_encounters.adoption_types import AdoptionPreview
+    draft,_origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=draft_id,locator=locator)
+    with accepted_drafts_guard([draft]):
+        ac,hp=numeric_defaults(snapshot)
+        return AdoptionPreview(snapshot=snapshot,armor_class=ac,hit_points=hp)
+
+
+def adopt_saved_override(*,world_id,encounter_id,request):
+    from application_state.combat_encounters import adoption
+    replay=adoption.inspect(world_id=world_id,encounter_id=encounter_id,operation_id=request.operation_id,request=request)
+    if replay is not None:return replay
+    draft,origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=request.draft_id,locator=request.locator)
+    with accepted_drafts_guard([draft]):
+        return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin)

@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-22.
-**Evidence anchor:** remote main/live Buddy `3389249e9cdf07bd9ee89aa01151605eb82d67b5`
-(#1619), API8000/UI5202, APP0049/native0017, Core617635c.
+**Evidence anchor:** remote main/live Buddy `a6684f1aedff28b46a32770dc32b08b60bfb5bae`
+(#1620), API8000/UI5202, APP0049/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -28,7 +28,7 @@ this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
 | Plan discovery and conversation | Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
 | Evidence efficiency and exact excerpts | #1615 retained-source reuse: Plan4.590s/Play13.191s, each one reuse/zero fresh reads; #1617 host-materialized authored blocks with current-submission policy fencing | #1617 original-query/notes/reflections rendered acceptance and post-answer protected restart; five reused passages in the preceding9.042s failed answer are not successful latency evidence |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
-| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups | HP-edit coherence repair, explicit existing-actor adoption, durable scene connection and the complete operator-selected journey |
+| Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions and old/new reopen/restart | Explicit existing-actor adoption, durable scene connection and the complete operator-selected journey |
 | Adventures and memory | Both saved sources/review/publications and partial Plan/Play witnesses; notes/reflections available as supplemental evidence | Both applicable J1–J6 journeys twice; external recap+matching supplements→review/publication→next-session cited use |
 | Client foundations | Shared surfaces, demand loading, finite legacy cleanup, bounded/deduplicated reads and guarded retained-state delivery | Current-build cold/warm load, latency/read/memory measurements on8GB hardware or a labeled proxy; fix remaining measured waste |
 
@@ -87,16 +87,17 @@ calling the full local demo accepted.
 
 ## Next work — connected encounter revision
 
-[Manual revision Save](../Plans/HANDOFF-STATBLOCK-manual-revisions.md) shipped #1619
-with real immutable armor revision/old-new reopen and protected restart. Original
-acceptance, World associations, encounters and agent-turn rows stayed unchanged.
-The live HP edit exposed a displayed-average/formula mismatch and hidden validation
-issues; [the serial HP repair](../Plans/HANDOFF-STATBLOCK-hp-edit-consistency.md)
-is ACTIVE before adoption. New revision receipts do not inherit World acceptance.
+[Manual revision Save](../Plans/HANDOFF-STATBLOCK-manual-revisions.md) and the
+[shared HP coherence repair](../Plans/HANDOFF-STATBLOCK-hp-edit-consistency.md) shipped
+#1619/#1620. Real original/armor/HP successor reopen and protected restart passed;
+all four encounters, both World associations and158 agent turns stayed unchanged.
+[Exact-version encounter adoption](../Plans/HANDOFF-COMBAT-exact-version-adoption.md)
+is ACTIVE under the adopted Architecture critique. Its implementation/review/live
+acceptance are pending. New saved revisions do not inherit World acceptance.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable
-   successor, then explicitly retain its Buddy accepted reference. Reopen both versions.
+   successor, then retain its exact saved-revision receipt. Reopen both versions.
    Saving/accepting does not replace World associations or alter a fight. No AI call is needed for a manual edit. Resolve
    generic producer ownership before activating any cross-repository change.
 2. **An encounter deliberately adopts a selected version.** Preview old/new

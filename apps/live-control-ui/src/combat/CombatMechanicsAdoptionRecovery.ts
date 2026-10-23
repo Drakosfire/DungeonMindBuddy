@@ -1,0 +1,49 @@
+import type {AdoptMechanicsRequest,MechanicsAdoptionOutcome} from './combatTypes';
+export interface PendingMechanicsAdoption {schema:'dmb_pending_combat_adoption_v1';worldId:string;encounterId:string;request:AdoptMechanicsRequest;afterDigest:string}
+function ordered(value:unknown):unknown {
+  if(Array.isArray(value))return value.map(ordered);
+  if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered((value as Record<string,unknown>)[key])]));
+  return value;
+}
+export const sameAdoptionValue=(a:unknown,b:unknown)=>JSON.stringify(ordered(a))===JSON.stringify(ordered(b));
+export async function adoptionRequestDigest(pending:PendingMechanicsAdoption):Promise<string> {
+  const body={world_id:pending.worldId,encounter_id:pending.encounterId,request:pending.request};
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(ordered(body))));
+  return 'sha256:'+Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+export async function verifyAdoptionOutcome(pending:PendingMechanicsAdoption,outcome:MechanicsAdoptionOutcome) {
+  const {receipt,encounter}=outcome,request=pending.request;
+  if(receipt.schema!=='dmb_combat_mechanics_adoption_receipt_v1'||receipt.operation_id!==request.operation_id
+    ||receipt.world_id!==pending.worldId||receipt.encounter_id!==pending.encounterId
+    ||encounter.world_id!==pending.worldId||encounter.encounter_id!==pending.encounterId
+    ||receipt.request_digest!==await adoptionRequestDigest(pending)||receipt.expected_revision!==request.expected_revision
+    ||!sameAdoptionValue(receipt.source,request.locator))throw new Error('Adoption acknowledgment differs from the retained request. Recover its original outcome.');
+  if(receipt.state==='canceled'){
+    if(receipt.committed_revision!==null||receipt.transitions.length||outcome.advanced_since_apply)throw new Error('Cancellation acknowledgment claims actor changes.');
+    return;
+  }
+  if(receipt.state!=='applied'||receipt.committed_revision!==request.expected_revision+1||encounter.revision<receipt.committed_revision
+    ||outcome.advanced_since_apply!==(encounter.revision>receipt.committed_revision)||receipt.transitions.length!==request.actors.length)
+    throw new Error('Adoption revision acknowledgment is invalid.');
+  if(new Set(receipt.transitions.map(t=>t.actor_id)).size!==receipt.transitions.length)throw new Error('Adoption repeats an actor.');
+  for(const choice of request.actors){
+    const change=receipt.transitions.find(t=>t.actor_id===choice.actor_id);
+    if(!change||change.before_snapshot_digest!==choice.expected_snapshot_digest||change.after_snapshot_digest!==pending.afterDigest
+      ||change.ac_policy!==choice.ac_policy||change.hp_policy!==choice.hp_policy)throw new Error('Adoption actor acknowledgment is invalid.');
+    if(!outcome.advanced_since_apply){
+      const actor=encounter.draft.entities.find(e=>e.id===choice.actor_id);
+      if(!actor||actor.mechanics_snapshot?.snapshot_digest!==change.after_snapshot_digest
+        ||actor.ac!==change.after_ac||actor.hp!==change.after_hp||actor.max_hp!==change.after_max_hp)
+        throw new Error('Adoption encounter does not match its receipt.');
+    }
+  }
+}
+export function readPendingAdoption(raw:string|null,worldId:string,encounterId:string):PendingMechanicsAdoption|null {
+  if(!raw)return null;
+  const parsed=JSON.parse(raw) as PendingMechanicsAdoption;
+  if(parsed.schema!=='dmb_pending_combat_adoption_v1'||parsed.worldId!==worldId||parsed.encounterId!==encounterId
+    ||parsed.request?.schema!=='dmb_combat_mechanics_adoption_request_v1'||!Array.isArray(parsed.request.actors)
+    ||!parsed.request.actors.length||typeof parsed.request.operation_id!=='string'||typeof parsed.afterDigest!=='string')
+    throw new Error('Pending adoption could not be verified; it remains retained in this browser.');
+  return parsed;
+}

@@ -8,6 +8,7 @@ import {
 } from "../../combat/combatApi";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
+import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
@@ -245,7 +246,9 @@ export function CombatRosterModule() {
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const replacingDraft = busy === "create" || busy === "open" || busy === "reload" || availableRecovery !== null;
+  const [adoptionBlocked,setAdoptionBlocked]=useState(false);
+  const operationsBlocked=busy!==null||adoptionBlocked;
+  const replacingDraft = adoptionBlocked || busy === "create" || busy === "open" || busy === "reload" || availableRecovery !== null;
   const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
@@ -305,6 +308,7 @@ export function CombatRosterModule() {
     const current = draftRef.current, base = recordRef.current;
     if (!current || !base) return false;
     try {
+      if (adoptionBlocked) throw new Error('Resolve the pending mechanics adoption before editing.');
       if (availableRecovery) throw new Error('Recover or discard the retained Combat draft before editing.');
       if (pendingSave.current && busy !== 'save') throw new Error('The previous Save outcome is unknown. Retry the same Save or explicitly reload; local edits are retained.');
       const nextDraft = update(current);
@@ -529,7 +533,7 @@ export function CombatRosterModule() {
                 aria-label="Encounter"
                 value={selectedEncounterId}
                 onChange={(event) => setSelectedEncounterId(event.target.value)}
-                disabled={busy !== null || availableRecovery !== null}
+                disabled={operationsBlocked || availableRecovery !== null}
               >
                 <option value="">Choose an encounter…</option>
                 {visibleEncounters.map((item) => (
@@ -539,17 +543,17 @@ export function CombatRosterModule() {
                 ))}
               </select>
             </label>
-            <button type="button" disabled={busy !== null || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
+            <button type="button" disabled={operationsBlocked || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
             <label>
               <span className="eyebrow">New encounter</span>
-              <input aria-label="New encounter title" value={newTitle} disabled={busy !== null} onChange={(event) => setNewTitle(event.target.value)} />
+              <input aria-label="New encounter title" value={newTitle} disabled={operationsBlocked} onChange={(event) => setNewTitle(event.target.value)} />
             </label>
-            <button type="button" disabled={busy !== null || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
+            <button type="button" disabled={operationsBlocked || !newTitle.trim() || dirty} onClick={() => void createEncounter()}>
               Create
             </button>
-            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
+            <button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>
             <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
@@ -576,9 +580,9 @@ export function CombatRosterModule() {
                 <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
                 <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
                 <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
-                <button type="button" onClick={sortInitiative} disabled={busy !== null || visibleDraft.entities.length < 2}>Sort initiative</button>
-                <button type="button" onClick={() => advance("previous")} disabled={busy !== null || visibleDraft.entities.length === 0}>Previous turn</button>
-                <button type="button" onClick={() => advance("next")} disabled={busy !== null || visibleDraft.entities.length === 0}>Next turn</button>
+                <button type="button" onClick={sortInitiative} disabled={operationsBlocked || visibleDraft.entities.length < 2}>Sort initiative</button>
+                <button type="button" onClick={() => advance("previous")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Previous turn</button>
+                <button type="button" onClick={() => advance("next")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Next turn</button>
               </section>
               <header className="combat-encounter-heading">
                 <label>
@@ -587,8 +591,20 @@ export function CombatRosterModule() {
                 </label>
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
+              <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
+                record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
+                onLockChange={setAdoptionBlocked} onReconciled={current=>{
+                  const base=recordRef.current,local=draftRef.current;
+                  if(!base||!local||current.world_id!==worldId||current.encounter_id!==base.encounter_id)
+                    throw new Error('Combat view changed; adoption recovery is retained.');
+                  if(!combatDraftEqual(base.draft,local)||pendingSave.current||availableRecovery)
+                    throw new Error('Resolve the local Combat draft before reconciling adoption.');
+                  recoverySession.current.clear();recordRef.current=current;draftRef.current=cloneDraft(current.draft);
+                  setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
+                  setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
+                }}/>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} disabled={busy !== null || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
+                worldId={worldId} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
                   const proposed = {...visibleDraft,
                     entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
@@ -623,7 +639,7 @@ export function CombatRosterModule() {
                 </div>
               )}
               {error?.includes("changed since it was opened") ? (
-                <button type="button" disabled={busy !== null} onClick={() => void reloadEncounter()}>Reload latest revision</button>
+                <button type="button" disabled={operationsBlocked} onClick={() => void reloadEncounter()}>Reload latest revision</button>
               ) : null}
               <p className="module-muted">Durable encounter · {visibleRecord.encounter_id} · revision {visibleRecord.revision}</p>
             </>
