@@ -3215,6 +3215,80 @@ it("opens shared session preparation from the exact saved Plan without unmountin
   expect(getCommitted).toHaveBeenCalledWith(record.document_id);
 });
 
+it.each(["lf", "crlf", "changed-body", "changed-space", "changed-hash", "changed-world", "changed-revision", "working-copy", "edit-during-check"] as const)(
+  "starts Play after canonical authoring save without reopening, preserving guards: %s", async (mode) => {
+    const initial = mode === "crlf" ? currentTwoScenePlanMarkdown.replace(/\n/g, "\r\n") : currentTwoScenePlanMarkdown;
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, initial);
+    const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+    const getCommitted = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...prior, work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", has_divergent_working_copy: false,
+    });
+    vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async request => ({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world", world_id: worldId,
+      document_id: savedAgentPlanId, title: request.title!, target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!, registry_revision: 8, file_exists: true,
+      writer_ok: true, writer_confirm_token: "canonical-save", warnings: [], diagnostics: [],
+    }));
+    let saved!: WorldOwnedCommittedRevisionV2;
+    const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
+      // Actual writer normalization, rather than an echo of submitted bytes.
+      const markdown = (request.markdown.replace(/\n+$/, "") + "\n").replace(/\r\n?/g, "\n");
+      const digest = createHash("sha256").update(markdown).digest("hex");
+      saved = { ...prior, object_revision: 9, revision_n: 5, title: request.title!,
+        work_revision_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", markdown, content_sha256: digest,
+        has_divergent_working_copy: false };
+      getCommitted.mockResolvedValue(saved);
+      return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+        document_id: savedAgentPlanId, title: request.title!, target_relpath: record.target_relpath!,
+        target_display_path: record.target_relpath!, registry_revision: 9, committed_revision: 9,
+        committed_record: { ...record, title: request.title!, revision: 9 },
+        normalized_content_sha256: digest, writer_ok: true, writer_phase: "commit", diagnostics: [] };
+    });
+    const location = `/plan?world=${worldId}&documentId=${savedAgentPlanId}`;
+    window.history.replaceState({}, "", location);
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(screen.getByTestId("world-plan-start-play")).toBeEnabled());
+    const mounted = screen.getByTestId("world-owned-plan-markdown-editor");
+    if (mode === "crlf") act(() => capturedPlanControls().changeTitle({ target: { value: "Renamed canonical Plan" } }));
+    else {
+      fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Markdown" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "Plan Markdown" }), { target: { value: initial + "\n\n" } });
+    }
+    await act(async () => { capturedPlanControls().save(); });
+    await waitFor(() => expect(commit).toHaveBeenCalledOnce());
+    const submitted = commit.mock.calls[0][0].markdown;
+    if (mode === "crlf") expect(submitted).toContain("\r\n");
+    else expect(submitted).toMatch(/\n{3}$/);
+    expect(saved.markdown).not.toBe(submitted);
+    const start = screen.getByTestId("world-plan-start-play");
+    await waitFor(() => expect(start).toBeEnabled());
+    if (mode === "changed-body") getCommitted.mockResolvedValue({ ...saved, markdown: saved.markdown.replace("keeper", "stranger") });
+    if (mode === "changed-hash") getCommitted.mockResolvedValue({ ...saved, content_sha256: "f".repeat(64) });
+    if (mode === "changed-space") getCommitted.mockResolvedValue({ ...saved, markdown: saved.markdown.replace("keeper", "keeper ") });
+    if (mode === "changed-world") getCommitted.mockResolvedValue({ ...saved, world_id: "foreign-world" });
+    if (mode === "changed-revision") getCommitted.mockResolvedValue({ ...saved, object_revision: saved.object_revision + 1 });
+    if (mode === "working-copy") getCommitted.mockResolvedValue({ ...saved, has_divergent_working_copy: true });
+    let release!: (value: WorldOwnedCommittedRevisionV2) => void;
+    if (mode === "edit-during-check") getCommitted.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    fireEvent.click(start);
+    if (mode === "edit-during-check") {
+      act(() => capturedPlanControls().changeTitle({ target: { value: "New unsaved title" } }));
+      await act(async () => { release(saved); });
+    }
+    if (mode === "lf" || mode === "crlf") {
+      await screen.findByRole("heading", { name: "Play this Plan" });
+      expect(screen.queryByTestId("world-plan-start-play-error")).not.toBeInTheDocument();
+      expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBe(mounted);
+      expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown).toBe(submitted);
+      expect(window.location.pathname).toBe("/plan");
+    } else {
+      await screen.findByTestId("world-plan-start-play-error");
+      expect(screen.queryByRole("heading", { name: "Play this Plan" })).not.toBeInTheDocument();
+    }
+  },
+);
+
 it("keeps Start Play disabled while the selected World Plan has unsaved edits", async () => {
   const record = mockSavedPlanForAgent();
   const committed = {
