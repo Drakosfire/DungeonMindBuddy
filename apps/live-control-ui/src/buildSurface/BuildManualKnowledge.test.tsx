@@ -115,3 +115,15 @@ it('distinguishes same-name endpoints in choices and retained directional previe
  const terms=[...screen.getByLabelText('Author World knowledge').querySelectorAll('dd')].map(n=>n.textContent);
  expect(terms).toEqual(['Mara · npc · keeper · West gate keeper · mara-west','located_in','Mara · npc · keeper · East gate keeper · mara-east']);
 });
+
+it('blocks a corrupted retained relationship before React rendering and preserves its exact bytes',async()=>{
+ const view=render(<BuildManualKnowledge {...props}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Use selected document text'}));fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
+ fireEvent.change(screen.getByLabelText('From'),{target:{value:'mara'}});fireEvent.change(screen.getByLabelText('To'),{target:{value:'quarry'}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview World change'}));await screen.findByRole('button',{name:'Confirm World change'});view.unmount();
+ const saved=JSON.parse(localStorage.getItem(knowledgeKey(scope))!);saved.request.proposals[0].relationshipType={unexpected:'object'};
+ const raw=JSON.stringify(saved);localStorage.setItem(knowledgeKey(scope),raw);
+ render(<BuildManualKnowledge {...props}/>);expect(screen.getByRole('alert')).toHaveTextContent('Saved proposal fields are invalid');
+ expect(localStorage.getItem(knowledgeKey(scope))).toBe(raw);expect(screen.queryByRole('button',{name:'Confirm World change'})).not.toBeInTheDocument();
+ expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});

@@ -31,13 +31,21 @@ export function readKnowledgeRecovery(raw:string|null,scope:ManualKnowledgeScope
     ||typeof value.submitted!=='boolean'||(value.submitted&&!value.prepared)
     ||(value.prepared!==null&&(!value.prepared?.confirm_token||value.prepared.expressibility!=='EXPRESSIBLE'
       ||value.prepared.campaign_id!==scope.worldId||value.prepared.source_artifact_id!==scope.artifactId
-      ||typeof value.prepared.world_id!=='string'||!value.prepared.world_id||!value.prepared.authority_operation_id
+      ||typeof value.prepared.world_id!=='string'||!value.prepared.world_id||typeof value.prepared.authority_operation_id!=='string'||!value.prepared.authority_operation_id
       ||!Array.isArray(value.prepared.assertions_preview)||value.prepared.assertions_preview.length!==1
-      ||value.prepared.assertions_preview.some(row=>!row||typeof row.summary!=='string')))
+      ||value.prepared.assertions_preview.some(row=>!row||typeof row.assertion_id!=='string'||typeof row.summary!=='string')))
     ||(value.receipt!==null&&(value.receipt?.committed!==true||!value.prepared
       ||value.receipt.world_id!==value.prepared.world_id||value.receipt.operation_id!==value.prepared.authority_operation_id
       ||value.receipt.campaign_id!==scope.worldId||!value.receipt.published_revision_id)))throw new Error('Saved manual authoring does not match this exact source. It is retained; no request was sent.');
-  const selection=request.proposals[0]?.selection;
+  const proposal=request.proposals[0];
+  const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
+  const text=(v:unknown):v is string=>typeof v==='string'&&v.trim().length>0;
+  const endpoint=(v:unknown)=>record(v)&&v.refKind==='existing_graph_node'&&text(v.nodeId)&&text(v.label);
+  if(!record(proposal)||!text(proposal.localProposalId)
+    ||(proposal.proposalKind==='object'?(!record(proposal.objectRef)||!text(proposal.objectRef.label)||!text(proposal.objectRef.kind))
+      :proposal.proposalKind==='relationship'?(!text(proposal.relationshipType)||!endpoint(proposal.sourceObjectRef)||!endpoint(proposal.targetObjectRef))
+      :true))throw new Error('Saved proposal fields are invalid. The request is retained; no request was sent.');
+  const selection=proposal.selection;
   if(!selection||selection.sourceArtifactId!==scope.artifactId||selection.sourceArtifactSha256!==scope.hash
     ||typeof selection.sourceSpanRefId!=='string'||!selection.sourceSpanRefId
     ||typeof selection.selectedText!=='string'||!normalizeKnowledgeText(selection.selectedText))throw new Error('Saved source selection is unavailable. The request is retained.');
