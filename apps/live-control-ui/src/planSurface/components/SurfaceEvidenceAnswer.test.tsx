@@ -49,3 +49,27 @@ it('renders host-materialized excerpts with saved-source attribution',()=>{
   expect(screen.getByText('A saved 🐸 observation.').closest('blockquote')).not.toBeNull();
   expect(screen.getByText('Committed Plan · quoted excerpt')).toBeTruthy();
 });
+
+it('links a session excerpt to its exact World, Run and immutable review checkpoint',()=>{
+  const c=evidence(),quote=c.answer_segments[0]!;
+  if(quote.kind!=='authored_quote')throw new Error('fixture');
+  c.answer_segments=[{...quote,source_kind:'session',source_name:'Synthetic park outing — notes and reflections',
+    object_id:'11111111-1111-4111-8111-111111111111',revision:'54'}];
+  render(<SurfaceEvidenceAnswer completion={c} worldId="park / &"/>);
+  const link=screen.getByRole('link',{name:'Synthetic park outing — notes and reflections'});
+  const target=new URL(link.getAttribute('href')!, 'http://localhost');
+  expect(target.pathname).toBe('/play');
+  expect(Object.fromEntries(target.searchParams)).toEqual({world:'park / &',run:'11111111-1111-4111-8111-111111111111',evidence_revision:'54'});
+  expect(target.searchParams.has('review')).toBe(false);
+  expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
+});
+
+it.each([{kind:'plan' as const,world:'park'},{kind:'session' as const,world:null}])(
+  'does not invent a session destination for $kind with World $world',({kind,world})=>{
+    const c=evidence(),quote=c.answer_segments[0]!;
+    if(quote.kind!=='authored_quote')throw new Error('fixture');
+    c.answer_segments=[{...quote,source_kind:kind}];
+    render(<SurfaceEvidenceAnswer completion={c} worldId={world}/>);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
+  });

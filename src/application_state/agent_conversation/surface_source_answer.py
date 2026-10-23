@@ -26,6 +26,12 @@ review_revision is a review checkpoint selector, never a session number. Do not 
 a session number from a Plan title, nearby prose, dialogue or a revision selector.
 External recap passages remain attributed through their owner-provided source names
 in host citations. Never borrow another source's title or characterize notes as a recap.
+When authored blocks are supplied for Plan/Play content, scene notes or closing
+reflections, report those saved materials with authored_excerpt block selections.
+The host supplies their literal text and their own attribution. Never paraphrase
+session recollections or Plan/Play content as source_passage_claim or graph_claim,
+or cite an adventure passage for a played outcome. A suggested next step belongs
+in an explicitly hypothetical proposal, separate from the saved recollection.
 """
 
 SOURCE_ANSWER_INSTRUCTIONS = """Only when at least one complete opened source passage has an actual opaque

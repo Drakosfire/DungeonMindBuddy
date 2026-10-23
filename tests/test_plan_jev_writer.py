@@ -314,3 +314,37 @@ def test_empty_acquisition_completes_typed_gaps_without_repair_or_fabricated_evi
     assert len(wire.calls) == 1 and wire.closed
     actual = json.loads(wire.calls[0].content)
     assert '{"question_phrase":"exact phrase from user_question"}' in actual['instructions']
+
+
+def test_session_excerpts_and_corpus_claim_keep_distinct_producing_owners(plan_adapter):
+    from dataclasses import replace
+    from uuid import uuid4
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from tests.test_surface_source_answers import stage
+    a=plan_adapter; run=str(uuid4())
+    packet=dict(title='Synthetic park outing',world_id=a.world_id,run_id=run,review_revision=4,
+        sources=[dict(kind='scene_note',element_id='crossing',text='Rehearsal stopped beside the pond.'),
+                 dict(kind='closing_reflections',text='Resume with the keeper still waiting. No fight occurred.')])
+    packet['sha256']=canonical_sha256(packet)
+    a.work=replace(a.work,session_evidence={'sessions':[packet]})
+    writer=stage(a)
+    entries=writer.projection.frame['session_evidence'][0]['sources']
+    payload=dict(schema='dmb_surface_evidence_answer_v2',limitations=[],requested_detail_gaps=[],
+        answer_segments=[*[dict(kind='authored_excerpt',block_handle=e['text_blocks'][0]['block_handle']) for e in entries],
+            dict(kind='source_passage_claim',text='The journal describes a wooden walkway.',
+                 passage_handles=[writer.projection.frame['opened_passages'][0]['passage_handle']])])
+    wire=WriterWire(a,json.dumps(payload))
+    completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
+    assert len(wire.calls)==1
+    body=json.loads(wire.calls[0].content)
+    assert 'session recollections or Plan/Play content as source_passage_claim or graph_claim' in body['instructions']
+    segments=completed.completion.answer_segments
+    assert [s.text for s in segments[:2]]==[s['text'] for s in packet['sources']]
+    assert all(s.source_kind=='session' and s.object_id==run and s.revision=='4'
+               and s.owner_sha256==packet['sha256'] for s in segments[:2])
+    assert len({s.entry_identity for s in segments[:2]})==2
+    assert len(completed.completion.source_citations)==1
+    assert completed.completion.source_citations[0].segment_index==2
+    assert completed.completion.source_citations[0].source_name=='Synthetic park journal'
+    reopened=AgentConversationService().inspect_turn(world_id=a.world_id,turn_id=completed.turn_id)
+    assert reopened.completion==completed.completion

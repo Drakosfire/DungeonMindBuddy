@@ -1,6 +1,11 @@
 # AGENT — derive missing-detail limitation from validated gaps
 
-ACTIVE serial PRIME slice, base24297bba534f1252f856b7c68834b0407b960bca,
+SETTLED: PR1629 merged db784813d2a5635ccd0ac139bd268dade9b93827 after one
+Bugbot exact-head approval and protected API delivery. Fresh rendered Conks answer
+completed in7.6 seconds; the repeated gap-display rejection no longer occurred.
+No full adventure acceptance is implied.
+
+Original serial PRIME slice, base24297bba534f1252f856b7c68834b0407b960bca,
 branch codex/evidence-gap-limitation-derivation, existing buddy-context-loop checkout.
 One independent Bugbot-reviewed PR; PRIME merge and protected API8000 delivery,
 UI5202/APP0052/native authority unchanged. Open PR census has no overlapping lane.
