@@ -318,15 +318,28 @@ class FullSupportWriter(AuthoredWriter):
         return httpx.Response(200, request=request, json=body)
 
 
+@pytest.mark.parametrize("capture_failure", [False, True])
 def test_refused_full_support_is_captured_before_terminal_check(
-    build_case, monkeypatch, tmp_path
+    build_case, monkeypatch, tmp_path, capture_failure
 ):
     case, _ = ordinary_case(build_case, monkeypatch)
     writer = FullSupportWriter()
     harness = BuildJevHarness(
         decision_transport=Decisions(), writer_transport=writer, accounting=counter()
     )
-    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+    )
+
+    if capture_failure:
+        from apps.live_control_server.services.agent_context_trace_collector import (
+            ContextTraceCollector,
+        )
+
+        def fail_capture(*args, **kwargs):
+            raise RuntimeError("synthetic Debug capture failure")
+
+        monkeypatch.setattr(ContextTraceCollector, "answer_draft", fail_capture)
     with pytest.raises(AgentTurnServiceError) as failure:
         execute(case, tmp_path, harness)
     assert "full support" in str(failure.value.__cause__)
@@ -344,7 +357,13 @@ def test_refused_full_support_is_captured_before_terminal_check(
         if o.kind == "context_snapshot"
         for m in o.materials
     ]
-    assert sum(m.text == writer.output for m in materials) == 1
+    assert sum(m.text == writer.output for m in materials) == (
+        0 if capture_failure else 1
+    )
+    if capture_failure:
+        assert "synthetic Debug capture failure" in str(
+            failure.value.__cause__.__cause__
+        )
     assert any(
         o.kind == "failure" and o.code == "build_writer_strengthened_partial_retrieval"
         for tr in traces

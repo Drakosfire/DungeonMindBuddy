@@ -120,6 +120,11 @@ def test_real_build_parent_cited_rules_and_base_commit_reopen(application_state_
     assert payload["state"] == "accepted" and payload["budget_use"]["calls"] == 1
     assert len(payload["supports"]) == 1
     authorizations = [e for e in payload["events"] if e["kind"] == "build_provider_authorized"]
+    traces = AgentConversationService().list_context_trace_attempts(world_id=completed.envelope.world_id, turn_id=completed.envelope.turn_id)
+    raw_outputs = [m for trace in traces for o in trace.observations if o.kind == "context_snapshot"
+                   for m in o.materials if m.item_id.startswith("unvalidated-") and m.role == "assistant"
+                   and m.text and '"dmb_rules_mixed_answer_v1"' in m.text]
+    assert len(raw_outputs) == 1
     assert authorizations[-1]["role"] == "writer"
     assert UUID(authorizations[-1]["provider_attempt_id"]) == completed.accepted_binding.producing_provider_attempt_id
     # No duplicate excerpt context in intermediate controllers.

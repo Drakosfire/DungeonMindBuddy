@@ -233,25 +233,34 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
+            rejection, rejection_code = None, "build_writer_terminal_check_rejected"
+            try:
+                if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
+                        or (isinstance(terminal, FrontierDisposition)
+                            and terminal.coverage_status != "catalog_exhausted")):
+                    candidate = json.loads(result.text)
+                    if candidate.get("schema") == "dmb_rules_mixed_answer_v1":
+                        candidate = candidate.get("base_output") or {}
+                    if candidate.get("answer_context_status") in {"source_grounded", "graph_grounded"}:
+                        rejection_code = "build_writer_strengthened_partial_retrieval"
+                        raise ValueError("Writer claimed full support despite unresolved retrieval")
+            except Exception as exc:
+                rejection = exc
             if adapter.context_capture:
-                adapter.context_capture.answer_draft(result.text,
-                    producing_provider_attempt_id=adapter.producing_provider_attempt_id)
-            if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
-                    or (isinstance(terminal, FrontierDisposition)
-                        and terminal.coverage_status != "catalog_exhausted")):
-                candidate = json.loads(result.text)
-                if candidate.get("schema") == "dmb_rules_mixed_answer_v1":
-                    candidate = candidate.get("base_output") or {}
-                if candidate.get("answer_context_status") in {
-                    "source_grounded",
-                    "graph_grounded",
-                }:
-                    if adapter.context_capture:
-                        adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
-                            "code": "build_writer_strengthened_partial_retrieval"})
-                    raise ValueError(
-                        "Writer claimed full support despite unresolved retrieval"
-                    )
+                try:
+                    if rejection is not None:
+                        adapter.context_capture.observe({"kind": "failure", "phase": "delivery", "code": rejection_code})
+                    rules = adapter.rules_runtime
+                    mixed = rules is not None and rules.record is not None and rules.record.execution.budget_use.calls
+                    if rejection is not None or not mixed:
+                        adapter.context_capture.answer_draft(result.text,
+                            producing_provider_attempt_id=adapter.producing_provider_attempt_id)
+                except Exception as capture_error:
+                    if rejection is not None:
+                        raise rejection from capture_error
+                    raise
+            if rejection is not None:
+                raise rejection
             return adapter.complete_build_writer(result)
         finally:
             adapter.stop()

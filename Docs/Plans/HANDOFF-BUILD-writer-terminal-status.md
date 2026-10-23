@@ -21,7 +21,7 @@ it evidence authority; record the rejecting phase honestly.
 - this handoff; HANDOFF-BUILD-primary-work-context.md; ROADMAP-demo.md
 - src/application_state/agent_conversation/{types.py,build_primary_context.py,source_writer_output.py}
 - apps/live_control_server/services/{agent_turn_service.py,build_jev_harness.py,build_jev_writer.py}
-- tests/test_build_primary_context.py and tests/test_build_writer_selection.py as needed
+- tests/test_build_primary_context.py, tests/test_build_writer_selection.py and tests/test_rules_build_parent.py as needed
 
 ## Gates
 Real SDK/APP current policy, exact dynamic schema and historical format preservation;
