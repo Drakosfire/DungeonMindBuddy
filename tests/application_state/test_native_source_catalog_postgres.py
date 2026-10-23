@@ -236,3 +236,20 @@ def test_migration_preserves_existing_navigation_and_source(nav_case, applicatio
     assert snapshot() == before
     assert sources.get_source_markdown(source_artifact_id=case[3].source_artifact_id,
         content_sha256=case[3].content_sha256, source_revision_id=case[3].source_revision_id) == case[3]
+
+
+@pytest.mark.parametrize('campaign',['managed','foreign'])
+@pytest.mark.parametrize('reference',[False,True])
+def test_registered_build_projection_is_exact_before_body_io(nav_case,monkeypatch,campaign,reference):
+    world=nav_case[1].world_id
+    case=grant(nav_case,source_values={'campaign_id':world if campaign=='managed' else 'foreign',
+        'lineage':{'workspace_document_id':'build','workspace_document_revision':2}},
+        reference={'document_id':'build','revision':2} if reference else None)
+    calls=[];original=catalog.sources.get_source_markdown
+    def body(*a,**kw):calls.append(1);return original(*a,**kw)
+    monkeypatch.setattr(catalog.sources,'get_source_markdown',body)
+    turn,_,material=read(case);event=turn.graph_context_execution.events[-1]
+    if campaign=='managed' and reference:
+        assert event.outcome=='complete' and material.markdown==TEXT and len(calls)==1
+    else:
+        assert event.failure_code=='source_scope_mismatch' and not calls and material is None
