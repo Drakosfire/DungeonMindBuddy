@@ -1,6 +1,11 @@
 # AGENT — source origin verifier
 
-ACTIVE serial PRIME prerequisite slice; basecfa0dee7299eac72042ea432a78e29d5e8cbb802,
+SETTLED: #1632 mergedf2ce54282ea8c1d6aef9c2e3dd59de11d2ce91cf after one
+Bugbot cycle. Author and independent reviewer passed41 verifier/retrieval tests
+against Core617635c. One unrelated source-admission fixture failure was reproduced
+on its unchanged base. No route/tool or body access was enabled; lease ended.
+
+Original serial PRIME prerequisite slice; basecfa0dee7299eac72042ea432a78e29d5e8cbb802,
 branch codex/native-source-origin-verifier, existing buddy-context-loop checkout.
 Parent: HANDOFF-AGENT-native-source-sections.md from reviewed #1631. This lease
 activates only its metadata verification prerequisite; section body reads, ledger

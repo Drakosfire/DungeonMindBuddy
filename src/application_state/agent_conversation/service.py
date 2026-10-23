@@ -1589,6 +1589,17 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
 
+    def authorize_native_source_navigation(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization,
+    ) -> tuple[Turn, bool]:
+        from .types import NativeSourceNavigationAuthorizedV1
+        if not isinstance(authorization, NativeSourceNavigationAuthorizedV1):
+            raise ApplicationStateValidationError("Native navigation requires its exact authorization event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="event_id")
+
     def authorize_build_section_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
