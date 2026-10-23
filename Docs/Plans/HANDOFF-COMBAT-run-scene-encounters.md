@@ -33,7 +33,7 @@ new APP play/session_encounters.py and session_encounter_types.py, new
 combat_encounters/access.py; play/service.py; combat_encounters/service.py,
 repository.py,adoption.py,scene_templates.py; new migration20261022_0052;
 server routes/play_runs.py,combat_scene_templates.py, new combat_run_encounters.py,
-main.py; services/play_run_registry.py,combat_encounters.py,combat_mechanics.py;
+main.py; services/play_run_registry.py,play_run_reference_manifest.py,combat_encounters.py,combat_mechanics.py;
 UI api/liveApi.ts, existing liveApi.test.ts, new liveApi.sessionEncounters.test.ts;
 playSurface/startRunAttempt.ts and test,StartRunPanel.tsx and test,
 PlaySurfacePage.tsx and test; planSurface/PlanSurfacePage.tsx and test;

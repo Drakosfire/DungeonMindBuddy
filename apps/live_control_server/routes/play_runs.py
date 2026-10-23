@@ -50,7 +50,6 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
     get_world_play_run_reference_manifest,
     seal_or_replay_play_run_reference_manifest,
-    seal_or_replay_world_play_run_reference_manifest,
 )
 
 router = APIRouter(prefix="/api/live", tags=["play-runs"])
@@ -338,33 +337,6 @@ def get_world_play_run_reference_manifest_v2(
 ) -> dict[str, Any]:
     try:
         manifest = get_world_play_run_reference_manifest(
-            repo_root(), world_id=world_id, run_id=run_id
-        )
-    except PlayRunRegistryError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except PlayRunReferenceManifestError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return manifest.model_dump(mode="json", exclude_none=True)
-
-
-@router.put(
-    "/world-play-runs/v2/{run_id}/reference-manifest",
-    response_model=AnyPlayRunReferenceManifest,
-    response_model_exclude_none=True,
-)
-async def put_world_play_run_reference_manifest_v2(
-    run_id: str,
-    request: Request,
-    world_id: Annotated[str, Query(min_length=1)],
-) -> dict[str, Any]:
-    raw = await request.body()
-    if raw.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="reference-manifest seal does not accept a request body",
-        )
-    try:
-        manifest = seal_or_replay_world_play_run_reference_manifest(
             repo_root(), world_id=world_id, run_id=run_id
         )
     except PlayRunRegistryError as exc:

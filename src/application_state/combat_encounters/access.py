@@ -41,6 +41,42 @@ def require_mutable_session(conn, run):
         raise ApplicationStateConflictError('Reopen this session before changing its encounter')
 
 
+def validate_binding(binding, preparation):
+    """Join routing columns to the immutable creation intent and preparation."""
+    from application_state.play.session_encounter_types import MaterializeSceneEncounterRequest, WorldSessionCreateRequest
+    from application_state.play.session_encounters import _materialization_intent
+    from application_state.combat_encounters.scene_templates import digest
+    try:
+        payload = binding['payload']
+        intent = payload['intent']
+        request = MaterializeSceneEncounterRequest.model_validate(intent['request'])
+        expected = _materialization_intent(binding['world_id'], binding['run_id'], binding['scene_id'], request)
+        preview = payload['preview']
+        if preparation is None:
+            raise ValueError('Missing preparation')
+        source = WorldSessionCreateRequest.model_validate(preparation['request'])
+        selected = next((choice.template for choice in source.encounters if choice.scene_id == binding['scene_id']), None)
+        if (payload['schema_version'] != 'dmb_run_scene_encounter_v1'
+                or intent != expected or binding['request_digest'] != digest(expected)
+                or payload['encounter_id'] != str(binding['encounter_id'])
+                or request.operation_id != binding['operation_id']
+                or request.template.encounter_id != binding['template_encounter_id']
+                or request.template.revision != binding['template_revision']
+                or selected != request.template
+                or request.expected_preparation_digest != preparation['preparation_digest']
+                or request.preview_digest != digest(preview)
+                or preview['world_id'] != binding['world_id']
+                or preview['run_id'] != str(binding['run_id'])
+                or preview['scene_id'] != binding['scene_id']
+                or preview['preparation_digest'] != request.expected_preparation_digest
+                or preview['template'] != request.template.model_dump(mode='json')
+                or preview['initialization_policy'] != request.initialization_policy):
+            raise ValueError('Binding disagrees with receipt')
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ApplicationStateIntegrityError('Session encounter binding is inconsistent') from exc
+    return payload
+
+
 def guard(conn, *, world_id, encounter_id, scope=None, for_mutation=False):
     binding = _row(conn, 'SELECT * FROM combat.run_scene_encounter WHERE encounter_id=%s', (encounter_id,))
     if binding is not None and binding['world_id'] != world_id:
@@ -51,4 +87,6 @@ def guard(conn, *, world_id, encounter_id, scope=None, for_mutation=False):
         return
     if binding is None or (binding['world_id'], binding['run_id'], binding['scene_id']) != (world_id, scope.run_id, scope.scene_id):
         raise ApplicationStateNotFoundError('Encounter not found in selected session scene')
-    return lock_session(conn, world_id=world_id, run_id=scope.run_id, for_mutation=for_mutation, require_preparation=True).run
+    locked = lock_session(conn, world_id=world_id, run_id=scope.run_id, for_mutation=for_mutation, require_preparation=True)
+    validate_binding(binding, locked.preparation)
+    return locked.run

@@ -3108,20 +3108,6 @@ export async function getWorldPlayRunReferenceManifest(
   return manifest;
 }
 
-export async function putWorldPlayRunReferenceManifest(
-  runId: string,
-  worldId: string,
-): Promise<PlayRunReferenceManifest> {
-  const manifest = await apiFetch<PlayRunReferenceManifest>(
-    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/reference-manifest?${worldQuery(worldId)}`,
-    { method: "PUT" },
-  );
-  if (manifest.run_id !== runId) {
-    throw new TypeError("World Play Run manifest does not match the requested Run.");
-  }
-  return manifest;
-}
-
 export async function getAgentSourcePassage(worldId: string, turnId: string, citationIndex: number):
   Promise<import("./types").AgentSourcePassageReadResponseV1> {
   if (!Number.isSafeInteger(citationIndex) || citationIndex < 0 || citationIndex > 16383) {

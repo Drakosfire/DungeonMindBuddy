@@ -26,6 +26,7 @@ def test_versioned_create_receipt_and_old_body_refusal(scene_case,monkeypatch):
     body=result.json();assert body['state']=='applied' and body['run']['run_id']==str(run_id)
     assert body['receipt']['request']==request.model_dump(mode='json')
     assert body['manifest']['schema_version']=='dmb_play_run_reference_manifest_v2'
+    assert client.put(f'/api/live/world-play-runs/v2/{run_id}/reference-manifest?world_id=elderwyld').status_code==405
     assert client.get(f'/api/live/world-play-runs/v2/{run_id}/creation?world_id=elderwyld').json()==body
     old={key:value for key,value in request.model_dump(mode='json').items() if key in ('playable_artifact_id','expected_playable_revision','expected_playable_content_sha256')}
     assert client.put(f'/api/live/world-play-runs/v2/{uuid4()}?world_id=elderwyld',json=old).status_code==422
@@ -95,3 +96,32 @@ def test_run_scoped_exact_adoption_reuses_existing_writer_and_offline_receipt(ad
     assert p.client.post(path,json=intent).json()==applied.json()
     assert p.client.get(f'/api/live/combat/encounters/{fight.encounter_id}/mechanics-adoptions/{intent["operation_id"]}?world_id=elderwyld').status_code==409
     assert scene_templates.read_version(world_id='elderwyld',document_id=obj.work_object_id,scene_id='scene:gate',revision=2)==saved
+
+
+@pytest.mark.parametrize('field', ['scene_id', 'operation_id', 'receipt_template', 'request_digest'])
+def test_corrupt_binding_is_refused_by_http_reads_and_recovery(scene_case, monkeypatch, field):
+    import psycopg
+    p = scene_case
+    client, _ = client_for(p, monkeypatch)
+    run_id, request, _ = materialization_case(p)
+    path = f'/api/live/combat/run-encounters/{run_id}/scenes/scene:gate'
+    applied = client.post(path+'?world_id=elderwyld', json=request.model_dump(mode='json'))
+    assert applied.status_code == 200, applied.text
+    encounter_id = applied.json()['encounter']['encounter_id']
+    values = {'scene_id': 'scene:forged', 'operation_id': uuid4(), 'template_revision': 999,
+              'request_digest': 'sha256:'+'0'*64}
+    with psycopg.connect(p.dsn) as conn:
+        if field == 'receipt_template':
+            from psycopg.types.json import Jsonb
+            payload = applied.json()['receipt']
+            payload['intent']['request']['template']['revision'] = 999
+            conn.execute('UPDATE combat.run_scene_encounter SET payload=%s WHERE encounter_id=%s', (Jsonb(payload), encounter_id))
+        else:
+            conn.execute('UPDATE combat.run_scene_encounter SET '+field+'=%s WHERE encounter_id=%s',
+                         (values[field], encounter_id))
+    scoped = path.replace('scene:gate', 'scene:forged') if field == 'scene_id' else path
+    assert client.get(scoped+'?world_id=elderwyld').status_code == 500
+    assert client.get(scoped+f'/encounters/{encounter_id}?world_id=elderwyld').status_code == 500
+    if field != 'operation_id':
+        for suffix in ('', '/cancel', '/inspect'):
+            assert client.post(path+suffix+'?world_id=elderwyld', json=request.model_dump(mode='json')).status_code == 500

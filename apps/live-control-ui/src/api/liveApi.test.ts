@@ -44,7 +44,6 @@ import {
   putWorldPlayRun,
   putWorldPlayRunProgress,
   putWorldPlayRunRebase,
-  putWorldPlayRunReferenceManifest,
   prepareWorldRunbookMarkdownWrite,
   postLiveQuery,
   postIndexAgentTurn,
@@ -3094,7 +3093,6 @@ describe("World Play V2 API transport", () => {
       { ...run, run_revision: 5 },
       { ...run, run_revision: 6, playable_revision: 8, playable_content_sha256: "b".repeat(64) },
       manifest,
-      manifest,
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => mockJsonResponse(responses.shift()));
     const playInventoryController = new AbortController();
@@ -3114,7 +3112,6 @@ describe("World Play V2 API transport", () => {
     await putWorldPlayRunProgress(runId, worldId, progress);
     await putWorldPlayRunRebase(runId, worldId, rebase);
     await getWorldPlayRunReferenceManifest(runId, worldId);
-    await putWorldPlayRunReferenceManifest(runId, worldId);
 
     expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/live/workspace-documents/world-runbooks?world_id=world%20one",
@@ -3129,7 +3126,6 @@ describe("World Play V2 API transport", () => {
       `/api/live/world-play-runs/v2/${runId}?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/progress?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/rebase?world_id=world%20one`,
-      `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
     ]);
     expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBeInstanceOf(AbortSignal);

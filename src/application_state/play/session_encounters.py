@@ -254,11 +254,13 @@ def _operation_lock(conn, operation_id):
                  ('run-scene-encounter:' + str(operation_id),))
 
 
-def _existing_materialization(conn, *, world_id, run_id, scene_id, request):
+def _existing_materialization(conn, *, world_id, run_id, scene_id, request, preparation):
     from application_state.combat_encounters import repository as encounters
     intent = _materialization_intent(world_id, run_id, scene_id, request)
     prior = _row(conn, 'SELECT * FROM combat.run_scene_encounter WHERE operation_id=%s', (request.operation_id,))
     if prior:
+        from application_state.combat_encounters.access import validate_binding
+        validate_binding(prior, preparation)
         if prior['request_digest'] != digest(intent) or prior['payload']['intent'] != intent:
             raise ApplicationStateConflictError('Encounter creation key already has a different intent')
         record = encounters.get_encounter(conn, world_id=world_id, encounter_id=prior['encounter_id'])
@@ -286,7 +288,7 @@ def materialize_encounter(*, world_id, run_id, scene_id, request):
     with unit_of_work(dsn) as conn:
         owned_run = lock_session(conn, world_id=world_id, run_id=run_id)
         _operation_lock(conn, request.operation_id)
-        existing = _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request)
+        existing = _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request, preparation=owned_run.preparation)
         if existing:
             if existing['state'] == 'canceled':
                 raise ApplicationStateConflictError('Encounter creation was canceled')
@@ -322,9 +324,9 @@ def cancel_materialization(*, world_id, run_id, scene_id, request):
     from application_state.combat_encounters.access import lock_session
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        lock_session(conn, world_id=world_id, run_id=run_id)
+        owned_run = lock_session(conn, world_id=world_id, run_id=run_id)
         _operation_lock(conn, request.operation_id)
-        existing = _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request)
+        existing = _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request, preparation=owned_run.preparation)
         if existing:
             return existing
         intent = _materialization_intent(world_id, run_id, scene_id, request)
@@ -396,11 +398,13 @@ def read_encounter(*, world_id, run_id, scene_id):
     from application_state.combat_encounters import repository as encounters
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        lock_session(conn, world_id=world_id, run_id=run_id)
-        row = _row(conn, 'SELECT encounter_id,payload FROM combat.run_scene_encounter WHERE world_id=%s AND run_id=%s AND scene_id=%s',
+        locked = lock_session(conn, world_id=world_id, run_id=run_id)
+        row = _row(conn, 'SELECT * FROM combat.run_scene_encounter WHERE world_id=%s AND run_id=%s AND scene_id=%s',
                    (world_id, run_id, scene_id))
         if row is None:
             return None
+        from application_state.combat_encounters.access import validate_binding
+        validate_binding(row, locked.preparation)
         record = encounters.get_encounter(conn, world_id=world_id, encounter_id=row['encounter_id'])
         if record is None:
             raise ApplicationStateIntegrityError('Session encounter binding has no fight')
@@ -411,6 +415,6 @@ def inspect_materialization(*, world_id, run_id, scene_id, request):
     from application_state.combat_encounters.access import lock_session
     run_id = UUID(str(run_id)); dsn = load_runtime_dsn(); assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        lock_session(conn, world_id=world_id, run_id=run_id)
+        owned_run = lock_session(conn, world_id=world_id, run_id=run_id)
         _operation_lock(conn, request.operation_id)
-        return _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request)
+        return _existing_materialization(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, request=request, preparation=owned_run.preparation)

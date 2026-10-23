@@ -45,7 +45,7 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
  return <section aria-label="Scene encounter"><h3>{context.sceneTitle}</h3>{message&&<p role="status">{message}</p>}{busy&&<p>Loading encounter…</p>}
  {pending?<><button disabled={busy||fatal} onClick={()=>void submit(pending,'/inspect')}>Check creation</button><button disabled={busy||fatal||context.readOnly} onClick={()=>void submit(pending)}>Retry creation</button><button disabled={busy||fatal} onClick={()=>void submit(pending,'/cancel')}>Cancel creation</button></>:preview&&<>
  <h4>{preview.title}</h4><p>This starts a separate encounter from the preparation captured when this session began.</p>
- <ul>{preview.actors.map(actor=><li key={actor.actor_id}><strong>{actor.name}</strong> · HP {String(actor.hp_before??'unset')} → {String(actor.hp_after??'unset')}{!actor.typed_maximum?' (no numeric maximum; current HP kept)':''} · temporary HP cleared · conditions cleared · undefeated</li>)}</ul>
+ <ul>{preview.actors.map(actor=><li key={actor.actor_id}><strong>{actor.name}</strong> · HP {String(actor.hp_before??'unset')} → {String(actor.hp_after??'unset')}{!actor.typed_maximum?' (no numeric maximum; current HP kept)':''} · temporary HP {actor.temp_hp_before} → 0 · conditions {actor.conditions_before.join(', ') || 'none'} → none · undefeated</li>)}</ul>
  <p>Start at round 1 with no active turn. Names, initiative, notes, groups and saved mechanics are kept.</p>
  <button disabled={busy||fatal||context.readOnly} onClick={start}>Start this encounter</button>{context.readOnly&&<p>Reopen the session to start its encounter.</p>}</>}
  </section>;

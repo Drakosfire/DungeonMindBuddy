@@ -882,12 +882,3 @@ def get_world_play_run_reference_manifest(
     except ApplicationStateError as exc:
         raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
     return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
-
-
-def seal_or_replay_world_play_run_reference_manifest(
-    root: Path, *, world_id: str, run_id: str
-) -> AnyPlayRunReferenceManifest:
-    """Idempotently verify a sealed manifest through the World V2 owner fence."""
-    return get_world_play_run_reference_manifest(
-        root, world_id=world_id, run_id=run_id
-    )
