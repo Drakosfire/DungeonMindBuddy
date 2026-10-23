@@ -4551,9 +4551,9 @@ export interface GraphAuthoringOverlaySummary {
 export interface GraphObjectAuthoringPrepareResponse {
   prepared: boolean;
   campaign_id: string;
-  overlay_path: string;
-  event_log_path: string;
-  current_overlay_token: string;
+  overlay_path: string | null;
+  event_log_path: string | null;
+  current_overlay_token: string | null;
   proposed_assertions_digest: string;
   confirm_token: string;
   assertion_count: number;
