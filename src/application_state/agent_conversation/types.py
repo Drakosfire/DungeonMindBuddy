@@ -2443,6 +2443,14 @@ class PlanJevRetrievalPolicyV1(ControllerWriterGraphExecutionPolicyV3):
         return self
 
 
+class PlanNativeSourceSectionsPolicyV1(PlanJevRetrievalPolicyV1):
+    native_source_section_policy: Literal["exact_native_source_sections_v1"]
+
+
+class PlayNativeSourceSectionsPolicyV1(NativePlayGraphPolicyV1):
+    native_source_section_policy: Literal["exact_native_source_sections_v1"]
+
+
 class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV3):
     saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
 
@@ -2607,6 +2615,25 @@ class ValidatedGraphOperationEventV3(ValidatedGraphOperationEventV1):
             raise ValueError("returned source pins must be sorted and unique")
         if any(pin.evidence_ref_id not in self.evidence_ref_ids for pin in self.returned_source_pins):
             raise ValueError("returned source pins require operation evidence")
+        return self
+
+
+class NativeSourceNavigationAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_navigation_authorized_v1"]
+    navigation_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    world_id: str
+    native_world_id: str
+    binding_version: int = Field(strict=True, ge=1)
+    origin_proof_json: str
+    origin_proof_sha256: Digest
+
+    @model_validator(mode="after")
+    def validate_origin_proof(self):
+        from .native_source_navigation import origin_payload
+        origin_payload(self)
         return self
 
 
@@ -3385,6 +3412,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     source_read_character_usage(execution.policy, execution.events)
 
     _validate_related_recap_context_events(execution)
+    from .native_source_navigation import validate_navigation_events
+    validate_navigation_events(execution)
 
     # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
     legacy_events: list[dict[str, object]] = []
@@ -3393,7 +3422,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         if isinstance(
             event,
             (
-                PlaySourceProviderInclusionV1,
+                PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
                 ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
@@ -3650,7 +3679,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
-    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1,
+    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1,
     Field(discriminator="kind"),
 ]
 
@@ -3660,7 +3689,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: PlanJevRetrievalPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3677,7 +3706,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         writer_selection = None
         authorized_by_id = {}
         acquisition_events = (
-            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
             BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
@@ -4049,7 +4078,7 @@ PlayGraphExecutionEventV1 = Annotated[
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
-    | RelatedRecapContextProviderInclusionEventV2,
+    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1,
     Field(discriminator="kind"),
 ]
 
@@ -4095,7 +4124,7 @@ class PlayWorldGraphExecutionV1(ClosedRulesModel):
     schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
     context_receipt_sha256: Digest
     execution_policy_sha256: Digest
-    policy: NativePlayGraphPolicyV1
+    policy: PlayNativeSourceSectionsPolicyV1 | NativePlayGraphPolicyV1
     events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
@@ -4194,6 +4223,8 @@ def validate_selected_source_binding(
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")
+    from .native_source_navigation import validate_navigation_receipt
+    validate_navigation_receipt(receipt, execution)
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):
         from .play_graph_context import validate_play_graph_execution_binding
         if not isinstance(execution, PlayWorldGraphExecutionV1):

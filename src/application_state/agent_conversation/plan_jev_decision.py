@@ -162,7 +162,8 @@ def validate_decision_phases(execution):
             selected = event
         elif isinstance(event, (t.ValidatedGraphOperationEventV1, t.SourceScopeExtensionEventV3,
                 t.SourceReadAuthorizationEventV2, t.ValidatedSourceReadEventV2, t.SourcePassageReuseEventV1,
-                t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2)):
+                t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2,
+                t.NativeSourceNavigationAuthorizedV1)):
             if writer is not None or selected is None or selected.operation == "finish_retrieval":
                 raise ValueError("Plan acquisition requires an active completed retrieval decision")
             if isinstance(event, t.SourceReadAuthorizationEventV2):
