@@ -6,7 +6,7 @@ import {
   getUiStatus,
   identityProtectedRemainder,
   primaryArmorClassIndexForDisplay,
-  resolveHitPointsEditTarget,
+  readHitPointsMax,
   setAbility,
   setHitPointsMax,
   setIdentityName,
@@ -36,18 +36,6 @@ export type StatblockDefinitionEditorProps = {
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
   const index = primaryArmorClassIndexForDisplay(defenses);
   return defenses.armor_classes[index]?.value ?? 0;
-}
-
-function readHitPointsEditorValue(vitality: StatblockEditorState["workingCopy"]["vitality"]): number {
-  const hitPoints = vitality.hit_points;
-  const target = resolveHitPointsEditTarget(hitPoints);
-  if (target === "displayed_average") {
-    return hitPoints.displayed_average ?? 0;
-  }
-  if (target === "fixed_value") {
-    return hitPoints.fixed_value ?? 0;
-  }
-  return hitPoints.formula?.modifier ?? 0;
 }
 
 /** Full defenses JSON for disclosure; primary AC value is also editable above. */
@@ -104,7 +92,7 @@ export function StatblockDefinitionEditor({
   const primaryAcLabel = primaryAcEntry?.default
     ? "Primary AC value (default armor_classes entry)"
     : "Primary AC value (armor_classes[0]; no default flagged)";
-  const hpTarget = resolveHitPointsEditTarget(workingCopy.vitality.hit_points);
+  const hp = workingCopy.vitality.hit_points;
 
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
@@ -160,14 +148,19 @@ export function StatblockDefinitionEditor({
       <section className="statblock-definition-editor__section" aria-label="Vitality">
         <h3>Hit points</h3>
         <label>
-          Hit points (mutates vitality.hit_points.{hpTarget})
+          Maximum hit points
           <input
             type="number"
             aria-label="Hit points"
-            value={readHitPointsEditorValue(workingCopy.vitality)}
+            value={readHitPointsMax(hp)}
+            disabled={hp.method === "formula" && !hp.formula}
             onChange={(event) => commit(setHitPointsMax(state, Number(event.target.value)))}
           />
         </label>
+        {hp.method === "formula" && hp.formula && <p>
+          Formula: {hp.formula.count}d{hp.formula.die} {hp.formula.modifier < 0 ? "−" : "+"} {Math.abs(hp.formula.modifier)}.
+          Changing maximum HP adjusts the modifier; the number and type of dice stay the same.
+        </p>}
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Rule elements">
@@ -220,7 +213,7 @@ export function StatblockDefinitionEditor({
           path="vitality"
           title="Vitality (full structure)"
           value={vitalityDisclosureValue(workingCopy.vitality)}
-          editableFieldsAbove={`hit_points.${hpTarget}`}
+          editableFieldsAbove="maximum HP and matching formula modifier"
         />
         <ProtectedStructureBlock path="ruleset" title="Ruleset" value={workingCopy.ruleset} />
         <ProtectedStructureBlock path="movement" title="Movement" value={workingCopy.movement} />

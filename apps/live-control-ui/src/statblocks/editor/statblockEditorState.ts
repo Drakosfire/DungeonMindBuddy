@@ -256,39 +256,27 @@ export function setPrimaryArmorClassValue(state: StatblockEditorState, value: nu
   });
 }
 
-export type HitPointsEditTarget = "displayed_average" | "fixed_value" | "formula_modifier";
-
-export function resolveHitPointsEditTarget(hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"]): HitPointsEditTarget {
-  if (hitPoints.displayed_average !== null && hitPoints.displayed_average !== undefined) {
-    return "displayed_average";
-  }
-  if (hitPoints.method === "fixed") {
-    return "fixed_value";
-  }
-  return "formula_modifier";
+/** Maximum HP uses the same rounded dice average as authoritative validation. */
+export function readHitPointsMax(hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"]): number {
+  if (hitPoints.method === "fixed") return hitPoints.fixed_value ?? 0;
+  const formula = hitPoints.formula;
+  return formula ? Math.floor(formula.count * (formula.die + 1) / 2) + formula.modifier : 0;
 }
 
 export function setHitPointsMax(state: StatblockEditorState, value: number): StatblockEditorState {
+  if (!Number.isFinite(value) || !Number.isInteger(value)) return state;
+  const original = state.workingCopy.vitality.hit_points;
+  if (original.method === "formula" && !original.formula) return state;
   return updateWorkingCopy(state, (current) => {
     const hitPoints = { ...current.vitality.hit_points };
-    const target = resolveHitPointsEditTarget(hitPoints);
-    if (target === "displayed_average") {
-      hitPoints.displayed_average = value;
-    } else if (target === "fixed_value") {
+    if (hitPoints.method === "fixed") {
       hitPoints.fixed_value = value;
-    } else {
-      const formula = hitPoints.formula ?? { count: 1, die: 6, modifier: 0 };
-      hitPoints.formula = {
-        ...formula,
-        modifier: value,
-      };
+    } else if (hitPoints.formula) {
+      const formula = hitPoints.formula;
+      hitPoints.formula = { ...formula, modifier: value - Math.floor(formula.count * (formula.die + 1) / 2) };
     }
-    return {
-      ...current,
-      vitality: {
-        hit_points: hitPoints,
-      },
-    };
+    if (hitPoints.displayed_average != null) hitPoints.displayed_average = value;
+    return { ...current, vitality: { ...current.vitality, hit_points: hitPoints } };
   });
 }
 

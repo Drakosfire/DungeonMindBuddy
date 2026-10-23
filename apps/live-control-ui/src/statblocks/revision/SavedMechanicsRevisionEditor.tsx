@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
 import {createEditorStateFromOutput,fingerprintDefinition,type StatblockEditorState} from '../editor/statblockEditorState';
+import type {ValidationIssueV1} from '../../contracts/dungeonbuddy-statblocks-v1/client';
 import type {SavedMechanicsVersionList,OpenSavedMechanicsVersion,RevisionSaveOutcome} from './savedMechanicsRevisionTypes';
 
 // Local recovery retains only this editor's scalar edits; it never grants Save
@@ -27,6 +28,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
   const [editor,setEditor]=useState<StatblockEditorState|null>(null);
   const [summary,setSummary]=useState('Manual mechanics revision');
   const [pending,setPending]=useState<string|null>(null);
+  const [issues,setIssues]=useState<ValidationIssueV1[]>([]);
   const [validated,setValidated]=useState<string|null>(null);
   const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
   const epoch=useRef(0);
@@ -38,7 +40,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       base:opened.locator,baseline:state.baselineFingerprint,workingCopy:state.workingCopy,summary:changeSummary}));
   }
   async function load(revision?:string,offset=0) {
-    const token=++epoch.current;setBusy(true);setMessage('Opening saved mechanics…');
+    const token=++epoch.current;setBusy(true);setIssues([]);setMessage('Opening saved mechanics…');
     try {
       const page=await listSavedMechanicsVersions(draftId,worldId,offset);
       if(token!==epoch.current)return;
@@ -70,10 +72,11 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     finally{if(token===epoch.current)setBusy(false);}
   }
   async function validate() {
-    if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setMessage('Validating new mechanics…');
+    if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setIssues([]);setMessage('Validating new mechanics…');
     try {
       const result=await validateStatblockDefinition({definition:working});if(token!==epoch.current)return;
       if(result.outcome!=='success'||!result.validation_receipt)throw new Error('Mechanics validation is unavailable. Your edits are retained; try again when it is available.');
+      setIssues(result.validation_receipt.issues??[]);
       if(result.validation_receipt.status==='invalid'
         ||result.validation_receipt.issues?.some(issue=>issue.severity==='error'))throw new Error('Correct validation errors before saving.');
       setValidated(fingerprintDefinition(working));setMessage('Validated. Save creates a new version; encounters stay unchanged.');
@@ -135,14 +138,15 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       <fieldset disabled={busy||!!pending}>
         <StatblockDefinitionEditor output={opened.resource.definition} editorState={editor}
           recoveryHint={writer.recoverable?"Unsaved edits are retained in this browser tab for this creature and source version.":"Browser recovery is unavailable. Keep this editor open."}
-          onEditorStateChange={next=>{setEditor(next);setValidated(null);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
+          onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
         <label>Change summary <input value={summary} onChange={event=>{setSummary(event.target.value);try{remember(editor,event.target.value);}catch{setMessage('Browser recovery storage is unavailable.');}}}/></label>
       </fieldset>
-      <button type="button" disabled={busy||!!pending} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setValidated(null);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
+      <button type="button" disabled={busy||!!pending} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
       <button type="button" disabled={busy||!!pending} onClick={()=>void validate()}>Validate new version</button>
       <button type="button" disabled={!writer.recoverable||busy||!!pending||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
     </>}
     {pending&&<button type="button" disabled={busy} onClick={()=>void recover()}>Recover Save</button>}
+    {issues.length>0&&<ul aria-label="Mechanics validation issues">{issues.map((issue,index)=><li key={index}>{issue.message} <small>{issue.field_path}</small></li>)}</ul>}
     {message&&<p role="status">{message}</p>}
   </section>;
 }

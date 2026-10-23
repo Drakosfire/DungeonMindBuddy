@@ -10,6 +10,8 @@ import {
   markValidationUnavailable,
   redo,
   setIdentityName,
+  setHitPointsMax,
+  readHitPointsMax,
   setRuleElementRulesText,
   undo,
 } from "./statblockEditorState";
@@ -188,5 +190,31 @@ describe("statblockEditorState", () => {
     const state = createEditorStateFromOutput(output);
     setIdentityName(state, "Changed");
     expect(output.identity.name).toBe("Ironhide Brute");
+  });
+});
+
+
+describe("coherent maximum hit points", () => {
+  it.each([null, 16])("keeps odd dice rounding and optional displayed average coherent (%s)", (average) => {
+    const output = baseCandidateDefinition();
+    output.vitality.hit_points = {method:"formula",formula:{count:3,die:6,modifier:6},displayed_average:average,fixed_value:null};
+    const before = structuredClone(output);
+    const initial = createEditorStateFromOutput(output);
+    const changed = setHitPointsMax(initial, 28);
+    expect(readHitPointsMax(changed.workingCopy.vitality.hit_points)).toBe(28);
+    expect(changed.workingCopy.vitality.hit_points.formula).toEqual({count:3,die:6,modifier:18});
+    expect(changed.workingCopy.vitality.hit_points.displayed_average).toBe(average===null?null:28);
+    expect(changed.workingCopy.rule_elements).toEqual(initial.workingCopy.rule_elements);
+    expect(undo(changed).workingCopy).toEqual(initial.workingCopy);
+    expect(output).toEqual(before);
+  });
+  it("updates fixed HP without inventing dice and permits a negative formula modifier", () => {
+    const output = baseCandidateDefinition();
+    output.vitality.hit_points = {method:"fixed",fixed_value:16,displayed_average:16,formula:null};
+    const fixed=setHitPointsMax(createEditorStateFromOutput(output),28).workingCopy.vitality.hit_points;
+    expect(fixed).toEqual({method:"fixed",fixed_value:28,displayed_average:28,formula:null});
+    output.vitality.hit_points={method:"formula",formula:{count:3,die:6,modifier:6},displayed_average:null,fixed_value:null};
+    const low=setHitPointsMax(createEditorStateFromOutput(output),1).workingCopy.vitality.hit_points;
+    expect(low.formula?.modifier).toBe(-9);expect(readHitPointsMax(low)).toBe(1);
   });
 });

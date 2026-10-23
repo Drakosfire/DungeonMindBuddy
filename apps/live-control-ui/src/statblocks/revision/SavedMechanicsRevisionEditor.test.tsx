@@ -110,3 +110,14 @@ it('reports unavailable validation without blaming or discarding edited mechanic
   expect(screen.getByLabelText('Creature name').matches(':disabled')).toBe(false);
   expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
+
+
+it('shows actionable producer issues and clears them when mechanics change',async()=>{
+  vi.mocked(api.validateStatblockDefinition).mockResolvedValue({schema:'dmb_statblock_definition_validation_v1',outcome:'success',validation_receipt:{status:'invalid',issues:[{code:'HP_DISPLAYED_AVERAGE_MISMATCH',severity:'error',field_path:'vitality.hit_points.displayed_average',message:'Displayed HP average does not match the typed dice formula.'}]}} as Awaited<ReturnType<typeof api.validateStatblockDefinition>>);
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
+  await userEvent.click(screen.getByRole('button',{name:'Validate new version'}));
+  expect((await screen.findByRole('list',{name:'Mechanics validation issues'})).textContent).toContain('Displayed HP average does not match the typed dice formula.');
+  expect(screen.getByRole('list',{name:'Mechanics validation issues'}).textContent).toContain('vitality.hit_points.displayed_average');
+  expect(api.saveMechanicsRevision).not.toHaveBeenCalled();await edit();
+  expect(screen.queryByRole('list',{name:'Mechanics validation issues'})).toBeNull();
+});
