@@ -24,7 +24,7 @@ runtime authority paths. Remove lookup from native prepare entirely. Treat nativ
 head and signed contribution as confirmation authority. Existing tests that assume
 unpublished overlay conflicts or old overlay tokens are not current acceptance.
 
-Exclusive writes: this handoff; graph_object_authoring_prepare.py under
+Exclusive writes: this handoff; graph_object_authoring_prepare.py and graph_object_authoring_overlap.py under
 apps/live_control_server/services; corresponding nullable response fields in
 apps/live-control-ui/src/api/types.ts; tests/test_graph_object_authoring_prepare.py,
 tests/test_graph_object_authoring_world_binding.py and obsolete overlap suite;

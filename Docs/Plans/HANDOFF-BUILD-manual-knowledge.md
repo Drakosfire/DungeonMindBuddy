@@ -1,6 +1,15 @@
 # BUILD — explicit manual knowledge from saved source selection
 
-ACTIVE serial PRIME slice from155c91e30c9ed9fd6ddfee12c67edbb294bd0ea0,
+SHIPPED, rendered publication acceptance OPEN: PR #1656 merged at
+bdf62e032b81004b0b575932f86bd5065993d4e3; final independent Bugbot approved
+20d4cb35 with54checks. All3review findings fixed. API/UI protected delivery
+preserved retained APP/native state,89mechanicsfiles and22frozen components.
+The ordinary synthetic source→run→manual frozen-paragraph→object preview failed
+on an obsolete campaign-party overlay-directory lookup before native publication.
+Exact staged proposal is retained; no confirm was sent. Follow-up native prepare
+repair owns that blocker. Full J3/repeated journey acceptance remains open.
+
+Original serial PRIME slice from155c91e30c9ed9fd6ddfee12c67edbb294bd0ea0,
 branch codex/build-manual-knowledge in reused buddy-context-loop checkout. One
 independently Bugbot-reviewed PR, PRIME merge and protected UI/API delivery5202.
 Open PR1235 source-observation work does not own these new manual authoring paths.

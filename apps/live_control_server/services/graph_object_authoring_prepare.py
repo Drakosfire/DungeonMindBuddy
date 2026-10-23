@@ -15,7 +15,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from apps.live_control_server.models.graph_authoring_overlay import (
-    AUTHORED_GRAPH_OVERLAY_SCHEMA,
     AuthoredGraphAssertion,
     AuthoredGraphLinkExistingAssertion,
     AuthoredGraphMergeObjectsAssertion,
@@ -35,24 +34,18 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     normalize_selected_text,
     validate_campaign_id,
 )
-from apps.live_control_server.services.graph_authoring_overlay_store import (
-    GraphAuthoringOverlayStore,
-)
 from apps.live_control_server.services.graph_authoring_ids import (
     authored_object_node_id,
-)
-from apps.live_control_server.services.graph_object_authoring_merge_guard import (
-    detect_merge_assertion_conflicts,
 )
 from apps.live_control_server.services.graph_object_authoring_overlap import (
     detect_prepare_overlap_warnings,
 )
 
 STABLE_ASSERTION_TIMESTAMP = "1970-01-01T00:00:00Z"
-CONFIRM_TOKEN_KIND = "graph_authoring_commit_confirmation_v1"
 
 NO_MUTATION_GUARANTEES_PREPARE = [
-    "Prepare wrote nothing.",
+    "Prepared a World Graph change; no graph assertions were published.",
+    "Exact source provenance may have been admitted to the source catalog.",
     "Source markdown was not mutated.",
     "Extracted live run artifacts were not mutated.",
     "Candidate graph gold was not mutated.",
@@ -315,9 +308,9 @@ class GraphObjectAuthoringPrepareResponse(BaseModel):
 
     prepared: bool = True
     campaign_id: str
-    overlay_path: str
-    event_log_path: str
-    current_overlay_token: str
+    overlay_path: str | None = None
+    event_log_path: str | None = None
+    current_overlay_token: str | None = None
     proposed_assertions_digest: str
     confirm_token: str
     assertion_count: int
@@ -395,12 +388,6 @@ def contribution_binding_digest(contribution: Any) -> str:
     payload = contribution.model_dump(mode="json")
     payload.pop("produced_at", None)
     return stable_json_digest(payload)
-
-
-def overlay_file_token(path: Path, *, campaign_id: str) -> str:
-    if path.is_file():
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    return stable_json_digest({"missing_overlay": campaign_id})
 
 
 def _diag(
@@ -823,33 +810,6 @@ def build_overlay_summary(
 def proposed_assertions_digest(assertions: list[AuthoredGraphAssertion]) -> str:
     payload = [assertion.model_dump(mode="json") for assertion in assertions]
     return stable_json_digest(payload)
-
-
-def build_confirm_token(
-    *,
-    campaign_id: str,
-    overlay_path: str,
-    current_overlay_token: str,
-    assertions: list[AuthoredGraphAssertion],
-) -> str:
-    return stable_json_digest(
-        {
-            "kind": CONFIRM_TOKEN_KIND,
-            "campaign_id": campaign_id,
-            "overlay_path": overlay_path,
-            "current_overlay_token": current_overlay_token,
-            "proposed_assertions_digest": proposed_assertions_digest(assertions),
-            "schema_version": AUTHORED_GRAPH_OVERLAY_SCHEMA,
-        }
-    )
-
-
-def _resolve_store(corpus_root: Path | None) -> GraphAuthoringOverlayStore:
-    if corpus_root is None:
-        from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
-
-        return GraphAuthoringOverlayStore(default_corpus_root())
-    return GraphAuthoringOverlayStore(corpus_root)
 
 
 def classify_graph_review_expressibility(
@@ -1664,27 +1624,8 @@ def prepare_graph_object_authoring_write(
             code="empty_proposals",
         )
 
-    store = _resolve_store(corpus_root)
-    overlay_path = store.overlay_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    events_path = store.events_path(request.campaign_id, campaign_rel=request.campaign_rel)
-    current_token = overlay_file_token(overlay_path, campaign_id=request.campaign_id)
-    existing_overlay = store.load_overlay(request.campaign_id, campaign_rel=request.campaign_rel)
-
     assertions, assertion_diagnostics = build_assertions_from_proposals(request)
-    local_proposal_ids = {
-        _assertion_id(
-            request.campaign_id,
-            proposal,
-            normalized_payload=_normalized_proposal_payload(proposal),
-        ): proposal.local_proposal_id
-        for proposal in request.proposals
-    }
-    merge_conflicts = detect_merge_assertion_conflicts(
-        assertions,
-        existing_assertions=existing_overlay.assertions,
-        local_proposal_id_by_assertion_id=local_proposal_ids,
-    )
-    blocking = _blocking_assertion_diagnostics([*assertion_diagnostics, *merge_conflicts])
+    blocking = _blocking_assertion_diagnostics(assertion_diagnostics)
     if blocking:
         raise GraphObjectAuthoringError(
             blocking[0].message,
@@ -1693,10 +1634,7 @@ def prepare_graph_object_authoring_write(
     if not assertions:
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
 
-    overlap_warnings = detect_prepare_overlap_warnings(
-        request,
-        existing_overlay=existing_overlay,
-    )
+    overlap_warnings = detect_prepare_overlap_warnings(request)
     prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)
     expressibility = classify_graph_review_expressibility(request.proposals)
     world_id = authored_world_id(request)
@@ -1704,7 +1642,7 @@ def prepare_graph_object_authoring_write(
     expires_at = (datetime.now(UTC) + PREPARE_TTL).isoformat()
     assertions_digest = proposed_assertions_digest(assertions)
     preview = build_assertions_preview(assertions, request.proposals)
-    summary = build_overlay_summary(len(existing_overlay.assertions), assertions)
+    summary = build_overlay_summary(0, assertions)
     diagnostics = [*prepare_warnings, *overlap_warnings]
 
     source_artifact_id = None
@@ -1806,13 +1744,13 @@ def prepare_graph_object_authoring_write(
         expires_at=expires_at,
     )
     confirm_token = sign_publication_intent(intent)
-    event_count = 1 + len(assertions)
+    event_count = 0
 
     return GraphObjectAuthoringPrepareResponse(
         campaign_id=request.campaign_id,
-        overlay_path=str(overlay_path),
-        event_log_path=str(events_path),
-        current_overlay_token=current_token,
+        overlay_path=None,
+        event_log_path=None,
+        current_overlay_token=None,
         proposed_assertions_digest=assertions_digest,
         confirm_token=confirm_token,
         assertion_count=len(assertions),

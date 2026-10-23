@@ -34,7 +34,6 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringError,
     GraphObjectAuthoringPrepareRequest,
     build_assertions_from_proposals,
-    build_confirm_token,
     classify_graph_review_expressibility,
     prepare_graph_object_authoring_write,
     stable_json_digest,
@@ -657,33 +656,14 @@ def test_prepare_response_includes_no_mutation_guarantees(store: GraphAuthoringO
         prepare_request(),
         corpus_root=store.corpus_root,
     )
-    assert "Prepare wrote nothing." in response.no_mutation_guarantees
+    assert "Prepared a World Graph change; no graph assertions were published." in response.no_mutation_guarantees
+    assert response.event_count == 0
     assert any("graph gold" in item.lower() for item in response.no_mutation_guarantees)
 
 
 def test_confirm_token_uses_stable_json_digest() -> None:
     assert stable_json_digest({"a": 1}) == stable_json_digest({"a": 1})
     assert stable_json_digest({"a": 1}) != stable_json_digest({"a": 2})
-
-
-def test_build_confirm_token_changes_when_assertions_change() -> None:
-    request_a = prepare_request(proposals=[object_proposal()])
-    request_b = prepare_request(proposals=[object_proposal(localProposalId="local-object-2")])
-    assertions_a, _ = build_assertions_from_proposals(request_a)
-    assertions_b, _ = build_assertions_from_proposals(request_b)
-    token_a = build_confirm_token(
-        campaign_id=CAMPAIGN_ID,
-        overlay_path="/tmp/overlay.json",
-        current_overlay_token="abc",
-        assertions=assertions_a,
-    )
-    token_b = build_confirm_token(
-        campaign_id=CAMPAIGN_ID,
-        overlay_path="/tmp/overlay.json",
-        current_overlay_token="abc",
-        assertions=assertions_b,
-    )
-    assert token_a != token_b
 
 
 def test_classify_object_is_expressible() -> None:

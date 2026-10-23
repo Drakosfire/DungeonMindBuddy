@@ -165,3 +165,29 @@ def test_recap_keeps_explicit_native_world_and_campaign(case):
     assert context.world_id == CAMPAIGN_ID and context.campaign_scope == CAMPAIGN_ID
     assert context.binding is None
     assert context.transport_artifact(case.artifact) is case.artifact
+
+
+def test_native_prepare_confirm_never_resolves_legacy_campaign_store(case, monkeypatch):
+    from apps.live_control_server.services.graph_authoring_overlay_store import GraphAuthoringOverlayStore
+    store_access = Mock(side_effect=AssertionError("Legacy campaign overlay accessed"))
+    monkeypatch.setattr(GraphAuthoringOverlayStore, "__init__", store_access)
+    owner = "unregistered-managed-world"
+    case.request.world_id = case.request.campaign_id = owner
+    case.resolved.world_id = case.resolved.campaign_id = owner
+    case.artifact.world_id = case.artifact.campaign_id = owner
+    case.document.world_id = case.binding.managed_world_id = owner
+    prepared = prepare(case)
+    assert prepared.overlay_path is prepared.event_log_path is prepared.current_overlay_token is None
+    assert prepared.overlay_summary.existing_assertion_count == 0
+    assert confirm(case, prepared).committed
+    assert confirm(case, prepared).idempotency_status == "already_applied"
+    store_access.assert_not_called()
+
+
+def test_overlay_free_native_prepare_still_refuses_stale_parent(case):
+    prepared = prepare(case)
+    case.authority.revision_id = "rev:someone-else"
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        confirm(case, prepared)
+    assert error.value.code == "stale_parent"
+    assert case.authority.publish_calls == 0
