@@ -4,6 +4,7 @@ from collections import Counter
 from uuid import uuid4
 
 from application_state.agent_conversation import types as t
+from application_state.source.naming import registered_source_name
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
 from application_state.agent_conversation.native_source_input import section_row, CAPABILITIES
 from application_state.agent_conversation.source_writer_output import strict_json
@@ -153,9 +154,8 @@ class NativeSourceNavigator:
             self.attempted_sources.add(handle)
             origin = self._access(self.sources[handle])
             proof = strict_json(origin.proof_json)
-            lineage = proof['resolution']['artifact'].get('lineage',{})
-            name = lineage.get('source_name')
-            if not isinstance(name,str) or not name.strip():
+            name = registered_source_name(proof['resolution']['artifact'])
+            if name is None:
                 raise NativeSourceUnavailable('source_navigation_unavailable')
             if handle not in self.catalogs:
                 turn = a.fence.renewer._turn

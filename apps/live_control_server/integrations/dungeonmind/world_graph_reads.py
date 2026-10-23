@@ -3319,18 +3319,9 @@ def _read_admitted_repo_span(
 
 def _registered_source_name(artifact: Any) -> str | None:
     """Human presentation from registered provenance, never opaque IDs or paths."""
-    lineage = getattr(artifact, "lineage", None)
-    name = lineage.get("source_name") if isinstance(lineage, dict) else None
-    if isinstance(name, str) and name.strip():
-        return name.strip()
-    domain = getattr(artifact, "source_domain_key", None) or getattr(artifact, "source_domain", None)
-    domain = getattr(domain, "value", domain)
-    session = getattr(artifact, "session_id", None)
-    if domain in {"recap", "session_recap"} and isinstance(session, str):
-        match = re.fullmatch(r"session-([1-9][0-9]*)", session)
-        if match:
-            return f"Session {match.group(1)} recap"
-    return None
+    from application_state.source.naming import registered_source_name
+    return registered_source_name({key: getattr(artifact, key, None) for key in (
+        "lineage", "source_domain_key", "source_domain", "session_id")})
 
 
 def _anchor_read_view(
