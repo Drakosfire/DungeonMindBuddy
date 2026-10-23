@@ -8,8 +8,13 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
   completion:SurfaceEvidenceCompletion;composition?:Composition;worldId?:string|null;turnId?:string;
 }) {
   const renderSegment=(s:SurfaceEvidenceCompletion['answer_segments'][number],index:number,key:number) => {
-    if(s.kind === 'authored_quote' || s.kind === 'authored_excerpt') return <figure key={key}><figcaption>{s.source_name} · quoted excerpt</figcaption>
-      <blockquote><WorldPlanAgentAnswer answer={s.text}/></blockquote></figure>;
+    if(s.kind === 'authored_quote' || s.kind === 'authored_excerpt') {
+      const sessionUrl=s.source_kind === 'session' && worldId
+        ? `/play?${new URLSearchParams({world:worldId,run:s.object_id,evidence_revision:s.revision})}` : null;
+      return <figure key={key}><figcaption>{sessionUrl
+        ? <a href={sessionUrl}>{s.source_name}</a> : s.source_name} · quoted excerpt</figcaption>
+        <blockquote><WorldPlanAgentAnswer answer={s.text}/></blockquote></figure>;
+    }
     const graph=s.kind === 'graph_claim', source=s.kind === 'source_passage_claim';
     const selected=completion.source_citations.filter(c=>c.segment_index === index);
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>

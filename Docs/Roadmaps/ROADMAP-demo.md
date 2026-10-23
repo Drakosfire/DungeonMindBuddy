@@ -110,7 +110,14 @@ prompt and a fresh request completed honestly; retained subject navigation after
 empty discovery shipped #1628 after one Bugbot cycle and is live on5202.
 A9.3-second real Conks trace recovered current subjects and ten reused passages;
 answer delivery rejected an omitted redundant missing-details flag. Its bounded
-host derivation fix is ACTIVE. Real adventure acceptance remains open.
+host derivation fix shipped #1629 after one Bugbot cycle and is live on5202.
+Fresh Conks grounding completed in7.6 seconds. The connected Conks scene→encounter
+→manual mechanics successor→explicit adoption→Play→reload/API restart passed once;
+Plan preparation remained unchanged. Scene notes and closing reflections persisted.
+Next-session output incorrectly cited adventure passages for session recollections;
+current authored-excerpt guidance and exact session navigation are ACTIVE. Appendix
+source-revision section navigation needs a separate producer/APP provenance contract.
+Real adventure acceptance remains open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable
