@@ -28,7 +28,7 @@ from application_state.agent_conversation.types import (
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
     SurfaceSourceCompletionV1,
-    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2,
+    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -649,7 +649,7 @@ class AgentPlanWorldGraphContextResponseV2(BaseModel):
         default="dmb_agent_plan_world_graph_context_response_v2", alias="schema"
     )
     receipt: PlanWorldGraphContextReceiptV1
-    completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
+    completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     source_open_targets: list[AgentSourceOpenTargetV2] = Field(default_factory=list)
@@ -668,7 +668,7 @@ class AgentPlayWorldGraphContextResponseV1(BaseModel):
         default="dmb_agent_play_world_graph_context_response_v1", alias="schema"
     )
     receipt: PlayWorldGraphContextReceiptV1
-    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
+    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 
@@ -1150,3 +1150,16 @@ class AgentSourcePassageReadResponseV1(BaseModel):
     target: AgentSourcePassageOpenTargetV1
     citation: SurfaceSourcePassageCitationV1 | BuildSourcePassageCitationV1
     content: str = Field(min_length=1, max_length=12000)
+
+
+from application_state.agent_conversation.types import NativeSourceSectionCitationV1
+
+class AgentNativeSourceSectionReadResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_native_source_section_read_v1"] = Field(
+        default="dmb_agent_native_source_section_read_v1",alias="schema")
+    world_id: str
+    turn_id: UUID
+    citation_index: int = Field(strict=True,ge=0,le=16383)
+    citation: NativeSourceSectionCitationV1
+    content: str = Field(min_length=1)

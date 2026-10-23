@@ -120,8 +120,10 @@ Bugbot cycle and are live on5202. A fresh5.6-second response separately attribut
 three session excerpts; links reopened the exact saved review checkpoint. This
 is prompt-guidance reproduction evidence, not semantic entailment validation.
 [Exact native source sections](../Plans/HANDOFF-AGENT-native-source-sections.md)
-defines the pending producer/APP contract for appendix navigation; runtime
-implementation remains gated on review and an ACTIVE bounded lease.
+defines the producer/APP contract for appendix navigation. Reviewed prerequisites
+#1632–#1636 now prove native provenance, immutable catalogs, exact section reads
+and producing-input binding. Model/tool activation, citations and reopening remain
+unshipped; prerequisite tests do not establish ordinary adventure acceptance.
 Real adventure acceptance remains open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved

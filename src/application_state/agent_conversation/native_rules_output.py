@@ -471,6 +471,7 @@ def sealed_native_producer(turn, rules_execution, proof):
     from .session_citation_labels import producing_session_titles
     from .surface_source_answer import producing_passages
     passages, source_partial = producing_passages(turn, graph_auth, proof.prepared_request_json)
+    from .native_source_answer import producing_sections
     from .surface_evidence_answer import producing_authored, require_current_policy
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
@@ -479,6 +480,7 @@ def sealed_native_producer(turn, rules_execution, proof):
         graph_revision=receipt.graph_authority.graph_revision,
         closures=tuple(closures),
         passages=passages, source_partial=source_partial,
+        native_sections=producing_sections(turn,graph_auth,proof.prepared_request_json),
         authored=producing_authored(turn, graph_auth, proof.prepared_request_json),
         current_policy=require_current_policy(turn, graph_auth, proof.prepared_request_json),
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),

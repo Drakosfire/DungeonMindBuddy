@@ -1013,7 +1013,7 @@ function isWorldPlanGraphCompletion(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1,
 ): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | WorldBuildGraphCompletionV1 | import("../../api/types").SurfaceSourceCompletionV1 | import("../../api/types").SurfaceEvidenceCompletion {
-  if (isRecord(value) && (value.schema === "dmb_surface_evidence_completion_v1" || value.schema === "dmb_surface_evidence_completion_v2"))
+  if (isRecord(value) && (value.schema === "dmb_surface_evidence_completion_v1" || value.schema === "dmb_surface_evidence_completion_v2" || value.schema === "dmb_surface_evidence_completion_v3"))
     return receipt.schema === "dmb_agent_plan_world_graph_context_receipt_v1" && isSurfaceEvidenceCompletion(value, receipt.context_receipt_sha256, "plan") && surfaceEvidenceReceiptBound(value,receipt);
   if (isRecord(value) && value.schema === "dmb_surface_source_completion_v1")
     return receipt.schema === "dmb_agent_plan_world_graph_context_receipt_v1" && isSurfaceSourceCompletion(value, receipt.context_receipt_sha256, "plan");
@@ -4499,7 +4499,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2") {
+    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -5482,7 +5482,7 @@ export function WorldPlanAgentConversation({
                 {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
               </span>}
             </div>
-            {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2")
+            {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3")
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : <WorldPlanAgentAnswer

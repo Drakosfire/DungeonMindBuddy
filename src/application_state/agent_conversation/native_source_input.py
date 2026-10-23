@@ -63,7 +63,7 @@ def _current_tool_outputs(turn, body, api_mode):
             except (ValueError,TypeError):
                 continue
             if (isinstance(carrier,dict) and carrier.get("schema") in {
-                    "dmb_native_play_input_v1","dmb_native_play_input_v2","dmb_native_play_input_v3"}
+                    "dmb_native_play_input_v1","dmb_native_play_input_v2","dmb_native_play_input_v3","dmb_native_play_input_v4"}
                     and carrier.get("submission_id") == str(turn.idempotency_key)
                     and carrier.get("message") == turn.user_text):
                 starts.append(index)

@@ -1186,7 +1186,21 @@ export interface SurfaceEvidenceCompletionV2 extends Omit<SurfaceEvidenceComplet
       & {kind:"authored_excerpt";block_handle:string;partition_version:"markdown_source_blocks_v1";
          byte_start:number;byte_end:number;block_sha256:string;entry_identity:string|null}))[];
 }
-export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2;
+export interface NativeSourceSectionCitationV1 {
+  segment_index:number;text_sha256:string;provider_attempt_id:string;envelope_sha256:string;
+  read_event_id:string;catalog_event_id:string;source_artifact_id:string;native_source_revision_id:string;
+  app_source_revision_id:string;content_sha256:string;excerpt_sha256:string;section_id:string;
+  selector_policy:"markdown_sections_v1";source_name:string;section_title:string;line_start:number;line_end:number;
+}
+export interface SurfaceEvidenceCompletionV3 extends Omit<SurfaceEvidenceCompletionV2,"schema"> {
+  schema:"dmb_surface_evidence_completion_v3";
+  native_source_citations:NativeSourceSectionCitationV1[];
+}
+export interface AgentNativeSourceSectionReadResponseV1 {
+  schema:"dmb_agent_native_source_section_read_v1";world_id:string;turn_id:string;citation_index:number;
+  citation:NativeSourceSectionCitationV1;content:string;
+}
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";

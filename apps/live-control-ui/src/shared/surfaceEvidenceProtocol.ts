@@ -1,3 +1,4 @@
+import {isNativeSourceCitation} from './nativeSourceCitationProtocol';
 import type {SurfaceEvidenceCompletion,WorldPlanGraphContextReceiptV1,WorldPlayGraphContextReceiptV1} from "../api/types";
 import {exact, canonical, isSurfaceSourceCompletion} from "./sourcePassageProtocol";
 const text = (v:unknown):v is string => typeof v === 'string' && !!v.trim();
@@ -5,8 +6,9 @@ const hash = (v:unknown):v is string => typeof v === 'string' && /^[a-f0-9]{64}$
 const sorted = (v:unknown):v is string[] => Array.isArray(v) && v.every((x,i) => text(x) && (!i || v[i-1] < x));
 /** Closed presentation shape. The server independently proves producer input and authority. */
 export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletion {
-  if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations'])
-    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
+  const native=typeof v==='object' && v!==null && 'schema' in v && v.schema==='dmb_surface_evidence_completion_v3';
+  if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations',...(native ? ['native_source_citations']:[])])
+    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
@@ -23,7 +25,7 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
       if (!exact(s,['kind','text'])) return false; sources.add(index);
     } else if (s.kind === 'authored_quote' || s.kind === 'authored_excerpt') {
       const block=s.kind === 'authored_excerpt';
-      if(block !== (v.schema === 'dmb_surface_evidence_completion_v2')) return false;
+      if(block !== (v.schema !== 'dmb_surface_evidence_completion_v1')) return false;
       if(block && (!text(s.block_handle) || !/^b[a-f0-9]{64}$/.test(s.block_handle) || blocks.has(s.block_handle)
         || s.partition_version !== 'markdown_source_blocks_v1' || !Number.isSafeInteger(s.byte_start)
         || !Number.isSafeInteger(s.byte_end) || s.byte_start < 0 || s.byte_end-s.byte_start !== new TextEncoder().encode(s.text).length
@@ -51,6 +53,14 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
     const key=canonical([c.segment_index,c.read_event_id,c.receipt.source_read_id]);
     if(seen.has(key)) return false; seen.add(key); cited.add(c.segment_index);
     if(segment.kind === 'graph_claim' && !segment.evidence_ref_ids.includes(c.receipt.evidence_ref_id)) return false;
+  }
+  if(native) {
+    if(!Array.isArray(v.native_source_citations) || v.native_source_citations.length>16384) return false;
+    for(const c of v.native_source_citations) {
+      if(!isNativeSourceCitation(c) || v.answer_segments[c.segment_index]?.kind !== 'source_passage_claim') return false;
+      const key=canonical(['native',c.segment_index,c.read_event_id]);
+      if(seen.has(key)) return false; seen.add(key); cited.add(c.segment_index);
+    }
   }
   if([...sources].some(i => !cited.has(i))) return false;
   const map=v.citation_map;

@@ -1995,7 +1995,34 @@ class SurfaceEvidenceCompletionV2(SurfaceEvidenceCompletionV1):
     answer_segments: list[SurfaceEvidenceSegmentV2] = Field(min_length=1,max_length=128)
 
 
-GraphTurnCompletion = SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+class NativeSourceSectionCitationV1(StrictModel):
+    """A source-only exact section, distinct from a Graph anchor or session record."""
+    segment_index: int = Field(strict=True, ge=0)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_id: UUID
+    catalog_event_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    app_source_revision_id: UUID
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1"]
+    source_name: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+
+
+class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
+    schema_: Literal["dmb_surface_evidence_completion_v3"] = Field(default="dmb_surface_evidence_completion_v3",alias="schema")
+    native_source_citations: list[NativeSourceSectionCitationV1] = Field(default_factory=list,
+        max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+GraphTurnCompletion = SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2116,6 +2143,19 @@ class PlanEvidenceHistoryAttributionV2(PlanEvidenceHistoryAttributionV1):
         return self
 
 
+class PlanEvidenceHistoryAttributionV3(PlanEvidenceHistoryAttributionV2):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v3"] = Field(default="dmb_plan_evidence_history_attribution_v3",alias="schema")
+    native_source_citations: list[NativeSourceSectionCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV3(surface_id='plan',context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis,answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments,citation_map=self.citation_map,
+            source_citations=self.source_citations,native_source_citations=self.native_source_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2125,7 +2165,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":

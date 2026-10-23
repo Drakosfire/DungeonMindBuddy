@@ -105,7 +105,7 @@ export async function playReceiptDigestsBound(value: unknown): Promise<boolean> 
 }
 
 /** Native Play segments and citations retain their own source domain. */
-export function isWorldPlayGraphCompletion(value: unknown, receipt: WorldPlayGraphContextReceiptV1): value is import('../api/types').WorldPlayGraphCompletionV1 | import('../api/types').SurfaceSourceCompletionV1 | import('../api/types').SurfaceEvidenceCompletionV1 {
+export function isWorldPlayGraphCompletion(value: unknown, receipt: WorldPlayGraphContextReceiptV1): value is import('../api/types').WorldPlayGraphCompletionV1 | import('../api/types').SurfaceSourceCompletionV1 | import('../api/types').SurfaceEvidenceCompletion {
   if (isSurfaceEvidenceCompletion(value, receipt.context_receipt_sha256, 'play')) return surfaceEvidenceReceiptBound(value,receipt);
   if (isSurfaceSourceCompletion(value, receipt.context_receipt_sha256, 'play')) return true;
   if (!keys(value, ['schema', 'context_receipt_sha256', 'answer_basis', 'answer_context_status', 'answer_segments', 'citation_map'])

@@ -49,6 +49,7 @@ class PlanClaimEvidence:
     source_partial: bool = False
     authored: tuple = ()
     current_policy: bool | str = False
+    native_sections: tuple = ()
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -86,7 +87,10 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
-        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, INSTRUCTIONS,
+        from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY, NATIVE_INSTRUCTIONS
+        instructions = (INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,NATIVE_INSTRUCTIONS)
+            if self.projection.frame.get('answer_policy') == NATIVE_POLICY else INSTRUCTIONS)
+        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
@@ -137,12 +141,14 @@ class PlanJevWriter:
         from application_state.agent_conversation.session_citation_labels import producing_session_titles
         from application_state.agent_conversation.surface_source_answer import producing_passages
         passages, source_partial = producing_passages(a.turn, event, view["payloadJson"])
+        from application_state.agent_conversation.native_source_answer import producing_sections
         from application_state.agent_conversation.surface_evidence_answer import producing_authored, require_current_policy
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
             a._broker_receipt().graph_authority.graph_revision, projection.closures,
             producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial,
-            producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]))
+            producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]),
+            producing_sections(a.turn,event,view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 

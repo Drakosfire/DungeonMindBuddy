@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'historical-passage', 'prompt', 'source-passage', 'action-index', 'action-prompt', 'action-diagnostic'] as const
+const cases = ['trace', 'historical-passage', 'prompt', 'source-passage', 'native-section', 'action-index', 'action-prompt', 'action-diagnostic'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -12,6 +12,7 @@ function read(api: Api, kind: typeof cases[number]) {
   if (kind === 'action-diagnostic') return api.getPlanActionTerminalDiagnostic('world/a', 'action-a')
   if (kind === 'action-index') return api.getPlanActionPromptIndex('world/a', 'action-a')
   if (kind === 'action-prompt') return api.getPlanActionPromptBody('world/a', 'action-a', 'provider-a')
+  if (kind === 'native-section') return api.getAgentNativeSourceSection('world/a','turn-a',0)
   if (kind === 'source-passage') return api.getAgentSourcePassage('world/a', 'turn-a', 0)
   return kind === 'trace' ? api.getWorldAgentTurnContextTrace('world/a', 'turn-a')
     : api.getWorldAgentTurnPrompt('world/a', 'turn-a', 'trace-a', 'provider-a')
@@ -24,7 +25,7 @@ describe.each(cases)('Agent %s evidence read authorization', kind => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ fixture: true }))
     await read(api, kind)
     const [url, init] = fetch.mock.calls[0]
-    expect(String(url)).toContain(kind === 'action-diagnostic' ? '/world-plan-edit/actions/action-a/terminal-diagnostic' : kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : 'context-trace'))
+    expect(String(url)).toContain(kind === 'action-diagnostic' ? '/world-plan-edit/actions/action-a/terminal-diagnostic' : kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : kind === 'native-section' ? 'native-source-sections/0' : 'context-trace'))
     if (kind.startsWith('action-')) expect(init?.cache).toBe('no-store')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-evidence-token')
     expect(init?.redirect).toBe('error')
@@ -173,3 +174,16 @@ it.each(['/api/live/world-plan-edit/actions/action-a/prompts/attempt/export', '/
   await api.authenticatedApiFetch(path)
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
 })
+
+
+it.each(['export','0/export','-1','1.5'])('does not authorize near-miss native section %s',async selector=>{
+  const api=await setup();api.setNativeGraphAccessToken('synthetic-token');
+  const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({}));
+  await api.authenticatedApiFetch('/api/live/agent/worlds/world/conversation/turns/turn/native-source-sections/'+selector);
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false);
+});
+it.each([-1,16384,0.5,NaN])('rejects invalid native section index before fetching %s',async index=>{
+  const api=await setup();const fetch=vi.spyOn(globalThis,'fetch');
+  await expect(api.getAgentNativeSourceSection('world','turn',index)).rejects.toThrow('Invalid section index');
+  expect(fetch).not.toHaveBeenCalled();
+});

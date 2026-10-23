@@ -1,3 +1,4 @@
+import {NativeSourceSectionEvidence} from './NativeSourceSectionEvidence';
 import type {SurfaceEvidenceCompletion} from "../../api/types";
 import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 import {BuildSourcePassageEvidence} from "./BuildSourcePassageEvidence";
@@ -20,6 +21,9 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>
       {graph ? <small>{selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
       {s.kind === 'proposal' ? <small>Proposed idea</small> : null}<WorldPlanAgentAnswer answer={s.text}/>
+      {completion.schema==='dmb_surface_evidence_completion_v3' && completion.native_source_citations.some(c=>c.segment_index===index)
+        ? worldId && turnId ? <NativeSourceSectionEvidence completion={completion} worldId={worldId} turnId={turnId} segmentIndex={index}/>
+          : completion.native_source_citations.filter(c=>c.segment_index===index).map((c,i)=><cite key={i}>{c.source_name} · {c.section_title}</cite>):null}
       {selected.length ? worldId && turnId
         ? <BuildSourcePassageEvidence completion={completion} worldId={worldId} turnId={turnId} segmentIndex={index} showClaimText={false}/>
         : selected.map((c,i)=><cite key={i}>{c.source_name}</cite>) : null}
