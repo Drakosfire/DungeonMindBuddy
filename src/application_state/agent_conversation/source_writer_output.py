@@ -319,6 +319,19 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
     schema["properties"]["answer_segments"]["items"]["anyOf"] = [
         choice for choice in choices if choice["$ref"].split("/")[-1] in schema["$defs"]
     ]
+    if "writer_status_policy" in packet:
+        from .build_primary_context import STATUS_POLICY, SCHEMA
+        if packet["writer_status_policy"] != STATUS_POLICY or packet.get("schema") != SCHEMA:
+            raise ValueError("Unknown writer status capability")
+        disposition = packet.get("retrieval_disposition")
+        if (not isinstance(disposition, dict)
+                or disposition.get("status") not in {"provisionally_supported", "insufficient_evidence", "unresolved_conflict"}
+                or disposition.get("coverage_status") not in {"catalog_exhausted", "heuristic_exclusions", "heuristic_partial"}):
+            raise ValueError("Writer status schema requires exact host retrieval disposition")
+        if (disposition.get("status") in {"insufficient_evidence", "unresolved_conflict"}
+                or disposition.get("coverage_status") != "catalog_exhausted"):
+            schema["properties"]["answer_context_status"]["enum"] = [
+                "source_grounded_partial", "source_insufficient_evidence"]
     return schema
 
 

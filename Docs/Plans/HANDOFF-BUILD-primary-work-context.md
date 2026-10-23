@@ -1,6 +1,13 @@
 # Build primary work context
 
-ACTIVE serial PRIME slice from b675e6e68383ff76d8ec015647ed03f2e8539ecd,
+MERGED #1664 at5c58cfcf7ad7c6b2435da250201bd16c98cddbf8; exact reviewed
+head ed1ede0071f53ddea6dd43ac7f3556eefeb31541, Bugbot APPROVED. Protected
+API delivery preserved retained state. Actual writer input contained the page body
+once, but the ordinary discussion interrupted after response before output capture.
+Rendered acceptance remains open; HANDOFF-BUILD-writer-terminal-status.md owns
+the serial correction. Related World retrieval is still not implemented.
+
+Historical serial PRIME slice from b675e6e68383ff76d8ec015647ed03f2e8539ecd,
 reusing buddy-context-loop on codex/build-primary-work-context. Operator authorizes
 continued dependable page-aware discussion. Architecture chat reviewed this contract.
 Open PR census checked; no overlapping implementation lane.
