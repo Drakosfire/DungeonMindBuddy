@@ -140,7 +140,8 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert all(set(body['state']) == {'question', 'candidates', 'dialogue_reference', 'examined_subjects'}
         for body in transport.calls[1:])
     assert transport.calls[-1]['state']['examined_subjects'] == [
-        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'}]
+        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'},
+        {'label': 'Synthetic park journal', 'kind': 'Unavailable source section catalog; navigation only'}]
     assert all(body['state']['dialogue_reference'] == frame['dialogue_reference'] for body in transport.calls)
 
 
@@ -172,7 +173,8 @@ def test_prior_dialogue_does_not_supply_current_attempt_source_authority(plan_ad
     # Dialogue remains reference text; actual current receipts produce the evidence.
     assert frame['dialogue_reference'] == dialogue
     assert transport.calls[-1]['state']['examined_subjects'] == [
-        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'}]
+        {'label': 'Park pond', 'kind': 'World entity'}, {'label': 'Footbridge', 'kind': 'World entity'},
+        {'label': 'Synthetic park journal', 'kind': 'Unavailable source section catalog; navigation only'}]
 
 
 def test_discovery_uses_full_question_once_and_selects_new_node_labels(plan_adapter):

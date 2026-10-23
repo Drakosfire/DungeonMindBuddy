@@ -51,6 +51,7 @@ class NativeSourceNavigator:
         self.call_results = {}
         self.catalog_names, self.query_matches = {}, {}
         self.attempted_sources = set()
+        self.source_ownership = {}
         self.attempted_sections = set()
 
     def enabled(self):
@@ -82,6 +83,20 @@ class NativeSourceNavigator:
                 self.sources[handle] = (donor,pin,label)
                 existing.add(key)
 
+        # Eligibility is metadata only, batched once per newly encountered artifact.
+        # Keep failed routes visible as unavailable examined subjects without
+        # dispatching doomed native provenance/catalog reads. Actual reads retain
+        # their authoritative scope and body checks after a positive preflight.
+        unknown = list(dict.fromkeys(entry[1].source_artifact_id for entry in self.sources.values()
+            if entry[1].source_artifact_id not in self.source_ownership))
+        if unknown:
+            from application_state.source.service import owned_source_artifacts
+            owned = owned_source_artifacts(source_artifact_ids=unknown, world_id=turn.world_id)
+            self.source_ownership.update((identity, identity in owned) for identity in unknown)
+        for handle, entry in self.sources.items():
+            if not self.source_ownership[entry[1].source_artifact_id] and handle not in self.attempted_sources:
+                self.attempted_sources.add(handle)
+
     def _section_candidate(self,handle,*,kind='Exact source section'):
         _,section,name = self.sections[handle]
         terms=self.query_matches.get(handle,[])
@@ -100,6 +115,7 @@ class NativeSourceNavigator:
 
     def examined(self):
         """Acquisition outcome metadata for decisions, never evidence prose."""
+        self.collect()
         rows=[]
         for handle,entry in self.sources.items():
             if handle not in self.attempted_sources:continue

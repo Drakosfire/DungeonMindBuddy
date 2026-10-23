@@ -43,6 +43,21 @@ def get_source_artifact(
     return None if row is None else dict(row)
 
 
+def owned_source_artifacts(
+    conn: psycopg.Connection, *, source_artifact_ids: list[str], world_id: str,
+) -> frozenset[str]:
+    """Metadata-only necessary ownership check, never source-body read authority."""
+    if not source_artifact_ids:
+        return frozenset()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT source_artifact_id FROM source.artifact "
+            "WHERE source_artifact_id = ANY(%s::text[]) AND world_id = %s",
+            (source_artifact_ids, world_id),
+        )
+        return frozenset(row[0] for row in cur.fetchall())
+
+
 def get_source_markdown(
     conn: psycopg.Connection,
     *,

@@ -279,3 +279,23 @@ def get_source_markdown_batch(
     with unit_of_work(dsn) as conn:
         rows = repository.get_source_markdown_batch(conn, bindings=unique)
     return {(row.source_artifact_id, row.content_sha256): row for row in rows}
+
+
+def owned_source_artifacts(*, source_artifact_ids: list[str], world_id: str) -> frozenset[str]:
+    """Batch exact artifact ownership metadata without opening any source bodies.
+
+    Missing and foreign ownership cannot qualify a native catalog offer. A match
+    is only a precondition: the actual read still owns full provenance/body checks.
+    """
+    if not isinstance(world_id, str) or not world_id.strip():
+        raise ApplicationStateValidationError("source ownership requires an exact World")
+    if any(not isinstance(value, str) or not value.strip() for value in source_artifact_ids):
+        raise ApplicationStateValidationError("source ownership requires exact artifact IDs")
+    unique = list(dict.fromkeys(source_artifact_ids))
+    if not unique:
+        return frozenset()
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        return repository.owned_source_artifacts(conn, source_artifact_ids=unique, world_id=world_id)
