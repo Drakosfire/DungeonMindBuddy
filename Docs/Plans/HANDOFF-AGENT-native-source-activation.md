@@ -1,6 +1,13 @@
 # AGENT — native source section retrieval activation
 
-ACTIVE serial PRIME slice, basee422fdeacd794b5d14b5e0db34b679eab69b9e03,
+MERGED with live acceptance gap. #1640 merged e95a363a5a3d236215f2b676783e388b4000e497,
+reviewed head0aaea1735aa3c940451d9a3fa497e8916137db0d, two Bugbot cycles.
+Paired API/UI delivered on5202 with APP0057 and retained-state proof.
+Ordinary Plan source navigation selected correctly but catalog refused the current
+registered Build campaign-to-native-World projection before body IO.
+Consuming fix lease: HANDOFF-AGENT-native-source-build-scope.md.
+
+Original ACTIVE serial PRIME slice, basee422fdeacd794b5d14b5e0db34b679eab69b9e03,
 branch codex/native-source-activation, existing buddy-context-loop checkout.
 Resumed after serial citation UI #1638/#1639, merged and running on5202.
 Original retrieval work preserved/restored without conflict; stash retained until

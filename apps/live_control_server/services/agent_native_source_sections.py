@@ -6,6 +6,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.native_source_navigation import origin_payload
+from application_state.agent_conversation.native_source_scope import source_scope_matches, SCOPE_FIELDS
 from application_state.agent_conversation.build_section import exact_saved_section
 from application_state.source.service import get_source_markdown
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
@@ -55,9 +56,8 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
             content_sha256=citation.content_sha256,source_revision_id=citation.app_source_revision_id)
         artifact = original['resolution']['artifact']
         if (source is None or source.source_revision_id != citation.app_source_revision_id
-                or source.source_artifact_id != citation.source_artifact_id or source.world_id != world_id
-                or source.source_domain != artifact['source_domain']
-                or source.campaign_id != artifact.get('campaign_id') or source.session_id != artifact.get('session_id')
+                or source.source_artifact_id != citation.source_artifact_id
+                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,world_id)
                 or source.content_sha256 != citation.content_sha256 or source.media_type != 'text/markdown'
                 or source.encoding.lower() != 'utf-8'):
             raise ValueError('Immutable source identity unavailable')

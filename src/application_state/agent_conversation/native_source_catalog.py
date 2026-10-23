@@ -11,6 +11,7 @@ from application_state.errors import ApplicationStateValidationError
 from application_state.source import repository as sources
 from . import types as t
 from .native_source_navigation import origin_payload
+from .native_source_scope import source_scope_matches, SCOPE_FIELDS
 
 SELECTOR = "markdown_sections_v1"
 
@@ -152,17 +153,14 @@ def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
     source, failure, body = None, None, None
     if metadata is None:
         failure = "source_unavailable"
-    elif any(metadata[key] != expected for key, expected in {
-            "world_id": nav.world_id, "source_domain": artifact["source_domain"],
-            "campaign_id": artifact.get("campaign_id"), "session_id": artifact.get("session_id")}.items()):
+    elif not source_scope_matches(metadata,artifact,nav.world_id):
         failure = "source_scope_mismatch"
     else:
         source = sources.get_source_markdown(conn, source_artifact_id=pin.source_artifact_id, content_sha256=digest)
         if source is None:
             failure = "source_unavailable"
         elif (source.source_artifact_id != pin.source_artifact_id or source.content_sha256 != digest
-                or source.world_id != nav.world_id or source.source_domain != artifact["source_domain"]
-                or source.campaign_id != artifact.get("campaign_id") or source.session_id != artifact.get("session_id")):
+                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,nav.world_id)):
             failure = "source_identity_mismatch"
         elif source.media_type != "text/markdown" or source.encoding.lower() != "utf-8":
             failure = "source_encoding_mismatch"

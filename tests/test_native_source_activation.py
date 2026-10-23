@@ -67,11 +67,20 @@ class SectionDecisions(httpx2.AsyncBaseTransport):
 
 
 @pytest.mark.parametrize('overlap',[False,True])
-def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter,monkeypatch,overlap):
+@pytest.mark.parametrize('registered_build',[False,True])
+def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter,monkeypatch,overlap,registered_build):
     from application_state.agent_conversation import native_source_catalog
     sources.persist_source_markdown(source_artifact_id='artifact:park',source_domain='worldbuilding',
-        world_id=plan_adapter.world_id,campaign_id=None,session_id=None,markdown=TEXT,lineage={})
-    monkeypatch.setattr(NativeSourceNavigator,'_access',synthetic_access)
+        world_id=plan_adapter.world_id,campaign_id=plan_adapter.world_id if registered_build else None,
+        session_id=None,markdown=TEXT,lineage={'workspace_document_id':'synthetic-build','workspace_document_revision':2} if registered_build else {})
+    def access(owner,entry):
+        from dataclasses import replace
+        origin=synthetic_access(owner,entry)
+        if not registered_build:return origin
+        proof=json.loads(origin.proof_json)
+        proof['resolution']['artifact']['workspace_document_ref']={'document_id':'synthetic-build','revision':2}
+        return replace(origin,proof_json=json.dumps(proof))
+    monkeypatch.setattr(NativeSourceNavigator,'_access',access)
     counts=[];original=native_source_catalog.sources.get_source_markdown
     def body(*a,**kw):counts.append(1);return original(*a,**kw)
     monkeypatch.setattr(native_source_catalog.sources,'get_source_markdown',body)
@@ -94,3 +103,17 @@ def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter
     assert completed.status=='completed'
     assert completed.completion.native_source_citations[0].source_name=='Synthetic adventure'
     assert len(counts)==1
+
+
+def test_registered_scope_predicate_does_not_relax_real_ownership():
+    from application_state.agent_conversation.native_source_scope import source_scope_matches
+    artifact={'source_domain':'worldbuilding','campaign_id':None,'session_id':None,
+        'workspace_document_ref':{'document_id':'document','revision':2}}
+    scope={'world_id':'managed','source_domain':'worldbuilding','campaign_id':'managed','session_id':None}
+    assert source_scope_matches(scope,artifact,'managed')
+    for changed in ({'world_id':'foreign'},{'campaign_id':'real-campaign'},{'session_id':'session'},
+            {'source_domain':'session_recap'}):
+        assert not source_scope_matches(scope|changed,artifact,'managed')
+    for changed in ({'workspace_document_ref':None},{'workspace_document_ref':{}},
+            {'campaign_id':'real-campaign'},{'session_id':'session'},{'source_domain':'session_recap'}):
+        assert not source_scope_matches(scope,artifact|changed,'managed')

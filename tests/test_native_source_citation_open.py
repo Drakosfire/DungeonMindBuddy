@@ -120,3 +120,27 @@ def test_route_rejects_caller_source_selectors(monkeypatch):
         agent.get_world_turn_native_source_section('world',uuid4(),0,
             Request({'type':'http','headers':[],'query_string':b'source_revision_id=latest'}))
     assert error.value.status_code == 422
+
+
+@pytest.mark.parametrize('changed_lineage',[False,True])
+def test_registered_build_citation_reopens_exact_projected_source(request,monkeypatch,plan_adapter,changed_lineage):
+    from tests.application_state import test_native_source_catalog_postgres as catalogs
+    original=catalogs.grant
+    def registered(case,**kwargs):
+        kwargs.update(source_values={'campaign_id':case[1].world_id,
+            'lineage':{'workspace_document_id':'build','workspace_document_revision':2}},
+            reference={'document_id':'build','revision':2})
+        return original(case,**kwargs)
+    monkeypatch.setattr(catalogs,'grant',registered)
+    case=request.getfixturevalue('opened_case')
+    if changed_lineage:
+        original_body=owner.get_source_markdown
+        def corrupt(**kw):
+            record=original_body(**kw)
+            return record.model_copy(update={'lineage':{'workspace_document_id':'foreign','workspace_document_revision':2}})
+        monkeypatch.setattr(owner,'get_source_markdown',corrupt)
+        with pytest.raises(SourcePassageOpenError,match='bytes_unavailable'):read(case)
+    else:
+        result=read(case)
+        assert result.content=='## Appendix A\r\nTree mechanics.\r\n'
+        assert result.citation==case[1] and case[2]==['access','body']
