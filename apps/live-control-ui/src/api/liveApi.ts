@@ -334,6 +334,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (pathname.startsWith("/api/live/combat/encounters")) return true;
+  if (/^\/api\/live\/combat\/scene-templates(?:\/|$)/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;

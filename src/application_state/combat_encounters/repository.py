@@ -83,6 +83,7 @@ def list_encounters(conn: psycopg.Connection, *, world_id: str) -> list[CombatEn
             SELECT {_COLUMNS}
             FROM combat.encounter
             WHERE world_id = %s
+              AND NOT EXISTS (SELECT 1 FROM combat.scene_template AS template WHERE template.encounter_id=combat.encounter.encounter_id)
             ORDER BY updated_at DESC, encounter_id ASC
             """,
             (world_id,),
@@ -121,4 +122,9 @@ def cas_replace_draft(
             },
         )
         row = cur.fetchone()
-    return None if row is None else _record(row)
+    if row is None:
+        return None
+    saved = _record(row)
+    from application_state.combat_encounters.scene_templates import append_version
+    append_version(conn, saved)
+    return saved

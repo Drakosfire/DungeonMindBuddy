@@ -2,16 +2,17 @@
 
 ## Authority and serial topology
 
-**ACTIVE design lease**, adopted for exact-head Bugbot review under the operator's
+**ADOPTED DESIGN**, reviewed in #1622 at `e76bb87941e0a7b951c88a214d0f21c0f739b4c3`
+(one Bugbot cycle), merged `abaafa2b554f7dae0e1cae89f321942079d34e58`, under the operator's
 scene→encounter→manual revision→explicit adoption→Play→resume objective. PRIME
 owns design, implementation, review coordination, merge and local delivery.
 Base `0cea62670164ded25646d0686693022b851ad220` (#1621), existing
 buddy-context-loop checkout, branch `codex/combat-scene-template-contract`.
 One design PR, then serial C1 and C2 implementation PRs. No new worktree or runtime.
-This design PR edits only this contract, the predecessor scene/revision and adoption
+The completed design PR edited only this contract, the predecessor scene/revision and adoption
 handoffs, ROADMAP-demo.md and the steward handoff's current-pickup section.
-Runtime writes remain **BLOCKED** until this contract passes independent review;
-its adoption does not itself claim implementation or activate overlapping leases.
+Its design lease is released. Runtime authority is the explicit C1 activation below;
+C2 remains blocked and design adoption alone does not claim implementation.
 Fresh remote/open-PR census found no competing scene-template runtime work. Older
 #1367 is C0 rendered-adoption design, not this scene ownership implementation.
 
@@ -36,6 +37,24 @@ C must make the scene the entry into its encounter while preserving Plan drafts,
 scene position, exact mechanics and session isolation. No AI is needed to create,
 edit, save, select or materialize a prepared encounter. Existing shared Combat
 editing, source verification, adoption and recovery remain the owning mechanisms.
+
+## ACTIVE C1 implementation lease
+
+PRIME activates C1 on `abaafa2b554f7dae0e1cae89f321942079d34e58`, branch
+`codex/combat-plan-scene-templates`, existing checkout, serial one implementation PR.
+The adopted design and fresh open-PR census resolve C1's design gates; C2 remains
+BLOCKED. Runtime lease remains API8000/UI5202, APP54331/native54330, persistent
+artifact root, Core617635c/DMSf95e unchanged until guarded additive APP0051 rollout.
+
+Exclusive write set: this handoff and ROADMAP-demo.md settlement; new
+src/application_state/combat_encounters/scene_templates.py and scene_template_types.py;
+combat_encounters/repository.py; migration20261022_0051_combat_scene_templates.py;
+new server routes/combat_scene_templates.py and main.py registration;
+UI combat/sceneTemplatesApi.ts, PlanSceneEncounter.tsx and tests;
+combat/combatProjection.tsx, shared surface/modules/CombatRosterModule.tsx and test;
+planSurface/PlanSurfacePage.tsx; new tests/test_combat_scene_templates.py and
+new tests/application_state/test_combat_scene_templates_postgres.py. Tests may reuse
+existing synthetic fixtures without edits. No other source, producer or Run paths.
 
 ## Product and identity contract
 
@@ -179,3 +198,30 @@ Do not use the synthetic #1621 witness to award the real adventure journey.
 Full J1–J6 twice, original roughly10-second grounding→image benchmark, external
 recap/supplemental evidence loop, 8GB/proxy measurement and operator acceptance
 remain open. Hosted, rules graph and richer automation stay separately scoped.
+
+C1 recovery closure before implementation review: a separate APP cancellation fence
+uses the same operation lock and exact normalized intent digest. Cancel returns the
+applied binding if creation won; otherwise persists a terminal canceled intent, so
+late requests cannot commit after UI releases recovery. Changed-key/body conflicts
+remain explicit. A present different-key binding is also an immutable uniqueness
+fence; the UI may explicitly open that existing scene encounter without inferring
+that its own request succeeded. An absent GET alone never releases pending intent.
+
+Lease amendment before edits: combat/combatProjection.test.tsx and existing
+planSurface/PlanSurfacePage.test.tsx receive focused current scoped-host integration
+coverage. Unrelated historical Plan test expectations remain outside C1; baseline
+comparison must distinguish inherited failures.
+
+C1 source reads reuse the exact record already returned by scene-template admission
+in the scoped Combat host; no duplicate immediate encounter GET. Explicit refresh
+remains separate and cannot overwrite a mounted dirty Combat draft. Template reads
+hold a shared encounter-row lock while reading history metadata so concurrent saves
+cannot produce a mixed revision/history response. Canonical Markdown structure
+admission reuses the edition owner's parser, rejecting swallowed directives.
+
+Review-cycle1 closure lease: UI api/liveApi.ts and new
+api/liveApi.sceneTemplates.test.ts are owned for registering the new exact route
+family with existing authenticated transport and proving bearer/session/CSRF/
+loopback behavior. PlanSceneEncounter validates the existing160-character encounter
+title contract before persisting intent; long headings receive a valid editable
+default. These fix C1 review findings, not new capabilities or new output caps.

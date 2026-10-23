@@ -1,3 +1,4 @@
+import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import { readPlanScenePosition, writePlanScenePosition } from "./planScenePosition";
 import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { useSurfaceImageStudio } from "../shared/useSurfaceImageStudio";
@@ -440,7 +441,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   } : null, [status, surfaceIdentity, workObject]);
   usePublishSurfaceInteraction(activePublication);
   useRulesLookupProjection("plan", activePublication !== null);
-  useCombatProjection("plan", activePublication !== null);
+
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1566,9 +1567,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const requestedSceneId = sceneNavigation?.identity === navigationIdentity
     ? sceneNavigation.sceneId : rememberedSceneId;
   // Cards always opens a scene. Null/stale cursors cannot revive the retired outline destination.
+  const {activateProjectionTool:openSceneEncounterTool}=useAgentInteraction();
   const navigationSceneId = navigationScenes.some(scene => scene.id === requestedSceneId)
     ? requestedSceneId : navigationScenes[0]?.id ?? null;
   const cardScopeEpoch = useRef({ key: "", generation: 0 });
+  const navigationSceneTitle=navigationScenes.find(scene=>scene.id===navigationSceneId)?.title ?? "Scene";
+  const sceneEncounterContext=useMemo(()=>documentId && navigationSceneId ? {
+    worldId,documentId,sceneId:navigationSceneId,
+    sceneTitle:navigationSceneTitle,
+    canCreate:canStartPlayFromSavedPlan,
+    objectRevision:savedBasis.status==="verified"?savedBasis.revision:null,
+    contentSha256:savedBasis.status==="verified"?savedBasis.contentSha256:null,
+  }:null,[worldId,documentId,navigationSceneId,navigationSceneTitle,canStartPlayFromSavedPlan,savedBasis]);
+  useCombatProjection("plan",activePublication!==null,sceneEncounterContext);
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
   const focusedCardEditable = Boolean(cardsViewActive && editor && planCardRange(editor.state.doc, navigationSceneId));
@@ -1873,6 +1884,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </section>
         ) : null}
 
+        {sceneEncounterContext && <div className="plan-scene-encounter-entry"><button type="button" onClick={()=>void openSceneEncounterTool("combat")}>Encounter · {sceneEncounterContext.sceneTitle}</button></div>}
         <div className="plan-cards-workspace" data-plan-view={cardsViewActive ? "cards" : sourceEditing ? "source" : "document"}>
           {documentId && status === "ready" ? <PlanCardDeck key={navigationIdentity} visible={true} scenes={navigationScenes} nodes={navigationNodes}
             sceneId={navigationSceneId} onSelect={navigatePlanScene} /> : null}
