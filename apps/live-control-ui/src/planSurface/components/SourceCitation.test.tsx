@@ -7,8 +7,8 @@ function choice(load=vi.fn(async()=> 'An exact **passage**.')):CitationChoice {
 it('places a numbered marker in the statement, exposes attribution and only reads on click',async()=>{
   const c=choice();render(<SourceCitationEvidence identity="one" statements={[{text:'A supported statement.',choices:[c]}]}/>);
   const button=screen.getByRole('button',{name:c.label});
-  expect(button.textContent).toBe('1');expect(button.closest('p')?.textContent).toBe('A supported statement.1Market journal · lines 4–8');
-  expect(button.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id);
+  expect(button.textContent).toBe('1');expect(button.closest('p')?.textContent).toBe('A supported statement.1');
+  expect(button.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip',{hidden:true}).id);
   fireEvent.mouseOver(button);button.focus();expect(c.load).not.toHaveBeenCalled();
   fireEvent.click(button);await screen.findByText('passage');
   expect(button.getAttribute('aria-expanded')).toBe('true');
@@ -45,4 +45,24 @@ it.each(['| Label | Value |\n| --- | --- |\n| Tree | Tough |\n','```text\nLitera
   expect(button.closest('code')).toBeNull();
   if(text.startsWith('|'))expect(button.closest('td')).not.toBeNull();
   expect(view.container.querySelectorAll('.source-citation__button')).toHaveLength(1);
+});
+
+it('portals hover details outside transcript clipping and clamps the right edge',()=>{
+  const c=choice();render(<div style={{overflow:'hidden'}}><SourceCitationEvidence identity="one" statements={[{text:'Claim.',choices:[c]}]}/></div>);
+  const button=screen.getByRole('button',{name:c.label});
+  vi.spyOn(button,'getBoundingClientRect').mockReturnValue({left:990,bottom:50} as DOMRect);
+  fireEvent.mouseEnter(button);
+  const tooltip=screen.getByRole('tooltip');
+  expect(tooltip.parentElement).toBe(document.body);
+  expect(Number.parseFloat(tooltip.style.left)+288).toBeLessThanOrEqual(window.innerWidth-8);
+  fireEvent.keyDown(button,{key:'Escape'});expect(tooltip).not.toBeVisible();
+  expect(c.load).not.toHaveBeenCalled();
+});
+
+it.each(['resize','scroll'])('dismisses a positioned tooltip on %s',event=>{
+  const c=choice();render(<SourceCitationEvidence identity="one" statements={[{text:'Claim.',choices:[c]}]}/>);
+  fireEvent.mouseEnter(screen.getByRole('button',{name:c.label}));
+  expect(screen.getByRole('tooltip')).toBeVisible();
+  fireEvent(window,new Event(event));
+  expect(screen.queryByRole('tooltip')).toBeNull();
 });

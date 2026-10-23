@@ -8,14 +8,12 @@
 }
 .source-citation__button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .source-citation__tooltip {
-  display: none; position: absolute; z-index: 20; inset-inline-start: 0; bottom: calc(100% + .5em);
-  width: max-content; max-width: min(18rem, 65vw); white-space: normal; overflow-wrap: anywhere;
-  border: 1px solid #76859a; border-radius: .4rem; padding: .45rem .65rem;
-  background: #17202e; color: #eef2f8; font-size: .8rem; line-height: 1.4;
-  pointer-events: none;
+  position: fixed; z-index: 10000; width: min(18rem, calc(100vw - 1rem)); box-sizing: border-box;
+  white-space: normal; overflow-wrap: anywhere; border: 1px solid #76859a;
+  border-radius: .4rem; padding: .45rem .65rem; background: #17202e; color: #eef2f8;
+  font-size: .8rem; line-height: 1.4; pointer-events: none;
 }
-.source-citation:hover .source-citation__tooltip,
-.source-citation:focus-within .source-citation__tooltip { display: block; }
+.source-citation__tooltip[hidden] { display: none; }
 .source-citation-evidence__panel {
   min-width: 0; margin-block: .65rem; padding: .75rem; border: 1px solid #76859a66;
   border-radius: .5rem; overflow-wrap: anywhere;
