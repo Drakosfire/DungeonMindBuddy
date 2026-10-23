@@ -73,7 +73,7 @@ unresolved_conflict. The host renders their wording. Do not claim corpus complet
 requested_detail_gaps is an array of objects, each exactly
 {"question_phrase":"exact phrase from user_question"}; never an array of strings.
 Select exact unique nonoverlapping phrases only for requested details not established
-by the supplied evidence; include missing_requested_details for these gaps.
+by the supplied evidence. The host derives missing_requested_details from validated gaps.
 No paraphrased gap prose or byte offsets. If no requested fact is supported, return
 answer_segments:[] with the applicable limitations and these typed gap objects;
 never invent evidence or quote unrelated authored material to fill the answer.
@@ -362,8 +362,11 @@ def normalize(candidate, turn, producer, support):
     if not isinstance(codes,list) or any(not isinstance(code,str) or code not in LIMITATIONS for code in codes) or len(set(codes)) != len(codes): raise ValueError('Unknown or duplicate limitation')
     gaps = [RequestedDetailGap.model_validate(g) for g in candidate['requested_detail_gaps']]
     gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question':turn.user_text})
-    if gaps and 'missing_requested_details' not in codes: raise ValueError('Gaps require missing-details limitation')
     codes = list(codes)
+    if gaps and 'missing_requested_details' not in codes:
+        if not current: raise ValueError('Gaps require missing-details limitation')
+        # Validated exact selections already establish this closed display flag.
+        codes.append('missing_requested_details')
     bindings = graph_bindings(segments, receipt, execution, auth)
     citation_map = t.PlanWorldGraphCitationMapV2(context_receipt_sha256=receipt.context_receipt_sha256, entries=entries) if entries else None
     if entries:

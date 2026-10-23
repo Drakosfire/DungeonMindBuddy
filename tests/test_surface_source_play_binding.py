@@ -205,7 +205,7 @@ def test_play_source_claim_cannot_use_changed_or_unincluded_read(change):
 
 @pytest.mark.parametrize('with_quote',[False,True])
 @pytest.mark.parametrize('historical_policy',[None,'v1','v2'])
-def test_play_source_answer_persists_through_native_output_owner(application_state_dsn,with_quote,historical_policy):
+def test_play_source_answer_persists_through_native_output_owner(application_state_dsn,with_quote,historical_policy,*,typed_gap=False):
     """Real APP accept/read/input/output/reopen; synthetic provider, no SQL forging."""
     from tests.application_state.test_native_play_input_postgres import (
         prepared_native,
@@ -366,6 +366,10 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
             ],
         )
     )
+    if typed_gap:
+        payload=json.loads(output)
+        payload['requested_detail_gaps']=[{'question_phrase':turn.user_text}]
+        output=json.dumps(payload)
     if with_quote:
         frame=current_carrier['source_frame']
         payload=json.loads(output)
@@ -425,6 +429,9 @@ def test_play_source_answer_persists_through_native_output_owner(application_sta
     )
     assert reopened == completed and reopened.completion.surface_id == "play"
     assert reopened.completion.source_citations[0].source_name == "Reedbridge notes"
+    if typed_gap:
+        assert sum(getattr(s, "code", None) == "missing_requested_details"
+                   for s in reopened.completion.answer_segments) == 2
     assert (
         service.complete_native_base_turn(
             result, output_proof=proof, expected_rules_revision=ledger.revision
@@ -443,3 +450,8 @@ def test_current_plan_and_play_source_instructions_share_host_attribution():
     assert SOURCE_ATTRIBUTION_INSTRUCTIONS in INSTRUCTIONS
     assert SOURCE_ATTRIBUTION_INSTRUCTIONS in _PLAN_GRAPH_ANSWER_INSTRUCTIONS
     assert "Use source names in prose" not in INSTRUCTIONS
+
+
+def test_play_typed_gap_derives_flag_through_native_owner(application_state_dsn):
+    test_play_source_answer_persists_through_native_output_owner(
+        application_state_dsn, False, None, typed_gap=True)

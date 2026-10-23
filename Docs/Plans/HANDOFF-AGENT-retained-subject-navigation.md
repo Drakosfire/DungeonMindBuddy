@@ -1,6 +1,12 @@
 # AGENT — retained subject navigation after empty discovery
 
-ACTIVE serial PRIME implementation, basee2b6da5a7c4f8b9bbf37081028190193eefbeabe,
+SETTLED: PR1628 merged24297bba534f1252f856b7c68834b0407b960bca after one
+Bugbot exact-head approval. API delivery preserved1783 APP rows, native rows,
+79 product files and17 frozen components. Ordinary Conks turn8 acquired current
+subjects and reused ten passages; writer delivery exposed the separately bounded
+missing-detail limitation defect. Real adventure acceptance remains open.
+
+Original serial PRIME implementation, basee2b6da5a7c4f8b9bbf37081028190193eefbeabe,
 branch codex/agent-retained-subject-navigation, existing buddy-context-loop checkout.
 Fresh open PR census shows no overlapping runtime lane. One implementation PR,
 independent Bugbot exact-head review, PRIME merge/protected API8000 delivery.
