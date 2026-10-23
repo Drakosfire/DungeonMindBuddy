@@ -181,25 +181,11 @@ function worldManifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayR
   };
 }
 
-function worldDeps(overrides: Partial<WorldStartRunDeps> = {}): WorldStartRunDeps & {
-  generateRunId: ReturnType<typeof vi.fn>;
-  getCommittedRevision: ReturnType<typeof vi.fn>;
-  putRun: ReturnType<typeof vi.fn>;
-  getRun: ReturnType<typeof vi.fn>;
-  putManifest: ReturnType<typeof vi.fn>;
-  getManifest: ReturnType<typeof vi.fn>;
-} {
-  return {
-    generateRunId: vi.fn(() => RUN_ID),
-    getCommittedRevision: vi.fn(async () => worldCommitted()),
-    putRun: vi.fn(async () => worldRun()),
-    getRun: vi.fn(async () => worldRun()),
-    putManifest: vi.fn(async () => worldManifest()),
-    getManifest: vi.fn(async () => worldManifest()),
-    ...overrides,
-  };
+function worldRequest():import('../combat/runEncountersApi').WorldSessionRequest{return {schema_version:'dmb_world_session_create_v1',playable_artifact_id:DOCUMENT_ID,expected_playable_revision:7,expected_playable_work_revision_id:WORLD_WORK_REVISION_ID,expected_playable_content_sha256:SHA_A,entry_scene_id:null,encounters:[]};}
+function applied():import('../combat/runEncountersApi').SessionApplied{return {schema_version:'dmb_world_session_creation_v1',state:'applied',run:worldRun(),manifest:worldManifest(),receipt:{world_id:WORLD_ID,run_id:RUN_ID,request:worldRequest(),preparation_digest:'sha256:'+SHA_A}};}
+function worldDeps(overrides:Partial<WorldStartRunDeps>={}){
+ return {generateRunId:vi.fn(()=>RUN_ID),getCommittedRevision:vi.fn(async()=>worldPlanCommitted()),putRun:vi.fn(async()=>applied()),inspectCreation:vi.fn(async()=>null),...overrides} as WorldStartRunDeps&{putRun:ReturnType<typeof vi.fn>;inspectCreation:ReturnType<typeof vi.fn>;getCommittedRevision:ReturnType<typeof vi.fn>};
 }
-
 function deps(overrides: Partial<StartRunDeps> = {}): StartRunDeps & {
   generateRunId: ReturnType<typeof vi.fn>;
   getCommittedRevision: ReturnType<typeof vi.fn>;
@@ -419,282 +405,44 @@ describe("executeStartRunAttempt", () => {
   });
 });
 
-describe("World Start Run binding and attempt", () => {
-  it("binds the exact World Runbook WorkRevision and creates/seals with explicit World scope", async () => {
-    const api = worldDeps();
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result.outcome).toBe("ready");
-    expect(api.generateRunId).toHaveBeenCalledTimes(1);
-    expect(api.getCommittedRevision).toHaveBeenCalledWith(DOCUMENT_ID, WORLD_ID);
-    expect(api.putRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
-      playable_artifact_id: DOCUMENT_ID,
-      expected_playable_revision: 7,
-      expected_playable_content_sha256: SHA_A,
-    });
-    expect(api.putManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
-    expect(bindWorldStartRunAttempt(RUN_ID, WORLD_ID, DOCUMENT_ID, worldCommitted())).toMatchObject({
-      ok: true,
-      binding: {
-        worldId: WORLD_ID,
-        expectedPlayableRevision: 7,
-        expectedPlayableWorkRevisionId: WORLD_WORK_REVISION_ID,
-        expectedPlayableContentSha256: SHA_A,
-      },
-    });
-  });
-
-
-  it("starts from the exact selected World Plan revision and retains its source kind", async () => {
-    const api = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldPlanCommitted()),
-      putRun: vi.fn(async () => worldRun({
-        progress: {
-          current_scene_id: null,
-          current_beat_id: "beat:opening",
-          resolved_beat_ids: [],
-          selections: {},
-          notes_by_element_id: {},
-        },
-      })),
-    });
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result).toMatchObject({
-      outcome: "ready",
-      binding: {
-        playableKind: "plan",
-        planGrammar: "v2",
-        expectedOpeningBeatId: "beat:opening",
-        expectedPlayableRevision: 7,
-        expectedPlayableWorkRevisionId: WORLD_WORK_REVISION_ID,
-        expectedPlayableContentSha256: SHA_A,
-      },
-    });
-    expect(api.putRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
-      playable_artifact_id: DOCUMENT_ID,
-      expected_playable_revision: 7,
-      expected_playable_content_sha256: SHA_A,
-    });
-  });
-
-  it("keeps valid Scene-first v1 World Plans startable with empty initial progress", async () => {
-    const api = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldPlanCommitted({
-        markdown: [
-          "<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->",
-          "## Opening",
-          "",
-        ].join("\n"),
-      })),
-      putRun: vi.fn(async () => worldRun()),
-    });
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result).toMatchObject({ outcome: "ready", binding: { playableKind: "plan", planGrammar: "v1" } });
-    if (result.outcome === "ready") {
-      expect(result.run.progress).toMatchObject({
-        current_scene_id: null,
-        current_beat_id: null,
-        resolved_beat_ids: [],
-        selections: {},
-        notes_by_element_id: {},
-      });
-    }
-    expect(api.putManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
-  });
-
-  it("blocks a World Plan with no authored opening Beat before creating a Run", async () => {
-    const api = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldPlanCommitted({ markdown: "# Empty Plan\n" })),
-    });
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/opening Beat/) });
-    expect(api.putRun).not.toHaveBeenCalled();
-    expect(api.putManifest).not.toHaveBeenCalled();
-  });
-
-  it("does not seal a World Plan Run unless its current Beat is the exact opening Beat", async () => {
-    const api = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldPlanCommitted()),
-      putRun: vi.fn(async () => worldRun()),
-    });
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/current Beat/) });
-    expect(api.putRun).toHaveBeenCalledTimes(1);
-    expect(api.putManifest).not.toHaveBeenCalled();
-  });
-
-  it("refuses a changed saved Plan pin before creating a Run", async () => {
-    const api = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldPlanCommitted({
-        revision_n: 8,
-        work_revision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-        content_sha256: SHA_B,
-      })),
-    });
-    const result = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-
-    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/changed after it was opened/) });
-    expect(api.putRun).not.toHaveBeenCalled();
-    expect(api.putManifest).not.toHaveBeenCalled();
-  });
-
-  it("requires an explicit selected revision pin for Plan starts and still keeps Runbooks separate", async () => {
-    const planWithoutPin = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      attempt: null,
-      phase: "fresh",
-      deps: worldDeps({ getCommittedRevision: vi.fn(async () => worldPlanCommitted()) }),
-    });
-    expect(planWithoutPin.outcome).toBe("blocked");
-
-    const runbookApi = worldDeps();
-    const runbookForPlan = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      expectedKind: "plan",
-      expectedSourcePin: {
-        revisionN: 7,
-        workRevisionId: WORLD_WORK_REVISION_ID,
-        contentSha256: SHA_A,
-      },
-      attempt: null,
-      phase: "fresh",
-      deps: runbookApi,
-    });
-    expect(runbookForPlan.outcome).toBe("blocked");
-    expect(runbookApi.putRun).not.toHaveBeenCalled();
-  });
-
-  it("keeps one World and UUID after a lost create response, then replays the exact binding", async () => {
-    const api = worldDeps({
-      putRun: vi.fn(async () => { throw new Error("network"); }),
-      getRun: vi.fn(async () => { throw new LiveApiError("not found", 404); }),
-    });
-    const first = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      attempt: null,
-      phase: "fresh",
-      deps: api,
-    });
-    expect(first).toMatchObject({ outcome: "replay_create", binding: { runId: RUN_ID, worldId: WORLD_ID } });
-    expect(api.getRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
-    expect(api.putManifest).not.toHaveBeenCalled();
-
-    api.putRun.mockResolvedValue(worldRun());
-    const replayed = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      attempt: first.outcome === "replay_create" ? first.binding : null,
-      phase: "replay_create",
-      deps: api,
-    });
-    expect(replayed.outcome).toBe("ready");
-    expect(api.generateRunId).toHaveBeenCalledTimes(1);
-    expect(api.putRun).toHaveBeenLastCalledWith(RUN_ID, WORLD_ID, {
-      playable_artifact_id: DOCUMENT_ID,
-      expected_playable_revision: 7,
-      expected_playable_content_sha256: SHA_A,
-    });
-  });
-
-  it("fails closed on a foreign World committed revision or campaign-shaped Run", async () => {
-    const foreign = worldDeps({
-      getCommittedRevision: vi.fn(async () => worldCommitted({ world_id: "world-other" })),
-    });
-    const preflight = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      attempt: null,
-      phase: "fresh",
-      deps: foreign,
-    });
-    expect(preflight.outcome).toBe("blocked");
-    expect(foreign.putRun).not.toHaveBeenCalled();
-
-    const campaignShaped = worldDeps({
-      putRun: vi.fn(async () => ({ ...worldRun(), campaign_id: WORLD_ID }) as WorldPlayRunRecordV2),
-    });
-    const created = await executeStartWorldRunAttempt({
-      selectedDocumentId: DOCUMENT_ID,
-      worldId: WORLD_ID,
-      attempt: null,
-      phase: "fresh",
-      deps: campaignShaped,
-    });
-    expect(created.outcome).toBe("blocked");
-    expect(campaignShaped.putManifest).not.toHaveBeenCalled();
-  });
+describe('exact World session creation',()=>{
+ const input=(api=worldDeps())=>({selectedDocumentId:DOCUMENT_ID,worldId:WORLD_ID,expectedKind:'plan' as const,confirmedRequest:worldRequest(),attempt:null,phase:'fresh' as const,deps:api,retainAttempt:vi.fn()});
+ it('retains the full body before the sole atomic create write',async()=>{
+  const api=worldDeps(),request=input(api),order:string[]=[];
+  request.retainAttempt.mockImplementation(binding=>{expect(binding.request).toEqual(worldRequest());order.push('retain');});
+  api.putRun=vi.fn(async()=>{order.push('write');return applied();});
+  expect((await executeStartWorldRunAttempt(request)).outcome).toBe('ready');
+  expect(order).toEqual(['retain','write']);expect(api.putRun).toHaveBeenCalledWith(RUN_ID,WORLD_ID,worldRequest());
+ });
+ it('does not dispatch when durable retention fails',async()=>{
+  const api=worldDeps(),request=input(api);request.retainAttempt.mockImplementation(()=>{throw new Error('Storage unavailable');});
+  expect(await executeStartWorldRunAttempt(request)).toMatchObject({outcome:'blocked',detail:'Storage unavailable'});expect(api.putRun).not.toHaveBeenCalled();
+ });
+ it('requires explicit confirmed preparation',async()=>{
+  const api=worldDeps();expect((await executeStartWorldRunAttempt({...input(api),confirmedRequest:null})).outcome).toBe('blocked');expect(api.putRun).not.toHaveBeenCalled();
+ });
+ it('reconciles unknown creation by its full receipt rather than a matching Run',async()=>{
+  const api=worldDeps({putRun:vi.fn(async()=>{throw new Error('lost response');}),inspectCreation:vi.fn(async()=>applied())});
+  expect((await executeStartWorldRunAttempt(input(api))).outcome).toBe('ready');expect(api.inspectCreation).toHaveBeenCalledWith(RUN_ID,WORLD_ID);
+ });
+ it('retains the key on absent or mismatched receipts and replays the same complete body',async()=>{
+  const api=worldDeps({putRun:vi.fn(async()=>{throw new Error('lost response');})});
+  const first=await executeStartWorldRunAttempt(input(api));expect(first.outcome).toBe('replay_create');
+  if(first.outcome!=='replay_create')throw new Error('Expected retained attempt');
+  const next=worldDeps();next.getCommittedRevision=vi.fn(async()=>{throw new Error('Current source must not be required for replay');});
+  expect((await executeStartWorldRunAttempt({...input(next),attempt:first.binding,phase:'replay_create'})).outcome).toBe('ready');
+  expect(next.getCommittedRevision).not.toHaveBeenCalled();expect(next.putRun).toHaveBeenCalledWith(RUN_ID,WORLD_ID,first.binding.request);
+ });
+ it('rejects changed entry choices under a returned creation receipt',async()=>{
+  const wrong=applied();wrong.receipt.request={...worldRequest(),entry_scene_id:'scene:other'};
+  const api=worldDeps({putRun:vi.fn(async()=>wrong)});expect((await executeStartWorldRunAttempt(input(api))).outcome).toBe('replay_create');
+ });
+ it.each([{world_id:'other'}, {has_divergent_working_copy:true},{status:'discarded'},{markdown:'<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate'}])('refuses foreign, dirty, discarded or legacy creation sources %j',async damage=>{
+  const api=worldDeps({getCommittedRevision:vi.fn(async()=>worldPlanCommitted(damage as Partial<WorldOwnedCommittedRevisionV2>))});
+  expect((await executeStartWorldRunAttempt(input(api))).outcome).toBe('blocked');expect(api.putRun).not.toHaveBeenCalled();
+ });
+ it('does not silently update a confirmed exact source pin',async()=>{
+  const api=worldDeps({getCommittedRevision:vi.fn(async()=>worldPlanCommitted({work_revision_id:OTHER_RUN_ID}))});
+  expect((await executeStartWorldRunAttempt(input(api))).outcome).toBe('blocked');expect(api.putRun).not.toHaveBeenCalled();
+ });
 });

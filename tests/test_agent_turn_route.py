@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request
+
 import asyncio
 import hashlib
 import json
@@ -153,11 +155,7 @@ def _persisted_world_play_fixture(world_id: str = "world-a"):
         str(plan.work_object_id), C2S27_SHAPED_V2_MARKDOWN,
         expected_world_id=world_id, expected_revision=plan.object_revision,
     )
-    created = create_world_play_run(
-        world_id=world_id, run_id=RUN_ID, playable_artifact_id=plan.work_object_id,
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
-    )
+    created = create_world_play_run(world_id=world_id, run_id=RUN_ID, request=session_request(world_id=world_id, playable_artifact_id=plan.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
     progress = {
         "current_scene_id": "scene:gate-line", "current_beat_id": "beat:hold-the-gate",
         "resolved_beat_ids": [], "selections": {},

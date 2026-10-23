@@ -139,10 +139,10 @@ def preview_saved_override(*,world_id,draft_id,locator):
         return AdoptionPreview(snapshot=snapshot,armor_class=ac,hit_points=hp)
 
 
-def adopt_saved_override(*,world_id,encounter_id,request):
+def adopt_saved_override(*,world_id,encounter_id,request,scope=None):
     from application_state.combat_encounters import adoption
-    replay=adoption.inspect(world_id=world_id,encounter_id=encounter_id,operation_id=request.operation_id,request=request)
+    replay=adoption.inspect(world_id=world_id,encounter_id=encounter_id,operation_id=request.operation_id,request=request,scope=scope)
     if replay is not None:return replay
     draft,origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=request.draft_id,locator=request.locator)
     with accepted_drafts_guard([draft]):
-        return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin)
+        return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin,scope=scope)

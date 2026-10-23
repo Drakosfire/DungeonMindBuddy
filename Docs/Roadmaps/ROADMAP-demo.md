@@ -101,8 +101,9 @@ The contract shipped #1622 after one Bugbot cycle. C1 shipped #1623 after two
 Bugbot cycles and is live on5202/APP0051. Ordinary synthetic Plan scene creation,
 two actors, Document/Cards draft recovery, four versions and exact revision4
 reopen/restart passed. [C2 Run scene ownership](../Plans/HANDOFF-COMBAT-run-scene-encounters.md)
-closes complete session capture, initialization and server access gates in design
-review; its implementation and real adventure acceptance remain open.
+shipped #1624 after two Bugbot cycles, closing complete capture, initialization
+and server access design gates. C2 runtime implementation is ACTIVE on its exact
+fresh base; real adventure and full connected acceptance remain open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable

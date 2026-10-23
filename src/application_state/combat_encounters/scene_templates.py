@@ -177,3 +177,29 @@ def cancel(*,world_id,request:CreateSceneTemplateRequest):
         if existing is None:
             conn.execute("INSERT INTO combat.scene_template_cancellation(operation_id,world_id,request_digest,request) VALUES(%s,%s,%s,%s)",(request.operation_id,world_id,request_digest,Jsonb(body)))
         return {'state':'canceled','operation_id':str(request.operation_id),'world_id':world_id,'request_digest':request_digest}
+
+
+def read_snapshot(conn, *, world_id, document_id, scene_id, pin, require_head=False):
+    """Resolve an immutable captured version without consulting today's Plan or producers."""
+    row = _row(conn, 'SELECT * FROM combat.scene_template WHERE encounter_id=%s', (pin.encounter_id,))
+    if row is None:
+        raise ApplicationStateNotFoundError('Prepared encounter template not found')
+    binding = _binding(row)
+    if (binding.world_id != world_id or binding.origin.document_id != document_id
+            or binding.origin.scene_id != scene_id):
+        raise ApplicationStateConflictError('Encounter template belongs to another source scene')
+    if require_head:
+        head = repo.get_encounter(conn, world_id=world_id, encounter_id=pin.encounter_id)
+        if head is None or head.revision != pin.revision:
+            raise ApplicationStateConflictError('Prepared encounter version changed; review session choices again')
+    saved = _row(conn, 'SELECT * FROM combat.scene_template_version WHERE encounter_id=%s AND revision=%s',
+                 (pin.encounter_id, pin.revision))
+    if saved is None:
+        raise ApplicationStateNotFoundError('Prepared encounter version not found')
+    if saved['digest'] != pin.digest or digest(saved['payload']) != pin.digest:
+        raise ApplicationStateIntegrityError('Prepared encounter version digest is invalid')
+    record = CombatEncounterRecord.model_validate(saved['payload'])
+    if record.encounter_id != pin.encounter_id or record.world_id != world_id or record.revision != pin.revision:
+        raise ApplicationStateIntegrityError('Prepared encounter snapshot identity is invalid')
+    _require_integrity(record)
+    return record

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.session_encounter_helpers import session_request
+
 from pathlib import Path
 from threading import Event, Thread, current_thread
 from time import monotonic, sleep
@@ -79,13 +81,7 @@ def _create_world_run(*, world_id: str, run_id: str):
         "<!-- dmb-playable-element:v2 kind=beat id=beat:opening -->\n## Opening\n",
         expected_revision=created.object_revision,
     )
-    return create_world_play_run(
-        world_id=world_id,
-        run_id=run_id,
-        playable_artifact_id=work_object.work_object_id,
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
-    )
+    return create_world_play_run(world_id=world_id, run_id=run_id, request=session_request(world_id=world_id, playable_artifact_id=work_object.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
 
 
 def test_world_selection_resumes_and_projects_empty_without_mutation(

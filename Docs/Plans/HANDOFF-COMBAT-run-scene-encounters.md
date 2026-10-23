@@ -1,6 +1,6 @@
 # COMBAT — exact session capture and scene-owned live encounters
 
-## ACTIVE bounded design authority
+## ADOPTED bounded design authority
 
 PRIME adopts this C2 design under the operator's connected preparation→Play→resume
 objective. Base/live `5cdc29f77e87f16d03735a5d286944e96a65768e` (#1623), existing
@@ -8,14 +8,48 @@ buddy-context-loop checkout, branch `codex/combat-run-encounter-contract`.
 Topology serial: one reviewed design PR, then one C2 implementation PR on a fresh
 base and activated exact path lease. No new worktree, environment, producer or AI.
 This design lease edits only this contract, the predecessor scene-template handoff,
-ROADMAP-demo.md and the steward handoff's current pickup. Runtime writes remain
-BLOCKED until independent design review and fresh explicit activation.
+ROADMAP-demo.md and the steward handoff's current pickup. The design shipped #1624, reviewed head08cd10bd7dcfd264e865a4575c97c72332180a59
+in Bugbot cycle2, mergea894be2fb255c5fae5e89d6c9a31bd0f278ad901. Its design lease
+is released. Runtime authority is the explicit activation below.
 Fresh remote/open-PR census shows no competing C2 runtime lane.
 
 Architecture assessment `01a1666f-fbde-7892-8034-2c42256bdf7e` in authorized chat
 `01a086f2-c457-7b10-b753-df6063cab1ce` is adopted. It requires exact HP/reset
 semantics, complete replayable Run intent including entry scene, and server-side
 Run ownership rather than a UI-only link. The closures below resolve those gates.
+
+## ACTIVE C2 implementation lease
+
+PRIME activates one serial implementation PR on
+`a894be2fb255c5fae5e89d6c9a31bd0f278ad901`, branch
+`codex/combat-run-scene-encounters`, existing buddy-context-loop checkout. Fresh
+remote/open-PR census is clear of competing C2 work; reviewed design gates are
+satisfied. Owned delivery: API8000/UI5202, APP54331/native54330; persistent source/
+artifact root, Core617635c and DMSf95e retained. Additive APP0052 only. No new service,
+provider, worktree or per-slice environment.
+
+Exclusive expected write set: this handoff and ROADMAP-demo.md settlement;
+new APP play/session_encounters.py and session_encounter_types.py, new
+combat_encounters/access.py; play/service.py; combat_encounters/service.py,
+repository.py,adoption.py,scene_templates.py; new migration20261022_0052;
+server routes/play_runs.py,combat_scene_templates.py, new combat_run_encounters.py,
+main.py; services/play_run_registry.py,combat_encounters.py,combat_mechanics.py;
+UI api/liveApi.ts, existing liveApi.test.ts, new liveApi.sessionEncounters.test.ts;
+playSurface/startRunAttempt.ts and test,StartRunPanel.tsx and test,
+PlaySurfacePage.tsx and test; planSurface/PlanSurfacePage.tsx and test;
+combat/combatApi.ts,combatProjection.tsx and test,CombatMechanicsAdoption.tsx and test,
+combatRecovery.ts and test, new runEncountersApi.ts,RunSceneEncounter.tsx and test,
+WorldSessionPreparation.tsx and test, exactIntent.ts and test,
+SceneEncounterLauncher.tsx; shared surface/modules/CombatRosterModule.tsx and test.
+New owning HTTP/APP/concurrency tests/test_run_scene_encounters.py and
+application_state/test_run_scene_encounters_postgres.py; current World creation
+fixture helper tests/application_state/session_encounter_helpers.py and affected
+existing test_rules_only_parent.py,test_agent_turn_route.py,test_agent_play_surface_context.py,application_state/
+{test_play_active_run_postgres.py,test_play_runtime_world_runs_postgres.py,
+test_native_play_graph_postgres.py,test_play_run_editions_postgres.py,
+test_agent_conversation_postgres.py}, product_continuity/test_inventory_postgres.py.
+Amend before any additional path edit. No historical migration, runtime source
+outside this lease or standalone status PR.
 
 ## C1 settlement and outcome
 

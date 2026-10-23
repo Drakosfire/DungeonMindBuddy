@@ -3160,8 +3160,8 @@ it("keeps the checked-in Session 29 linked Plan safely editable after root-quote
   expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null").markdown).toBe(session29Plan);
 });
 
-it("starts Play from the exact clean committed World Plan revision", async () => {
-  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
+it("opens shared session preparation from the exact saved Plan without unmounting its scene", async () => {
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, currentTwoScenePlanMarkdown);
   const committed = {
     schema_version: "dmb_workspace_committed_revision_v2" as const,
     scope_mode: "world" as const,
@@ -3174,7 +3174,7 @@ it("starts Play from the exact clean committed World Plan revision", async () =>
     object_revision: 7,
     work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     revision_n: 4,
-    markdown: twoScenePlanMarkdown,
+    markdown: currentTwoScenePlanMarkdown,
     content_sha256: "b".repeat(64),
     has_divergent_working_copy: false,
     target_relpath: record.target_relpath,
@@ -3198,20 +3198,20 @@ it("starts Play from the exact clean committed World Plan revision", async () =>
   expect(within(page).queryByRole("group", { name: "Plan view" })).not.toBeInTheDocument();
   expect(within(page).queryByText("Plan changes stay local until you choose Save Plan.")).not.toBeInTheDocument();
   fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
-  const reader = await screen.findByTestId("world-plan-scene-reader");
-  expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Arrival");
-  expect(reader).not.toHaveTextContent("A lantern moves behind the loading door.");
-  fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
-  expect(screen.getByTestId("world-plan-scene-reader").querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Warehouse");
+  const reader = await screen.findByRole('region',{name:'Focused Plan scene'});
+  const mountedEditor=screen.getByTestId('world-owned-plan-markdown-editor');
+  const beforeText=mountedEditor.textContent;
+  expect(screen.getByRole('button',{name:'Show scene: Arrival'})).toHaveAttribute('aria-current','true');
+  fireEvent.click(within(reader).getByRole('button',{name:'Next scene'}));
+  expect(screen.getByRole('button',{name:'Show scene: Warehouse'})).toHaveAttribute('aria-current','true');
   fireEvent.click(start);
 
-  await waitFor(() => expect(window.location.pathname).toBe("/play"));
-  const params = new URLSearchParams(window.location.search);
-  expect(params.get("world")).toBe(worldId);
-  expect(params.get("plan")).toBe(record.document_id);
-  expect(params.get("plan_revision")).toBe("4");
-  expect(params.get("plan_work_revision_id")).toBe(committed.work_revision_id);
-  expect(params.get("plan_sha256")).toBe(committed.content_sha256);
+  await screen.findByRole('heading',{name:'Play this Plan'});
+  expect(window.location.pathname).toBe('/plan');
+  expect(new URLSearchParams(window.location.search).get('documentId')).toBe(record.document_id);
+  expect(screen.getByTestId('world-owned-plan-markdown-editor')).toBe(mountedEditor);
+  expect(mountedEditor.textContent).toBe(beforeText);
+  expect(screen.getByRole('button',{name:'Show scene: Warehouse'})).toHaveAttribute('aria-current','true');
   expect(getCommitted).toHaveBeenCalledWith(record.document_id);
 });
 

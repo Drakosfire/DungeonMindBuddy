@@ -75,12 +75,14 @@ def create_encounter(
         return repo.insert_encounter(conn, record)
 
 
-def get_encounter(*, world_id: str, encounter_id: UUID | str) -> CombatEncounterRecord:
+def get_encounter(*, world_id: str, encounter_id: UUID | str, scope=None) -> CombatEncounterRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        from application_state.combat_encounters.access import guard
+        guard(conn, world_id=canonical_world_id, encounter_id=canonical_encounter_id, scope=scope)
         record = repo.get_encounter(
             conn, encounter_id=canonical_encounter_id, world_id=canonical_world_id
         )
@@ -107,12 +109,15 @@ def save_encounter(
     *, world_id: str, encounter_id: UUID | str, request: SaveCombatEncounterRequest,
     verified_world_identities: dict[str, CombatWorldIdentity] | None = None,
     verified_mechanics_snapshots: dict | None = None,
+    scope=None,
 ) -> CombatEncounterRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        from application_state.combat_encounters.access import guard
+        guard(conn, world_id=canonical_world_id, encounter_id=canonical_encounter_id, scope=scope, for_mutation=True)
         before = repo.get_encounter(
             conn, encounter_id=canonical_encounter_id, world_id=canonical_world_id
         )

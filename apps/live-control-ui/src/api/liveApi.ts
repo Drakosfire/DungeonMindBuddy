@@ -334,6 +334,9 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (pathname.startsWith("/api/live/media/images/")) return true;
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (pathname.startsWith("/api/live/combat/encounters")) return true;
+  if (pathname.startsWith("/api/live/combat/run-encounters/")) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/(?:preparation|[^/]+\/creation(?::cancel)?)$/.test(pathname)) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+$/.test(pathname) && requestBodyRecord(body)?.schema_version === "dmb_world_session_create_v1") return true;
   if (/^\/api\/live\/combat\/scene-templates(?:\/|$)/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
@@ -3061,17 +3064,9 @@ export async function getWorldPlayRun(runId: string, worldId: string): Promise<W
   return run;
 }
 
-export async function putWorldPlayRun(
-  runId: string,
-  worldId: string,
-  request: CreatePlayRunRequest,
-): Promise<WorldPlayRunRecordV2> {
-  const run = await apiFetch<WorldPlayRunRecordV2>(
-    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,
-    { method: "PUT", body: JSON.stringify(request) },
-  );
-  assertWorldPlayRun(run, worldId, runId);
-  return run;
+export async function putWorldPlayRun(runId:string,worldId:string,request:import('../combat/runEncountersApi').WorldSessionRequest):Promise<import('../combat/runEncountersApi').SessionApplied>{
+ const result=await apiFetch<import('../combat/runEncountersApi').SessionApplied>(`/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,{method:'PUT',body:JSON.stringify(request)});
+ assertWorldPlayRun(result.run,worldId,runId);return result;
 }
 
 export async function putWorldPlayRunProgress(

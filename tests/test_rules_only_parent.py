@@ -1,3 +1,5 @@
+
+from tests.application_state.session_encounter_helpers import session_request, historical_world_run
 """Actual ordinary Plan/Play admission, Rules broker and APP; synthetic provider IO."""
 from dataclasses import replace
 from hashlib import sha256
@@ -107,7 +109,7 @@ class RulesOnlyProvider(FakeRuntime):
         return AgentRuntimeResult(status="ok", final_text=text, runtime_session_id="runtime-1")
 
 
-def case(tmp_path, monkeypatch, surface, *, note="Preserve my saved note."):
+def case(tmp_path, monkeypatch, surface, *, note="Preserve my saved note.", historical_session=False):
     managed = create_world_container(tmp_path, name="Rules-only World")
     world = managed.world_id
     plan = create_world_plan(title="Keep this Plan", world_id=world)
@@ -115,8 +117,10 @@ def case(tmp_path, monkeypatch, surface, *, note="Preserve my saved note."):
     primary = {"kind":"plan", "object_id":str(obj.work_object_id), "expected_revision":obj.object_revision,
         "expected_revision_n":revision.revision_n, "expected_content_sha256":revision.content_sha256}
     if surface == "play":
-        run = create_world_play_run(world_id=world, run_id=str(uuid4()), playable_artifact_id=obj.work_object_id,
-            expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)
+        if historical_session:
+            run = historical_world_run(world_id=world,run_id=str(uuid4()),playable_artifact_id=obj.work_object_id,expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256)
+        else:
+            run = create_world_play_run(world_id=world, run_id=str(uuid4()), request=session_request(world_id=world, playable_artifact_id=obj.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)).aggregate
         replace_world_play_run_progress(world_id=world, run_id=run.run.run_id, expected_run_revision=run.run.run_revision,
             progress={"current_beat_id":"beat:arrival", "current_scene_id":"scene:gate", "resolved_beat_ids":[],
                 "selections":{}, "notes_by_element_id":{"scene:gate":note}})

@@ -808,35 +808,24 @@ def list_world_play_runs(
     return [_world_record_from_aggregate(aggregate) for aggregate in aggregates]
 
 
-def create_or_replay_world_play_run(
-    root: Path,
-    *,
-    world_id: str,
-    run_id: str,
-    playable_artifact_id: str,
-    expected_playable_revision: int,
-    expected_playable_content_sha256: str,
-) -> WorldPlayRunRecord:
+def world_session_outcome(result):
+    from application_state.play.session_encounter_types import WorldSessionCreationResult
+    if not isinstance(result, WorldSessionCreationResult):
+        return result
+    return {"schema_version": "dmb_world_session_creation_v1", "state": "applied",
+            "run": _world_record_from_aggregate(result.aggregate).model_dump(mode="json"),
+            "manifest": result.aggregate.manifest.manifest, "receipt": result.receipt}
+
+
+def create_or_replay_world_play_run(root: Path, *, world_id: str, run_id: str, request):
     del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_world_play_run
-
-    canonical_world_id = _validate_world_id(world_id)
-    canonical_run_id = _validate_run_id(run_id)
-    canonical_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
-    expected_revision = _validate_expected_revision(expected_playable_revision)
-    expected_sha = _validate_expected_sha(expected_playable_content_sha256)
     try:
-        aggregate = create_world_play_run(
-            world_id=canonical_world_id,
-            run_id=canonical_run_id,
-            playable_artifact_id=canonical_artifact_id,
-            expected_playable_revision=expected_revision,
-            expected_playable_content_sha256=expected_sha,
-        )
+        return world_session_outcome(create_world_play_run(
+            world_id=_validate_world_id(world_id), run_id=_validate_run_id(run_id), request=request))
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
-    return _world_record_from_aggregate(aggregate)
 
 
 def replace_world_play_run_progress(

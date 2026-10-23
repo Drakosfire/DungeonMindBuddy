@@ -14,6 +14,7 @@ from apps.live_control_server.routes.agent_graph_local_session import (
 )
 from apps.live_control_server.routes.graph_preview import router as graph_preview_router
 from apps.live_control_server.routes.combat_encounters import router as combat_encounters_router
+from apps.live_control_server.routes.combat_run_encounters import router as combat_run_encounters_router
 from apps.live_control_server.routes.combat_scene_templates import router as combat_scene_templates_router
 from apps.live_control_server.routes.world_mechanics_associations import router as world_mechanics_router
 from apps.live_control_server.routes.live import router as live_router
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     application.include_router(live_router)
     application.include_router(combat_encounters_router)
     application.include_router(combat_scene_templates_router)
+    application.include_router(combat_run_encounters_router)
     application.include_router(world_mechanics_router)
     application.include_router(media_images_router)
     application.include_router(agent_graph_local_session_router)

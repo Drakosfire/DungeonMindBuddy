@@ -40,7 +40,7 @@ export class CombatRecoverySession {
   private settled: Promise<void> = Promise.resolve();
   close() { this.generation++; this.release?.(); this.release = null; this.key = null; }
 
-  async open(record: CombatEncounterRecord, isCurrent: () => boolean): Promise<{recovery: CombatRecovery | null; committedMatch: boolean}> {
+  async open(record: CombatEncounterRecord, isCurrent: () => boolean, rememberWorldSelection=true): Promise<{recovery: CombatRecovery | null; committedMatch: boolean}> {
     this.close();
     const generation = this.generation;
     // Resolving the callback is not the browser's release acknowledgement.
@@ -69,7 +69,7 @@ export class CombatRecoverySession {
         if (combatDraftEqual(recovery.draft, recovery.pending!.draft)) {this.clear(); remaining = null;}
         else { this.write(record, recovery.draft); remaining = {...recovery,base:record,pending:null}; }
       }
-      localStorage.setItem(combatSelectionKey(record.world_id), record.encounter_id);
+      if(rememberWorldSelection)localStorage.setItem(combatSelectionKey(record.world_id), record.encounter_id);
       return {recovery: remaining, committedMatch};
     } catch (error) { if (generation === this.generation) this.close(); throw error; }
   }
