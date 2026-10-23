@@ -1,6 +1,13 @@
 # FOUNDATION — preserve rich editor through saves
 
-ACTIVE serial PRIME slice from9f6860574a9ef9170a2469ee578b27cfa56f8a51,
+SHIPPED #1659 at35cbf499ada034c3a85e5605b6196078dfa29df3 after Bugbot
+approval of8a00db747104f07c7492c3d6fb01ec78cf0a338b (51 independent tests).
+Ordinary synthetic baseline lost focus to BODY after autosave; three fixed
+autosaves retained contenteditable focus and continued typing without refocusing.
+Reload preserved all additions. Operator source untouched; protected delivery
+preserved application/native state,89 mechanics files and22 frozen components.
+
+Original serial PRIME slice from9f6860574a9ef9170a2469ee578b27cfa56f8a51,
 branch codex/canvas-save-focus in reused buddy-context-loop checkout. Current PR
 census has no overlap. One Bugbot-reviewed PR and protected delivery5202.
 
