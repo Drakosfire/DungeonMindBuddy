@@ -1,3 +1,4 @@
+import {testCombatLocks} from '../combat/combatRecovery.testSupport';
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +28,6 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     listWorldOwnedPlans: vi.fn(),
     listWorldOwnedRunbooks: vi.fn(),
     putWorldPlayRun: vi.fn(),
-    putWorldPlayRunReferenceManifest: vi.fn(),
     getWorldPlayRun: vi.fn(),
     getWorldPlayRunReferenceManifest: vi.fn(),
     putPlayRun: vi.fn(),
@@ -46,6 +46,11 @@ vi.mock("../api/liveApi", async (importOriginal) => {
 });
 
 import * as liveApi from "../api/liveApi";
+const sessions=vi.hoisted(()=>({preview:vi.fn(),inspect:vi.fn(),cancel:vi.fn()}));
+vi.mock('../combat/runEncountersApi',async importOriginal=>({...await importOriginal<typeof import('../combat/runEncountersApi')>(),previewSession:sessions.preview,inspectSession:sessions.inspect,cancelSession:sessions.cancel}));
+function sessionBody(run=worldPlanPlayRun()){return {schema_version:'dmb_world_session_create_v1' as const,playable_artifact_id:run.playable_artifact_id,expected_playable_revision:run.playable_revision,expected_playable_work_revision_id:run.playable_work_revision_id,expected_playable_content_sha256:run.playable_content_sha256,entry_scene_id:null,encounters:[]};}
+function createdSession(run=worldPlanPlayRun()){return {schema_version:'dmb_world_session_creation_v1' as const,state:'applied' as const,run,manifest:worldPlayManifest(),receipt:{world_id:run.world_id,run_id:run.run_id,request:sessionBody(run),preparation_digest:'sha256:'+SHA_A}};}
+
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const DOC_A = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -93,7 +98,7 @@ function committedFor(documentId: string): WorkspaceCommittedRevision {
     object_revision: 7,
     work_revision_id: "11111111-1111-4111-8111-111111111111",
     revision_n: 7,
-    markdown: "# Gate\n",
+    markdown: "<!-- dmb-playable-element:v2 kind=beat id=beat:opening -->\n## Opening\n",
     content_sha256: SHA_A,
     has_divergent_working_copy: false,
     target_relpath: `out/workspace/runbooks/${documentId}.md`,
@@ -230,7 +235,7 @@ function worldPlayRun(worldId: string = WORLD_ID): WorldPlayRunRecordV2 {
     updated_at: "2026-08-17T00:00:00Z",
     progress: {
       current_scene_id: null,
-      current_beat_id: null,
+      current_beat_id: "beat:opening",
       resolved_beat_ids: [],
       selections: {},
       notes_by_element_id: {},
@@ -261,7 +266,9 @@ function worldPlayManifest(): PlayRunReferenceManifest {
 
 describe("StartRunPanel", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.clearAllMocks();localStorage.clear();Object.defineProperty(navigator,"locks",{configurable:true,value:testCombatLocks()});
+    sessions.inspect.mockResolvedValue(null);
+    sessions.preview.mockImplementation(async(_world,source)=>({request:{...source,schema_version:'dmb_world_session_create_v1',entry_scene_id:null,encounters:[]},scenes:[],excluded_orphan_count:0}));
     vi.spyOn(crypto, "randomUUID").mockReturnValue(RUN_ID);
     vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v1",
@@ -286,9 +293,8 @@ describe("StartRunPanel", () => {
     vi.mocked(liveApi.getWorldOwnedRunbookCommittedRevision).mockImplementation(
       async (documentId, worldId = WORLD_ID) => worldCommittedFor(documentId, worldId),
     );
-    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlayRun());
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(createdSession());
     vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(worldPlayRun());
-    vi.mocked(liveApi.putWorldPlayRunReferenceManifest).mockResolvedValue(worldPlayManifest());
     vi.mocked(liveApi.getWorldPlayRunReferenceManifest).mockResolvedValue(worldPlayManifest());
     vi.mocked(liveApi.putPlayRun).mockResolvedValue(playRun());
     vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue(playManifest());
@@ -329,7 +335,7 @@ describe("StartRunPanel", () => {
   });
 
   it("does not navigate to a World A Run when its create and seal finish after switching to B", async () => {
-    const pendingWorldCreate = deferred<WorldPlayRunRecordV2>();
+    const pendingWorldCreate = deferred<ReturnType<typeof createdSession>>();
     const pendingWorldManifest = deferred<PlayRunReferenceManifest>();
     vi.mocked(liveApi.listWorldOwnedRunbooks).mockImplementation(async (worldId) => ({
       schema_version: "dmb_world_owned_runbooks_list_v2",
@@ -341,7 +347,6 @@ describe("StartRunPanel", () => {
       async (documentId, worldId = WORLD_ID) => worldCommittedFor(documentId, worldId),
     );
     vi.mocked(liveApi.putWorldPlayRun).mockReturnValueOnce(pendingWorldCreate.promise);
-    vi.mocked(liveApi.putWorldPlayRunReferenceManifest).mockReturnValueOnce(pendingWorldManifest.promise);
     const onStarted = vi.fn();
     const user = userEvent.setup();
     const view = render(<StartRunPanel onStarted={onStarted} verifiedWorldId="world-a" />);
@@ -357,10 +362,9 @@ describe("StartRunPanel", () => {
     view.rerender(<StartRunPanel onStarted={onStarted} verifiedWorldId="world-b" />);
     await user.click(await screen.findByTestId(`play-start-runbook-${DOC_B}`));
     await act(async () => {
-      pendingWorldCreate.resolve(worldPlayRun("world-a"));
+      pendingWorldCreate.resolve(createdSession(worldPlayRun("world-a")));
       await pendingWorldCreate.promise;
     });
-    await waitFor(() => expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, "world-a"));
     await act(async () => {
       pendingWorldManifest.resolve(worldPlayManifest());
       await pendingWorldManifest.promise;
@@ -463,7 +467,7 @@ describe("StartRunPanel", () => {
   });
 
   it("does not navigate from a stale Start Run after the selected Runbook changes A to B and back to A within one World", async () => {
-    const pendingWorldCreate = deferred<WorldPlayRunRecordV2>();
+    const pendingWorldCreate = deferred<ReturnType<typeof createdSession>>();
     const pendingWorldManifest = deferred<PlayRunReferenceManifest>();
     vi.mocked(liveApi.listWorldOwnedRunbooks).mockResolvedValue({
       schema_version: "dmb_world_owned_runbooks_list_v2",
@@ -475,7 +479,6 @@ describe("StartRunPanel", () => {
       ],
     });
     vi.mocked(liveApi.putWorldPlayRun).mockReturnValueOnce(pendingWorldCreate.promise);
-    vi.mocked(liveApi.putWorldPlayRunReferenceManifest).mockReturnValueOnce(pendingWorldManifest.promise);
     const onStarted = vi.fn();
     const user = userEvent.setup();
     render(<StartRunPanel onStarted={onStarted} verifiedWorldId={WORLD_ID} />);
@@ -493,10 +496,9 @@ describe("StartRunPanel", () => {
     expect(screen.getByTestId("play-start-runbook-" + DOC_A)).toHaveAttribute("aria-pressed", "true");
 
     await act(async () => {
-      pendingWorldCreate.resolve(worldPlayRun(WORLD_ID));
+      pendingWorldCreate.resolve(createdSession(worldPlayRun(WORLD_ID)));
       await pendingWorldCreate.promise;
     });
-    await waitFor(() => expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID));
     await act(async () => {
       pendingWorldManifest.resolve(worldPlayManifest());
       await pendingWorldManifest.promise;
@@ -638,12 +640,7 @@ describe("StartRunPanel", () => {
     expect(liveApi.listWorldOwnedRunbooks).toHaveBeenCalledExactlyOnceWith(WORLD_ID);
     expect(liveApi.listWorkspaceDocuments).not.toHaveBeenCalled();
     expect(liveApi.getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledWith(DOC_A, WORLD_ID);
-    expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
-      playable_artifact_id: DOC_A,
-      expected_playable_revision: 7,
-      expected_playable_content_sha256: SHA_A,
-    });
-    expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+    expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, sessionBody());
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
   });
@@ -657,7 +654,7 @@ describe("StartRunPanel", () => {
       world_id: WORLD_ID,
       records: [worldPlanRecord()],
     });
-    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlanPlayRun());
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(createdSession());
     const user = userEvent.setup();
     render(
       <StartRunPanel
@@ -678,18 +675,13 @@ describe("StartRunPanel", () => {
 
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
     expect(liveApi.listWorldOwnedPlans).toHaveBeenCalledExactlyOnceWith(WORLD_ID);
-    expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(DOC_A);
+    expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledWith(DOC_A);
     expect(liveApi.getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
     expect(liveApi.listWorldOwnedRunbooks).not.toHaveBeenCalled();
-    expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
-      playable_artifact_id: DOC_A,
-      expected_playable_revision: 7,
-      expected_playable_content_sha256: SHA_A,
-    });
-    expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+    expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, sessionBody());
   });
 
-  it("starts a valid Scene-first v1 World Plan with its existing empty progress", async () => {
+  it("rejects Scene-first v1 for new World sessions", async () => {
     vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v2",
       scope_mode: "world",
@@ -705,7 +697,7 @@ describe("StartRunPanel", () => {
         "",
       ].join("\n"),
     });
-    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(sceneFirstRun);
+
     const onStarted = vi.fn();
     const user = userEvent.setup();
     render(
@@ -723,9 +715,9 @@ describe("StartRunPanel", () => {
 
     await screen.findByTestId("play-start-selected-plan");
     await user.click(screen.getByTestId("play-start-run-submit"));
-    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
-    expect(sceneFirstRun.progress).toMatchObject({ current_scene_id: null, current_beat_id: null });
-    expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("current scene and Beat structure");
+    expect(onStarted).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRun).not.toHaveBeenCalled();
   });
 
   it("blocks a saved World Plan without an authored Beat before calling the Run API", async () => {
@@ -760,20 +752,19 @@ describe("StartRunPanel", () => {
 
     await screen.findByTestId("play-start-selected-plan");
     await user.click(screen.getByTestId("play-start-run-submit"));
-    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("authored opening Beat");
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("current scene and Beat structure");
     expect(liveApi.putWorldPlayRun).not.toHaveBeenCalled();
-    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
     expect(onStarted).not.toHaveBeenCalled();
   });
 
-  it("does not seal or navigate a World Plan Run that lacks its exact current opening Beat", async () => {
+  it("retains an unresolved World session when the returned receipt has different choices", async () => {
     vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v2",
       scope_mode: "world",
       world_id: WORLD_ID,
       records: [worldPlanRecord()],
     });
-    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlanPlayRun("beat:later"));
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue({...createdSession(),receipt:{...createdSession().receipt,request:{...sessionBody(),entry_scene_id:"scene:foreign"}}});
     const onStarted = vi.fn();
     const user = userEvent.setup();
     render(
@@ -791,9 +782,8 @@ describe("StartRunPanel", () => {
 
     await screen.findByTestId("play-start-selected-plan");
     await user.click(screen.getByTestId("play-start-run-submit"));
-    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("current Beat does not match");
+    expect(await screen.findByTestId("play-start-run-replay-needed")).toHaveTextContent("receipt differs");
     expect(liveApi.putWorldPlayRun).toHaveBeenCalledTimes(1);
-    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
     expect(onStarted).not.toHaveBeenCalled();
     expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
   });
@@ -828,15 +818,14 @@ describe("StartRunPanel", () => {
 
     await screen.findByTestId("play-start-selected-plan");
     await user.click(screen.getByTestId("play-start-run-submit"));
-    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("changed after it was opened");
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("opened Plan changed");
     expect(liveApi.putWorldPlayRun).not.toHaveBeenCalled();
-    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
     expect(onStarted).not.toHaveBeenCalled();
   });
 
   it("does not navigate after a Plan-start response arrives for an unmounted source selection", async () => {
     const onStarted = vi.fn();
-    const pendingRun = deferred<WorldPlayRunRecordV2>();
+    const pendingRun = deferred<ReturnType<typeof createdSession>>();
     vi.mocked(liveApi.listWorldOwnedPlans).mockImplementation(async (worldId) => ({
       schema_version: "dmb_workspace_document_registry_v2",
       scope_mode: "world",
@@ -868,7 +857,7 @@ describe("StartRunPanel", () => {
     view.rerender(<Source documentId={DOC_B} />);
     await screen.findByText("World Plan");
     await act(async () => {
-      pendingRun.resolve(worldPlanPlayRun());
+      pendingRun.resolve(createdSession());
       await pendingRun.promise;
     });
     expect(onStarted).not.toHaveBeenCalled();
@@ -1354,4 +1343,51 @@ describe("StartRunPanel", () => {
     expect(screen.getByTestId("play-edit-runbook")).toHaveAttribute("href", `/plan?documentId=${DOC_A}`);
     expect(screen.queryByTestId("play-edit-runbook-campaign-mismatch")).not.toBeInTheDocument();
   });
+  it('reopens an unresolved session creation without automatically reposting and checks its exact receipt',async()=>{
+    const pending=deferred<ReturnType<typeof createdSession>>();
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockResolvedValue({schema_version:'dmb_world_owned_runbooks_list_v2',scope_mode:'world',world_id:WORLD_ID,records:[worldRunbook()]});
+    vi.mocked(liveApi.putWorldPlayRun).mockReturnValueOnce(pending.promise);
+    const onStarted=vi.fn(),user=userEvent.setup();
+    const first=render(<StartRunPanel verifiedWorldId={WORLD_ID} onStarted={onStarted}/>);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_A}`));
+    await user.click(screen.getByTestId('play-start-run-submit'));
+    await waitFor(()=>expect(liveApi.putWorldPlayRun).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem(`dmb.session.creation:${WORLD_ID}`)).toContain('dmb_world_session_create_v1');
+    first.unmount();
+    await act(async()=>{pending.resolve(createdSession());await pending.promise;});
+    expect(onStarted).not.toHaveBeenCalled();
+    render(<StartRunPanel verifiedWorldId={WORLD_ID} onStarted={onStarted}/>);
+    await screen.findByRole('button',{name:'Check session creation'});
+    expect(liveApi.putWorldPlayRun).toHaveBeenCalledTimes(1);
+    sessions.inspect.mockResolvedValue(createdSession());
+    await user.click(screen.getByRole('button',{name:'Check session creation'}));
+    await waitFor(()=>expect(onStarted).toHaveBeenCalledExactlyOnceWith(RUN_ID));
+    expect(localStorage.getItem(`dmb.session.creation:${WORLD_ID}`)).toBeNull();
+  });
+
+  it.each(['check', 'cancel'] as const)('fences %s cleanup queued across a World switch', async (action) => {
+    const pending=deferred<ReturnType<typeof createdSession>>();
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockResolvedValue({schema_version:'dmb_world_owned_runbooks_list_v2',scope_mode:'world',world_id:WORLD_ID,records:[worldRunbook()]});
+    vi.mocked(liveApi.putWorldPlayRun).mockReturnValueOnce(pending.promise);
+    const onStarted=vi.fn(),user=userEvent.setup();
+    const first=render(<StartRunPanel verifiedWorldId={WORLD_ID} onStarted={onStarted}/>);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_A}`));
+    await user.click(screen.getByTestId('play-start-run-submit'));
+    await waitFor(()=>expect(liveApi.putWorldPlayRun).toHaveBeenCalledTimes(1));
+    first.unmount();
+    const second=render(<StartRunPanel verifiedWorldId={WORLD_ID} onStarted={onStarted}/>);
+    await screen.findByRole('button',{name:'Check session creation'});
+    const queue: Array<()=>unknown>=[];
+    Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn((_name,_options,callback)=>new Promise(resolve=>queue.push(()=>resolve(callback()))))}});
+    sessions.inspect.mockResolvedValue(createdSession());
+    sessions.cancel.mockResolvedValue(createdSession());
+    await user.click(screen.getByRole('button',{name:action==='check'?'Check session creation':'Cancel session creation'}));
+    await waitFor(()=>expect(queue).toHaveLength(1));
+    second.rerender(<StartRunPanel verifiedWorldId="another-world" onStarted={onStarted}/>);
+    await act(async()=>{queue[0]();});
+    expect(onStarted).not.toHaveBeenCalled();
+    expect(localStorage.getItem(`dmb.session.creation:${WORLD_ID}`)).not.toBeNull();
+    expect(screen.queryByRole('button',{name:'Check session creation'})).not.toBeInTheDocument();
+  });
+
 });

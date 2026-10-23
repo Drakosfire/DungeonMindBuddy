@@ -9,7 +9,8 @@ export const COMBAT_TOOL:SurfaceInteractionToolContribution={id:COMBAT_TOOL_ID,l
 export const COMBAT_PROJECTION:SurfaceInteractionProjectionDescriptor={id:COMBAT_TOOL_ID,kind:'tool',preferredSize:'wide',bindingIds:[]};
 const DeferredCombat=deferredComponent(()=>import('../surface/modules/CombatRosterModule').then(module=>({default:module.CombatRosterModule})),'Combat');
 const DeferredPlanEncounter=deferredComponent(()=>import('./PlanSceneEncounter').then(module=>({default:module.PlanSceneEncounter})),'Scene encounter');
-type Context=import('./sceneTemplatesApi').PlanEncounterContext|null|undefined;
+type Context=import('./sceneTemplatesApi').PlanEncounterContext|import('./RunSceneEncounter').RunEncounterContext|null|undefined;
+const DeferredRunEncounter=deferredComponent(()=>import('./RunSceneEncounter').then(module=>({default:module.RunSceneEncounter})),'Scene encounter');
 function createContextStore(initial:Context){
  let value=initial;const listeners=new Set<()=>void>();
  return {get:()=>value,subscribe:(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};},
@@ -17,7 +18,7 @@ function createContextStore(initial:Context){
 }
 function CombatProjectionContent({store,surfaceId}:{store:ReturnType<typeof createContextStore>;surfaceId:string}){
  const context=useSyncExternalStore(store.subscribe,store.get);
- return surfaceId==='plan' ? context ? <DeferredPlanEncounter key={`${context.worldId}:${context.documentId}:${context.sceneId}`} context={context}/> : <p>Choose a Plan scene to prepare its encounter.</p> : <DeferredCombat/>;
+ return surfaceId==='plan' ? context && 'documentId' in context ? <DeferredPlanEncounter key={`${context.worldId}:${context.documentId}:${context.sceneId}`} context={context}/> : <p>Choose a Plan scene to prepare its encounter.</p> : surfaceId==='play' ? context && 'runId' in context ? <DeferredRunEncounter key={`${context.worldId}:${context.runId}:${context.sceneId}`} context={context}/> : <p>Choose a session scene to open its encounter.</p> : <DeferredCombat/>;
 }
 export function useCombatProjection(surfaceId:string,enabled:boolean,context?:Context){
   const {registerProjectionCatalog}=useAgentInteraction();

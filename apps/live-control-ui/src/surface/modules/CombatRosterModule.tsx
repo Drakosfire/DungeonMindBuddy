@@ -228,7 +228,7 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord};
+export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   const selectedWorld = useSelectedWorld();
   const worldId = selectedWorld.kind === "managed" && (!scope || scope.worldId === selectedWorld.worldId) ? selectedWorld.worldId : null;
@@ -277,7 +277,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     }
     setLoading(true);
     if (scope) {
-      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getWorldCombatEncounter(worldId, scope.encounterId);
+      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getWorldCombatEncounter(worldId, scope.encounterId,...(scope.runScope?[scope.runScope] as const:[] as const));
       void opening.then(async opened => {
         if (!alive || generation !== worldRequestGeneration.current) return;
         await adoptRecord(opened,worldId,scope.encounterId,generation);
@@ -331,7 +331,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   async function adoptRecord(opened: CombatEncounterRecord, requestedWorld: string, requestedId: string | null, generation: number) {
     if (opened.world_id !== requestedWorld || (requestedId && opened.encounter_id !== requestedId)) throw new Error('Combat response belongs to a different encounter.');
     setRecord(null); recordRef.current = null; setDraft(null); draftRef.current = null;
-    const recovery = await recoverySession.current.open(opened, () => generation === worldRequestGeneration.current);
+    const recovery = await recoverySession.current.open(opened, () => generation === worldRequestGeneration.current,!scope);
     if (generation !== worldRequestGeneration.current) return;
     recordRef.current = opened; draftRef.current = cloneDraft(opened.draft); pendingSave.current = null;
     setRecord(opened); setDraft(draftRef.current); setAvailableRecovery(recovery.recovery);
@@ -393,7 +393,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     setBusy("open");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId);
+      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       await adoptRecord(opened, requestedWorldId, requestedEncounterId, generation);
     } catch (caught) {
@@ -415,7 +415,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
       const submitted = {expected_revision: submittedRecord.revision, draft: submittedDraft};
       recoverySession.current.write(submittedRecord, draftRef.current ?? submittedDraft, submitted);
       pendingSave.current = submitted;
-      const saved = await saveWorldCombatEncounter(requestedWorldId, submittedRecord.encounter_id, submittedRecord.revision, submittedDraft);
+      const saved = await saveWorldCombatEncounter(requestedWorldId, submittedRecord.encounter_id, submittedRecord.revision, submittedDraft,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       if (saved.world_id !== requestedWorldId || saved.encounter_id !== submittedRecord.encounter_id
           || saved.revision !== submittedRecord.revision + 1 || !combatDraftEqual(saved.draft, submittedDraft)) {
@@ -443,7 +443,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     setBusy("reload");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId);
+      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       // Explicit reload discards only this owned local recovery after a verified read.
       if (opened.world_id !== requestedWorldId || opened.encounter_id !== requestedEncounterId) throw new Error('Combat response belongs to a different encounter.');
@@ -607,7 +607,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
               <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
-                record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
+                scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
                 onLockChange={setAdoptionBlocked} onReconciled={current=>{
                   const base=recordRef.current,local=draftRef.current;
                   if(!base||!local||current.world_id!==worldId||current.encounter_id!==base.encounter_id)

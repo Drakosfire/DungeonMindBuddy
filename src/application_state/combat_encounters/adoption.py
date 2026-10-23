@@ -49,8 +49,10 @@ def _outcome(conn,receipt):
         advanced_since_apply=receipt.committed_revision is not None and current.revision>receipt.committed_revision)
 
 
-def inspect(*,world_id,encounter_id,operation_id,request=None):
+def inspect(*,world_id,encounter_id,operation_id,request=None,scope=None):
     with unit_of_work(_dsn()) as conn:
+        from application_state.combat_encounters.access import guard
+        guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
         receipt=_receipt(conn,operation_id)
         if receipt is None:return None
         _scope(receipt,world_id,encounter_id,request)
@@ -66,8 +68,10 @@ def _insert(conn,receipt):
         (receipt.operation_id,receipt.world_id,receipt.encounter_id,receipt.created_at,Jsonb(receipt.model_dump(mode='json',by_alias=True))))
 
 
-def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest):
+def cancel(*,world_id,encounter_id,request:AdoptMechanicsRequest,scope=None):
     with unit_of_work(_dsn()) as conn:
+        from application_state.combat_encounters.access import guard
+        guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
         _lock(conn,request.operation_id)
         existing=_receipt(conn,request.operation_id)
         if existing:
@@ -173,12 +177,17 @@ def _replace(conn,world_id,record,request,snapshot,origin):
     return updated,transitions
 
 
-def apply_verified(*,world_id,encounter_id,request,snapshot,origin):
+def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None):
     with unit_of_work(_dsn()) as conn:
+        from application_state.combat_encounters.access import guard
+        owned_run=guard(conn, world_id=world_id, encounter_id=encounter_id, scope=scope)
         _lock(conn,request.operation_id)
         existing=_receipt(conn,request.operation_id)
         if existing:
             _scope(existing,world_id,encounter_id,request);return _outcome(conn,existing)
+        if owned_run is not None:
+            from application_state.combat_encounters.access import require_mutable_session
+            require_mutable_session(conn, owned_run)
         before=_encounter(conn,world_id,encounter_id)
         if before.revision!=request.expected_revision:raise ApplicationStateConflictError('Encounter changed; reload and preview adoption again')
         if request.draft_id!=snapshot.draft_id or request.locator!=snapshot.locator:

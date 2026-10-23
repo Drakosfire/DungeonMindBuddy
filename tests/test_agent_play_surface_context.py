@@ -719,7 +719,7 @@ def test_world_play_context_v2_rejects_campaign_run_even_when_ids_match(
     get_run.assert_called_once_with(tmp_path, world_id="world-a", run_id=RUN_ID)
 
 
-def _create_real_world_play_context(root: Path, *, kind: str = "plan"):
+def _create_real_world_play_context(root: Path, *, kind: str = "plan", historical_session=False):
     """Use real Content/Run producers; no mocked pin or manifest."""
     from application_state.content.service import (
         commit_plan, commit_runbook, create_world_plan, create_world_runbook,
@@ -735,12 +735,19 @@ def _create_real_world_play_context(root: Path, *, kind: str = "plan"):
     obj = create(title="Pinned opening", world_id=world.world_id)
     obj, revision = commit(str(obj.work_object_id), C2S27_SHAPED_V2_MARKDOWN,
                            expected_revision=obj.object_revision)
-    run = create_or_replay_world_play_run(
-        root, world_id=world.world_id, run_id=str(uuid.uuid4()),
-        playable_artifact_id=str(obj.work_object_id),
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
-    )
+    from tests.application_state.session_encounter_helpers import session_request
+    from apps.live_control_server.services.play_run_registry import WorldPlayRunRecord
+    if historical_session:
+        from tests.application_state.session_encounter_helpers import historical_world_run
+        from apps.live_control_server.services.play_run_registry import _world_record_from_aggregate
+        run=_world_record_from_aggregate(historical_world_run(world_id=world.world_id,run_id=str(uuid.uuid4()),playable_artifact_id=obj.work_object_id,expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256))
+    else:
+        created = create_or_replay_world_play_run(
+            root, world_id=world.world_id, run_id=str(uuid.uuid4()),
+            request=session_request(world_id=world.world_id,playable_artifact_id=obj.work_object_id,
+                expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256),
+        )
+        run=WorldPlayRunRecord.model_validate(created['run'])
     run = replace_world_play_run_progress(
         root, world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
@@ -951,7 +958,7 @@ def test_revision_zero_history_uses_original_pin_after_run_rebase(
     from apps.live_control_server.services.play_run_rebase import rebase_or_replay_world_play_run
 
     assert application_state_dsn
-    world, obj, _revision, run = _create_real_world_play_context(tmp_path, kind="runbook")
+    world, obj, _revision, run = _create_real_world_play_context(tmp_path, kind="runbook", historical_session=True)
     run = replace_world_play_run_progress(
         tmp_path, world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,

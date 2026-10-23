@@ -110,3 +110,9 @@ it.each(['close','stale'] as const)('refuses late reacquisition after %s while i
   const next=await session().open(record,()=>true);
   expect(next.recovery?.draft.title).toBe('Retained before cancellation');
 });
+it('scoped scene editors preserve the standalone World chooser selection',async()=>{
+ localStorage.setItem('dmb.combat.selected:elderwyld','standalone-fight');
+ const scoped=session();await scoped.open(record,()=>true,false);scoped.write(record,{...record.draft,title:'Scoped draft'});scoped.close();
+ expect(localStorage.getItem('dmb.combat.selected:elderwyld')).toBe('standalone-fight');
+ const restored=await session().open(record,()=>true,false);expect(restored.recovery?.draft.title).toBe('Scoped draft');
+});

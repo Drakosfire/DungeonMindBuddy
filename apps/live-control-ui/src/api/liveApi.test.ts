@@ -44,7 +44,6 @@ import {
   putWorldPlayRun,
   putWorldPlayRunProgress,
   putWorldPlayRunRebase,
-  putWorldPlayRunReferenceManifest,
   prepareWorldRunbookMarkdownWrite,
   postLiveQuery,
   postIndexAgentTurn,
@@ -3034,6 +3033,7 @@ describe("World Play V2 API transport", () => {
   };
 
   it("uses World V2 routes, owner data, exact revision pins, and CAS request bodies", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const committed = {
       schema_version: "dmb_workspace_committed_revision_v2",
       scope_mode: "world",
@@ -3089,10 +3089,9 @@ describe("World Play V2 API transport", () => {
       },
       { schema_version: "dmb_world_play_runs_list_v2", records: [run] },
       run,
-      run,
+      {schema_version:"dmb_world_session_creation_v1",state:"applied",run,manifest,receipt:{}},
       { ...run, run_revision: 5 },
       { ...run, run_revision: 6, playable_revision: 8, playable_content_sha256: "b".repeat(64) },
-      manifest,
       manifest,
     ];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => mockJsonResponse(responses.shift()));
@@ -3107,13 +3106,12 @@ describe("World Play V2 API transport", () => {
     await commitWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", writer_confirm_token: "token", expected_revision: 7 });
     await listWorldPlayRuns(worldId, playInventoryController.signal);
     await getWorldPlayRun(runId, worldId);
-    await putWorldPlayRun(runId, worldId, { playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_content_sha256: sha });
+    await putWorldPlayRun(runId, worldId, {schema_version:"dmb_world_session_create_v1", playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_work_revision_id:run.playable_work_revision_id, expected_playable_content_sha256: sha,entry_scene_id:null,encounters:[] });
     const progress = { expected_run_revision: 4, progress: run.progress };
     const rebase = { expected_run_revision: 4, target_playable_revision: 8, target_playable_content_sha256: "b".repeat(64) };
     await putWorldPlayRunProgress(runId, worldId, progress);
     await putWorldPlayRunRebase(runId, worldId, rebase);
     await getWorldPlayRunReferenceManifest(runId, worldId);
-    await putWorldPlayRunReferenceManifest(runId, worldId);
 
     expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/live/workspace-documents/world-runbooks?world_id=world%20one",
@@ -3128,7 +3126,6 @@ describe("World Play V2 API transport", () => {
       `/api/live/world-play-runs/v2/${runId}?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/progress?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/rebase?world_id=world%20one`,
-      `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
       `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
     ]);
     expect(fetchSpy.mock.calls[7]?.[1]?.signal).toBeInstanceOf(AbortSignal);

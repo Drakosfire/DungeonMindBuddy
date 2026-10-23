@@ -42,18 +42,18 @@ def create_world_combat_encounter(
 
 
 def get_world_combat_encounter(
-    *, world_id: str, encounter_id: str
+    *, world_id: str, encounter_id: str, scope=None
 ) -> CombatEncounterRecord:
-    return encounter_state.get_encounter(world_id=world_id, encounter_id=encounter_id)
+    return encounter_state.get_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
 
 
 def save_world_combat_encounter(
-    *, world_id: str, encounter_id: str, request: SaveCombatEncounterRequest
+    *, world_id: str, encounter_id: str, request: SaveCombatEncounterRequest, scope=None
 ) -> CombatEncounterRecord:
     from apps.live_control_server.services.managed_world_graph_projection import (
         ManagedWorldGraphProjectionRequest, project_managed_world_graph,
     )
-    before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id)
+    before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
     if before.revision != request.expected_revision:
         raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
     prior_ids = {entity.id for entity in before.draft.entities}
@@ -129,7 +129,7 @@ def save_world_combat_encounter(
         return encounter_state.save_encounter(
             world_id=world_id, encounter_id=encounter_id,
             request=SaveCombatEncounterRequest(expected_revision=request.expected_revision, draft=verified_draft),
-            verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots,
+            verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots, scope=scope,
         )
 
 

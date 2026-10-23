@@ -1,3 +1,5 @@
+import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
+import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
 import {TABLE_TOOL,TABLE_PROJECTION,TABLE_BINDING_ID,pendingTableKey,usePreparedTablesProjection,type PreparedTablesBinding} from "../preparedTables/preparedTablesProjection";
 import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
 import { RULES_LOOKUP_TOOL, RULES_LOOKUP_PROJECTION, useRulesLookupProjection } from "../rulesLookup/rulesLookupProjection";
@@ -340,10 +342,14 @@ function PlaySurfacePublisher({
 
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("play", true);
-  useCombatProjection("play", true);
+  const runEncounterContext=useMemo(()=>admittedRun?.schema_version==='dmb_world_play_run_record_v2'&&currentMoment?.sceneId?{
+    worldId:admittedRun.world_id,runId:admittedRun.run_id,sceneId:currentMoment.sceneId,sceneTitle:currentMoment.sceneTitle??'Scene',
+  }:null,[admittedRun?.run_id,admittedRun?.schema_version,currentMoment?.sceneId,currentMoment?.sceneTitle]);
+  useCombatProjection("play", true,runEncounterContext);
   usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);
-  return null;
+  const {activateProjectionTool}=useAgentInteraction();
+  return runEncounterContext?<PlaySurfaceContext id="play-scene-encounter" order={20} identity={publication.identity}><SceneEncounterLauncher onOpen={()=>void activateProjectionTool('combat')}/></PlaySurfaceContext>:null;
 }
 
 function PlayChooser({

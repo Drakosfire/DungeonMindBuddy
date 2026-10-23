@@ -1,3 +1,5 @@
+
+from tests.application_state.session_encounter_helpers import session_request, historical_world_run
 """Real native persistence gates. No SDK/provider or live database is a fixture."""
 from datetime import UTC,datetime
 from hashlib import sha256
@@ -35,8 +37,7 @@ def make_submission(*,edition=False):
     service=AgentConversationService();world='native-pg-'+uuid4().hex
     conversation=_new(service,world)
     obj,revision=_create_world_plan(world,markdown=V2_SOURCE_MARKDOWN)
-    created=create_world_play_run(world_id=world,run_id=str(uuid4()),playable_artifact_id=obj.work_object_id,
-        expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256)
+    created=historical_world_run(run_id=str(uuid4()), world_id=world, playable_artifact_id=obj.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)
     note='Saved native note 🦉.'
     replace_world_play_run_progress(world_id=world,run_id=created.run.run_id,expected_run_revision=created.run.run_revision,
         progress=dict(current_beat_id='beat:arrival',current_scene_id='scene:gate',resolved_beat_ids=[],selections={},notes_by_element_id={'scene:gate':note}))
@@ -285,7 +286,7 @@ def test_downgrade_refuses_genuine_graph_off_play_intent(application_state_dsn, 
 @pytest.mark.parametrize('mode', ['supported', 'unused'])
 def test_downgrade_refuses_completed_graph_off_play(application_state_dsn, tmp_path, monkeypatch, mode):
     from tests.test_rules_only_parent import case, RulesOnlyProvider
-    request, service, execute, retained, read_retained = case(tmp_path, monkeypatch, 'play')
+    request, service, execute, retained, read_retained = case(tmp_path, monkeypatch, 'play', historical_session=True)
     response = execute(RulesOnlyProvider(mode))
     assert response.answer.status == 'ok'
     pointer = service.get_world_pointer(request.owner_scope.world_id)

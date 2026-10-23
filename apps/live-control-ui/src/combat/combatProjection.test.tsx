@@ -7,6 +7,7 @@ import {buildSurfaceInteractionIdentity} from '../surfaceInteraction/surfaceIden
 import {ToolHost} from '../surfaceInteraction/toolHost/ToolHost';
 import {LegacyProjectionHostAdapter} from '../planSurface/projection/LegacyProjectionHostAdapter';
 import {COMBAT_PROJECTION,COMBAT_TOOL,useCombatProjection} from './combatProjection';
+vi.mock('./RunSceneEncounter',()=>({RunSceneEncounter:()=> <section aria-label="Combat body">Shared Combat renderer</section>}));
 vi.mock('./PlanSceneEncounter',()=>({PlanSceneEncounter:()=> <section aria-label="Combat body">Shared Combat renderer<input aria-label="Encounter draft" defaultValue="retained"/></section>}));
 vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:()=> <section aria-label="Combat body">Shared Combat renderer</section>}));
 let staleOpen!:(id:string)=>boolean;
@@ -14,7 +15,7 @@ function Publisher({id='A',surface='plan',enabled=true,registered=true,dirty=fal
  const publication=useMemo(()=>({surfaceId:surface,label:surface,identity:buildSurfaceInteractionIdentity({surfaceId:surface,instanceParts:[id]}),canvas:null,agentContext:null,
   tools:enabled?[COMBAT_TOOL]:[],editCommands:[],projections:enabled?[COMBAT_PROJECTION]:[],projectionBindings:[]}),[id,surface,enabled]);
  usePublishSurfaceInteraction(publication);
- const context=useMemo(()=>surface==='plan'&&scene?{worldId:'elderwyld',documentId:id,sceneId:'scene:gate',sceneTitle:'Gate',canCreate:!dirty,objectRevision:1,contentSha256:'a'.repeat(64)}:null,[surface,id,dirty,scene]);
+ const context=useMemo(()=>scene?surface==='plan'?{worldId:'elderwyld',documentId:id,sceneId:'scene:gate',sceneTitle:'Gate',canCreate:!dirty,objectRevision:1,contentSha256:'a'.repeat(64)}:{worldId:'elderwyld',runId:id,sceneId:'scene:gate',sceneTitle:'Gate'}:null,[surface,id,dirty,scene]);
  useCombatProjection(surface,enabled&&registered,context);
  const {openTool}=useAgentInteraction();
  useEffect(()=>{staleOpen=openTool},[openTool]);

@@ -1,10 +1,11 @@
+import {WorldSessionPreparation} from '../combat/WorldSessionPreparation';
+import {inspectSession,cancelSession,type WorldSessionRequest,type SessionSource} from '../combat/runEncountersApi';
+import {exactIntent,withIntentLock} from '../combat/exactIntent';
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getWorldOwnedPlanCommittedRevision,
   getWorldOwnedRunbookCommittedRevision,
-  getWorldPlayRun,
-  getWorldPlayRunReferenceManifest,
   getPlayRun,
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
@@ -12,7 +13,6 @@ import {
   listWorldOwnedRunbooks,
   listWorkspaceDocuments,
   putWorldPlayRun,
-  putWorldPlayRunReferenceManifest,
   putPlayRun,
   putPlayRunReferenceManifest,
 } from "../api/liveApi";
@@ -57,9 +57,7 @@ const liveWorldStartRunDeps: WorldStartRunDeps = {
   generateRunId: () => crypto.randomUUID(),
   getCommittedRevision: getWorldOwnedRunbookCommittedRevision,
   putRun: putWorldPlayRun,
-  getRun: getWorldPlayRun,
-  putManifest: putWorldPlayRunReferenceManifest,
-  getManifest: getWorldPlayRunReferenceManifest,
+  inspectCreation: (id,world)=>inspectSession(world,id),
 };
 
 type StartRunbookRecord = WorkspaceDocumentRecord | WorldOwnedRunbookRecordV2;
@@ -79,12 +77,14 @@ export function StartRunPanel({
   verifiedWorldId = null,
   initialPlanId = null,
   initialPlanRevisionPin = null,
+  initialSceneId = null,
 }: {
   onStarted: (runId: string) => void;
   productCampaignId?: string | null;
   verifiedWorldId?: string | null;
   initialPlanId?: string | null;
   initialPlanRevisionPin?: WorldStartRunExpectedSourcePin | null;
+  initialSceneId?:string|null;
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
@@ -96,6 +96,44 @@ export function StartRunPanel({
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus>("idle");
   const [attemptDetail, setAttemptDetail] = useState<string | null>(null);
   const [attempt, setAttempt] = useState<StartRunAttemptBinding | null>(null);
+  const [confirmedRequest,setConfirmedRequest]=useState<WorldSessionRequest|null>(null);
+  const [sessionSource,setSessionSource]=useState<SessionSource|null>(null);
+  const [retainedWorldAttempt,setRetainedWorldAttempt]=useState<WorldStartRunBinding|null>(null);
+  const [storageError,setStorageError]=useState<string|null>(null);
+  const sessionKey=verifiedWorldId?`dmb.session.creation:${verifiedWorldId}`:null;
+  useEffect(()=>{
+    setRetainedWorldAttempt(null);setStorageError(null);
+    if(!sessionKey)return;
+    try{const raw=localStorage.getItem(sessionKey);if(raw){const saved=JSON.parse(raw) as WorldStartRunBinding;
+      if(saved.worldId!==verifiedWorldId||saved.request?.schema_version!=='dmb_world_session_create_v1'||saved.playableArtifactId!==saved.request.playable_artifact_id)throw new Error('Stored session intent is invalid; it has been retained.');
+      setRetainedWorldAttempt(saved);}}
+    catch(error){setStorageError(String(error));}
+  },[sessionKey,verifiedWorldId]);
+  useEffect(()=>{
+    let current=true;setSessionSource(null);setConfirmedRequest(null);
+    if(!verifiedWorldId||!selectedDocumentId||retainedWorldAttempt)return;
+    const request=initialPlanId===selectedDocumentId?getWorldOwnedPlanCommittedRevision(selectedDocumentId):getWorldOwnedRunbookCommittedRevision(selectedDocumentId,verifiedWorldId);
+    request.then(source=>{if(current&&source.world_id===verifiedWorldId)setSessionSource({playable_artifact_id:source.document_id,expected_playable_revision:source.revision_n,expected_playable_work_revision_id:source.work_revision_id,expected_playable_content_sha256:source.content_sha256});}).catch(error=>{if(current)setAttemptDetail(String(error));});
+    return()=>{current=false;};
+  },[verifiedWorldId,selectedDocumentId,initialPlanId,retainedWorldAttempt]);
+  async function retainSession(binding:WorldStartRunBinding){
+    if(!sessionKey||binding.worldId!==verifiedWorldId)throw new Error('Session World changed before retention');
+    await withIntentLock(sessionKey,()=>{
+      if(!mountedRef.current||scopeRef.current.worldId!==binding.worldId)throw new Error('Session World changed before retention');
+      const raw=localStorage.getItem(sessionKey);
+      if(raw&&exactIntent(JSON.parse(raw))!==exactIntent(binding))throw new Error('Resolve the existing retained session creation first.');
+      localStorage.setItem(sessionKey,JSON.stringify(binding));setRetainedWorldAttempt(binding);setAttempt(binding);
+    });
+  }
+  async function clearRetainedSession(binding:WorldStartRunBinding){
+    if(!sessionKey)return;
+    await withIntentLock(sessionKey,()=>{
+      if(!isCurrentScope(renderedScope))return;
+      const raw=localStorage.getItem(sessionKey);
+      if(raw&&exactIntent(JSON.parse(raw))!==exactIntent(binding))throw new Error('Retained session changed; recovery is preserved.');
+      localStorage.removeItem(sessionKey);setRetainedWorldAttempt(null);
+    });
+  }
   const [campaignDraft, setCampaignDraft] = useState("");
   const [creatingBlank, setCreatingBlank] = useState(false);
   const [createBlankError, setCreateBlankError] = useState<string | null>(null);
@@ -284,13 +322,13 @@ export function StartRunPanel({
 
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunAttemptBinding | null) => {
     const scope = renderedScope;
-    const documentId = selectedDocumentId;
+    const documentId = currentAttempt && "worldId" in currentAttempt ? currentAttempt.playableArtifactId : selectedDocumentId;
     const selectionGeneration = selectionGenerationRef.current;
-    if (documentId == null || !isCurrentSelection(scope, documentId, selectionGeneration)) return;
+    if (documentId == null || (phase === "fresh" && !isCurrentSelection(scope, documentId, selectionGeneration))) return;
     const selected = runbooks.find((record) => record.document_id === documentId);
     const plan = selectedPlan?.document_id === documentId ? selectedPlan : null;
-    const expectedKind = initialPlanId != null ? "plan" : "runbook";
-    if (expectedKind === "plan" && (
+    const expectedKind = currentAttempt && "worldId" in currentAttempt ? currentAttempt.playableKind : initialPlanId != null ? "plan" : "runbook";
+    if (phase === "fresh" && expectedKind === "plan" && (
       scope.worldId == null
       || plan == null
       || plan.document_id !== initialPlanId
@@ -354,6 +392,8 @@ export function StartRunPanel({
         expectedSourcePin: expectedKind === "plan" ? initialPlanRevisionPin : null,
         attempt: currentAttempt as WorldStartRunBinding | null,
         phase,
+        confirmedRequest,
+        retainAttempt: retainSession,
         deps: worldDeps,
       })
       : await executeStartRunAttempt({
@@ -362,9 +402,11 @@ export function StartRunPanel({
         phase,
         deps: liveStartRunDeps,
       });
-    if (!isCurrentSelection(scope, documentId, selectionGeneration)) return;
+    if (phase === "fresh" ? !isCurrentSelection(scope, documentId, selectionGeneration) : !isCurrentScope(scope)) return;
     if (result.outcome === "ready") {
       if (startedRef.current === result.binding.runId) return;
+      if("worldId" in result.binding)await clearRetainedSession(result.binding);
+      if(!isCurrentScope(scope))return;
       startedRef.current = result.binding.runId;
       setAttempt(result.binding);
       onStarted(result.binding.runId);
@@ -385,7 +427,7 @@ export function StartRunPanel({
     setAttempt(result.binding ?? currentAttempt);
     setAttemptStatus("blocked");
     setAttemptDetail(result.detail);
-  }, [initialPlanId, initialPlanRevisionPin, isCurrentSelection, onStarted, renderedScope, runbooks, selectedDocumentId, selectedPlan]);
+  }, [initialPlanId, initialPlanRevisionPin, isCurrentScope, isCurrentSelection, onStarted, renderedScope, runbooks, selectedDocumentId, selectedPlan, confirmedRequest, sessionKey]);
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const currentWorldBlankAttempt = renderedScope.worldId != null
@@ -510,6 +552,14 @@ export function StartRunPanel({
   return (
     <section className="play-start-run" data-testid="play-start-run">
       <h2>{planMode ? "Play this Plan" : "Choose your material"}</h2>
+      {storageError&&<p role="alert">{storageError}</p>}
+      {verifiedWorldId&&sessionSource&&!retainedWorldAttempt&&<WorldSessionPreparation worldId={verifiedWorldId} source={sessionSource} entrySceneId={initialSceneId} onChange={setConfirmedRequest} disabled={attemptStatus==='starting'}/>}
+      {retainedWorldAttempt&&<section aria-label="Retained session creation"><p>A session creation is retained. Check, retry or cancel it before starting another.</p>
+      <button disabled={attemptStatus==='starting'} onClick={()=>{selectDocument(retainedWorldAttempt.playableArtifactId);void runAttempt('replay_create',retainedWorldAttempt);}}>Retry retained session</button>
+      <button disabled={attemptStatus==='starting'} onClick={async()=>{setAttemptStatus('starting');try{const result=await inspectSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId);if(!isCurrentScope(renderedScope))return;if(result?.state==='applied'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;onStarted(result.run.run_id);}else if(result?.state==='canceled'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');}else{setAttemptStatus('replay_create');setAttemptDetail('No terminal result yet. The exact creation intent remains retained.');}}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Check session creation</button>
+      <button disabled={attemptStatus==='starting'} onClick={async()=>{setAttemptStatus('starting');try{const result=await cancelSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);if(!isCurrentScope(renderedScope))return;const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');if(result.state==='applied')onStarted(result.run.run_id);}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Cancel session creation</button>
+      </section>}
+
       <p className="play-muted">
         {planMode
           ? "Start a fresh session from this saved Plan. Your previous sessions and notes are kept."
@@ -656,7 +706,7 @@ export function StartRunPanel({
         <button
           type="button"
           data-testid="play-start-run-submit"
-          disabled={selectedDocumentId == null || attemptStatus === "starting" || blockedPlanAttempt || (planMode && !selectedPlanReady)}
+          disabled={!!storageError || (!!verifiedWorldId && (!confirmedRequest || !!retainedWorldAttempt)) || selectedDocumentId == null || attemptStatus === "starting" || blockedPlanAttempt || (planMode && !selectedPlanReady)}
           onClick={() => {
             void runAttempt("fresh", null);
           }}
@@ -686,7 +736,7 @@ export function StartRunPanel({
           </button>
         ) : null}
       </div>
-      {attemptStatus === "starting" ? <p>Starting exact Run…</p> : null}
+      {attemptStatus === "starting" ? <p>Starting session…</p> : null}
       {attemptStatus === "blocked" ? (
         <p role="alert" data-testid="play-start-run-blocked">{attemptDetail}</p>
       ) : null}

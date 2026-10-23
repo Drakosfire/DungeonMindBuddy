@@ -1,3 +1,4 @@
+import {encounterPath,type RunEncounterScope} from './runEncountersApi';
 import { authenticatedApiFetch } from "../api/liveApi";
 import type {
   AddGeneratedStatblockRequest,
@@ -28,7 +29,8 @@ async function readJson<T>(response: Response): Promise<T> {
   return parsed as T;
 }
 
-function scopedPath(worldId: string, path = ""): string {
+function scopedPath(worldId: string, path = "", scope?:RunEncounterScope): string {
+  if(scope)return encounterPath(worldId,scope,`/encounters${path}`);
   const query = new URLSearchParams({ world_id: worldId });
   return `/api/live/combat/encounters${path}?${query.toString()}`;
 }
@@ -51,8 +53,9 @@ export async function createWorldCombatEncounter(
 export async function getWorldCombatEncounter(
   worldId: string,
   encounterId: string,
+  scope?:RunEncounterScope,
 ): Promise<CombatEncounterRecord> {
-  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`)));
+  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`,scope)));
 }
 
 export async function saveWorldCombatEncounter(
@@ -60,8 +63,9 @@ export async function saveWorldCombatEncounter(
   encounterId: string,
   expectedRevision: number,
   draft: CombatEncounterDraft,
+  scope?:RunEncounterScope,
 ): Promise<CombatEncounterRecord> {
-  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`), {
+  return readJson<CombatEncounterRecord>(await fetchCombat(scopedPath(worldId, `/${encodeURIComponent(encounterId)}`,scope), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ expected_revision: expectedRevision, draft }),
@@ -114,8 +118,8 @@ export async function previewSavedCombatMechanics(worldId:string,draftId:string,
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({draft_id:draftId,locator}),
   }));
 }
-export async function adoptCombatMechanics(worldId:string,encounterId:string,request:import('./combatTypes').AdoptMechanicsRequest,cancel=false):Promise<import('./combatTypes').MechanicsAdoptionOutcome> {
-  return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions${cancel?':cancel':''}`),{
+export async function adoptCombatMechanics(worldId:string,encounterId:string,request:import('./combatTypes').AdoptMechanicsRequest,cancel=false,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome> {
+  return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions${cancel?':cancel':''}`,scope),{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),
   }));
 }

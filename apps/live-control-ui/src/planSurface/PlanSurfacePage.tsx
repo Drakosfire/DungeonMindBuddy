@@ -1,3 +1,6 @@
+import {SurfaceContextPopover} from '../surfaceInteraction/contextHost';
+import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
+import {deferredComponent} from '../ui/deferredComponent';
 import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import { readPlanScenePosition, writePlanScenePosition } from "./planScenePosition";
 import {COMBAT_TOOL, COMBAT_PROJECTION, useCombatProjection} from "../combat/combatProjection";
@@ -95,6 +98,8 @@ type SelectedWorldPlanPlayableEditTarget = {
   generation: number;
   stale: boolean;
 };
+
+const DeferredSessionStart=deferredComponent(()=>import('../playSurface/StartRunPanel').then(module=>({default:module.StartRunPanel})),'Start session');
 
 function markdownFidelityWarnings(
   importDiagnostics: readonly MarkdownImportDiagnostic[],
@@ -387,6 +392,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [startingPlay, setStartingPlay] = useState(false);
   const [startPlayError, setStartPlayError] = useState<string | null>(null);
+  const [sessionStart,setSessionStart]=useState<{documentId:string;worldId:string;pin:{revisionN:number;workRevisionId:string;contentSha256:string};sceneId:string|null}|null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(false);
@@ -1528,15 +1534,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ) {
         throw new Error("The selected Plan or World changed before Play could start. Reopen the Plan and try again.");
       }
-      const params = new URLSearchParams({
-        world: worldId,
-        plan: selectedDocumentId,
-        plan_revision: String(committed.revision_n),
-        plan_work_revision_id: committed.work_revision_id,
-        plan_sha256: committed.content_sha256,
-      });
-      window.history.pushState({}, "", `/play?${params.toString()}`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      setSessionStart({documentId:selectedDocumentId,worldId,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},sceneId:navigationSceneId});
     } catch (reason) {
       if (
         startPlayRequestRef.current === request
@@ -1833,10 +1831,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <SurfaceNavbarIconButton icon="save" label="Retry save" className="world-plan-context-toolbar__retry"
               onClick={() => { setAutoSavePaused(false); void saveRef.current(); }} />
           ) : null}
-          <SurfaceNavbarIconButton icon="play" label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"} className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
+          <SurfaceContextPopover title="Start session" open={sessionStart?.documentId===documentId&&sessionStart?.worldId===worldId} onOpenChange={open=>{if(!open)setSessionStart(null);}} align="end" trigger={<SurfaceNavbarIconButton icon="play" label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"} className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
             aria-describedby={status === "ready" && !canStartPlayFromSavedPlan && !startingPlay && documentId ? "world-plan-start-play-reason" : undefined}
             title={canStartPlayFromSavedPlan ? "Start Play from this saved Plan" : "Save and reopen a clean, committed Plan before starting Play."}
-            disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }} />
+            disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }} />}>
+            {sessionStart&&<DeferredSessionStart verifiedWorldId={sessionStart.worldId} initialPlanId={sessionStart.documentId} initialPlanRevisionPin={sessionStart.pin} initialSceneId={sessionStart.sceneId} onStarted={runId=>{
+              const params=new URLSearchParams({world:sessionStart.worldId,run:runId});window.history.pushState({},'',`/play?${params}`);window.dispatchEvent(new PopStateEvent('popstate'));
+            }}/>}
+          </SurfaceContextPopover>
           {status === "ready" && documentId && !canStartPlayFromSavedPlan && !startingPlay ? (
             <span id="world-plan-start-play-reason" className="sr-only" data-testid="world-plan-start-play-disabled">
               Save and reopen a clean, committed Plan before starting Play.
@@ -1884,7 +1886,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </section>
         ) : null}
 
-        {sceneEncounterContext && <div className="plan-scene-encounter-entry"><button type="button" onClick={()=>void openSceneEncounterTool("combat")}>Encounter · {sceneEncounterContext.sceneTitle}</button></div>}
+        {sceneEncounterContext && <div className="plan-scene-encounter-entry"><SceneEncounterLauncher onOpen={()=>void openSceneEncounterTool("combat")}/></div>}
         <div className="plan-cards-workspace" data-plan-view={cardsViewActive ? "cards" : sourceEditing ? "source" : "document"}>
           {documentId && status === "ready" ? <PlanCardDeck key={navigationIdentity} visible={true} scenes={navigationScenes} nodes={navigationNodes}
             sceneId={navigationSceneId} onSelect={navigatePlanScene} /> : null}

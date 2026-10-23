@@ -84,6 +84,7 @@ def list_encounters(conn: psycopg.Connection, *, world_id: str) -> list[CombatEn
             FROM combat.encounter
             WHERE world_id = %s
               AND NOT EXISTS (SELECT 1 FROM combat.scene_template AS template WHERE template.encounter_id=combat.encounter.encounter_id)
+              AND NOT EXISTS (SELECT 1 FROM combat.run_scene_encounter AS instance WHERE instance.encounter_id=combat.encounter.encounter_id)
             ORDER BY updated_at DESC, encounter_id ASC
             """,
             (world_id,),

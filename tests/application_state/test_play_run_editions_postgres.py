@@ -1,3 +1,5 @@
+
+from tests.application_state.session_encounter_helpers import session_request, historical_world_run
 """Owning persistence/concurrency evidence; every test gets a fresh fixture DB."""
 
 from concurrent.futures import ThreadPoolExecutor
@@ -56,13 +58,7 @@ def create_source_run(kind="plan", markdown=V2_SOURCE_MARKDOWN):
     obj, revision = commit(
         str(obj.work_object_id), markdown, expected_revision=obj.object_revision
     )
-    run = create_world_play_run(
-        world_id=WORLD,
-        run_id=str(uuid4()),
-        playable_artifact_id=obj.work_object_id,
-        expected_playable_revision=revision.revision_n,
-        expected_playable_content_sha256=revision.content_sha256,
-    )
+    run = historical_world_run(run_id=str(uuid4()), world_id=WORLD, playable_artifact_id=obj.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)
     return obj, revision, run
 
 

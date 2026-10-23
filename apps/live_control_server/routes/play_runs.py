@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from uuid import UUID
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from apps.live_control_server.config import repo_root
@@ -49,7 +50,6 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     get_play_run_reference_manifest,
     get_world_play_run_reference_manifest,
     seal_or_replay_play_run_reference_manifest,
-    seal_or_replay_world_play_run_reference_manifest,
 )
 
 router = APIRouter(prefix="/api/live", tags=["play-runs"])
@@ -238,24 +238,35 @@ def put_world_play_active_run_v2(
     return state.model_dump(mode="json")
 
 
-@router.put("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)
-def put_world_play_run_v2(
-    run_id: str,
-    body: CreatePlayRunRequest,
-    world_id: Annotated[str, Query(min_length=1)],
-) -> dict[str, Any]:
+from application_state.play.session_encounter_types import WorldSessionCreateRequest, WorldSessionSourceRequest
+from application_state.play import session_encounters
+from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.routes.combat_encounters import _verified_world
+from apps.live_control_server.routes.combat_scene_templates import call
+from apps.live_control_server.services.play_run_registry import world_session_outcome
+
+
+@router.post("/world-play-runs/v2/preparation", dependencies=[Depends(native_graph_gm_dependency)])
+def preview_world_session(body: WorldSessionSourceRequest, world_id: str = Query(min_length=1), entry_scene_id: str | None = None):
+    return call(session_encounters.preparation_preview, world_id=_verified_world(world_id), request=body, entry_scene_id=entry_scene_id)
+
+
+@router.put("/world-play-runs/v2/{run_id}", dependencies=[Depends(native_graph_gm_dependency)])
+def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, world_id: str = Query(min_length=1)):
     try:
-        record = create_or_replay_world_play_run(
-            repo_root(),
-            world_id=world_id,
-            run_id=run_id,
-            playable_artifact_id=body.playable_artifact_id,
-            expected_playable_revision=body.expected_playable_revision,
-            expected_playable_content_sha256=body.expected_playable_content_sha256,
-        )
+        return create_or_replay_world_play_run(repo_root(), world_id=_verified_world(world_id), run_id=run_id, request=body)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return record.model_dump(mode="json")
+
+
+@router.get("/world-play-runs/v2/{run_id}/creation", dependencies=[Depends(native_graph_gm_dependency)])
+def inspect_world_session(run_id: UUID, world_id: str = Query(min_length=1)):
+    return world_session_outcome(call(session_encounters.inspect_creation, world_id=_verified_world(world_id), run_id=run_id))
+
+
+@router.post("/world-play-runs/v2/{run_id}/creation:cancel", dependencies=[Depends(native_graph_gm_dependency)])
+def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, world_id: str = Query(min_length=1)):
+    return world_session_outcome(call(session_encounters.cancel_creation, world_id=_verified_world(world_id), run_id=run_id, request=body))
 
 
 @router.get("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)
@@ -326,33 +337,6 @@ def get_world_play_run_reference_manifest_v2(
 ) -> dict[str, Any]:
     try:
         manifest = get_world_play_run_reference_manifest(
-            repo_root(), world_id=world_id, run_id=run_id
-        )
-    except PlayRunRegistryError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    except PlayRunReferenceManifestError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return manifest.model_dump(mode="json", exclude_none=True)
-
-
-@router.put(
-    "/world-play-runs/v2/{run_id}/reference-manifest",
-    response_model=AnyPlayRunReferenceManifest,
-    response_model_exclude_none=True,
-)
-async def put_world_play_run_reference_manifest_v2(
-    run_id: str,
-    request: Request,
-    world_id: Annotated[str, Query(min_length=1)],
-) -> dict[str, Any]:
-    raw = await request.body()
-    if raw.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="reference-manifest seal does not accept a request body",
-        )
-    try:
-        manifest = seal_or_replay_world_play_run_reference_manifest(
             repo_root(), world_id=world_id, run_id=run_id
         )
     except PlayRunRegistryError as exc:
