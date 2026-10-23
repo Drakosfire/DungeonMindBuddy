@@ -1,0 +1,24 @@
+.source-citation { position: relative; display: inline; margin-inline: .18em; white-space: nowrap; }
+.source-citation .source-citation__button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.5em; min-width: 1.5em; height: 1.5em; min-height: 0;
+  padding: 0; margin: 0; border: 1px solid currentColor; border-radius: 50%;
+  background: transparent; color: var(--accent, #d9b35f); font: inherit;
+  font-size: .72em; line-height: 1; vertical-align: .15em; cursor: pointer;
+}
+.source-citation__button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.source-citation__tooltip {
+  display: none; position: absolute; z-index: 20; inset-inline-start: 0; bottom: calc(100% + .5em);
+  width: max-content; max-width: min(18rem, 65vw); white-space: normal; overflow-wrap: anywhere;
+  border: 1px solid #76859a; border-radius: .4rem; padding: .45rem .65rem;
+  background: #17202e; color: #eef2f8; font-size: .8rem; line-height: 1.4;
+  pointer-events: none;
+}
+.source-citation:hover .source-citation__tooltip,
+.source-citation:focus-within .source-citation__tooltip { display: block; }
+.source-citation-evidence__panel {
+  min-width: 0; margin-block: .65rem; padding: .75rem; border: 1px solid #76859a66;
+  border-radius: .5rem; overflow-wrap: anywhere;
+}
+.source-citation-evidence__panel > header { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
+.source-citation-evidence__panel > header > strong { min-width: 0; }

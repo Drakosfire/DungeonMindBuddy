@@ -3,10 +3,11 @@ import type { Root, RootContent } from "mdast";
 import { parseMarkdownAst } from "../../tiptap/markdown/parseMarkdownAst";
 import { classifyLinkUrl } from "../../markdownReader/markdownReaderUrlPolicy";
 import "./WorldPlanAgentAnswer.css";
+import {SourceCitation} from "./SourceCitation";
 
 type MarkdownNode = Root | RootContent | { type: string; value?: string; children?: MarkdownNode[]; position?: { start: { offset?: number }; end: { offset?: number } } };
 
-export type InlineAnswerCitation = { segmentIndex: number; label: string; title: string; onOpen: () => void };
+export type InlineAnswerCitation = { segmentIndex: number; label: string; title: string; onOpen: () => void; ariaLabel?: string; expanded?: boolean; controls?: string };
 
 /** Conversation is read-only: editor round-trip admission must not flatten replies. */
 function renderMarkdown(root: Root, source: string, allowedInternalLinks: ReadonlySet<string>, citations: readonly (InlineAnswerCitation & { offset: number })[]): ReactNode {
@@ -15,8 +16,8 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
   function citation(index: number) {
     placed.add(index);
     const item = citations[index];
-    return <button key={`citation-${index}`} type="button" className="world-plan-agent-answer__citation"
-      aria-label={`Open source ${item.label}`} title={item.title} onClick={item.onOpen}>[{item.label}]</button>;
+    return <SourceCitation key={`citation-${index}`} number={item.label} title={item.title}
+      label={item.ariaLabel} expanded={item.expanded} controls={item.controls} onOpen={item.onOpen}/>;
   }
   function literal(node: MarkdownNode): string {
     const start = node.position?.start.offset;
@@ -115,7 +116,8 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
       default: return <span key={key} className="world-plan-agent-answer__literal">{literal(node)}</span>;
     }
   }
-  return render(root, 0);
+  const rendered = render(root, 0);
+  return <>{rendered}{citations.map((_,i)=>!placed.has(i) ? citation(i) : null)}</>;
 }
 
 export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ answer, className, allowedInternalLinks = [], displaySegments, inlineCitations = [] }: {
@@ -134,7 +136,7 @@ export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({ ans
     const offsets: number[] = [];
     if (displaySegments?.join("\n") === answer) {
       let offset = 0;
-      for (const text of displaySegments) { offset += text.length; offsets.push(offset); offset += 1; }
+      for (const text of displaySegments) { offsets.push(offset + text.trimEnd().length); offset += text.length + 1; }
     }
     const citations = inlineCitations.flatMap(item => Number.isInteger(item.segmentIndex) && offsets[item.segmentIndex] !== undefined
       ? [{ ...item, offset: offsets[item.segmentIndex] }] : []);

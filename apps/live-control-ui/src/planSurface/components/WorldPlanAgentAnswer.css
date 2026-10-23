@@ -18,16 +18,4 @@
 .world-plan-agent-answer :is(th,td)[data-compact-column] { width: 1%; white-space: nowrap; overflow-wrap: normal; }
 .world-plan-agent-answer__literal { white-space: pre-wrap; }
 
-.world-plan-agent-answer__citation {
-  display: inline;
-  border: 0;
-  padding: 0 .2em;
-  color: var(--accent, #d9b35f);
-  background: transparent;
-  font: inherit;
-  font-size: .8em;
-  vertical-align: super;
-  cursor: pointer;
-}
-.world-plan-agent-answer__citation:focus-visible { outline: 2px solid currentColor; }
 .buddy-source-provenance { font-size: .8rem; overflow-wrap: anywhere; }

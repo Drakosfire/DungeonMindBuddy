@@ -1,0 +1,42 @@
+import {getAgentSourcePassage,getAgentNativeSourceSection} from '../../api/liveApi';
+import type {WorldBuildGraphCompletionV2,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3} from '../../api/types';
+import {exact,canonical} from '../../shared/sourcePassageProtocol';
+import type {CitationChoice} from './SourceCitationEvidence';
+export type PassageCompletion=WorldBuildGraphCompletionV2|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
+async function hash(content:string){
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
+export function passageChoices(completion:PassageCompletion,worldId:string,turnId:string,segmentIndex?:number):CitationChoice[] {
+  const seen=new Set<string>();
+  return completion.source_citations.flatMap((citation,index)=>{
+    if(segmentIndex!==undefined && citation.segment_index!==segmentIndex)return [];
+    const r=citation.receipt;
+    const key=canonical([citation.segment_index,r.source_artifact_id,r.source_revision_id,r.content_sha256,r.line_start,r.line_end]);
+    if(seen.has(key))return [];seen.add(key);
+    const title='source_name' in citation ? `${citation.source_name} · ${r.line_start===null ? 'passage' : `lines ${r.line_start}–${r.line_end}`}` : `Passage ${index+1}`;
+    return [{key:`passage:${index}`,number:index+1,segmentIndex:citation.segment_index,title,label:'source_name' in citation ? `Read ${title}` : `Read passage ${index+1}`,kind:'passage' as const,load:async()=>{
+      const result=await getAgentSourcePassage(worldId,turnId,index);
+      if(!exact(result,['schema','target','citation','content']) || result.schema!=='dmb_agent_source_passage_read_v1'
+        || !exact(result.target,['schema','kind','world_id','turn_id','citation_index'])
+        || result.target.schema!=='dmb_agent_source_passage_open_target_v1' || result.target.kind!=='source_passage'
+        || result.target.world_id!==worldId || result.target.turn_id!==turnId || result.target.citation_index!==index
+        || canonical(result.citation)!==canonical(citation) || typeof result.content!=='string'
+        || [...result.content].length!==r.returned_chars || await hash(result.content)!==r.content_sha256)throw new Error('Source binding differs');
+      return result.content;
+    }}];
+  });
+}
+export function nativeChoices(completion:SurfaceEvidenceCompletionV3,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  return completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
+    key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
+    label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeSourceSection(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        || result.schema!=='dmb_agent_native_source_section_read_v1' || result.world_id!==worldId
+        || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
+        || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)throw new Error('Source section binding differs');
+      return result.content;
+    },
+  }]);
+}
