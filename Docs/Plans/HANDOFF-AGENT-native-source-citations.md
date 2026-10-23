@@ -1,6 +1,11 @@
 # AGENT — named native section citations and exact reopening
 
-ACTIVE serial PRIME slice, base94e8042dbb6a12fb9a4bb5ec608d97b782fd520b,
+Completed predecessor: #1637 merged6c8ccbc3c2a87b513186b9c32d741da528a00e92
+after two Bugbot cycles at reviewed head11f5f8b0d1ef98e9750cedc3c384615acecab8f2.
+Independent28 backend/opener and82 transport/UI checks passed. No serving rollout.
+Consuming lease: HANDOFF-AGENT-native-source-activation.md.
+
+Original ACTIVE serial PRIME slice, base94e8042dbb6a12fb9a4bb5ec608d97b782fd520b,
 branch codex/native-source-citations, existing buddy-context-loop checkout.
 Parents #1631 design and #1636 exact input binding. No overlapping open APP lane
 at2026-10-23 census. One independently Bugbot-reviewed PR, PRIME merge.

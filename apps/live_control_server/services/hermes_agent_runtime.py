@@ -382,6 +382,16 @@ class HermesAgentRuntimeAdapter:
                     else parent_brokered_graph_expansion_policy(graph_scope)
                 )
             )
+            if invocation.capability_policy.native_source_sections:
+                surface = invocation.context_packet.surface_context
+                if graph_scope is None or surface is None or surface.surface_id != 'play':
+                    raise ValueError('Native source tools require the admitted Play surface')
+                from .native_source_navigation import TOOLS
+                parent_policy = replace(parent_policy,
+                    enabled_tool_names=(*parent_policy.enabled_tool_names,*sorted(TOOLS)),
+                    tool_rules=(*parent_policy.tool_rules,*(HermesToolCapabilityRule(tool_name=name,
+                        toolset=TOOLSET_NAME,require_graph_scope=False,allowed_effects=frozenset({'read'}))
+                        for name in sorted(TOOLS))))
             if context_read_enabled:
                 parent_policy = replace(
                     parent_policy,

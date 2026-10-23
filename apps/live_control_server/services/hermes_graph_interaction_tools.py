@@ -67,6 +67,7 @@ PROPOSE_BUILD_INSERTION = "propose_build_insertion"
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     *ORDERED_INTERACTION_TOOL_NAMES,
+    "browse_native_source_sections", "read_native_source_sections",
     PROPOSE_BUILD_INSERTION,
     "prepare_build_image",
 )
@@ -280,10 +281,24 @@ def prepare_build_image_definition() -> dict[str, Any]:
         "parameters":{"type":"object","properties":{"prompt":{"type":"string","minLength":1,"maxLength":16000},"alt":{"type":"string","minLength":1,"maxLength":500},"purpose":{"type":"string","enum":["illustration","map"]}},"required":["prompt","alt","purpose"],"additionalProperties":False}}}
 
 
+def native_source_tool_definitions():
+    return [
+        {"type":"function","function":{"name":"browse_native_source_sections",
+            "description":"Explore the exact source behind an admitted Graph anchor for appendices, tables or statblocks beyond its opened passage. Use anchor_id returned by expand_graph_retrieval in this turn; no paths or source IDs. Returns source-name and section handles, not source facts.",
+            "parameters":{"type":"object","properties":{"anchor_id":{"type":"string","minLength":1}},
+                "required":["anchor_id"],"additionalProperties":False}}},
+        {"type":"function","function":{"name":"read_native_source_sections",
+            "description":"Read relevant exact section_handles from browse_native_source_sections. Use native_source_claim with returned section_handle selections for source-only citations. A repeated read returns references to earlier literal material, never another body. Partial results leave gaps; preserve authored possibilities versus played facts.",
+            "parameters":{"type":"object","properties":{"section_handles":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":True}},
+                "required":["section_handles"],"additionalProperties":False}}},
+    ]
+
+
 def hermes_model_visible_tool_definitions() -> list[dict[str, Any]]:
     return [
         declare_conversation_context_tool_definition(),
         *hermes_graph_interaction_tool_definitions(),
+        *native_source_tool_definitions(),
         propose_build_insertion_definition(),
         prepare_build_image_definition(),
     ]

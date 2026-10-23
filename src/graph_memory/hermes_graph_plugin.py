@@ -203,7 +203,8 @@ def default_graph_only_capability_policy(
     )
     names = tuple(
         name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION, "prepare_build_image"}
+        if name not in {READ_RELATED_RECAP_CONTEXT_TOOL_NAME, PROPOSE_BUILD_INSERTION, "prepare_build_image",
+            "browse_native_source_sections", "read_native_source_sections"}
     )
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
@@ -560,6 +561,13 @@ def _handler_for(tool_name: str):
                             or packet.normalized_question != normalized_question(payload["question"])):
                         raise ValueError("Rules packet differs from admitted source/query/call")
                 return raw
+            if tool_name in {"browse_native_source_sections","read_native_source_sections"}:
+                broker = _active_parent_graph_broker.get()
+                if not _parent_graph_broker_required.get() or not callable(broker):
+                    return _policy_denied_error(code="native_source_broker_required",message="Native source sections require the current parent owner.")
+                if get_active_rules_call_id() is None:
+                    return _policy_denied_error(code="native_source_call_identity_required",message="Source navigation has no actual model call identity.")
+                return broker(tool_name,payload)[0]
             if tool_name in {PROPOSE_BUILD_INSERTION, "prepare_build_image"}:
                 broker = _active_parent_graph_broker.get()
                 if not _parent_graph_broker_required.get() or not callable(broker):

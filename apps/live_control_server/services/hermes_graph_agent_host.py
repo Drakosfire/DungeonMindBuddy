@@ -573,6 +573,8 @@ def hermes_graph_agent_worker_main(
                     "propose_build_insertion",
                     "prepare_build_image",
                     "lookup_rules",
+                    "browse_native_source_sections",
+                    "read_native_source_sections",
                 }:
                     return (
                         '{"schema":"dmb_world_graph_retrieval_error_v1",'
@@ -589,7 +591,7 @@ def hermes_graph_agent_worker_main(
                         "toolName": tool_name,
                         "arguments": dict(arguments),
                     }
-                    if tool_name == "lookup_rules":
+                    if tool_name in {"lookup_rules","browse_native_source_sections","read_native_source_sections"}:
                         from graph_memory.hermes_graph_plugin import (
                             get_active_rules_call_id,
                         )
@@ -686,6 +688,11 @@ def hermes_graph_agent_worker_main(
 def _rules_operation_permitted(request, tool_name: str) -> bool:
     """Extra domain fence on the shared broker channel, not lookup authority."""
     policy = request.capability_policy
+    if tool_name in {"browse_native_source_sections","read_native_source_sections"}:
+        rule=policy.rule_for(tool_name) if policy is not None else None
+        return bool(policy is not None and policy.graph_scope is not None and rule is not None
+            and rule.allowed_effects == frozenset({'read'}) and tool_name in policy.enabled_tool_names
+            and request.provider_authorization_required and request.parent_graph_broker_required)
     if tool_name == "lookup_rules":
         return bool(
             policy is not None
@@ -1071,7 +1078,7 @@ class HermesGraphAgentHost:
                     operation_id == expected_id
                     and _rules_operation_permitted(request, tool_name)
                     and (
-                        tool_name != "lookup_rules"
+                        tool_name not in {"lookup_rules","browse_native_source_sections","read_native_source_sections"}
                         or (
                             isinstance(message.get("modelCallId"), str)
                             and bool(message["modelCallId"].strip())
@@ -1087,6 +1094,8 @@ class HermesGraphAgentHost:
                         "propose_build_insertion",
                         "prepare_build_image",
                         "lookup_rules",
+                        "browse_native_source_sections",
+                        "read_native_source_sections",
                     }
                     and isinstance(arguments, Mapping)
                     and on_graph_operation is not None

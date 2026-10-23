@@ -41,6 +41,20 @@ def _source_trace(turn, trace):
             for row in trace.get("observations", []) if row.get("kind") in {"source_passage", "source_passage_reuse"}]
 
 
+def _covered_by_native(read, native_reads):
+    """Suppress a duplicate literal only with exact source/range/byte coverage."""
+    if read.line_start is None or read.line_end is None:return False
+    for native in native_reads:
+        if (read.source_artifact_id != native.source_artifact_id
+                or read.source_revision_id != native.native_source_revision_id
+                or native.section.line_start > read.line_start or native.section.line_end < read.line_end):continue
+        lines=native.text.splitlines(keepends=True)
+        start=read.line_start-native.section.line_start
+        end=read.line_end-native.section.line_start+1
+        if ''.join(lines[start:end]) == read.text:return True
+    return False
+
+
 def project(turn, proof, trace):
     from . import types as t
     receipt, execution = _owner(turn)
@@ -139,6 +153,7 @@ def project(turn, proof, trace):
         raise ValueError("Plan source labels must be host display metadata")
     sources = {e.event_id: e for e in execution.events if isinstance(e, t.SOURCE_PASSAGE_EVENTS)}
     passages, source_events, present, seen = [], set(), set(), set()
+    passage_origins = []
     for passage in _source_trace(turn, trace):
         if passage.evidence_ref_id not in handles:
             continue
@@ -153,6 +168,7 @@ def project(turn, proof, trace):
                 raise ValueError("Plan captured passage changed its exact source identity")
         if sha256(passage.text.encode()).hexdigest() != read.content_sha256 or len(passage.text) != read.returned_chars:
             raise ValueError("Plan captured passage changed its source bytes")
+        passage_origins.append((source.event_id,passage))
         seen.add(passage.source_read_id)
         source_events.add(source.event_id)
         present.add(passage.evidence_ref_id)
@@ -162,6 +178,16 @@ def project(turn, proof, trace):
             "evidence_sufficiency": read.evidence_sufficiency_status})
     if not set(names) <= seen:
         raise ValueError("Plan source display label has no included captured passage")
+    # A source event is the inclusion unit. Drop it only when every captured
+    # literal in that event is already present in an exact native section.
+    # Partial overlaps stay intact; native bytes do not donate Graph authority.
+    native_reads=[e for e in execution.events if isinstance(e,t.NativeSourceSectionObservedV1) and e.outcome=='complete']
+    covered={event_id for event_id in source_events if all(_covered_by_native(p,native_reads)
+        for origin,p in passage_origins if origin==event_id)}
+    if covered:
+        passages=[row for row,(event_id,_) in zip(passages,passage_origins,strict=True) if event_id not in covered]
+        source_events-=covered
+        present={p.evidence_ref_id for event_id,p in passage_origins if event_id not in covered}
     gaps = sorted({(failure.phase, failure.code)
         for row in trace.get("observations", []) if row.get("kind") == "failure"
         for failure in (TraceFailure.model_validate(row),)

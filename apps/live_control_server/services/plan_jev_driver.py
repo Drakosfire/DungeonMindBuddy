@@ -13,6 +13,8 @@ _RUNTIME_GRAPH_FIELDS = {"retrievalSessionId", "addedClaimIds", "claimLedger"}
 class PlanJevDriver:
     def __init__(self, adapter, *, dialogue=(), rules=None, retained_navigation=()):
         self.adapter, self.rules = adapter, rules
+        from .native_source_navigation import navigator
+        self.native_sources = navigator(adapter)
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
         self.attempted_nodes, self.attempted_anchors = set(), set()
@@ -38,9 +40,11 @@ class PlanJevDriver:
                 handle=f"node:{node}", label=row["label"], kind="World entity")))
 
     def offered(self):
+        if self.finished:return ()
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         if self.rules is not None and not self.rules.selected:
             result.append(rules_candidate())
+        result.extend(self.native_sources.offered())
         return tuple(result)
 
     def _graph_read(self, operation, node=None):
@@ -131,6 +135,7 @@ class PlanJevDriver:
         if selected.operation == "finish_retrieval":
             self.finished = True
             return
+        from application_state.errors import ApplicationStateValidationError
         operations = set()
         if selected.operation == "discover_more":
             if self.discovered: raise ValueError("Plan discovery cannot repeat the same query")
@@ -140,12 +145,19 @@ class PlanJevDriver:
             offered = {candidate.handle for candidate in dispatch.parent.candidates}
             if not set(selected.selected_handles) <= offered:
                 raise ValueError("Plan selection changed its offered catalog")
+            native_handles = {candidate.handle for candidate in self.native_sources.offered()}
             nodes = [self.catalog[handle][0] for handle in selected.selected_handles
-                     if handle != rules_candidate().handle]
+                     if handle != rules_candidate().handle and handle not in native_handles]
             if any(node in self.attempted_nodes for node in nodes):
                 raise ValueError("Plan object cannot be reacquired")
             with self.adapter.plan_graph_acquisition(nodes):
                 for handle in selected.selected_handles:
+                    if handle in native_handles:
+                        try:
+                            self.native_sources.select([handle])
+                        except (ValueError,ApplicationStateValidationError):
+                            self.native_sources.unavailable('source_navigation_unavailable')
+                        continue
                     if handle == rules_candidate().handle:
                         if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
                         self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))

@@ -39,7 +39,7 @@ class WriterWire(httpx.AsyncBaseTransport):
 
 
 def graph_answer():
-    return {'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
+    return {'schema':'dmb_surface_evidence_answer_v3','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'graph_claim','claim_id':'claim:1',
         'text':'The park journal reports a wooden walkway.','target_kind':'assertion','target_id':'assertion:pond',
         'passage_handles':[]}]}
@@ -146,7 +146,7 @@ def test_transport_close_failure_does_not_hide_an_already_accepted_turn(plan_ada
 
 def test_unused_graph_can_return_a_labeled_proposal_without_factual_connective(plan_adapter):
     writer=stage_graph(plan_adapter)
-    answer={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
+    answer={'schema':'dmb_surface_evidence_answer_v3','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'proposal','label':'invented_idea','text':'We could begin beside the pond.'}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
@@ -212,7 +212,7 @@ def test_session_quote_name_and_owner_come_from_exact_writer_input(plan_adapter)
     proof=asyncio.run(PlanJevDriver(a).run(transport=Decisions(),api_key='synthetic-not-secret'))
     writer=PlanJevWriter(a,proof,rules)
     source=next(row for row in writer.projection.frame['authored_sources'] if row['source_kind']=='session')
-    candidate={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],
+    candidate={'schema':'dmb_surface_evidence_answer_v3','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'authored_excerpt','block_handle':writer.projection.frame['session_evidence'][0]['sources'][0]['text_blocks'][0]['block_handle']}]}
     wire=WriterWire(a,json.dumps(candidate))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
@@ -243,7 +243,7 @@ def test_active_native_acquisition_refuses_writer_before_authorization_or_sdk_se
 def test_actual_writer_seals_image_prompt_as_creative_direction_not_a_fact(plan_adapter):
     writer=stage_graph(plan_adapter)
     prompt='A broken timber boardwalk above dark fen water. No town or tower.'
-    answer={'schema':'dmb_surface_evidence_answer_v2','limitations':[],'requested_detail_gaps':[],'answer_segments':[
+    answer={'schema':'dmb_surface_evidence_answer_v3','limitations':[],'requested_detail_gaps':[],'answer_segments':[
         {'kind':'proposal','label':'image_prompt','text':prompt}]}
     wire=WriterWire(plan_adapter,json.dumps(answer))
     completed=asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
@@ -275,7 +275,7 @@ def test_identical_notes_and_closing_reflections_select_distinct_frozen_entries(
     entries=writer.projection.frame['session_evidence'][0]['sources']
     handles=[entry['text_blocks'][0]['block_handle'] for entry in entries]
     assert len(set(handles))==3
-    payload=dict(schema='dmb_surface_evidence_answer_v2',limitations=[],requested_detail_gaps=[],
+    payload=dict(schema='dmb_surface_evidence_answer_v3',limitations=[],requested_detail_gaps=[],
         answer_segments=[dict(kind='authored_excerpt',block_handle=handle) for handle in handles])
     wire=WriterWire(a,json.dumps(payload));completed=asyncio.run(writer.run(transport=wire,api_key='synthetic'))
     segments=completed.completion.answer_segments
@@ -295,7 +295,7 @@ def test_empty_acquisition_completes_typed_gaps_without_repair_or_fabricated_evi
     proof = asyncio.run(driver.run(transport=Decisions(), api_key='synthetic-not-secret'))
     assert proof['graph_packets'] == {} and not plan_adapter.source_payloads
     writer = PlanJevWriter(plan_adapter, proof, rules)
-    answer = {'schema':'dmb_surface_evidence_answer_v2', 'answer_segments':[],
+    answer = {'schema':'dmb_surface_evidence_answer_v3', 'answer_segments':[],
         'limitations':['missing_requested_details','partial_retrieval'],
         'requested_detail_gaps':[plan_adapter.request.message if malformed else {'question_phrase':plan_adapter.request.message}]}
     wire = WriterWire(plan_adapter, json.dumps(answer))
@@ -329,7 +329,7 @@ def test_session_excerpts_and_corpus_claim_keep_distinct_producing_owners(plan_a
     a.work=replace(a.work,session_evidence={'sessions':[packet]})
     writer=stage(a)
     entries=writer.projection.frame['session_evidence'][0]['sources']
-    payload=dict(schema='dmb_surface_evidence_answer_v2',limitations=[],requested_detail_gaps=[],
+    payload=dict(schema='dmb_surface_evidence_answer_v3',limitations=[],requested_detail_gaps=[],
         answer_segments=[*[dict(kind='authored_excerpt',block_handle=e['text_blocks'][0]['block_handle']) for e in entries],
             dict(kind='source_passage_claim',text='The journal describes a wooden walkway.',
                  passage_handles=[writer.projection.frame['opened_passages'][0]['passage_handle']])])
