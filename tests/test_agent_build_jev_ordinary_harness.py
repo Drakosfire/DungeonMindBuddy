@@ -29,8 +29,9 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 
 
 class DecisionWire(httpx2.AsyncBaseTransport):
-    def __init__(self, *, operation="answer_from_sources", timeout=False):
+    def __init__(self, *, operation="answer_from_sources", timeout=False, operation_scores=None):
         self.calls, self.operation, self.timeout = [], operation, timeout
+        self.operation_scores = operation_scores
 
     async def handle_async_request(self, request):
         self.calls.append(request)
@@ -62,7 +63,8 @@ class DecisionWire(httpx2.AsyncBaseTransport):
                 "type": "choice",
                 "choice": selected,
                 "confidence": 1,
-                "probabilities": {x: float(x == selected) for x in labels},
+                "probabilities": (self.operation_scores if key == "operation" and self.operation_scores is not None
+                    else {x: float(x == selected) for x in labels}),
             }
         return httpx2.Response(
             200,
@@ -263,6 +265,38 @@ def test_ordinary_source_question_uses_jev_and_exactly_one_cited_writer(
     assert "coverage_judgments" not in disposition
     assert turn.graph_context_execution.policy.frontier_policy == "evidence_bound_deferred_frontier_v1"
     assert response.knowledge_context.delivery_replay is False
+
+
+@pytest.mark.parametrize("score", [0.89, 0.6])
+def test_unique_winning_discussion_route_below_old_cutoff_reaches_writer(build_case, monkeypatch, tmp_path, score):
+    case, calls = ordinary_case(build_case, monkeypatch)
+    decisions = DecisionWire(operation_scores={"answer_from_sources": score, "cannot_select": 1-score})
+    writer = WriterWire()
+    response = execute(case, tmp_path, BuildJevHarness(decision_transport=decisions, writer_transport=writer))
+    assert response.answer.text == "Frank believes the western gate is haunted."
+    assert len(writer.calls) == 1
+    assert calls == {"graph": 1, "source": 1}
+
+
+@pytest.mark.parametrize("scores", [
+    {"answer_from_sources": 0.5, "cannot_select": 0.5},
+    {"answer_from_sources": 0.4, "cannot_select": 0.6},
+])
+def test_nonwinning_or_tied_discussion_route_never_calls_writer(build_case, monkeypatch, tmp_path, scores):
+    case, _ = ordinary_case(build_case, monkeypatch)
+    writer = WriterWire()
+    with pytest.raises(Exception, match="could not complete safely"):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=DecisionWire(operation_scores=scores), writer_transport=writer))
+    assert not writer.calls
+
+
+def test_below_threshold_proposal_stays_refused(build_case, monkeypatch, tmp_path):
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    writer = WriterWire()
+    scores = {"answer_from_sources": 0.1, "propose_build_insertion": 0.89, "cannot_select": 0.01}
+    with pytest.raises(Exception, match="could not complete safely"):
+        execute(case, tmp_path, BuildJevHarness(decision_transport=DecisionWire(operation="propose_build_insertion", operation_scores=scores), writer_transport=writer))
+    assert not writer.calls
 
 
 @pytest.mark.parametrize("long_instruction", [False, True])
