@@ -123,27 +123,23 @@ export function SurfaceContextPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const [resolvedAlign, setResolvedAlign] = useState(align);
 
-  useEffect(() => {
-    setResolvedAlign(align);
-  }, [align, open, placement]);
-
   useLayoutEffect(() => {
-    if (!open || placement !== "beside") {
-      return;
-    }
     const panel = panelRef.current;
-    if (!panel) {
-      return;
-    }
-    const rect = panel.getBoundingClientRect();
+    const root = rootRef.current;
+    if (!open || !panel || !root) return;
+    const anchor = root.getBoundingClientRect();
+    const width = panel.getBoundingClientRect().width;
     const margin = 12;
-    if (align === "end" && rect.right > window.innerWidth - margin) {
-      setResolvedAlign("start");
-      return;
-    }
-    if (align === "start" && rect.left < margin) {
-      setResolvedAlign("end");
-    }
+    const below = placement === "below" || window.innerWidth <= 720;
+    const leftFor = (candidate: "start" | "end") => below
+      ? candidate === "start" ? anchor.left : anchor.right - width
+      : candidate === "start" ? anchor.left - width - 8 : anchor.right + 8;
+    const fits = (candidate: "start" | "end") => {
+      const left = leftFor(candidate);
+      return left >= margin && left + width <= window.innerWidth - margin;
+    };
+    const alternative = align === "start" ? "end" : "start";
+    setResolvedAlign(fits(align) || !fits(alternative) ? align : alternative);
   }, [align, open, placement, children]);
 
   useEffect(() => {

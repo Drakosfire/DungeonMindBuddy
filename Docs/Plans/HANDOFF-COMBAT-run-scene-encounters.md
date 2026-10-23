@@ -18,7 +18,7 @@ Architecture assessment `01a1666f-fbde-7892-8034-2c42256bdf7e` in authorized cha
 semantics, complete replayable Run intent including entry scene, and server-side
 Run ownership rather than a UI-only link. The closures below resolve those gates.
 
-## ACTIVE C2 implementation lease
+## SETTLED C2 implementation lease
 
 PRIME activates one serial implementation PR on
 `a894be2fb255c5fae5e89d6c9a31bd0f278ad901`, branch
@@ -50,6 +50,25 @@ test_native_play_graph_postgres.py,test_play_run_editions_postgres.py,
 test_agent_conversation_postgres.py}, product_continuity/test_inventory_postgres.py.
 Amend before any additional path edit. No historical migration, runtime source
 outside this lease or standalone status PR.
+
+## ACTIVE rendered confirmation correction
+
+C2 shipped #1625 after three Bugbot cycles, reviewed head
+`7e0ec136d851a986aa034ae616f209e87c100eb2`, merge
+`56b6ddd80378604fd4dd3cff7187597d7c312cd6`. API8000/UI5202 now serve that
+merge on APP0052. Protected APP/native rows,79 mechanics files and17 frozen
+components were preserved. Its implementation lease is released.
+
+Ordinary UI rehearsal found the Plan session confirmation right-aligned to a
+left-edge trigger, placing its Start button outside the viewport. PRIME activates
+one serial correction PR on that merge, branch
+`codex/combat-session-confirmation-placement`, existing checkout and runtime lease.
+Exclusive write set: this handoff, ROADMAP-demo.md, shared
+surfaceInteraction/contextHost/{SurfaceContextPrimitives.tsx,surfaceContext.css,
+SurfaceContextPrimitives.test.tsx}. Fix viewport-aware below/beside alignment in
+the shared component, independently review, merge, deploy and resume the ordinary
+Plan→Play encounter/reload/restart witness. No session/data contract change.
+Full adventure acceptance remains open. Amend before additional paths.
 
 ## C1 settlement and outcome
 

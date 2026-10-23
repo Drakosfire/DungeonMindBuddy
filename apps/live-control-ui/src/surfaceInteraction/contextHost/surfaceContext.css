@@ -193,6 +193,12 @@
   /* Narrow viewports: keep the flyout on-screen under the trigger. */
   .surface-context-popover--placement-beside .surface-context-popover__panel {
     top: calc(100% + 0.35rem);
+  }
+  .surface-context-popover--placement-beside.surface-context-popover--align-start .surface-context-popover__panel {
+    left: 0;
+    right: auto;
+  }
+  .surface-context-popover--placement-beside.surface-context-popover--align-end .surface-context-popover__panel {
     left: auto;
     right: 0;
   }
