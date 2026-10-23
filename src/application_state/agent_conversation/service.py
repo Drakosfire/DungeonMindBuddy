@@ -1247,6 +1247,7 @@ class AgentConversationService:
         plan_jev_input_proof: dict | None = None,
         plan_jev_selection_proof: dict | None = None,
         plan_jev_writer_proof: dict | None = None,
+        native_source_materializer=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1266,6 +1267,9 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            from .types import NativeSourceCatalogObservedV1
+            if native_source_materializer is None and isinstance(event, NativeSourceCatalogObservedV1):
+                raise ApplicationStateValidationError("Catalog receipt requires its immutable source transaction owner")
             from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
             from .types import PlanJevWriterAuthorizedV1
             if isinstance(event, PlanJevWriterAuthorizedV1):
@@ -1415,6 +1419,14 @@ class AgentConversationService:
                         owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame))
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            # Materialize only after every existing owner/Rules writer fence.
+            if native_source_materializer is not None:
+                event = native_source_materializer(conn, turn)
+                for prior in execution.events:
+                    if prior.event_id == event.event_id:
+                        if prior != event:
+                            raise ApplicationStateConflictError("Native source event was reused with changed content")
+                        return turn, False
             if event.sequence != len(execution.events) + (1 if native_inclusion is not None else 0):
                 raise ApplicationStateConflictError("Graph execution event sequence is stale")
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
@@ -1588,6 +1600,22 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
+
+    def materialize_native_source_catalog(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, navigation_id: UUID, event_id: UUID,
+    ):
+        from .native_source_catalog import materialize_catalog_locked
+        material = []
+        def produce(conn, turn):
+            event, body = materialize_catalog_locked(conn, turn,
+                navigation_id=navigation_id, event_id=event_id)
+            material.append(body)
+            return event
+        turn, fresh = self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
+        return turn, fresh, material[0] if fresh else None
 
     def authorize_native_source_navigation(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
