@@ -62,11 +62,14 @@ def prepared_provider(owner, *, role="controller", result=None, schema=None, pha
             carrier.update(input_policy="role_separated_controller_inputs_v1", phase_binding={"phase": phase})
         body = {"model": "jev-1.14.0", "state": carrier, "questions": {"action": {"question": "Choose current action"}}}
     else:
-        if schema == "dmb_build_source_passage_writer_v1":
+        if schema in {"dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1"}:
             carrier.update(source_writer_output_policy="cited_facts_host_limitations_v1",
                 requested_detail_gap_policy="exact_question_phrase_selected_excerpts_v1")
         else:
             carrier.update(input_policy="complete_exposed_graph_and_opened_sources_v1")
+        if schema == "dmb_build_primary_context_writer_v1":
+            from application_state.agent_conversation import build_primary_context as primary
+            carrier["artifact_under_edit"] = {"policy": primary.POLICY, "role": primary.ROLE, "sections": []}
         body = {"model": "gpt-6-luna", "input": json.dumps(carrier), "tools": []}
     raw = json.dumps(body)
     refs = () if result is None else result.observation.support_refs
@@ -348,3 +351,19 @@ def test_first_provider_cannot_skip_to_a_writer_even_without_source_claims():
     writer, raw = prepared_provider(owner, role="writer")
     with pytest.raises(ValueError, match="initial controller"):
         append(owner, writer)
+
+
+@pytest.mark.parametrize("schema", ["dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1"])
+def test_exact_versioned_writer_carrier_keeps_rules_binding(schema):
+    owner, result, _ = read_after_controller()
+    writer, raw = prepared_provider(owner, role="writer", result=result, schema=schema)
+    completed = acknowledge(owner, writer, raw)
+    accepted, _ = accept(completed, writer, result.observation.support_refs)
+    assert accepted.state == "accepted"
+    if schema == "dmb_build_primary_context_writer_v1":
+        body = json.loads(raw)
+        carrier = json.loads(body["input"])
+        carrier["artifact_under_edit"]["role"] = "world_truth"
+        body["input"] = json.dumps(carrier)
+        with pytest.raises(ValueError):
+            verify_prepared_input(owner, writer, json.dumps(body))

@@ -2610,6 +2610,14 @@ class BuildImageActionPolicyV1(BuildEncodedAssessmentPolicyV1):
         return self
 
 
+class BuildPrimaryWorkPolicyV1(BuildEncodedAssessmentPolicyV1):
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1"]
+
+
+class BuildPrimaryWorkImagePolicyV1(BuildImageActionPolicyV1):
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1"]
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -3849,7 +3857,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3935,7 +3943,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                                              if isinstance(e, BuildSectionProviderInclusionV1)
                                              and e.provider_attempt_id == event.provider_attempt_id
                                              for eid in e.section_event_ids}
-                        if included_sections != set(writer_selection.section_read_ids):
+                        from .build_primary_context import writer_read_ids
+                        if included_sections != writer_read_ids(self):
                             raise ValueError("Source writer saved sections differ from selected closure")
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")

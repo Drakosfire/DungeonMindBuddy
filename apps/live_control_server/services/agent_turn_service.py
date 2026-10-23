@@ -1238,7 +1238,12 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildImageActionPolicyV1
+            policy_class = (graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
+                if (budget.get("buildJevActions") or {}).get("primary_work_context_policy") is not None
+                    and (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                else graph_types.BuildPrimaryWorkPolicyV1
+                if (budget.get("buildJevActions") or {}).get("primary_work_context_policy") is not None
+                else graph_types.BuildImageActionPolicyV1
                 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildEncodedAssessmentPolicyV1
                 if (budget.get("buildJevActions") or {}).get("assessment_codec") is not None
@@ -2178,6 +2183,10 @@ class _PolicyExecutionAdapter:
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
+                if writing and getattr(active_writer, "source_only", False):
+                    from application_state.agent_conversation.build_primary_context import validate_packet
+                    selected = [e.model_dump(mode="json", by_alias=True) for e in validate_packet(
+                        section_state, execution, self._broker_receipt().source_basis)]
                 if active_driver is not None:
                     selected = [event.model_dump(mode="json", by_alias=True) for event in execution.events
                         if isinstance(event, graph_types.ValidatedBuildSectionReadV1)

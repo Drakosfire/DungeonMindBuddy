@@ -191,7 +191,7 @@ def verify_build_output(execution, *, producing_provider_attempt_id: UUID,
     auth = auths[-1] if auths else None
     if (not isinstance(auth, RulesBuildProviderAuthorizedV1)
             or auth.provider_attempt_id != producing_provider_attempt_id or auth.role != "writer"
-            or auth.carrier_schema != "dmb_build_source_passage_writer_v1"):
+            or auth.carrier_schema not in {"dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1"}):
         raise ValueError("Mixed output lacks its actual final Build source writer")
     included = [e for e in execution.events if isinstance(e, RulesProviderIncludedV1)
                 and e.provider_attempt_id == producing_provider_attempt_id]

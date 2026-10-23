@@ -1,6 +1,12 @@
 # Requested-detail retrieval relevance
 
-ACTIVE serial PRIME slice. Base 835cfc75d8434b00f448e379a3f76ec61521a810;
+SHIPPED #1663; reviewed head bd5b036a9dc99f7679deb2bf88172dd1d70bb1ec,
+merged b675e6e68383ff76d8ec015647ed03f2e8539ecd and protected API-delivered5202.
+Independent Bugbot approved; actual-request and APP checks passed. Ordinary repeated
+grounding improved retrieval efficiency, but attribution/creative framing quality
+remains open. Detailed private runtime evidence is retained locally.
+
+Historical serial PRIME slice. Base 835cfc75d8434b00f448e379a3f76ec61521a810;
 branch codex/jev-requested-detail-relevance, reused buddy-context-loop checkout.
 Operator authorizes continued Jev/prompt refinement and measured grounding quality.
 No overlapping open implementation PR; current remote and census inspected.

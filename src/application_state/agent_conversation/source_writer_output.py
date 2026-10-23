@@ -295,6 +295,11 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
             raise ValueError("Invalid or duplicate saved-section selector")
         read_ids.add(str(read.read_id))
         event_ids.add(read.event_id)
+    from .build_primary_context import packet_rows
+    for row in packet_rows(packet):
+        if row["read_id"] in read_ids:
+            raise ValueError("Primary section duplicated into selected evidence")
+        read_ids.add(row["read_id"])
     if requested_detail_gaps and packet.get("requested_detail_gap_policy") != GAP_POLICY:
         raise ValueError("Gap output schema requires its exact packet capability")
     schema = CitedSourceAnswerWithGaps.model_json_schema() if requested_detail_gaps else output_schema()
@@ -503,11 +508,9 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
         for e in execution.events
         if isinstance(e, t.ValidatedBuildSectionReadV1) and e.event_id in section_ids
     }
-    supplied_sections = packet.get("exposure", {}).get("saved_sections", [])
-    expected_sections = sorted(
-        [e.model_dump(mode="json", by_alias=True) for e in sections.values()],
-        key=lambda e: e["event_id"],
-    )
+    from .build_primary_context import validate_packet
+    supplied_sections = validate_packet(packet, execution, turn.graph_context_receipt.source_basis)
+    expected_sections = sorted(sections.values(), key=lambda e: str(e.event_id))
     if supplied_sections != expected_sections:
         raise ValueError("Writer saved sections differ from producing included reads")
     if packet.get("source_basis") != turn.graph_context_receipt.source_basis.model_dump(
