@@ -17,6 +17,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringPrepareRequest,
     GraphObjectAuthoringPrepareResponse,
     prepare_graph_object_authoring_write,
+    graph_review_supported_object_kinds,
 )
 
 router = APIRouter(prefix="/api/live/graph-authoring", tags=["graph-authoring"])
@@ -28,6 +29,11 @@ _STORE_RETIRED = {
         "Use Graph Review prepare/commit on DungeonMind World Graph authority."
     ),
 }
+
+
+@router.get("/object-kinds")
+def get_graph_object_authoring_kinds() -> dict[str, Any]:
+    return {"objectKinds": graph_review_supported_object_kinds()}
 
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)

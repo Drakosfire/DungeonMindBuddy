@@ -1,6 +1,13 @@
 # FOUNDATION — native authoring prepare without campaign overlay authority
 
-ACTIVE serial PRIME slice frombdf62e032b81004b0b575932f86bd5065993d4e3,
+SHIPPED #1657 at43c16b294853e3f5b3c32ba817bdd38e91f2e82d after independent
+Bugbot approval of2e32a2dfd982476963dad9017b2200487c97a7df. Protected API
+delivery preserved2056 APP rows, native state,89 mechanics files and22 frozen
+components. Ordinary exact preview retry succeeded; confirmation exposed an
+unsupported legacy `object` kind. Publication tables stayed unchanged. Rendered
+J3 acceptance remains open; the native-kind preflight successor owns that failure.
+
+Original serial PRIME slice frombdf62e032b81004b0b575932f86bd5065993d4e3,
 branch codex/native-authoring-no-overlay in reused buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected API delivery5202.
 No overlapping current PR owns these native prepare paths.

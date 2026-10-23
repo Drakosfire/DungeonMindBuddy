@@ -191,3 +191,48 @@ def test_overlay_free_native_prepare_still_refuses_stale_parent(case):
         confirm(case, prepared)
     assert error.value.code == "stale_parent"
     assert case.authority.publish_calls == 0
+
+
+@pytest.mark.parametrize("kind", ["object", "concept", "unknown"])
+def test_unsupported_kind_refuses_preview_before_source_admission(case, kind):
+    case.request.proposals[0].object_ref["kind"] = kind
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        prepare(case)
+    assert error.value.code == "authoring_kind_unsupported"
+    case.admission.prove_or_admit.assert_not_called()
+    case.authority.current_head.assert_not_called()
+
+
+def test_submitted_unsupported_kind_recovers_before_refusing_without_publish(case, monkeypatch):
+    from apps.live_control_server.services import graph_object_authoring_prepare as owner
+    # Simulate the already signed request from before preflight was introduced.
+    case.request.proposals[0].object_ref["kind"] = "object"
+    with monkeypatch.context() as old:
+        old.setattr(owner, "validate_graph_review_object_kinds", lambda assertions: None)
+        prepared = prepare(case)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        confirm(case, prepared)
+    assert error.value.code == "authoring_kind_unsupported"
+    assert case.authority.recover_calls == 1
+    assert case.authority.publish_calls == 0
+
+
+def test_already_applied_receipt_wins_over_new_kind_refusal(case, monkeypatch):
+    from apps.live_control_server.services import graph_object_authoring_prepare as owner
+    from apps.live_control_server.services import graph_object_authoring_commit as commit_owner
+    case.request.proposals[0].object_ref["kind"] = "object"
+    with monkeypatch.context() as old:
+        old.setattr(owner, "validate_graph_review_object_kinds", lambda assertions: None)
+        old.setattr(commit_owner, "validate_graph_review_object_kinds", lambda assertions: None)
+        prepared = prepare(case)
+        assert confirm(case, prepared).committed
+    assert confirm(case, prepared).idempotency_status == "already_applied"
+    assert case.authority.publish_calls == 1
+
+
+def test_kind_choices_are_the_native_writer_target():
+    from apps.live_control_server.routes.graph_authoring import get_graph_object_authoring_kinds
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import CURRENT_V5_TARGET
+    assert get_graph_object_authoring_kinds()["objectKinds"] == tuple(sorted(CURRENT_V5_TARGET.buddy_to_dm_kind))
+    assert "item" in CURRENT_V5_TARGET.buddy_to_dm_kind
+    assert "object" not in CURRENT_V5_TARGET.buddy_to_dm_kind

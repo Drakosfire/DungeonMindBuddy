@@ -1,12 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
-import {commitGraphObjectAuthoringWrite,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
+import {LiveApiError,getGraphObjectAuthoringKinds,commitGraphObjectAuthoringWrite,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
 import {getWorldbuildingFrozenSpans} from '../api/extractPromoteApi';
 import type {ExactRunReviewPackage,ExtractionRunRecord,GraphObjectAuthoringProposalPayload,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog,WorldGraphProjectionNodeView} from '../api/types';
 import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
 import {useMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
 import {buildGraphObjectAuthoringProposal,buildGraphObjectAuthoringRelationshipProposal,buildObjectRefFromInspectedNode,
   createDefaultGraphObjectAuthoringFormState,createDefaultGraphObjectAuthoringRelationshipFormState,
-  GRAPH_OBJECT_AUTHORING_KIND_OPTIONS,serializeGraphObjectAuthoringProposalForApi} from '../planSurface/graphReviewWorkbench/graphObjectAuthoringDraft';
+  serializeGraphObjectAuthoringProposalForApi} from '../planSurface/graphReviewWorkbench/graphObjectAuthoringDraft';
 import type {GraphAuthoringSelection} from '../planSurface/graphReviewWorkbench/graphAuthoringSelection';
 import {validFrozenCatalog} from './WorldbuildingEvidenceCorrection';
 import {knowledgeKey,readKnowledgeRecovery,selectionForFrozenText,type ManualKnowledgeRecovery,type ManualKnowledgeScope} from './buildManualKnowledge';
@@ -24,6 +24,7 @@ export function BuildManualKnowledge(props:Props){
   const key=knowledgeKey(scope),alive=useRef(true),busyRef=useRef(false),rawRef=useRef<string|null>(null);
   const [catalog,setCatalog]=useState<WorldbuildingFrozenSpanCatalog|null>(null);
   const frozenCache=useRef<{key:string;value:WorldbuildingFrozenSpanCatalog}|null>(null);
+  const [kinds,setKinds]=useState<string[]>([]),[editableRefusal,setEditableRefusal]=useState(false);
   const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[error,setError]=useState('');
   const [busy,setBusy]=useState(false),[reload,setReload]=useState(0);
   const [recovery,setRecovery]=useState<ManualKnowledgeRecovery|null>(()=>{
@@ -45,16 +46,17 @@ export function BuildManualKnowledge(props:Props){
       &&props.handoff.document_id===scope.documentId;
   }
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setError('');
+  useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setKinds([]);setError('');
     const cached=frozenCache.current?.key===key?frozenCache.current.value:props.frozenCatalog;
     const spansRead=cached&&validFrozenCatalog(cached,props.review,props.run,scope.worldId)?Promise.resolve(cached):getWorldbuildingFrozenSpans(scope.runId);
-    void Promise.all([spansRead,postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([spans,graph])=>{
+    void Promise.all([getGraphObjectAuthoringKinds(),spansRead,postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([capabilities,spans,graph])=>{
       if(!active||!props.isScopeCurrent())return;
       const graphError=verifyManagedWorldGraphProjectionResponse({managedWorldId:scope.worldId,
         request:{schema:'dmb_world_graph_projection_request_v1',worldId:scope.worldId,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},
         response:graph,revisionKind:'head'});
       if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId)||graphError)throw new Error(graphError||'Frozen source does not match this review.');
-      frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph.projection.nodes);
+      if(!Array.isArray(capabilities.objectKinds)||!capabilities.objectKinds.length||capabilities.objectKinds.some(k=>typeof k!=='string'||!k.trim()))throw new Error('World object kinds are unavailable.');
+      setKinds(capabilities.objectKinds);frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph.projection.nodes);
     }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
   },[key,reload]);
   async function store(next:ManualKnowledgeRecovery|null,requireCurrent=true){
@@ -98,14 +100,29 @@ export function BuildManualKnowledge(props:Props){
       await store({...retained,prepared:result},false);
     }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
   }
-  async function confirm(){if(busyRef.current||!recovery?.prepared||recovery.receipt)return;busyRef.current=true;setBusy(true);setError('');
+  async function confirm(){if(busyRef.current||!recovery?.prepared||recovery.receipt)return;busyRef.current=true;setBusy(true);setError('');setEditableRefusal(false);
     try{if(!exact())throw new Error('Save the document and reopen its exact extraction before confirming.');
       const retained={...recovery,submitted:true};await store(retained);
       if(!exact())throw new Error('The source changed before confirmation. The request is retained.');
       const result=await commitGraphObjectAuthoringWrite({...retained.request,confirmToken:retained.prepared!.confirm_token,currentOverlayToken:retained.prepared!.current_overlay_token});
       if(!result.committed)throw new Error('Publication was not acknowledged. The exact request is retained.');
       await store({...retained,receipt:result},false);if(alive.current&&props.isScopeCurrent())setReload(n=>n+1);
-    }catch(e){if(alive.current)setError(message(e)+' The exact request is retained for retry.');}finally{busyRef.current=false;if(alive.current)setBusy(false);}
+    }catch(e){if(alive.current){setEditableRefusal(e instanceof LiveApiError&&e.status===409&&e.code==='authoring_kind_unsupported');setError(message(e)+' The exact request is retained for retry.');}}finally{busyRef.current=false;if(alive.current)setBusy(false);}
+  }
+  async function editProposal(){
+    if(busyRef.current||!recovery||recovery.receipt||(recovery.submitted&&!editableRefusal))return;
+    busyRef.current=true;setBusy(true);
+    try{
+      if(!exact()||!catalog)throw new Error('Reopen the matching saved source before editing.');
+      const proposal=recovery.request.proposals[0];
+      const selected=selectionForFrozenText(scope,catalog,String(proposal.selection?.selectedText??''));
+      await store(null);
+      setSelection(selected);setMode(proposal.proposalKind==='relationship'?'relationship':'object');
+      setLabel(String(proposal.objectRef?.label??''));setKind(String(proposal.objectRef?.kind??'npc'));
+      setSummary(String(proposal.objectRef?.summary??proposal.summary??''));
+      setSource(String(proposal.sourceObjectRef?.nodeId??''));setTarget(String(proposal.targetObjectRef?.nodeId??''));
+      setPredicate(String(proposal.relationshipType??'located_in'));setEditableRefusal(false);setError('');
+    }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
   }
   function nodeCaption(node:WorldGraphProjectionNodeView){
     const detail=[node.kind,node.role!==node.kind?node.role:null,node.summary].filter(Boolean).join(' · ');
@@ -115,7 +132,7 @@ export function BuildManualKnowledge(props:Props){
     const node=nodes.find(n=>n.nodeId===ref?.nodeId);
     return node?nodeCaption(node):String(ref?.label??'Unavailable object')+' · '+String(ref?.nodeId??'');
   }
-  const ready=exact()&&!storageError&&!busy&&!!catalog;
+  const ready=exact()&&!storageError&&!busy&&!!catalog&&kinds.length>0;
   return <section aria-label="Author World knowledge" className="graph-object-authoring-surface">
     <h3>Author World knowledge</h3><p>Choose saved source text, declare an object or relationship, then review and confirm it.</p>
     {!exact()&&<p role="status">Save the document and reopen the extraction matching its current saved revision before authoring.</p>}
@@ -128,12 +145,12 @@ export function BuildManualKnowledge(props:Props){
       {selection&&<blockquote>{selection.selectedText}</blockquote>}
       <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
       {mode==='object'?<><label>Name<input value={label} onChange={e=>setLabel(e.target.value)}/></label>
-        <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{GRAPH_OBJECT_AUTHORING_KIND_OPTIONS.map(k=><option key={k}>{k}</option>)}</select></label></>
+        <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{!kinds.includes(kind)&&<option value={kind} disabled>Choose a supported kind (previously {kind})</option>}{kinds.map(k=><option key={k}>{k}</option>)}</select></label></>
       :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label>
         <label>Relationship<input value={predicate} onChange={e=>setPredicate(e.target.value)}/></label>
         <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label></>}
       <label>Description<textarea value={summary} onChange={e=>setSummary(e.target.value)}/></label>
-      <button type="button" disabled={!selection} onClick={()=>void prepare()}>Preview World change</button>
+      <button type="button" disabled={!selection||(mode==='object'&&!kinds.includes(kind))} onClick={()=>void prepare()}>Preview World change</button>
     </fieldset>}
     {recovery&&!recovery.receipt&&<><blockquote>{String(recovery.request.proposals[0].selection?.selectedText??'')}</blockquote>
       {recovery.prepared?<>{recovery.request.proposals[0].proposalKind==='relationship'&&<dl>
@@ -144,7 +161,7 @@ export function BuildManualKnowledge(props:Props){
         <p>Confirming publishes this reviewed assertion to the World. Your source document stays unchanged.</p>
         <button type="button" disabled={!ready} onClick={()=>void confirm()}>{recovery.submitted?'Retry exact confirmation':'Confirm World change'}</button></>
         :<button type="button" disabled={!ready} onClick={()=>void prepare()}>Retry exact preview</button>}
-      {!recovery.submitted&&<button type="button" disabled={!ready} onClick={()=>void store(null).catch(e=>setError(message(e)))}>Edit proposal</button>}
+      {(!recovery.submitted||editableRefusal)&&<button type="button" disabled={!ready} onClick={()=>void editProposal()}>Edit proposal</button>}
     </>}
     {recovery?.receipt&&<><p role="status">World knowledge published. It is available for cited retrieval.</p>
       <button type="button" disabled={!ready} onClick={()=>void store(null).then(()=>{setSelection(null);setSummary('');}).catch(e=>setError(message(e)))}>Author another assertion</button></>}
