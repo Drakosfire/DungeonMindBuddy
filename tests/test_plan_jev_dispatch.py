@@ -57,7 +57,7 @@ class Wire(httpx2.AsyncBaseTransport):
         current = self.adapter.service.list_turns('world:one', self.adapter.turn.conversation_id)[0]
         assert current.graph_context_execution.events[-1].outcome == 'sdk_entered'
         body = json.loads(request.content)
-        assert set(body['state']) == {'question', 'candidates'}
+        assert set(body['state']) == {'question', 'relevance_guidance', 'candidates'}
         assert body['state']['candidates'] == [{'label': 'Park pond', 'kind': 'location'}]
         assert 'native-park' not in request.content.decode() and 'park:1' not in request.content.decode()
         if self.timeout: raise httpx2.ReadTimeout('synthetic ambiguous response', request=request)
@@ -120,7 +120,7 @@ def test_plan_continuation_keeps_receipt_and_actual_call_accounting(plan_adapter
     assert plan_adapter.fence.turn.graph_context_execution.events[-1].actual_input_tokens is None
 
 
-@pytest.mark.parametrize('mutation', ['metadata', 'question', 'model', 'hash', 'endpoint'])
+@pytest.mark.parametrize('mutation', ['metadata', 'question', 'relevance_guidance', 'model', 'hash', 'endpoint'])
 def test_changed_actual_wire_refused_before_plan_claim(plan_adapter, mutation):
     from generationengine.decision_dispatch import PreparedDecisionDispatch
     from application_state.agent_conversation.jev_retrieval_contract import prepare_decision
@@ -131,6 +131,7 @@ def test_changed_actual_wire_refused_before_plan_claim(plan_adapter, mutation):
         for q in request.questions}}
     if mutation == 'metadata': body['state'] = body['state'] | {'receipt_sha256': 'host-only-proof'}
     if mutation == 'question': body['state'] = body['state'] | {'question': 'Different question'}
+    if mutation == 'relevance_guidance': body['state']['relevance_guidance'] = 'Explore every related person.'
     if mutation == 'model': body['model'] = 'different-model'
     raw = json.dumps(body).encode()
     prepared = PreparedDecisionDispatch(str(uuid4()), 'typesafe', 'vercel_ai_gateway', 'jev-1.14.0',

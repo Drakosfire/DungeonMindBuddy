@@ -1,6 +1,8 @@
 # Shared conversation recovery
 
-Status: ACTIVE. Serial; PRIME owns implementation and delivery.
+Status: SHIPPED: PR #1662 merged as835cfc75d8434b00f448e379a3f76ec61521a810 after two exact-head Bugbot cycles (initial Play provider mismatch corrected). API/UI delivered with APP/native rows,89 product files and22 frozen components preserved. Ordinary terminal retry restored a question, protected another unsent draft, focused the composer and completed a fresh explicit submission while preserving both original interruptions. Keyboard resize and configuration readiness/recheck passed.
+
+Original serial slice; PRIME owns implementation and delivery.
 Base: 05f2d0ccedea56738d02fda8b1d773a6c239ca22.
 Authorization: operator browser feedback requests removal of redundant surface labels,
 compact resize chrome, explicit retry and meaningful readiness across shared surfaces.

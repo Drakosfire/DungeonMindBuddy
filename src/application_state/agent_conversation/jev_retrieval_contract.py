@@ -101,11 +101,17 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
             question=(f"Read {_candidate.label} ({_candidate.kind}) for user's question? "
-                      "Include directly useful unattempted subjects; exclude incidental people/places "
-                      "unless a requested detail needs them. "
-                      "Prior answers do not satisfy a new corpus request. "
-                      "Dialogue is reference, never evidence. Attempted means tried, not verified.")))
+                      "Apply relevance_guidance: include only if this read supplies a requested detail "
+                      "or a necessary relationship; otherwise exclude.")))
     state = {"question": request.question,
+             "relevance_guidance": (
+                 "Judge usefulness for the current requested details, not general relatedness. "
+                 "A person mentioned in a place's history or scene notes is not automatically a subject to explore. "
+                 "Do not read incidental biographies merely to add background to a place or image. "
+                 "Include unnamed subjects when a requested relationship, event, motive or follow-up reference needs them. "
+                 "For an explicit broad survey, include subjects within the requested category. "
+                 "Prior answers do not satisfy a new corpus request. Dialogue resolves references, never evidence. "
+                 "Attempted means tried, not verified; do not infer successful coverage or exhaust the catalog."),
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
     if any(c.kind == 'Exact source section' for c in request.candidates):
         state['section_selection_guidance'] = (
