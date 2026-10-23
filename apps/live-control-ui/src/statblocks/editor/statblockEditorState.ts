@@ -260,7 +260,7 @@ export function setPrimaryArmorClassValue(state: StatblockEditorState, value: nu
 export function readHitPointsMax(hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"]): number {
   if (hitPoints.method === "fixed") return hitPoints.fixed_value ?? 0;
   const formula = hitPoints.formula;
-  return formula ? Math.floor(formula.count * (formula.die + 1) / 2) + formula.modifier : 0;
+  return formula ? Math.floor(formula.count * (formula.die + 1) / 2) + (formula.modifier ?? 0) : 0;
 }
 
 export function setHitPointsMax(state: StatblockEditorState, value: number): StatblockEditorState {

@@ -158,7 +158,7 @@ export function StatblockDefinitionEditor({
           />
         </label>
         {hp.method === "formula" && hp.formula && <p>
-          Formula: {hp.formula.count}d{hp.formula.die} {hp.formula.modifier < 0 ? "−" : "+"} {Math.abs(hp.formula.modifier)}.
+          Formula: {hp.formula.count}d{hp.formula.die} {(hp.formula.modifier ?? 0) < 0 ? "−" : "+"} {Math.abs(hp.formula.modifier ?? 0)}.
           Changing maximum HP adjusts the modifier; the number and type of dice stay the same.
         </p>}
       </section>
