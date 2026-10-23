@@ -1,6 +1,12 @@
 # FOUNDATION — manual authoring managed/native World binding
 
-ACTIVE serial PRIME slice from e8eac1f5b77cd99b7c320589c743dba1e5ef2f85,
+SETTLED: PR #1655 merged at155c91e30c9ed9fd6ddfee12c67edbb294bd0ea0;
+independent Bugbot approved961bc536;95 author and independent checks passed,
+1 skipped. Protected API delivery preserved2056 APP rows, all native rows,
+89 mechanics product files and22 frozen components. Rehearsal Combat reopened
+after restart. Manual selection UI/J3 acceptance remained open.
+
+Original serial PRIME slice from e8eac1f5b77cd99b7c320589c743dba1e5ef2f85,
 branch codex/manual-authoring-world-binding in reused buddy-context-loop checkout.
 One implementation PR, independent Bugbot exact-head review, PRIME merge and
 protected API delivery for 5202. Open PRs inspected; no overlapping backend lane.
