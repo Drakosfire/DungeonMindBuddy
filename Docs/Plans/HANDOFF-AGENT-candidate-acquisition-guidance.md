@@ -1,6 +1,13 @@
 # AGENT — candidate-local acquisition guidance
 
-ACTIVE serial PRIME slice on7103b19845d435ceddc215a41c08f1e16eba5364,
+SETTLED: #1649 merged at5fed2e70378b12897dae7974ba34e798c6c64f66.
+Exact head308c7f4d72474a9c5cfc1983908b2150d71a9f42 passed independent Bugbot77/77
+and author108/108. API delivered with1969 APP rows/native85/mechanics17/frozen
+retained. Historical exact prompt reopened unchanged. Final compact synthetic
+real-Jev controls passed; original private benchmark remains held for destination
+consent, so repeated roughly10-second acceptance is not established.
+
+Historical serial PRIME slice on7103b19845d435ceddc215a41c08f1e16eba5364,
 branch codex/jev-candidate-acquisition-guidance in buddy-context-loop checkout.
 One Bugbot-reviewed PR, PRIME merge and protected API delivery. Current open census
 has no overlapping decision contract lane. Operator explicitly authorizes Jev and
