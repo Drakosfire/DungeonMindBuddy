@@ -106,6 +106,24 @@ describe("useWorkspaceDocumentAuthoring", () => {
     });
   });
 
+  it("preserves the live editor document key on an ordinary verified save", async () => {
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockResolvedValueOnce(verificationSnapshotForRevision(2, "sha-committed", "fp-committed"));
+    const editor = createEditor("The saved paragraph");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID, surface: "build", kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+    act(() => { result.current.setEditor(editor); result.current.markDirty(); });
+    const key = result.current.documentKey;
+    await act(async () => { await result.current.saveMarkdown(); });
+    expect(result.current.phase).toBe("ready_clean");
+    expect(result.current.snapshot?.loaded_revision).toBe(2);
+    expect(result.current.documentKey).toBe(key);
+    expect(result.current.editor).toBe(editor);
+  });
+
   it("rejects wrong document kind without exposing record or writing local storage", async () => {
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(buildSnapshot({
       record: fixtureWorkspaceDocumentRecord({

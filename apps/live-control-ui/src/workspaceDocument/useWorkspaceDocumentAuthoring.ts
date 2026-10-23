@@ -694,9 +694,6 @@ export function useWorkspaceDocumentAuthoring(
 
       if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
         setSnapshot(null);
-        if (!editedDuringSave) {
-          setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
-        }
         dispatch({
           type: "VERIFICATION_MISMATCH",
           reason: "Commit receipt is missing file_fingerprint after successful write.",
@@ -718,9 +715,9 @@ export function useWorkspaceDocumentAuthoring(
         snapshotRef.current = nextSnapshot;
         return nextSnapshot;
       });
-      if (!editedDuringSave) {
-        setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);
-      }
+      // Saving acknowledges this live editor's content. Changing documentKey here
+      // would recreate TipTap, dropping focus, selection and undo at each autosave.
+      // Whole-document replacement remains explicit in load/import/recovery paths.
 
       dispatch({ type: "VERIFICATION_STARTED" });
       try {

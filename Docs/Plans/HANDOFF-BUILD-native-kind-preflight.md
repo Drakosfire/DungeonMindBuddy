@@ -1,6 +1,11 @@
 # BUILD — native manual authoring kind preflight
 
-ACTIVE serial PRIME slice at 43c16b294853e3f5b3c32ba817bdd38e91f2e82d in
+MERGED #1658 at9f6860574a9ef9170a2469ee578b27cfa56f8a51. Independent
+Bugbot approvedc764369b89dec9d0bc197f5c62b1ea5bb26bf310 with91 backend and59 UI
+tests passed. Protected delivery and ordinary publication acceptance remain open;
+the operator-reported typing-focus fix is the immediate successor before delivery.
+
+Original serial PRIME slice at43c16b294853e3f5b3c32ba817bdd38e91f2e82d in
 reused buddy-context-loop checkout, branch codex/manual-native-kind-preflight.
 One Bugbot-reviewed PR, PRIME merge, protected API/UI delivery on 5202.
 Current open PR census has no overlapping authoring lane.

@@ -950,3 +950,54 @@ describe("verified protected draft recovery", () => {
     expect(result.current.exportedMarkdownAuthoritative).toBe(true);
   });
 });
+
+
+describe("ordinary save preserves the mounted rich editor", () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  it("retains editor identity, selection and undo across successive acknowledged saves", async () => {
+    let saved = snapshot("The road enters the marsh.\n", { content_status: "committed" });
+    vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async () => saved);
+    vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1", document_id: DOC_ID,
+      title: "Source", target_relpath: saved.record.target_relpath, target_display_path: "Source",
+      registry_revision: 1, file_exists: true, writer_ok: true, writer_phase: "prepare",
+      writer_confirm_token: "token", writer_diff: "", warnings: [], diagnostics: [],
+    });
+    vi.mocked(commitTiptapMarkdownWrite).mockImplementation(async request => {
+      const revision = saved.loaded_revision + 1;
+      saved = { ...saved, markdown: request.markdown, loaded_revision: revision,
+        record: { ...saved.record, revision }, content_sha256: 'sha-'+revision, file_fingerprint:'fp-'+revision };
+      return {schema_version:'dmb_tiptap_markdown_write_commit_v1',document_id:DOC_ID,
+        title:'Source',target_relpath:saved.record.target_relpath,target_display_path:'Source',
+        registry_revision:revision,committed_revision:revision,committed_record:saved.record,
+        normalized_content_sha256:saved.content_sha256,writer_ok:true,bytes_written:request.markdown.length,
+        file_fingerprint:saved.file_fingerprint,diagnostics:[]};
+    });
+    let current!: WorkspaceDocumentAuthoringValue;
+    function Harness(){
+      current=useWorkspaceDocumentAuthoring({documentId:DOC_ID,surface:'build',kind:'worldbuilding_source'});
+      return current.snapshot ? <MarkdownEditorCore documentKey={current.documentKey}
+        content={current.editorContent as Content} onEditorChange={current.setEditor}
+        onUpdate={current.handleEditorUpdate}/> : null;
+    }
+    render(<Harness/>);
+    await waitFor(()=>expect(current.editor).not.toBeNull());
+    await act(async()=>{await Promise.resolve();});
+    const editor=current.editor!,element=editor.view.dom,key=current.documentKey;
+    for(const text of [' The bell rings.',' Workers approach.']){
+      act(()=>{editor.commands.setTextSelection(editor.state.doc.content.size-1);editor.commands.insertContent(text);});
+      const position=editor.state.selection.from;
+      await waitFor(()=>expect(current.dirty).toBe(true));
+      await act(async()=>{await current.saveMarkdown();});
+      expect(current.phase).toBe('ready_clean');
+      expect(current.documentKey).toBe(key);expect(current.editor).toBe(editor);
+      expect(editor.isDestroyed).toBe(false);expect(editor.view.dom).toBe(element);
+      expect(editor.state.selection.from).toBe(position);
+      expect(saved.markdown).toContain(text.trim());
+    }
+    act(()=>{editor.commands.undo();});
+    await waitFor(()=>expect(current.dirty).toBe(true));
+    expect(current.editor).toBe(editor);
+    expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(2);
+  });
+});
