@@ -180,7 +180,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
       {run.source_domain==='worldbuilding'&&<><button type="button" aria-expanded={manualOpen} onClick={()=>{setManualMounted(true);setManualOpen(v=>!v);}}>Author knowledge from this source</button>
         {manualMounted&&<div hidden={!manualOpen}><Suspense fallback={<p role="status">Opening manual authoring…</p>}><BuildManualKnowledge
           worldId={worldId} document={document} run={run} handoff={handoff} review={review}
-          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent}/></Suspense></div>}</>}
+          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog}/></Suspense></div>}</>}
       {recovery !== null && !recoveryValid && <p role="alert">{recoveryStorageKey.current===legacyKey?'An earlier correction request is retained; its retired format cannot be submitted.':'Saved correction details are unavailable or do not match this run.'} Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}

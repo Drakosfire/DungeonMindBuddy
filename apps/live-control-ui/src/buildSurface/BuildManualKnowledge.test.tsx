@@ -50,6 +50,8 @@ it('previews exact frozen selection then explicitly confirms and retains receipt
  await screen.findByText('World knowledge published. It is available for cited retrieval.');
  expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledWith({...request,confirmToken:'signed-token',currentOverlayToken:'overlay-a'});
  expect(JSON.parse(localStorage.getItem(knowledgeKey(scope))!).receipt.operation_id).toBe('operation-a');
+ await waitFor(()=>expect(api.postManagedWorldGraphProjection).toHaveBeenCalledTimes(2));
+ expect(extract.getWorldbuildingFrozenSpans).toHaveBeenCalledTimes(1);
 });
 it('recovers an uncertain confirmation after remount with identical request and token',async()=>{
  vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new Error('Response lost'));
@@ -126,4 +128,18 @@ it('blocks a corrupted retained relationship before React rendering and preserve
  render(<BuildManualKnowledge {...props}/>);expect(screen.getByRole('alert')).toHaveTextContent('Saved proposal fields are invalid');
  expect(localStorage.getItem(knowledgeKey(scope))).toBe(raw);expect(screen.queryByRole('button',{name:'Confirm World change'})).not.toBeInTheDocument();
  expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
+
+it('reuses the exact parent review catalog without a second source read',async()=>{
+ render(<BuildManualKnowledge {...props} frozenCatalog={catalog}/>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
+ expect(extract.getWorldbuildingFrozenSpans).not.toHaveBeenCalled();
+});
+
+it('mounts the frozen paragraph list only when explicitly expanded',async()=>{
+ render(<BuildManualKnowledge {...props}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
+ expect(screen.queryByRole('button',{name:'Use passage · lines 1–1'})).not.toBeInTheDocument();
+ const details=screen.getByText('Choose a saved passage').closest('details')!;
+ details.open=true;fireEvent(details,new Event('toggle'));
+ await screen.findByRole('button',{name:'Use passage · lines 1–1'});
 });

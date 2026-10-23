@@ -12,7 +12,7 @@ import {validFrozenCatalog} from './WorldbuildingEvidenceCorrection';
 import {knowledgeKey,readKnowledgeRecovery,selectionForFrozenText,type ManualKnowledgeRecovery,type ManualKnowledgeScope} from './buildManualKnowledge';
 
 type Props={worldId:string;document:WorkspaceDocumentRecord;run:ExtractionRunRecord;handoff:GraphReviewHandoffPayload;
-  review:ExactRunReviewPackage;sourceContentSha256:string;isScopeCurrent:()=>boolean};
+  review:ExactRunReviewPackage;sourceContentSha256:string;isScopeCurrent:()=>boolean;frozenCatalog?:WorldbuildingFrozenSpanCatalog|null};
 const message=(e:unknown)=>e instanceof Error?e.message:'Manual knowledge could not be prepared.';
 
 /** Build adapter only: shared proposal grammar and the governed prepare/confirm owner do the writing. */
@@ -23,6 +23,7 @@ export function BuildManualKnowledge(props:Props){
     runId:props.run.run_id,artifactId:props.run.source_artifact_id};
   const key=knowledgeKey(scope),alive=useRef(true),busyRef=useRef(false),rawRef=useRef<string|null>(null);
   const [catalog,setCatalog]=useState<WorldbuildingFrozenSpanCatalog|null>(null);
+  const frozenCache=useRef<{key:string;value:WorldbuildingFrozenSpanCatalog}|null>(null);
   const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[error,setError]=useState('');
   const [busy,setBusy]=useState(false),[reload,setReload]=useState(0);
   const [recovery,setRecovery]=useState<ManualKnowledgeRecovery|null>(()=>{
@@ -31,6 +32,7 @@ export function BuildManualKnowledge(props:Props){
   });
   const [storageError]=useState(()=>{try{readKnowledgeRecovery(localStorage.getItem(key),scope);return '';}catch(e){return message(e);}});
   const [selection,setSelection]=useState<GraphAuthoringSelection|null>(null);
+  const [passagesOpen,setPassagesOpen]=useState(false);
   const [mode,setMode]=useState('object'),[label,setLabel]=useState(''),[kind,setKind]=useState('npc'),[summary,setSummary]=useState('');
   const [source,setSource]=useState(''),[target,setTarget]=useState(''),[predicate,setPredicate]=useState('located_in');
   const current=useRef({session,props,scope,key});current.current={session,props,scope,key};
@@ -44,13 +46,15 @@ export function BuildManualKnowledge(props:Props){
   }
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setError('');
-    void Promise.all([getWorldbuildingFrozenSpans(scope.runId),postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([spans,graph])=>{
+    const cached=frozenCache.current?.key===key?frozenCache.current.value:props.frozenCatalog;
+    const spansRead=cached&&validFrozenCatalog(cached,props.review,props.run,scope.worldId)?Promise.resolve(cached):getWorldbuildingFrozenSpans(scope.runId);
+    void Promise.all([spansRead,postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([spans,graph])=>{
       if(!active||!props.isScopeCurrent())return;
       const graphError=verifyManagedWorldGraphProjectionResponse({managedWorldId:scope.worldId,
         request:{schema:'dmb_world_graph_projection_request_v1',worldId:scope.worldId,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},
         response:graph,revisionKind:'head'});
       if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId)||graphError)throw new Error(graphError||'Frozen source does not match this review.');
-      setCatalog(spans);setNodes(graph.projection.nodes);
+      frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph.projection.nodes);
     }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
   },[key,reload]);
   async function store(next:ManualKnowledgeRecovery|null,requireCurrent=true){
@@ -119,7 +123,7 @@ export function BuildManualKnowledge(props:Props){
     {!catalog&&!error&&<p role="status">Reading frozen source passages…</p>}
     {!recovery&&<fieldset disabled={!ready}><legend>Source and assertion</legend>
       <button type="button" onClick={()=>{const editor=session.editor;choose(editor?editor.state.doc.textBetween(editor.state.selection.from,editor.state.selection.to,' '):'');}}>Use selected document text</button>
-      <details><summary>Choose a saved passage</summary>{catalog?.spans.map(span=><div key={span.sourceSpanRefId}>
+      <details onToggle={e=>setPassagesOpen(e.currentTarget.open)}><summary>Choose a saved passage</summary>{passagesOpen&&catalog?.spans.map(span=><div key={span.sourceSpanRefId}>
         <p>{span.paragraphText}</p><button type="button" onClick={()=>choose(span.paragraphText)}>Use passage · lines {span.startLine}–{span.endLine}</button></div>)}</details>
       {selection&&<blockquote>{selection.selectedText}</blockquote>}
       <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
