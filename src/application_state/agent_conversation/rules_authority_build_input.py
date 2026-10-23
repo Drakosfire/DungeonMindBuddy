@@ -87,12 +87,17 @@ def verify_build_prepared_input(execution, event, body):
             raise ValueError("Unknown Build Rules controller input policy")
         if schema == "dmb_build_jev_driver_decision_v2" and carrier.get("initial_packet_codec") != "dmb_build_initial_packet_table_v1":
             raise ValueError("Unknown Build Rules initial packet codec")
-    elif schema not in {"dmb_build_source_passage_writer_v1", "dmb_build_jev_writer_packet_v1"}:
+    elif schema not in {"dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1", "dmb_build_jev_writer_packet_v1"}:
         raise ValueError("Controller carrier cannot be used as a writer")
-    elif schema == "dmb_build_source_passage_writer_v1":
+    elif schema in {"dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1"}:
         if (carrier.get("source_writer_output_policy") != "cited_facts_host_limitations_v1"
                 or carrier.get("requested_detail_gap_policy") != "exact_question_phrase_selected_excerpts_v1"):
             raise ValueError("Unknown Build Rules cited-writer policy")
+        if schema == "dmb_build_primary_context_writer_v1":
+            from .build_primary_context import packet_rows
+            if "artifact_under_edit" not in carrier:
+                raise ValueError("Primary Build Rules writer lacks authored context lane")
+            packet_rows(carrier)
     elif carrier.get("input_policy") != "complete_exposed_graph_and_opened_sources_v1":
         raise ValueError("Unknown Build Rules Graph-writer policy")
     try:

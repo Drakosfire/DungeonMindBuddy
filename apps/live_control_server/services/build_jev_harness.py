@@ -98,6 +98,8 @@ class BuildJevHarness:
             budget["buildJevActions"]["source_writer_output_policy"] = POLICY
             from application_state.agent_conversation.writer_evidence_selection import POLICY as SELECTION_POLICY
             budget["buildJevActions"]["writer_selection_policy"] = SELECTION_POLICY
+            from application_state.agent_conversation.build_primary_context import POLICY as PRIMARY_POLICY
+            budget["buildJevActions"]["primary_work_context_policy"] = PRIMARY_POLICY
         if accounting is not None and cap is not None:
             from application_state.build_proposal.types import ImageDirectionV2
             budget["buildJevActions"]["image_preparation_schema_sha256"] = digest(ImageDirectionV2.model_json_schema())
@@ -209,7 +211,8 @@ class BuildJevHarness:
                     selected = selector.settle_empty()
                 graph = ()
                 sources = tuple(str(eid) for eid in selected.source_event_ids)
-                sections = tuple(str(rid) for rid in selected.section_read_ids)
+                from application_state.agent_conversation.build_primary_context import writer_read_ids
+                sections = tuple(sorted(str(rid) for rid in writer_read_ids(adapter._broker_execution())))
                 if not selected.expanded_unit_ids:
                     adapter.build_retrieval_disposition = {
                         **adapter.build_retrieval_disposition,

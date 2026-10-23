@@ -120,7 +120,7 @@ class SavedWriter(WriterWire):
     async def handle_async_request(self, request):
         response = await super().handle_async_request(request)
         packet = json.loads(json.loads(request.content)["input"])
-        sections = packet["exposure"]["saved_sections"]
+        sections = packet.get("artifact_under_edit", {}).get("sections", packet["exposure"]["saved_sections"])
         if packet["opened_passages"] or not sections:
             return response
         data = response.json()
@@ -171,7 +171,10 @@ def test_sdk_app_selection_and_exact_single_writer_reopen(build_case, monkeypatc
         import hashlib
         assert hashlib.sha256(material.text.encode()).hexdigest() == settled.controller_response_sha256
     packet = json.loads(json.loads(writer.calls[0].content)["input"])
-    assert sorted(section["read_id"] for section in packet["exposure"]["saved_sections"]) == sorted(str(x) for x in settled.section_read_ids)
+    assert packet["exposure"]["saved_sections"] == []
+    primary_ids = {row["read_id"] for row in packet["artifact_under_edit"]["sections"]}
+    assert {str(rid) for rid in settled.section_read_ids}.issubset(primary_ids)
+    assert primary_ids == {str(e.read_id) for e in execution.events if isinstance(e, ledger.ValidatedBuildSectionReadV1)}
     writer_auth, = [event for event in execution.events if isinstance(event, ledger.ProviderAttemptAuthorizedEventV3)
                     and event.provider == "openai"]
     assert set(writer_auth.included_source_read_event_ids) == set(settled.source_event_ids)
@@ -182,7 +185,7 @@ def test_sdk_app_selection_and_exact_single_writer_reopen(build_case, monkeypatc
         assert mode == "saved_only" or turn.completion.source_citations
     if mode == "saved_only":
         assert reads == {"graph": 0, "source": 0}
-        assert packet["exposure"]["saved_sections"] and not packet["opened_passages"]
+        assert packet["artifact_under_edit"]["sections"] and not packet["opened_passages"]
         bindings = [event for event in execution.events if isinstance(event, ledger.BuildSectionAnswerBindingV1)]
         assert bindings and bindings[0].bindings
     raw = execution.model_dump(mode="json", by_alias=True)

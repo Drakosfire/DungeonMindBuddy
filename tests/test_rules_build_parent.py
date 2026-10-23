@@ -448,3 +448,44 @@ def test_invalid_or_uncertain_positive_vote_does_not_select_lookup(selected, sco
     with pytest.raises(ValueError, match="unresolved or uncalibrated"):
         runtime.select(request_id="request", vote={"kind": "choice", "selected": selected, "probabilities": scores}, operation="answer_from_sources")
     assert runtime._selection is None
+
+
+class PrimaryRulesDecision(RulesDecisionWire):
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        body, data = json.loads(request.content), response.json()
+        selecting = body["state"].get("writer_selection_policy")
+        for key, answer in data["answers"].items():
+            labels = body["questions"][key].get("criteria", {})
+            chosen = "irrelevant" if selecting else next((label for label in labels if label.startswith("saved:")), None) if key == "next" else None
+            if chosen is not None:
+                answer.update(choice=chosen, probabilities={label: float(label == chosen) for label in labels})
+        return httpx2.Response(200, request=request, json=data)
+
+
+class PrimaryRulesWriter(RulesWriterWire):
+    async def handle_async_request(self, request):
+        response = await super().handle_async_request(request)
+        packet, data = json.loads(json.loads(request.content)["input"]), response.json()
+        section, = packet["artifact_under_edit"]["sections"]
+        raw = json.loads(data["output"][0]["content"][0]["text"])
+        raw["base_output"] = {"answer_context_status": "source_grounded_partial", "answer_segments": [
+            {"kind": "saved_source_claim", "text": section["text"], "section_read_ids": [section["read_id"]]}],
+            "limitations": ["partial_retrieval"], "requested_detail_gaps": []}
+        raw["ordered_refs"].insert(0, {"domain": "base", "segment_index": None})
+        data["output"][0]["content"][0]["text"] = json.dumps(raw)
+        return httpx.Response(200, request=request, json=data)
+
+
+def test_actual_primary_page_and_rules_survive_irrelevant_selection(application_state_dsn, build_case, tmp_path, monkeypatch):
+    completed, _, _, writer, reads = run_parent(build_case, tmp_path, monkeypatch,
+        decision=PrimaryRulesDecision(dsn=application_state_dsn),
+        writer=PrimaryRulesWriter(base=False, dsn=application_state_dsn))
+    assert isinstance(completed, MixedCompletedTurnV1)
+    assert completed.base_projection.kind == "approved"
+    assert completed.base_projection.turn.completion.answer_basis == "saved_source"
+    assert reads == {"graph": 0, "source": 0}
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["schema"] == packet["rules_projection"]["carrier_schema"] == "dmb_build_primary_context_writer_v1"
+    assert packet["exposure"]["saved_sections"] == [] and packet["artifact_under_edit"]["sections"]
+    assert AgentConversationService().inspect_turn(world_id=completed.envelope.world_id, turn_id=completed.envelope.turn_id) == completed

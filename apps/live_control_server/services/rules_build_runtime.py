@@ -153,7 +153,7 @@ class RulesBuildRuntime:
             self.retire_unused()
             return staged
         request_id = "rules-writer:" + sha256(staged.input_json.encode()).hexdigest()
-        projection = self._projection("dmb_build_source_passage_writer_v1", "writer", request_id)
+        projection = self._projection(json.loads(staged.input_json)["schema"], "writer", request_id)
         return with_rules_output(staged, projection, self._writer_refs())
 
     def _writer_refs(self):

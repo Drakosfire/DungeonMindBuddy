@@ -174,14 +174,24 @@ class WriterProjection:
             mixed_format = build_output_format(packet, self.rules_support_refs)
         elif self.rules_support_refs:
             raise ValueError("Rules supports require their actual mixed writer projection")
+        from application_state.agent_conversation.build_primary_context import packet_rows
+        primary = "artifact_under_edit" in json.loads(self.input_json)
+        if primary:
+            packet_rows(json.loads(self.input_json))
+        primary_instructions = ("\nartifact_under_edit is the exact acquired current saved page, provided as authored "
+            "work context independently of source relevance votes. Describe what that page says with "
+            "saved_source_claim and its exact read_id values, or make explicitly hypothetical suggestions. "
+            "It is never accepted World or played truth. A request to read a page and discuss it can be "
+            "answered with useful authored context even when another requested source is missing. "
+            "Keep missing World evidence separate; do not declare this supplied page unavailable.\n") if primary else ""
         return {
             "model": MODEL,
             "input": self.input_json,
-            "instructions": MIXED_RULES_INSTRUCTIONS if mixed_format else CITED_PASSAGE_INSTRUCTIONS if cited else PASSAGE_INSTRUCTIONS
+            "instructions": (MIXED_RULES_INSTRUCTIONS if mixed_format else CITED_PASSAGE_INSTRUCTIONS if cited else PASSAGE_INSTRUCTIONS
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS,
+            else INSTRUCTIONS) + primary_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
@@ -469,6 +479,15 @@ def source_projection(
         "opened_passages": [{"handle": h, **passages[h]} for h in sorted(passages)],
         "exposure": {"saved_sections": state["exposure"].get("saved_sections", [])},
     }
+    from application_state.agent_conversation import build_primary_context as primary
+    if primary.enabled(execution.policy):
+        expected = {str(e.read_id) for e in primary.records(execution)}
+        supplied = {e["read_id"] for e in packet["exposure"]["saved_sections"]}
+        if supplied != {str(rid) for rid in primary.writer_read_ids(execution)} or supplied != expected:
+            raise ValueError("Primary writer exposure differs from exact acquired page context")
+        packet["schema"] = primary.SCHEMA
+        packet["artifact_under_edit"] = primary.project(execution)
+        packet["exposure"]["saved_sections"] = []
     return WriterProjection(
         json.dumps(
             packet,
