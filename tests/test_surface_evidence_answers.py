@@ -207,3 +207,42 @@ def test_current_authored_selector_rejects_generated_or_unexposed_material(plan_
     with pytest.raises(Exception):asyncio.run(writer.run(transport=wire,api_key='synthetic-not-secret'))
     stored=plan_adapter.service.inspect_turn(world_id=plan_adapter.world_id,turn_id=plan_adapter.turn.turn_id)
     assert stored.completion is None and len(wire.calls)==1
+
+
+@pytest.mark.parametrize('explicit_flag', [False, True])
+def test_current_typed_gaps_derive_limitation_and_reopen(plan_adapter, explicit_flag):
+    writer = stage(plan_adapter)
+    phrase = plan_adapter.fence.turn.user_text
+    payload = wire_answer([dict(kind='source_passage_claim', text='The journal describes a walkway.',
+        passage_handles=[writer.projection.frame['opened_passages'][0]['passage_handle']])])
+    payload['requested_detail_gaps'] = [{'question_phrase': phrase}]
+    payload['limitations'] = ['missing_requested_details'] if explicit_flag else []
+    wire = WriterWire(plan_adapter, json.dumps(payload))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed' and len(wire.calls) == 1
+    gaps = [s for s in completed.completion.answer_segments
+            if getattr(s, 'code', None) == 'missing_requested_details']
+    assert len(gaps) == 2  # closed summary plus exact requested-detail selection
+    assert len(completed.completion.source_citations) == 1
+    reopened = AgentConversationService().inspect_turn(world_id=completed.world_id, turn_id=completed.turn_id)
+    assert reopened.completion == completed.completion
+
+
+@pytest.mark.parametrize('bad', ['string', 'foreign', 'repeat', 'overlap', 'unknown_flag', 'duplicate_flag'])
+def test_gap_derivation_does_not_relax_validation(plan_adapter, bad):
+    writer = stage(plan_adapter)
+    phrase = plan_adapter.fence.turn.user_text
+    payload = wire_answer([])
+    payload['requested_detail_gaps'] = [{'question_phrase': phrase}]
+    if bad == 'string': payload['requested_detail_gaps'] = [phrase]
+    if bad == 'foreign': payload['requested_detail_gaps'] = [{'question_phrase': 'Not present in the question.'}]
+    if bad == 'repeat': payload['requested_detail_gaps'] *= 2
+    if bad == 'overlap': payload['requested_detail_gaps'].append({'question_phrase': phrase.split()[0]})
+    if bad == 'unknown_flag': payload['limitations'] = ['unrecognized']
+    if bad == 'duplicate_flag': payload['limitations'] = ['partial_retrieval', 'partial_retrieval']
+    wire = WriterWire(plan_adapter, json.dumps(payload))
+    with pytest.raises(Exception):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1
+    assert plan_adapter.service.inspect_turn(world_id=plan_adapter.world_id,
+        turn_id=plan_adapter.turn.turn_id).completion is None
