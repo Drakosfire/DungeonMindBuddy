@@ -265,3 +265,114 @@ def test_unnamed_nonrecap_catalog_refuses_before_body_io(parent, monkeypatch):
     with pytest.raises(NativeSourceUnavailable, match='source_navigation_unavailable'):
         owner.browse(owner.offered()[0].handle)
     assert not owner.catalogs and not owner.materials
+
+
+@pytest.mark.parametrize('scope', ['missing', 'foreign', 'unowned'])
+def test_unowned_catalog_is_not_offered_or_opened_and_metadata_is_reused(nav_case, monkeypatch, scope):  # noqa: F811
+    service, turn, _, pin = nav_case
+    if scope != 'missing':
+        sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='worldbuilding',
+            world_id='other-world' if scope == 'foreign' else None, campaign_id=None,
+            session_id=None, markdown=TEXT, lineage={})
+    capture = SimpleNamespace(observations=[], observe=lambda row: capture.observations.append(row))
+    adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=capture)
+    owner = NativeSourceNavigator(adapter)
+    calls = []
+    query = sources.owned_source_artifacts
+    def metadata(**fields):
+        calls.append(fields)
+        return query(**fields)
+    monkeypatch.setattr(sources, 'owned_source_artifacts', metadata)
+    monkeypatch.setattr(owner, '_access', lambda *a: pytest.fail('Ineligible route must not call native origin'))
+    try:
+        assert not owner.offered()
+        assert not owner.offered()
+        assert len(calls) == 1
+        assert calls[0] == dict(source_artifact_ids=[pin.source_artifact_id], world_id=turn.world_id)
+        assert all(row.kind.startswith('Unavailable source section catalog') for row in owner.examined())
+        # A metadata exclusion is not a failed selected body read.
+        assert not capture.observations
+        with pytest.raises(NativeSourceUnavailable):
+            owner.browse(next(iter(owner.sources)))
+        assert len(calls) == 1 and not owner.catalogs
+        if turn.provenance.surface_id == 'play':
+            args = {'anchor_id': pin.anchor_id}
+            captured(owner, BROWSE, args)
+            with pytest.raises(NativeSourceUnavailable):
+                owner.tool(BROWSE, args, call_id='call-1')
+            assert len(calls) == 1 and not owner.catalogs
+    finally:
+        adapter.fence.renewer.stop_and_join()
+
+
+def test_positive_metadata_preflight_does_not_bypass_later_body_ownership(parent, monkeypatch):
+    from application_state.source import repository
+    owner, _ = parent
+    handle = owner.offered()[0].handle
+    assert handle not in owner.attempted_sources
+    query = repository.get_source_artifact
+    def changed(conn, identity, **kwargs):
+        row = query(conn, identity, **kwargs)
+        return row | {'world_id':'different-world'}
+    monkeypatch.setattr(repository, 'get_source_artifact', changed)
+    from application_state.agent_conversation import native_source_catalog
+    monkeypatch.setattr(native_source_catalog.sources, 'get_source_markdown',
+        lambda *a, **kw: pytest.fail('Ownership drift must refuse before body IO'))
+    with pytest.raises(NativeSourceUnavailable):
+        owner.browse(handle)
+    assert owner.catalogs[handle].failure_code == 'source_scope_mismatch'
+    assert not owner.sections
+
+
+def test_negative_offer_cache_is_not_shared_with_a_new_navigation_owner(nav_case, monkeypatch):  # noqa: F811
+    service, turn, _, pin = nav_case
+    adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=None)
+    owner = NativeSourceNavigator(adapter)
+    try:
+        assert not owner.offered()
+        sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='worldbuilding',
+            world_id=turn.world_id, campaign_id=None, session_id=None, markdown=TEXT, lineage={})
+        assert not owner.offered()
+        fresh = NativeSourceNavigator(adapter)
+        assert len(fresh.offered()) == 1
+    finally:
+        adapter.fence.renewer.stop_and_join()
+
+
+def test_newly_discovered_sources_share_one_metadata_batch(parent, monkeypatch):
+    owner, _ = parent
+    calls = []
+    query = sources.owned_source_artifacts
+    def metadata(**fields):
+        calls.append(fields)
+        return query(**fields)
+    monkeypatch.setattr(sources, 'owned_source_artifacts', metadata)
+    assert len(owner.offered()) == 1
+    a = owner.adapter
+    turn = a.fence.turn
+    execution, receipt = turn.graph_context_execution, turn.graph_context_receipt
+    prior = next(e for e in execution.events if isinstance(e, t.ValidatedGraphOperationEventV3))
+    pins = [t.GraphSourceScopeAnchorV2(anchor_id=f'source-anchor:v1:new-{i}', evidence_ref_id=f'evidence:new-{i}',
+        source_artifact_id=f'source:new-{i}', source_revision_id=f'native-revision:new-{i}') for i in range(2)]
+    for pin in pins:
+        sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='worldbuilding',
+            world_id=turn.world_id, campaign_id=None, session_id=None, markdown=TEXT, lineage={})
+    donor = prior.model_copy(update={'event_id':uuid4(), 'sequence':len(execution.events), 'operation_id':uuid4(),
+        'evidence_ref_ids':[pin.evidence_ref_id for pin in pins], 'returned_source_pins':pins})
+    turn, _ = a.service.append_validated_graph_operation(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, operation_event=donor)
+    execution = turn.graph_context_execution
+    scope, authority = execution.policy.source_read_scope, receipt.graph_authority
+    extension = t.SourceScopeExtensionEventV3(kind='source_scope_extension_v3', event_id=uuid4(),
+        sequence=len(execution.events), origin_graph_event_id=donor.event_id,
+        context_receipt_sha256=execution.context_receipt_sha256, execution_policy_sha256=execution.execution_policy_sha256,
+        world_id=turn.world_id, native_world_id=authority.native_world_id, binding_version=authority.binding_version,
+        campaign_id=None, graph_revision=scope.graph_revision, retrieval_session_id=scope.retrieval_session_id, pins=pins)
+    turn, _ = a.service.extend_source_scope(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, extension=extension)
+    a.fence.renewer._turn = turn
+    a.turn = turn
+    assert len(owner.offered()) == 3
+    assert len(owner.offered()) == 3
+    assert len(calls) == 2
+    assert set(calls[1]['source_artifact_ids']) == {pin.source_artifact_id for pin in pins}

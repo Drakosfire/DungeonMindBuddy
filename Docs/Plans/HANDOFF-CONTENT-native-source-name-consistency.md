@@ -1,6 +1,16 @@
 # CONTENT — consistent native source names
 
-ACTIVE serial PRIME slice, base5a534527b, branch
+SHIPPED #1647, merge9f5ab3c1b2410b127d35be5af1c26566c06b203c. Bugbot approved
+9a194951107ee116404e60241144027dde6a6faa in one cycle;50 independent checks and
+198 author cohort checks passed (expected skips1/5). No new lint diagnostics.
+Protected API delivery preserved1937 APP rows, native rows,85 mechanics files and
+17 frozen components. UI remainedbaf0a664. Two original queries completed10.26s/
+12.36s with named exact citations. Catalog acquisition now durably exposes2/3
+source_scope_mismatch refusals: APP ownership is absent/different, and recap domain
+metadata differs. Do not relax those gates; owned-source-offers successor owns
+eligibility preflight. Full performance/image/journey acceptance remains open.
+
+Historical authority: serial PRIME slice, base5a534527b, branch
 codex/native-source-name-consistency in the existing buddy-context-loop checkout.
 One Bugbot-reviewed implementation PR; PRIME merge and protected API5202 delivery.
 No overlapping source-name/navigation lane in the fetched open-PR census.
