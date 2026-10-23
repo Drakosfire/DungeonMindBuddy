@@ -335,6 +335,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (pathname.startsWith("/api/live/world-workspace/")) return true;
   if (pathname.startsWith("/api/live/combat/encounters")) return true;
   if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (pathname==="/api/live/recap-ingest" && Array.isArray(requestBodyRecord(body)?.session_evidence) && (requestBodyRecord(body)!.session_evidence as unknown[]).length>0) return true;
@@ -3191,4 +3192,21 @@ export async function associateWorldMechanics(worldId: string, request: import("
   return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`, {
     method: "POST", body: JSON.stringify(request),
   });
+}
+
+// Manual saved revisions share authenticated transport; no encounter mutation.
+export async function listSavedMechanicsVersions(draftId:string,worldId:string,offset=0):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').SavedMechanicsVersionList>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions?world_id=${encodeURIComponent(worldId)}&offset=${offset}`);
+}
+export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`);
+}
+export async function saveMechanicsRevision(draftId:string,request:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveIntent):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+}
+export async function recoverMechanicsRevision(draftId:string,worldId:string,operationId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome|null>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revision-operations/${encodeURIComponent(operationId)}:recover?world_id=${encodeURIComponent(worldId)}`,{method:'POST'});
+}
+export async function inspectMechanicsRevision(draftId:string,worldId:string,operationId:string):Promise<{operation:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome|null}>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revision-operations/${encodeURIComponent(operationId)}?world_id=${encodeURIComponent(worldId)}`);
 }

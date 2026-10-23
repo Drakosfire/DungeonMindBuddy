@@ -116,6 +116,8 @@ class StatblockV1Client(Protocol):
         self, body: dict[str, Any] | CreateStatblockRequestV1
     ) -> CreateStatblockResult: ...
 
+    def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1: ...
+
 
 class DungeonMindStatblockV1Client:
     """Authenticated transport for DungeonMindServer statblock v1 routes."""
@@ -212,6 +214,21 @@ class DungeonMindStatblockV1Client:
                 "exact revision response identity does not match request"
             )
         verify_exact_revision_mechanics_integrity(revision)
+        return revision
+
+    def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1:
+        """Append one exact parent with the producer's idempotent CAS contract."""
+        from .generated.models import AppendRevisionRequestV1
+        from .definition_digest import source_definition_digest_from_body
+        safe = validate_statblock_id(statblock_id)
+        request = AppendRevisionRequestV1.model_validate(body)
+        payload = self._request_json("POST", f"{API_PREFIX}/statblocks/{safe}/revisions",
+            json_body=request.model_dump(mode="json", by_alias=True, exclude_none=True))
+        revision = self._parse_model(ExactRevisionResourceV1, payload)
+        verify_exact_revision_mechanics_integrity(revision)
+        if (revision.statblock_id != safe or getattr(revision.parent_revision_id,"root",revision.parent_revision_id) != request.parent_revision_id
+            or revision.definition_digest != source_definition_digest_from_body(request.definition.model_dump(mode="json"))):
+            raise downstream_unexpected("Appended revision differs from its exact requested parent or definition")
         return revision
 
     def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1:
