@@ -373,3 +373,103 @@ def test_actual_large_writer_selects_short_id_and_stores_exact_internal_block(re
     assert all(block.block_handle not in wire.calls[0].content.decode() for block in partition(text,writer.projection.frame['authored_sources'][0]['handle']))
     reopened=adapter.service.inspect_turn(world_id=completed.world_id,turn_id=completed.turn_id)
     assert reopened.completion==completed.completion
+
+
+def unvalidated_texts(adapter):
+    return [material.text for row in adapter.context_capture.trace.observations
+            if row.kind == 'context_snapshot' and row.stage == 'after'
+            for material in row.materials if material.item_id.startswith('unvalidated-provider-answer:')]
+
+
+def writer_failures(adapter):
+    return [(row.phase, row.code) for row in adapter.context_capture.trace.observations
+            if row.kind == 'failure' and row.code.startswith('plan_writer_')]
+
+
+def test_rejected_native_capture_retains_exact_debug_output_without_acceptance(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, raw)
+    monkeypatch.setattr(writer.rules, 'capture_reply', lambda _reply: False)
+    with pytest.raises(ValueError, match='capture was not acknowledged'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_capture_rejected')]
+    assert writer.call['usage']['input_tokens'] == 600
+    assert writer.call['usage']['output_tokens'] == 100
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+    prompts = [row for row in plan_adapter.context_capture.trace.observations if row.kind == 'prompt_reference']
+    assert prompts[-1].payload_sha256 == writer.prepared.body_sha256
+
+
+def test_incomplete_generation_debug_output_is_not_retried_or_accepted(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = '{"incomplete":'
+    wire = WriterWire(plan_adapter, raw, status='incomplete')
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('provider', 'plan_writer_generation_rejected')]
+    assert writer.output_limit_exceeded and plan_adapter.fence.turn.completion is None
+
+
+def test_unexpected_tool_reply_preserves_only_actual_output_text_as_debug(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, raw, extra_output=({'type':'function_call',
+        'id':'fc1','call_id':'call1','name':'unsupported','arguments':'{}','status':'completed'},))
+    with pytest.raises(ValueError, match='unexpected tool'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_capture_rejected')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+
+
+def test_completion_refusal_keeps_debug_output_and_phase(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    raw = json.dumps(graph_answer())
+    def refuse(*_args):
+        raise ValueError('synthetic completion refusal with private details')
+    monkeypatch.setattr(writer.rules, 'complete', refuse)
+    wire = WriterWire(plan_adapter, raw)
+    with pytest.raises(ValueError, match='synthetic completion refusal'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == [raw]
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_completion_rejected')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+    assert 'private details' not in json.dumps([row.model_dump(mode='json')
+        for row in plan_adapter.context_capture.trace.observations if row.kind == 'failure'])
+
+
+def test_failed_debug_capture_is_not_retried_or_accepted(plan_adapter, monkeypatch):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    calls = []
+    def refuse(*_args, **_kwargs):
+        calls.append(True)
+        raise ValueError('synthetic Debug persistence failure')
+    monkeypatch.setattr(plan_adapter.context_capture, 'answer_draft', refuse)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    with pytest.raises(ValueError, match='Debug persistence failure'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(calls) == len(wire.calls) == 1 and wire.closed
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_draft_rejected')]
+    assert plan_adapter.fence.turn.completion is None
+
+
+def test_transport_failure_has_no_invented_debug_reply_or_retry(plan_adapter):  # noqa: F811
+    writer = stage_graph(plan_adapter)
+    class FailedWire(WriterWire):
+        async def handle_async_request(self, request):
+            self.calls.append(request)
+            raise httpx.ConnectError('synthetic network failure', request=request)
+    wire = FailedWire(plan_adapter, '')
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert unvalidated_texts(plan_adapter) == []
+    assert writer_failures(plan_adapter) == [('provider', 'plan_writer_generation_rejected')]
+    assert len(wire.calls) == 1 and wire.closed and plan_adapter.fence.turn.completion is None
+    assert writer.call['usage']['input_tokens'] is None
+    assert writer.call['usage']['output_tokens'] is None

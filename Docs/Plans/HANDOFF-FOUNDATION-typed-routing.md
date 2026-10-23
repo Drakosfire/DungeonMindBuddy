@@ -1,6 +1,8 @@
 # FOUNDATION — preserve graph kinds in Jev navigation
 
-ACTIVE serial PRIME slice on dabac84b1a00f9553c126eefe739225557f1ef8c,
+SETTLED: PR #1652 merged at cd247904438ecbd3e68183bc765dd3d0f6e4c604;
+protected API delivery retained APP/native/mechanics/frozen source state.
+Original serial PRIME slice on dabac84b1a00f9553c126eefe739225557f1ef8c,
 branch codex/jev-typed-navigation, reused buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected API delivery.
 Open PR census has no overlapping driver/test writes.
