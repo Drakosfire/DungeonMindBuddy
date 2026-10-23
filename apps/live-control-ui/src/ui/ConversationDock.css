@@ -25,17 +25,23 @@
 .conversation-dock__reader { min-inline-size: 0; min-block-size: 0; overflow: auto; overflow-anchor: none; }
 .conversation-dock__reader, .conversation-dock__messages, .conversation-dock__context { scrollbar-width: thin; scrollbar-color: var(--conversation-dock-muted) transparent; }
 .conversation-dock__conversation {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 0 0.9rem 0.65rem;
+  padding: calc(var(--conversation-dock-resize-hit-size) / 2 + 2px) 0.9rem 0.65rem;
   background: var(--conversation-dock-chat-background);
   border-block-start: 1px solid var(--conversation-dock-border);
 }
 .conversation-dock.is-expanded .conversation-dock__conversation { block-size: var(--conversation-dock-height); }
 .conversation-dock__resize {
+  position: absolute;
+  inset-block-start: calc(var(--conversation-dock-resize-hit-size) / -2);
+  inset-inline-start: 0;
+  block-size: var(--conversation-dock-resize-hit-size);
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,3 +106,7 @@
 
 .conversation-dock__header .conversation-dock__icon-button { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 32px; min-block-size: 32px; padding: 5px; }
 .conversation-dock__icon-button:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }
+
+.conversation-dock__conversation:not(:has(> .conversation-dock__resize:not([hidden]))) { padding-block-start: .25rem; }
+
+.world-agent-conversation__dock .conversation-dock__conversation { padding-block-start: .25rem; }

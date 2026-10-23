@@ -3203,3 +3203,15 @@ export async function getAgentNativeSourceSection(worldId:string,turnId:string,c
   if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error("Invalid section index");
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-source-sections/${citationIndex}`);
 }
+
+
+export interface BuddyReadinessResponse {
+  schema: "dmb_agent_readiness_v1";
+  surface: "build" | "plan" | "play";
+  world_graph: boolean;
+  configured: boolean;
+  issues: string[];
+}
+export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean): Promise<BuddyReadinessResponse> {
+  return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph)})}`);
+}

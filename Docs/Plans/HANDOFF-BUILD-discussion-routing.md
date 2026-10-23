@@ -1,6 +1,8 @@
 # BUILD — accept valid discussion routing
 
-ACTIVE serial PRIME slice fromb4a2309ec867706cba24d9ca63b92c2ee587097c,
+SHIPPED: PR #1661 merged as 05f2d0ccedea56738d02fda8b1d773a6c239ca22 after exact-head Bugbot approval. Protected API delivery passed with 2094 APP rows, native state, 89 product files and 22 frozen components preserved. Ordinary rendered discussion remains a live verification gate.
+
+Original serial PRIME slice fromb4a2309ec867706cba24d9ca63b92c2ee587097c,
 branch codex/build-discussion-routing in reused buddy-context-loop checkout.
 One Bugbot-reviewed PR, PRIME merge and protected API delivery5202.
 

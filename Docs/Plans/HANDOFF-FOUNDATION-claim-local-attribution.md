@@ -1,6 +1,8 @@
 # FOUNDATION — claim-local source attribution
 
-ACTIVE serial PRIME slice from35cbf499ada034c3a85e5605b6196078dfa29df3,
+SHIPPED: PR #1660 merged as b4a2309ec867706cba24d9ca63b92c2ee587097c after exact-head Bugbot approval and protected API delivery. One post-delivery ordinary benchmark reply completed; source-by-source quality inspection and repeated timing acceptance remain open.
+
+Original serial PRIME slice from35cbf499ada034c3a85e5605b6196078dfa29df3,
 branch codex/claim-local-source-attribution in reused buddy-context-loop checkout.
 One exact-head Bugbot-reviewed PR, PRIME merge and protected API delivery5202.
 Open PR census has no overlapping prompt owner.

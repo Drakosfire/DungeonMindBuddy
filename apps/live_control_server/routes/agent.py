@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from hashlib import sha256
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -103,6 +103,15 @@ from apps.live_control_server.services.world_container_registry import (
 
 
 router = APIRouter(prefix="/agent", tags=["agent-turn"])
+
+
+@router.get("/readiness")
+def get_agent_readiness(request: Request, surface: Literal["build", "plan", "play"],
+                        world_graph: bool = True):
+    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.agent_readiness import agent_readiness
+    return agent_readiness(surface=surface, world_graph=world_graph,
+                           build_runtime=getattr(request.app.state, "build_jev_runtime_factory", None))
 
 
 def _finalize_unlogged_agent_trace(
