@@ -72,6 +72,7 @@ def test_lost_material_is_explicit_and_never_reloads_body(parent,monkeypatch):
     result=owner.read([next(iter(owner.sections))])
     assert result['partial'] and not result['sections']
     assert owner.read([next(iter(owner.sections))])['partial']
+    assert any(row.kind.startswith('Unavailable exact source section') for row in owner.examined())
 
 
 def test_only_matching_current_captured_play_call_can_browse(parent,monkeypatch):
@@ -180,3 +181,32 @@ def test_same_arguments_match_exact_call_id_and_reads_remain_deduplicated(parent
         assert len(literal['sections'])==1 and not repeat['sections']
         assert repeat['reused_section_handles']==[literal['sections'][0]['section_handle']]
         assert len(owner.reads)==1
+
+
+def test_native_progress_distinguishes_reads_from_available_sections(parent):
+    owner,_=parent
+    source_handle=owner.offered()[0].handle
+    assert not owner.examined()
+    owner.browse(source_handle)
+    handles=list(owner.sections)
+    assert len(handles)==2
+    owner.read([handles[0]])
+    outcomes={row.handle:row.kind for row in owner.examined()}
+    assert outcomes[source_handle].startswith('Acquired source section catalog')
+    assert outcomes[handles[0]].startswith('Acquired exact source section')
+    assert handles[1] not in outcomes
+    assert handles[1] in {row.handle for row in owner.offered()}
+    assert handles[0] not in {row.handle for row in owner.offered()}
+
+
+def test_navigation_omits_only_document_wide_terms_and_keeps_single_section_hints():
+    from apps.live_control_server.services.native_source_navigation import section_query_terms
+    from application_state.agent_conversation.native_source_catalog import section_catalog
+    text='# Source\nshared\n## Rules\nshared armor\n## Tree\nshared tree armor\n'
+    sections=section_catalog(text,source_artifact_id='synthetic',native_source_revision_id='revision',content_sha256=sha256(text.encode()).hexdigest())
+    hints=section_query_terms(text,sections,'shared armor tree')
+    assert all('shared' not in terms for terms in hints.values())
+    assert hints[sections[-1].section_id]==['tree','armor']
+    single='# Rules\nshared armor\n'
+    sections=section_catalog(single,source_artifact_id='synthetic',native_source_revision_id='revision',content_sha256=sha256(single.encode()).hexdigest())
+    assert set(section_query_terms(single,sections,'shared armor')[sections[0].section_id])=={'shared','armor'}
