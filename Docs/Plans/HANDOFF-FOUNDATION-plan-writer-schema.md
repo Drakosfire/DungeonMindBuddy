@@ -1,6 +1,14 @@
 # FOUNDATION — finite current Plan writer output
 
-ACTIVE serial PRIME slice on 8a30fd11c3d47685a5a3d6401c1e7a9d949f8c19,
+SETTLED: PR #1654 merged at e8eac1f5b77cd99b7c320589c743dba1e5ef2f85;
+protected API delivery retained 2041 APP rows, native state,85 mechanics files
+and22 frozen components. Independent Bugbot approved exact239018e4;193 author
+checks passed. Ordinary original grounding completed14.51s and follow-up prompt
+completed7.09s with6 source reuses. Actual strict format inspected in Debug.
+Image Studio staged the prompt; generation remains pending separate sharing consent.
+No roughly10-second/full image acceptance claim.
+
+Original serial PRIME slice on 8a30fd11c3d47685a5a3d6401c1e7a9d949f8c19,
 branch codex/plan-finite-writer-schema, reused buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected API delivery.
 Open PR census has no overlapping writer/schema/proof tests.

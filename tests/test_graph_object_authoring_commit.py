@@ -40,6 +40,13 @@ from tests.test_graph_object_authoring_prepare import (
 @pytest.fixture(autouse=True)
 def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmission:
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, "d2c4-unit-test-key")
+    # These unit tests isolate proposal/signature behavior; registered ownership
+    # and distinct native routing are exercised by test_graph_object_authoring_world_binding.
+    from apps.live_control_server.services.graph_object_authoring_binding import GraphReviewPublicationContext
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
+        lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
+    )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",

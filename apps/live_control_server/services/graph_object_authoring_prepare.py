@@ -919,9 +919,11 @@ def publication_intent_payload(
     expires_at: str,
     contribution_digest: str | None = None,
     recap_artifact_id: str | None = None,
+    publication_binding: dict | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": GRAPH_REVIEW_PREPARE_BINDING_SCHEMA,
+        "publication_binding": publication_binding,
         "world_id": world_id,
         "campaign_id": campaign_id,
         "campaign_rel": campaign_rel,
@@ -1238,7 +1240,7 @@ def verify_graph_review_assertion_spans(
 def translate_assertions_to_contribution(
     *,
     world_id: str,
-    campaign_id: str,
+    campaign_id: str | None,
     actor: str,
     source_artifact_id: str,
     source_revision_id: str,
@@ -1581,6 +1583,7 @@ def prove_or_admit_graph_review_source(
     campaign_id: str,
     resolved_source: Any,
     source_admission: Any | None = None,
+    publication_context: Any | None = None,
 ) -> tuple[str, str]:
     from apps.live_control_server.ports.world_graph_source_admission import (
         WorldGraphSourceAdmissionError,
@@ -1593,15 +1596,18 @@ def prove_or_admit_graph_review_source(
     artifact = _buddy_source_artifact(resolved_source)
     _scope_check_buddy_artifact(
         artifact,
-        authored_world=world_id,
+        authored_world=(publication_context.binding["managed_world_id"]
+                        if publication_context and publication_context.binding else world_id),
         authored_campaign=campaign_id,
     )
     admission = source_admission or get_world_graph_source_admission_authority()
     request = WorldGraphSourceAdmissionRequest(
         world_id=world_id,
-        campaign_id=campaign_id,
-        source_artifact=artifact,
+        campaign_id=(publication_context.campaign_scope if publication_context else campaign_id),
+        source_artifact=(publication_context.transport_artifact(artifact) if publication_context else artifact),
         source_revision_token=str(getattr(resolved_source, "source_revision_id")),
+        verified_input_sha256=(publication_context.binding["source_sha256"]
+                               if publication_context and publication_context.binding else None),
         source_uri=getattr(resolved_source, "sealed_source_uri", None)
         or getattr(artifact, "uri", None),
     )
@@ -1706,6 +1712,7 @@ def prepare_graph_object_authoring_write(
     expected_parent = None
     operation_id = None
     contribution_digest = None
+    publication_binding = None
     if expressibility == "INEXPRESSIBLE":
         diagnostics.append(
             _diag(
@@ -1739,6 +1746,11 @@ def prepare_graph_object_authoring_write(
             WorldGraphAuthorityError,
         )
 
+        from apps.live_control_server.services.graph_object_authoring_binding import resolve_publication_context
+
+        context = resolve_publication_context(request, resolved, source_root=(corpus_root or repo_root()).resolve())
+        world_id = context.world_id
+        publication_binding = context.binding
         mounted = authority or get_world_graph_authority()
         try:
             expected_parent = mounted.current_head(world_id).revision_id
@@ -1750,6 +1762,7 @@ def prepare_graph_object_authoring_write(
             campaign_id=request.campaign_id,
             resolved_source=resolved,
             source_admission=source_admission,
+            publication_context=context,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
             graph_review_authority_operation_id,
@@ -1766,7 +1779,7 @@ def prepare_graph_object_authoring_write(
         )
         contribution = translate_assertions_to_contribution(
             world_id=world_id,
-            campaign_id=request.campaign_id,
+            campaign_id=context.campaign_scope,
             actor=actor,
             source_artifact_id=buddy_artifact_id,
             source_revision_id=buddy_revision_id,
@@ -1789,6 +1802,7 @@ def prepare_graph_object_authoring_write(
         actor=actor,
         assertions_digest=assertions_digest,
         contribution_digest=contribution_digest,
+        publication_binding=publication_binding,
         expires_at=expires_at,
     )
     confirm_token = sign_publication_intent(intent)

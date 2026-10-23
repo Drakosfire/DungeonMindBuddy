@@ -167,7 +167,21 @@ def _worldbuilding_case(root: Path):
         source_revision_id="sha256:" + artifact.content_sha256,
         source_artifact=artifact,
     )
-    return assertions, resolved, path, source_span_index_path(root, artifact.source_artifact_id)
+    # Current manual authoring resolves an exact extraction-run component, not
+    # the registry's mutable canonical index. Give this verifier fixture a frozen copy.
+    import json
+    from graph_memory.source_span import source_span_index_from_dict
+    canonical = source_span_index_path(root, artifact.source_artifact_id)
+    frozen_index = root / "frozen-run-index.json"
+    frozen_index.write_bytes(canonical.read_bytes())
+    resolved.source_span_index_path = frozen_index
+    resolved.source_span_index_sha256 = sha256(frozen_index.read_bytes()).hexdigest()
+    index = source_span_index_from_dict(json.loads(frozen_index.read_text()))
+    assertions[0].source_anchor.source_span_ref_id = next(
+        span.source_span_id for span in index.spans
+        if span.start_line == 3
+    )
+    return assertions, resolved, path, frozen_index
 
 
 def test_worldbuilding_index_and_body_are_both_required(tmp_path: Path) -> None:
