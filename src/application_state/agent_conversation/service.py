@@ -985,6 +985,18 @@ class AgentConversationService:
                 before_sequence=before_sequence,
             )
 
+    def retained_graph_navigation(self, *, world_id, conversation_id, authority, previous_turns):
+        """Read a metadata projection of the caller's one canonical history page."""
+        from .retained_graph_navigation import from_history
+        world_id = _world_id(world_id)
+        if world_id != authority.managed_world_id:
+            raise ApplicationStateValidationError('Navigation authority belongs to another World')
+        with unit_of_work(_ready_dsn()) as conn:
+            if repo.get_conversation(conn, world_id, conversation_id) is None:
+                raise ApplicationStateNotFoundError('conversation not found in verified World')
+            return from_history(conn, world_id=world_id, conversation_id=conversation_id,
+                authority=authority, previous_turns=previous_turns)
+
     def list_completed_plan_ask_context(
         self,
         verified_world_id: str,

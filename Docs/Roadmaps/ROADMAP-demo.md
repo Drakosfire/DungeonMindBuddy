@@ -105,8 +105,9 @@ shipped #1624 after two Bugbot cycles, closing complete capture, initialization
 and server access design gates. C2 runtime shipped #1625 after three Bugbot cycles and is live on5202/APP0052.
 Shared confirmation correction #1626 is live; synthetic Plan→Play→separate fight,
 tracker changes, reload/API restart and unchanged Plan template passed. Conks
-revealed empty discovery and an ambiguous writer gap shape; correction work and
-real adventure acceptance remain open.
+revealed empty discovery and an ambiguous writer gap shape. #1627 fixed the gap
+prompt and a fresh request completed honestly; retained subject navigation after
+empty discovery is ACTIVE. Real adventure acceptance remains open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved
    version in the shared editor, make manual changes, validate and save an immutable

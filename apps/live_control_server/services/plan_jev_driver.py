@@ -11,7 +11,7 @@ _RUNTIME_GRAPH_FIELDS = {"retrievalSessionId", "addedClaimIds", "claimLedger"}
 
 
 class PlanJevDriver:
-    def __init__(self, adapter, *, dialogue=(), rules=None):
+    def __init__(self, adapter, *, dialogue=(), rules=None, retained_navigation=()):
         self.adapter, self.rules = adapter, rules
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
@@ -24,6 +24,10 @@ class PlanJevDriver:
         self._collect_candidates(adapter.bootstrap.retrieval_session.project_for_hermes())
         self._collect_candidates({"candidates": [{"kind": "node", "id": node, "label": label}
             for node, label in adapter.bootstrap.navigation_candidates]})
+        for subject in retained_navigation:
+            self.catalog.setdefault(f"node:{subject.node_id}", (subject.node_id, RetrievalCandidate(
+                handle=f"node:{subject.node_id}", label=subject.label,
+                kind=f"Previously explored {subject.kind}; navigation only, not current evidence")))
 
     def _collect_candidates(self, session):
         for row in session.get("candidates", []):

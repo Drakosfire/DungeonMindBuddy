@@ -743,6 +743,31 @@ def list_turns(
     return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
 
 
+def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authority):
+    """Project only graph navigation metadata for the already selected history page."""
+    if not turn_ids:
+        return []
+    return conn.execute("""
+        SELECT t.turn_id, t.attempt, o.event
+        FROM agent.turn t JOIN agent.turn_context_trace x
+          ON x.turn_id=t.turn_id AND x.attempt=t.attempt
+        CROSS JOIN LATERAL jsonb_array_elements(CASE
+          WHEN jsonb_typeof(x.payload->'observations')='array' THEN x.payload->'observations'
+          ELSE '[]'::jsonb END) WITH ORDINALITY AS o(event, ordinal)
+        WHERE t.world_id=%s AND t.conversation_id=%s AND t.turn_id=ANY(%s)
+          AND t.status='completed' AND t.graph_context_receipt->'graph_authority'=%s
+          AND x.payload->>'world_id'=t.world_id
+          AND x.payload->>'conversation_id'=t.conversation_id::text
+          AND x.payload->>'turn_id'=t.turn_id::text
+          AND x.payload->'attempt'=to_jsonb(t.attempt)
+          AND x.payload->>'capture_status'='complete'
+          AND x.payload->>'terminal_status'='completed'
+          AND x.payload->>'closed_at' IS NOT NULL
+          AND o.event->>'kind'='graph_tool'
+        ORDER BY t.sequence DESC, o.ordinal DESC
+        """, (world_id, conversation_id, list(turn_ids), Jsonb(authority.model_dump(mode='json')))).fetchall()
+
+
 def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]:
     """Filter one existing history window before materializing heavy ledgers."""
     with conn.cursor(row_factory=dict_row) as cur:
