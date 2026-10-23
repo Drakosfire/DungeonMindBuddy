@@ -2678,6 +2678,50 @@ class NativeSourceCatalogObservedV1(GraphExecutionEventBaseV1):
         return self
 
 
+class NativeSourceSectionAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_section_authorized_v1"]
+    read_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    catalog_event_id: UUID
+    catalog_sha256: Digest
+    section: NativeSourceSectionDescriptorV1
+    authorized_chars: int = Field(strict=True, ge=1)
+
+
+class NativeSourceSectionObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_section_observed_v1"]
+    read_id: UUID
+    authorization_event_id: UUID
+    catalog_event_id: UUID
+    source_artifact_id: str
+    native_source_revision_id: str
+    app_source_revision_id: UUID
+    content_sha256: Digest
+    section: NativeSourceSectionDescriptorV1
+    outcome: Literal["complete", "unavailable"]
+    failure_code: Literal["source_material_unavailable", "source_material_mismatch", "empty_section"] | None
+    text: str | None
+    excerpt_sha256: Digest | None
+    returned_chars: int = Field(strict=True, ge=0)
+    fresh_body_read_bytes: Literal[0]
+    extraction_elapsed_ms: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_excerpt(self):
+        if self.outcome == "complete":
+            if (not isinstance(self.text, str) or not self.text.strip() or self.failure_code is not None
+                    or self.returned_chars != len(self.text)
+                    or self.returned_chars != self.section.char_end-self.section.char_start
+                    or hashlib.sha256(self.text.encode("utf-8")).hexdigest() != self.excerpt_sha256):
+                raise ValueError("Native section requires exact complete excerpt bytes")
+        elif (self.text is not None or self.excerpt_sha256 is not None or self.returned_chars != 0
+                or self.failure_code is None):
+            raise ValueError("Unavailable section cannot carry evidence bytes")
+        return self
+
+
 class SourceScopeExtensionEventV3(GraphExecutionEventBaseV1):
     kind: Literal["source_scope_extension_v3"]
     origin_graph_event_id: UUID
@@ -3297,7 +3341,17 @@ def source_read_character_usage(
     reservations: dict[UUID, SourceReadAuthorizationEventV2] = {}
     completed: set[UUID] = set()
     for event in events:
-        if isinstance(event, SourceReadAuthorizationEventV2):
+        if isinstance(event, NativeSourceSectionAuthorizedV1):
+            usage += event.authorized_chars
+            if usage > policy.max_source_read_chars:
+                raise ValueError("Native section character budget exceeded at authorization")
+        elif isinstance(event, NativeSourceSectionObservedV1) and event.outcome == "unavailable":
+            auth = next((e for e in events if isinstance(e, NativeSourceSectionAuthorizedV1)
+                         and e.event_id == event.authorization_event_id), None)
+            if auth is None:
+                raise ValueError("Native section settlement requires authorization")
+            usage -= auth.authorized_chars
+        elif isinstance(event, SourceReadAuthorizationEventV2):
             if event.read_call_id in reservations:
                 raise ValueError("source-read call ID was authorized more than once")
             reservations[event.read_call_id] = event
@@ -3457,6 +3511,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     validate_navigation_events(execution)
     from .native_source_catalog import validate_catalog_events
     validate_catalog_events(execution)
+    from .native_source_sections import validate_section_events
+    validate_section_events(execution)
 
     # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
     legacy_events: list[dict[str, object]] = []
@@ -3466,6 +3522,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
             event,
             (
                 PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+                NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
                 ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
@@ -3722,7 +3779,8 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
-    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1,
+    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1,
     Field(discriminator="kind"),
 ]
 
@@ -3750,6 +3808,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         authorized_by_id = {}
         acquisition_events = (
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+            NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
             BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
@@ -4121,7 +4180,8 @@ PlayGraphExecutionEventV1 = Annotated[
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
-    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1,
+    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1,
     Field(discriminator="kind"),
 ]
 

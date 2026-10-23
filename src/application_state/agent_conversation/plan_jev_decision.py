@@ -163,10 +163,15 @@ def validate_decision_phases(execution):
         elif isinstance(event, (t.ValidatedGraphOperationEventV1, t.SourceScopeExtensionEventV3,
                 t.SourceReadAuthorizationEventV2, t.ValidatedSourceReadEventV2, t.SourcePassageReuseEventV1,
                 t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2,
-                t.NativeSourceNavigationAuthorizedV1, t.NativeSourceCatalogObservedV1)):
+                t.NativeSourceNavigationAuthorizedV1, t.NativeSourceCatalogObservedV1,
+                t.NativeSourceSectionAuthorizedV1, t.NativeSourceSectionObservedV1)):
             if writer is not None or selected is None or selected.operation == "finish_retrieval":
                 raise ValueError("Plan acquisition requires an active completed retrieval decision")
-            if isinstance(event, t.SourceReadAuthorizationEventV2):
+            if isinstance(event, t.NativeSourceSectionAuthorizedV1):
+                pending_sources.add(("native_section", event.read_id))
+            elif isinstance(event, t.NativeSourceSectionObservedV1):
+                pending_sources.discard(("native_section", event.read_id))
+            elif isinstance(event, t.SourceReadAuthorizationEventV2):
                 pending_sources.add(("source", event.read_call_id))
             elif isinstance(event, t.ValidatedSourceReadEventV2):
                 pending_sources.discard(("source", event.read_call_id))
