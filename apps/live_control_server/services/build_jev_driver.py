@@ -889,7 +889,10 @@ class BuildJevDriver:
                     or set(scores) != set(question.options)
                     or any(isinstance(v, bool) or not isinstance(v, (int, float))
                         or not math.isfinite(v) or not 0 <= v <= 1 for v in scores.values())
-                    or abs(sum(scores.values()) - 1) > 0.02 or scores[selected] < 0.9):
+                    or abs(sum(scores.values()) - 1) > 0.02
+                    or scores[selected] != max(scores.values())
+                    or sum(value == scores[selected] for value in scores.values()) != 1
+                    or (selected != "answer_from_sources" and scores[selected] < 0.9)):
                 raise ValueError("Unresolved or uncalibrated operation selection; do not replay")
             from uuid import uuid4
             operation_id = "build-jev:" + digest({"turn_id": str(a.turn.turn_id),
