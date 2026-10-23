@@ -16,7 +16,7 @@ export interface AcceptedCombatMechanicsSnapshot extends AcceptedCombatMechanics
   locator: WorldMechanicsAssociation['proof']['locator'];
   resource: StatblockRevisionResourceV1; snapshot_digest: string;
 }
-export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot;
+export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot;
 export interface AcceptedCombatMechanicsChoice extends AcceptedCombatMechanicsSelection { name: string; }
 
 export interface CombatRulesetField {
@@ -140,4 +140,31 @@ export interface AddGeneratedStatblockRequest {
 export interface AddGeneratedStatblockResponse {
   added_entities: CombatEntity[];
   encounter: CombatEncounterRecord;
+}
+
+export interface SavedCombatMechanicsSnapshot {
+  origin:'buddy_saved_mechanics_override_v1'; managed_world_id:string; draft_id:string;
+  origin_acceptance_operation_id:string; revision_operation_id:string|null;
+  locator:WorldMechanicsAssociation['proof']['locator'];resource:StatblockRevisionResourceV1;snapshot_digest:string;
+}
+export interface ActorMechanicsAdoption {
+  actor_id:string;expected_snapshot_digest:string;ac_policy:'keep'|'use_saved';
+  hp_policy:'keep'|'preserve_current'|'clamp_current'|'reset_full';
+}
+export interface AdoptMechanicsRequest {
+  schema:'dmb_combat_mechanics_adoption_request_v1';operation_id:string;expected_revision:number;
+  draft_id:string;locator:WorldMechanicsAssociation['proof']['locator'];actors:ActorMechanicsAdoption[];
+}
+export interface MechanicsAdoptionPreview {snapshot:SavedCombatMechanicsSnapshot;armor_class:number|null;hit_points:number|null}
+export interface MechanicsAdoptionTransition {
+  actor_id:string;before_snapshot_digest:string;after_snapshot_digest:string;
+  ac_policy:ActorMechanicsAdoption['ac_policy'];hp_policy:ActorMechanicsAdoption['hp_policy'];
+  before_ac:number|string|null;after_ac:number|string|null;before_hp:number|string|null;after_hp:number|string|null;
+  before_max_hp:number|string|null;after_max_hp:number|string|null;
+}
+export interface MechanicsAdoptionOutcome {
+  receipt:{schema:'dmb_combat_mechanics_adoption_receipt_v1';operation_id:string;world_id:string;encounter_id:string;
+    request_digest:string;state:'applied'|'canceled';source:WorldMechanicsAssociation['proof']['locator'];
+    expected_revision:number;committed_revision:number|null;transitions:MechanicsAdoptionTransition[];created_at:string};
+  encounter:CombatEncounterRecord;advanced_since_apply:boolean;
 }

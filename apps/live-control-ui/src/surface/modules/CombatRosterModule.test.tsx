@@ -679,4 +679,43 @@ describe("CombatRosterModule", () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('locks shared tracker controls during adoption then saves tracker edits against the adopted revision',async()=>{
+    const {webcrypto}=await import('node:crypto');vi.stubGlobal('crypto',webcrypto);
+    try {
+      const resource=(await import('../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json')).default;
+      const locator={provider:'dungeonmind' as const,statblock_id:resource.statblock_id,revision_id:resource.revision_id,
+        contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest};
+      const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+        acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+        locator,resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
+      const initial=record();initial.draft.entities=[{...entity,mechanics_snapshot:snapshot}];
+      const override={origin:'buddy_saved_mechanics_override_v1' as const,managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',
+        origin_acceptance_operation_id:'accept-one',revision_operation_id:null,locator,resource,snapshot_digest:'sha256:'+'c'.repeat(64)};
+      const committed={...initial,revision:2,draft:{...initial.draft,entities:[{...initial.draft.entities[0],mechanics_snapshot:override}]}};
+      vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+      vi.spyOn(combatApi,'listAcceptedCombatMechanics').mockResolvedValue({choices:[{name:'Drake source',draft_id:override.draft_id,draft_version:3}],nextOffset:null});
+      vi.spyOn(liveApi,'listSavedMechanicsVersions').mockResolvedValue({world_id:'elderwyld',draft_id:override.draft_id,name:'Drake',original:locator,operations:[],pending:null,next_offset:null});
+      vi.spyOn(combatApi,'previewSavedCombatMechanics').mockResolvedValue({snapshot:override,armor_class:15,hit_points:68});
+      const pending=deferred<import('../../combat/combatTypes').MechanicsAdoptionOutcome>();
+      const adopt=vi.spyOn(combatApi,'adoptCombatMechanics').mockReturnValue(pending.promise);
+      mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+      await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
+      await userEvent.click(await screen.findByRole('button',{name:'Find saved creatures'}));await userEvent.click(await screen.findByRole('button',{name:'Drake source'}));
+      await userEvent.click(await screen.findByRole('button',{name:'Preview exact version'}));await userEvent.click(await screen.findByLabelText('Select Geomantic Drake (1)'));
+      await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
+      await waitFor(()=>expect(screen.getByLabelText('HP for Geomantic Drake')).toBeDisabled());expect(screen.getByRole('button',{name:'Next turn'})).toBeDisabled();
+      const body=adopt.mock.calls[0][2],{adoptionRequestDigest}=await import('../../combat/CombatMechanicsAdoptionRecovery');
+      pending.resolve({receipt:{schema:'dmb_combat_mechanics_adoption_receipt_v1',operation_id:body.operation_id,world_id:'elderwyld',encounter_id:initial.encounter_id,
+        request_digest:await adoptionRequestDigest({schema:'dmb_pending_combat_adoption_v1',worldId:'elderwyld',encounterId:initial.encounter_id,request:body,afterDigest:override.snapshot_digest}),
+        state:'applied',source:locator,expected_revision:1,committed_revision:2,created_at:'2026-10-22T00:00:00Z',transitions:[{actor_id:entity.id,before_snapshot_digest:snapshot.snapshot_digest,
+          after_snapshot_digest:override.snapshot_digest,ac_policy:'keep',hp_policy:'keep',before_ac:15,after_ac:15,before_hp:76,after_hp:76,before_max_hp:76,after_max_hp:76}]},encounter:committed,advanced_since_apply:false});
+      await screen.findByText('Selected actors now use this exact version. Other actors and World associations are unchanged.');
+      expect(screen.getByLabelText('HP for Geomantic Drake')).not.toBeDisabled();expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+      const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_id,_rev,draft)=>({...committed,revision:3,draft}));
+      fireEvent.change(screen.getByLabelText('HP for Geomantic Drake'),{target:{value:'55'}});await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+      await waitFor(()=>expect(save).toHaveBeenCalled());expect(save.mock.calls[0][2]).toBe(2);
+      expect(save.mock.calls[0][3].entities[0].mechanics_snapshot).toEqual(override);
+    }finally{vi.unstubAllGlobals();}
+  });
+
 });

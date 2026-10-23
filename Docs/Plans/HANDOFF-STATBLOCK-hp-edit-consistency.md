@@ -1,8 +1,13 @@
 # STATBLOCK — coherent manual HP editing
 
-## ACTIVE serial authority
+## Merged and live; serial successor active
 
-PRIME activates this live-discovered repair under the operator's existing manual
+#1620 merged/live at `a6684f1aedff28b46a32770dc32b08b60bfb5bae` after one
+Bugbot approval of `43094bace6289a8a7e4393e800fbcc71cafc6cee`. Real HP16→28 Save,
+original/new reopen and protected restart passed;1760 APP rows/native rows/79 product
+files/17 frozen components retained. This lease is released; B is ACTIVE under
+[exact-version adoption](HANDOFF-COMBAT-exact-version-adoption.md).
+Original activation: PRIME activates this live-discovered repair under the operator's existing manual
 revision goal. Base `3389249e9cdf07bd9ee89aa01151605eb82d67b5` (#1619), existing
 buddy-context-loop checkout, branch `codex/statblock-hp-edit-consistency`.
 No competing open implementation edits these paths; one serial PR, no new environment.

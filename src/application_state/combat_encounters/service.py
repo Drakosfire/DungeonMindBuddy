@@ -15,6 +15,7 @@ from application_state.combat_encounters.types import (
     CombatWorldIdentity,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
+    SavedCombatMechanicsSnapshot,
 )
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
@@ -127,6 +128,8 @@ def save_encounter(
         for entity in request.draft.entities:
             prior = existing.get(entity.id)
             if entity.mechanics_snapshot is not None and prior is None:
+                if isinstance(entity.mechanics_snapshot, SavedCombatMechanicsSnapshot):
+                    raise ApplicationStateValidationError("Saved mechanics overrides require explicit adoption for an existing actor")
                 if (verified_mechanics_snapshots or {}).get(entity.id) != entity.mechanics_snapshot:
                     raise ApplicationStateValidationError("New mechanics snapshot must be independently verified")
                 from application_state.combat_encounters.types import AcceptedCombatMechanicsSnapshot

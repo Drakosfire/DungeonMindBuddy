@@ -163,3 +163,39 @@ def preview_accepted_mechanics(world_id: Annotated[str, Query(min_length=1, max_
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except StatblockIntegrationError as exc:
         raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
+
+
+from uuid import UUID
+from application_state.combat_encounters import adoption
+from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest,AdoptionOutcome,AdoptionPreview,SavedMechanicsPreviewRequest
+
+
+def _adoption_call(action):
+    try:return action()
+    except ApplicationStateError as exc:_raise_state_error(exc)
+    except ThreatDraftStoreError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
+    except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail='Exact saved mechanics are unavailable') from exc
+
+
+@router.post('/saved-mechanics/preview',response_model=AdoptionPreview)
+def preview_saved_mechanics_route(world_id:Annotated[str,Query(min_length=1,max_length=63)],body:SavedMechanicsPreviewRequest):
+    owner=_verified_world(world_id)
+    return _adoption_call(lambda:combat_mechanics.preview_saved_override(world_id=owner,draft_id=body.draft_id,locator=body.locator))
+
+
+@router.post('/{encounter_id}/mechanics-adoptions',response_model=AdoptionOutcome)
+def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+    owner=_verified_world(world_id)
+    return _adoption_call(lambda:combat_mechanics.adopt_saved_override(world_id=owner,encounter_id=encounter_id,request=body))
+
+
+@router.post('/{encounter_id}/mechanics-adoptions:cancel',response_model=AdoptionOutcome)
+def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+    owner=_verified_world(world_id)
+    return _adoption_call(lambda:adoption.cancel(world_id=owner,encounter_id=encounter_id,request=body))
+
+
+@router.get('/{encounter_id}/mechanics-adoptions/{operation_id}',response_model=AdoptionOutcome|None)
+def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)]):
+    owner=_verified_world(world_id)
+    return _adoption_call(lambda:adoption.inspect(world_id=owner,encounter_id=encounter_id,operation_id=operation_id))
