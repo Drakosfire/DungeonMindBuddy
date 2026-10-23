@@ -6,6 +6,7 @@ import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,scen
 import type {CombatEncounterRecord} from './combatTypes';
 
 function recoveryKey(context:PlanEncounterContext){return `dmb-scene-template-create-v1:${context.worldId}:${context.documentId}:${context.sceneId}`;}
+function defaultTitle(sceneTitle:string){return Array.from(`${sceneTitle} encounter`.trim()).slice(0,160).join('');}
 export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const latest=useRef(context);latest.current=context;
  const epoch=useRef(0);
@@ -16,11 +17,11 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const [loaded,setLoaded]=useState(false);
  const [error,setError]=useState<string|null>(null);
  const [historical,setHistorical]=useState<CombatEncounterRecord|null>(null);
- const [title,setTitle]=useState(`${context.sceneTitle} encounter`);
+ const [title,setTitle]=useState(defaultTitle(context.sceneTitle));
  const identity=`${context.worldId}:${context.documentId}:${context.sceneId}`;
  function accept(result:SceneTemplateView){assertSceneTemplate(result,context);setView(result);}
  useEffect(()=>{
-  const current=++epoch.current;setView(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(`${context.sceneTitle} encounter`);
+  const current=++epoch.current;setView(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
   void (async()=>{
    try{
     const retained=sessionStorage.getItem(recoveryKey(context));
@@ -45,11 +46,13 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   try{
    let intent=pending;
    if(!intent){
+    const encounterTitle=title.trim();
+    if(!encounterTitle||Array.from(encounterTitle).length>160)throw new Error('Enter an encounter name of 1–160 characters before preparing it.');
     const committed=await getWorldOwnedPlanCommittedRevision(context.documentId);
     const now=latest.current;
     if(current!==epoch.current)return;
     if(!now.canCreate||committed.schema_version!=='dmb_workspace_committed_revision_v2'||committed.scope_mode!=='world'||committed.world_id!==context.worldId||committed.document_id!==context.documentId||committed.kind!=='plan'||committed.status!=='active'||committed.has_divergent_working_copy||committed.object_revision!==now.objectRevision||committed.content_sha256!==now.contentSha256)throw new Error('Save and reopen this Plan before preparing its encounter.');
-    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:{title:title.trim()}};
+    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:{title:encounterTitle}};
     sessionStorage.setItem(recoveryKey(context),JSON.stringify(intent));setPending(intent);
    }
    const result=await createSceneTemplate(context.worldId,intent);

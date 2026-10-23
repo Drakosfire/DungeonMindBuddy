@@ -218,3 +218,10 @@ remains separate and cannot overwrite a mounted dirty Combat draft. Template rea
 hold a shared encounter-row lock while reading history metadata so concurrent saves
 cannot produce a mixed revision/history response. Canonical Markdown structure
 admission reuses the edition owner's parser, rejecting swallowed directives.
+
+Review-cycle1 closure lease: UI api/liveApi.ts and new
+api/liveApi.sceneTemplates.test.ts are owned for registering the new exact route
+family with existing authenticated transport and proving bearer/session/CSRF/
+loopback behavior. PlanSceneEncounter validates the existing160-character encounter
+title contract before persisting intent; long headings receive a valid editable
+default. These fix C1 review findings, not new capabilities or new output caps.

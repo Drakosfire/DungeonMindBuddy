@@ -59,4 +59,18 @@ describe('Plan scene encounter preparation',()=>{
   const view=render(<PlanSceneEncounter context={context}/>);await userEvent.click(await screen.findByRole('button',{name:'Prepare encounter'}));view.rerender(<PlanSceneEncounter context={{...context,canCreate:false}}/>);pending.resolve(committed);
   await screen.findByText(/Save and reopen this Plan/);expect(create).not.toHaveBeenCalled();
  });
+ it('uses a valid editable default for a long scene heading',async()=>{
+  const create=vi.spyOn(api,'createSceneTemplate').mockImplementation(async(_world,intent)=>result(intent));
+  render(<PlanSceneEncounter context={{...context,sceneTitle:'x'.repeat(160)}}/>);
+  const name=await screen.findByLabelText('Prepared encounter name');expect((name as HTMLInputElement).value.length).toBe(160);
+  await userEvent.click(screen.getByRole('button',{name:'Prepare encounter'}));await screen.findByTestId('scoped-combat');expect(create.mock.calls[0][1].encounter.title.length).toBe(160);
+ });
+ it('leaves an invalid name editable without retaining or dispatching intent',async()=>{
+  const create=vi.spyOn(api,'createSceneTemplate');render(<PlanSceneEncounter context={context}/>);
+  fireEvent.change(await screen.findByLabelText('Prepared encounter name'),{target:{value:'x'.repeat(170)}});
+  await userEvent.click(screen.getByRole('button',{name:'Prepare encounter'}));await screen.findByText(/Enter an encounter name/);
+  expect(sessionStorage.length).toBe(0);expect(create).not.toHaveBeenCalled();expect(screen.getByLabelText('Prepared encounter name')).toBeEnabled();
+  fireEvent.change(screen.getByLabelText('Prepared encounter name'),{target:{value:'Valid revised name'}});expect(screen.getByRole('button',{name:'Prepare encounter'})).toBeEnabled();
+ });
+
 });
