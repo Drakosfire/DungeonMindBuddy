@@ -37,6 +37,8 @@ def _origin_payload(event):
             or snapshot.get("revision_id") != donor.graph_revision
             or resolution.get("anchor_id") != native_anchor
             or resolution.get("can_open_source") is not True
+            or resolution.get("evidence_ref_id") != pin.evidence_ref_id
+            or evidence.get("evidence_ref_id") != pin.evidence_ref_id
             or artifact.get("status") != "active" or artifact.get("visibility") not in {"gm", "player"}
             or artifact.get("world_id") != event.native_world_id
             or artifact.get("source_domain") not in {"worldbuilding", "session_recap"}
@@ -79,7 +81,9 @@ def validate_navigation_events(execution):
             pins.update((p.anchor_id, p) for p in event.pins)
         elif isinstance(event, t.NativeSourceNavigationAuthorizedV1):
             body, donor, pin = origin_payload(event)
-            source_key = (pin.source_artifact_id, pin.source_revision_id, body["revision"]["content_sha256"])
+            # An immutable native revision cannot be re-admitted under a different
+            # digest; exact repeats reuse the original authorization as well.
+            source_key = (pin.source_artifact_id, pin.source_revision_id)
             if (writer_started or latest_provider != event.provider_attempt_id or latest_outcome != "response_received"
                     or origins.get(donor.event_id) != donor or pins.get(pin.anchor_id) != pin
                     or event.navigation_id in navigation_ids or source_key in source_keys

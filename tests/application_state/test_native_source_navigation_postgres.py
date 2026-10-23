@@ -73,11 +73,11 @@ def authorization(turn, donor, pin):
     proof = {"schema": "dmb_native_source_origin_proof_v1", "donor": donor.model_dump(mode="json"),
         "donor_sha256": t._canonical_sha256(donor.model_dump(mode="json")), "pin": pin.model_dump(mode="json"),
         "projection": scope | {"revision_pin": donor.graph_revision},
-        "resolution": source | {"anchor_id": "dm-source-anchor:v1:proof", "can_open_source": True,
+        "resolution": source | {"evidence_ref_id": pin.evidence_ref_id, "anchor_id": "dm-source-anchor:v1:proof", "can_open_source": True,
             "snapshot": scope | {"revision_id": donor.graph_revision},
             "artifact": {"source_artifact_id": pin.source_artifact_id, "world_id": authority.native_world_id,
                 "source_domain": "worldbuilding", "status": "active", "visibility": "gm"},
-            "evidence": source | {"source_domain": "worldbuilding"}},
+            "evidence": source | {"evidence_ref_id": pin.evidence_ref_id, "source_domain": "worldbuilding"}},
         "revision": source | {"content_sha256": "c"*64}}
     provider = next(e for e in reversed(execution.events) if isinstance(e, t.ProviderAttemptAuthorizedEventV1))
     return t.NativeSourceNavigationAuthorizedV1(kind="native_source_navigation_authorized_v1",
@@ -239,3 +239,30 @@ def test_real_native_verifier_proof_matches_app_wire_contract(core_origin):
         world_id="managed-test-world", native_world_id=scope.world_id, binding_version=1,
         origin_proof_json=proof.proof_json, origin_proof_sha256=proof.proof_sha256)
     assert event.origin_proof_sha256 == proof.proof_sha256
+
+
+@pytest.mark.parametrize("target", ["resolution", "evidence"])
+def test_foreign_evidence_is_not_admitted_by_rehashed_proof(nav_case, target):
+    service, turn, donor, pin = nav_case
+    event = authorization(turn, donor, pin)
+    proof = json.loads(event.origin_proof_json)
+    row = proof["resolution"] if target == "resolution" else proof["resolution"]["evidence"]
+    row["evidence_ref_id"] = "foreign-evidence"
+    forged = event.model_copy(update={"origin_proof_json": json.dumps(proof),
+        "origin_proof_sha256": t._canonical_sha256(proof)})
+    with pytest.raises(ApplicationStateValidationError):
+        persist(service, turn, forged)
+    assert service.list_turns(turn.world_id, turn.conversation_id)[-1].revision == turn.revision
+
+
+def test_native_revision_cannot_acquire_another_digest(nav_case):
+    service, turn, donor, pin = nav_case
+    updated, _ = persist(service, turn, authorization(turn, donor, pin))
+    event = authorization(updated, donor, pin)
+    proof = json.loads(event.origin_proof_json)
+    proof["revision"]["content_sha256"] = "e"*64
+    changed = t.NativeSourceNavigationAuthorizedV1.model_validate(event.model_dump(mode="json") | {
+        "origin_proof_json": json.dumps(proof), "origin_proof_sha256": t._canonical_sha256(proof)})
+    with pytest.raises(ApplicationStateValidationError):
+        persist(service, updated, changed)
+    assert service.list_turns(turn.world_id, turn.conversation_id)[-1].revision == updated.revision
