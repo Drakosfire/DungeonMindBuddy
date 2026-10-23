@@ -8,8 +8,11 @@ Serial: one design PR, Architecture critique and independent Bugbot review befor
 PRIME merge. Exclusive design writes: this handoff, predecessor settlement in
 HANDOFF-AGENT-session-excerpt-attribution.md, and ROADMAP-demo.md. No runtime,
 provider, database or serving change. Open PR census2026-10-22: no overlapping lane.
-Implementation is BLOCKED until this contract is reviewed and a bounded ACTIVE
-write lease names concrete paths and activation/migration gates.
+Design #1631 mergedcfa0dee7299eac72042ea432a78e29d5e8cbb802 after two Bugbot
+cycles and Architecture approval. Body-read/ledger/routing implementation remains
+BLOCKED until bounded ACTIVE leases name concrete paths and activation/migration
+gates. The metadata-only prerequisite is leased separately in
+HANDOFF-AGENT-source-origin-verifier.md; it grants no content read or citation.
 Buddy owns producer, APP ledger, immutable body storage and UI. Core owns native
 source identity/provenance and Graph scope. If existing Core contracts cannot
 prove this join, return a bounded Core contract request; do not bypass the owner.
@@ -75,6 +78,12 @@ current metadata. Deactivation, source visibility denial, World reassignment,
 missing artifact or broken lineage denies reopening even when bytes remain. The
 implementation must verify these behaviors against actual Core re-projection;
 if resolution does not enforce them, this is a Core gate before activation.
+The source-origin prerequisite now exercises real Core re-projection: current
+retraction, unknown visibility, foreign World and missing artifacts deny a pinned
+source, while an allowed old source revision and old Graph revision remain exact
+after mutable source/current Graph heads advance. Managed-World authentication and
+authorize-before-body-load remain later owner gates; this metadata proof alone
+never grants content access.
 
 ## Exact sequence
 
