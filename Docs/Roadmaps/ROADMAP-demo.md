@@ -115,8 +115,13 @@ Fresh Conks grounding completed in7.6 seconds. The connected Conks scene→encou
 →manual mechanics successor→explicit adoption→Play→reload/API restart passed once;
 Plan preparation remained unchanged. Scene notes and closing reflections persisted.
 Next-session output incorrectly cited adventure passages for session recollections;
-current authored-excerpt guidance and exact session navigation are ACTIVE. Appendix
-source-revision section navigation needs a separate producer/APP provenance contract.
+authored-excerpt guidance and exact session navigation shipped #1630 after one
+Bugbot cycle and are live on5202. A fresh5.6-second response separately attributed
+three session excerpts; links reopened the exact saved review checkpoint. This
+is prompt-guidance reproduction evidence, not semantic entailment validation.
+[Exact native source sections](../Plans/HANDOFF-AGENT-native-source-sections.md)
+defines the pending producer/APP contract for appendix navigation; runtime
+implementation remains gated on review and an ACTIVE bounded lease.
 Real adventure acceptance remains open.
 
 1. **Accepted mechanics can be revised durably.** Start from an exact saved

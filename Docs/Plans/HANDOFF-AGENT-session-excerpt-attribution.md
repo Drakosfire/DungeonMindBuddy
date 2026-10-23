@@ -1,6 +1,12 @@
 # AGENT — session excerpt attribution
 
-ACTIVE serial PRIME slice, base db784813d2a5635ccd0ac139bd268dade9b93827,
+SETTLED: PR1630 merged620579bba10138dd7b73e2340a7fb4ca59776a85 after one
+Bugbot cycle; matched API/UI on5202. Fresh Conks planning completed in5.6 seconds
+with three separately attributed session excerpts and links to the exact saved
+review checkpoint. This proves the reproduction, not general semantic entailment.
+Implementation lease ended.
+
+Original serial PRIME slice, base db784813d2a5635ccd0ac139bd268dade9b93827,
 branch codex/session-excerpt-attribution in the existing buddy-context-loop checkout.
 One implementation PR, independent Bugbot exact-head review, PRIME merge and
 protected API/UI delivery on established8000/5202; APP0052/native/Core unchanged.
