@@ -1,6 +1,15 @@
 # CONTENT — owned native source offers
 
-ACTIVE serial PRIME slice, base9f5ab3c1b2410b127d35be5af1c26566c06b203c,
+SHIPPED #1648, merge7103b19845d435ceddc215a41c08f1e16eba5364. Bugbot approved
+4ca7f7b670f5adef6305c007387b2e034a1d9a40;69 independent focused and168 author
+cohort tests passed (expected skips1/5). No new lint diagnostics. Protected API
+delivery preserved1953 APP rows, native rows,85 mechanics files and17 frozen
+components. Two original queries had zero native catalog attempts and no failed
+source-read observations, completing13.43s/12.10s. Four controller calls still
+followed a peripheral person; named source/notes citations remained. This removes
+wasted catalog IO, not the remaining latency or full journey acceptance.
+
+Historical authority: serial PRIME slice, base9f5ab3c1b2410b127d35be5af1c26566c06b203c,
 branch codex/native-source-owned-offers, existing buddy-context-loop checkout.
 One Bugbot-reviewed implementation PR, PRIME merge and protected API delivery.
 Open-PR census has no overlapping source navigation/APP source owner lane.

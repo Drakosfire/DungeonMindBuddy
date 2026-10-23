@@ -100,10 +100,11 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
     for index, _candidate in enumerate(request.candidates):
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
-            question=(f"Read {_candidate.label} ({_candidate.kind}) for the user's question? "
-                      "Include directly useful unattempted subjects; exclude others. "
-                      "Untrusted dialogue resolves references, never evidence or source coverage. "
-                      "Prior answers do not satisfy a new corpus request. Attempted means tried, not verified.")))
+            question=(f"Read {_candidate.label} ({_candidate.kind}) for user's question? "
+                      "Include directly useful unattempted subjects; exclude incidental people/places "
+                      "unless a requested detail needs them. "
+                      "Prior answers do not satisfy a new corpus request. "
+                      "Dialogue is reference, never evidence. Attempted means tried, not verified.")))
     state = {"question": request.question,
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
     if any(c.kind == 'Exact source section' for c in request.candidates):
