@@ -109,6 +109,54 @@ class NativePlayInputV4(NativePlayInputV1):
         return unpack_play_frame(self.source_frame)
 
 
+
+def pack_selector_play_frame(frame,scope):
+    from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
+    value=frame.model_dump(mode='json',by_alias=True)
+    value['schema']='dmb_play_block_frame_v2'
+    catalog=selection_catalog(((entry.source_id,source.text)
+        for source,entry in zip(frame.sources,frame.manifest.entries,strict=True)),str(scope))
+    for source,entry in zip(value['sources'],frame.manifest.entries,strict=True):
+        source['schema']='dmb_play_block_payload_v2'
+        source['text_blocks']=project_selection_blocks(source.pop('text'),entry.source_id,catalog)
+    return value
+
+
+def unpack_selector_play_frame(value,scope):
+    from .authored_excerpt_blocks import restore_selection_blocks
+    from copy import deepcopy
+    if not isinstance(value,dict) or value.get('schema')!='dmb_play_block_frame_v2':
+        raise ValueError('Play selector frame has wrong schema')
+    raw=deepcopy(value);raw['schema']='dmb_play_source_frame_v1'
+    for source in raw.get('sources',[]):
+        if source.get('schema')!='dmb_play_block_payload_v2':
+            raise ValueError('Play selector source has wrong schema')
+        source['schema']='dmb_play_source_payload_v1'
+        source['text']=restore_selection_blocks(source.pop('text_blocks'))
+    frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(raw))
+    if pack_selector_play_frame(frame,scope)!=value:
+        raise ValueError('Play selectors changed exact frozen spans or submission scope')
+    return frame
+
+
+class NativePlayInputV5(NativePlayInputV1):
+    schema_: Literal['dmb_native_play_input_v5'] = Field(default='dmb_native_play_input_v5',alias='schema')
+    source_frame: dict
+    answer_policy: Literal['dmb_surface_evidence_answer_v4'] = 'dmb_surface_evidence_answer_v4'
+    answer_instructions: str
+
+    @model_validator(mode='after')
+    def exact_selector_policy(self):
+        from .surface_evidence_answer import SELECTOR_INSTRUCTIONS
+        if self.answer_instructions!=SELECTOR_INSTRUCTIONS:
+            raise ValueError('Play requires exact request-local authored selector policy')
+        self.resolved_source_frame()
+        return self
+
+    def resolved_source_frame(self):
+        return unpack_selector_play_frame(self.source_frame,str(self.submission_id))
+
+
 def _user_texts(body, mode):
     if mode == "chat_completions" and "input" not in body:
         messages, block_type = body.get("messages"), "text"
@@ -162,15 +210,15 @@ def prove_play_source_input(
             value = strict_json(text)
         except (ValueError, TypeError):
             continue
-        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2", "dmb_native_play_input_v3", "dmb_native_play_input_v4"}:
+        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2", "dmb_native_play_input_v3", "dmb_native_play_input_v4", "dmb_native_play_input_v5"}:
             continue
-        model = {"dmb_native_play_input_v1":NativePlayInputV1,"dmb_native_play_input_v2":NativePlayInputV2,"dmb_native_play_input_v3":NativePlayInputV3,"dmb_native_play_input_v4":NativePlayInputV4}[value["schema"]]
+        model = {"dmb_native_play_input_v1":NativePlayInputV1,"dmb_native_play_input_v2":NativePlayInputV2,"dmb_native_play_input_v3":NativePlayInputV3,"dmb_native_play_input_v4":NativePlayInputV4,"dmb_native_play_input_v5":NativePlayInputV5}[value["schema"]]
         carrier = model.model_validate_json(json.dumps(value, ensure_ascii=False))
         if carrier.submission_id == submission_id:
             carriers.append(carrier)
     if len(carriers) != 1 or carriers[0].message != original_message:
         raise ValueError("Native Play request lacks one exact current-submission source carrier")
-    frame = carriers[0].resolved_source_frame() if isinstance(carriers[0],(NativePlayInputV3,NativePlayInputV4)) else carriers[0].source_frame
+    frame = carriers[0].resolved_source_frame() if isinstance(carriers[0],(NativePlayInputV3,NativePlayInputV4,NativePlayInputV5)) else carriers[0].source_frame
     if frame.manifest != receipt.play_sources or t.canonical_sha256(frame) != receipt.play_source_frame_sha256:
         raise ValueError("Native Play source frame differs from its frozen receipt")
     if owner_resolver is not None:

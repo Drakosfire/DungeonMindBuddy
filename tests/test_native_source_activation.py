@@ -103,7 +103,7 @@ def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter
     assert len(writer.projection.source_event_ids) == (0 if overlap else 1)
     sections=writer.projection.frame['native_source_sections']['sections']
     assert len(sections)==1 and sections[0]['text']=='## Appendix A\r\nTree mechanics.\r\n'
-    payload={'schema':'dmb_surface_evidence_answer_v3','limitations':[],'requested_detail_gaps':[],
+    payload={'schema':'dmb_surface_evidence_answer_v4','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'native_source_claim','text':'The appendix describes tree mechanics.',
             'section_handles':[sections[0]['section_handle']]}]}
     completed=asyncio.run(writer.run(transport=WriterWire(plan_adapter,json.dumps(payload)),api_key='synthetic-not-secret'))

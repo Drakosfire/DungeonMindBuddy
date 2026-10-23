@@ -1,6 +1,14 @@
 # AGENT — native retrieval progress
 
-ACTIVE serial PRIME slice, base d7ace50cbe6ab644696f4f8eb6b1e3aad58e8bc7,
+SHIPPED #1643, merge828942beed73a76177771e916426ee54654615f2.
+One Bugbot cycle covered b8951ad1be166b23ed36be255e8f0fab6d4b7fda;61 checks passed
+with one expected skip. Protected API delivery preserved retained state.
+Fresh Conks lookup selected14 sections/37629 characters, one51841-character body
+read and4 native citations;14.7s with8.67s writer time. This is not a speed win.
+Original swamp lookup completed once in10.5s; its9.9s repeat failed exact authored
+block selection. Successor HANDOFF-AGENT-authored-selection-codec.md owns that fix.
+
+Historical bounded slice: base d7ace50cbe6ab644696f4f8eb6b1e3aad58e8bc7,
 branch codex/native-retrieval-progress, existing buddy-context-loop checkout.
 One independently Bugbot-reviewed PR, PRIME merge and protected API delivery.
 No overlapping open lane in current census; runtime ownership8000/5202 PRIME.

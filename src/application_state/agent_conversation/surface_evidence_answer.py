@@ -90,6 +90,14 @@ anchors, source names, revisions or citation metadata. Preserve the source's
 conditional possibilities and distinguish them from played session outcomes.
 """
 
+SELECTOR_POLICY = 'dmb_surface_evidence_answer_v4'
+SELECTOR_INSTRUCTIONS = NATIVE_INSTRUCTIONS.replace(NATIVE_POLICY,SELECTOR_POLICY).replace(
+    '"block_handle":"exact supplied block_handle"','"selection_id":"exact supplied selection_id"') + """
+Authored selections use only selection_id values from the current supplied input.
+Copy each ID exactly and select each at most once. Never emit internal block handles
+or reuse an ID from a prior input. The host resolves exact saved text and ownership.
+"""
+
 @dataclass(frozen=True)
 class AuthoredSupport:
     handle: str
@@ -156,23 +164,27 @@ def producing_authored(turn, auth, raw):
         frame = frame_in_request(raw)
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
-        if frame.get('schema') == 'dmb_plan_jev_writer_frame_v2':
-            from .authored_excerpt_blocks import restore_blocks, verify_blocks
+        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3'}:
+            from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
+            short=frame['schema']=='dmb_plan_jev_writer_frame_v3'
+            restore=restore_selection_blocks if short else restore_blocks
             from copy import deepcopy
             sessions = deepcopy(frame['session_evidence'])
-            markdown = restore_blocks(frame['committed_plan_blocks'])
+            markdown = restore(frame['committed_plan_blocks'])
             for session in sessions:
                 for source in session.get('sources',[]):
-                    source['text'] = restore_blocks(source.pop('text_blocks'))
+                    source['text'] = restore(source.pop('text_blocks'))
             result = plan_authored_sources(turn,markdown,sessions,block_policy=True)
             expected = authored_frame_rows(result,sessions)
             expected = [{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in expected]
             if frame.get('authored_sources') != expected:
                 raise ValueError('Authored source selectors changed their exact body/owner join')
+            catalog=selection_catalog(((source.handle,source.text) for source in result),str(turn.idempotency_key)) if short else ()
             for source,row in zip(result,expected,strict=True):
                 blocks=frame
                 for key in row['body_path']: blocks=blocks[key]
-                verify_blocks(blocks,source.text,source.handle)
+                if short:verify_selection_blocks(blocks,source.text,source.handle,catalog)
+                else:verify_blocks(blocks,source.text,source.handle)
         else:
             result = plan_authored_sources(turn, frame['committed_plan_markdown'], frame['session_evidence'])
             if frame.get('authored_sources') != authored_frame_rows(result, frame['session_evidence']):
@@ -183,9 +195,9 @@ def producing_authored(turn, auth, raw):
     for text in _user_texts(strict_json(raw), auth.api_mode):
         try: row = strict_json(text)
         except (ValueError, TypeError): continue
-        if isinstance(row, dict) and row.get('schema') in {'dmb_native_play_input_v2','dmb_native_play_input_v3','dmb_native_play_input_v4'}:
-            from .play_graph_input import NativePlayInputV2,NativePlayInputV3,NativePlayInputV4
-            carrier = ({'dmb_native_play_input_v2':NativePlayInputV2,'dmb_native_play_input_v3':NativePlayInputV3,'dmb_native_play_input_v4':NativePlayInputV4}[row['schema']]).model_validate_json(json.dumps(row))
+        if isinstance(row, dict) and row.get('schema') in {'dmb_native_play_input_v2','dmb_native_play_input_v3','dmb_native_play_input_v4','dmb_native_play_input_v5'}:
+            from .play_graph_input import NativePlayInputV2,NativePlayInputV3,NativePlayInputV4,NativePlayInputV5
+            carrier = ({'dmb_native_play_input_v2':NativePlayInputV2,'dmb_native_play_input_v3':NativePlayInputV3,'dmb_native_play_input_v4':NativePlayInputV4,'dmb_native_play_input_v5':NativePlayInputV5}[row['schema']]).model_validate_json(json.dumps(row))
             if carrier.submission_id == turn.idempotency_key:
                 carriers.append(carrier)
     if len(carriers) != 1:
@@ -208,7 +220,13 @@ def require_current_policy(turn, auth, raw):
     body = strict_json(raw)
     if isinstance(auth, t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
-        return frame_in_request(raw).get('answer_policy') if frame_in_request(raw).get('answer_policy') in {NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
+        frame=frame_in_request(raw)
+        policy=frame.get('answer_policy')
+        if frame.get('schema')=='dmb_plan_jev_writer_frame_v3':
+            if policy!=SELECTOR_POLICY:raise ValueError('Current Plan frame requires its selector policy')
+        elif policy==SELECTOR_POLICY:
+            raise ValueError('Selector policy requires its current Plan frame')
+        return policy if policy in {SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
     from .play_graph_input import _user_texts
     policies = {_current_carrier(text, turn.idempotency_key) for text in _user_texts(body, auth.api_mode)} - {False}
     if len(policies)>1: raise ValueError('Ambiguous current answer policy')
@@ -225,7 +243,7 @@ def _current_carrier(text, submission_id):
         if UUID(str(row.get('submission_id'))) != submission_id: return False
     except ValueError:
         return False
-    return NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
+    return SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 
 def _limit(code, phrase=None):
@@ -316,7 +334,7 @@ def graph_bindings(segments, receipt, execution, auth):
 
 
 def normalize(candidate, turn, producer, support):
-    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {NATIVE_POLICY,POLICY,HISTORICAL_POLICY}:
+    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY}:
         raise ValueError('Invalid current mixed evidence answer')
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     auth = next(e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == producer)
@@ -326,12 +344,15 @@ def normalize(candidate, turn, producer, support):
     selected_policy = getattr(support,'current_policy',False)
     if isinstance(selected_policy,str) and candidate['schema'] != selected_policy:
         raise ValueError('Answer differs from the actual producing policy')
-    native = candidate['schema'] == NATIVE_POLICY
-    current = candidate['schema'] in {NATIVE_POLICY,POLICY}
+    native = candidate['schema'] in {SELECTOR_POLICY,NATIVE_POLICY}
+    current = candidate['schema'] in {SELECTOR_POLICY,NATIVE_POLICY,POLICY}
     if current and selected_policy != candidate['schema']:
         raise ValueError('Block selection requires its actual current input policy')
     from .authored_excerpt_blocks import partition,PARTITION
     blocks = {block.block_handle:(source,block) for source in getattr(support,'authored',()) for block in partition(source.text,source.handle)}
+    from .authored_excerpt_blocks import selection_catalog
+    selectors={row.selection_id:row.block.block_handle for row in selection_catalog(
+        ((source.handle,source.text) for source in getattr(support,'authored',())),str(turn.idempotency_key))} if candidate['schema']==SELECTOR_POLICY else {}
     selected_blocks=set()
     available = {}
     for passage in getattr(support, 'passages', ()): available.setdefault(passage.handle, passage)
@@ -372,10 +393,15 @@ def normalize(candidate, turn, producer, support):
             native_citations.extend(citation(native_available[h],index=index,text=row['text'],
                 producer=producer,envelope_sha256=auth.envelope_sha256) for h in handles)
         elif kind == 'authored_excerpt' and current:
-            if set(row)!={'kind','block_handle'} or not isinstance(row['block_handle'],str) or row['block_handle'] not in blocks or row['block_handle'] in selected_blocks:
+            short=candidate['schema']==SELECTOR_POLICY
+            field='selection_id' if short else 'block_handle'
+            if set(row)!={'kind',field} or not isinstance(row.get(field),str):
+                raise ValueError('Unknown or model-authored block selection')
+            handle=selectors.get(row[field]) if short else row[field]
+            if handle not in blocks or handle in selected_blocks:
                 raise ValueError('Unknown, repeated or model-authored block selection')
-            selected_blocks.add(row['block_handle'])
-            a,block=blocks[row['block_handle']]
+            selected_blocks.add(handle)
+            a,block=blocks[handle]
             segments.append(t.SurfaceAuthoredExcerptV1(kind=kind,text=block.text,source_handle=a.handle,
                 source_kind=a.source_kind,source_name=a.source_name,object_id=a.object_id,revision=a.revision,
                 body_sha256=a.body_sha256,owner_sha256=a.owner_sha256,entry_identity=a.entry_identity,

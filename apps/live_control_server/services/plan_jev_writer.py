@@ -87,9 +87,13 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
-        from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY, NATIVE_INSTRUCTIONS
-        instructions = (INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,NATIVE_INSTRUCTIONS)
+        from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY, NATIVE_INSTRUCTIONS, SELECTOR_POLICY, SELECTOR_INSTRUCTIONS
+        instructions = (INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,SELECTOR_INSTRUCTIONS)
+            if self.projection.frame.get('answer_policy') == SELECTOR_POLICY else
+            INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,NATIVE_INSTRUCTIONS)
             if self.projection.frame.get('answer_policy') == NATIVE_POLICY else INSTRUCTIONS)
+        if self.projection.frame.get('answer_policy') == SELECTOR_POLICY:
+            instructions=instructions.replace('exact block_handle','exact selection_id')
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else ''))
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
