@@ -146,8 +146,13 @@ a canonical trailing-newline mismatch; [saved authoring handoff](../Plans/HANDOF
 shipped #1645. Ordinary saved edit→session capture passed without reopening. The
 Sheep fight retained its exact revised mechanics and combat state through scene
 navigation, reload and API restart; notes and closing reflections persisted.
-This is one connected rehearsal. Current integration-test cleanup owns the52
-inherited Plan/Card failures identified by exact-base comparison.
+This is one connected rehearsal. #1646 updated the52 inherited Plan/Card test
+failures to current contracts:125 owning/246 combined checks pass, with independent
+Bugbot and mutation-control verification. A subsequent Sheep table rehearsal saved
+manual input4 against Plan revision14, rejected out-of-range7, and reopened the
+same receipt after reload/API restart. Saved notes/reflections were quoted with
+named links in next-session Plan context and opened their exact review revision.
+That is manual-entry durability, not random/physical dice or full journey acceptance.
 Full repeated source/appendix acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.

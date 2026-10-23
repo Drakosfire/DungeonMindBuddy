@@ -1,6 +1,12 @@
 # PLAN — current integration contracts
 
-ACTIVE serial PRIME slice onbaf0a6644c33c6ab1fcdedc0687511e5545c3687,
+SHIPPED #1646, merge5a534527b. Bugbot approved exact head
+7f3b87e20e9702741997024244cd8c07f708f3e8 in one cycle. Independently125 owning
+checks passed; author246 combined checks and UI typecheck/build passed. Mutation
+control removing all23 malformed response mutations made every corresponding
+negative test fail. No production files changed; existing5202/API health passed.
+
+Historical authority: serial PRIME slice onbaf0a6644c33c6ab1fcdedc0687511e5545c3687,
 branch codex/plan-current-integration-contracts, existing buddy-context-loop checkout.
 One Bugbot-reviewed PR, PRIME merge. Tests/documentation only; existing API/UI on
 8000/5202 stay unchanged unless a separately bounded runtime defect is identified.

@@ -2,6 +2,7 @@
 from hashlib import sha256
 from uuid import uuid4
 
+from application_state.source.naming import registered_source_name
 from . import types as t
 from .native_source_navigation import origin_payload
 from .source_writer_output import strict_json
@@ -30,9 +31,8 @@ def source_name(execution, read):
     nav = next(e for e in execution.events if isinstance(e,t.NativeSourceNavigationAuthorizedV1)
         and e.navigation_id == catalog.navigation_id)
     artifact = origin_payload(nav)[0]["resolution"]["artifact"]
-    lineage = artifact.get("lineage")
-    name = lineage.get("source_name") if isinstance(lineage,dict) else None
-    if not isinstance(name,str) or not name.strip():
+    name = registered_source_name(artifact)
+    if name is None:
         raise ValueError("Native source section lacks its registered source name")
     return name.strip()
 

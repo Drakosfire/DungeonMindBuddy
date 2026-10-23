@@ -210,3 +210,58 @@ def test_navigation_omits_only_document_wide_terms_and_keeps_single_section_hint
     single='# Rules\nshared armor\n'
     sections=section_catalog(single,source_artifact_id='synthetic',native_source_revision_id='revision',content_sha256=sha256(single.encode()).hexdigest())
     assert set(section_query_terms(single,sections,'shared armor')[sections[0].section_id])=={'shared','armor'}
+
+
+@pytest.mark.parametrize('named', [False, True])
+def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, monkeypatch, named):  # noqa: F811
+    from dataclasses import replace
+    from application_state.agent_conversation.native_source_input import project_sections
+    from application_state.agent_conversation.native_source_answer import NativeSectionSupport, citation
+    service, turn, _, pin = nav_case
+    sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='session_recap',
+        world_id=turn.world_id, campaign_id='campaign:synthetic', session_id='session-29', markdown=TEXT, lineage={})
+    adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=None)
+    owner = NativeSourceNavigator(adapter)
+    def access(self, entry):
+        origin = synthetic_access(self, entry)
+        proof = json.loads(origin.proof_json)
+        proof['resolution']['artifact'].update(source_domain='session_recap', campaign_id='campaign:synthetic',
+            session_id='session-29', lineage={'source_name':'Custom recap title'} if named else {})
+        proof['resolution']['evidence']['source_domain'] = 'session_recap'
+        return replace(origin, proof_json=json.dumps(proof))
+    monkeypatch.setattr(NativeSourceNavigator, '_access', access)
+    expected = 'Custom recap title' if named else 'Session 29 recap'
+    try:
+        handle = owner.offered()[0].handle
+        catalog = owner.browse(handle)
+        assert catalog['source_name'] == expected
+        # Navigation labels never supply citation names; the frozen origin proof does.
+        donor, source_pin, _ = owner.sources[handle]
+        owner.sources[handle] = donor, source_pin, 'Misleading navigation label'
+        result = owner.read([catalog['sections'][-1]['section_handle']])
+        assert not result['partial'] and result['sections'][0]['source_name'] == expected
+        execution = owner.adapter.fence.turn.graph_context_execution
+        projected = project_sections(execution)
+        assert projected['sections'][0] == result['sections'][0]
+        read = next(iter(owner.reads.values()))
+        support = NativeSectionSupport(projected['sections'][0]['section_handle'], read, projected['sections'][0]['source_name'])
+        assert citation(support, index=0, text='Exact supported statement', producer=uuid4(), envelope_sha256='a'*64).source_name == expected
+    finally:
+        adapter.fence.renewer.stop_and_join()
+
+
+def test_unnamed_nonrecap_catalog_refuses_before_body_io(parent, monkeypatch):
+    from dataclasses import replace
+    from application_state.agent_conversation import native_source_catalog
+    owner, _ = parent
+    def access(self, entry):
+        origin = synthetic_access(self, entry)
+        proof = json.loads(origin.proof_json)
+        proof['resolution']['artifact']['lineage'] = {}
+        return replace(origin, proof_json=json.dumps(proof))
+    monkeypatch.setattr(NativeSourceNavigator, '_access', access)
+    monkeypatch.setattr(native_source_catalog.sources, 'get_source_markdown',
+        lambda *a, **kw: pytest.fail('Nameless navigation must not load source body'))
+    with pytest.raises(NativeSourceUnavailable, match='source_navigation_unavailable'):
+        owner.browse(owner.offered()[0].handle)
+    assert not owner.catalogs and not owner.materials
