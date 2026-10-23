@@ -105,6 +105,12 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
                       "Prior answers do not satisfy a new corpus request. Attempted means tried, not verified.")))
     state = {"question": request.question,
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
+    if any(c.kind == 'Exact source section' for c in request.candidates):
+        state['section_selection_guidance'] = (
+            'Choose sections likely to establish missing requested details, not every page mentioning the same subject. '
+            'Page titles may be generic; matched query terms are navigation hints, not evidence or coverage. '
+            'A statblock or appendix lookup needs actual mechanics, not introductions, contents pages or incidental references. '
+            'Prefer the most specific relevant section first; additional sections remain available if requested gaps remain.')
     if request.examined_candidates:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
     if request.dialogue:

@@ -1,6 +1,13 @@
 # AGENT — registered Build source scope
 
-ACTIVE serial PRIME follow-up, base e95a363a5a3d236215f2b676783e388b4000e497,
+MERGED: #1641 at a24cc6381343c22c553a23c1f78e343f67bbbfdd, reviewed
+head3ea62e5e8c45d09a3dda2036e5c8123721d46a7d, one Bugbot cycle,63 independent
+checks and one expected skip. Protected API delivery preserved retained state.
+The real query now reads the appendix, but output still cites encounter excerpts
+for appendix facts and selects19 sections. Consuming lease:
+HANDOFF-AGENT-native-evidence-routing.md. Live citation acceptance remains open.
+
+Original ACTIVE serial PRIME follow-up, base e95a363a5a3d236215f2b676783e388b4000e497,
 branch codex/native-source-build-scope, existing buddy-context-loop checkout.
 No overlapping open lane at current census. One independently Bugbot-reviewed PR,
 PRIME merge and protected API delivery on8000/5202.

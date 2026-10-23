@@ -17,6 +17,9 @@ READ = 'read_native_source_sections'
 TOOLS = frozenset({BROWSE,READ})
 RESULT = 'dmb_native_source_section_result_v1'
 UNAVAILABLE = 'dmb_native_source_section_unavailable_v1'
+# Grammatical overlap is not a useful section-navigation signal. This does not
+# remove words from evidence or constrain the number/size of selected sections.
+_QUERY_GRAMMAR = frozenset('a an and are as at be before by do for from give how i in into is it its me my not of on or our read that the their them these this to use was we were what when where which who why with you your'.split())
 
 
 class NativeSourceUnavailable(ValueError):
@@ -25,7 +28,7 @@ class NativeSourceUnavailable(ValueError):
 
 def section_query_terms(markdown,sections,question):
     """Navigation-only term matches; no uncited source prose enters a model."""
-    query=set(re.findall(r"\w+",question.casefold()))
+    query=set(re.findall(r"\w+",question.casefold())) - _QUERY_GRAMMAR
     words={s.section_id:set(re.findall(r"\w+",markdown[s.char_start:s.char_end].casefold())) for s in sections}
     frequency=Counter(term for values in words.values() for term in values & query)
     return {key:sorted(values & query,key=lambda term:(frequency[term],term)) for key,values in words.items()}

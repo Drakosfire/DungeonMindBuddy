@@ -126,9 +126,10 @@ producing-input binding and named citation reopening. Shared inline citation UI
 #1638/#1639 is live. Plan/Play native-source activation #1640 is merged and paired
 on5202 with APP0057; protected delivery preserved retained state. A fresh6.8-second
 Conks query selected appendix navigation but source loading refused the registered
-Build campaign-to-native-World projection. Its owning-boundary correction is
-[active](../Plans/HANDOFF-AGENT-native-source-build-scope.md); source/appendix
-rendered acceptance is still open. Prerequisite tests do not establish ordinary
+Build campaign-to-native-World projection. Its owning-boundary correction #1641 is merged and live. The actual appendix
+now loads, but the real answer cites encounter excerpts for appendix-only facts
+and selects19 sections. [Evidence routing](../Plans/HANDOFF-AGENT-native-evidence-routing.md)
+is active; source/appendix rendered acceptance remains open. Prerequisite tests do not establish ordinary
 adventure acceptance.
 Real adventure acceptance remains open.
 

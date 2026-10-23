@@ -142,6 +142,7 @@ def test_pdf_page_navigation_uses_query_term_matches_without_prose_preview():
     assert {'grotesque','tree','armor','class','hit','points','appendix'} <= set(matches[sections[-1].section_id])
     assert 'armor' not in matches[sections[1].section_id]
     assert all(' ' not in token for tokens in matches.values() for token in tokens)
+    assert not {'the','and','in','a'} & {token for tokens in matches.values() for token in tokens}
 
 
 @pytest.mark.parametrize('nav_case',['play'],indirect=True)
