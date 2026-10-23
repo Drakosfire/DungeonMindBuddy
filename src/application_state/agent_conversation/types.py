@@ -2722,6 +2722,23 @@ class NativeSourceSectionObservedV1(GraphExecutionEventBaseV1):
         return self
 
 
+class NativeSourceProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["native_source_provider_inclusion_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: Digest
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    read_event_ids: list[UUID] = Field(min_length=1)
+    frame_sha256: Digest
+    selected_chars: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def unique_reads(self):
+        if self.read_event_ids != sorted(set(self.read_event_ids), key=str):
+            raise ValueError("Native source inclusion read IDs must be sorted and unique")
+        return self
+
+
 class SourceScopeExtensionEventV3(GraphExecutionEventBaseV1):
     kind: Literal["source_scope_extension_v3"]
     origin_graph_event_id: UUID
@@ -3513,6 +3530,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     validate_catalog_events(execution)
     from .native_source_sections import validate_section_events
     validate_section_events(execution)
+    from .native_source_input import validate_inclusions
+    validate_inclusions(execution)
 
     # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
     legacy_events: list[dict[str, object]] = []
@@ -3522,7 +3541,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
             event,
             (
                 PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
-                NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
+                NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
                 ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
@@ -3780,7 +3799,7 @@ GraphExecutionEventV3 = Annotated[
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
-    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1,
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
 
@@ -4181,7 +4200,7 @@ PlayGraphExecutionEventV1 = Annotated[
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
-    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1,
+    | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
 
