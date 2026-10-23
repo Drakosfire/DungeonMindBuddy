@@ -195,6 +195,8 @@ def project(turn, proof, trace):
     from .native_source_input import project_sections
     native_sections = project_sections(execution)
     if native_sections is not None:
+        from .surface_evidence_answer import NATIVE_POLICY
+        frame["answer_policy"] = NATIVE_POLICY
         frame["native_source_sections"] = native_sections
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))

@@ -1515,6 +1515,25 @@ def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: in
         raise HTTPException(status_code=409, detail={"code": "saved_section_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}")
+def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_index: int,request: Request):
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    if request.query_params or not 0 <= citation_index <= 16383:
+        raise HTTPException(status_code=422,detail={"code":"source_section_selector_invalid"})
+    from apps.live_control_server.services.agent_native_source_sections import open_native_source_section
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_native_source_section(world_id=verified_world_id,turn_id=turn_id,
+            citation_index=citation_index,service=_conversation_service(request)).model_dump(mode="json",by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code,detail={"code":exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,detail={"code":"source_section_turn_unavailable"}) from exc
+    except (ValidationError,ValueError,KeyError,StopIteration) as exc:
+        raise HTTPException(status_code=409,detail={"code":"source_section_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}")
 def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
         request: Request):

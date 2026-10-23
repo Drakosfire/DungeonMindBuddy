@@ -358,6 +358,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/native-source-sections\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted))?)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
@@ -3191,4 +3192,10 @@ export async function recoverMechanicsRevision(draftId:string,worldId:string,ope
 }
 export async function inspectMechanicsRevision(draftId:string,worldId:string,operationId:string):Promise<{operation:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome|null}>{
   return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revision-operations/${encodeURIComponent(operationId)}?world_id=${encodeURIComponent(worldId)}`);
+}
+
+export async function getAgentNativeSourceSection(worldId:string,turnId:string,citationIndex:number):
+  Promise<import("./types").AgentNativeSourceSectionReadResponseV1> {
+  if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error("Invalid section index");
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-source-sections/${citationIndex}`);
 }
