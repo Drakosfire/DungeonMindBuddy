@@ -70,9 +70,13 @@ No connective segments or arbitrary uncited explanatory facts. Keep uncertainty/
 authored possibilities and played recollections distinct in the properly cited claim prose.
 Select limitation codes only from missing_requested_details, partial_retrieval,
 unresolved_conflict. The host renders their wording. Do not claim corpus completeness.
-requested_detail_gaps selects exact unique nonoverlapping question_phrase strings from
-user_question only for requested details not established by these excerpts; include
-missing_requested_details for these gaps. No paraphrased gap prose or byte offsets.
+requested_detail_gaps is an array of objects, each exactly
+{"question_phrase":"exact phrase from user_question"}; never an array of strings.
+Select exact unique nonoverlapping phrases only for requested details not established
+by the supplied evidence; include missing_requested_details for these gaps.
+No paraphrased gap prose or byte offsets. If no requested fact is supported, return
+answer_segments:[] with the applicable limitations and these typed gap objects;
+never invent evidence or quote unrelated authored material to fill the answer.
 Do not emit revisions, hashes, citation maps, source-opening flags or authority metadata.
 '''
 

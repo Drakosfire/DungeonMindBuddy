@@ -284,3 +284,33 @@ def test_identical_notes_and_closing_reflections_select_distinct_frozen_entries(
     assert all(s.owner_sha256==packet['sha256'] and s.source_kind=='session' for s in segments)
     reopened=AgentConversationService().inspect_turn(world_id=a.world_id,turn_id=a.turn.turn_id)
     assert reopened.completion==completed.completion and len(wire.calls)==1
+
+
+@pytest.mark.parametrize('malformed', [False, True])
+def test_empty_acquisition_completes_typed_gaps_without_repair_or_fabricated_evidence(plan_adapter, malformed):
+    from dataclasses import replace
+    plan_adapter.bootstrap = replace(plan_adapter.bootstrap, completed_discovery_query=plan_adapter.request.message)
+    rules = PlanRulesRuntime(plan_adapter, rules_capability(graph=True))
+    driver = PlanJevDriver(plan_adapter)
+    proof = asyncio.run(driver.run(transport=Decisions(), api_key='synthetic-not-secret'))
+    assert proof['graph_packets'] == {} and not plan_adapter.source_payloads
+    writer = PlanJevWriter(plan_adapter, proof, rules)
+    answer = {'schema':'dmb_surface_evidence_answer_v2', 'answer_segments':[],
+        'limitations':['missing_requested_details','partial_retrieval'],
+        'requested_detail_gaps':[plan_adapter.request.message if malformed else {'question_phrase':plan_adapter.request.message}]}
+    wire = WriterWire(plan_adapter, json.dumps(answer))
+    if malformed:
+        with pytest.raises(ValueError):
+            asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+        assert plan_adapter.fence.turn.status != 'completed'
+    else:
+        completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+        assert completed.status == 'completed'
+        assert completed.completion.citation_map is None
+        assert not completed.completion.source_citations
+        assert all(segment.kind == 'limitation' for segment in completed.completion.answer_segments)
+        fresh = AgentConversationService().list_turns(plan_adapter.world_id, completed.conversation_id)[-1]
+        assert fresh.status == 'completed' and fresh.assistant_text
+    assert len(wire.calls) == 1 and wire.closed
+    actual = json.loads(wire.calls[0].content)
+    assert '{"question_phrase":"exact phrase from user_question"}' in actual['instructions']

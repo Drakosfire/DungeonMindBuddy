@@ -51,7 +51,7 @@ test_agent_conversation_postgres.py}, product_continuity/test_inventory_postgres
 Amend before any additional path edit. No historical migration, runtime source
 outside this lease or standalone status PR.
 
-## ACTIVE rendered confirmation correction
+## SETTLED rendered confirmation correction
 
 C2 shipped #1625 after three Bugbot cycles, reviewed head
 `7e0ec136d851a986aa034ae616f209e87c100eb2`, merge
@@ -69,6 +69,18 @@ SurfaceContextPrimitives.test.tsx}. Fix viewport-aware below/beside alignment in
 the shared component, independently review, merge, deploy and resume the ordinary
 Plan→Play encounter/reload/restart witness. No session/data contract change.
 Full adventure acceptance remains open. Amend before additional paths.
+
+Correction #1626 shipped after one Bugbot cycle, reviewed
+b0dca04f719493e13b7ae0b53d5f633febb925dd, merge
+15b31ebc55038b664ae622ef5125b3230848aae6. UI5202 serves that merge; API remains
+56b6ddd8/APP0052. Ordinary synthetic Plan confirmation became visible/clickable;
+Run captured version4, created a distinct scene fight, saved HP/tempHP/condition/
+note/active actor, navigated scenes and resumed the exact revision after reload
+and protected API restart. Original Plan version4 stayed unchanged.1774 APP rows,
+native rows,79 mechanics files and17 frozen components survived restart. Obsolete
+runtime source/dist artifacts were pruned after consumer checks; active shared
+Vite dependencies retained. Correction lease released. Real adventures/fullgoal
+remain unproven; Conks revealed an independent discovery/answer-gap defect.
 
 ## C1 settlement and outcome
 
