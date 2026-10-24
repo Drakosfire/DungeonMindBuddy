@@ -3,6 +3,7 @@ import { ConversationDock } from "../../ui/ConversationDock";
 import { useAskPluginSlotOptional } from "../../agentInteraction/AskPluginSlot";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import "./PlanConversationDockAdapter.css";
+import "../../agentInteraction/WorldConversationPresentation.css";
 
 export interface PlanConversationPresentationHosts {
   header: HTMLElement | null;
