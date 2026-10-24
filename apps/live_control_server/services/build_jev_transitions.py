@@ -464,7 +464,11 @@ class BuildJevTransitions:
             "support for any established facts the user asks to retrieve, verify or preserve, "
             "including factual parts of mixed creative/factual requests. Creative permission "
             "does not turn suggestions into established or played facts. Additional inspiration "
-            "alone is not a missing fact or required coverage."
+            "alone is not a missing fact or required coverage. Acquired context means actual "
+            "opened page sections or source passages, not conversation history, source titles "
+            "or discovery hints. When the question depends on the current page, first read the "
+            "relevant saved_build_section actions. Until that content is acquired, do not treat "
+            "the page as known or choose none on the basis of history or discovery."
             if isinstance(self._scope, BuildContextScope) else ""
         )
         if authoring_rule:
@@ -521,7 +525,7 @@ class BuildJevTransitions:
                     name="next",
                     kind="choice",
                     question="Which legal unread action most usefully supplies the missing support or necessary relation? Choose none to stop selecting."
-                    + (" Apply authoring_support_rule: do not select optional inspiration when context is adequate." if authoring_rule else ""),
+                    + (" Apply authoring_support_rule: for current-page requests, open relevant saved sections before judging context adequate. Once acquired, do not select optional inspiration." if authoring_rule else ""),
                     options=("none", *(a.id for a in available)),
                 ),
             )

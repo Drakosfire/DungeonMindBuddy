@@ -1,6 +1,11 @@
 # One visible request across Retry attempts
 
-ACTIVE serial PRIME slice on codex/surface-retry-attempts, base
+MERGED and UI-delivered as4bcc6ad39 after exact Bugbot71859292a. Ordinary
+retained duplicate history shows one request; both previous failures remain in
+Debug, with no model dispatch during verification. Successor:
+HANDOFF-BUILD-open-page-context.md.
+
+Former serial PRIME slice on codex/surface-retry-attempts, base
 d356f96547fd7b7b67390a9f165a819676141c1d, existing buddy-context-loop checkout.
 Operator correction: Retry should replace the visible failed request, not append
 copies of the same question/failure. Keep prior executions inspectable in Debug.
