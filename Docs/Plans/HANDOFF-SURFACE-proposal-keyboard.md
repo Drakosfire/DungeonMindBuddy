@@ -1,6 +1,11 @@
 # Nested proposal keyboard navigation
 
-ACTIVE serial PRIME correction on codex/surface-proposal-keyboard, base
+MERGED and UI-delivered as358895739 after exact Bugbotc383da3bc. Native
+Ctrl+End/direct typing, native drag/reload, explicit caret placement and
+Keep/Save/reload passed ordinary rendered rehearsal. Successor:
+HANDOFF-SURFACE-one-click-retry.md.
+
+Former serial PRIME correction on codex/surface-proposal-keyboard, base
 7ed38faf164bc016756ad6046c91412caf63fde5, same buddy-context-loop checkout.
 Direct review is merged after exact Bugbot and protected API/UI delivery. Ordinary
 rehearsal proved collapse/reveal but exposed native Ctrl+End escaping the nested

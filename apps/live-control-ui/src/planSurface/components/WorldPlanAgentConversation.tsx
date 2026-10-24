@@ -3575,9 +3575,9 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
+  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string) {
     event.preventDefault();
-    const composerSnapshotAtSubmit = composerMessage;
+    const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
     const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
@@ -3595,7 +3595,7 @@ export function WorldPlanAgentConversation({
     const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
       pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
-    if (!sharedConversation) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+    if (!sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -3681,7 +3681,7 @@ export function WorldPlanAgentConversation({
       }
       refreshPendingAskList();
       sharedConversation?.setPendingTurn({ surface: "plan", turnId: request.turn_id });
-      if (sharedConversation) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+      if (sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
       requestRef.current = null;
       setSending(false);
       await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
@@ -3854,12 +3854,13 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string) {
     event?.preventDefault();
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
-    const message = composerMessage.trim();
-    if (!isBuild && playMode && playEditMode) {
+    const message = (questionOverride ?? composerMessage).trim();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
+    if (!isBuild && playMode && playEditMode && questionOverride === undefined) {
       if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message
         || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
       if (await playCompose.submit(message)) setComposerMessage(current => current === message ? "" : current);
@@ -3895,7 +3896,8 @@ export function WorldPlanAgentConversation({
           if (latestRef.current.mounted && latestRef.current.buildPlacementFenceKey === placementFence
             && latestRef.current.buildPlacementEpoch === epoch
             && latestRef.current.buildPlacementBridge === bridge
-            && composerEditGenerationRef.current === generation) {
+            && (questionOverride !== undefined || composerEditGenerationRef.current === generation)) {
+            if(questionOverride !== undefined)throw reason instanceof Error?reason:new Error("The page insertion point could not be prepared.");
             setBuildPlacementFailure({ fenceKey: placementFence, epoch, message, generation, bridge,
               reason: reason instanceof Error ? reason.message : "The page insertion point could not be prepared." });
           }
@@ -3908,7 +3910,7 @@ export function WorldPlanAgentConversation({
           || latestRef.current.buildPlacementFenceKey !== placementFence
           || latestRef.current.buildPlacementEpoch !== epoch
           || latestRef.current.buildPlacementBridge !== bridge
-          || composerEditGenerationRef.current !== generation) return;
+          || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
       }
       setBuildPlacementFailure(null);
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
@@ -3920,7 +3922,7 @@ export function WorldPlanAgentConversation({
       } catch (reason) { setError(String(reason)); return; }
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
-      setComposerMessage("");
+      if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage(current => current.trim() === message ? "" : current);
       await dispatchSavedPlayTurn(stored);
       return;
     }
@@ -3959,7 +3961,7 @@ export function WorldPlanAgentConversation({
     }
     const stored = { storageKey, serialized, request };
     setPendingPlayTurn(stored);
-    setComposerMessage((current) => current === composerMessage ? "" : current);
+    if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage((current) => current.trim() === message ? "" : current);
     await dispatchSavedPlayTurn(stored);
   }
 
@@ -5557,11 +5559,10 @@ export function WorldPlanAgentConversation({
           </p>
           {turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
-            ? <ConversationRecovery question={turn.user_text} draft={composerMessage} blocked={composerBusy}
-                onRestore={(question) => {
-                  setComposerMessage(question);
-                  composerEditGenerationRef.current += 1;
-                  requestAnimationFrame(() => composerInputRef.current?.focus());
+            ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+                onRetry={async(question)=>{
+                  if(isReadOnly)await submitPlay(undefined,false,question);
+                  else await submit({preventDefault:()=>undefined},"discuss",question);
                 }} /> : null}
           </div>
         ) : null}
