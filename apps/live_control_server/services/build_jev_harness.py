@@ -29,7 +29,7 @@ from .agent_runtime import AgentRuntimeDescriptor
 from . import build_document_proposal as proposal_owner
 from . import build_jev_dispatch as decision_policy
 from . import build_jev_writer as writer_policy
-from .build_jev_driver import AcquisitionBinding, digest, sdk_answers
+from .build_jev_driver import AcquisitionBinding, canonical, digest, sdk_answers
 from .build_jev_transitions import (
     AcquisitionIntent, DecisionIntent, Disposition, FrontierDisposition, FRONTIER_POLICY,
 )
@@ -386,11 +386,24 @@ class BuildJevHarness:
                 )
             )
             self._observe(result, started, "controller")
+            # Retain actual received bytes before a host gate can reject them.
+            # This protected, unvalidated Debug channel grants no answer authority.
+            if isinstance(adapter._broker_execution().policy, ledger.BuildSelectedSourceActionControllerWriterPolicyV1):
+                adapter.context_capture.controller_decision_response(
+                    canonical(result.model_dump(mode="json")),
+                    producing_provider_attempt_id=adapter.last_provider_attempt_id,
+                )
             from .build_jev_writer_selection import WriterSelectionDriver
-            if isinstance(driver, WriterSelectionDriver):
-                driver.accept_response(result)
-            else:
-                driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
+            try:
+                if isinstance(driver, WriterSelectionDriver):
+                    driver.accept_response(result)
+                else:
+                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
+            except Exception:
+                if adapter.context_capture:
+                    adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                        "code": "build_controller_decision_rejected"})
+                raise
         except Exception as exc:
             self._failed(exc, started, "controller")
             raise

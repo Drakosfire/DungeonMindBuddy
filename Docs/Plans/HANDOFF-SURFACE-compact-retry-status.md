@@ -1,6 +1,11 @@
 # Compact terminal retry presentation
 
-ACTIVE serial PRIME slice on codex/surface-compact-retry-status, base
+SETTLED: #1684 merged 644c18a85 after exact Bugbot approval and protected UI delivery.
+139 shared integration/recovery checks and ten independent mounted checks passed.
+Ordinary rendered inspection confirmed the red Retry icon and explanation inside Debug.
+No live request was sent; retained rows were preserved.
+
+Completed serial PRIME slice on codex/surface-compact-retry-status, base
 73ec0bd788144403dfc6fb678fd81870ec0e9210, existing buddy-context-loop checkout.
 
 ## Invariant and critique
