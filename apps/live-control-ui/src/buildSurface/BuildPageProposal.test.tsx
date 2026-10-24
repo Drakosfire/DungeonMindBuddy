@@ -174,3 +174,21 @@ it('reveals and focuses the requested proposal region in context',async()=>{
  await waitFor(()=>expect(document.activeElement).toBe(host));expect(scroll).toHaveBeenCalledWith({block:'center',behavior:'auto'});
  }finally{Reflect.deleteProperty(HTMLElement.prototype,'scrollIntoView');}
 });
+
+it.each([{key:'End',ctrlKey:true},{key:'ArrowDown',metaKey:true}])('keeps document navigation and subsequent typing inside the suggestion: %j',async keys=>{
+ const before=editor.getJSON();const selection=editor.state.selection.toJSON();render(<Review/>);
+ const input=await screen.findByRole('textbox',{name:'Suggestion text'});input.focus();
+ fireEvent.keyDown(input,keys);
+ expect(document.activeElement).toBe(input);
+ expect(input.contains(window.getSelection()?.anchorNode??null)).toBe(true);
+ await userEvent.keyboard(' Authored ending.');
+ expect(input).toHaveTextContent('Authored ending.');
+ expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
+});
+it.each([{key:'Home',ctrlKey:true},{key:'ArrowUp',metaKey:true}])('owns extended document selection inside the suggestion: %j',async keys=>{
+ const before=editor.getJSON();render(<Review/>);const input=await screen.findByRole('textbox',{name:'Suggestion text'});input.focus();
+ fireEvent.keyDown(input,{key:'End',ctrlKey:true});fireEvent.keyDown(input,{...keys,shiftKey:true});
+ expect(document.activeElement).toBe(input);expect(input.contains(window.getSelection()?.anchorNode??null)).toBe(true);
+ expect(window.getSelection()?.toString()).toContain('Culture');expect(window.getSelection()?.toString()).toContain('A proposed custom.');
+ expect(editor.getJSON()).toEqual(before);
+});

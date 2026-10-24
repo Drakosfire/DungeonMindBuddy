@@ -87,8 +87,17 @@ export function SurfaceProposalReview({markdown,onChange,busy,error,onSave,onKee
   },[editor,markdown]);
   return <section aria-label="Suggestion review" className="surface-proposal-review">
     <header><strong>Proposed change</strong><span>Write here, then keep or discard</span></header>
-    <MarkdownEditorCore content={initial} editable={!busy} className="surface-proposal-review__editor" onEditorChange={bind}
-      onUpdate={(json,_editor,meta)=>{if(!meta.programmatic)onChange(tiptapJsonToSemanticMarkdown(json));}}/>
+    <div onKeyDownCapture={event=>{
+      if(!editor||!(event.ctrlKey||event.metaKey))return;
+      const end=event.key==='End'||(event.metaKey&&event.key==='ArrowDown');
+      const start=event.key==='Home'||(event.metaKey&&event.key==='ArrowUp');
+      if(!end&&!start)return;
+      event.preventDefault();event.stopPropagation();
+      const position=end?editor.state.doc.content.size-1:1;
+      editor.commands.setTextSelection(event.shiftKey?{from:editor.state.selection.anchor,to:position}:position);
+      editor.commands.scrollIntoView();editor.view.focus();
+    }}><MarkdownEditorCore content={initial} editable={!busy} className="surface-proposal-review__editor" onEditorChange={bind}
+      onUpdate={(json,_editor,meta)=>{if(!meta.programmatic)onChange(tiptapJsonToSemanticMarkdown(json));}}/></div>
     <div className="surface-proposal-review__actions">
       <button type="button" disabled={busy||!markdown.trim()} onClick={onSave}>Save suggestion</button>
       <button type="button" disabled={busy||!markdown.trim()} onClick={onKeep}>Keep on page</button>
