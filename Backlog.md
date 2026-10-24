@@ -42,11 +42,11 @@ Do not infer a current blocker or READY assignment from them.
 # Independent ideas requiring re-verification
 
 ## [IDEA] High priority — shared grid page constructor
-**Priority:** HIGH — explicitly requested by the operator.  
-**Kind:** DESIGN → bounded implementation slices  
-**Owner:** Build / shared Surface authoring  
-**Captured:** 2026-10-24  
-**Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`  
+**Priority:** HIGH — explicitly requested by the operator.
+**Kind:** DESIGN → bounded implementation slices
+**Owner:** Build / shared Surface authoring
+**Captured:** 2026-10-24
+**Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`
 **Context:** Edge authoring dogfood: the author wants to move and resize artwork on a snapping grid, then compose images, editable text, tables and callouts intentionally on the page.
 
 **Direction:** Keep Tiptap for writing; define shared row/column layout containers, stable section identities and durable layout representation. Preserve reading order for retrieval, citations and Markdown export. Distinguish this page-layout work from the deferred infinite spatial workspace below.
