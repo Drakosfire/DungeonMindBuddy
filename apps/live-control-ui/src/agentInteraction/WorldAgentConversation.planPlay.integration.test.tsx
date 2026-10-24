@@ -767,7 +767,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
     if (scenario === "correct") await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
-    else expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    else {
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    }
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
@@ -951,19 +954,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     phase = "completed";
     if (mode === 'failed' || mode === 'interrupted') {
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled(), { timeout: 7000 });
       expect(screen.queryByText("Recovered Play answer")).not.toBeInTheDocument();
-      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
+      await waitFor(() => expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull(), { timeout: 7000 });
     } else if (mode === 'exact') {
       await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
       expect(screen.queryByText(/Connection lost after submit/)).not.toBeInTheDocument();
     } else {
       await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
-      expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
       expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull();
     }
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
@@ -998,16 +1001,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(storageKey)).toBe(frozen);
-    fireEvent.click(screen.getByRole("button", { name: "Retry exact saved turn" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "My next draft" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry", exact: true }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(2));
     expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0]).toEqual(firstRequest);
     expect(JSON.stringify(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0])).toBe(JSON.stringify(firstRequest));
     await waitFor(() => expect(screen.getByText("Retried Play answer")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("My next draft");
   });
 
   it.each([0, 3])("recovers the exact saved session edition basis %s without substituting the current head", async edition => {
@@ -1165,6 +1171,28 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(within(trail).getByRole("region", { name: "Authored Play context" })).toBeInTheDocument();
     expect(within(trail).getByRole("button", { name: "Open pinned Runbook" })).toBeInTheDocument();
     expect(within(trail).queryByText("No Graph citations were saved with this answer.")).not.toBeInTheDocument();
+  });
+
+  it.each(["plan", "play", "build"] as const)("keeps %s draft editable while a prior request blocks sending", async initial => {
+    render(<Harness initial={initial} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    expect(document.querySelector(".world-plan-agent-conversation__composer .buddy-readiness")).toBeNull();
+    const readiness = document.querySelector(".buddy-readiness")!;
+    expect(readiness).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Seed newer pending request" }));
+    await screen.findByRole("button", { name: "Check saved request" });
+    expect(composer).toBeEnabled();
+    fireEvent.change(composer, { target: { value: "Keep this next thought" } });
+    fireEvent.keyDown(composer, { key: "Enter", code: "Enter" });
+    expect(composer).toHaveValue("Keep this next thought");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Check saved request" }));
+    expect(readiness.querySelector("summary")).toBeVisible();
+    expect(composer).toHaveValue("Keep this next thought");
   });
 
   it("uses the compact dock, latest exchange and conversation options in Play", async () => {
