@@ -5284,13 +5284,6 @@ export function WorldPlanAgentConversation({
   const presentAvailability = (message: string) => presentationHosts?.composer
     ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
     : null;
-  const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const input = composerInputRef.current;
-    if (!input) return;
-    input.style.height = "auto";
-    input.style.height = `${Math.max(40, Math.min(input.scrollHeight, 160))}px`;
-  }, [composerMessage, presentationHosts?.composer, askSlot?.hostElement, visible, pageReady, scopeMatches]);
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -6171,7 +6164,6 @@ export function WorldPlanAgentConversation({
         <textarea
           id="world-plan-agent-message"
           rows={1}
-          ref={composerInputRef}
           value={composerMessage}
           onChange={(event) => {
             composerEditGenerationRef.current += 1;

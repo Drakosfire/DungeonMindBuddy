@@ -28,7 +28,7 @@ export interface ConversationDockProps {
 }
 
 /**
- * A height-owning workspace's reader and bottom conversation layout.
+ * A height-owning workspace's reader and floating conversation column.
  * Context mounts on first opening, then retains its state through collapse.
  * Other slots stay mounted throughout. Callers own messages,
  * compact composer behavior, verified context and all external actions.
@@ -37,7 +37,7 @@ export interface ConversationDockProps {
 export function ConversationDock({
   reader, readerLabel = "Workspace content", conversationLabel, messages, composer, title = "Buddy", showTitle = true, contextLabel = "Context",
   contextDetails, collapsedPreview, collapseMode = "composer", launcher, fullscreenEnabled = false, headerActions, initialExpanded = false, expanded: controlledExpanded,
-  initialHeight = 340, minHeight = 280, maxHeight = 1440,
+  initialHeight, minHeight = 280, maxHeight = 1440,
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
 }: ConversationDockProps) {
   const id = useId();
@@ -55,22 +55,28 @@ export function ConversationDock({
   const previousExpanded = useRef(expanded);
   const [contextOpen, setContextOpen] = useState(false);
   const [contextVisited, setContextVisited] = useState(false);
-  const [requestedHeight, setRequestedHeight] = useState(initialHeight);
+  const [requestedHeight, setRequestedHeight] = useState<number | null>(initialHeight ?? null);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const hasReader = reader !== null && reader !== undefined && reader !== false;
   const [resizing, setResizing] = useState(false);
   const hasContext = contextDetails !== undefined && contextDetails !== null && contextDetails !== false;
 
   const reserve = containerHeight === null ? minimumReaderHeight : Math.min(minimumReaderHeight, containerHeight * 0.3);
-  const ceiling = Math.max(160, Math.min(maxHeight, containerHeight === null ? maxHeight : containerHeight - reserve));
+  const ceiling = Math.max(160, Math.min(maxHeight, containerHeight === null ? maxHeight : containerHeight - reserve - (hasReader ? 32 : 0)));
   const floor = Math.min(Math.max(160, minHeight), ceiling);
-  const height = Math.max(floor, Math.min(ceiling, requestedHeight));
+  const narrowWorkspace = hasReader && containerWidth !== null && containerWidth < 832;
+  const preferredHeight = narrowWorkspace
+    ? Math.round((containerHeight ?? 680) * 0.62) : 640;
+  const height = Math.max(floor, Math.min(ceiling, requestedHeight ?? preferredHeight));
 
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
     const measure = () => {
-      const next = element.getBoundingClientRect().height;
-      if (next > 0) setContainerHeight(next);
+      const next = element.getBoundingClientRect();
+      if (next.height > 0) setContainerHeight(next.height);
+      if (next.width > 0) setContainerWidth(next.width);
     };
     measure();
     if (typeof ResizeObserver !== "undefined") {
@@ -174,7 +180,7 @@ export function ConversationDock({
   } as CSSProperties;
 
   return (
-    <div ref={root} className={`conversation-dock ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
+    <div ref={root} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
       <div className="conversation-dock__reader" hidden={fullscreen} role="region" aria-label={readerLabel}>{reader}</div>
       <section ref={conversationRegion} id={`${id}-conversation`} className="conversation-dock__conversation" hidden={collapseMode === "launcher" && !expanded} role={fullscreen ? "dialog" : undefined} aria-modal={fullscreen || undefined} onKeyDown={fullscreenKeys} onSubmitCapture={() => setContextOpen(false)} aria-label={conversationLabel ?? `${title} conversation`}>
         <button type="button" role="separator" aria-label={title === "Conversation" ? "Resize conversation" : `Resize ${title} conversation`} aria-orientation="horizontal"

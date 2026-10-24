@@ -175,7 +175,7 @@
 @media (max-width: 42rem) {
   .plan-conversation-dock .conversation-dock__header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 
   .plan-conversation-dock .conversation-dock__header > strong {

@@ -323,3 +323,25 @@ body.surface-projection-open .plan-agent-shell {
 @media (max-width: 40rem) {
   .plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] { left: 0; right: 0; width: auto; }
 }
+
+
+/* Hosted conversation uses ConversationDock's floating frame, not a second slab. */
+.plan-agent-shell.agent-interaction-shell--play.open {
+  top: calc(var(--app-chrome-top, 0px) + 16px);
+  bottom: 16px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+  left: auto;
+  bottom: 16px;
+  inline-size: min(31rem, calc(100% - 32px));
+}
+@media (max-width: 42rem) {
+  .plan-agent-shell.agent-interaction-shell--play.open,
+  .plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+    top: auto; left: 16px; right: 16px; bottom: 16px;
+    width: auto; inline-size: auto; max-width: none;
+  }
+}

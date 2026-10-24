@@ -795,6 +795,8 @@
 }
 
 .world-plan-agent-conversation__composer textarea {
+  field-sizing: content;
+  height: auto;
   width: 100%;
   min-height: 3.25rem;
   max-height: 8rem;

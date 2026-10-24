@@ -36,8 +36,8 @@ describe("PlanConversationDockAdapter",()=>{
       await user.type(input,"Unsent question");
       const resize=screen.getByRole("separator",{name:"Resize conversation"});
       fireEvent.keyDown(resize,{key:"End"});
-      expect(resize).toHaveAttribute("aria-valuemax","720");
-      expect(resize).toHaveAttribute("aria-valuenow","720");
+      expect(resize).toHaveAttribute("aria-valuemax","688");
+      expect(resize).toHaveAttribute("aria-valuenow","688");
       fireEvent.keyDown(resize,{key:"Home"});
       expect(resize).toHaveAttribute("aria-valuenow","280");
       expect(screen.getByLabelText("Plan draft")).toBe(reader);
@@ -51,7 +51,7 @@ describe("PlanConversationDockAdapter",()=>{
     const input=await screen.findByLabelText("Message Buddy"),reader=screen.getByLabelText("Plan draft");
     await user.type(input,"Remember the sleepers");
     await waitFor(()=>expect(screen.getByRole("log")).toBeVisible());
-    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "420");
+    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "640");
     await user.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
     expect(screen.getByLabelText("Message Buddy")).toBe(input);
     expect(input).toHaveValue("Remember the sleepers");

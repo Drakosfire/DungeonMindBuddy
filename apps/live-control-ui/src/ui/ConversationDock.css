@@ -9,14 +9,14 @@
   --conversation-dock-control-hit-size: max(32px, 2rem);
   color-scheme: var(--conversation-dock-color-scheme);
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   block-size: 100%;
   min-block-size: 0;
   min-inline-size: 0;
   overflow: hidden;
   overflow-anchor: none;
   color: var(--conversation-dock-foreground);
-  background: var(--conversation-dock-background);
+  background: transparent;
   font-family: var(--ui-font-body, system-ui, sans-serif);
 }
 
@@ -33,7 +33,9 @@
   min-block-size: 0;
   padding: calc(var(--conversation-dock-resize-hit-size) / 2 + 2px) 0.9rem 0.65rem;
   background: var(--conversation-dock-chat-background);
-  border-block-start: 1px solid var(--conversation-dock-border);
+  border: 1px solid var(--conversation-dock-border);
+  border-radius: .85rem;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 22%);
 }
 .conversation-dock.is-expanded .conversation-dock__conversation { block-size: var(--conversation-dock-height); }
 .conversation-dock__resize {
@@ -110,3 +112,36 @@
 .conversation-dock__conversation:not(:has(> .conversation-dock__resize:not([hidden]))) { padding-block-start: .25rem; }
 
 .world-agent-conversation__dock .conversation-dock__conversation { padding-block-start: .25rem; }
+
+
+/* The reader keeps the workspace; conversation floats in its own bounded column. */
+.conversation-dock.has-reader { position: relative; --conversation-dock-column-width: clamp(22rem, 40%, 31rem); }
+.conversation-dock.has-reader:not(.is-fullscreen) > .conversation-dock__conversation {
+  position: absolute;
+  inset-inline-end: 16px;
+  inset-block-end: 16px;
+  inline-size: var(--conversation-dock-column-width);
+  max-inline-size: calc(100% - 32px);
+  max-block-size: calc(100% - 32px);
+  z-index: 5;
+}
+.conversation-dock.has-reader.is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
+  inline-size: calc(100% - var(--conversation-dock-column-width) - 32px);
+}
+@supports (backdrop-filter: blur(8px)) {
+  .conversation-dock__conversation {
+    background: color-mix(in srgb, var(--conversation-dock-chat-background) 94%, transparent);
+    backdrop-filter: blur(8px);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .conversation-dock__conversation { background: var(--conversation-dock-chat-background); backdrop-filter: none; }
+}
+.conversation-dock.has-reader.is-narrow.is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
+  inline-size: 100%;
+  padding-block-end: calc(var(--conversation-dock-height) + 32px);
+  scroll-padding-block-end: calc(var(--conversation-dock-height) + 32px);
+}
+.conversation-dock.has-reader.is-narrow:not(.is-fullscreen) > .conversation-dock__conversation { inline-size: calc(100% - 32px); }
+
+.conversation-dock.is-fullscreen .conversation-dock__conversation { border-radius: 0; box-shadow: none; backdrop-filter: none; background: var(--conversation-dock-chat-background); }
