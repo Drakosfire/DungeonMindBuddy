@@ -951,7 +951,8 @@ class BuildJevDriver:
                     or abs(sum(scores.values()) - 1) > 0.02
                     or scores[selected] != max(scores.values())
                     or sum(value == scores[selected] for value in scores.values()) != 1
-                    or (selected != "answer_from_sources" and scores[selected] < 0.9)):
+                    # Staging a suggestion still requires explicit Keep and page Save.
+                    or (selected == "prepare_build_image" and scores[selected] < 0.9)):
                 raise ValueError("Unresolved or uncalibrated operation selection; do not replay")
             from uuid import uuid4
             operation_id = "build-jev:" + digest({"turn_id": str(a.turn.turn_id),
