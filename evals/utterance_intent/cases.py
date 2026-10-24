@@ -73,3 +73,26 @@ def fresh_holdout():
                  gold={'intent':intent,'outcome':result,'branches':[branch]},
                  provenance='Fresh constructed routing probe, not product execution evidence.')
             for name,q,branch,intent,result,h,context in samples]
+
+
+def instruction_holdout():
+    """Fresh v3 probes, never used to tune the instruction-placement candidate."""
+    samples=[
+        ('ground','Find the source passages about the ruined ferry and bring them into our discussion.','retrieve','discuss','reply',[],{}),
+        ('names','Suggest possibilities for family names; we are discussing, not writing a roster yet.','brainstorm','discuss','reply',[],{}),
+        ('culture','Write a Culture section for this village and put the suggestion on this page.','writing','create','writing',[],{}),
+        ('roster','Turn the following names into a three-row table of community roles: Ash Vale, River Moss, Wren Fen.','writing','create','writing',[],{}),
+        ('followup','Put the second option in the page.','placement','create','writing',[{'user':'Give me two greetings.','assistant':'1. Welcome to the ferry. 2. Mind the lanterns.'}],{}),
+        ('image','Prepare an image prompt showing a ruined ferry under green moonlight.','image','create','image',[],{}),
+        ('rules','What are the game rules for a grapple escape?','rules','discuss','reply',[],{}),
+        ('target','Save a tougher version of the selected Lantern Thief with 40 HP.','mechanics','create','unavailable',[],{'selected_enemy':{'name':'Lantern Thief','hp':25}}),
+        ('fight','Build an encounter containing three Lantern Thieves for four level-five heroes.','encounter','create','unavailable',[],{}),
+        ('quote','Explain the metaphor "the ferry swallowed the moon" without looking up other sources.','answer','discuss','reply',[],{}),
+        ('missing','Do the thing I meant.','clarify','discuss','clarify',[],{}),
+        ('mixed','Explain your choice briefly, then write a boxed arrival description for the ferry.','writing','create','writing',[],{}),
+    ]
+    return [dict(id='instructions-v3-'+name,family='fresh_instruction_holdout_v3',question=q,history=h,context=ctx,
+                 capabilities=['answer_from_sources','propose_build_insertion','prepare_build_image'],
+                 gold={'intent':intent,'outcome':result,'branches':[branch]},
+                 provenance='Fresh constructed instruction-placement probe, not execution evidence.')
+            for name,q,branch,intent,result,h,ctx in samples]

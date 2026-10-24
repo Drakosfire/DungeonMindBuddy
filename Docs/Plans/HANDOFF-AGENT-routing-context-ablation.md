@@ -1,6 +1,10 @@
 # AGENT — isolate routing context overhead
 
-ACTIVE serial PRIME proof-only lease at 44708dcf4f06248538d272f819b59ff391c47879,
+DELIVERED proof-only via1707, merge294b48309. Independent Bugbot approved
+exactec580534b, all192call digests/metrics verified. Duplicate-reference adoption
+rejected; diagnostic savings1.9% exploratory, no runtime change.
+
+Original serial PRIME proof-only lease at 44708dcf4f06248538d272f819b59ff391c47879,
 branch codex/routing-context-ablation, existing Buddy context-loop checkout.
 Operator requests routing effectiveness proof before adoption; the active goal
 also requires deduplicated context. Predecessor proof1706 is merged, independently
