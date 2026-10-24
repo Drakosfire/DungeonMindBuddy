@@ -105,14 +105,6 @@ body.surface-projection-open .plan-agent-shell {
   width: 100%; height: min(46dvh, 28rem);
 }
 
-.agent-interaction-play-layout { display: flex; justify-content: flex-end; gap: .35rem; padding: .25rem .5rem; flex: 0 0 auto; }
-
-.agent-interaction-play-layout button { color: #ccd8e6; background: #202a38; border: 1px solid #536279; border-radius: .35rem; padding: .2rem .55rem; cursor: pointer; }
-
-.agent-interaction-play-layout button[aria-pressed="true"] { border-color: #d7ac50; color: #f4d38f; }
-
-.agent-interaction-play-layout button:disabled { opacity: .5; cursor: default; }
-
 .plan-agent-shell.open[data-surface-id="play"] { display: flex; flex-direction: column; }
 
 .plan-agent-shell[data-surface-id="play"] .agent-interaction-ask-host:not(:empty) { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
@@ -344,4 +336,10 @@ body.surface-projection-open .plan-agent-shell {
     top: auto; left: 16px; right: 16px; bottom: 16px;
     width: auto; inline-size: auto; max-width: none;
   }
+}
+
+/* The shared dock owns placement; this host only reserves the Play workspace. */
+.plan-agent-shell.agent-interaction-shell--play.open[data-surface-id="play"][data-play-layout="bottom"] {
+  left: max(1rem, calc((100% - 1400px) / 2)); right: max(1rem, calc((100% - 1400px) / 2));
+  inline-size: auto; width: auto; height: min(46dvh, 28rem);
 }

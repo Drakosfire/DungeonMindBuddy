@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { useConversationPlacement } from "../ui/conversationPlacement";
+beforeEach(() => window.localStorage.setItem("buddy.conversation.placement", "side"));
+function PlacementControls() { const [,set] = useConversationPlacement(); return <><button onClick={()=>set("bottom")}>Bottom</button><button onClick={()=>set("side")}>Side</button><button onClick={()=>set("float")}>Float</button></> }
 import { readFileSync } from "node:fs";
 import { URL as NodeURL } from "node:url";
 
@@ -92,6 +95,7 @@ describe("AgentInteractionChrome", () => {
       <AgentInteractionProvider>
         <AskPluginSlotProvider>
           <PublishPlayContext />
+          <PlacementControls />
           <RegisterAsk />
           <AgentInteractionChrome />
         </AskPluginSlotProvider>
@@ -103,13 +107,15 @@ describe("AgentInteractionChrome", () => {
     const host = screen.getByTestId("agent-interaction-ask-host");
     expect(host).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
-    expect(screen.getByTestId("conversation-menu-host")).toContainElement(screen.getByRole("button", {name:"Bottom",exact:true}));
+
     await user.click(screen.getByRole("button", { name: "Bottom", exact: true }));
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
     expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
     await user.click(screen.getByRole("button", { name: "Side", exact: true }));
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
     expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
+    await user.click(screen.getByRole("button", {name:"Float",exact:true}));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout","float");
     expect(screen.queryByRole("button", { name: "Close chat" })).not.toBeInTheDocument();
   });
 
@@ -117,8 +123,7 @@ describe("AgentInteractionChrome", () => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     render(<AgentInteractionProvider><AskPluginSlotProvider><PublishPlayContext /><RegisterAsk /><AgentInteractionChrome /></AskPluginSlotProvider></AgentInteractionProvider>);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    expect(screen.getByRole("button", { name: "Side", exact: true })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Bottom", exact: true })).toHaveAttribute("aria-pressed", "true");
+
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
   });
 
