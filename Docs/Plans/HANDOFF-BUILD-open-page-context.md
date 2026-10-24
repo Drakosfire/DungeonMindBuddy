@@ -1,6 +1,11 @@
 # Open current-page context before adequacy judgment
 
-ACTIVE serial PRIME correction on codex/build-open-page-before-judgment, base
+MERGED and API-delivered asc88e14fb after exact Bugbot274864cc1 and132checks.
+Ordinary retained page-dependent names Retry completed with useful hypothetical
+output and unchanged saved bytes. Actual acquired-page context was captured in
+Debug. Remaining relevance/lookup overhead: HANDOFF-BUILD-context-relevance.md.
+
+Former serial PRIME correction on codex/build-open-page-before-judgment, base
 4bcc6ad393921c01862b88dabdb48bf4c1717258, existing buddy-context-loop checkout.
 The goal explicitly requires current-page awareness and useful creative dogfood.
 

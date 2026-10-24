@@ -555,8 +555,14 @@ class BuildJevTransitions:
                 DecisionQuestion(
                     name=f"relevant_{i}",
                     kind="binary",
-                    question=f"Does evidence {u.id} materially support, connect, qualify or contradict the exact question? "
-                    "Shared names alone are insufficient.",
+                    question=(
+                        f"Does acquired material {u.id} provide context, constraints or factual support useful to fulfilling user_question? "
+                        "For requested invention or brainstorming, contextual material is relevant even when it does not contain the new invented output. "
+                        "For factual requests, shared names alone are insufficient. Apply authoring_support_rule."
+                        if authoring_rule else
+                        f"Does evidence {u.id} materially support, connect, qualify or contradict the exact question? "
+                        "Shared names alone are insufficient."
+                    ),
                 )
                 for i, u in enumerate(viewed)
             )
@@ -572,12 +578,18 @@ class BuildJevTransitions:
             if viewed and self._support_policy:
                 questions += (DecisionQuestion(
                     name="joint_support", kind="binary",
-                    question="Taken together, do the acquired relevant observations and their actually opened passages "
-                    "support a correctly qualified answer to every part of the question? Different units may "
-                    "supply different facts or necessary hops; no single unit must answer everything. "
-                    "Required links, qualifications and support must be present. Shared names, relevance alone "
-                    "and unresolved contradictions are insufficient. Missing evidence is not proof of absence."
-                    + (" Apply authoring_support_rule: support the factual context and constraints; do not require proof of the requested inventions themselves." if authoring_rule else ""),
+                    question=(
+                        "Do the acquired sources, including the current authored page, provide the factual context needed to fulfill user_question? "
+                        "For requested invention or brainstorming, yes means enough context to create new hypothetical material; "
+                        "invented names or details need not already exist in sources. For factual or mixed requests, all requested established "
+                        "facts and necessary links must be supported. Shared names alone, unresolved factual gaps, and contradictions are not enough."
+                        if authoring_rule else
+                        "Taken together, do the acquired relevant observations and their actually opened passages "
+                        "support a correctly qualified answer to every part of the question? Different units may "
+                        "supply different facts or necessary hops; no single unit must answer everything. "
+                        "Required links, qualifications and support must be present. Shared names, relevance alone "
+                        "and unresolved contradictions are insufficient. Missing evidence is not proof of absence."
+                    ),
                 ),)
             elif viewed:
                 questions += (
