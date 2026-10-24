@@ -112,7 +112,7 @@ This contract; Docs/Roadmaps/ROADMAP-demo.md;
 src/application_state/agent_conversation/build_draft_context.py, build_draft_answer.py, types.py, service.py,
 source_writer_output.py, build_primary_context.py, build_world_context.py and
 rules_authority_build_input.py/rules_authority_output.py as required by exact carriers;
-apps/live_control_server/models/agent_turn.py;
+apps/live_control_server/models/agent_turn.py and build_document_proposal.py;
 apps/live_control_server/services/agent_turn_service.py, build_jev_harness.py,
 build_jev_driver.py, build_jev_writer.py, build_jev_writer_selection.py,
 build_jev_transitions.py and build_jev_dispatch.py;

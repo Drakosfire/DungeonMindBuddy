@@ -337,3 +337,16 @@ def test_draft_answer_does_not_force_an_evidence_gap_into_a_creative_proposal():
     assert answer.answer_context_status == "insufficient_evidence"
     with pytest.raises(ValidationError,match="explicit qualification"):
         DraftWriterAnswerV1.model_validate({**answer.model_dump(mode="json"),"limitations":[]})
+
+
+def test_optional_write_target_does_not_impose_a_separate_text_limit_on_draft_discussion():
+    from uuid import uuid4
+    from apps.live_control_server.models.build_document_proposal import BuildWriteCapability, BuildDocumentProposalRequest
+    text='x'*100000
+    snap=snapshot(text)
+    cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=uuid4(),expected_pointer_revision=1,draft_markdown=text,
+        basis={**snap.saved_basis(),"draft_sha256":snap.draft_sha256,"editor_sha256":snap.editor_sha256,
+            "draft_generation":snap.draft_generation,"caret":0,"selection_generation":0})
+    assert cap.draft_markdown==text
+    proposal=BuildDocumentProposalRequest.model_validate({**cap.model_dump(mode="json"),"instruction":"Revise the selected writing."})
+    assert proposal.draft_markdown==text

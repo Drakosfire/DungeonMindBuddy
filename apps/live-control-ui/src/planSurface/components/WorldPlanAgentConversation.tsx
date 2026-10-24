@@ -6150,7 +6150,7 @@ export function WorldPlanAgentConversation({
         ) : null}
       {visibleBuildPlacementFailure ? <section aria-label="Page proposal unavailable">
         <p role="alert">Buddy could not prepare a page proposal. {visibleBuildPlacementFailure.reason} Your message has not been sent.</p>
-        <p>You can correct the page or insertion point and send again. Discussion uses the saved page; unsaved edits will not be included.</p>
+        <p>You can correct the page or insertion point and send again. Discussion includes your current draft. It won’t place writing on the page.</p>
         <button type="button" disabled={composerBusy || !composerMessage.trim()}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}

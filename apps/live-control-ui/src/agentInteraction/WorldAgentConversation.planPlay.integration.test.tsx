@@ -481,7 +481,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const message='Draft a section about Culture — keep the author’s wording.';
     fireEvent.change(input,{target:{value:message}});
     fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
-    await screen.findByRole('region',{name:'Page proposal unavailable'});
+    const placementFailure=await screen.findByRole('region',{name:'Page proposal unavailable'});
+    expect(placementFailure).toHaveTextContent('Discussion includes your current draft. It won’t place writing on the page.');
+    expect(placementFailure).not.toHaveTextContent('unsaved edits will not be included');
     expect(input).toHaveValue(message);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     expect(Object.keys(localStorage).filter(k=>k.startsWith('dmb:world-play-pending-turn:'))).toEqual([]);
@@ -497,6 +499,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
     expect(request.message).toBe(message);
+    expect(request.build_draft_context?.snapshot).toEqual(draftSnapshot());
+    expect(request.build_draft_context?.snapshot.draft_markdown).toBe('# Unsaved page');
     expect(request).not.toHaveProperty('build_write_capability');
     expect(bridge.insert).not.toHaveBeenCalled();
   });
