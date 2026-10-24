@@ -23,13 +23,30 @@ function format(value: unknown, raw: boolean): string {
 }
 
 /** Presentation of an actual captured request; callers own identity and authorization. */
-export function PreparedRequestInspector({ payloadJson }: { payloadJson: string }) {
+export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: { payloadJson: string; previousPayloadJson?: string }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
   const body = JSON.parse(payloadJson) as Record<string, unknown>
   const parts = components(body)
   const part = parts.find(item => item.pointer === selected)
+  const previousParts = previousPayloadJson ? components(JSON.parse(previousPayloadJson)) : []
+  const changes = previousPayloadJson ? [...new Set([...previousParts.map(item => item.pointer), ...parts.map(item => item.pointer)])].flatMap(pointer => {
+    const before = previousParts.find(item => item.pointer === pointer)
+    const after = parts.find(item => item.pointer === pointer)
+    if (before && after && JSON.stringify(before.value) === JSON.stringify(after.value)) return []
+    return [{ pointer, before, after, kind: !before ? 'Added' : !after ? 'Removed' : 'Changed' }]
+  }) : []
   return <>
+    {previousPayloadJson && <section aria-label="Changes since previous model call" className="buddy-prompt__changes">
+      <h5>Changes since previous captured call</h5>
+      <p>Compared by request component and message position. Green: added · red: removed · gold: changed.</p>
+      {!changes.length && <p>No request components changed.</p>}
+      {changes.map(change => <details key={change.pointer} className={`buddy-prompt__change buddy-prompt__change--${change.kind.toLowerCase()}`}>
+        <summary>{change.kind} · {change.after?.label ?? change.before?.label} · {change.pointer}</summary>
+        {change.before && <div className="buddy-prompt__removed"><h6>Before</h6><pre>{format(change.before.value, false)}</pre></div>}
+        {change.after && <div className="buddy-prompt__added"><h6>Now</h6><pre>{format(change.after.value, false)}</pre></div>}
+      </details>)}
+    </section>}
     <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
       <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
     <div className="buddy-prompt__layout">

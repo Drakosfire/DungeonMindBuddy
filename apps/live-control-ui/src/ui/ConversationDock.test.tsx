@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationDock } from "./ConversationDock";
 
 function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
@@ -15,6 +15,7 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
     composer={<label>Message Buddy<input value={draft} onChange={e=>setDraft(e.currentTarget.value)} /></label>} />;
 }
 
+beforeEach(() => window.localStorage.setItem("buddy.conversation.placement", "side"));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
@@ -29,6 +30,7 @@ describe("ConversationDock", () => {
     expect(mounted).not.toHaveBeenCalled();
     expect(screen.queryByLabelText("Context query")).toBeNull();
     const reader = screen.getByLabelText("Reader"), composer = screen.getByLabelText("Question");
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
     expect(mounted).toHaveBeenCalledTimes(1);
     const query = screen.getByLabelText("Context query");
@@ -37,6 +39,7 @@ describe("ConversationDock", () => {
     view.rerender(<ConversationDock {...props} contextDetails={<Context label="Updated scope" />} />);
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
     fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
     expect(screen.getByText("Updated scope")).toBeVisible();
     expect(screen.getByLabelText("Context query")).toBe(query);
@@ -62,6 +65,8 @@ describe("ConversationDock", () => {
     geometry={height:800,width:600} as DOMRect;
     act(()=>resized());
     expect(root).toHaveClass('is-narrow');
+    expect(root).toHaveAttribute('data-placement','bottom');
+    expect(root).toHaveAttribute('data-preferred-placement','side');
     expect(screen.getByRole('separator')).toHaveAttribute('aria-valuenow','496');
     expect(screen.getByLabelText('Page draft')).toBe(page);
     expect(screen.getByLabelText('Conversation draft')).toBe(draft);
@@ -153,6 +158,7 @@ describe("ConversationDock", () => {
 
   it("names context visibility explicitly and closes it on submit without clearing input", () => {
     render(<ConversationDock reader="Page" messages="Reply" initialExpanded contextLabel="context" contextDetails="Saved page" composer={<form><textarea defaultValue="Keep my draft" /><button type="submit">Send</button></form>} />);
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", {name:"Show context"}));
     expect(screen.getByRole("button", {name:"Hide context"})).toHaveAttribute("aria-expanded","true");
     fireEvent.submit(screen.getByRole("textbox").closest("form")!);
@@ -164,6 +170,7 @@ describe("ConversationDock", () => {
     const user = userEvent.setup();
     const onExpandedChange = vi.fn();
     render(<Fixture onExpandedChange={onExpandedChange} />);
+    await user.click(screen.getByTitle("Conversation options"));
     const context = screen.getByRole("button", {name:/This scene/});
     await user.click(context);
     expect(context).toHaveAttribute("aria-expanded", "true");
@@ -248,6 +255,7 @@ describe("ConversationDock", () => {
     const user = userEvent.setup();
     const composer = <input aria-label="Draft" defaultValue="Keep this" />;
     const view = render(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails="Source details" />);
+    await user.click(screen.getByTitle("Conversation options"));
     await user.click(screen.getByRole("button", {name:/Context/}));
     const input = screen.getByLabelText("Draft");
     view.rerender(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails={null} />);
@@ -288,3 +296,67 @@ it("can omit the repeated visual heading while retaining conversation accessibil
   expect(screen.getByRole("separator", { name: "Resize conversation" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Expand conversation fullscreen" })).toBeInTheDocument();
 });
+
+it("keeps context and diagnostics behind one icon menu without losing draft state",async()=>{
+  const user=userEvent.setup();
+  render(<ConversationDock reader="Page" showTitle={false} initialExpanded fullscreenEnabled contextLabel="context" contextDetails={<input aria-label="Context filter"/>} messages="Reply" composer={<textarea aria-label="Draft" defaultValue="Keep this"/>} headerActions={<button aria-label="New conversation">+</button>} menuActions={<button>Explore Graph</button>}/>);
+  expect(screen.queryByRole("button",{name:"Show context"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Explore Graph"})).toBeNull();
+  const menu=screen.getByTitle("Conversation options");
+  expect(menu).not.toHaveTextContent("Conversation options");
+  await user.click(menu);
+  await user.click(screen.getByRole("checkbox",{name:"Technical details"}));
+  expect(screen.getByRole("log").closest(".conversation-dock")).toHaveAttribute("data-diagnostics-visible","true");
+  await user.click(screen.getByRole("button",{name:"Show context"}));
+  expect(screen.getByLabelText("Context filter")).toBeVisible();
+  expect(screen.getByLabelText("Draft")).toHaveValue("Keep this");
+  fireEvent.keyDown(menu,{key:"Escape"});
+  expect(menu.parentElement).not.toHaveAttribute("open");
+  expect(menu).toHaveFocus();
+});
+
+it("owns placement choices, preserves mounted drafts and restores the remembered choice", () => {
+ const props={reader:<input aria-label="Page draft" defaultValue="Page"/>,messages:<p>Answer</p>,composer:<textarea aria-label="Unsent" defaultValue="Keep this"/>,initialExpanded:true,fullscreenEnabled:true};
+ const view=render(<ConversationDock {...props}/>);
+ const draft=screen.getByLabelText('Unsent'), page=screen.getByLabelText('Page draft');
+ fireEvent.click(screen.getByTitle('Conversation options'));
+ for(const name of ['Bottom','Float','Side']) {
+  fireEvent.click(screen.getByRole('button',{name,exact:true}));
+  expect(view.container.firstChild).toHaveAttribute('data-placement',name.toLowerCase());
+  expect(screen.getByLabelText('Unsent')).toBe(draft);
+  expect(screen.getByLabelText('Page draft')).toBe(page);
+ }
+ fireEvent.click(screen.getByRole('button',{name:'Float',exact:true}));
+ fireEvent.click(screen.getByRole('button',{name:'Expand conversation fullscreen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Restore conversation dock'}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','float');
+ expect(screen.getByLabelText('Unsent')).toHaveValue('Keep this');
+ view.unmount();
+ const next=render(<ConversationDock {...props}/>);
+ expect(next.container.firstChild).toHaveAttribute('data-placement','float');
+})
+
+it("synchronizes placement across shared dock owners without replacing either composer", () => {
+ render(<><ConversationDock reader="Page" initialExpanded messages="A" composer={<input aria-label="A"/>}/><ConversationDock reader={null} initialExpanded messages="B" composer={<input aria-label="B"/>}/></>);
+ const drafts=[screen.getByLabelText('A'),screen.getByLabelText('B')];
+ fireEvent.click(screen.getAllByTitle('Conversation options')[0]);
+ fireEvent.click(screen.getByRole('button',{name:'Bottom',exact:true}));
+ expect(document.querySelectorAll('[data-placement="bottom"]')).toHaveLength(2);
+ expect(screen.getByLabelText('A')).toBe(drafts[0]);expect(screen.getByLabelText('B')).toBe(drafts[1]);
+})
+
+it("keeps the session selection when storage reads succeed but writes fail", () => {
+ window.localStorage.setItem('buddy.conversation.placement','side');
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota')});
+ const view=render(<ConversationDock reader="Page" initialExpanded messages="Reply" composer={<input aria-label="Retained draft" defaultValue="Keep"/>}/>);
+ const draft=screen.getByLabelText('Retained draft');
+ fireEvent.click(screen.getByTitle('Conversation options'));
+ fireEvent.click(screen.getByRole('button',{name:'Bottom',exact:true}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','bottom');
+ expect(window.localStorage.getItem('buddy.conversation.placement')).toBe('side');
+ fireEvent.click(screen.getByRole('button',{name:'Float',exact:true}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','float');
+ expect(screen.getByLabelText('Retained draft')).toBe(draft);
+ fireEvent(window,new StorageEvent('storage',{key:'buddy.conversation.placement'}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','side');
+})

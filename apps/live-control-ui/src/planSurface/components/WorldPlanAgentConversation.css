@@ -948,7 +948,7 @@
 .world-plan-agent-conversation__message--user {
   justify-self: start;
   inline-size: fit-content;
-  max-inline-size: min(88%, 46rem);
+  max-inline-size: min(100%, 46rem);
   background: transparent;
   border: 0;
   padding-inline: 0;
@@ -957,8 +957,8 @@
 .world-plan-agent-conversation__message--assistant {
   justify-self: end;
   inline-size: fit-content;
-  max-inline-size: min(92%, 52rem);
-  padding: 0.65rem 0.8rem;
+  max-inline-size: min(100%, 52rem);
+  padding: 0.5rem;
   border: 1px solid var(--ui-border-subtle, #3c4b54);
   border-radius: 0.8rem;
   background: color-mix(in srgb, var(--ui-background-surface, #202a33) 72%, transparent);
@@ -990,7 +990,6 @@
 }
 
 .world-plan-agent-conversation__turn-details,
-.world-plan-agent-conversation__earlier,
 .world-plan-agent-conversation__local-activity,
 .world-plan-agent-conversation__recovery-details {
   min-inline-size: 0;
@@ -1009,7 +1008,6 @@
 }
 
 .world-plan-agent-conversation__turn-details > summary,
-.world-plan-agent-conversation__earlier > summary,
 .world-plan-agent-conversation__local-activity > summary,
 .world-plan-agent-conversation__recovery-details > summary {
   width: fit-content;
@@ -1025,19 +1023,16 @@
   margin: 0.35rem 0 0;
 }
 
-.world-plan-agent-conversation__earlier,
 .world-plan-agent-conversation__local-activity,
 .world-plan-agent-conversation__recovery-details {
   padding-block-start: 0.45rem;
   border-block-start: 1px solid var(--ui-border-subtle, #343d4d);
 }
 
-.world-plan-agent-conversation__earlier > article,
 .world-plan-agent-conversation__local-activity > article {
   margin-block-start: 0.35rem;
 }
 
-.world-plan-agent-conversation__earlier > button,
 .world-plan-agent-conversation__recovery-details > button {
   margin-block-start: 0.4rem;
 }
@@ -1234,3 +1229,22 @@
 .conversation-recovery__retry { color:var(--ui-text-danger,#ffb6a6); display:inline-flex; align-items:center; justify-content:center; inline-size:2rem; block-size:2rem; padding:.3rem; border-radius:50%; vertical-align:middle; }
 .conversation-recovery__retry[aria-busy="true"] svg { opacity:.5; }
 .conversation-recovery__retry:focus-visible { outline:2px solid var(--ui-accent-action,#d9a441); outline-offset:2px; }
+
+.world-plan-agent-conversation__older-page { align-self: center; margin-block: .35rem .75rem; }
+
+/* Quoted evidence shares the same text measure as the reply. Browser defaults
+   otherwise add 40px per figure/blockquote level inside an already narrow pane. */
+.world-plan-agent-conversation__message figure {
+  min-inline-size: 0;
+  margin: .5rem 0;
+}
+.world-plan-agent-conversation__message blockquote {
+  margin: .5rem 0;
+  padding-inline: .6rem 0;
+  border-inline-start: 2px solid var(--ui-border-subtle, #3c4b54);
+}
+.world-plan-agent-conversation__message blockquote blockquote {
+  margin: .25rem 0;
+  padding-inline: 0;
+  border-inline-start: 0;
+}

@@ -1,8 +1,11 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `b3aadea4798fdff10436f8c48609d0a18bddb1d4`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
-(#1701/#1697), ports8000/5202, APP0061/native0017, Core95f4498.
+**Evidence anchor:** API `d68320086b46a68e2b812b00588bf3d494063c25`, UI
+`506162b09f3296ac5c9b5265d923a16428c90835` (#1717), ports8000/5202,
+APP0061/native0017, Core `a21c9e791fd090999a53318700a8010227b15c05`.
+UI adoption preserved all2,571 retained APP rows; API unchanged and healthy.
+This is a delivery snapshot, not completion of the journeys below.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -76,15 +79,35 @@ utterance coarse scores tie83.3%. Neither result authorizes runtime adoption.
 delivered proof-only via1707: exact duplicate references worsened routing; removing
 diagnostics saved1.9%input tokens on the reused cohort. No runtime adoption.
 [Question instruction proof](../Plans/HANDOFF-AGENT-routing-question-instructions.md)
-is delivered proof-only via1708: move identical candidate routing semantics from context into the actual
-Jev question instructions before drawing broader conclusions from the prototype.
-The measured instruction move alone did not materially improve routing. Original
+merged1708 as a proof-only comparison of identical candidate routing semantics
+in context versus actual Jev question instructions. The measured instruction move
+alone did not materially improve routing; no runtime adoption is authorized. Original
 frozen scores and explicit operator adjudication remain separate evidence.
-[Draft writer status domain](../Plans/HANDOFF-BUILD-draft-writer-status-domain.md)
-is paused at operator request: an ordinary saved-table follow-up produced the correct edited task but
-failed because its draft schema advertised a source status forbidden by partial
-retrieval. Preserve source-status restrictions while keeping authored support.
 
+
+### Current conversation dogfood settlement
+
+UI-only slices1710–1717 are merged and running on5202: shared icon/menu chrome,
+continuous loaded history with explicit50-turn older pages, inline exact composed
+inputs and previous-call component diffs, Jev list-rate estimates with unavailable
+pricing kept explicit, centered page artwork, pane-relative document insets and
+bounded quotation indentation, and shared remembered Side/Bottom/Float placement.
+Side reserves width; Bottom reserves vertical clearance; Float overlays the reader.
+Placement survives owner changes/fullscreen without remounting drafts. Rendered
+Build/Play checks and protected adoption are recorded on the respective PRs.
+The same split reader measured document text456.39→591.86px and quoted reply
+156.24→336.70px after1716; these are geometry witnesses, not memory/latency proof.
+The grid page constructor is a HIGH priority idea in root Backlog, not an active
+implementation assignment. Selected-text→map pin→object drafting remains a
+product direction requiring its own bounded contract and proof.
+
+[Writer status-domain repair](https://github.com/Drakosfire/DungeonMindBuddy/pull/1709)
+was explicitly resumed by the operator on2026-10-24 for review, merge, protected
+API delivery and ordinary authoring proof. Its54 author checks passed before the
+pause; the resumed current-head review and deployment remain acceptance gates. The observed table follow-up produced the edited task but
+failed because the draft schema offered a source status excluded by its underlying
+retrieval-dependent source schema. This repair and progressive table construction remain authoring work until their
+respective live gates pass; subsequent UI deliveries do not close them.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep

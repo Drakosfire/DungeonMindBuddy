@@ -4053,7 +4053,7 @@ export function WorldPlanAgentConversation({
         next_before_sequence: page.next_before_sequence,
       };
       historySnapshotRef.current = merged;
-      const viewport = presentationHosts?.messages?.parentElement;
+      const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
       if (viewport) {
         olderPageScrollAnchorRef.current = {
           viewport,
@@ -5670,8 +5670,6 @@ export function WorldPlanAgentConversation({
       })),
     ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
   ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);
-  const latestConversationEvent = displayedConversation.at(-1)?.element ?? null;
-  const earlierConversationEvents = displayedConversation.slice(0, -1);
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
   const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
@@ -5782,6 +5780,11 @@ export function WorldPlanAgentConversation({
       </section>
   );
   const managementDetails = (<>
+      {playMode ? <div role="group" aria-label="Play message action">
+          <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
+          <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
+          {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
+        </div> : null}
       <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
         worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
           sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
@@ -6071,7 +6074,7 @@ export function WorldPlanAgentConversation({
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite" aria-busy={historyLoading || !history}>
-        <h3>Conversation</h3>
+
         {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
           <div role="group" aria-label="World history unavailable">
@@ -6081,22 +6084,12 @@ export function WorldPlanAgentConversation({
             <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
           </div>
         ) : null}
-        {earlierConversationEvents.length ? (
-          <details className="world-plan-agent-conversation__earlier">
-            <summary>Earlier conversation · {earlierConversationEvents.length}</summary>
-            {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
-                {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
-              </button>
-            ) : null}
-            {earlierConversationEvents.map(item => item.element)}
-          </details>
-        ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-          <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+        {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+          <button type="button" className="world-plan-agent-conversation__older-page" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent}
+        {displayedConversation.map(item => item.element)}
         {playMode ? playCompose.review : null}
         {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
@@ -6106,7 +6099,7 @@ export function WorldPlanAgentConversation({
             <p><strong>You:</strong> {submittedMessage.message}</p>
             {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
               <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
-              <details><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
+              <details className="world-plan-agent-conversation__technical-details"><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
             </div> : null}
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
               <div className="world-plan-agent-conversation__turn-debug">
@@ -6158,11 +6151,7 @@ export function WorldPlanAgentConversation({
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
-        {playMode ? <div role="group" aria-label="Play message action">
-          <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
-          <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
-          {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
-        </div> : null}
+
 
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
@@ -6228,7 +6217,7 @@ export function WorldPlanAgentConversation({
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
           {isBuild && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
-          <p id="world-plan-agent-composer-hint">
+          <p id="world-plan-agent-composer-hint" className="sr-only">
             {buildSourceMissing
               ? "Sending is disabled until a saved source is available."
               : !isReadOnly && detectedComposerIntent === "propose"
@@ -6275,11 +6264,9 @@ export function WorldPlanAgentConversation({
         <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel={isBuild ? "Build workspace" : "Play workspace"}
           conversationLabel="World conversation" title="Conversation" showTitle={false}
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
-          initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
+          initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher" fullscreenEnabled
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<>{newConversationButton}<details ref={connectionOptionsRef} className="plan-conversation-dock__management" aria-label="Conversation options">
-            <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
-          </details></>}
+          headerActions={newConversationButton} menuRef={connectionOptionsRef} menuActions={<><div ref={askSlot.setMenuHost}/>{headerActions}{managementDetails}</>}
           contextDetails={isBuild ? buildContextDetails : playContextDetails}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}

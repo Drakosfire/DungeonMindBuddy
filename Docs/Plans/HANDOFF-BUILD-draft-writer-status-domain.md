@@ -1,7 +1,8 @@
 # BUILD — preserve the finite source-status domain in draft answers
 
-PAUSED by explicit operator instruction2026-10-24. No merge, deployment,
-provider experiment or implementation until explicitly resumed.
+ACTIVE: operator explicitly resumed PR1709 on2026-10-24, authorizing review,
+merge, protected API delivery and an ordinary authoring check. Re-anchored onto
+current main b3404e6e8 after conversation-design dogfood slices1710–1718.
 
 Original serial PRIME implementation lease atfa69816c492581da38f087ebdbe2b52156270b05,
 branch codex/draft-writer-status-domain, existing Buddy context-loop checkout.
@@ -41,7 +42,7 @@ Do not claim streaming implemented: current proposal writer is one-shot. Visible
 actual table construction remains forward work; operator full-stop/redirection is
 later aspirational scope, not a prerequisite for this fix.
 
-## Intentional stop and startup
+## Historical pause checkpoint and resumed startup
 
 Operator wants to dogfood the conversation design on the current5202 deployment.
 Leave API/UI running and user Worlds/drafts/conversations intact. This fix is
@@ -60,10 +61,14 @@ On explicit resume:
 3. Finish independent Bugbot review of the exact cumulative writer-status fix,
    resolve findings, then PRIME merge and protected API adoption only after resume.
    Preserve retained APP/native state and leave UI unchanged for this API-only fix.
-4. Reopen the owned synthetic pagef437ab12 and explicitly retry failed follow-up
-   75313dce-f661-4a08-bbc1-d95890dcc84b through ordinary controls. Verify the edited
-   task is answered, exact Debug schema is constrained, citations reopen, and the
-   source remains revision12 unless a new explicit edit is made. No automatic retry.
+4. Reopen the owned synthetic pagef437ab12 and inspect its current saved revision
+   and request lifecycle first. The operator has continued writing since revision12;
+   preserve the latest retained source and newer conversation work. Retry only an
+   actually failed unresolved request through ordinary controls; if it is already
+   completed, send a fresh equivalent follow-up rather than retrying completion.
+   Verify the edited task is answered, exact Debug schema is constrained, citations
+   reopen when present, and saved source bytes/revision remain unchanged. No
+   automatic retry or historical overwrite.
 5. Design real progressive table construction at the GenerationEngine→Buddy→shared
    Surface boundary: current writer is one-shot and native streaming currently
    drops JSON schema. Show only real construction events/rows and preserve final

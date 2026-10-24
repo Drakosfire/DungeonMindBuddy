@@ -132,11 +132,36 @@ it("opens a failed turn's exact captured request within Debug only on demand", a
     conversation_id:'conversation',turn_id:'turn',trace_id:'trace',attempt:1,reference,
     payload_json:JSON.stringify({model:'model',input:'Exact image direction request'})})
   render(<BuddyContextTraceLoader {...props} enabled load={vi.fn().mockResolvedValue(response([captured]))} loadPrompt={loadPrompt} />)
-  const control = await screen.findByText('The Prompt', {selector:'summary'})
+  const control = await screen.findByText('Working context · composed input prompt · model', {selector:'summary'})
   expect(loadPrompt).not.toHaveBeenCalled()
   fireEvent.click(control)
   await screen.findByRole('heading',{name:'Full composed request'})
   expect(loadPrompt).toHaveBeenCalledTimes(1)
   expect(loadPrompt).toHaveBeenCalledWith('world','turn','trace','call',expect.any(AbortSignal))
   expect(screen.getByLabelText('Captured request')).toHaveTextContent('Exact image direction request')
+})
+
+it.each([false,true])('reads only the selected input and previous capture on demand; missing previous=%s', async missing => {
+  const refs=['one','two','three'].map((id,sequence)=>({kind:'prompt_reference' as const,sequence,elapsed_ms:sequence,
+    provider_attempt_id:id,evidence_id:id,provider:'typesafe',model:id,api_mode:'decision',serializer_version:'fixture',
+    payload_sha256:'a'.repeat(64),payload_utf8_bytes:18}))
+  const captured={...trace(),observations:refs,closed_at:'2026-10-13T00:00:01Z',capture_status:'complete' as const}
+  const loadPrompt=vi.fn().mockImplementation(async (_world,_turn,_trace,id) => {
+    if(missing && id==='two') throw new Error('missing previous')
+    return {schema:'dmb_agent_prompt_evidence_v1',world_id:'world',conversation_id:'conversation',turn_id:'turn',trace_id:'trace',attempt:1,
+      reference:refs.find(ref=>ref.provider_attempt_id===id),payload_json:JSON.stringify({input:id})}
+  })
+  render(<BuddyContextTraceLoader {...props} enabled load={vi.fn().mockResolvedValue(response([captured]))} loadPrompt={loadPrompt} />)
+  const control=await screen.findByText('Working context · composed input prompt · three',{selector:'summary'})
+  expect(loadPrompt).not.toHaveBeenCalled()
+  fireEvent.click(control)
+  await screen.findByRole('heading',{name:'Full composed request'})
+  expect(loadPrompt.mock.calls.map(call=>call[3])).toEqual(['three','two'])
+  expect(screen.getByLabelText('Captured request')).toHaveTextContent('three')
+  if(missing) {
+    expect(screen.getByText(/previous captured input is unavailable/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Changes since previous model call')).not.toBeInTheDocument()
+  } else {
+    expect(screen.getByLabelText('Changes since previous model call')).toHaveTextContent('Changed · input')
+  }
 })

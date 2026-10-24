@@ -75,12 +75,14 @@ describe("PlanConversationDockAdapter",()=>{
     const user=userEvent.setup();render(<Fixture/>);
     await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
     expect(screen.queryByText("Full committed Plan context")).toBeNull();
+    await user.click(screen.getByTitle("Conversation options"));
     await user.click(screen.getByRole("button",{name:"Show context"}));
     expect(screen.getByText("Full committed Plan context")).toBeVisible();
     const search = screen.getByLabelText("Context search");
     await user.type(search, "Retain search");
     await user.click(screen.getByRole("button",{name:"Close conversation"}));
     await user.click(screen.getByRole("button",{name:"Open",exact:true}));
+    await user.click(screen.getByTitle("Conversation options"));
     await user.click(screen.getByRole("button",{name:"Show context"}));
     expect(screen.getByLabelText("Context search")).toBe(search);
     expect(search).toHaveValue("Retain search");
@@ -108,7 +110,7 @@ it.each([false, true])("dismisses More by pointer and keeps Close reachable (ful
   const user = userEvent.setup(); render(<Fixture/>);
   await user.click(await screen.findByRole("button", {name:"Open",exact:true}));
   if (fullscreen) await user.click(screen.getByRole("button", {name:"Expand conversation fullscreen"}));
-  const summary = screen.getByText("Conversation options", {selector:"summary"});
+  const summary = screen.getByTitle("Conversation options");
   const details = summary.parentElement as HTMLDetailsElement;
   await user.click(summary); expect(details.open).toBe(true);
   await user.click(summary); expect(details.open).toBe(false);

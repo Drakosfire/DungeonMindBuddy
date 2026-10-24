@@ -449,6 +449,13 @@ function draftSnapshot(){
   registry_revision:b.registry_revision,content_sha256:b.content_sha256,visibility:b.visibility,
   draft_markdown:captured.draftMarkdown,draft_sha256:b.draft_sha256,editor_sha256:b.editor_sha256!,draft_generation:b.draft_generation};
 }
+function openConversationOptions() {
+  const summary=screen.getByTitle("Conversation options");
+  const menu=summary.closest("details")!;
+  if (!menu.open) fireEvent.click(summary);
+  return menu;
+}
+
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -654,11 +661,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByRole("region", { name: "Saved turn recovery" })).not.toBeInTheDocument();
     expect(screen.queryByText("This request needs recovery. You can check its saved status or retry the exact request.")).not.toBeInTheDocument();
     await act(async () => { reject(new Error("Connection lost after submit")); });
+    openConversationOptions();
     await screen.findByRole("region", { name: "Saved turn recovery" });
     expect(screen.getByRole("button", { name: "Retry exact saved turn" })).toBeEnabled();
     mounted.unmount();
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    openConversationOptions();
     await screen.findByRole("region", { name: "Saved turn recovery" });
     expect(screen.getByRole("button", { name: "Retry exact saved turn" })).toBeEnabled();
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
@@ -864,13 +873,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
     const input = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(input).toBeEnabled());
-    const options = screen.getByLabelText("Conversation options");
+    const options = screen.getByTitle("Conversation options").closest("details")!;
     expect(options).not.toHaveAttribute("open");
     fireEvent.change(input, {target: {value: "Help with this page"}});
     fireEvent.click(screen.getByRole("button", {name: "Send message"}));
     fireEvent.click(await screen.findByRole("button", {name: "Open Settings"}));
     expect(options).toHaveAttribute("open");
-    expect(screen.getByRole("button", {name: "Connect local session"})).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", {name: "Connect local session"})).toBeVisible());
     fireEvent.click(screen.getByRole("button", {name: "Close connection settings"}));
     expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
   });
@@ -886,9 +895,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(input).toHaveValue("First line\nSecond line\nThird line");
     fireEvent.change(input, { target: { value: "" } });
     expect(input).toHaveValue("");
-    const options = screen.getByLabelText("Conversation options");
+    const options = screen.getByTitle("Conversation options").closest("details")!;
     expect(options).toContainElement(screen.getByLabelText("Agent tools and access"));
-    fireEvent.click(within(options).getByText("Conversation options", { selector: "summary" }));
+    fireEvent.click(screen.getByTitle("Conversation options"));
     expect(within(options).getByText("World Graph and sources")).toBeVisible();
     expect(within(options).getByText("Generate images")).toBeVisible();
     expect(within(options).getByText("Open an editable saved page first.")).toBeVisible();
@@ -906,7 +915,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     const failure = await screen.findByText(/Buddy couldn’t finish this reply/);
     expect(failure.closest("article")).toHaveTextContent("Do you have image tools?");
-    const options = screen.getByLabelText("Conversation options");
+    const options = screen.getByTitle("Conversation options").closest("details")!;
     expect(options).toContainElement(screen.getByLabelText("Saved turn recovery"));
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
@@ -991,6 +1000,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
     fireEvent.change(sourceSelector, { target: { value: BUILD_SOURCE_ID } });
     await screen.findByTestId("build-markdown-editor");
+    openConversationOptions();
     fireEvent.click(screen.getByRole("button", { name: "Show context" }));
     expect(await screen.findByText(/Buddy uses the saved source “City of Mirathorn”/)).toBeVisible();
     const savedComposer = screen.getByLabelText("Message DungeonBuddy");
@@ -999,6 +1009,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     window.history.pushState({}, "", `/build?world=${WORLD}`);
     fireEvent(window, new PopStateEvent("popstate"));
     await screen.findByTestId("build-surface-empty");
+    openConversationOptions();
     fireEvent.click(screen.getByRole("button", { name: "Show context" }));
     expect(await screen.findByText(/Buddy needs a saved source before you can ask about your lore/)).toBeVisible();
     expect(screen.queryByText(/Buddy uses the saved source “City of Mirathorn”/)).not.toBeInTheDocument();
@@ -1086,7 +1097,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(composer, { target: { value: "Rewrite this Plan scene" } });
     fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
     expect(await screen.findByTestId("world-agent-conversation-host")).toBeInTheDocument();
-    expect(screen.getByTitle("Show Test World · Play · The Crossing · West Gate")).toBeInTheDocument();
+    openConversationOptions();
+    expect(screen.getByRole("button",{name:"Show Test World · Play · The Crossing · West Gate"})).toBeInTheDocument();
     expect(await screen.findByLabelText("Message DungeonBuddy")).toHaveValue("");
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     expect(screen.getByText("Original Plan answer")).toBeInTheDocument();
@@ -1220,6 +1232,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async posted => playResponse(posted));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    openConversationOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Retry exact saved turn" }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
     expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0].primary_work.play_content_basis).toEqual(basis);
@@ -1270,6 +1283,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    openConversationOptions();
     fireEvent.click(await screen.findByRole("button", { name: "Retry exact saved turn" }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
     await waitFor(() => expect(window.localStorage.getItem(storageKey)).toBeNull());
@@ -1399,22 +1413,45 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Check saved request" }));
-    expect(readiness.querySelector("summary")).toBeVisible();
+    await waitFor(() => expect(readiness.querySelector("summary")).toBeVisible());
     expect(composer).toHaveValue("Keep this next thought");
   });
 
-  it("uses the compact dock, latest exchange and conversation options in Play", async () => {
+  it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
+    const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
+      ? history([turn("play",1,"Oldest answer"),turn("play",2,"Middle answer")]) : latest);
+    render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    await screen.findByText("Latest answer");
+    expect(screen.getByText("Middle answer")).toBeVisible();
+    const viewport=screen.getByRole("log",{name:"Conversation messages"});
+    Object.defineProperties(viewport,{
+      clientHeight:{configurable:true,value:120},
+      scrollHeight:{configurable:true,get:()=>200+viewport.querySelectorAll("article").length*80},
+    });
+    viewport.scrollTop=40;fireEvent.scroll(viewport);
+    const before=viewport.scrollHeight;
+    fireEvent.click(screen.getByRole("button",{name:"Load earlier messages"}));
+    await screen.findByText("Oldest answer");
+    expect(viewport.scrollTop).toBe(40+viewport.scrollHeight-before);
+    expect(screen.getAllByText("Middle answer")).toHaveLength(1);
+    expect(screen.queryByRole("button",{name:"Load earlier messages"})).toBeNull();
+    expect(getWorldAgentConversationHistory).toHaveBeenCalledWith(WORLD,expect.objectContaining({limit:50,beforeSequence:2}));
+  });
+
+  it("uses the compact dock, loaded exchanges and conversation options in Play", async () => {
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([
       turn("plan", 1, "Older Plan answer"), turn("play", 2, "Latest Play answer"),
     ]));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     expect(await screen.findByText("Latest Play answer")).toBeInTheDocument();
-    expect(screen.getByText("Older Plan answer")).not.toBeVisible();
-    fireEvent.click(screen.getByText("Earlier conversation · 1"));
+    expect(screen.getByText("Older Plan answer")).toBeVisible();
+    expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
     expect(screen.getByText("Older Plan answer")).toBeInTheDocument();
     expect(screen.getByRole("log", { name: "Conversation messages" })).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Conversation options"));
+    fireEvent.click(screen.getByTitle("Conversation options"));
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New conversation" })).toBeInTheDocument();
   });
@@ -1429,7 +1466,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await screen.findByText("Original Plan answer");
-    fireEvent.click(screen.getByText("Conversation options"));
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await waitFor(() => expect(postWorldAgentNewConversation).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldAgentNewConversation).mock.calls[0]?.[0]).toBe(WORLD);
@@ -1619,6 +1656,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
     const composer = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "Propose scene edit", exact: true }));
     fireEvent.change(composer, { target: { value: "Revise the scene" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message", exact: true }));
@@ -1932,6 +1970,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText('Message DungeonBuddy');
     await waitFor(() => expect(composer).toBeEnabled());
     if (!screen.queryByRole('button',{name:'Use Test World facts · On'})) {
+      openConversationOptions();
       fireEvent.click(screen.getByRole('button',{name:/^Show .*Play/}));
     }
     fireEvent.click(screen.getByRole('button',{name:'Use Test World facts · On'}));
