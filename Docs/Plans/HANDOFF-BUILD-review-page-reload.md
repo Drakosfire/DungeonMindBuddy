@@ -1,6 +1,11 @@
 # Build review page reload
 
-ACTIVE serial PRIME correction on codex/build-review-page-reload, base
+MERGED and UI-delivered as3a82e322 after exact Bugbot9f1683a8f. Ordinary
+closed-chat reload restored the manually edited review; Keep/Save/reload and
+Discard/reload passed without duplicate insertion or unaccepted source changes.
+Successor: HANDOFF-SURFACE-direct-proposal.md.
+
+Former serial PRIME correction on codex/build-review-page-reload, base
 4b851a07a7cf5112a60a8439a93fa336f15a855d, existing buddy-context-loop checkout.
 The parent page-review capability is merged and delivered after exact Bugbot;
 ordinary staging/edit/save passed and left document bytes unchanged. The pending

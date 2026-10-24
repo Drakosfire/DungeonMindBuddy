@@ -4,7 +4,6 @@ import {proposalReview,type BuildProposalReview} from '../api/buildProposalRevie
 import type {BuildComposeBridge,CapturedBuildInsertion} from './buildComposeBridge';
 import {buildProposalMarkdown} from './buildProposalMarkdown';
 import {SurfacePageProposal,SurfaceProposalReview} from '../surface/SurfacePageProposal';
-import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 
 export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,onComplete,inspector}: {
   record:BuildProposalRecord;bridge:BuildComposeBridge;sourceKey:string;requestKey:number;
@@ -44,7 +43,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
               setText(local.markdown);setConflict(local.revision!==saved.revision&&local.markdown!==saved.markdown);
             }
           }catch{setError('The local suggestion draft could not be read. The saved review remains available.');}
-          const captured=await bridge.restore(record.reservation.basis);
+          const captured=await bridge.restore({...record.reservation.basis,caret:saved.placement_caret});
           if(active.current&&epoch.current===current)setPlacement(captured);
         }
       }catch(reason){if(active.current&&epoch.current===current)setError(reason instanceof Error?reason.message:'Suggestion unavailable');}
@@ -58,6 +57,10 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(!current(start))return;
     if(checked.state==='editing'&&review&&checked.revision!==review.revision&&checked.markdown!==text)setConflict(true);
     setReview(checked);
+    if(checked.state==='editing'){
+      const captured=await bridge.restore({...record.reservation.basis,caret:checked.placement_caret});
+      if(current(start))setPlacement(captured);
+    }
     if(checked.state==='applying')callbacks.current.onStatus('Check insertion');
     if(checked.state==='applied'||checked.state==='discarded'){
       setPlacement(null);clearCache();callbacks.current.onStatus(checked.state==='applied'?'Kept on page':'Suggestion discarded');
@@ -84,7 +87,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   }
   function keep(){void transact(async(saved,start)=>{
     if(saved.state!=='editing')return;
-    const captured=await bridge.restore(record.reservation.basis);
+    const captured=await bridge.restore({...record.reservation.basis,caret:saved.placement_caret});
     const prepared=await bridge.prepareProposal(captured,buildProposalMarkdown(text).markdown);
     if(!current(start))return;
     saved=await save(saved,prepared.markdown);
@@ -99,11 +102,11 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   });}
   function recover(){void transact(async(saved,start)=>{
     if(saved.state!=='applying'||!saved.apply)return;
-    const state=await bridge.inspectProposal(record.reservation.basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
+    const state=await bridge.inspectProposal({...record.reservation.basis,caret:saved.placement_caret},saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
     if(!current(start))return;
     if(state==='changed')throw new Error('The page differs from both insertion snapshots. Nothing was inserted. Keep this review for inspection.');
     if(state==='before'){
-      const captured=await bridge.restore(record.reservation.basis);
+      const captured=await bridge.restore({...record.reservation.basis,caret:saved.placement_caret});
       const prepared=await bridge.prepareProposal(captured,saved.markdown);
       if(!current(start))return;
       if(prepared.afterEditorSha256!==saved.apply.after_editor_sha256||prepared.afterDraftSha256!==saved.apply.after_draft_sha256)
@@ -112,6 +115,18 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     }
     await confirm(saved,start);
   });}
+  function move(position:number){void transact(async(saved,start)=>{
+    if(saved.state!=='editing')return;
+    // Validate the chosen position against the same original page before persisting it.
+    await bridge.restore({...record.reservation.basis,caret:position});
+    if(!current(start))return;
+    saved=await save(saved,text);
+    if(!current(start))return;
+    const result=await proposalReview(world,record.action_id,{operation:'move',expected_revision:saved.revision,placement_caret:position});
+    if(!current(start))return;
+    const captured=await bridge.restore({...record.reservation.basis,caret:result.placement_caret});
+    if(current(start)){setReview(result);setPlacement(captured);clearCache();}
+  });}
   const controls=<>
     {error?<button type="button" disabled={busy} onClick={()=>{void transact(async(_saved,start)=>{await checkSaved(start);});}}>Check saved suggestion</button>:null}
     {conflict?<div role="alert">This suggestion changed elsewhere. Your local draft is retained.
@@ -119,7 +134,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
       <button type="button" onClick={()=>{setConflict(false);cache(text,review!.revision);}}>Review my local copy</button>
     </div>:null}
     <SurfaceProposalReview markdown={text} onChange={value=>{setText(value);cache(value,review!.revision);}}
-      preview={<WorldPlanAgentAnswer answer={text}/>} busy={busy||conflict} error={error}
+      busy={busy||conflict} error={error}
       onSave={()=>{void transact(async(saved,start)=>{const result=await save(saved,text);if(current(start)){setReview(result);clearCache();}});}}
       onKeep={keep} onDiscard={()=>{void transact(async(saved,start)=>{
         const result=await proposalReview(world,record.action_id,{operation:'discard',expected_revision:saved.revision});
@@ -134,6 +149,6 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     <button type="button" disabled={busy} onClick={recover}>Check insertion</button>{error?<p role="alert">{error}</p>:null}
   </section>;
   if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret}
-    editorJson={placement.editorJson} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
+    editorJson={placement.editorJson} placementId={record.action_id} onMove={move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
   return error?<section aria-label="Suggestion placement unavailable" role="status"><p>{error}</p><p>The saved suggestion is retained.</p></section>:null;
 }

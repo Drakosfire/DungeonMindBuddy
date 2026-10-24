@@ -52,10 +52,10 @@ beforeEach(() => {
   vi.mocked(proposalReview).mockImplementation(async(world,action,command)=>{
     let saved=reviews.get(action);
     if(!saved){
-      saved={schema:'dmb_build_proposal_review_v1',world_id:world,action_id:action,reservation_sha256:'b'.repeat(64),revision:1,state:'editing',markdown:'| NPC | Job |\n| --- | --- |\n| Nella | Ferrier |',markdown_sha256:'d'.repeat(64),apply:null,updated_at:''};
+      saved={schema:'dmb_build_proposal_review_v2',world_id:world,action_id:action,reservation_sha256:'b'.repeat(64),placement_caret:vi.mocked(proposals.composeBuildProposal).mock.calls.find(([request])=>request.idempotency_key===action)?.[0].basis.caret??1,revision:1,state:'editing',markdown:'| NPC | Job |\n| --- | --- |\n| Nella | Ferrier |',markdown_sha256:'d'.repeat(64),apply:null,updated_at:''};
     }
     if(command?.operation==='save')saved={...saved,revision:saved.revision+1,markdown:command.markdown!};
-    if(command?.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{apply_id:command.apply_id!,before_editor_sha256:'e'.repeat(64),before_draft_sha256:'f'.repeat(64),after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
+    if(command?.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:'e'.repeat(64),before_draft_sha256:'f'.repeat(64),after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
     if(command?.operation==='confirm')saved={...saved,revision:saved.revision+1,state:'applied'};
     reviews.set(action,saved);return saved;
   });

@@ -14,9 +14,9 @@ import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
-export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey = '' }: {
+export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, onReviewOnPage, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
-  enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
+  onReviewOnPage?:()=>void; enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
@@ -115,7 +115,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
     items: [...values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,
       history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
       element:record.proposal&&bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'
-        ? <button type="button" key={record.action_id} onClick={()=>setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}))}>
+        ? <button type="button" key={record.action_id} onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
             {reviewStatus[record.action_id]??(record.inserted_in_draft?'Kept on page':'Review suggestion on page')}
           </button>
         : <EarlierBuildProposal key={record.action_id} record={record} label={reviewStatus[record.action_id]}/>})),

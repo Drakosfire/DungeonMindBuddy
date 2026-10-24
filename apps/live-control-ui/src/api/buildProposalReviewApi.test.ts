@@ -1,7 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest';
 const world='public-test';const action='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const path=`/api/live/agent/worlds/${world}/build-proposals/${action}/review`;
-const record={schema:'dmb_build_proposal_review_v1',world_id:world,action_id:action,reservation_sha256:'a'.repeat(64),revision:1,state:'editing',markdown:'Public test suggestion',markdown_sha256:'b'.repeat(64),apply:null,updated_at:''};
+const record={schema:'dmb_build_proposal_review_v2',world_id:world,action_id:action,reservation_sha256:'a'.repeat(64),placement_caret:7,revision:1,state:'editing',markdown:'Public test suggestion',markdown_sha256:'b'.repeat(64),apply:null,updated_at:''};
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();vi.resetModules();});
 async function modules(base=''){
  vi.stubEnv('VITE_LIVE_API_BASE_URL',base);vi.resetModules();
