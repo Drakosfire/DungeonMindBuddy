@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { deferredComponent } from '../../ui/deferredComponent'
 import { useBuddyTurnInspection } from './BuddyTurnInspection'
 
@@ -30,7 +29,5 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
 }
 
 function DebugAttempt({ trace, running }: { trace: import('../../api/buddyContextTraceTypes').BuddyTurnContextTrace | null; running: boolean }) {
-  const [open, setOpen] = useState(false)
-  return <><details onToggle={event => setOpen(event.currentTarget.open)}><summary>The Prompt</summary>
-    {open && <BuddyPromptInspector trace={trace} />}</details><BuddyContextTrace trace={trace} ownerActive={running} /></>
+  return <BuddyContextTrace trace={trace} ownerActive={running} />
 }

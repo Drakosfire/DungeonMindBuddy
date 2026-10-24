@@ -155,7 +155,7 @@ describe('provider response reconciliation', () => {
     const rows=screen.getAllByRole('listitem')
     expect(rows[0]).toHaveTextContent('Provider duration: 1.23s')
     expect(rows[1]).toHaveTextContent('Execution failed')
-    fireEvent.click(screen.getByText('Recorded provider observations'))
+    fireEvent.click(screen.getByText('Call lifecycle and usage updates'))
     expect(screen.getByText(/"sequence": 2/)).toBeInTheDocument()
   })
   it.each([
@@ -166,7 +166,7 @@ describe('provider response reconciliation', () => {
       response(0,{input_tokens:42,duration_ms:1234}), response(1,fields),
     ])} />)
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.queryByText('Recorded provider observations')).not.toBeInTheDocument()
+    expect(screen.queryByText('Call lifecycle and usage updates')).not.toBeInTheDocument()
   })
   it('preserves authorization separately and does not double count repeated usage', () => {
     render(<BuddyContextTrace ownerActive={false} trace={trace([
@@ -177,4 +177,24 @@ describe('provider response reconciliation', () => {
     expect(screen.getAllByText('response_received')).toHaveLength(1)
     expect(screen.getByText('Provider-reported usage: 42 input · output unavailable')).toBeInTheDocument()
   })
+})
+
+it('calls out material additions, removals and changes without treating routes as prompt prose', () => {
+  const item=(item_id:string,text:string)=>({item_id,text,state:'model_context' as const,role:'user' as const,source_reads:[]})
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',stage:'before',sequence:0,elapsed_ms:0,materials:[item('old','Old'),item('same','Before')]},
+    {kind:'context_snapshot',stage:'after',sequence:1,elapsed_ms:1,materials:[item('same','After'),item('new','New')]},
+  ])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByLabelText('Context changes')).toHaveTextContent('Removed · old')
+  expect(screen.getByLabelText('Context changes')).toHaveTextContent('Changed · same')
+  expect(screen.getByLabelText('Context changes')).toHaveTextContent('Added · new')
+})
+it('shows a small list-rate cost and never prices unknown models as free', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'provider_call',sequence:0,elapsed_ms:0,provider:'typesafe',model:'jev-1.14.0',outcome:'response_received',input_tokens:6689,output_tokens:88},
+    {kind:'provider_call',sequence:1,elapsed_ms:1,provider:'other',model:'unknown',outcome:'response_received',input_tokens:2,output_tokens:3},
+  ])} />)
+  expect(screen.getByText(/Estimated cost: \$0.000281 USD/)).toBeInTheDocument()
+  expect(screen.getByText(/Estimated cost unavailable/)).toBeInTheDocument()
 })
