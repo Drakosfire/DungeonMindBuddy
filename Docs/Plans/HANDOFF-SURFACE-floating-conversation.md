@@ -1,6 +1,13 @@
 # Floating conversation beside authored work
 
-ACTIVE serial PRIME slice, codex/surface-floating-conversation, base
+SETTLED implementation: #1686 merged 8b8ea74f1 after exact Bugbot approval and
+protected UI delivery. 168 shared checks and 27 final focused checks passed; Bugbot
+ran 42 independent checks. Authenticated Build wide/narrow history, readable input
+and fullscreen/Escape passed without requests or source edits. Hosted Play exposed
+old wrapper padding/height and missing shared presentation styles; the dependent
+hosted-frame correction owns that remaining rendered gate. Operator acceptance open.
+
+Completed serial PRIME slice, codex/surface-floating-conversation, base
 7f5d3ca754b5436334f8394f7877bd12fce770f2, existing buddy-context-loop checkout.
 
 ## Capability / critique

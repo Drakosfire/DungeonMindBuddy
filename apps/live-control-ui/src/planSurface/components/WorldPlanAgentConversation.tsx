@@ -99,6 +99,7 @@ import {
   threadTitleFromQuestion,
 } from "./agentInteractionHistory";
 import "./WorldPlanAgentConversation.css";
+import "../../agentInteraction/WorldConversationPresentation.css";
 
 const BUILD_SOURCE_REQUIRED_DESCRIPTION_ID = "world-plan-agent-build-source-required";
 
