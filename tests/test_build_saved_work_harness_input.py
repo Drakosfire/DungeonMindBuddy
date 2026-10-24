@@ -99,25 +99,25 @@ def test_invalid_internal_discriminator_rejects_both_directions(bad):
         deserialize_hermes_graph_agent_turn_request(wire)
 
 
-def test_default_ordinary_and_plan_limits_are_unchanged():
+def test_ordinary_and_plan_messages_round_trip_without_character_clipping():
     default = serialize_hermes_graph_agent_turn_request(_request())
     assert deserialize_hermes_graph_agent_turn_request(default).input_kind == 'ordinary_question'
     default.pop('inputKind')
     assert deserialize_hermes_graph_agent_turn_request(default).input_kind == 'ordinary_question'
-    with pytest.raises(ValueError, match='max length 8000'):
-        serialize_hermes_graph_agent_turn_request(replace(_request(), question='x' * 8001))
-    default['question'] = 'x' * 8001
-    with pytest.raises(ValueError, match='max length 8000'):
-        deserialize_hermes_graph_agent_turn_request(default)
+    ordinary = replace(_request(), question='x' * 12000)
+    assert deserialize_hermes_graph_agent_turn_request(
+        serialize_hermes_graph_agent_turn_request(ordinary)).question == ordinary.question
+    default['question'] = ordinary.question
+    assert deserialize_hermes_graph_agent_turn_request(default).question == ordinary.question
     plan = replace(_request(), question='x' * 12000, plan_continuity_turn=True)
     restored = deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(plan))
     assert restored.question == plan.question and restored.plan_continuity_turn is True
     assert restored.input_kind == 'ordinary_question'
 
 
-def test_public_input_cannot_widen_question_or_inject_discriminator(source):
-    with pytest.raises(ValidationError):
-        request(source, message='x' * 8001)
+def test_public_input_preserves_message_but_cannot_inject_discriminator(source):
+    message = 'x' * 12000
+    assert request(source, message=message).message == message
     with pytest.raises(ValidationError):
         request(source, input_kind='server_assembled_saved_work')
 
