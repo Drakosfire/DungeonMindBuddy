@@ -2440,6 +2440,25 @@ export function WorldPlanAgentConversation({
   const playMessagesHostRef = useRef<HTMLDivElement | null>(null);
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
+  const buildPlacementFenceKey = JSON.stringify([scopeKey, buildMode?.savedSource, history?.conversation_id,
+    history?.active_conversation_id, history?.conversation_state, history?.pointer_revision, useWorldGraphForAsk]);
+  const buildPlacementLifecycle = useRef({key: buildPlacementFenceKey, bridge: buildMode?.composeBridge, epoch: 0});
+  if (buildPlacementLifecycle.current.key !== buildPlacementFenceKey
+    || buildPlacementLifecycle.current.bridge !== buildMode?.composeBridge) {
+    buildPlacementLifecycle.current = {key: buildPlacementFenceKey, bridge: buildMode?.composeBridge,
+      epoch: buildPlacementLifecycle.current.epoch + 1};
+  }
+  const buildPlacementEpoch = buildPlacementLifecycle.current.epoch;
+  const [buildPlacementFailure, setBuildPlacementFailure] = useState<{
+    fenceKey: string; epoch: number; message: string; generation: number; reason: string;
+    bridge: NonNullable<NonNullable<WorldPlanAgentConversationProps["buildMode"]>["composeBridge"]>;
+  } | null>(null);
+  const visibleBuildPlacementFailure = isBuild && buildPlacementFailure
+    && buildPlacementFailure.fenceKey === buildPlacementFenceKey
+    && buildPlacementFailure.epoch === buildPlacementEpoch
+    && buildPlacementFailure.bridge === buildMode?.composeBridge
+    && buildPlacementFailure.message === composerMessage.trim()
+    && buildPlacementFailure.generation === composerEditGenerationRef.current ? buildPlacementFailure : null;
   useLayoutEffect(() => {
     if (previousVerifiedWorldIdRef.current === verifiedWorldId) return;
     previousVerifiedWorldIdRef.current = verifiedWorldId;
@@ -2542,6 +2561,9 @@ export function WorldPlanAgentConversation({
   const latestRef = useRef({
     fenceKey: requestFenceKey,
     presentationFenceKey: askPresentationFenceKey,
+    buildPlacementFenceKey,
+    buildPlacementEpoch,
+    buildPlacementBridge: buildMode?.composeBridge,
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
     providerThreadId: agent.activeThread?.threadId ?? null,
@@ -2716,6 +2738,9 @@ export function WorldPlanAgentConversation({
 
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.presentationFenceKey = askPresentationFenceKey;
+  latestRef.current.buildPlacementFenceKey = buildPlacementFenceKey;
+  latestRef.current.buildPlacementEpoch = buildPlacementEpoch;
+  latestRef.current.buildPlacementBridge = buildMode?.composeBridge;
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
@@ -3829,8 +3854,8 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false) {
+    event?.preventDefault();
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
     const message = composerMessage.trim();
@@ -3844,6 +3869,7 @@ export function WorldPlanAgentConversation({
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
+      if (discussionOnly && !visibleBuildPlacementFailure) return;
       const request: WorldBuildAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1", client_thread_id: crypto.randomUUID(), turn_id: crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
@@ -3853,18 +3879,38 @@ export function WorldPlanAgentConversation({
         graph_request: useWorldGraphForAsk ? { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
           focus: { kind: "none", session_id: null, campaign_id: null } } : { mode: "none" }, graph_selection: null, message,
       };
-      if (useWorldGraphForAsk && buildMode?.composeBridge) {
+      if (useWorldGraphForAsk && buildMode?.composeBridge && !discussionOnly) {
         const token = Symbol("build-editor-capability");
         const fence = latestRef.current.presentationFenceKey;
+        const placementFence = buildPlacementFenceKey;
+        const epoch = buildPlacementEpoch;
+        const bridge = buildMode.composeBridge;
+        const generation = composerEditGenerationRef.current;
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
-        try { request.build_write_capability = await buildCompose.prepareHarnessCapability(); }
-        catch { /* Discussion still works when the current selection cannot grant an insertion. */ }
+        try {
+          request.build_write_capability = await buildCompose.prepareHarnessCapability();
+          if (!request.build_write_capability) throw new Error("Page placement is unavailable in this conversation.");
+        } catch (reason) {
+          if (latestRef.current.mounted && latestRef.current.buildPlacementFenceKey === placementFence
+            && latestRef.current.buildPlacementEpoch === epoch
+            && latestRef.current.buildPlacementBridge === bridge
+            && composerEditGenerationRef.current === generation) {
+            setBuildPlacementFailure({ fenceKey: placementFence, epoch, message, generation, bridge,
+              reason: reason instanceof Error ? reason.message : "The page insertion point could not be prepared." });
+          }
+          return;
+        }
         finally {
           if (requestRef.current?.token === token) { requestRef.current = null; setSending(false); }
         }
-        if (!latestRef.current.mounted || latestRef.current.presentationFenceKey !== fence) return;
+        if (!latestRef.current.mounted || latestRef.current.presentationFenceKey !== fence
+          || latestRef.current.buildPlacementFenceKey !== placementFence
+          || latestRef.current.buildPlacementEpoch !== epoch
+          || latestRef.current.buildPlacementBridge !== bridge
+          || composerEditGenerationRef.current !== generation) return;
       }
+      setBuildPlacementFailure(null);
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
       const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
       try {
@@ -6039,6 +6085,12 @@ export function WorldPlanAgentConversation({
               onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button> : null}
           </p>
         ) : null}
+      {visibleBuildPlacementFailure ? <section aria-label="Page proposal unavailable">
+        <p role="alert">Buddy could not prepare a page proposal. {visibleBuildPlacementFailure.reason} Your message has not been sent.</p>
+        <p>You can correct the page or insertion point and send again. Discussion uses the saved page; unsaved edits will not be included.</p>
+        <button type="button" disabled={composerBusy || !composerMessage.trim()}
+          onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
+      </section> : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
         {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
