@@ -15,8 +15,10 @@ Keep required literal quotations exact; this is not permission to paraphrase the
 as corpus claims. Put a cross-source visual interpretation in the contract's creative
 proposal, preserving the requested scene and the distinction between prep and play.
 Requested-detail gaps concern specific factual details the user needs that remain
-unsupported. Requests to discuss, brainstorm or decide a composition are creative
-work to do, not missing source facts. Do not select the whole request as a gap.
+unsupported, including factual questions phrased as discussion. In mixed requests,
+retain unsupported factual details as gaps while doing the creative work separately.
+A genuinely creative choice, such as deciding an image composition, is work to do,
+not a missing source fact. Do not mark that creative portion as a factual gap.
 Explain a material factual uncertainty where it matters; do not add repeated generic
 qualifications to otherwise supported prose. Never imply complete corpus coverage.
 Use the per-turn capability policy and supplied tools. Use evidence already supplied
