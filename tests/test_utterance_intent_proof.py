@@ -106,3 +106,18 @@ def test_different_interactions_are_never_collapsed():
                                      'decision':{'state':{'interaction':{'history':['old']}}}}}}
     with pytest.raises(ValueError,match='copies differ'):
         request(case,'deduplicated')
+
+
+def test_instruction_variant_moves_identical_guidance_only():
+    from evals.utterance_intent.cases import instruction_holdout
+    from evals.utterance_intent.proof import SEMANTICS,LEAF_QUESTION
+    for case in instruction_holdout():
+        control=request(case,'intent_flat')
+        candidate=request(case,'instruction_flat')
+        assert candidate['questions']['route']['question']==SEMANTICS+'\n'+LEAF_QUESTION
+        candidate['questions']['route']['question']=LEAF_QUESTION
+        candidate['state']['routing_guidance']=SEMANTICS
+        assert candidate==control
+        altered=deepcopy(case);altered['gold']={'secret':'must_not_leak'};altered['id']='secret_identity'
+        assert request(altered,'instruction_flat')==request(case,'instruction_flat')
+        DecisionRequest.model_validate(sdk_request(request(case,'instruction_flat')))

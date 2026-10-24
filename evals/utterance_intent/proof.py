@@ -12,7 +12,7 @@ import statistics
 import time
 
 MODEL = 'jev-1.14.0'
-POLICY = 'routing_context_ablation_v1'
+POLICY = 'routing_question_instructions_v1'
 FLAT_VARIANTS = ('captured_flat','normalized_flat','metadata_only','deduplicated','dedup_metadata')
 SEMANTICS = '''Classify the user's requested next work, using history only to resolve references.
 Discuss means understanding, retrieving context, comparing, brainstorming or answering questions.
@@ -96,8 +96,12 @@ def request(case, variant, intent=None):
             if key in original['state']:state[key]=deepcopy(original['state'][key])
         return {'model':MODEL,'state':state,'questions':deepcopy(original['questions'])}
     state['routing_guidance']=SEMANTICS
-    if variant=='intent_flat':
-        questions={'route':question(DISCUSSION+CREATION,LEAF_QUESTION)}
+    if variant in ('intent_flat','instruction_flat'):
+        text=LEAF_QUESTION
+        if variant=='instruction_flat':
+            state.pop('routing_guidance')
+            text=SEMANTICS+'\n'+LEAF_QUESTION
+        questions={'route':question(DISCUSSION+CREATION,text)}
     elif intent is None:
         questions={'intent':question(('discuss','create'),'Is the requested immediate work Discuss or Create? Use Discuss when intent itself needs clarification.')}
     else:
@@ -194,7 +198,7 @@ async def one(case,variant,repeat,evaluate,output):
                 intent='discuss' if op=='answer_from_sources' else 'create'
                 branch={'answer_from_sources':'answer','prepare_build_image':'image','propose_build_insertion':'writing'}[op]
                 actual=outcome(case,intent,branch)
-        elif variant=='intent_flat':
+        elif variant in ('intent_flat','instruction_flat'):
             branch=selection(first,'route');intent='discuss' if branch in DISCUSSION else 'create'
             actual=outcome(case,intent,branch)
         else:
@@ -257,7 +261,9 @@ async def run(cases,evaluate,output,repeats=2,concurrency=4,variants=None):
 async def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--cases',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--credential-file',type=Path,required=True)
-    parser.add_argument('--context-ablation',action='store_true')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--context-ablation',action='store_true')
+    mode.add_argument('--instruction-placement',action='store_true')
     args=parser.parse_args();os.umask(0o077)
     from dotenv import dotenv_values
     key=dotenv_values(args.credential_file).get('TYPESAFE_JEV_API_KEY')
@@ -269,7 +275,7 @@ async def main():
     async def evaluate(payload):
         # Actual SDK: no transport retries, no writer, raw usage retained.
         return (await client.decide(DecisionRequest.model_validate(sdk_request(payload)))).model_dump(mode='json')
-    try:report=await run(json.loads(args.cases.read_text()),evaluate,args.output,variants=['captured_flat','metadata_only','deduplicated','dedup_metadata'] if args.context_ablation else None)
+    try:report=await run(json.loads(args.cases.read_text()),evaluate,args.output,variants=['captured_flat','metadata_only','deduplicated','dedup_metadata'] if args.context_ablation else ['intent_flat','instruction_flat'] if args.instruction_placement else None)
     finally:await client.aclose()
     print(json.dumps({'manifest_sha256':report['manifest_sha256'],'case_count':report['case_count'],'groups':report['groups']}))
 

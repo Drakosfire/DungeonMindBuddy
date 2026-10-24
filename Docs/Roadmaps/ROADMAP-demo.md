@@ -67,8 +67,11 @@ spurious gap; relevance acceptance remains open.
 after independent Bugbot review. The sequential fork underperformed captured flat
 routing on dogfood and is not adopted.
 [Routing context ablation](../Plans/HANDOFF-AGENT-routing-context-ablation.md) is
-active proof-only: isolate diagnostic overhead and exact duplicate interaction
-from substantive evidence removal before recommending runtime changes.
+delivered proof-only via1707: exact duplicate references worsened routing; removing
+diagnostics saved1.9%input tokens on the reused cohort. No runtime adoption.
+[Question instruction proof](../Plans/HANDOFF-AGENT-routing-question-instructions.md)
+is active: move identical candidate routing semantics from context into the actual
+Jev question instructions before drawing broader conclusions from the prototype.
 
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
