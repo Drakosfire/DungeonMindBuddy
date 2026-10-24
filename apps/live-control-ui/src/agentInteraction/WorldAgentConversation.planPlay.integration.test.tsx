@@ -670,9 +670,30 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const request=vi.mocked(post).mock.calls[0][0];
     expect(request.message).toBe(prior.user_text);expect(request.turn_id).not.toBe(prior.turn_id);
     expect(input).toHaveValue(otherDraft?"Keep my unsent draft":"");
+    expect(screen.getAllByText(prior.user_text,{exact:true})).toHaveLength(1);
+    expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
+    expect(screen.getByText("Retrying your question…")).toBeInTheDocument();
     fireEvent.change(input,{target:{value:"Keep my newer typing"}});
     expect(input).toHaveValue("Keep my newer typing");expect(retry).toBeDisabled();
     expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
+  });
+
+  it.each(["plan","play","build"] as const)("keeps consecutive failed %s requests in one visible turn across remount",async surface=>{
+    const base=turn(surface==='build'?'plan':surface,1,'');
+    const rows=[1,2,3].map(sequence=>({...base,turn_id:`failed-${sequence}`,sequence,
+      lifecycle_status:'interrupted' as const,provenance:{...base.provenance,surface_id:surface,
+        primary_work:{...base.provenance.primary_work,object_id:surface==='build'?'source-one':base.provenance.primary_work.object_id}}}));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history(rows));
+    const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByRole('button',{name:'Retry question'});
+    expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
+    expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Debug',{exact:true}));
+    expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
+    expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+    view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByRole('button',{name:'Retry question'});
+    expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
   });
 
   it.each([false,true])("shows an exact Build retry placement failure while preserving its draft: %s",async otherDraft=>{
