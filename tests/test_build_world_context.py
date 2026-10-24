@@ -354,7 +354,7 @@ def test_partial_world_read_cannot_become_writer_evidence(
 
 
 @pytest.mark.parametrize(
-    "mode", ["unselected", "stale", "unknown", "changed", "repeated"]
+    "mode", ["unselected", "stale", "unknown", "changed", "repeated", "native_failure"]
 )
 def test_world_broker_refuses_invalid_selection_before_native_io(
     world_completed, monkeypatch, mode
@@ -422,11 +422,21 @@ def test_world_broker_refuses_invalid_selection_before_native_io(
 
     def forbidden(*a, **kw):
         calls.append(True)
+        if mode == "native_failure":
+            raise RuntimeError("synthetic indeterminate native read")
         raise AssertionError("unselected native I/O")
 
     monkeypatch.setattr(native, "get_object_with_reviewed_sources_direct_v3", forbidden)
     result = adapter.broker_graph_operation(
         {"toolName": "expand_graph_retrieval", "arguments": args}
     )
+    if mode == "native_failure":
+        assert result == {"code": "graph_operation_unavailable", "status": 503}
+        assert adapter.failure is not None
+        result = adapter.broker_graph_operation(
+            {"toolName": "expand_graph_retrieval", "arguments": args}
+        )
+        assert calls == [True]
+    else:
+        assert not calls
     assert result == {"code": "build_world_acquisition_not_current", "status": 409}
-    assert not calls

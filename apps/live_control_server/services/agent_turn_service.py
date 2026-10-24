@@ -3011,6 +3011,8 @@ class _PolicyExecutionAdapter:
             if (getattr(execution.policy, "world_context_policy", None)
                     == "build_world_opened_source_context_v1"
                     and request.operation != "observations"):
+                if self.failure is not None:
+                    return denied("build_world_acquisition_not_current", 409)
                 from application_state.agent_conversation.build_world_context import authorize_world_operation
                 try:
                     authorize_world_operation(
