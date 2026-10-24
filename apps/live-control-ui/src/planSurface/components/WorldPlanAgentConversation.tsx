@@ -2441,13 +2441,21 @@ export function WorldPlanAgentConversation({
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
   const buildPlacementFenceKey = JSON.stringify([scopeKey, buildMode?.savedSource, history?.conversation_id,
-    history?.pointer_revision, useWorldGraphForAsk]);
+    history?.active_conversation_id, history?.conversation_state, history?.pointer_revision, useWorldGraphForAsk]);
+  const buildPlacementLifecycle = useRef({key: buildPlacementFenceKey, bridge: buildMode?.composeBridge, epoch: 0});
+  if (buildPlacementLifecycle.current.key !== buildPlacementFenceKey
+    || buildPlacementLifecycle.current.bridge !== buildMode?.composeBridge) {
+    buildPlacementLifecycle.current = {key: buildPlacementFenceKey, bridge: buildMode?.composeBridge,
+      epoch: buildPlacementLifecycle.current.epoch + 1};
+  }
+  const buildPlacementEpoch = buildPlacementLifecycle.current.epoch;
   const [buildPlacementFailure, setBuildPlacementFailure] = useState<{
-    fenceKey: string; message: string; generation: number; reason: string;
+    fenceKey: string; epoch: number; message: string; generation: number; reason: string;
     bridge: NonNullable<NonNullable<WorldPlanAgentConversationProps["buildMode"]>["composeBridge"]>;
   } | null>(null);
   const visibleBuildPlacementFailure = isBuild && buildPlacementFailure
     && buildPlacementFailure.fenceKey === buildPlacementFenceKey
+    && buildPlacementFailure.epoch === buildPlacementEpoch
     && buildPlacementFailure.bridge === buildMode?.composeBridge
     && buildPlacementFailure.message === composerMessage.trim()
     && buildPlacementFailure.generation === composerEditGenerationRef.current ? buildPlacementFailure : null;
@@ -2554,6 +2562,7 @@ export function WorldPlanAgentConversation({
     fenceKey: requestFenceKey,
     presentationFenceKey: askPresentationFenceKey,
     buildPlacementFenceKey,
+    buildPlacementEpoch,
     buildPlacementBridge: buildMode?.composeBridge,
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
@@ -2730,6 +2739,7 @@ export function WorldPlanAgentConversation({
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.presentationFenceKey = askPresentationFenceKey;
   latestRef.current.buildPlacementFenceKey = buildPlacementFenceKey;
+  latestRef.current.buildPlacementEpoch = buildPlacementEpoch;
   latestRef.current.buildPlacementBridge = buildMode?.composeBridge;
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
@@ -3873,6 +3883,7 @@ export function WorldPlanAgentConversation({
         const token = Symbol("build-editor-capability");
         const fence = latestRef.current.presentationFenceKey;
         const placementFence = buildPlacementFenceKey;
+        const epoch = buildPlacementEpoch;
         const bridge = buildMode.composeBridge;
         const generation = composerEditGenerationRef.current;
         requestRef.current = { token, scopeKey, fenceKey: fence };
@@ -3882,9 +3893,10 @@ export function WorldPlanAgentConversation({
           if (!request.build_write_capability) throw new Error("Page placement is unavailable in this conversation.");
         } catch (reason) {
           if (latestRef.current.mounted && latestRef.current.buildPlacementFenceKey === placementFence
+            && latestRef.current.buildPlacementEpoch === epoch
             && latestRef.current.buildPlacementBridge === bridge
             && composerEditGenerationRef.current === generation) {
-            setBuildPlacementFailure({ fenceKey: placementFence, message, generation, bridge,
+            setBuildPlacementFailure({ fenceKey: placementFence, epoch, message, generation, bridge,
               reason: reason instanceof Error ? reason.message : "The page insertion point could not be prepared." });
           }
           return;
@@ -3894,6 +3906,7 @@ export function WorldPlanAgentConversation({
         }
         if (!latestRef.current.mounted || latestRef.current.presentationFenceKey !== fence
           || latestRef.current.buildPlacementFenceKey !== placementFence
+          || latestRef.current.buildPlacementEpoch !== epoch
           || latestRef.current.buildPlacementBridge !== bridge
           || composerEditGenerationRef.current !== generation) return;
       }

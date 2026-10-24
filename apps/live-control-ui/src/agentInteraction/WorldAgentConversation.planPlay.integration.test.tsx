@@ -489,9 +489,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(bridge.insert).not.toHaveBeenCalled();
   });
 
-  it.each(['message','source','bridge'] as const)('does not reuse a failed placement choice after the %s changes',async change=>{
+  it.each([['message','reject'],['source','reject'],['bridge','reject'],['message','resolve'],['source','resolve'],['bridge','resolve'],['source_aba','reject'],['source_aba','resolve']] as const)('does not dispatch retired placement after %s changes (%s)',async(change,outcome)=>{
     let reject!:(reason:Error)=>void;
-    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise((_,fail)=>{reject=fail;})),insert:vi.fn()};
+    let resolve!:(value:CapturedBuildInsertion)=>void;
+    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise((ok,fail)=>{reject=fail;resolve=ok;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');
@@ -500,12 +501,31 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
     await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
     if(change==='message')fireEvent.change(input,{target:{value:'Keep this newer question'}});
-    else if(change==='source')view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+    else if(change==='source'||change==='source_aba'){
+      view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+      if(change==='source_aba')view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={2}/>);
+    }
     else view.rerender(<Harness initial="build" buildBridge={{capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
-    await act(async()=>{reject(new Error('Old insertion point unavailable'));});
+    await act(async()=>{if(outcome==='reject')reject(new Error('Old insertion point unavailable'));else resolve(insertionCapture());});
     expect(screen.queryByRole('region',{name:'Page proposal unavailable'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Send as discussion'})).not.toBeInTheDocument();
     expect(input).toHaveValue(change==='message'?'Keep this newer question':'Draft Culture');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it('retires visible placement failure across a source round trip',async()=>{
+    const bridge:BuildComposeBridge={capture:vi.fn(async()=>{throw new Error('Old placement failure');}),insert:vi.fn()};
+    const view=render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Draft Culture'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await screen.findByRole('region',{name:'Page proposal unavailable'});
+    view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+    view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={2}/>);
+    expect(screen.queryByRole('button',{name:'Send as discussion'})).not.toBeInTheDocument();
+    expect(input).toHaveValue('Draft Culture');
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
