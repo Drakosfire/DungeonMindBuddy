@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 import "./ConversationDock.css";
+import { useConversationPlacement } from "./conversationPlacement";
 
 export interface ConversationDockProps {
   reader: ReactNode;
@@ -43,6 +44,7 @@ export function ConversationDock({
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
 }: ConversationDockProps) {
   const id = useId();
+  const [placement, setPlacement] = useConversationPlacement();
   const ownMenu = useRef<HTMLDetailsElement>(null);
   const menu = menuRef ?? ownMenu;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -86,7 +88,8 @@ export function ConversationDock({
   const ceiling = Math.max(160, Math.min(maxHeight, containerHeight === null ? maxHeight : containerHeight - reserve - (hasReader ? 32 : 0)));
   const floor = Math.min(Math.max(160, minHeight), ceiling);
   const narrowWorkspace = hasReader && containerWidth !== null && containerWidth < 832;
-  const preferredHeight = narrowWorkspace
+  const effectivePlacement = narrowWorkspace && placement === "side" ? "bottom" : placement;
+  const preferredHeight = narrowWorkspace || effectivePlacement === "bottom"
     ? Math.round((containerHeight ?? 680) * 0.62) : 640;
   const height = Math.max(floor, Math.min(ceiling, requestedHeight ?? preferredHeight));
 
@@ -202,7 +205,7 @@ export function ConversationDock({
   } as CSSProperties;
 
   return (
-    <div ref={root} data-diagnostics-visible={diagnosticsVisible} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
+    <div ref={root} data-placement={effectivePlacement} data-preferred-placement={placement} data-diagnostics-visible={diagnosticsVisible} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
       <div className="conversation-dock__reader" hidden={fullscreen} role="region" aria-label={readerLabel}>{reader}</div>
       <section ref={conversationRegion} id={`${id}-conversation`} className="conversation-dock__conversation" hidden={collapseMode === "launcher" && !expanded} role={fullscreen ? "dialog" : undefined} aria-modal={fullscreen || undefined} onKeyDown={fullscreenKeys} onSubmitCapture={() => setContextOpen(false)} aria-label={conversationLabel ?? `${title} conversation`}>
         <button type="button" role="separator" aria-label={title === "Conversation" ? "Resize conversation" : `Resize ${title} conversation`} aria-orientation="horizontal"
@@ -217,6 +220,12 @@ export function ConversationDock({
             <details ref={menu} className="conversation-dock__menu" aria-label="Conversation options" onToggle={event => setMenuOpen(event.currentTarget.open)}>
               <summary aria-label="Conversation options" title="Conversation options" onClick={event => { event.preventDefault(); if (menu.current) { menu.current.open = !menu.current.open; setMenuOpen(menu.current.open); } }}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg></summary>
               <div hidden={!menuOpen}>
+                <div role="group" aria-label="Conversation placement" className="conversation-dock__placement">
+                  {(["side", "bottom", "float"] as const).map(value => <button key={value} type="button"
+                    aria-pressed={placement === value} onClick={() => setPlacement(value)}>
+                    {value === "side" ? "Side" : value === "bottom" ? "Bottom" : "Float"}</button>)}
+                </div>
+                {narrowWorkspace && placement === "side" && <p>Side placement uses Bottom at this width.</p>}
                 {hasContext && <button type="button" aria-expanded={contextOpen} aria-controls={`${id}-context`}
                   onClick={() => { changeExpanded(true); setContextVisited(true); setContextOpen(!contextOpen); }}>
                   {contextOpen ? "Hide" : "Show"} {contextLabel}

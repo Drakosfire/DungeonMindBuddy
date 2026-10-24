@@ -1,4 +1,5 @@
 import "./AgentInteractionChrome.css";
+import { useConversationPlacement } from "../ui/conversationPlacement";
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
 import { useAskPluginSlot } from "./AskPluginSlot";
 import { createPortal } from "react-dom";
@@ -17,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
  */
 export function AgentInteractionChrome() {
   const { paneState, setPaneOpen, activeThread, activeSurfaceContext } = useAgentInteraction();
-  const { setHostElement, askPluginPresent, layoutOwner, launcherHost, menuHost } = useAskPluginSlot();
+  const { setHostElement, askPluginPresent, layoutOwner, launcherHost } = useAskPluginSlot();
   const workspaceOwned = layoutOwner === "plan-workspace";
   const open = paneState.isOpen;
   const threadTitle = activeThread?.title?.trim() || "New thread";
@@ -27,7 +28,7 @@ export function AgentInteractionChrome() {
   const isPlan = surfaceId === "plan";
   const isPlay = surfaceId === "play" || surfaceId === "build";
   const exactPlay = surfaceId === "play";
-  const [playLayout, setPlayLayout] = useState<"side" | "bottom">("side");
+  const [placement] = useConversationPlacement();
   const [narrowPlay, setNarrowPlay] = useState(() => typeof window.matchMedia === "function" && window.matchMedia("(max-width: 42rem)").matches);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
@@ -36,7 +37,7 @@ export function AgentInteractionChrome() {
     sync(); query.addEventListener?.("change", sync);
     return () => query.removeEventListener?.("change", sync);
   }, []);
-  const effectivePlayLayout = narrowPlay ? "bottom" : playLayout;
+  const effectivePlayLayout = narrowPlay && placement === "side" ? "bottom" : placement;
 
   const [planPanelWidth, setPlanPanelWidth] = useState(440);
   const [planSheetHeight, setPlanSheetHeight] = useState(() => (
@@ -233,10 +234,6 @@ export function AgentInteractionChrome() {
         </>
       ) : open && isPlay ? (
         <>
-          {exactPlay && menuHost ? createPortal(<div className="agent-interaction-play-layout" role="group" aria-label="Chat layout">
-            <button type="button" aria-pressed={effectivePlayLayout === "side"} disabled={narrowPlay} title={narrowPlay ? "Side chat needs a wider screen" : "Place chat beside the scene"} onClick={() => setPlayLayout("side")}>Side</button>
-            <button type="button" aria-pressed={effectivePlayLayout === "bottom"} onClick={() => setPlayLayout("bottom")}>Bottom</button>
-          </div>, menuHost) : null}
           <div className="agent-interaction-ask-host" data-testid="agent-interaction-ask-host" ref={setHostElement} />
         </>
       ) : open ? (

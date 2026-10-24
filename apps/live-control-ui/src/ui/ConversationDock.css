@@ -125,7 +125,7 @@
   max-block-size: calc(100% - 32px);
   z-index: 5;
 }
-.conversation-dock.has-reader.is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
+.conversation-dock.has-reader[data-placement="side"].is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
   inline-size: calc(100% - var(--conversation-dock-column-width) - 32px);
 }
 @supports (backdrop-filter: blur(8px)) {
@@ -137,11 +137,12 @@
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .conversation-dock__conversation { background: var(--conversation-dock-chat-background); backdrop-filter: none; }
 }
-.conversation-dock.has-reader.is-narrow.is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
+.conversation-dock.has-reader[data-placement="bottom"].is-expanded:not(.is-fullscreen) > .conversation-dock__reader {
   inline-size: 100%;
   padding-block-end: calc(var(--conversation-dock-height) + 32px);
   scroll-padding-block-end: calc(var(--conversation-dock-height) + 32px);
 }
+.conversation-dock.has-reader[data-placement="bottom"]:not(.is-fullscreen) > .conversation-dock__conversation,
 .conversation-dock.has-reader.is-narrow:not(.is-fullscreen) > .conversation-dock__conversation { inline-size: calc(100% - 32px); }
 
 .conversation-dock.is-fullscreen .conversation-dock__conversation { border-radius: 0; box-shadow: none; backdrop-filter: none; background: var(--conversation-dock-chat-background); }
@@ -153,3 +154,6 @@
 .conversation-dock__menu > div { position: absolute; right: 0; top: 100%; z-index: 10; min-width: 15rem; max-width: min(24rem, 80vw); max-height: 60vh; overflow: auto; padding: .65rem; background: var(--conversation-dock-chat-background); border: 1px solid var(--conversation-dock-border); border-radius: .5rem; box-shadow: 0 6px 20px #0005; }
 .conversation-dock__menu:not([open]) > div { display: none; }
 .conversation-dock__diagnostics { display: flex; align-items: center; gap: .5rem; padding: .4rem; font-size: .85rem; }
+
+.conversation-dock__placement { display: flex; gap: .25rem; }
+.conversation-dock__placement button[aria-pressed="true"] { border-color: var(--ui-accent-action, #d9a441); }
