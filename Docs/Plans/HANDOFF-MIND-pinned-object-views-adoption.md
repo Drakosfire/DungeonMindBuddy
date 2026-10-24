@@ -1,6 +1,13 @@
 # MIND — adopt pinned object read views
 
-ACTIVE serial PRIME consumer lease from Buddy origin/main
+DELIVERED: #1701 merged at b3aadea4798fdff10436f8c48609d0a18bddb1d4 after
+independent exact-head Bugbot. Protected API delivery uses Core95f4498; UIada13b16,
+APP0061/native0017, all retained rows,89product files and27frozen components were
+preserved. Focused47passed4skipped; broader verification and inherited baseline
+are recorded on the PR. Repeated ordinary grounding timing/quality remains open.
+The next page suggestion UI slice has its own Surface lease.
+
+Historical serial PRIME consumer lease from Buddy origin/main
 1f01a28ccc841903c3017b7d7f94e58c5ea869bf, branch codex/pinned-object-views-adoption,
 existing buddy-context-loop checkout. Authority: OverMind #53 contract at
 5ffb18d2ce5c662f1c1b4c7b9e17ac3e7f2f181a. Core #140 is independently Bugbot

@@ -20,7 +20,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   const cacheKey=`dmb:proposal-review-draft:v1:${world}:${record.action_id}`;
   function cache(markdown:string,revision:number){
     try{sessionStorage.setItem(cacheKey,JSON.stringify({reservation:record.request_fingerprint,revision,markdown}));}
-    catch{setError('This browser could not retain the unsaved suggestion. Save the suggestion before reloading.');}
+    catch{setError('This browser could not retain the unsaved suggestion. Save before reloading.');}
   }
   function clearCache(){try{sessionStorage.removeItem(cacheKey);}catch{/* The durable review remains authoritative. */}}
   useEffect(()=>{
@@ -33,7 +33,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
         if(saved.reservation_sha256!==record.request_fingerprint)throw new Error('The saved suggestion has a different page basis.');
         setReview(saved);setText(saved.markdown);
         if(saved.state==='discarded'||saved.state==='applied'){
-          clearCache();callbacks.current.onStatus(saved.state==='discarded'?'Suggestion discarded':'Kept on page');return;
+          clearCache();callbacks.current.onStatus(saved.state==='discarded'?'Suggestion discarded':'Added to page');return;
         }
         callbacks.current.onStatus(saved.state==='applying'?'Check insertion':'Review suggestion on page');
         if(saved.state==='editing'){
@@ -42,7 +42,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
             if(local?.reservation===record.request_fingerprint&&typeof local.markdown==='string'){
               setText(local.markdown);setConflict(local.revision!==saved.revision&&local.markdown!==saved.markdown);
             }
-          }catch{setError('The local suggestion draft could not be read. The saved review remains available.');}
+          }catch{setError('The local suggestion could not be read. The saved review remains available.');}
           const captured=await bridge.restore({...record.reservation.basis,caret:saved.placement_caret});
           if(active.current&&epoch.current===current)setPlacement(captured);
         }
@@ -63,7 +63,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     }
     if(checked.state==='applying')callbacks.current.onStatus('Check insertion');
     if(checked.state==='applied'||checked.state==='discarded'){
-      setPlacement(null);clearCache();callbacks.current.onStatus(checked.state==='applied'?'Kept on page':'Suggestion discarded');
+      setPlacement(null);clearCache();callbacks.current.onStatus(checked.state==='applied'?'Added to page':'Suggestion discarded');
       callbacks.current.onComplete(checked.state);
     }
   }
@@ -83,7 +83,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   async function confirm(saved:BuildProposalReview,start:number){
     const result=await proposalReview(world,record.action_id,{operation:'confirm',expected_revision:saved.revision,apply_id:saved.apply!.apply_id});
     // Acknowledgment is safe even if navigation occurred after the exact local transaction.
-    if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Kept on page');callbacks.current.onComplete('applied');}
+    if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Added to page');callbacks.current.onComplete('applied');}
   }
   function keep(){void transact(async(saved,start)=>{
     if(saved.state!=='editing')return;
@@ -129,23 +129,24 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   });}
   const controls=<>
     {record.reservation.basis.selection ? <>
-      <p role="note">Replaces your selected passage when you Keep it.</p>
+      <p role="note">Replaces your selected passage when you Save.</p>
       <details><summary>Original passage</summary><blockquote>{record.reservation.basis.selection.text}</blockquote></details>
     </> : null}
     {error?<button type="button" disabled={busy} onClick={()=>{void transact(async(_saved,start)=>{await checkSaved(start);});}}>Check saved suggestion</button>:null}
-    {conflict?<div role="alert">This suggestion changed elsewhere. Your local draft is retained.
+    {conflict?<div role="alert">This suggestion changed elsewhere. Your local edits are retained.
       <button type="button" onClick={()=>{setText(review!.markdown);setConflict(false);clearCache();}}>Use saved suggestion</button>
       <button type="button" onClick={()=>{setConflict(false);cache(text,review!.revision);}}>Review my local copy</button>
     </div>:null}
     <SurfaceProposalReview markdown={text} onChange={value=>{setText(value);cache(value,review!.revision);}}
       busy={busy||conflict} error={error}
-      onSave={()=>{void transact(async(saved,start)=>{const result=await save(saved,text);if(current(start)){setReview(result);clearCache();}});}}
-      onKeep={keep} onDiscard={()=>{void transact(async(saved,start)=>{
+      onSave={keep} onDiscard={()=>{void transact(async(saved,start)=>{
         const result=await proposalReview(world,record.action_id,{operation:'discard',expected_revision:saved.revision});
         if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Suggestion discarded');}
       });}}/>
-    {record.proposal?.assumptions.length?<details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((value,index)=><li key={index}>{value}</li>)}</ul></details>:null}
-    <details onToggle={event=>setInspect(event.currentTarget.open)}><summary>Inspect suggestion</summary>{inspect?inspector:null}</details>
+    <details onToggle={event=>setInspect(event.currentTarget.open)}><summary>Debug</summary>{inspect?<>
+      {record.proposal?.assumptions.length?<><strong>Creative assumptions</strong><ul>{record.proposal.assumptions.map((value,index)=><li key={index}>{value}</li>)}</ul></>:null}
+      {inspector}
+    </>:null}</details>
   </>;
   if(review?.state==='applied'||review?.state==='discarded')return null;
   if(review?.state==='applying')return <section className="surface-proposal-review" aria-label="Check suggestion insertion">
