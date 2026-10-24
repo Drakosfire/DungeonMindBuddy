@@ -427,6 +427,11 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
     assert response.answer.status=="ok" and len(writer.calls)==1
     packet=json.loads(json.loads(writer.calls[0].content)["input"])
     assert packet["working_draft_context"]["draft_markdown"]==draft_text
+    statuses=json.loads(writer.calls[0].content)["text"]["format"]["schema"]["properties"]["answer_context_status"]["enum"]
+    assert "authored_grounded" in statuses
+    if packet["retrieval_disposition"]["status"] in {"insufficient_evidence","unresolved_conflict"} or packet["retrieval_disposition"]["coverage_status"]!="catalog_exhausted":
+        assert "source_grounded" not in statuses
+        assert "source_grounded_partial" in statuses
     turn=AgentConversationService().list_turns("elderwyld",conversation.conversation_id)[0]
     assert turn.graph_context_execution.policy.saved_source_char_count==len(text)
     sections=[e for e in turn.graph_context_execution.events if isinstance(e,t.ValidatedBuildSectionReadV1)]
@@ -460,3 +465,25 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
         assert not sections
     assert t.Turn.model_validate_json(turn.model_dump_json(by_alias=True)).completion==turn.completion
     assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==text
+
+
+@pytest.mark.parametrize('status,coverage,full_source_allowed',[
+    ('provisionally_supported','catalog_exhausted',True),
+    ('insufficient_evidence','catalog_exhausted',False),
+    ('unresolved_conflict','catalog_exhausted',False),
+    ('provisionally_supported','heuristic_partial',False),
+    ('provisionally_supported','heuristic_exclusions',False),
+])
+def test_draft_schema_preserves_source_status_domain_without_qualifying_authored_work(status,coverage,full_source_allowed):
+    from application_state.agent_conversation.build_draft_answer import output_schema
+    from application_state.agent_conversation.build_primary_context import SCHEMA,STATUS_POLICY
+    from application_state.agent_conversation.source_writer_output import POLICY as SOURCE_POLICY,GAP_POLICY
+    from uuid import uuid4
+    packet={'schema':SCHEMA,'writer_status_policy':STATUS_POLICY,
+            'source_writer_output_policy':SOURCE_POLICY,'requested_detail_gap_policy':GAP_POLICY,
+            'working_draft_context':{'record_id':str(uuid4()),'draft_markdown':'The hook must be repaired before dusk.'},
+            'retrieval_disposition':{'status':status,'coverage_status':coverage}}
+    statuses=output_schema(packet)['properties']['answer_context_status']['enum']
+    assert ('source_grounded' in statuses)==full_source_allowed
+    assert 'source_grounded_partial' in statuses
+    assert 'authored_grounded' in statuses and 'authored_grounded_partial' in statuses

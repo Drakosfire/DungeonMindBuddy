@@ -1,6 +1,9 @@
 # AGENT — test routing instructions at the question boundary
 
-ACTIVE serial PRIME proof-only lease at294b48309c3e07799600131855d3b22cdf3b70cd,
+DELIVERED proof-only via1708, mergefa69816c4. Independent Bugbot approved
+exact9beb6b49f, including explicit operator adjudication. No routing adoption.
+
+Original serial PRIME proof-only lease at294b48309c3e07799600131855d3b22cdf3b70cd,
 branch codex/routing-question-instructions, existing Buddy context-loop checkout.
 No runtime adoption: operator requires evidence before routing redesign.
 Exclusive writes: evals/utterance_intent/, tests/test_utterance_intent_proof.py,

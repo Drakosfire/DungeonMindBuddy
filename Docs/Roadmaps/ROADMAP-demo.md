@@ -102,12 +102,12 @@ implementation assignment. Selected-text→map pin→object drafting remains a
 product direction requiring its own bounded contract and proof.
 
 [Writer status-domain repair](https://github.com/Drakosfire/DungeonMindBuddy/pull/1709)
-remains draft and explicitly paused until operator resume. Its54 author checks
-passed before the pause; independent review was interrupted and no approval or
-deployment is claimed. The observed table follow-up produced the edited task but
+was explicitly resumed by the operator on2026-10-24 for review, merge, protected
+API delivery and ordinary authoring proof. Its54 author checks passed before the
+pause; the resumed current-head review and deployment remain acceptance gates. The observed table follow-up produced the edited task but
 failed because the draft schema offered a source status excluded by its underlying
-retrieval-dependent source schema. This open repair and progressive table
-construction remain authoring work; subsequent UI deliveries do not close them.
+retrieval-dependent source schema. This repair and progressive table construction remain authoring work until their
+respective live gates pass; subsequent UI deliveries do not close them.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep
