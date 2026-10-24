@@ -1156,6 +1156,25 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])("releases an unadmitted stale Build request and preserves a newer draft: %s", async newerDraft => {
+    let reject!: (error: Error) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "Propose an Economy section" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    if (newerDraft) fireEvent.change(composer, { target: { value: "My next thought" } });
+    reject(new LiveApiError("The conversation changed since this request was prepared.", 409, { code: "build_editor_context_changed" }));
+    await waitFor(() => expect(composer).toHaveValue(newerDraft ? "My next thought" : "Propose an Economy section"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
+    expect(localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry", exact: true })).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("shows authored context for a historical Play answer in the shared Build conversation", async () => {
     const row = turn("play", 1, "A useful arrival cue");
     row.provenance.primary_work.object_id = "00000000-0000-4000-8000-000000000070";
