@@ -182,30 +182,45 @@ class DraftReferenceClaimV1(_Frozen):
     draft_record_id: UUID
 
 
+
+def _body_rows(packet):
+    return [*packet.get("opened_passages", []), *packet.get("artifact_under_edit", {}).get("sections", []),
+        *packet.get("decision", {}).get("state", {}).get("evidence", [])]
+
+
+def _body_passages(packet):
+    return packet.get("decision", {}).get("state", {}).get("passages", {})
+
+
 def pack_body_aliases(packet):
     """Omit only byte-identical bodies; keep every authority/receipt selector."""
     from copy import deepcopy
     lane = packet.get("working_draft_context")
-    if not isinstance(lane, dict) or lane.get("policy") != POLICY:
+    if not isinstance(lane, dict) or lane.get("policy") != POLICY or not isinstance(lane.get("draft_markdown"),str):
         raise ValueError("Draft aliases require their explicit authored context lane")
     result = deepcopy(packet)
-    rows = [*result.get("opened_passages", []), *result.get("artifact_under_edit", {}).get("sections", [])]
+    rows = _body_rows(result)
     for row in rows:
         if isinstance(row, dict) and row.get("text") == lane.get("draft_markdown"):
             row.pop("text")
             row["text_ref"] = "working_draft_context"
+    passages = _body_passages(result)
+    for key, value in passages.items():
+        if isinstance(value,str) and value == lane.get("draft_markdown"):
+            passages[key] = {"text_ref":"working_draft_context"}
     return result
 
 
 def resolve_body_aliases(packet):
     """Resolve exact carrier aliases before independent source-body comparison."""
     from copy import deepcopy
-    rows = [*packet.get("opened_passages", []), *packet.get("artifact_under_edit", {}).get("sections", [])]
-    if not any(isinstance(row,dict) and "text_ref" in row for row in rows):
+    rows = _body_rows(packet)
+    if not (any(isinstance(row,dict) and "text_ref" in row for row in rows)
+        or any(isinstance(value,dict) and "text_ref" in value for value in _body_passages(packet).values())):
         return packet
     result = deepcopy(packet)
     lane = result.get("working_draft_context")
-    rows = [*result.get("opened_passages", []), *result.get("artifact_under_edit", {}).get("sections", [])]
+    rows = _body_rows(result)
     for row in rows:
         if not isinstance(row, dict) or "text_ref" not in row:
             continue
@@ -214,4 +229,13 @@ def resolve_body_aliases(packet):
             raise ValueError("Source-body alias lacks its exact working-draft text")
         row.pop("text_ref")
         row["text"] = lane["draft_markdown"]
+    passages = _body_passages(result)
+    for key, value in passages.items():
+        if not isinstance(value,dict) or "text_ref" not in value:
+            continue
+        if (set(value) != {"text_ref"} or value["text_ref"] != "working_draft_context"
+            or not isinstance(lane,dict) or lane.get("policy") != POLICY
+            or not isinstance(lane.get("draft_markdown"),str)):
+            raise ValueError("Passage alias lacks its exact working-draft text")
+        passages[key] = lane["draft_markdown"]
     return result
