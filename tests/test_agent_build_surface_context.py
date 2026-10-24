@@ -265,4 +265,5 @@ def test_large_saved_source_is_resolved_exactly_before_provider_admission(source
     assert work.build_source.content_sha256==sha256(text.encode()).hexdigest()
     assert len(text.encode())>65536
     wrong=body.model_copy(update={'primary_work':body.primary_work.model_copy(update={'expected_content_sha256':'f'*64})})
-    with pytest.raises(AgentTurnServiceError):agent._build_work_resolver(wrong,{'kind':'world','id':'elderwyld'})
+    with pytest.raises(AgentTurnServiceError):
+        agent._build_work_resolver(wrong,{'kind':'world','id':'elderwyld'})
