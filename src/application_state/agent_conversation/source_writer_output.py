@@ -474,6 +474,10 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
         if isinstance(e, t.ValidatedSourceReadEventV2) and e.event_id in included_ids
     ]
     passages = packet.get("opened_passages", [])
+    named = getattr(execution.policy, "source_citation_names_policy", None) == "build_verified_source_names_v1"
+    if packet.get("source_citation_names_policy") != getattr(execution.policy, "source_citation_names_policy", None):
+        raise ValueError("Citation names differ from the frozen producing capability")
+    names = {p["handle"]: p.get("source_name") for p in passages}
     by_handle = {}
     for p in passages:
         fields = {
@@ -558,7 +562,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
                         continue
                     seen.add(key)
                     citations.append(
-                        t.BuildSourcePassageCitationV1(
+                        (t.SurfaceSourcePassageCitationV1 if named else t.BuildSourcePassageCitationV1)(
+                            **({"source_name": names[h]} if named else {}),
                             segment_index=index,
                             text_sha256=hashlib.sha256(
                                 segment["text"].encode()
@@ -612,7 +617,7 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
             citation_map=None,
         )
         return expected, bindings
-    expected = t.BuildGraphCompletionV2(
+    expected = (t.BuildNamedGraphCompletionV3 if named else t.BuildGraphCompletionV2)(
         context_receipt_sha256=receipt_sha,
         answer_basis="saved_source_and_opened_passages"
         if bindings

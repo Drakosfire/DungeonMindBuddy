@@ -1835,6 +1835,14 @@ class SurfaceSourcePassageCitationV1(BuildSourcePassageCitationV1):
     source_name: str = Field(min_length=1)
 
 
+class BuildNamedGraphCompletionV3(BuildGraphCompletionV2):
+    """Build passage attribution with independently verified producing source names."""
+    schema_: Literal["dmb_build_graph_completion_v3"] = Field(
+        default="dmb_build_graph_completion_v3", alias="schema")
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(
+        min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
 class SurfaceSourceCompletionV1(StrictModel):
     """Authored source evidence for Plan/Play, never an admitted Graph claim."""
     schema_: Literal["dmb_surface_source_completion_v1"] = Field(default="dmb_surface_source_completion_v1", alias="schema")
@@ -2022,7 +2030,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2632,6 +2640,14 @@ class BuildWorldContextPolicyV1(BuildPrimaryWorkStatusPolicyV1):
 
 class BuildWorldContextImagePolicyV1(BuildPrimaryWorkStatusImagePolicyV1):
     world_context_policy: Literal["build_world_opened_source_context_v1"]
+
+
+class BuildNamedWorldContextPolicyV1(BuildWorldContextPolicyV1):
+    source_citation_names_policy: Literal["build_verified_source_names_v1"]
+
+
+class BuildNamedWorldContextImagePolicyV1(BuildWorldContextImagePolicyV1):
+    source_citation_names_policy: Literal["build_verified_source_names_v1"]
 
 
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
@@ -3892,7 +3908,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -5068,6 +5084,11 @@ def validate_build_passage_completion(completion, receipt, execution, attempt_id
             or completion.context_receipt_sha256 != receipt.context_receipt_sha256
             or graph_bindings):
         raise ValueError("Passage completion requires its exact Build receipt and no Graph claims")
+    named = getattr(execution.policy, "source_citation_names_policy", None) == "build_verified_source_names_v1"
+    if isinstance(completion, BuildNamedGraphCompletionV3) != named:
+        raise ValueError("Named passage completion differs from its frozen capability")
+    if named and any(not c.source_name.strip() for c in completion.source_citations):
+        raise ValueError("Named passage completion requires nonblank source names")
     validate_selected_source_binding(receipt, execution)
     validate_build_section_completion(completion, execution, attempt_id)
     producing = next((e for e in execution.events
@@ -5596,6 +5617,7 @@ def validate_turn_graph_fields(
             completion,
             (
                 BuildGraphCompletionV1,
+                BuildNamedGraphCompletionV3,
                 BuildGraphCompletionV2,
                 BuildAuthoringCompletionV1,
                 BuildImagePreparationCompletionV1,

@@ -1,7 +1,12 @@
 # Build related World source context
 
-ACTIVE serial PRIME vertical slice, re-anchored from4d0344c12636ca60e8647c1830db752ddccd9070
-after composer/retry delivery. Original scope began at71034133aa5fbf1e65406d2200510b3ecc4acf7e,
+SETTLED predecessor: PR1669 merged as a0437bc0de5b7659ff74d4a56803dbf4b2309864
+and protected API delivery completed. Exact cumulative Bugbot review approved
+e7629403b301bbe61e8d6ba153a93245081ac590 after broker current-selection and
+indeterminate-read fixes. Ordinary synthetic primary-page + distinct World-source
+answer, citation opening and reload passed without source changes. Missing named
+citation presentation and duplicate anchor exposure remain successor work; no full
+journey or performance acceptance is claimed. Original scope began at71034133aa5fbf1e65406d2200510b3ecc4acf7e,
 branch codex/build-world-context, reused buddy-context-loop. Operator authorizes the
 reported saved-page + related World-location discussion and continuing foundations.
 Architecture reviewed the single-machine/per-origin design and this bounded V2

@@ -118,12 +118,13 @@ def world_case(build_case, monkeypatch):
     return (source, request, bootstrap), reads
 
 
-@pytest.fixture
-def world_completed(build_case, monkeypatch, tmp_path):
+@pytest.fixture(params=[False, True], ids=["retained-world", "named-world"])
+def world_completed(build_case, monkeypatch, tmp_path, request):
     case, reads = world_case(build_case, monkeypatch)
     decisions, writer = WorldDecisions(), WriterWire()
     harness = BuildJevHarness(
         world_context=True,
+        named_citations=request.param,
         decision_transport=decisions,
         writer_transport=writer,
         accounting=counter(),
@@ -168,6 +169,12 @@ def test_primary_and_distinct_world_passage_reach_named_writer(world_completed):
         packet["opened_passages"][0]["source_name"] == "River Watch — synthetic source"
     )
     assert turn.completion.source_citations
+    named = getattr(execution.policy, "source_citation_names_policy", None) is not None
+    assert isinstance(turn.completion, t.BuildNamedGraphCompletionV3) == named
+    if named:
+        assert {c.source_name for c in turn.completion.source_citations} == {
+            "River Watch — synthetic source"
+        }
     assert service.inspect_turn(world_id="elderwyld", turn_id=turn.turn_id) == turn
 
 
@@ -440,3 +447,81 @@ def test_world_broker_refuses_invalid_selection_before_native_io(
     else:
         assert not calls
     assert result == {"code": "build_world_acquisition_not_current", "status": 409}
+
+
+def test_named_completion_rejects_forged_citation_and_preserves_migration(
+    world_completed, application_state_dsn
+):
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from application_state.agent_conversation.source_writer_output import (
+        reconstruct,
+        validate_completion_proof,
+    )
+
+    turn, writer, _, _, _ = world_completed
+    if not isinstance(turn.completion, t.BuildNamedGraphCompletionV3):
+        return  # The retained contract is independently reconstructed above.
+    trace = (
+        AgentConversationService()
+        .list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)[-1]
+        .model_dump(mode="json")
+    )
+    citation = turn.completion.source_citations[0]
+    auth = next(
+        e
+        for e in turn.graph_context_execution.events
+        if isinstance(e, t.ProviderAttemptAuthorizedEventV3)
+        and e.provider_attempt_id == citation.provider_attempt_id
+    )
+    raw = next(
+        m["text"]
+        for o in trace["observations"]
+        if o["kind"] == "context_snapshot"
+        for m in o.get("materials", [])
+        if m["item_id"].startswith("unvalidated-provider-answer:")
+    )
+    request_json = writer.calls[0].content.decode()
+    packet = json.loads(json.loads(request_json)["input"])
+    expected, bindings = reconstruct(raw, packet, turn, auth)
+    result = t.CitedSourceTurnResult(
+        world_id=turn.world_id,
+        conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id,
+        expected_revision=turn.revision,
+        assistant_text=turn.assistant_text,
+        completion=expected,
+        producing_provider_attempt_id=auth.provider_attempt_id,
+        claim_graph_event_ids={},
+        build_section_bindings=bindings,
+        writer_request_json=request_json,
+        raw_provider_output_json=raw,
+    )
+    validate_completion_proof(result, turn, trace)
+    forged = expected.model_copy(
+        update={
+            "source_citations": [
+                c.model_copy(update={"source_name": "Invented title"})
+                for c in expected.source_citations
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="differs"):
+        validate_completion_proof(
+            result.model_copy(update={"completion": forged}), turn, trace
+        )
+    migration = import_module(
+        "application_state.migrations.versions.20261023_0058_build_named_source_citations"
+    )
+    engine = create_engine(
+        application_state_dsn.replace("postgresql://", "postgresql+psycopg://")
+    )
+    try:
+        with engine.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                with pytest.raises(RuntimeError, match="retained named Build"):
+                    migration.downgrade()
+    finally:
+        engine.dispose()

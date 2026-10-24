@@ -53,8 +53,9 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False, named_citations=False):
         self.world_context = world_context
+        self.named_citations = named_citations
         self.accounting = accounting
         self.rules_capability = rules_capability
         self.decision_transport, self.writer_transport = (
@@ -66,7 +67,7 @@ class BuildJevHarness:
         raise ValueError("Jev requires the trusted Buddy parent adapter")
 
     @staticmethod
-    def budget(request, *, accounting=None, world_context=False):
+    def budget(request, *, accounting=None, world_context=False, named_citations=False):
         budget = decision_policy.request_budget()
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
@@ -115,10 +116,14 @@ class BuildJevHarness:
                 raise ValueError("World context requires the prepared current Build runtime")
             from application_state.agent_conversation.build_world_context import POLICY as WORLD_POLICY
             budget["buildJevActions"]["world_context_policy"] = WORLD_POLICY
+        if named_citations:
+            if not world_context:
+                raise ValueError("Named citations require governed Build World context")
+            budget["buildJevActions"]["source_citation_names_policy"] = "build_verified_source_names_v1"
         return budget
 
     def configured_budget(self, request):
-        return self.budget(request, accounting=self.accounting, world_context=self.world_context)
+        return self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
 
     def execute_response(self, adapter, *, owner, trace):
         from .agent_turn_service import (
