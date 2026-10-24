@@ -7,3 +7,11 @@
 .document-media-image__body[hidden] { display: none; }
 .document-media-image__body img { display: block; width: 100%; height: auto; }
 .document-media-image__resize { position: absolute; bottom: 0; right: 0; width: 2rem; height: 2rem; padding: 0; color: white; background: #172131df; border: 1px solid white; border-radius: .35rem 0 0 0; cursor: nwse-resize; touch-action: none; font-size: 1.25rem; }
+/* Page artwork uses its saved width and centers within the available text measure.
+   The reader adds an asset-reference span around the shared image component. */
+p > .document-media-image,
+p > span[data-media-asset-id]:only-child > .document-media-image {
+  display: block;
+  margin-inline: auto;
+}
+p > span[data-media-asset-id]:only-child { display: block; }

@@ -41,6 +41,25 @@ Do not infer a current blocker or READY assignment from them.
 
 # Independent ideas requiring re-verification
 
+## [IDEA] High priority — shared grid page constructor
+**Priority:** HIGH — explicitly requested by the operator.  
+**Kind:** DESIGN → bounded implementation slices  
+**Owner:** Build / shared Surface authoring  
+**Captured:** 2026-10-24  
+**Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`  
+**Context:** Edge authoring dogfood: the author wants to move and resize artwork on a snapping grid, then compose images, editable text, tables and callouts intentionally on the page.
+
+**Direction:** Keep Tiptap for writing; define shared row/column layout containers, stable section identities and durable layout representation. Preserve reading order for retrieval, citations and Markdown export. Distinguish this page-layout work from the deferred infinite spatial workspace below.
+
+**First slice to design:** Move and resize one existing image on a visible snapping grid. Decide persistence ownership and representation before implementation; image centering is an immediate separate convenience, not completion of the grid constructor.
+
+**Exit proof:** Ordinary controls place/resize an image; Save, reload and reopen preserve placement, undo/recovery preserve authorship, and narrow screens stack content predictably. Later slices may add adjacent editable text, tables/callouts and agent suggestion placement using stable section identities. Freeform overlap, pan/zoom and connectors require separate selection.
+
+**Surfaces when:** Planning Build authoring, media placement, shared page layout or proposal insertion. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not activate implementation or resume the paused broad goal.
+
+**Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
+
 ## [IDEA] Publish Statblock Workbench as a Build Tool capability
 **Kind:** CODE  
 **Owner:** Build / Surface Interaction  
