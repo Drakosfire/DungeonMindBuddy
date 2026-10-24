@@ -271,3 +271,18 @@ it('cancels click placement without moving or changing text and removes its list
  view.unmount();point.mockClear();fireEvent.click(editor.view.dom,{clientX:10,clientY:10});
  expect(point).not.toHaveBeenCalled();expect(editor.view.dom).not.toHaveClass('is-suggestion-placement-target');
 });
+
+
+it('does not let a queued reveal steal focus after suggestion typing begins',async()=>{
+ const frames:FrameRequestCallback[]=[];
+ const raf=vi.spyOn(window,'requestAnimationFrame').mockImplementation(callback=>{frames.push(callback);return frames.length;});
+ try{
+  render(<Review request={1}/>);
+  const box=await screen.findByRole('textbox',{name:'Suggestion text'});
+  box.focus();expect(document.activeElement).toBe(box);
+  act(()=>{for(const callback of frames.splice(0))callback(0);});
+  expect(document.activeElement).toBe(box);
+  await userEvent.type(box,' Still writing.');
+  expect(box).toHaveTextContent('Still writing.');
+ }finally{raf.mockRestore();}
+});
