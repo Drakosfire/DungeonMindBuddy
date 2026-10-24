@@ -188,3 +188,32 @@ def test_strict_schema_failure_retains_raw_response_usage_and_never_repairs(requ
     assert row.observation['conformance_retry_count']==0
     assert asyncio.run(owner.compose(request,transport=wire))==row
     assert len(wire.calls)==1
+
+
+def test_editor_anchor_survives_actual_proposal_persistence_and_replay(request_case):
+    request, _, _ = request_case
+    request = request.model_copy(update={"basis": request.basis.model_copy(update={"editor_sha256": "e" * 64})})
+    wire = Wire(request)
+    result = asyncio.run(owner.compose(request, transport=wire))
+    reopened = BuildProposalService().get("elderwyld", result.action_id)
+    assert reopened.reservation.basis.editor_sha256 == "e" * 64
+    assert reopened.reservation.fingerprint == result.request_fingerprint
+    assert asyncio.run(owner.compose(request, transport=wire)) == reopened
+    assert len(wire.calls) == 1
+    changed = request.model_copy(update={"basis": request.basis.model_copy(update={"editor_sha256": "f" * 64})})
+    with pytest.raises(owner.BuildComposeError, match="build_compose_request_changed"):
+        asyncio.run(owner.compose(changed, transport=wire))
+    assert len(wire.calls) == 1
+
+
+def test_historical_basis_keeps_its_exact_serialized_shape_and_fingerprint(request_case):
+    from application_state.build_proposal.types import BuildProposalBasis
+    from pydantic import ValidationError
+    request, _, _ = request_case
+    old = request.basis.model_dump(mode="json")
+    assert "editor_sha256" not in old
+    basis = BuildProposalBasis.model_validate(old)
+    assert basis.editor_sha256 is None and basis.model_dump(mode="json") == old
+    assert request.model_copy(update={"basis": basis}).model_dump(mode="json") == request.model_dump(mode="json")
+    with pytest.raises(ValidationError):
+        BuildProposalBasis.model_validate({**old, "editor_sha256": "not-a-digest"})

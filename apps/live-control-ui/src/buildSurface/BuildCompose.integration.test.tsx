@@ -176,3 +176,30 @@ it.each(['click', 'enter'])('holds a new Harness request by %s while preserving 
   fireEvent.change(composer, { target: { value: 'What do you know about Edge?' } });
   expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
 });
+
+it('reloads a proposal and inserts at its original position after the author moves the caret', async () => {
+  let saved: proposals.BuildProposalRecord[] = [];
+  const generate = vi.mocked(proposals.composeBuildProposal).getMockImplementation()!;
+  vi.mocked(proposals.composeBuildProposal).mockImplementation(async request => {
+    const result = await generate(request); saved = [result]; return result;
+  });
+  vi.mocked(proposals.listBuildProposals).mockImplementation(async () => saved);
+  const view=render(<Harness />);
+  await waitFor(() => expect(session.phase).toBe('ready_clean'));
+  act(() => {session.editor!.commands.setTextSelection(session.editor!.state.doc.content.size-1);});
+  fireEvent.click(screen.getByRole('button',{name:'Request table'}));
+  await screen.findByRole('button',{name:'Insert into page'});
+  expect(saved[0].reservation.basis.editor_sha256).toMatch(/^[a-f0-9]{64}$/);
+  view.unmount(); render(<Harness />);
+  await waitFor(() => expect(session.phase).toBe('ready_clean'));
+  act(() => {session.editor!.commands.setTextSelection(1);});
+  const before=session.editor!.getJSON();
+  fireEvent.click(await screen.findByRole('button',{name:'Insert at original position'}));
+  await waitFor(() => expect(session.dirty).toBe(true));
+  const markdown=tiptapJsonToSemanticMarkdown(session.editor!.getJSON());
+  expect(markdown.indexOf('A fort town.')).toBeLessThan(markdown.indexOf('Nella'));
+  expect(proposals.composeBuildProposal).toHaveBeenCalledTimes(1);
+  expect(api.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  act(() => {session.editor!.commands.undo();});
+  expect(session.editor!.getJSON()).toEqual(before);
+});

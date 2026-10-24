@@ -99,3 +99,66 @@ it('rejects foreign drops, outside positions, selection replacement and cancella
   }finally{controller.abort();editor.destroy();}
  }
 });
+
+
+it('recovers the original position after editor recreation and ignores a later caret', async () => {
+ const first=setup();
+ first.editor.commands.setContent('<p>Before</p><p>After</p>');
+ first.editor.commands.setTextSelection(7);
+ const captured=await first.bridge.capture(); const original=first.editor.getJSON(); first.editor.destroy();
+ const next=setup();
+ try {
+  next.editor.commands.setContent(original); next.editor.commands.setTextSelection(1);
+  next.state.draftGeneration=12; next.state.selectionGeneration=20;
+  const restored=await next.bridge.restore(captured.basis);
+  expect(restored.basis.caret).toBe(7); expect(next.editor.state.selection.from).toBe(1);
+  next.bridge.insertProposal(restored, 'A proposed culture.');
+  expect(next.editor.getText()).toContain('A proposed culture.');
+  const markdown=tiptapJsonToSemanticMarkdown(next.editor.getJSON());
+  expect(markdown.indexOf('Before')).toBeLessThan(markdown.indexOf('A proposed culture.'));
+  expect(markdown.indexOf('A proposed culture.')).toBeLessThan(markdown.indexOf('After'));
+  expect(next.changed).toHaveBeenCalledTimes(1);
+  next.editor.commands.undo(); expect(next.editor.getJSON()).toEqual(original);
+  expect(()=>next.bridge.insertProposal(restored,'Again')).toThrow('already');
+ } finally {next.editor.destroy();}
+});
+it('preserves strict media placement but lets the captured proposal use its own target', async () => {
+ const {editor,state,bridge}=setup();
+ try {
+  const captured=await bridge.capture(); editor.commands.setTextSelection(3); state.selectionGeneration++;
+  expect(()=>bridge.insert(captured,'Media placement')).toThrow('changed');
+  bridge.insertProposal(captured,'Proposed text');
+  expect(editor.getText()).toContain('Proposed text');
+ } finally {editor.destroy();}
+});
+it.each(['worldId','documentId','revision','contentSha256','visibility','canEdit'] as const)(
+ 'refuses original-anchor recovery after %s drift',async field=>{
+ const {editor,state,bridge}=setup();
+ try {
+  const captured=await bridge.capture();
+  Object.assign(state,{[field]:field==='revision'?2:field==='canEdit'?false:'different'});
+  const before=editor.getJSON(); await expect(bridge.restore(captured.basis)).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(before);
+ } finally {editor.destroy();}
+});
+it.each(['document','digest','draft','position','missing'] as const)('rejects %s anchor drift without mutation',async scenario=>{
+ const {editor,bridge}=setup();
+ try {
+  const captured=await bridge.capture(); const basis={...captured.basis};
+  if(scenario==='document')editor.commands.insertContent('My new writing');
+  if(scenario==='digest')basis.editor_sha256='f'.repeat(64);
+  if(scenario==='draft')basis.draft_sha256='f'.repeat(64);
+  if(scenario==='position')basis.caret=editor.state.doc.content.size+1;
+  if(scenario==='missing')delete basis.editor_sha256;
+  const before=editor.getJSON();await expect(bridge.restore(basis)).rejects.toThrow();expect(editor.getJSON()).toEqual(before);
+ } finally {editor.destroy();}
+});
+it('rejects an editor replacement during asynchronous original-anchor recovery',async()=>{
+ const {editor,state,bridge}=setup();let replacement:Editor|undefined;
+ try {
+  const captured=await bridge.capture();const pending=bridge.restore(captured.basis);
+  replacement=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:editor.getJSON()});
+  state.editor=replacement;
+  await expect(pending).rejects.toThrow('changed');expect(replacement.getJSON()).toEqual(editor.getJSON());
+ } finally {editor.destroy();replacement?.destroy();}
+});

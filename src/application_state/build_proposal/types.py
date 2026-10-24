@@ -10,7 +10,7 @@ import json
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 Digest = str
 
@@ -26,9 +26,19 @@ class BuildProposalBasis(StrictModel):
     content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     visibility: Literal["internal", "player_safe"]
     draft_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    # Old reservations are readable, but do not gain original-position authority.
+    editor_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     caret: int = Field(strict=True, ge=0, le=1_000_000)
     draft_generation: int = Field(strict=True, ge=0)
     selection_generation: int = Field(strict=True, ge=0)
+
+
+    @model_serializer(mode="wrap")
+    def preserve_historical_basis(self, serialize):
+        value = serialize(self)
+        if self.editor_sha256 is None:
+            value.pop("editor_sha256", None)
+        return value
 
 
 class BuildProposalOrigin(StrictModel):

@@ -33,6 +33,15 @@ export function insertReviewedMarkdown(editor: Editor, caret: number, content: J
     || !editor.state.selection.empty || editor.state.selection.from !== caret) {
     throw new Error('The page or insertion point changed. Ask again before inserting.');
   }
+  insertReviewedMarkdownAtAnchor(editor, caret, content, expectedJson);
+}
+
+/** An exact snapshot authorizes its original position independently of today's selection. */
+export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number, content: JSONContent[], expectedJson: string): void {
+  if (editor.isDestroyed || JSON.stringify(editor.getJSON()) !== expectedJson
+    || !Number.isInteger(caret) || caret < 0 || caret > editor.state.doc.content.size) {
+    throw new Error('The page or original insertion point changed. Ask again before inserting.');
+  }
   const simulated = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: editor.getJSON() });
   try {
     if (!simulated.commands.insertContentAt(caret, content)) throw new Error('Cannot insert at this position.');

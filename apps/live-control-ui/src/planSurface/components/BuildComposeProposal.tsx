@@ -90,22 +90,18 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   async function insert(record: BuildProposalRecord) {
     const start = current.current;
     if (inserting.current.has(record.action_id) || !start.bridge || record.inserted_in_draft || !record.proposal
+      || !record.reservation.basis.editor_sha256
       || start.history?.active_conversation_id !== record.reservation.conversation_id
       || start.history.pointer_revision !== record.reservation.expected_pointer_revision) return;
     inserting.current.add(record.action_id);
     try {
       let captured = captures.current.get(record.action_id);
       if (!captured) {
-        captured = await start.bridge.capture();
-        const expected = record.reservation.basis;
-        if (['world_id', 'document_id', 'registry_revision', 'content_sha256', 'visibility', 'draft_sha256']
-          .some(key => captured!.basis[key as keyof typeof expected] !== expected[key as keyof typeof expected])) {
-          throw new Error('This page has changed since the proposal. Nothing was inserted.');
-        }
+        captured = await start.bridge.restore(record.reservation.basis);
       }
       if (!mounted.current || current.current.scope !== start.scope || current.current.epoch !== start.epoch
         || current.current.history?.pointer_revision !== record.reservation.expected_pointer_revision) return;
-      start.bridge.insert(captured, buildProposalMarkdown(record.proposal.replacement_markdown).markdown);
+      start.bridge.insertProposal(captured, buildProposalMarkdown(record.proposal.replacement_markdown).markdown);
       captures.current.delete(record.action_id);
       put({ ...record, inserted_in_draft: true }, start.scope);
       try { put(await reportBuildInsertion(start.worldId, record), start.scope); }
@@ -128,7 +124,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
     items: [...(records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: Math.max(record.after_turn_sequence,
       history?.turns.find(turn => turn.turn_id === record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
       element: <BuildComposeProposal key={record.action_id} record={record}
-        recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge)
+        recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge) && Boolean(record.reservation.basis.editor_sha256)
           && history?.active_conversation_id === record.reservation.conversation_id
           && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : []),
       ...(imageRecords.scope===scope ? imageRecords.values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence, history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
@@ -168,8 +164,8 @@ export function BuildComposeProposal({ record, canInsert, onInsert, recovered = 
       {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}
       {record.inserted_in_draft ? <p role="status">Inserted into the draft. Save the page when you’re ready.</p>
-        : canInsert ? <button type="button" onClick={onInsert}>{recovered ? 'Insert at current caret' : 'Insert into page'}</button>
-        : <p>This earlier proposal remains available to read. Ask again to insert at your current caret.</p>}
+        : canInsert ? <button type="button" onClick={onInsert}>{recovered ? 'Insert at original position' : 'Insert into page'}</button>
+        : <p>This earlier proposal remains available to read. Ask again to choose a new insertion point.</p>}
     </div> : <p role="status">{record.state === 'unknown' ? 'The request outcome is uncertain. It will not be repeated automatically.'
       : record.state === 'failed' ? 'The proposal could not be prepared.' : 'The proposal has not completed. It will not be repeated automatically.'}</p>}
     <details><summary>Inspect this proposal</summary><ResponseEvidenceTabs evidence={<p>Proposed authored lore for this page. This does not publish Graph facts or save the document.</p>}

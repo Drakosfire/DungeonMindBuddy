@@ -2,7 +2,7 @@ import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown } from '../documentEditing/markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
@@ -15,19 +15,21 @@ export interface BuildComposeBridge {
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
+  restore: (basis: BuildProposalBasis) => Promise<CapturedBuildInsertion>;
+  insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void): BuildComposeBridge {
-  function assertSame(captured: CapturedBuildInsertion) {
+  function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
     if (!now?.canEdit || now.editor.isDestroyed || now.editor !== captured.editor
       || now.worldId !== basis.world_id || now.documentId !== basis.document_id
       || now.revision !== basis.registry_revision || now.contentSha256 !== basis.content_sha256
       || now.visibility !== basis.visibility || now.draftGeneration !== basis.draft_generation
-      || now.selectionGeneration !== basis.selection_generation
-      || !now.editor.state.selection.empty || now.editor.state.selection.from !== basis.caret
+      || (!originalAnchor && (now.selectionGeneration !== basis.selection_generation
+        || !now.editor.state.selection.empty || now.editor.state.selection.from !== basis.caret))
       || JSON.stringify(now.editor.getJSON()) !== captured.editorJson) {
       throw new Error('The page or insertion point changed. Ask again before inserting.');
     }
@@ -45,9 +47,32 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const captured: CapturedBuildInsertion = { editor: now.editor, editorJson, draftMarkdown,
         basis: { world_id: now.worldId, document_id: now.documentId, registry_revision: now.revision,
           content_sha256: now.contentSha256, visibility: now.visibility, draft_sha256: await sha256(draftMarkdown),
-          caret, draft_generation: draftGeneration, selection_generation: selectionGeneration } };
+          editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration } };
       assertSame(captured);
       return captured;
+    },
+    async restore(basis) {
+      if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
+      const now = getCurrent();
+      if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
+      const editorJson = JSON.stringify(now.editor.getJSON());
+      const draftMarkdown = tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown,
+        basis: {...basis, draft_generation: now.draftGeneration, selection_generation: now.selectionGeneration}};
+      if (await sha256(editorJson) !== basis.editor_sha256 || await sha256(draftMarkdown) !== basis.draft_sha256
+        || !Number.isInteger(basis.caret) || basis.caret < 0 || basis.caret > now.editor.state.doc.content.size) {
+        throw new Error('This page has changed since the proposal. Nothing was inserted.');
+      }
+      assertSame(captured, true);
+      return captured;
+    },
+    insertProposal(captured, markdown) {
+      if (!captured.basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
+      if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
+      const admitted = admitMarkdownInsertion(markdown);
+      assertSame(captured, true);
+      insertReviewedMarkdownAtAnchor(captured.editor, captured.basis.caret, admitted.content, captured.editorJson);
+      applied.add(captured); changed(captured.editor);
     },
     async pickInsertion(options) {
       const initial = getCurrent(); const start = initial ? { ...initial } : null;
