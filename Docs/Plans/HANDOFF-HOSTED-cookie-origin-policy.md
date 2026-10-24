@@ -1,22 +1,22 @@
 # HANDOFF — HOSTED: cookie-authenticated Origin policy
 
-**Status:** ACTIVE — ARCHITECTURE approved the initial handoff revision `7fda8f44e8110d26057a60043c855975ead5b505` against base `4ba6de08c33d9f8870d6c2857b585ce72f97d903` on 2026-10-20. The reviewer confirmed branch/PR is a valid durable authority location, no more-specific HOSTED main-only gate exists, and the two-file unmounted helper is clear to dispatch.
+**Status:** SETTLED — PR #1509 merged on 2026-10-20 at `8bcbe69d1b6d7c70734927a314f4ded05846fb76`, from ARCHITECTURE-approved head `830c7eefed9d6ad48a8f87575be9b25bca5db784` (original base `4ba6de08c33d9f8870d6c2857b585ce72f97d903`). The Origin helper remains unmounted; this handoff grants no route-wiring, live configuration, or deployment authority.
 
 **Steward:** Hosted Buddy v1 implementation task
 
 **Owning flow:** `HOSTED`
 
-**Buddy base:** `origin/main` at `4ba6de08c33d9f8870d6c2857b585ce72f97d903` (merged PR #1508).
+**Implementation base:** `origin/main` at `4ba6de08c33d9f8870d6c2857b585ce72f97d903` (merged PR #1508). **Post-merge Buddy main:** `8bcbe69d1b6d7c70734927a314f4ded05846fb76` (merged PR #1509).
 
 **Design authority:** The cookie-auth Origin policy was approved as design text in ARCHITECTURE thread `01a086f2-c457-7b10-b753-df6063cab1ce`, review 2, on 2026-10-20. That approval did not activate implementation. This handoff is the operator-authorized activation proposal; implementation may begin only after ARCHITECTURE approves this pinned handoff revision.
 
-**Authorization:** Alan authorized activation/review and the bounded offline helper implementation, focused tests, and publication of its PR after review. No merge, route wiring, audience or hostname selection, live configuration, DMS calls, production write, or deployment is authorized.
+**Original slice authorization:** Alan authorized the bounded offline helper implementation, focused tests, review, and PR publication. That authorization did not include merge, route wiring, live configuration, DMS calls, production writes, or deployment. The later user-selected hostname and managed-population intent are recorded in §2; they do not activate route integration.
 
 **Pinned authority ref:** This file at approved initial commit `7fda8f44e8110d26057a60043c855975ead5b505`; that revision is an ancestor of subsequent implementation commits on this same branch/PR. Subsequent implementation updates must remain within this handoff's exclusive write lease.
 
 **Lane:** `codex/hosted-cookie-origin-csrf-v1` at `/home/drakosfire/Projects/DungeonOverMind/task-workspaces/hosted-origin-csrf-20261020/worktrees/buddy-origin-csrf-v1`.
 
-**Topology:** Serial within `HOSTED`; one open implementation PR, `HOSTED: add cookie-authenticated Origin policy`. Do not open overlapping hosted implementation PRs. No direct push to `main` and no merge without separate authorization.
+**Settled topology:** The serial helper PR `HOSTED: add cookie-authenticated Origin policy` is merged. The helper remains unmounted and must not be exposed without a later route-wiring authority and the gates in §7.
 
 ## 1. Capability and invariant
 
@@ -28,12 +28,12 @@ This is an unmounted primitive. It does not authenticate or resolve identity, se
 
 ## 2. Re-anchoring and predecessor settlement
 
-- Current Buddy `origin/main` is `4ba6de08c33d9f8870d6c2857b585ce72f97d903`, the confirmed merge of PR #1508 (reviewed head `a43004aef8afecf6241c3584c1e4948a80dffc30`). The DMS principal adapter remains unmounted; no launch readiness is implied.
+- Current Buddy `origin/main` is `8bcbe69d1b6d7c70734927a314f4ded05846fb76`, the confirmed merge of PR #1509 (reviewed head `830c7eefed9d6ad48a8f87575be9b25bca5db784`) on top of PR #1508 merge `4ba6de08c33d9f8870d6c2857b585ce72f97d903`. The DMS principal adapter and Origin helper remain unmounted; no launch readiness is implied.
 - ARCHITECTURE approved this ACTIVE handoff at exact head `7fda8f44e8110d26057a60043c855975ead5b505`, then withdrew its initial main-landing HOLD after reconciling current Buddy policy. It found no specific HOSTED main-only rule.
-- PRIME independently confirmed the branch/PR is durable handoff authority and no merge of #1509 is needed before dispatch. The user explicitly prohibited treating the authority assessment as permission to merge #1509; it remains open and unchanged.
+- ARCHITECTURE approved the final helper head after the IDNA and method-token corrections. PR #1509 was merged through the ordinary guarded workflow; its helper is present in main but remains unmounted. This settled helper handoff does not authorize route integration.
 - The prior adapter handoff is included in this lane's write set for truthful settlement to `SETTLED` with that exact merge evidence.
-- GitHub's open-PR search at activation found no open `HOSTED` PR. PR #1506 is open but owns Rules lookup/UI/application-state files and unrelated handoffs; its changed-file list does not overlap this lane. The existing active local-session profile-isolation handoff writes different service/route/test paths. No shared state, port, database, service, provider, or runtime is used here.
-- URL topology and audience remain unselected. The real browser cookie-delivery and route-wiring gates remain later work.
+- GitHub's open-PR search at activation found no open `HOSTED` PR. The later route inventory observed open Rules PR #1506 and UI PR #1510; their inspected changed-file lists do not overlap the helper lane. No shared state, port, database, service, provider, or runtime was used here.
+- The owner subsequently selected `https://buddy.dungeonmind.net` and the intended population is DungeonMind’s managed DMS-authenticated population. This is an intent decision, not proof of the external OAuth eligibility restriction or actual browser cookie delivery. Per-World ownership/roles remain undecided. Browser cookie-delivery and route-wiring gates remain later work.
 
 ## 3. Non-goals and auth-mode boundary
 
@@ -41,7 +41,7 @@ This is an unmounted primitive. It does not authenticate or resolve identity, se
 - Do not replace DungeonMindServer's separate logout Origin policy.
 - Do not add global middleware or call this helper from shared bearer/service authentication. Only a later route owner, after selecting cookie authentication, may opt in. Bearer, service-key, local-operator, and other non-cookie authentication retain their existing rules.
 - Do not implement an additional CSRF token format. Any future token contract needs separate design/review.
-- Do not mount the helper, change auth routes, use a real cookie, call DMS, change CORS, select a hostname/audience, enable live tools, alter deployment, perform production writes, use a provider, or deploy.
+- This settled helper slice does not authorize mounting the helper, changing auth routes/CORS, using a real cookie, calling DMS, enabling live tools, altering deployment, performing production writes, using a provider, or deploying. The later hostname and population intent are recorded in §2 only.
 
 ## 4. Proposed API and exact policy
 
@@ -78,7 +78,7 @@ Use synthetic Starlette/ASGI requests and a fake mutation counter. No live serve
 
 Only these four paths may change in the lane:
 
-- `Docs/Plans/HANDOFF-HOSTED-cookie-origin-policy.md` — this active authority record and truthful completion evidence for this lane.
+- `Docs/Plans/HANDOFF-HOSTED-cookie-origin-policy.md` — this settled authority record and truthful completion evidence for this lane.
 - `Docs/Plans/HANDOFF-HOSTED-dms-principal-adapter-v1.md` — settle merged PR #1508 and retain the fact that the adapter remains unmounted.
 - `apps/live_control_server/services/trusted_cookie_origin.py` — new isolated helper.
 - `tests/test_trusted_cookie_origin.py` — new focused offline tests.
@@ -87,6 +87,6 @@ Return to the steward before changing any other path or broadening the invariant
 
 ## 7. Later gates and completion boundary
 
-This helper cannot be mounted until the owner selects Buddy URL/path topology, proves actual browser cookie delivery, inventories each route's auth mode and mutation boundary, and authorizes the route integration. Audience and per-World ownership are separate decisions. Adapter merge does not establish login/authorization readiness. The current helper PR may be published and reviewed; do not merge, enable, configure production, or deploy under this handoff.
+The owner selected `https://buddy.dungeonmind.net` and intends to use DungeonMind's managed DMS-authenticated population. This helper cannot be mounted until actual browser cookie delivery to that origin is proven, the external population restriction is evidenced, the World ownership/role policy is decided, each route's auth mode and mutation boundary is inventoried, and route integration is separately authorized. Adapter and helper merges do not establish login/authorization readiness. PR #1509 was reviewed and merged; the helper remains dormant. Do not wire routes, enable, configure production, or deploy under this settled handoff.
 
-Completion of this lane means only an offline-tested, reviewed, unmounted Origin-policy PR is available. It does not mean hosted auth, CSRF coverage of routes, or v1 launch readiness.
+This lane delivered an offline-tested, reviewed, unmounted Origin-policy helper, merged in PR #1509. It does not establish hosted auth, route-level CSRF coverage, or v1 launch readiness.
