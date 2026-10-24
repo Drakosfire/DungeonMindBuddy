@@ -1,6 +1,9 @@
 import './BuddyContextTrace.css'
+import { useState } from 'react'
+import { CapturedPrompt } from './BuddyPromptInspector'
+import { traceCostEstimate } from './traceCostEstimate'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
-import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
+import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 
 const names: Record<string, string> = {
@@ -51,14 +54,42 @@ function capturedMaterials(material: BuddyTraceMaterial, passages: BuddyTraceSou
   return matches.every(items => items.length === 1) ? matches.flat() : []
 }
 
+function InlinePrompt({ trace, reference }: { trace: BuddyTurnContextTrace; reference: BuddyTracePromptReference }) {
+  const [open, setOpen] = useState(false)
+  const previous = trace.observations.filter((item): item is BuddyTracePromptReference =>
+    item.kind === 'prompt_reference' && item.sequence < reference.sequence).at(-1)
+  return <details onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>Working context · composed input prompt · {reference.model}</summary>
+    <p>Exact captured input for this model call. Capture does not prove the provider received it.</p>
+    {!previous && <p>First captured input in this attempt.</p>}
+    {open && <CapturedPrompt trace={trace} reference={reference} previousReference={previous} />}
+  </details>
+}
+
+function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTraceObservation, {kind: 'context_snapshot'}>; trace: BuddyTurnContextTrace; passages: BuddyTraceSourcePassage[] }) {
+  const previous = trace.observations.filter((item): item is typeof event => item.kind === 'context_snapshot' && item.sequence < event.sequence).at(-1)
+  const changes = previous ? [...new Set([...previous.materials.map(item => item.item_id), ...event.materials.map(item => item.item_id)])].flatMap(id => {
+    const before = previous.materials.find(item => item.item_id === id)
+    const now = event.materials.find(item => item.item_id === id)
+    if (JSON.stringify(before) === JSON.stringify(now)) return []
+    return [{ id, label: !before ? 'Added' : !now ? 'Removed' : 'Changed' }]
+  }) : []
+  return <details><summary>Working context · {event.stage} this turn</summary>
+    <p className="buddy-context-trace__muted">Captured material inventory. When captured, the composed input includes the exact instructions and request envelope.</p>
+    {previous && <div aria-label="Context changes">{changes.length ? changes.map(change =>
+      <p key={change.id} className={`buddy-prompt__change--${change.label.toLowerCase()}`}>{change.label} · {change.id}</p>) : <p>No material changes since the previous snapshot.</p>}</div>}
+    <Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)} />
+  </details>
+}
+
 const reasons: Record<string, string> = {
   question_relevance: 'Relevant to this question', followup_detail_needed: 'More detail needed for the follow-up', coverage_gap: 'Evidence coverage was incomplete',
   context_budget: 'Compacted for the context budget', duplicate: 'Duplicate material', superseded: 'Superseded by newer material',
   route_preserved: 'Recoverable route preserved', retrieval_sufficient: 'Retrieved evidence was sufficient', unavailable: 'Material unavailable',
 }
-function Event({ event, passages }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[] }) {
+function Event({ event, passages, trace }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[]; trace: BuddyTurnContextTrace }) {
   switch (event.kind) {
-    case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)} /></details>
+    case 'context_snapshot': return <ContextSnapshot event={event} trace={trace} passages={passages} />
     case 'context_decision': return <><strong>{event.action}</strong><p>{event.action === 'retained' && event.policy_version === 'conversation_routes_v1'
       ? 'Visible conversation history retained for follow-ups.'
       : reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
@@ -76,9 +107,13 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
       <p className="buddy-context-trace__muted">{event.provider_attempt_id ? `Provider call ${event.provider_attempt_id}` : 'Provider call identity was not captured.'}</p>
       {event.duration_ms != null && <p>Provider duration: {(event.duration_ms / 1000).toFixed(2)}s</p>}
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}
+      {(event.input_tokens != null || event.output_tokens != null) && (traceCostEstimate(event) == null
+        ? <p className="buddy-context-trace__muted">Estimated cost unavailable · known model pricing and reported input usage required.</p>
+        : <p>Estimated cost: ${traceCostEstimate(event)!.toFixed(6)} USD <span className="buddy-context-trace__muted">· list rate, not billed cost</span></p>)}
+      {traceCostEstimate(event) != null && <details><summary>Cost estimate basis</summary><p>Reported input × $0.042 per million tokens; output free. Rates checked Oct 24, 2026. Excludes account discounts, taxes and gateway adjustments.</p><a href="https://ai-gateway.vercel.sh/v1/models" target="_blank" rel="noreferrer">Gateway price catalog</a> · <a href="https://docs.typesafe.ai/models" target="_blank" rel="noreferrer">TypeSafe model pricing</a></details>}
       {event.input_upper_bound != null && <p className="buddy-context-trace__muted">Input ceiling: {number(event.input_upper_bound)} · conservative estimate, not actual token usage.</p>}
       {event.input_tokens == null && event.output_tokens == null && <p className="buddy-context-trace__muted">Actual token usage was not captured for this observation.</p>}</>
-    case 'prompt_reference': return <p>Complete prepared request captured. Open The Prompt to inspect it.</p>
+    case 'prompt_reference': return <InlinePrompt key={`${trace.world_id}:${trace.conversation_id}:${trace.turn_id}:${trace.trace_id}:${trace.attempt}:${event.evidence_id}:${event.payload_sha256}`} trace={trace} reference={event} />
     case 'failure': return <><strong className="buddy-context-trace__failure">{event.phase === 'trace_capture' ? 'Trace capture incomplete' : 'Execution failed'}</strong><p>{event.phase} · {event.code}</p></>
   }
 }
@@ -124,9 +159,9 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     <ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
-      <div><Event event={event} passages={passages} />
+      <div><Event event={event} passages={passages} trace={trace} />
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
-          <JsonDetails label="Recorded provider observations" value={observations} /></>}
+          <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
       </div></li>)}</ol>
   </section>
 }

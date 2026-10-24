@@ -35,3 +35,13 @@
 .buddy-prompt pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 65vh; background: #111820; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
 .buddy-prompt details { margin-top: 12px; font-size: .8rem; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .buddy-prompt__layout { grid-template-columns: 1fr; } .buddy-prompt__layout nav { max-height: 150px; } }
+
+/* Color supplements explicit Added / Removed / Changed labels. */
+.buddy-prompt__changes { margin-block: 12px; }
+.buddy-prompt__change { border-inline-start: 3px solid; padding-inline-start: 12px; }
+.buddy-prompt__change--added { border-color: #71c89b; color: #a4e5bd; }
+.buddy-prompt__change--removed { border-color: #e59b9b; color: #f0b5b5; }
+.buddy-prompt__change--changed { border-color: #dbbc71; color: #edd294; }
+.buddy-prompt__added { border-inline-start: 2px solid #71c89b; padding-inline-start: 10px; }
+.buddy-prompt__removed { border-inline-start: 2px solid #e59b9b; padding-inline-start: 10px; }
+.buddy-prompt__changes h6 { font-size: .85rem; margin: 8px 0; }
