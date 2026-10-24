@@ -34,7 +34,9 @@ existing text, media review, or claim full J1–J6 completion.
 - This handoff; HANDOFF-BUILD-original-proposal-anchor.md; Docs/Roadmaps/ROADMAP-demo.md.
 - src/application_state/build_proposal/review.py; new APP0059 migration.
 - apps/live_control_server/routes/build_proposal_reviews.py; agent.py router inclusion.
-- apps/live-control-ui/src/api/buildProposalReviewApi.ts.
+- apps/live-control-ui/src/api/buildProposalReviewApi.ts and .test.ts.
+- api/liveApi.ts: exact new review route authentication classification, including
+  existing cookie/CSRF, memory-only bearer and loopback destination protection.
 - apps/live-control-ui/src/surface/SurfacePageProposal.tsx and .css/tests.
 - apps/live-control-ui/src/buildSurface/BuildPageProposal.tsx and tests.
 - buildComposeBridge.ts/tests; documentEditing/markdownInsertion.ts/tests.

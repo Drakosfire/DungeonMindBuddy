@@ -58,6 +58,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(!current(start))return;
     if(checked.state==='editing'&&review&&checked.revision!==review.revision&&checked.markdown!==text)setConflict(true);
     setReview(checked);
+    if(checked.state==='applying')callbacks.current.onStatus('Check insertion');
     if(checked.state==='applied'||checked.state==='discarded'){
       setPlacement(null);clearCache();callbacks.current.onStatus(checked.state==='applied'?'Kept on page':'Suggestion discarded');
       callbacks.current.onComplete(checked.state);
