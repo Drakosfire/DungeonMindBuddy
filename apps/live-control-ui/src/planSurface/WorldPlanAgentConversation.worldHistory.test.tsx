@@ -5180,7 +5180,11 @@ describe("World Plan conversation consumer", () => {
       turns: [{...turn, knowledge_context: knowledge}]} as WorldAgentConversationHistoryResponse);
     mountComponent();
     expect(await screen.findByText("Please add an invented NPC.")).toBeInTheDocument();
-    expect(screen.getByText(passage)).toBeInTheDocument();
+    expect(screen.queryByText(passage)).not.toBeInTheDocument();
+    expect(screen.getByText("Page suggestion prepared.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveAttribute("title", "Authored page suggestion; review and placement are managed on the page.");
+    expect(turn.assistant_text).toBe(passage);
+    expect(knowledge.completion.answer_segments[0].text).toBe(passage);
     expect(screen.getByText("Page proposal")).toBeInTheDocument();
     expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
     expect(screen.queryByText("Sources")).not.toBeInTheDocument();

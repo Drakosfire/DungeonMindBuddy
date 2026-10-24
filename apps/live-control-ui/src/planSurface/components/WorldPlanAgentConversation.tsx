@@ -4120,7 +4120,7 @@ export function WorldPlanAgentConversation({
       case "insufficient_evidence": return "The supplied evidence did not establish the requested details.";
       case "creative_proposal": return "Hypothetical creative suggestion.";
       case "image_preparation_ready": return "Image prompt awaiting review; nothing generated or inserted.";
-      case "proposal_ready": return "Authored suggestion awaiting review; nothing is saved or published.";
+      case "proposal_ready": return "Authored page suggestion; review and placement are managed on the page.";
       case "source_grounded": return "Supported by opened source passages.";
       case "source_grounded_partial": return "Supported by opened source passages; coverage was incomplete.";
       case "source_insufficient_evidence": return "The opened sources did not support an answer.";
@@ -5541,6 +5541,9 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    // The immutable receipt records generation; proposal controls own current review state.
+    const pageProposalAcknowledgment = graphContextForTurn(turn)?.completion?.schema === "dmb_build_authoring_completion_v1"
+      && !rulesContextForTurn(turn);
     const failed = turn.lifecycle_status !== "interrupted" && (isHistoryTurnFailureConfirmed(turn.turn_id)
       || isWorldHistoryTurnFailed(turn.turn_id) || turn.lifecycle_status === "failed");
     const interrupted = turn.lifecycle_status === "interrupted";
@@ -5585,10 +5588,10 @@ export function WorldPlanAgentConversation({
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : <WorldPlanAgentAnswer
-              answer={turn.assistant_text}
+              answer={pageProposalAcknowledgment ? "Page suggestion prepared." : turn.assistant_text}
               inlineCitations={inlineSourceCitations(turn)}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
-              displaySegments={rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
+              displaySegments={pageProposalAcknowledgment || rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />}
