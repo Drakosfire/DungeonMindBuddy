@@ -81,7 +81,7 @@ Jev question instructions before drawing broader conclusions from the prototype.
 The measured instruction move alone did not materially improve routing. Original
 frozen scores and explicit operator adjudication remain separate evidence.
 [Draft writer status domain](../Plans/HANDOFF-BUILD-draft-writer-status-domain.md)
-is active: an ordinary saved-table follow-up produced the correct edited task but
+is paused at operator request: an ordinary saved-table follow-up produced the correct edited task but
 failed because its draft schema advertised a source status forbidden by partial
 retrieval. Preserve source-status restrictions while keeping authored support.
 
