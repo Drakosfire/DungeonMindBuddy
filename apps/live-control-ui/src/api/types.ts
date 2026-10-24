@@ -839,8 +839,9 @@ export interface WorldPlayAgentTurnRequestV1 {
   message: string;
 }
 
-/** Build uses only a server-verified saved source, never browser Markdown. */
+/** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
+  build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
   build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
@@ -1158,7 +1159,16 @@ export interface WorldBuildNamedGraphCompletionV3 extends Omit<WorldBuildGraphCo
   schema: "dmb_build_graph_completion_v3";
   source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
 }
-export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3;
+export interface WorldBuildDraftContextCompletionV1 extends Omit<WorldBuildNamedGraphCompletionV3,
+  'schema' | 'answer_basis' | 'answer_context_status' | 'answer_segments'> {
+  schema: 'dmb_build_draft_context_completion_v1';
+  answer_basis: 'working_draft_context';
+  answer_context_status: 'authored_grounded' | 'authored_grounded_partial' | 'source_grounded'
+    | 'source_grounded_partial' | 'creative_proposal' | 'insufficient_evidence';
+  answer_segments: (WorldBuildGraphCompletionV2['answer_segments'][number]
+    | {kind:'draft_reference_claim'; text:string; draft_record_id:string})[];
+}
+export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";
@@ -6058,4 +6068,19 @@ export interface ActionTerminalDiagnosticRead {
       incompleteReason: "max_output_tokens" | "length" | "content_filter" | "unspecified" | "other" | null;
     };
   };
+}
+
+
+/** Exact authored working copy; carries no insertion or World evidence authority. */
+export interface WorldBuildDraftSnapshotV1 {
+  schema: 'dmb_build_draft_snapshot_v1';
+  world_id: string;
+  document_id: string;
+  registry_revision: number;
+  content_sha256: string;
+  visibility: 'internal' | 'player_safe';
+  draft_markdown: string;
+  draft_sha256: string;
+  editor_sha256: string;
+  draft_generation: number;
 }

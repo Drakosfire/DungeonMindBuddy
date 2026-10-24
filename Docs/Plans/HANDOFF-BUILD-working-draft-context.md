@@ -1,10 +1,11 @@
 # Current working draft as authored discussion context
 
-DESIGN REVIEW serial PRIME contract, branch codex/build-working-draft-context,
-base df2f6fed8d9b6af14f64dfdae196dc16728dcf65, existing buddy-context-loop checkout.
-This PR changes the owned design and settles its shipped predecessor; it does not
-activate runtime behavior. After review/merge, the consuming implementation adopts
-this pinned contract and records an ACTIVE allowlist before runtime writes.
+ACTIVE serial PRIME implementation, branch codex/build-working-draft-runtime,
+base f7c3670e6335fa6e299bebf19cd83bc8120f47b9, existing buddy-context-loop checkout.
+Adopts the independently Bugbot-reviewed design merged in #1689. One cumulative
+implementation PR; incomplete commits remain draft and do not authorize deployment.
+Fetched open lanes are disjoint. PRIME owns API8000/UI5202; preserve the deployed
+df2f6fed8 API/UI and all retained APP/native/source/editor state until review/delivery.
 
 ## Observed problem and owning boundary
 At this base the browser already captures draft_markdown and exact editor/draft
@@ -106,7 +107,28 @@ blindly. Rehearse ordinary discussion → proposal → direct edit/Keep → save
 when live calls no longer compete with operator dogfood. That real acceptance remains
 open; design review and offline tests do not prove the authoring journey.
 
-## Design slice exclusive writes
-This contract; HANDOFF-BUILD-selected-passage-revision.md;
-Docs/Roadmaps/ROADMAP-demo.md. No runtime, database or service writes in this PR.
-PRIME owns the design and subsequent activation; fetched open lanes are disjoint.
+## Implementation exclusive writes
+This contract; Docs/Roadmaps/ROADMAP-demo.md;
+src/application_state/agent_conversation/build_draft_context.py, build_draft_answer.py, types.py, service.py,
+source_writer_output.py, build_primary_context.py, build_world_context.py and
+rules_authority_build_input.py/rules_authority_output.py as required by exact carriers;
+apps/live_control_server/models/agent_turn.py and build_document_proposal.py;
+apps/live_control_server/services/agent_turn_service.py, build_jev_harness.py,
+build_jev_driver.py, build_jev_writer.py, build_jev_writer_selection.py,
+build_jev_transitions.py and build_jev_dispatch.py;
+apps/live-control-ui/src/api/types.ts;
+apps/live-control-ui/src/shared/sourcePassageProtocol.ts and its tests;
+apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.test.tsx;
+apps/live-control-ui/src/buildSurface/buildComposeBridge.ts and .test.ts;
+apps/live-control-ui/src/planSurface/components/BuildComposeProposal.tsx,
+WorldPlanAgentConversation.tsx, WorldPlanAgentAnswer.tsx and affected tests;
+apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx;
+apps/live-control-ui/src/buildSurface/BuildCompose.integration.test.tsx;
+tests/test_build_draft_context.py, test_agent_build_jev_ordinary_harness.py,
+test_build_jev_writer.py, test_build_jev_driver.py and test_agent_turn_service.py.
+Inspection confirms agent_turn_graph_completion_check enumerates completion shapes:
+this lease also owns src/application_state/migrations/versions/20261024_0061_build_draft_context_completion.py
+and tests/test_build_draft_context.py migration/reopen coverage. APP0060→0061 admits
+the new authored-context completion without rewriting rows. Downgrade refuses when
+new records exist. Historical proof/read semantics remain intact. No live model probes while the operator writes. Exact independent
+Bugbot, cumulative verification and protected delivery remain required.

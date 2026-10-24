@@ -1,5 +1,6 @@
 import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
+import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
@@ -16,6 +17,7 @@ export interface PreparedBuildProposal {
   captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
 }
 export interface BuildComposeBridge {
+  captureContext: () => Promise<WorldBuildDraftSnapshotV1>;
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
@@ -28,6 +30,28 @@ export interface BuildComposeBridge {
 async function sha256(value: string) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }
+/** Read context does not require a caret, text selection or permission to change the page. */
+export async function captureBuildDraftSnapshot(getCurrent: () => BuildComposeEditorState | null): Promise<WorldBuildDraftSnapshotV1> {
+  const current = getCurrent();
+  if (!current || current.editor.isDestroyed) throw new Error('Open the current Build page before discussing it.');
+  const start = { ...current };
+  const editorJson = JSON.stringify(start.editor.getJSON());
+  const draftMarkdown = tiptapJsonToSemanticMarkdown(start.editor.getJSON());
+  const [draftDigest, editorDigest] = await Promise.all([sha256(draftMarkdown), sha256(editorJson)]);
+  const now = getCurrent();
+  if (!now || now.editor.isDestroyed || now.editor !== start.editor
+    || now.worldId !== start.worldId || now.documentId !== start.documentId
+    || now.revision !== start.revision || now.contentSha256 !== start.contentSha256
+    || now.visibility !== start.visibility || now.draftGeneration !== start.draftGeneration
+    || JSON.stringify(now.editor.getJSON()) !== editorJson) {
+    throw new Error('The page changed while its working draft was captured. Send again to use the current page.');
+  }
+  return Object.freeze({schema:'dmb_build_draft_snapshot_v1', world_id:start.worldId,
+    document_id:start.documentId, registry_revision:start.revision, content_sha256:start.contentSha256,
+    visibility:start.visibility, draft_markdown:draftMarkdown, draft_sha256:draftDigest,
+    editor_sha256:editorDigest, draft_generation:start.draftGeneration});
+}
+
 export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void): BuildComposeBridge {
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
@@ -52,6 +76,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    captureContext: () => captureBuildDraftSnapshot(getCurrent),
     async capture() {
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Save and open an editable Build page first.');

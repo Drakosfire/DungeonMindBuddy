@@ -73,6 +73,8 @@ def project(execution, basis=None):
 
 def packet_rows(packet):
     """Shape check for finite selectors; producer validation separately proves bodies."""
+    from .build_draft_context import resolve_body_aliases
+    packet = resolve_body_aliases(packet)
     lane = packet.get("artifact_under_edit")
     if lane is None:
         return []
@@ -130,6 +132,8 @@ def validate_packet(packet, execution, basis):
         return rows
     packet_rows(packet)
     expected = project(execution, basis)
+    from .build_draft_context import resolve_body_aliases
+    packet = resolve_body_aliases(packet)
     if packet.get("artifact_under_edit") != expected:
         raise ValueError("Primary work context differs from exact acquired saved reads")
     # All saved sections in Build belong to primary work. Their bodies occur once,

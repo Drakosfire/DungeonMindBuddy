@@ -4,7 +4,7 @@ import { PreparedBuildImage, listPreparedImages, type PreparedImage } from "../.
 import { useEffect, useRef, useState } from 'react';
 import { composeBuildProposal, getBuildProposal, getBuildProposalPrompt, listBuildProposals,
   type BuildProposalRecord } from '../../api/buildDocumentProposalApi';
-import { getWorldAgentConversationHistory, postWorldAgentNewConversation } from '../../api/liveApi';
+import { getWorldAgentConversationHistory, postWorldAgentNewConversation, getWorldAgentNewConversationStatus } from '../../api/liveApi';
 import type { WorldAgentConversationHistoryResponse } from '../../api/types';
 import type { BuildComposeBridge, CapturedBuildInsertion } from '../../buildSurface/buildComposeBridge';
 import { admitMarkdownInsertion } from '../../documentEditing/markdownInsertion';
@@ -90,22 +90,92 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function prepareHarnessCapability() {
-    const start = current.current;
-    if (!start.enabled || !start.bridge || !start.history?.conversation_id
-      || start.history.active_conversation_id !== start.history.conversation_id) return undefined;
-    const captured = await start.bridge.capture();
-    if (!mounted.current || current.current.scope !== start.scope || current.current.epoch !== start.epoch) return undefined;
-    const action = crypto.randomUUID();
-    captures.current.set(action, captured);
-    return { idempotency_key: action, conversation_id: start.history.conversation_id,
-      expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
+  async function prepareHarnessTurn(turnId:string,discussionOnly=false) {
+    const start=current.current;
+    if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
+    const snapshot=await start.bridge.captureContext();
+    let captured:CapturedBuildInsertion|undefined;
+    if(!discussionOnly){
+      try{captured=await start.bridge.capture();}
+      catch(reason){return {placementError:reason instanceof Error?reason.message:'Choose where this writing should go.'};}
+      if(captured.basis.world_id!==snapshot.world_id||captured.basis.document_id!==snapshot.document_id
+        ||captured.basis.registry_revision!==snapshot.registry_revision||captured.basis.content_sha256!==snapshot.content_sha256
+        ||captured.basis.visibility!==snapshot.visibility||captured.basis.draft_sha256!==snapshot.draft_sha256
+        ||captured.basis.editor_sha256!==snapshot.editor_sha256||captured.basis.draft_generation!==snapshot.draft_generation)throw new Error('The page changed while preparing this request. Send again.');
+    }
+    if(!mounted.current||current.current.scope!==start.scope||current.current.epoch!==start.epoch
+      ||current.current.bridge!==start.bridge)throw new Error('The page or conversation changed before sending.');
+    let pointer=start.history;
+    const initializedConversation=!pointer.conversation_id;
+    if(!pointer.conversation_id){
+      const key=`dmb:build-initial-conversation:${start.worldId}`;
+      const previous=window.localStorage.getItem(key);
+      const command={schema:'dmb_agent_new_conversation_v1' as const,command_id:turnId,
+        expected_pointer_revision:pointer.pointer_revision,expected_active_conversation_id:null};
+      let pending=command;
+      if(previous){
+        const value:unknown=JSON.parse(previous);
+        if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('The saved conversation start needs recovery.');
+        const row=value as Record<string,unknown>;
+        if(Object.keys(row).sort().join(',')!=='command_id,expected_active_conversation_id,expected_pointer_revision,schema'
+          ||row.schema!==command.schema||typeof row.command_id!=='string'
+          ||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(row.command_id)
+          ||!Number.isSafeInteger(row.expected_pointer_revision)||(row.expected_pointer_revision as number)<0||row.expected_active_conversation_id!==null)
+          throw new Error('The saved conversation start needs recovery.');
+        pending={...command,command_id:row.command_id,expected_pointer_revision:row.expected_pointer_revision as number};
+      }
+      const bytes=JSON.stringify(pending);
+      window.localStorage.setItem(key,bytes);
+      if(window.localStorage.getItem(key)!==bytes)throw new Error('The conversation start could not be preserved.');
+      let confirmed:Awaited<ReturnType<typeof postWorldAgentNewConversation>>|undefined;
+      if(previous){
+        const status=await getWorldAgentNewConversationStatus(start.worldId,pending);
+        if(status.schema!=='dmb_agent_new_conversation_status_v1'||status.world_id!==start.worldId
+          ||status.command_id!==pending.command_id||status.command_kind!=='new'
+          ||status.expected_pointer_revision!==pending.expected_pointer_revision||status.expected_active_conversation_id!==null
+          ||!['confirmed','absent'].includes(status.status)||!/^[a-f0-9]{64}$/.test(status.request_fingerprint))
+          throw new Error('The saved conversation start could not be verified.');
+        if(status.status==='confirmed'){
+          if(status.receipt?.schema!=='dmb_agent_new_conversation_receipt_v1')throw new Error('The saved conversation start has no receipt.');
+          confirmed={schema:'dmb_agent_new_conversation_response_v1',world_id:start.worldId,conversation_id:status.receipt.conversation_id,
+            active_conversation_id:status.receipt.active_conversation_id,pointer_revision:status.receipt.pointer_revision};
+        }else{
+          if(status.receipt!==null)throw new Error('The conversation start status is inconsistent.');
+          const observed=await getWorldAgentConversationHistory(start.worldId);
+          if(observed.world_id!==start.worldId)throw new Error('The current conversation could not be verified.');
+          if(observed.pointer_revision!==pending.expected_pointer_revision||observed.active_conversation_id!==null){
+            if(window.localStorage.getItem(key)===bytes)window.localStorage.removeItem(key);
+            if(mounted.current&&current.current.scope===start.scope&&current.current.epoch===start.epoch)start.onHistory(observed);
+            throw new Error('The active conversation changed. Send again to use the current conversation.');
+          }
+        }
+      }
+      const created=confirmed??await postWorldAgentNewConversation(start.worldId,pending);
+      if(created.schema!=='dmb_agent_new_conversation_response_v1'||created.world_id!==start.worldId
+        ||typeof created.conversation_id!=='string'||!created.conversation_id
+        ||!Number.isSafeInteger(created.pointer_revision)||created.pointer_revision<1)
+        throw new Error('The conversation start response could not be verified.');
+      pointer=await getWorldAgentConversationHistory(start.worldId);
+      if(pointer.world_id!==start.worldId)throw new Error('The current conversation could not be verified.');
+      if(!mounted.current||current.current.scope!==start.scope||current.current.epoch!==start.epoch
+        ||current.current.bridge!==start.bridge)throw new Error('The page or conversation changed before sending.');
+      if(window.localStorage.getItem(key)===bytes)window.localStorage.removeItem(key);
+      start.onHistory(pointer);
+      if(pointer.conversation_id!==created.conversation_id||pointer.active_conversation_id!==created.conversation_id
+        ||pointer.pointer_revision!==created.pointer_revision)throw new Error('The active conversation changed. Send again to use the current conversation.');
+    }
+    if(!pointer.conversation_id||pointer.conversation_id!==pointer.active_conversation_id)throw new Error('Open the current World conversation first.');
+    const action=crypto.randomUUID();
+    if(captured)captures.current.set(action,captured);
+    return {history:pointer,initializedConversation,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
+      capability:captured?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
+        basis:captured.basis,draft_markdown:captured.draftMarkdown}:undefined};
   }
   const values=records.scope===scope?records.values:[];
   const selected=opened?.documentId===pageDocumentId?opened:null;
   const latest=[...values].reverse().find(record=>record.proposal&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId);
   const active=values.find(record=>record.action_id===(selected?.action??latest?.action_id)&&record.reservation.basis.document_id===pageDocumentId);
-  return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
+  return { busy, error, submit, prepareHarnessTurn, refresh: () => setRefreshNonce(value => value + 1),
     pageElement: enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision

@@ -97,7 +97,7 @@ function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
 
 function history(turns: WorldAgentConversationHistoryResponseV1["turns"] = []): WorldAgentConversationHistoryResponseV1 {
   return { schema: "dmb_agent_conversation_history_v1", world_id: WORLD,
-    conversation_state: "active", conversation_id: "conversation-one", active_conversation_id: "conversation-one",
+    conversation_state: "active", conversation_id: "11111111-1111-4111-8111-111111111111", active_conversation_id: "11111111-1111-4111-8111-111111111111",
     pointer_revision: 1, turns, next_before_sequence: null };
 }
 function turn(surface: "plan" | "play", sequence: number, answer: string) {
@@ -159,7 +159,7 @@ function ProposalFixture() {
     };
     const key = `dmb:world-plan-local-proposal-order:v1:${encodeURIComponent(thread.campaignId)}:${encodeURIComponent(thread.threadId)}`;
     window.localStorage.setItem(key, JSON.stringify({ schema: "dmb_world_plan_local_proposal_order_v1",
-      positions: [{ turnId: proposal.turnId, conversationId: "conversation-one", afterSequence: 1, ordinal: 1 }] }));
+      positions: [{ turnId: proposal.turnId, conversationId: "11111111-1111-4111-8111-111111111111", afterSequence: 1, ordinal: 1 }] }));
     agent.updateThread({ ...thread, worldPlanProposalHistory: "world_plan_proposals_v1", turns: [proposal] });
   }}>Seed Plan proposal</button>;
 }
@@ -225,7 +225,7 @@ function playResponse(request: WorldPlayAgentTurnRequestV1) {
         revision_id: context.receipt.graph_authority.graph_revision, focus: { kind: "none" }, selection_node_id: null,
         selection_found: null, head_revision_id: context.receipt.graph_authority.graph_revision, is_head: true },
     conversation: { client_thread_id: request.client_thread_id, turn_id: request.turn_id,
-      pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "conversation-one" },
+      pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "11111111-1111-4111-8111-111111111111" },
     answer: { status: "ok" as const, text: "Original Play answer", code: null, message: null,
       graph_grounded: false, trace: {} },
   };
@@ -244,7 +244,7 @@ function planResponse(request: WorldPlanAgentTurnRequestV1) {
     graph: { status: "not_requested" as const, world_id: null, campaign_id: null, scope_mode: null,
       revision_id: null, focus: null, selection_node_id: null, selection_found: null, head_revision_id: null, is_head: null },
     conversation: { client_thread_id: request.client_thread_id, turn_id: request.turn_id,
-      pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "conversation-one" },
+      pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "11111111-1111-4111-8111-111111111111" },
     answer: { status: "ok" as const, text: "Late Plan answer", code: null, message: null,
       graph_grounded: false, trace: {} },
   };
@@ -441,7 +441,13 @@ async function buildGraphContext(): Promise<WorldBuildKnowledgeContextV1> {
 function insertionCapture(): CapturedBuildInsertion {
   return {editor:{} as CapturedBuildInsertion['editor'], editorJson:'{}', draftMarkdown:'# Unsaved page',
     basis:{world_id:WORLD,document_id:'source-one',registry_revision:2,content_sha256:SHA,
-      visibility:'internal',draft_sha256:SHA,caret:1,draft_generation:0,selection_generation:0}};
+      visibility:'internal',draft_sha256:SHA,editor_sha256:SHA,caret:1,draft_generation:0,selection_generation:0}};
+}
+function draftSnapshot(){
+ const captured=insertionCapture(),b=captured.basis;
+ return {schema:'dmb_build_draft_snapshot_v1' as const,world_id:b.world_id,document_id:b.document_id,
+  registry_revision:b.registry_revision,content_sha256:b.content_sha256,visibility:b.visibility,
+  draft_markdown:captured.draftMarkdown,draft_sha256:b.draft_sha256,editor_sha256:b.editor_sha256!,draft_generation:b.draft_generation};
 }
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
@@ -466,7 +472,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
   it.each(['rejected','undefined'] as const)('preserves a Build placement request before dispatch when capture is %s',async mode=>{
     const capture=vi.fn(async()=>{throw new Error('Place the caret where the new text should go.');});
-    const bridge:BuildComposeBridge={capture,insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture,insert:vi.fn()};
     if(mode==='undefined')vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),conversation_state:"absent",conversation_id:null,active_conversation_id:null,pointer_revision:0});
     render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -475,16 +481,26 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const message='Draft a section about Culture — keep the author’s wording.';
     fireEvent.change(input,{target:{value:message}});
     fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
-    await screen.findByRole('region',{name:'Page proposal unavailable'});
+    const placementFailure=await screen.findByRole('region',{name:'Page proposal unavailable'});
+    expect(placementFailure).toHaveTextContent('Discussion includes your current draft. It won’t place writing on the page.');
+    expect(placementFailure).not.toHaveTextContent('unsaved edits will not be included');
     expect(input).toHaveValue(message);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     expect(Object.keys(localStorage).filter(k=>k.startsWith('dmb:world-play-pending-turn:'))).toEqual([]);
     expect(bridge.insert).not.toHaveBeenCalled();
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    if(mode==='undefined'){
+      const active=history();
+      vi.mocked(postWorldAgentNewConversation).mockResolvedValue({schema:'dmb_agent_new_conversation_response_v1',world_id:WORLD,
+        conversation_id:active.conversation_id!,active_conversation_id:active.conversation_id!,pointer_revision:active.pointer_revision});
+      vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(active);
+    }
     fireEvent.click(screen.getByRole('button',{name:'Send as discussion',exact:true}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
     expect(request.message).toBe(message);
+    expect(request.build_draft_context?.snapshot).toEqual(draftSnapshot());
+    expect(request.build_draft_context?.snapshot.draft_markdown).toBe('# Unsaved page');
     expect(request).not.toHaveProperty('build_write_capability');
     expect(bridge.insert).not.toHaveBeenCalled();
   });
@@ -492,7 +508,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each([['message','reject'],['source','reject'],['bridge','reject'],['message','resolve'],['source','resolve'],['bridge','resolve'],['source_aba','reject'],['source_aba','resolve']] as const)('does not dispatch retired placement after %s changes (%s)',async(change,outcome)=>{
     let reject!:(reason:Error)=>void;
     let resolve!:(value:CapturedBuildInsertion)=>void;
-    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise((ok,fail)=>{reject=fail;resolve=ok;})),insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise((ok,fail)=>{reject=fail;resolve=ok;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');
@@ -505,7 +521,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
       if(change==='source_aba')view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={2}/>);
     }
-    else view.rerender(<Harness initial="build" buildBridge={{capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
+    else view.rerender(<Harness initial="build" buildBridge={{captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
     await act(async()=>{if(outcome==='reject')reject(new Error('Old insertion point unavailable'));else resolve(insertionCapture());});
     expect(screen.queryByRole('region',{name:'Page proposal unavailable'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Send as discussion'})).not.toBeInTheDocument();
@@ -514,7 +530,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it('retires visible placement failure across a source round trip',async()=>{
-    const bridge:BuildComposeBridge={capture:vi.fn(async()=>{throw new Error('Old placement failure');}),insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>{throw new Error('Old placement failure');}),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');
@@ -531,7 +547,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
   it('prepares a fresh Build capability after the author corrects placement',async()=>{
     const capture=vi.fn().mockRejectedValueOnce(new Error('Select an insertion point')).mockResolvedValueOnce(insertionCapture());
-    const bridge:BuildComposeBridge={capture,insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture,insert:vi.fn()};
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -710,7 +726,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
-    const bridge:BuildComposeBridge={capture:vi.fn(async()=>{throw new Error('Choose a page caret for this retry');}),insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>{throw new Error('Choose a page caret for this retry');}),insert:vi.fn()};
     render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());
     const input=screen.getByLabelText('Message DungeonBuddy');if(otherDraft)fireEvent.change(input,{target:{value:'My other thought'}});
@@ -723,7 +739,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
-    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);
     await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
@@ -1406,9 +1422,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it("starts a World conversation from Play with the same saved-command path", async () => {
     vi.mocked(postWorldAgentNewConversation).mockImplementation(async (worldId, request) => {
       vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
-        conversation_id: "conversation-two", active_conversation_id: "conversation-two", pointer_revision: 2 });
+        conversation_id: "22222222-2222-4222-8222-222222222222", active_conversation_id: "22222222-2222-4222-8222-222222222222", pointer_revision: 2 });
       return { schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
-        conversation_id: "conversation-two", active_conversation_id: "conversation-two", pointer_revision: request.expected_pointer_revision + 1 };
+        conversation_id: "22222222-2222-4222-8222-222222222222", active_conversation_id: "22222222-2222-4222-8222-222222222222", pointer_revision: request.expected_pointer_revision + 1 };
     });
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));

@@ -118,3 +118,24 @@ it('opens a verified named Build citation with the shared numbered control',asyn
   await screen.findByText('western gate');
   expect(screen.getByLabelText('Opened source passage')).toHaveTextContent('River Watch — synthetic source');
 });
+
+it('keeps working-draft references out of source citations and preserves mixed source indexes',()=>{
+  const base=completion();
+  const c:import('../../api/types').WorldBuildDraftContextCompletionV1={
+    ...base,schema:'dmb_build_draft_context_completion_v1',answer_basis:'working_draft_context',
+    answer_context_status:'authored_grounded',
+    answer_segments:[{kind:'draft_reference_claim',text:'A complete working draft response. '+ 'x'.repeat(4200),draft_record_id:id}],
+    source_citations:[],
+  };
+  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(true);
+  const view=render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
+  expect(screen.queryByRole('button',{name:/Read/})).not.toBeInTheDocument();
+  expect(load).not.toHaveBeenCalled();
+  const mixed={...c,answer_segments:[...c.answer_segments,...base.answer_segments],source_citations:
+    base.source_citations.map(cite=>({...cite,segment_index:1,source_name:'Gatekeepers journal'}))};
+  expect(isBuildSourceCompletion(mixed,'a'.repeat(64),'b'.repeat(64))).toBe(true);
+  view.rerender(<BuildSourcePassageEvidence completion={mixed} worldId="world" turnId={id}/>);
+  expect(screen.getAllByRole('button',{name:/Read Gatekeepers journal/})).toHaveLength(1);
+  expect(isBuildSourceCompletion({...mixed,source_citations:mixed.source_citations.map(cite=>({...cite,segment_index:0}))},'a'.repeat(64),'b'.repeat(64))).toBe(false);
+  expect(isBuildSourceCompletion({...c,answer_segments:[{...c.answer_segments[0],draft_record_id:'forged'}]},'a'.repeat(64),'b'.repeat(64))).toBe(false);
+});

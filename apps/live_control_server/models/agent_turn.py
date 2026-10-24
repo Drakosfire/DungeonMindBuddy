@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
+from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
 
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV1, canonical_sha256
 
@@ -22,7 +23,7 @@ from application_state.agent_conversation.types import (
     PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
     BuildGraphCompletionV1,
-    BuildNamedGraphCompletionV3,
+    BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
     BuildImagePreparationCompletionV1,
@@ -249,6 +250,7 @@ class AgentTurnRequest(BaseModel):
     graph_selection: AgentTurnGraphSelection | None
     selected_knowledge: AgentKnowledgeSelection | None = None
     build_write_capability: BuildWriteCapability | None = None
+    build_draft_context: BuildDraftContextRequestV1 | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
     message: str = Field(min_length=1)
 
@@ -268,6 +270,25 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
+        draft = self.build_draft_context
+        if draft is not None:
+            snapshot = draft.snapshot
+            work = self.primary_work
+            if (self.surface.surface_id != "build" or self.owner_scope is None
+                or self.owner_scope.kind != "world" or snapshot.world_id != self.owner_scope.world_id
+                or work is None or work.kind != "build" or work.object_id != snapshot.document_id
+                or work.expected_revision != snapshot.registry_revision
+                or work.expected_content_sha256 != snapshot.content_sha256
+                or self.graph_request.mode != "world"):
+                raise ValueError("Working draft requires its exact Build page and requested World")
+            cap = self.build_write_capability
+            if cap is not None and (cap.draft_markdown != snapshot.draft_markdown
+                or cap.basis.draft_sha256 != snapshot.draft_sha256
+                or cap.basis.editor_sha256 != snapshot.editor_sha256
+                or cap.basis.draft_generation != snapshot.draft_generation
+                or cap.conversation_id != draft.conversation_id
+                or cap.expected_pointer_revision != draft.expected_pointer_revision):
+                raise ValueError("Working draft and optional write target must use the same capture")
         capability = self.build_write_capability
         if capability is not None:
             basis = capability.basis
@@ -720,7 +741,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     )
     receipt: BuildGraphContextReceiptV1
     saved_source_sections: list[AgentSavedBuildSectionTargetV1] = Field(default_factory=list, max_length=16384)
-    completion: BuildNamedGraphCompletionV3 | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
+    completion: BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):

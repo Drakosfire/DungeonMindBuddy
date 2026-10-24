@@ -120,6 +120,14 @@ class BuildJevHarness:
             if not world_context:
                 raise ValueError("Named citations require governed Build World context")
             budget["buildJevActions"]["source_citation_names_policy"] = "build_verified_source_names_v1"
+        draft = request.build_draft_context
+        if draft is not None:
+            if not named_citations:
+                raise ValueError("Working draft requires the current named Build context runtime")
+            from application_state.agent_conversation.build_draft_context import POLICY as DRAFT_POLICY
+            budget["buildJevActions"].update(working_draft_context_policy=DRAFT_POLICY,
+                working_draft_snapshot_sha256=draft.snapshot.snapshot_sha256,
+                working_draft_context_sha256=digest(draft.model_dump(mode="json", by_alias=True)))
         return budget
 
     def configured_budget(self, request):
@@ -193,6 +201,20 @@ class BuildJevHarness:
         )
         try:
             asyncio.run(self._decide(adapter, driver))
+            if adapter.request.build_draft_context is not None:
+                from uuid import uuid4
+                from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
+                from .agent_turn_service import _require_fresh_execution_append
+                record = BuildDraftContextRecordV1(record_id=uuid4(), turn_id=adapter.turn.turn_id,
+                    conversation_id=adapter.turn.conversation_id, attempt=adapter.turn.attempt,
+                    submitted_intent_fingerprint=adapter.turn.submitted_intent_fingerprint_v2,
+                    expected_pointer_revision=adapter.request.build_draft_context.expected_pointer_revision,
+                    snapshot=adapter.request.build_draft_context.snapshot)
+                event = ledger.BuildDraftContextCapturedV1(event_id=uuid4(),
+                    sequence=len(adapter._broker_execution().events), kind="build_draft_context_captured_v1", record=record)
+                adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+                    "record_build_draft_context", "event", event))
+                adapter.build_draft_record = record
             if adapter.rules_runtime is not None:
                 adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":

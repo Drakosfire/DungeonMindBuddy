@@ -305,6 +305,26 @@ function isSavedPlayContentBasis(value: unknown): boolean {
     && typeof value.content_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.content_sha256);
 }
 
+function isStoredBuildDraftContext(value:unknown,request:Record<string,unknown>):boolean {
+  if(!hasExactKeys(value,['snapshot','conversation_id','expected_pointer_revision'])||!commandUuid(value.conversation_id)
+    ||!Number.isSafeInteger(value.expected_pointer_revision)||(value.expected_pointer_revision as number)<0)return false;
+  const snapshot=value.snapshot;
+  if(!hasExactKeys(snapshot,['schema','world_id','document_id','registry_revision','content_sha256','visibility',
+    'draft_markdown','draft_sha256','editor_sha256','draft_generation'])||snapshot.schema!=='dmb_build_draft_snapshot_v1'
+    ||!isRecord(request.owner_scope)||!isRecord(request.primary_work)||!isRecord(request.graph_request)
+    ||request.graph_request.mode!=='world'||snapshot.world_id!==request.owner_scope.world_id
+    ||snapshot.document_id!==request.primary_work.object_id||snapshot.registry_revision!==request.primary_work.expected_revision
+    ||snapshot.content_sha256!==request.primary_work.expected_content_sha256
+    ||!['internal','player_safe'].includes(String(snapshot.visibility))||typeof snapshot.draft_markdown!=='string'
+    ||![snapshot.content_sha256,snapshot.draft_sha256,snapshot.editor_sha256].every(v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v))
+    ||!Number.isSafeInteger(snapshot.draft_generation)||(snapshot.draft_generation as number)<0)return false;
+  const capability=request.build_write_capability;
+  return capability===undefined||(isRecord(capability)&&isRecord(capability.basis)
+    &&capability.conversation_id===value.conversation_id&&capability.expected_pointer_revision===value.expected_pointer_revision
+    &&capability.draft_markdown===snapshot.draft_markdown&&capability.basis.draft_sha256===snapshot.draft_sha256
+    &&capability.basis.editor_sha256===snapshot.editor_sha256&&capability.basis.draft_generation===snapshot.draft_generation);
+}
+
 function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
   const storageKey = pendingPlayTurnStorageKey(worldId);
   const serialized = window.localStorage.getItem(storageKey);
@@ -314,7 +334,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || !hasExactKeys(value.request, ["schema", "client_thread_id", "turn_id", "surface", "owner_scope",
       "primary_work", "client_work_state", "graph_request", "graph_selection", "message",
       ...(isRecord(value.request) && isRecord(value.request.surface) && value.request.surface.surface_id === "play" ? ["play_target"] : []),
-      ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : [])])
+      ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : []),
+      ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -336,6 +357,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       || !(value.request.play_target.scene_id === null || typeof value.request.play_target.scene_id === "string" && /^scene:[a-z0-9][a-z0-9._-]{0,127}$/.test(value.request.play_target.scene_id))
       || value.request.play_target.marker_grammar_version !== "v2"))
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
+    || ("build_draft_context" in value.request && (value.request.surface.surface_id!=="build"
+      || !isStoredBuildDraftContext(value.request.build_draft_context,value.request)))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -1399,7 +1422,7 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
         .every(items => Array.isArray(items) && items.length === 0);
   }
-  if (isRecord(value.completion) && ["dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3"].includes(String(value.completion.schema))) {
+  if (isRecord(value.completion) && ["dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3", "dmb_build_draft_context_completion_v1"].includes(String(value.completion.schema))) {
     return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256)
       && (value.execution === null || isWorldPlanGraphExecution(value.execution))
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
@@ -3885,36 +3908,51 @@ export function WorldPlanAgentConversation({
         graph_request: useWorldGraphForAsk ? { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
           focus: { kind: "none", session_id: null, campaign_id: null } } : { mode: "none" }, graph_selection: null, message,
       };
-      if (useWorldGraphForAsk && buildMode?.composeBridge && !discussionOnly) {
+      if (useWorldGraphForAsk && buildMode?.composeBridge) {
         const token = Symbol("build-editor-capability");
         const fence = latestRef.current.presentationFenceKey;
         const placementFence = buildPlacementFenceKey;
         const epoch = buildPlacementEpoch;
         const bridge = buildMode.composeBridge;
         const generation = composerEditGenerationRef.current;
+        let expectedPlacementFence=placementFence;
+        let initializedConversation=false;
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
         try {
-          request.build_write_capability = await buildCompose.prepareHarnessCapability();
-          if (!request.build_write_capability) throw new Error("Page placement is unavailable in this conversation.");
+          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly);
+          if(prepared.placementError){
+            if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
+              &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge
+              &&(questionOverride!==undefined||composerEditGenerationRef.current===generation)){
+              if(questionOverride!==undefined)throw new Error(prepared.placementError);
+              setBuildPlacementFailure({fenceKey:placementFence,epoch,message,generation,bridge,reason:prepared.placementError});
+            }
+            return;
+          }
+          if(!prepared.draftContext||!prepared.history)throw new Error('The current working draft could not be prepared.');
+          initializedConversation=!!prepared.initializedConversation;
+          request.build_draft_context=prepared.draftContext;
+          if(prepared.capability)request.build_write_capability=prepared.capability;
+          expectedPlacementFence=JSON.stringify([scopeKey,source,prepared.history.conversation_id,
+            prepared.history.active_conversation_id,prepared.history.conversation_state,prepared.history.pointer_revision,useWorldGraphForAsk]);
         } catch (reason) {
-          if (latestRef.current.mounted && latestRef.current.buildPlacementFenceKey === placementFence
-            && latestRef.current.buildPlacementEpoch === epoch
-            && latestRef.current.buildPlacementBridge === bridge
-            && (questionOverride !== undefined || composerEditGenerationRef.current === generation)) {
-            if(questionOverride !== undefined)throw reason instanceof Error?reason:new Error("The page insertion point could not be prepared.");
-            setBuildPlacementFailure({ fenceKey: placementFence, epoch, message, generation, bridge,
-              reason: reason instanceof Error ? reason.message : "The page insertion point could not be prepared." });
+          if(latestRef.current.mounted&&latestRef.current.buildPlacementBridge===bridge){
+            if(questionOverride!==undefined)throw reason instanceof Error?reason:new Error('The page could not be prepared.');
+            setError(reason instanceof Error?reason.message:'The page could not be prepared.');
           }
           return;
         }
         finally {
           if (requestRef.current?.token === token) { requestRef.current = null; setSending(false); }
         }
-        if (!latestRef.current.mounted || latestRef.current.presentationFenceKey !== fence
-          || latestRef.current.buildPlacementFenceKey !== placementFence
-          || latestRef.current.buildPlacementEpoch !== epoch
+        if (!latestRef.current.mounted
+          || ![placementFence,expectedPlacementFence].includes(latestRef.current.buildPlacementFenceKey)
+          || (latestRef.current.buildPlacementEpoch!==epoch
+            && !(initializedConversation&&latestRef.current.buildPlacementEpoch===epoch+1&&latestRef.current.buildPlacementFenceKey===expectedPlacementFence))
           || latestRef.current.buildPlacementBridge !== bridge
+          || historySnapshotRef.current?.conversation_id!==request.build_draft_context?.conversation_id
+          || historySnapshotRef.current?.pointer_revision!==request.build_draft_context?.expected_pointer_revision
           || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
       }
       setBuildPlacementFailure(null);
@@ -4555,7 +4593,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
+    if (planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -6112,7 +6150,7 @@ export function WorldPlanAgentConversation({
         ) : null}
       {visibleBuildPlacementFailure ? <section aria-label="Page proposal unavailable">
         <p role="alert">Buddy could not prepare a page proposal. {visibleBuildPlacementFailure.reason} Your message has not been sent.</p>
-        <p>You can correct the page or insertion point and send again. Discussion uses the saved page; unsaved edits will not be included.</p>
+        <p>You can correct the page or insertion point and send again. Discussion includes your current draft. It won’t place writing on the page.</p>
         <button type="button" disabled={composerBusy || !composerMessage.trim()}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}

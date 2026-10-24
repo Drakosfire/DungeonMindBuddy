@@ -11,7 +11,7 @@ import { BuildComposeProposal, useBuildCompose } from './BuildComposeProposal';
 vi.mock('../../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../../api/buildDocumentProposalApi', () => ({ composeBuildProposal: vi.fn(), getBuildProposal: vi.fn(),
   getBuildProposalPrompt: vi.fn(), listBuildProposals: vi.fn(), reportBuildInsertion: vi.fn() }));
-vi.mock('../../api/liveApi', () => ({ getWorldAgentConversationHistory: vi.fn(), postWorldAgentNewConversation: vi.fn(), getWorldAgentTurnPrompt: vi.fn() }));
+vi.mock('../../api/liveApi', () => ({ getWorldAgentConversationHistory: vi.fn(), postWorldAgentNewConversation: vi.fn(), getWorldAgentNewConversationStatus:vi.fn(), getWorldAgentTurnPrompt: vi.fn() }));
 const basis = { world_id: 'world', document_id: 'doc', registry_revision: 1, content_sha256: 'a'.repeat(64),
   draft_sha256: 'b'.repeat(64), editor_sha256: 'e'.repeat(64), visibility: 'internal' as const, caret: 1, draft_generation: 0, selection_generation: 0 };
 const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conversation_history_v1', world_id: 'world', conversation_state: 'active',
@@ -26,7 +26,10 @@ function receipt(request?: api.BuildProposalRequest): api.BuildProposalRecord {
 }
 let bridge: BuildComposeBridge;
 beforeEach(() => {
-  vi.resetAllMocks(); bridge = { capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn(), prepareProposal:vi.fn(), applyPrepared:vi.fn(), inspectProposal:vi.fn() };
+  vi.resetAllMocks();window.localStorage.clear(); bridge = { captureContext:vi.fn(async()=>({schema:'dmb_build_draft_snapshot_v1' as const,
+    world_id:basis.world_id,document_id:basis.document_id,registry_revision:basis.registry_revision,
+    content_sha256:basis.content_sha256,visibility:basis.visibility,draft_markdown:captured.draftMarkdown,
+    draft_sha256:basis.draft_sha256,editor_sha256:basis.editor_sha256,draft_generation:basis.draft_generation})), capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn(), prepareProposal:vi.fn(), applyPrepared:vi.fn(), inspectProposal:vi.fn() };
   vi.mocked(api.listBuildProposals).mockResolvedValue([]);
   vi.spyOn(media, 'listPreparedImages').mockResolvedValue([]);
   vi.mocked(api.composeBuildProposal).mockImplementation(async request => receipt(request));
@@ -169,4 +172,60 @@ it('hands explicit review to the page and requests conversation collapse',async(
  await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));render(<>{hook.result.current.items.map(item=>item.element)}</>);
  fireEvent.click(screen.getByRole('button',{name:'Review suggestion on page'}));expect(collapse).toHaveBeenCalledTimes(1);
  expect((hook.result.current.pageElement as React.ReactElement<{requestKey:number}>).props.requestKey).toBe(1);
+});
+
+
+it('initializes the first conversation once and retains read context independently of write placement',async()=>{
+ const active={...history,conversation_id:'11111111-1111-4111-8111-111111111111',active_conversation_id:'11111111-1111-4111-8111-111111111111'};
+ const empty={...history,conversation_state:'absent' as const,conversation_id:null,active_conversation_id:null,pointer_revision:0};
+ const onHistory=vi.fn();
+ vi.mocked(live.postWorldAgentNewConversation).mockResolvedValue({schema:'dmb_agent_new_conversation_response_v1',world_id:'world',
+  conversation_id:active.conversation_id,active_conversation_id:active.conversation_id,pointer_revision:active.pointer_revision});
+ vi.mocked(live.getWorldAgentConversationHistory).mockResolvedValue(active);
+ vi.mocked(bridge.capture).mockRejectedValue(new Error('Page is read-only'));
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history:empty,bridge,enabled:true,onHistory}));
+ let prepared:Awaited<ReturnType<typeof hook.result.current.prepareHarnessTurn>>|undefined;
+ await act(async()=>{prepared=await hook.result.current.prepareHarnessTurn('22222222-2222-4222-8222-222222222222',true);});
+ expect(bridge.capture).not.toHaveBeenCalled();
+ expect(prepared?.draftContext?.snapshot.draft_markdown).toBe('# Edge');
+ expect(prepared?.capability).toBeUndefined();
+ expect(prepared?.draftContext?.conversation_id).toBe(active.conversation_id);
+ expect(onHistory).toHaveBeenCalledWith(active);
+ expect(live.postWorldAgentNewConversation).toHaveBeenCalledTimes(1);
+ expect(localStorage.getItem('dmb:build-initial-conversation:world')).toBeNull();
+});
+
+it('recovers an uncertain first-conversation command using its original identity',async()=>{
+ const empty={...history,conversation_state:'absent' as const,conversation_id:null,active_conversation_id:null,pointer_revision:0};
+ const active={...history,conversation_id:'11111111-1111-4111-8111-111111111111',active_conversation_id:'11111111-1111-4111-8111-111111111111'};
+ vi.mocked(live.postWorldAgentNewConversation).mockRejectedValueOnce(new Error('Acknowledgment lost')).mockResolvedValueOnce({schema:'dmb_agent_new_conversation_response_v1',world_id:'world',
+  conversation_id:active.conversation_id,active_conversation_id:active.conversation_id,pointer_revision:active.pointer_revision});
+ vi.mocked(live.getWorldAgentConversationHistory).mockResolvedValue(active);
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history:empty,bridge,enabled:true,onHistory:vi.fn()}));
+ const first='22222222-2222-4222-8222-222222222222',second='33333333-3333-4333-8333-333333333333';
+ vi.mocked(live.getWorldAgentNewConversationStatus).mockResolvedValue({schema:'dmb_agent_new_conversation_status_v1',world_id:'world',
+  command_id:first,command_kind:'new',expected_pointer_revision:0,expected_active_conversation_id:null,request_fingerprint:'a'.repeat(64),status:'confirmed',
+  receipt:{schema:'dmb_agent_new_conversation_receipt_v1',conversation_id:active.conversation_id,active_conversation_id:active.conversation_id,pointer_revision:active.pointer_revision,recorded_at:'now'}});
+ await act(async()=>{await expect(hook.result.current.prepareHarnessTurn(first,true)).rejects.toThrow('Acknowledgment lost');});
+ expect(JSON.parse(localStorage.getItem('dmb:build-initial-conversation:world')!).command_id).toBe(first);
+ await act(async()=>{await hook.result.current.prepareHarnessTurn(second,true);});
+ expect(vi.mocked(live.postWorldAgentNewConversation).mock.calls.map(call=>call[1].command_id)).toEqual([first]);
+ expect(live.getWorldAgentNewConversationStatus).toHaveBeenCalledWith('world',expect.objectContaining({command_id:first}));
+ expect(localStorage.getItem('dmb:build-initial-conversation:world')).toBeNull();
+});
+
+
+it('retires an absent old initializer after the World pointer advances instead of locking Send',async()=>{
+ const empty={...history,conversation_state:'absent' as const,conversation_id:null,active_conversation_id:null,pointer_revision:4};
+ const command={schema:'dmb_agent_new_conversation_v1',command_id:'22222222-2222-4222-8222-222222222222',expected_pointer_revision:0,expected_active_conversation_id:null};
+ localStorage.setItem('dmb:build-initial-conversation:world',JSON.stringify(command));
+ vi.mocked(live.getWorldAgentNewConversationStatus).mockResolvedValue({schema:'dmb_agent_new_conversation_status_v1',world_id:'world',
+  command_id:command.command_id,command_kind:'new',expected_pointer_revision:0,expected_active_conversation_id:null,request_fingerprint:'a'.repeat(64),status:'absent',receipt:null});
+ vi.mocked(live.getWorldAgentConversationHistory).mockResolvedValue(empty);
+ const onHistory=vi.fn();
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history:empty,bridge,enabled:true,onHistory}));
+ await act(async()=>{await expect(hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333',true)).rejects.toThrow('active conversation changed');});
+ expect(localStorage.getItem('dmb:build-initial-conversation:world')).toBeNull();
+ expect(onHistory).toHaveBeenCalledWith(empty);
+ expect(live.postWorldAgentNewConversation).not.toHaveBeenCalled();
 });
