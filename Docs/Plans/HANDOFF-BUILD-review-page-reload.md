@@ -21,6 +21,8 @@ all proposal/anchor/review/apply gates. No provider request, schema or API chang
 - planSurface/components/WorldPlanAgentConversation.tsx.
 - planSurface/components/BuildComposeProposal.tsx and .test.tsx.
 - buildSurface/BuildCompose.integration.test.tsx.
+- agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx: update
+  Build bootstrap/reuse expectations; retain Plan/Play lazy-history assertions.
 Paths above are under apps/live-control-ui/src unless Docs-prefixed. No other
 open implementation lane leases them. User tabs/drafts unchanged; PRIME owns5202.
 
