@@ -39,3 +39,16 @@ Independent Bugbot reviews exact cumulative evaluation and labels/results before
 any runtime adoption recommendation. A failed hypothesis is useful evidence and
 must not be presented as a successful implementation. User review of findings
 precedes a new bounded runtime design.
+
+Proof v1 remains preserved as exploratory evidence, not full-route proof. Bugbot
+held head 85492f103 for missing branch scoring, underdetermined constructed gold,
+and discarded known usage on branch failures. V2 requires explicit acceptable
+branch gold before inference, counts complete routes separately from coarse
+intent/outcome, preserves known usage with completeness flags, and matches leaf
+question/definitions across flat and sequential candidates. Fresh context-complete
+holdouts replace ambiguous v1 constructed cases for the new inference cohort;
+the original scored run and Play Execute taxonomy gap are retained, not relabeled.
+Operator explicitly approved full captured private routing payload replay to
+TypeSafe Jev through Vercel AI Gateway for this proof. Private replay gold includes
+acceptable answer/retrieve or answer/brainstorm alternatives where both serve the
+requested discussion; creation kinds remain distinct even when unavailable.

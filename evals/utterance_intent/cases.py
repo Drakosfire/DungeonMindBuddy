@@ -50,3 +50,26 @@ def public_cases():
                 gold={'intent':intent,'outcome':next_step},
                 provenance='evals/c2_live_prep/gold/session_22_live_turn_classifier.json:'+row['id']))
     return rows
+
+
+def fresh_holdout():
+    """Unscored, context-complete v2 cases; frozen before first provider call."""
+    samples=[
+        ('lookup','Read the saved North Gate source and bring in its connections to Lantern Hill.','retrieve','discuss','reply',[],{}),
+        ('explain','Explain the sentence "The gate opens at dawn". Do not look anything up.','answer','discuss','reply',[],{}),
+        ('ideas','Explore possible traditions with me; ask questions before drafting any section.','brainstorm','discuss','reply',[],{}),
+        ('rules','Look up the rules for maintaining concentration after taking damage.','rules','discuss','reply',[],{}),
+        ('section','Write a Market section on this page about the lantern trade.','writing','create','writing',[],{}),
+        ('table','Make a table of twelve invented market vendors and their wares.','writing','create','writing',[],{}),
+        ('image','Generate an image of this scene: a flooded market with floating lanterns.','image','create','image',[],{}),
+        ('enemy','Increase this selected enemy to AC 17 and 90 HP; save a new statblock version.','mechanics','create','unavailable',[],{'selected_enemy':{'name':'Marsh Watcher','ac':14,'hp':55}}),
+        ('encounter','Compose a new encounter with two Marsh Watchers and four lantern thieves.','encounter','create','unavailable',[],{}),
+        ('place','Put that paragraph on the page.','placement','create','writing',[{'user':'Write a market description.','assistant':'The market floats on lashed timber beneath amber lanterns.'}],{}),
+        ('missing','Make that change.','clarify','discuss','clarify',[],{}),
+        ('compare','Compare these two approaches and discuss before writing.','brainstorm','discuss','reply',[],{'routes':['Talk to the gatekeeper for safe passage.','Sneak through the flooded cellar.']}),
+    ]
+    return [dict(id='holdout-v2-'+name,family='fresh_context_complete_v2',question=q,history=h,context=context,
+                 capabilities=['answer_from_sources','propose_build_insertion','prepare_build_image'],
+                 gold={'intent':intent,'outcome':result,'branches':[branch]},
+                 provenance='Fresh constructed routing probe, not product execution evidence.')
+            for name,q,branch,intent,result,h,context in samples]
