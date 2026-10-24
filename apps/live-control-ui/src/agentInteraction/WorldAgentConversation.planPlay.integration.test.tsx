@@ -546,11 +546,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(bridge.capture).toHaveBeenCalledTimes(2);
     expect(bridge.insert).not.toHaveBeenCalled();
   });
-  it.each(["plan", "play", "build"] as const)("loads %s history only on opening Buddy and refreshes on reopening", async initial => {
+  it.each(["plan", "play", "build"] as const)("reuses Build page history and demand-loads %s conversation history", async initial => {
     render(<Harness initial={initial} />);
     const open = await screen.findByRole("button", { name: "Open", exact: true });
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    if (initial === "build") {
+      await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
+    } else {
+      expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    }
     fireEvent.click(open);
     await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
     await screen.findByText("Original Plan answer");
@@ -560,7 +564,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(count);
     fireEvent.click(screen.getByRole("button", { name: "Open", exact: true }));
-    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(count + 1));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(initial === "build" ? count : count + 1));
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep my draft");
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
@@ -570,9 +574,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(["plan", "play", "build"] as const)("continues %s pending-turn reconciliation with Buddy closed", async initial => {
     render(<Harness initial={initial} />);
     await screen.findByRole("button", { name: "Open", exact:true });
-    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    if (initial === "build") {
+      await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
+    } else {
+      expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    }
     fireEvent.click(screen.getByRole("button", {name:"Seed newer pending request"}));
-    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(initial === "build" ? 2 : 1));
     expect(screen.getByRole("button", { name:"Open", exact:true })).toBeInTheDocument();
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
