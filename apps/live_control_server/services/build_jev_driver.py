@@ -347,7 +347,7 @@ class BuildJevDriver:
     def step(self):
         intent = self._selection_intent.model_copy(deep=True) if self._selection_intent else self._machine.step
         rules = getattr(self._adapter, "rules_runtime", None)
-        if self._selection_intent is not None and rules is not None and rules.active:
+        if self._selection_intent is not None and rules is not None and rules.active and rules.offers:
             from .rules_build_runtime import QUERY_CHOICE
             intent = intent.model_copy(update={"questions": (*intent.questions, DecisionQuestion(
                 name=QUERY_CHOICE, kind="choice", question=("Does the current user question explicitly ask how the game's mechanical rules work or how to adjudicate them? "
@@ -884,9 +884,10 @@ class BuildJevDriver:
                 a.context_capture.controller_decision_response(canonical(actual_response.model_dump(mode="json")),
                     producing_provider_attempt_id=a.last_provider_attempt_id)
                 answers = dict(answers)
-                rules_vote = answers.pop(QUERY_CHOICE, None)
-                if not isinstance(rules_vote, dict):
-                    raise ValueError("Missing actual Rules query selection")
+                if rules.offers:
+                    rules_vote = answers.pop(QUERY_CHOICE, None)
+                    if not isinstance(rules_vote, dict):
+                        raise ValueError("Missing actual Rules query selection")
             question = self._selection_intent.questions[0]
             answer = answers.get("operation", {})
             selected, scores = answer.get("selected"), answer.get("probabilities")
@@ -917,6 +918,8 @@ class BuildJevDriver:
             self.operation, self.selection = selected, event
             if rules_vote is not None:
                 rules.select(request_id=plan.request_id, vote=rules_vote, operation=selected)
+            elif rules is not None and rules.active and not rules.offers and selected != "answer_from_sources":
+                rules.retire_unused()
             self._selection_intent = None
             result = self.step
         else:
