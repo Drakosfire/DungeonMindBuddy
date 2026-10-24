@@ -875,7 +875,10 @@ class BuildJevTransitions:
                     return self.step
                 self._step = self._retention_decision()
             else:
-                self._step = self._decision("assess")
+                # World search and unsuccessful/partial source attempts can add
+                # no evidence. Their visited frontier changed, but the evidence
+                # must not be reassessed as if new content had arrived.
+                self._step = self._decision("assess" if newly_acquired else "navigate")
         except Exception:
             self._step = self._finish("refused", "invalid_acquisition_do_not_replay")
             raise
