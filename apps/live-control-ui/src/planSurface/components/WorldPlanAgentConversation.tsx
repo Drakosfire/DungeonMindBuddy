@@ -3849,7 +3849,7 @@ export function WorldPlanAgentConversation({
         return;
       }
       const rejectedBeforeDispatch = reason instanceof LiveApiError
-        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_source_too_large", "build_editor_context_changed"].includes(reason.code ?? "")
+        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed"].includes(reason.code ?? "")
           || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
         if (clearSavedPlayTurn(stored)) {

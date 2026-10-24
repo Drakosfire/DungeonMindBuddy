@@ -1331,7 +1331,6 @@ def _freeze_policy_receipt(
         ) from exc
 
 
-BUILD_SOURCE_MAX_BYTES = 65536
 BUILD_SOURCE_VISIBILITY_REFERENCE = "dmb_build_source_visibility_v1"
 
 

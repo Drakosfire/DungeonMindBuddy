@@ -352,8 +352,8 @@ def test_optional_write_target_does_not_impose_a_separate_text_limit_on_draft_di
     assert proposal.draft_markdown==text
 
 
-@pytest.mark.parametrize("compare_saved,repetitions,expect_veto", [(False,2000,False),(True,700,False),(True,2000,False),(True,3000,True)])
-def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,expect_veto):
+@pytest.mark.parametrize("compare_saved,repetitions,expect_veto,short_draft", [(False,2000,False,False),(True,700,False,False),(True,2000,False,False),(True,4000,True,False),(False,5000,False,True)])
+def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,expect_veto,short_draft):
     import json
     import httpx
     from application_state.agent_conversation import AgentConversationService,types as t
@@ -379,9 +379,10 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
     request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={"expected_content_sha256":source.content_sha256})})
     from tests.application_state.test_agent_conversation_postgres import _new
     service=AgentConversationService();conversation=_new(service,"elderwyld")
+    draft_text="Frank and Sara operate the current radio." if short_draft else text
     snap=BuildDraftSnapshotV1(world_id="elderwyld",document_id=source.record.document_id,
         registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility="internal",draft_generation=0,
-        draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256="b"*64)
+        draft_markdown=draft_text,draft_sha256=sha256(draft_text.encode()).hexdigest(),editor_sha256="b"*64)
     context=BuildDraftContextRequestV1(snapshot=snap,conversation_id=conversation.conversation_id,expected_pointer_revision=service.get_world_pointer("elderwyld").revision)
     request=AgentTurnRequest.model_validate({**request.model_dump(mode="json",by_alias=True),"build_write_capability":None,
         "message":"Compare the saved page about the radio." if compare_saved else "Discuss the current draft about the radio.",
@@ -414,6 +415,8 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
     response=execute((source,request,bootstrap),tmp_path,harness)
     assert not admission_failures
     assert response.answer.status=="ok" and len(writer.calls)==1
+    packet=json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["working_draft_context"]["draft_markdown"]==draft_text
     turn=AgentConversationService().list_turns("elderwyld",conversation.conversation_id)[0]
     assert turn.graph_context_execution.policy.saved_source_char_count==len(text)
     sections=[e for e in turn.graph_context_execution.events if isinstance(e,t.ValidatedBuildSectionReadV1)]

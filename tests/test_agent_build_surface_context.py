@@ -74,15 +74,9 @@ def test_real_metadata_mutation_invalidates_frozen_basis(source, tmp_path, field
         agent._historical_work_resolver(body, owner, provenance)
 
 
-def test_foreign_and_oversize_fail_before_runtime(source, tmp_path):
+def test_foreign_source_fails_before_runtime(source):
     with pytest.raises(AgentTurnServiceError):
         agent._work_resolver(request(source), dict(kind='world', id='other'))
-    target = tmp_path / source.record.target_relpath
-    target.write_text('x' * 65537)
-    bigger = get_workspace_document_snapshot(tmp_path, source.record.document_id)
-    with pytest.raises(AgentTurnServiceError) as error:
-        agent._work_resolver(request(bigger), dict(kind='world', id='elderwyld'))
-    assert error.value.status_code == 413
 
 
 def graph_request(source, **graph_updates):
@@ -259,3 +253,17 @@ def test_ordinary_build_dispatch_private_evidence_observes_actual_runtime(source
         assert data['binding']['turn_id'] == 'build-turn'
         if outcome != 'exception':
             assert data['result']['retrieval_session']['source_reads'][0]['source_read_id'] == 'read:one'
+
+
+@pytest.mark.parametrize('text',["Full saved paragraph. "*4000,"🌸"*20000], ids=["ascii", "utf8"])
+def test_large_saved_source_is_resolved_exactly_before_provider_admission(source,tmp_path,text):
+    (tmp_path/source.record.target_relpath).write_text(text)
+    current=get_workspace_document_snapshot(tmp_path,source.record.document_id)
+    body=request(current)
+    work=agent._build_work_resolver(body,{'kind':'world','id':'elderwyld'})
+    assert work.build_source.markdown==text
+    assert work.build_source.content_sha256==sha256(text.encode()).hexdigest()
+    assert len(text.encode())>65536
+    wrong=body.model_copy(update={'primary_work':body.primary_work.model_copy(update={'expected_content_sha256':'f'*64})})
+    with pytest.raises(AgentTurnServiceError):
+        agent._build_work_resolver(wrong,{'kind':'world','id':'elderwyld'})

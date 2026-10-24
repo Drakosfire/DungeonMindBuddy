@@ -64,7 +64,6 @@ from apps.live_control_server.services.agent_turn_service import (
     AgentPlanWorldGraphBootstrap,
     BuildSavedSourceBasis,
     BuildGraphBinding,
-    BUILD_SOURCE_MAX_BYTES,
     validate_build_source_reference,
     AgentTurnResolvedWork,
     AgentTurnServiceError,
@@ -191,8 +190,6 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
         or record.authority_state not in {"draft", "reviewed", "canonical"}
         or record.visibility_state not in {"internal", "player_safe"}):
         raise AgentTurnServiceError("The saved Build source changed or is not available in this World", code="build_source_unavailable", status_code=409)
-    if len(snapshot.markdown.encode("utf-8")) > BUILD_SOURCE_MAX_BYTES:
-        raise AgentTurnServiceError("This saved source exceeds the 64 KiB context limit", code="build_source_too_large", status_code=413)
     basis = BuildSavedSourceBasis(record.document_id, str(owner["id"]), record.revision, digest,
         record.title, record.source_domain, record.document_class, record.authority_state,
         record.visibility_state, snapshot.markdown)

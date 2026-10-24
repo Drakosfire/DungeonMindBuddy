@@ -1,6 +1,12 @@
 # Share identical draft bodies in decision context
 
-ACTIVE serial PRIME implementation, branch codex/build-decision-draft-aliases,
+SETTLED: PR #1693 merged at 9b0713e09410870b15d48f3264b51c2434935a1e;
+reviewed head c2dcefe17ca58ca58e6537f6a2e567d05f4911a7. Independent Bugbot
+verified 68 affected tests. API delivered; retained state preserved. Synthetic
+comparison now fits unchanged admission allowance; live quality/latency remains open.
+Successor: HANDOFF-BUILD-source-provider-admission.md.
+
+Original serial PRIME implementation, branch codex/build-decision-draft-aliases,
 base c3f90d09cf39218fdf56203ede2cca3260d6852b, existing buddy-context-loop checkout.
 One capability/PR. Open hosted/Combat/Ingest lanes are disjoint. API8000/UI5202
 owned by PRIME; no live model probes while operator dogfood continues.
