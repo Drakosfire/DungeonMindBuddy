@@ -40,8 +40,8 @@ function contentForTarget(editor:Editor,target:number | {from:number;to:number},
   if(typeof target==='number'||target.from===target.to)return content;
   const from=editor.state.doc.resolve(target.from),to=editor.state.doc.resolve(target.to);
   const paragraph=content.length===1&&content[0]?.type==='paragraph'?content[0]:null;
-  // A textual revision inside one paragraph stays inline, just as manual typing does.
-  return paragraph&&from.sameParent(to)&&from.parent.type.name==='paragraph'
+  // A textual revision inside one textblock stays inline, preserving its type and attributes.
+  return paragraph&&from.sameParent(to)&&from.parent.isTextblock
     ? paragraph.content??[] : content;
 }
 

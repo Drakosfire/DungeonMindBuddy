@@ -230,3 +230,23 @@ it('replaces a selection spanning paragraphs and refuses a prepared change after
   expect(editor.getJSON()).toEqual(newer);
  }finally{editor.destroy();}
 });
+
+
+it.each(['New wording','**New wording**'])('revises selected heading text inline and preserves the heading and undo: %s',async markdown=>{
+ const {editor,bridge}=setup();
+ try{
+  editor.commands.setContent('<h2>Before old text after</h2><p>Keep this paragraph</p>');
+  editor.commands.setTextSelection({from:8,to:16});
+  const captured=await bridge.capture(),before=editor.getJSON();
+  expect(captured.basis.selection?.text).toBe('old text');
+  const prepared=await bridge.prepareProposal(captured,markdown);
+  expect(editor.getJSON()).toEqual(before);
+  bridge.applyPrepared(prepared);
+  expect(editor.state.doc.child(0).type.name).toBe('heading');
+  expect(editor.state.doc.child(0).attrs.level).toBe(2);
+  expect(editor.state.doc.child(0).textContent).toBe('Before New wording after');
+  expect(editor.state.doc.child(1).textContent).toBe('Keep this paragraph');
+  if(markdown.startsWith('**'))expect(editor.state.doc.child(0).child(1).marks[0].type.name).toBe('bold');
+  editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+ }finally{editor.destroy();}
+});
