@@ -261,6 +261,56 @@ def validate_world_events(execution):
                 seen.add(action.action_id)
 
 
+def authorize_world_operation(turn, provider_attempt_id, arguments):
+    """Fence actual native I/O with the current, unconsumed APP selection."""
+    from . import types as t
+
+    execution = turn.graph_context_execution
+    expected_scope = scope_digest(turn)
+    providers = [
+        e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+    ]
+    selections = [
+        e for e in execution.events if isinstance(e, t.BuildWorldReadSelectionV1)
+    ]
+    if turn.status != "running" or not providers or not selections:
+        raise ValueError("World acquisition lacks a running selected controller")
+    provider, selection = providers[-1], selections[-1]
+    outcomes = [
+        e
+        for e in execution.events
+        if isinstance(e, t.ProviderOutcomeEventV1)
+        and e.provider_attempt_id == provider.provider_attempt_id
+    ]
+    if (
+        not isinstance(provider, t.ProviderAttemptAuthorizedEventV3)
+        or provider.provider_attempt_id != provider_attempt_id
+        or selection.controller_attempt_id != provider_attempt_id
+        or selection.controller_envelope_sha256 != provider.envelope_sha256
+        or (provider.provider, provider.model, provider.api_mode)
+        != execution.policy.provider_roles.controller.identity()
+        or selection.scope_sha256 != expected_scope
+        or selection.context_receipt_sha256 != execution.context_receipt_sha256
+        or selection.execution_policy_sha256 != execution.execution_policy_sha256
+        or not outcomes
+        or outcomes[-1].outcome != "response_received"
+    ):
+        raise ValueError("World acquisition decision is no longer current")
+    digest = t.canonical_sha256(arguments)
+    targets = [
+        a
+        for a in selection.actions
+        if a.request_arguments_sha256 == digest
+        and request_arguments(turn, a) == arguments
+    ]
+    if len(targets) != 1 or any(
+        isinstance(e, t.ValidatedGraphOperationEventV3)
+        and e.request_arguments_sha256 == digest
+        for e in execution.events
+    ):
+        raise ValueError("World acquisition target is unselected or already consumed")
+
+
 def opened_world_passages(
     execution, operation_ids, read_ids, graph_payloads, source_payloads
 ):

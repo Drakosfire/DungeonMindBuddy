@@ -3008,6 +3008,16 @@ class _PolicyExecutionAdapter:
                         raise ValueError("Plan decision does not authorize this Graph operation")
                 except ValueError:
                     return denied("plan_jev_acquisition_not_current", 409)
+            if (getattr(execution.policy, "world_context_policy", None)
+                    == "build_world_opened_source_context_v1"
+                    and request.operation != "observations"):
+                from application_state.agent_conversation.build_world_context import authorize_world_operation
+                try:
+                    authorize_world_operation(
+                        self.fence.turn, self.last_provider_attempt_id, normalized,
+                    )
+                except ValueError:
+                    return denied("build_world_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
             if request.retrieval_session_id != session.id or (
                 request.historical_revision_id is not None

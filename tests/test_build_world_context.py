@@ -315,24 +315,118 @@ def test_search_discovers_then_opens_a_new_world_candidate(
     )
 
 
-def test_partial_world_read_cannot_become_writer_evidence(build_case, monkeypatch, tmp_path):
+def test_partial_world_read_cannot_become_writer_evidence(
+    build_case, monkeypatch, tmp_path
+):
     from tests.test_build_writer_selection import SavedWriter
     from graph_memory.interaction import expansion_executor
+
     case, reads = world_case(build_case, monkeypatch)
     original = expansion_executor.execute_read_graph_source
+
     def partial(*args, **kwargs):
         value = original(*args, **kwargs)
         for row in value["reads"]:
             row["result"].update(outcome="partial")
             row["receipt"].update(outcome="partial")
         return value
+
     monkeypatch.setattr(expansion_executor, "execute_read_graph_source", partial)
     decisions, writer = WorldDecisions(), SavedWriter()
-    harness = BuildJevHarness(world_context=True, decision_transport=decisions, writer_transport=writer, accounting=counter())
+    harness = BuildJevHarness(
+        world_context=True,
+        decision_transport=decisions,
+        writer_transport=writer,
+        accounting=counter(),
+    )
     execute(case, tmp_path, harness)
     packet = json.loads(json.loads(writer.calls[0].content)["input"])
     assert packet["opened_passages"] == []
     assert packet["artifact_under_edit"]["sections"]
     execution = harness.adapter._broker_execution()
-    assert any(r.outcome == "partial" for e in execution.events if isinstance(e, t.ValidatedSourceReadEventV2) for r in e.receipts)
+    assert any(
+        r.outcome == "partial"
+        for e in execution.events
+        if isinstance(e, t.ValidatedSourceReadEventV2)
+        for r in e.receipts
+    )
     assert reads == {"graph": 1, "source": 1}
+
+
+@pytest.mark.parametrize(
+    "mode", ["unselected", "stale", "unknown", "changed", "repeated"]
+)
+def test_world_broker_refuses_invalid_selection_before_native_io(
+    world_completed, monkeypatch, mode
+):
+    from application_state.agent_conversation.build_world_context import (
+        request_arguments,
+    )
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as native,
+    )
+
+    turn, _, _, _, adapter = world_completed
+    execution = turn.graph_context_execution
+    selection = next(
+        e for e in execution.events if isinstance(e, t.BuildWorldReadSelectionV1)
+    )
+    args = request_arguments(turn, selection.actions[0])
+    events = list(execution.events)
+    if mode != "stale":
+        stop = selection.sequence + 1
+        if mode == "repeated":
+            operation = next(
+                e
+                for e in events
+                if isinstance(e, t.ValidatedGraphOperationEventV3)
+                and e.request_arguments_sha256
+                == selection.actions[0].request_arguments_sha256
+            )
+            stop = operation.sequence + 1
+        events = events[:stop]
+        if mode == "unselected":
+            events = [
+                e for e in events if not isinstance(e, t.BuildWorldReadSelectionV1)
+            ]
+        elif mode == "unknown":
+            events = [
+                e.model_copy(update={"outcome": "unknown"})
+                if isinstance(e, t.ProviderOutcomeEventV1)
+                and e.provider_attempt_id == selection.controller_attempt_id
+                else e
+                for e in events
+            ]
+        elif mode == "changed":
+            args = {**args, "targets": [{"kind": "node", "id": "another-node"}]}
+    snapshot = turn.model_copy(
+        update={
+            "status": "running",
+            "graph_context_execution": execution.model_copy(update={"events": events}),
+        }
+    )
+    monkeypatch.setattr(adapter, "fence", SimpleNamespace(turn=snapshot))
+    monkeypatch.setattr(
+        adapter,
+        "last_provider_attempt_id",
+        adapter.last_provider_attempt_id
+        if mode == "stale"
+        else selection.controller_attempt_id,
+    )
+    monkeypatch.setattr(
+        adapter,
+        "_denied_tool_result",
+        lambda tool, code, status, *a, **kw: {"code": code, "status": status},
+    )
+    calls = []
+
+    def forbidden(*a, **kw):
+        calls.append(True)
+        raise AssertionError("unselected native I/O")
+
+    monkeypatch.setattr(native, "get_object_with_reviewed_sources_direct_v3", forbidden)
+    result = adapter.broker_graph_operation(
+        {"toolName": "expand_graph_retrieval", "arguments": args}
+    )
+    assert result == {"code": "build_world_acquisition_not_current", "status": 409}
+    assert not calls
