@@ -1020,3 +1020,20 @@ def test_admitted_editor_context_mismatch_never_claims_no_dispatch():
         service=SimpleNamespace(get_world_pointer=lambda _: current))
     with pytest.raises(ValueError, match="admitted turn"):
         freeze_interaction(adapter)
+
+
+def test_ordinary_selected_revision_reaches_same_proposal_owner(build_case, monkeypatch, tmp_path):
+    from application_state.build_proposal.types import BuildProposalSelection
+    case, calls = ordinary_case(build_case,monkeypatch,authoring=True)
+    source, request, bootstrap = case
+    selection=BuildProposalSelection(end=8,text="Old town")
+    cap=request.build_write_capability.model_copy(update={"basis":request.build_write_capability.basis.model_copy(update={"selection":selection})})
+    case=(source,request.model_copy(update={"message":"Revise the selected passage.","build_write_capability":cap}),bootstrap)
+    decisions,writer=DecisionWire(operation="propose_build_insertion"),WriterWire()
+    result=execute(case,tmp_path,BuildJevHarness(decision_transport=decisions,writer_transport=writer))
+    action=BuildProposalService().get("elderwyld",result.knowledge_context.completion.action_id)
+    assert action.reservation.basis.selection == selection
+    assert action.state == "proposed" and not action.inserted_in_draft
+    state=json.loads(decisions.calls[0].content)["state"]
+    assert state["interaction"]["page_target"] == {"kind":"replace_selection","text":"Old town"}
+    assert len(writer.calls)==1 and calls=={"graph":0,"source":0}

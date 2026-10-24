@@ -1,6 +1,12 @@
 # Hosted shared conversation frame correction
 
-ACTIVE serial PRIME correction on codex/surface-hosted-conversation-frame, base
+SETTLED: #1687 merged 41d22cd27 after exact Bugbot approval, 168 shared checks
+and protected UI delivery preserving all 2446 APP rows. Authenticated Play wide
+and narrow inspection confirmed one frame filling its host, retained history and
+readable bounded input. Build remained clean at its original saved revision.
+No model requests or source edits; operator aesthetic/full journey acceptance open.
+
+Completed serial PRIME correction on codex/surface-hosted-conversation-frame, base
 8b8ea74f11ae472304eaa613359ee54fe226ee8d, existing buddy-context-loop checkout.
 
 ## Invariant / critique

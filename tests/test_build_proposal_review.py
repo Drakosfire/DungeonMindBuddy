@@ -281,3 +281,32 @@ def test_retained_review_migration_keeps_exact_original_placement(
     assert restored.placement_caret == proposal.reservation.basis.caret
     assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
     assert (root / source.record.target_relpath).read_text() == source.markdown
+
+
+def test_selected_revision_review_stays_pinned_and_recovers_exact_apply(request_case):
+    from application_state.build_proposal.types import BuildProposalSelection
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    request, source, root = request_case
+    request = request.model_copy(update={"basis": request.basis.model_copy(update={
+        "editor_sha256":"e"*64, "selection":BuildProposalSelection(end=12,text="A fort town")})})
+    wire = Wire(request)
+    record = asyncio.run(owner.compose(request, transport=wire))
+    service = BuildProposalReviewService()
+    def command(operation, revision=0, **kwargs):
+        return service.execute("elderwyld",record.action_id,BuildReviewCommand(
+            operation=operation,expected_revision=revision,**kwargs))
+    opened = command("open")
+    with pytest.raises(ApplicationStateConflictError,match="captured selection"):
+        command("move",opened.revision,placement_caret=3)
+    assert service.get("elderwyld",record.action_id) == opened
+    changed = command("save",opened.revision,markdown="A revised flooded town.")
+    apply_id=uuid4()
+    prepared = command("prepare",changed.revision,apply_id=apply_id,
+        after_editor_sha256="f"*64,after_draft_sha256="a"*64)
+    assert command("prepare",changed.revision,apply_id=apply_id,
+        after_editor_sha256="f"*64,after_draft_sha256="a"*64) == prepared
+    kept = command("confirm",prepared.revision,apply_id=apply_id)
+    assert command("confirm",prepared.revision,apply_id=apply_id) == kept
+    assert get_workspace_document_snapshot(root,source.record.document_id) == source
+    assert BuildProposalService().get("elderwyld",record.action_id).reservation.basis.selection == request.basis.selection
+    assert len(wire.calls)==1

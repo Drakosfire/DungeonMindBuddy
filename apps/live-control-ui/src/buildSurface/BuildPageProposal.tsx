@@ -128,6 +128,10 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(current(start)){setReview(result);setPlacement(captured);clearCache();}
   });}
   const controls=<>
+    {record.reservation.basis.selection ? <>
+      <p role="note">Replaces your selected passage when you Keep it.</p>
+      <details><summary>Original passage</summary><blockquote>{record.reservation.basis.selection.text}</blockquote></details>
+    </> : null}
     {error?<button type="button" disabled={busy} onClick={()=>{void transact(async(_saved,start)=>{await checkSaved(start);});}}>Check saved suggestion</button>:null}
     {conflict?<div role="alert">This suggestion changed elsewhere. Your local draft is retained.
       <button type="button" onClick={()=>{setText(review!.markdown);setConflict(false);clearCache();}}>Use saved suggestion</button>
@@ -149,6 +153,6 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     <button type="button" disabled={busy} onClick={recover}>Check insertion</button>{error?<p role="alert">{error}</p>:null}
   </section>;
   if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret}
-    editorJson={placement.editorJson} placementId={record.action_id} onMove={move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
+    editorJson={placement.editorJson} placementId={record.action_id} onMove={record.reservation.basis.selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
   return error?<section aria-label="Suggestion placement unavailable" role="status"><p>{error}</p><p>The saved suggestion is retained.</p></section>:null;
 }
