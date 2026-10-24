@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
@@ -14,7 +15,10 @@ let record:BuildProposalRecord;let saved:BuildProposalReview;let lostAck=false;l
 const status=vi.fn();const complete=vi.fn();
 async function digest(text:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),value=>value.toString(16).padStart(2,'0')).join('');}
 beforeEach(async()=>{
- vi.clearAllMocks();sessionStorage.clear();lostAck=false;lostPrepare=false;Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
+ vi.clearAllMocks();sessionStorage.clear();
+ Object.defineProperty(Range.prototype,'getClientRects',{configurable:true,value:()=>[]});
+ Object.defineProperty(Range.prototype,'getBoundingClientRect',{configurable:true,value:()=>({top:0,left:0,right:0,bottom:0,width:0,height:0})});
+ Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>screen.queryByRole('textbox',{name:'Suggestion text'})});lostAck=false;lostPrepare=false;Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
  editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Before</p><p>After</p>'});
  document.body.append(editor.view.dom);editor.commands.setTextSelection(7);
  state={editor,worldId:'world',documentId:'doc',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
@@ -22,28 +26,30 @@ beforeEach(async()=>{
  record={schema_version:'dmb_build_document_proposal_v1',action_id:'action',reservation:{idempotency_key:'action',conversation_id:'conversation',expected_pointer_revision:1,basis:captured.basis,instruction:'Add culture'},
  request_fingerprint:'b'.repeat(64),after_turn_sequence:1,revision:5,state:'proposed',created_at:'',updated_at:'',claim_expires_at:'',authorization:null,failure_code:null,inserted_in_draft:false,
  proposal:{replacement_markdown:'## Culture\n\nA proposed custom.',summary:'Culture',assumptions:[]}};
- saved={schema:'dmb_build_proposal_review_v1',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,revision:1,state:'editing',markdown:record.proposal!.replacement_markdown,
+ saved={schema:'dmb_build_proposal_review_v2',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,placement_caret:7,revision:1,state:'editing',markdown:record.proposal!.replacement_markdown,
  markdown_sha256:await digest(record.proposal!.replacement_markdown),apply:null,updated_at:''};
  vi.mocked(proposalReview).mockImplementation(async(_world,_action,command)=>{
   if(!command||command.operation==='open')return structuredClone(saved);
   if(command.expected_revision!==saved.revision)throw new Error('Saved suggestion changed');
   if(command.operation==='save')saved={...saved,revision:saved.revision+1,markdown:command.markdown!,markdown_sha256:await digest(command.markdown!)};
+  if(command.operation==='move')saved={...saved,revision:saved.revision+1,placement_caret:command.placement_caret!};
   if(command.operation==='discard')saved={...saved,revision:saved.revision+1,state:'discarded'};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{apply_id:command.apply_id!,before_editor_sha256:record.reservation.basis.editor_sha256!,before_draft_sha256:record.reservation.basis.draft_sha256,
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:record.reservation.basis.editor_sha256!,before_draft_sha256:record.reservation.basis.draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
   return structuredClone(saved);
  });
 });
-afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();});
+afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();Reflect.deleteProperty(Range.prototype,'getClientRects');Reflect.deleteProperty(Range.prototype,'getBoundingClientRect');Reflect.deleteProperty(document,'elementFromPoint');});
+async function writeSuggestion(value:string){const box=await screen.findByRole('textbox',{name:'Suggestion text'});await userEvent.clear(box);await userEvent.type(box,value);}
 function Review({source='doc:1',request=0}:{source?:string;request?:number}){return <BuildPageProposal record={record} bridge={bridge} sourceKey={source} requestKey={request} onStatus={status} onComplete={complete} inspector={<p>Exact captured prompt</p>}/>;}
 it('stages outside editor JSON, edits and keeps once at its original position with one Undo',async()=>{
  const before=editor.getJSON();render(<Review/>);
  await screen.findByRole('region',{name:'Proposed page change'});
  expect(editor.getJSON()).toEqual(before);expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).not.toContain('Culture');
- fireEvent.click(screen.getByRole('button',{name:'Edit suggestion'}));
- fireEvent.change(screen.getByRole('textbox',{name:'Suggestion Markdown'}),{target:{value:'## Culture\n\nAn authored revision.'}});
+
+ await writeSuggestion('An authored revision.');
  expect(editor.getJSON()).toEqual(before);
  act(()=>editor.commands.setTextSelection(1));
  fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
@@ -53,14 +59,14 @@ it('stages outside editor JSON, edits and keeps once at its original position wi
  act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
 });
 it('retains unsaved suggestion typing through remount without entering page content',async()=>{
- const before=editor.getJSON();const view=render(<Review/>);await screen.findByRole('button',{name:'Edit suggestion'});
- fireEvent.click(screen.getByRole('button',{name:'Edit suggestion'}));
- fireEvent.change(screen.getByRole('textbox',{name:'Suggestion Markdown'}),{target:{value:'My unfinished local copy'}});
- view.unmount();render(<Review/>);await screen.findByRole('button',{name:'Edit suggestion'});
- fireEvent.click(screen.getByRole('button',{name:'Edit suggestion'}));
- expect(screen.getByRole('textbox',{name:'Suggestion Markdown'})).toHaveValue('My unfinished local copy');expect(editor.getJSON()).toEqual(before);
+ const before=editor.getJSON();const view=render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
+
+ await writeSuggestion('My unfinished local copy');
+ view.unmount();render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
+
+ expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My unfinished local copy');expect(editor.getJSON()).toEqual(before);
  fireEvent.click(screen.getByRole('button',{name:'Save suggestion'}));
- await waitFor(()=>expect(saved.markdown).toBe('My unfinished local copy'));expect(editor.getJSON()).toEqual(before);
+ await waitFor(()=>expect(saved.markdown.trim()).toBe('My unfinished local copy'));expect(editor.getJSON()).toEqual(before);
 });
 it('discards durably without changing page JSON or undo history',async()=>{
  const before=editor.getJSON();const view=render(<Review/>);await screen.findByRole('button',{name:'Discard suggestion'});
@@ -85,8 +91,8 @@ it('rejects intervening page changes and removes stale placement without erasing
  expect(editor.getText()).toContain('My new page text.');expect(saved.state).toBe('editing');
 });
 it('leaves invalid Markdown editable without inserting it',async()=>{
- const before=editor.getJSON();render(<Review/>);await screen.findByRole('button',{name:'Edit suggestion'});
- fireEvent.click(screen.getByRole('button',{name:'Edit suggestion'}));fireEvent.change(screen.getByRole('textbox',{name:'Suggestion Markdown'}),{target:{value:'<script>bad</script>'}});
+ const before=editor.getJSON();render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
+await writeSuggestion('<script>bad</script>');
  fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));await screen.findByRole('alert');expect(editor.getJSON()).toEqual(before);expect(saved.state).toBe('editing');
 });
 
@@ -115,13 +121,56 @@ it('drops a late prepared response after a page switch without applying it to ei
  expect(await screen.findByRole('button',{name:'Check insertion'})).not.toBeDisabled();
 });
 it('retains conflicting local review text and requires a deliberate copy choice',async()=>{
- const view=render(<Review/>);fireEvent.click(await screen.findByRole('button',{name:'Edit suggestion'}));
- fireEvent.change(screen.getByRole('textbox',{name:'Suggestion Markdown'}),{target:{value:'My local copy'}});
+ const view=render(<Review/>);fireEvent.click(await screen.findByRole('textbox',{name:'Suggestion text'}));
+ await writeSuggestion('My local copy');
  view.unmount();saved={...saved,revision:saved.revision+1,markdown:'A saved edit from elsewhere'};
  render(<Review/>);await screen.findByRole('button',{name:'Use saved suggestion'});
  expect(screen.getByRole('button',{name:'Keep on page'})).toBeDisabled();
  fireEvent.click(screen.getByRole('button',{name:'Review my local copy'}));
- fireEvent.click(screen.getByRole('button',{name:'Edit suggestion'}));
- expect(screen.getByRole('textbox',{name:'Suggestion Markdown'})).toHaveValue('My local copy');
+
+ expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My local copy');
  expect(saved.markdown).toBe('A saved edit from elsewhere');
+});
+
+it('moves a directly edited suggestion without changing page bytes and retains its chosen position through reload',async()=>{
+ const before=editor.getJSON();const view=render(<Review/>);await writeSuggestion('Authored custom.');
+ const input=screen.getByRole('textbox',{name:'Suggestion text'});
+ act(()=>editor.commands.setTextSelection(1));
+ fireEvent.click(screen.getByRole('button',{name:'Place at caret'}));
+ await waitFor(()=>expect(saved.placement_caret).toBe(1));
+ expect(editor.getJSON()).toEqual(before);
+ expect(screen.getByRole('textbox',{name:'Suggestion text'})).toBe(input);
+ expect(input).toHaveTextContent('Authored custom.');
+ view.unmount();render(<Review/>);await screen.findByRole('button',{name:'Keep on page'});
+ fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ const md=tiptapJsonToSemanticMarkdown(editor.getJSON());
+ expect(md.indexOf('Authored custom.')).toBeLessThan(md.indexOf('Before'));
+ expect(saved.apply?.placement_caret).toBe(1);
+ act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
+});
+it('recovers a lost move response by reading the saved placement, never repeating the move',async()=>{
+ const send=vi.mocked(proposalReview).getMockImplementation()!;
+ vi.mocked(proposalReview).mockImplementation(async(world,action,command)=>{const result=await send(world,action,command);if(command?.operation==='move')throw new Error('Move response unavailable');return result;});
+ render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
+ act(()=>editor.commands.setTextSelection(0));fireEvent.click(screen.getByRole('button',{name:'Place at caret'}));
+ await screen.findByRole('alert');await waitFor(()=>expect(screen.getByRole('button',{name:'Keep on page'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(saved.apply?.placement_caret).toBe(1);
+ expect(vi.mocked(proposalReview).mock.calls.filter(([, ,command])=>command?.operation==='move')).toHaveLength(1);
+});
+it('accepts only this suggestion drag on the unchanged page without inserting drag DOM',async()=>{
+ const before=editor.getJSON();render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
+ vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:0,inside:-1});
+ const transfer=(id:string)=>({types:['application/x-dmb-page-proposal'],getData:()=>id});
+ fireEvent.drop(editor.view.dom,{dataTransfer:transfer('another-action'),clientX:10,clientY:10});
+ expect(vi.mocked(proposalReview).mock.calls.some(([, ,command])=>command?.operation==='move')).toBe(false);
+ fireEvent.drop(editor.view.dom,{dataTransfer:transfer(record.action_id),clientX:10,clientY:10});
+ await waitFor(()=>expect(saved.placement_caret).toBe(0));expect(editor.getJSON()).toEqual(before);
+});
+it('reveals and focuses the requested proposal region in context',async()=>{
+ const scroll=vi.fn();Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:scroll});
+ try{render(<Review request={1}/>);const host=await screen.findByRole('region',{name:'Proposed page change'});
+ await waitFor(()=>expect(document.activeElement).toBe(host));expect(scroll).toHaveBeenCalledWith({block:'center',behavior:'auto'});
+ }finally{Reflect.deleteProperty(HTMLElement.prototype,'scrollIntoView');}
 });

@@ -137,8 +137,8 @@ it('keeps a historical proposal readable without manufacturing an original ancho
 it('reopens the author-reviewed text separately from original generated prose',async()=>{
  const record=receipt();record.inserted_in_draft=true;
  vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
- vi.mocked(proposalReview).mockResolvedValue({schema:'dmb_build_proposal_review_v1',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,
-  revision:4,state:'applied',markdown:'The author’s retained review edit.',markdown_sha256:'a'.repeat(64),apply:null,updated_at:''});
+ vi.mocked(proposalReview).mockResolvedValue({schema:'dmb_build_proposal_review_v2',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,
+  placement_caret:1,revision:4,state:'applied',markdown:'The author’s retained review edit.',markdown_sha256:'a'.repeat(64),apply:null,updated_at:''});
  const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
  await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
  render(<>{hook.result.current.items.map(item=>item.element)}</>);
@@ -161,4 +161,12 @@ it('stages only the current page and reuses the same World proposal read across 
  expect((hook.result.current.pageElement as React.ReactElement<{record:api.BuildProposalRecord}>).props.record.action_id).toBe('second');
  expect(api.listBuildProposals).toHaveBeenCalledTimes(1);
  hook.rerender({doc:null});expect(hook.result.current.pageElement).toBeNull();view.unmount();
+});
+
+it('hands explicit review to the page and requests conversation collapse',async()=>{
+ vi.mocked(api.listBuildProposals).mockResolvedValue([receipt()]);const collapse=vi.fn();
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn(),onReviewOnPage:collapse}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));render(<>{hook.result.current.items.map(item=>item.element)}</>);
+ fireEvent.click(screen.getByRole('button',{name:'Review suggestion on page'}));expect(collapse).toHaveBeenCalledTimes(1);
+ expect((hook.result.current.pageElement as React.ReactElement<{requestKey:number}>).props.requestKey).toBe(1);
 });

@@ -197,3 +197,87 @@ def test_review_routes_authentication_exact_scope_and_reopen(review_case, monkey
             ).status_code
             == 409
         )
+
+
+def test_review_move_is_durable_cas_and_bound_into_apply(review_case):
+    command, service, proposal, source, root, wire = review_case
+    original = proposal.reservation.basis.caret
+    opened = command("open")
+    assert opened.placement_caret == original
+    moved = command("move", opened.revision, placement_caret=original + 3)
+    assert service.get("elderwyld", proposal.action_id) == moved
+    assert command("open").placement_caret == original + 3
+    with pytest.raises(ApplicationStateConflictError):
+        command("move", opened.revision, placement_caret=original + 4)
+    prepared = command(
+        "prepare",
+        moved.revision,
+        apply_id=uuid4(),
+        after_editor_sha256="a" * 64,
+        after_draft_sha256="b" * 64,
+    )
+    assert prepared.apply.placement_caret == moved.placement_caret
+    with pytest.raises(ApplicationStateConflictError):
+        command("move", prepared.revision, placement_caret=original)
+    assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
+    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert len(wire.calls) == 1
+
+
+def test_move_command_rejects_invalid_or_unrelated_fields():
+    from pydantic import ValidationError
+
+    for fields in (
+        {"placement_caret": -1},
+        {"placement_caret": True},
+        {"placement_caret": 1, "markdown": "Wrong operation"},
+        {},
+    ):
+        with pytest.raises(ValidationError):
+            BuildReviewCommand(operation="move", expected_revision=1, **fields)
+
+
+@pytest.mark.parametrize("applying", [False, True])
+def test_retained_review_migration_keeps_exact_original_placement(
+    review_case, application_state_dsn, applying
+):
+    import psycopg
+    from psycopg.types.json import Jsonb
+    from application_state.cli import upgrade_to_head
+
+    command, service, proposal, source, root, wire = review_case
+    opened = command("open")
+    if applying:
+        opened = command(
+            "prepare",
+            opened.revision,
+            apply_id=uuid4(),
+            after_editor_sha256="a" * 64,
+            after_draft_sha256="b" * 64,
+        )
+    historical = opened.model_dump(mode="json")
+    historical["schema"] = "dmb_build_proposal_review_v1"
+    historical.pop("placement_caret")
+    if historical["apply"]:
+        historical["apply"].pop("placement_caret")
+    # Reconstruct the previous schema only inside this disposable test database.
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "ALTER TABLE agent.build_proposal_review DROP CONSTRAINT build_review_current_placement"
+        )
+        conn.execute(
+            "UPDATE agent.build_proposal_review SET payload=%s WHERE action_id=%s",
+            (Jsonb(historical), proposal.action_id),
+        )
+        conn.execute(
+            "ALTER TABLE agent.build_proposal_review ADD CONSTRAINT old_review_schema CHECK(payload->>'schema'='dmb_build_proposal_review_v1')"
+        )
+        conn.execute(
+            "UPDATE application_state.schema_migrations SET version_num='20261023_0059'"
+        )
+    upgrade_to_head(dsn=application_state_dsn)
+    restored = service.get("elderwyld", proposal.action_id)
+    assert restored == opened
+    assert restored.placement_caret == proposal.reservation.basis.caret
+    assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
+    assert (root / source.record.target_relpath).read_text() == source.markdown

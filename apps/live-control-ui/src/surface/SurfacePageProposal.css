@@ -1,4 +1,4 @@
-.surface-page-proposal { display:block; white-space:normal; margin:1.2rem 0; font-family:var(--font-sans,system-ui,sans-serif); }
+.surface-page-proposal { display:block; white-space:normal; margin:1.2rem 0; font-family:var(--font-sans,system-ui,sans-serif); font-style:normal; font-weight:normal; text-align:start; }
 .surface-proposal-review { border:1px solid #648097; border-inline-start:4px solid #648097; border-radius:.55rem; padding:1rem; color:#253345; background:#eef2f4; box-shadow:0 3px 12px #0002; }
 .surface-proposal-review header { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem 1rem; margin-block-end:.65rem; }
 .surface-proposal-review header span,.surface-proposal-review small { font-size:.8rem; color:#495d6f; }
@@ -8,3 +8,11 @@
 .surface-proposal-review textarea { display:block; box-sizing:border-box; width:100%; min-height:12rem; margin-block:.5rem; padding:.7rem; resize:vertical; background:white; color:#182737; border:1px solid #789; font:inherit; line-height:1.5; }
 .surface-proposal-review__preview .world-plan-agent-answer { color:inherit; font:inherit; }
 .surface-proposal-review p { color:inherit; }
+
+.surface-page-proposal__placement { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-block-end:.4rem; font-size:.75rem; color:#435467; }
+.surface-page-proposal__placement button { font:inherit; padding:.25rem .4rem; border:1px solid #6f8393; border-radius:.3rem; background:#edf2f4; color:#24384a; }
+.surface-page-proposal__placement button[draggable="true"] { cursor:grab; }
+.surface-proposal-review__editor .tiptap { min-height:5rem; padding:.35rem; border:1px solid transparent; outline:none; }
+.surface-proposal-review__editor .tiptap:focus { border-color:#648097; border-radius:.3rem; }
+.surface-proposal-review__editor .tiptap > :first-child { margin-block-start:0; }
+.surface-proposal-review__editor .tiptap > :last-child { margin-block-end:0; }

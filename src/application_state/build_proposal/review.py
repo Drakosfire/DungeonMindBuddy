@@ -28,6 +28,7 @@ def digest(text):
 
 
 class ReviewApply(StrictModel):
+    placement_caret: int = Field(strict=True, ge=0)
     apply_id: UUID
     before_editor_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     after_editor_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -40,13 +41,14 @@ class BuildProposalReview(StrictModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, serialize_by_alias=True
     )
-    schema_version: Literal["dmb_build_proposal_review_v1"] = Field(
-        default="dmb_build_proposal_review_v1", alias="schema"
+    schema_version: Literal["dmb_build_proposal_review_v2"] = Field(
+        default="dmb_build_proposal_review_v2", alias="schema"
     )
     world_id: str
     action_id: UUID
     reservation_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     revision: int = Field(strict=True, ge=1)
+    placement_caret: int = Field(strict=True, ge=0)
     state: Literal["editing", "discarded", "applying", "applied"]
     markdown: str = Field(min_length=1)
     markdown_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -59,14 +61,18 @@ class BuildProposalReview(StrictModel):
             raise ValueError("Review Markdown digest differs")
         if (self.state in {"applying", "applied"}) != (self.apply is not None):
             raise ValueError("Review apply state requires its exact receipt")
-        if self.apply and self.apply.reviewed_sha256 != self.markdown_sha256:
+        if self.apply and (
+            self.apply.reviewed_sha256 != self.markdown_sha256
+            or self.apply.placement_caret != self.placement_caret
+        ):
             raise ValueError("Insertion differs from reviewed Markdown")
         return self
 
 
 class BuildReviewCommand(StrictModel):
-    operation: Literal["open", "save", "discard", "prepare", "confirm"]
+    operation: Literal["open", "save", "move", "discard", "prepare", "confirm"]
     expected_revision: int = Field(strict=True, ge=0)
+    placement_caret: int | None = Field(default=None, strict=True, ge=0)
     markdown: str | None = None
     apply_id: UUID | None = None
     after_editor_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
@@ -76,6 +82,7 @@ class BuildReviewCommand(StrictModel):
     def exact_fields(self):
         required = {
             "save": {"markdown"},
+            "move": {"placement_caret"},
             "prepare": {"apply_id", "after_editor_sha256", "after_draft_sha256"},
             "confirm": {"apply_id"},
         }.get(self.operation, set())
@@ -83,6 +90,7 @@ class BuildReviewCommand(StrictModel):
             name
             for name in (
                 "markdown",
+                "placement_caret",
                 "apply_id",
                 "after_editor_sha256",
                 "after_draft_sha256",
@@ -144,6 +152,7 @@ class BuildProposalReviewService:
                     reservation_sha256=proposal.request_fingerprint,
                     revision=1,
                     state="editing",
+                    placement_caret=proposal.reservation.basis.caret,
                     markdown=proposal.proposal.replacement_markdown,
                     markdown_sha256=digest(proposal.proposal.replacement_markdown),
                     updated_at=now,
@@ -184,7 +193,7 @@ class BuildProposalReviewService:
                 )
             update = {"revision": previous.revision + 1, "updated_at": now}
             if (
-                command.operation in {"save", "discard", "prepare"}
+                command.operation in {"save", "move", "discard", "prepare"}
                 and previous.state != "editing"
             ):
                 raise ApplicationStateConflictError(
@@ -194,6 +203,8 @@ class BuildProposalReviewService:
                 update.update(
                     markdown=command.markdown, markdown_sha256=digest(command.markdown)
                 )
+            elif command.operation == "move":
+                update["placement_caret"] = command.placement_caret
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
@@ -203,6 +214,7 @@ class BuildProposalReviewService:
                 update.update(
                     state="applying",
                     apply=ReviewApply(
+                        placement_caret=previous.placement_caret,
                         apply_id=command.apply_id,
                         before_editor_sha256=basis.editor_sha256,
                         before_draft_sha256=basis.draft_sha256,

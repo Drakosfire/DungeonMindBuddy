@@ -1,6 +1,6 @@
 # Page proposal review
 
-MERGED — rendered reload correction active in HANDOFF-BUILD-review-page-reload.md. Serial PRIME slice on codex/build-page-proposal-review at
+MERGED — rendered reload correction delivered in HANDOFF-BUILD-review-page-reload.md. Serial PRIME slice on codex/build-page-proposal-review at
 15919026f23a66848a2083fe70c2b342e88ef901, existing buddy-context-loop checkout.
 Operator-authorized page-centered authoring; no overlapping open write lease.
 PRIME implements and delivers; independent Bugbot reviews the cumulative head.
