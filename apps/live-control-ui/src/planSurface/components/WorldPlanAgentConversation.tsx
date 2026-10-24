@@ -5662,6 +5662,15 @@ export function WorldPlanAgentConversation({
       </section>
   );
   const managementDetails = (<>
+      <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
+        worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
+          sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
+          : pendingPlayTurn || sharedConversation?.pendingTurn || pendingPlayLoadError || pendingPlayRecoveryHydrating
+            ? "Resolve the saved request in Conversation options before sending another."
+            : historyError ? "Conversation history could not be checked."
+            : historyLoading || !history ? "Checking saved conversation history."
+            : "Current work is not ready for submission."
+        ) : null} />
       {settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
@@ -6016,15 +6025,19 @@ export function WorldPlanAgentConversation({
         {composing || buildCompose.busy ? "Preparing your edit…" : "Working on your reply…"}
       </div> : null}
 
-      <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
-        worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
-          sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
-          : pendingPlayTurn || sharedConversation?.pendingTurn || pendingPlayLoadError || pendingPlayRecoveryHydrating
-            ? "Resolve the saved request in Conversation options before sending another."
-            : historyError ? "Conversation history could not be checked."
-            : historyLoading || !history ? "Checking saved conversation history."
-            : "Current work is not ready for submission."
-        ) : null} />
+      {!sending && !composing && !buildCompose.busy && !playCompose.busy
+        && Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) ? (
+          <p className="world-plan-agent-conversation__notice" role="status">
+            Check the previous request before sending. You can keep drafting.{" "}
+            <button type="button" onClick={() => {
+              const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
+              if (options instanceof HTMLDetailsElement) options.open = true;
+            }}>Check saved request</button>{" "}
+            {pendingPlayTurn ? <button type="button"
+              disabled={requestRef.current !== null}
+              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button> : null}
+          </p>
+        ) : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
         {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
@@ -6084,9 +6097,7 @@ export function WorldPlanAgentConversation({
             setEditError(null);
           }}
           onKeyDown={handleComposerKeyDown}
-          disabled={(isReadOnly ? !currentReadOnlyContext : !scopeMatches)
-            || pendingPlayRecoveryHydrating
-            || Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError)}
+          disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}
           placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
