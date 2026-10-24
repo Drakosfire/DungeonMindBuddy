@@ -1,6 +1,11 @@
 # Direct page proposal interaction
 
-ACTIVE serial PRIME implementation on codex/surface-direct-proposal, base
+MERGED and API/UI-delivered as7ed38faf after exact Bugbotc28b89490.
+Ordinary collapse/reveal passed; native Ctrl+End escaped the nested editor.
+Correction ACTIVE in HANDOFF-SURFACE-proposal-keyboard.md; direct-editing rendered
+acceptance remains open.
+
+Former serial PRIME implementation on codex/surface-direct-proposal, base
 3a82e322c645131340b41bdef6ef33b43fc6c839, existing buddy-context-loop checkout.
 Operator authoring goal and current dogfood explicitly prioritize direct rendered
 editing, movable placement and collapse/reveal over the floating-layout successor.
