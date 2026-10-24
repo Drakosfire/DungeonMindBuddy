@@ -494,3 +494,32 @@ def test_actual_primary_page_and_rules_survive_irrelevant_selection(application_
     assert packet["schema"] == packet["rules_projection"]["carrier_schema"] == "dmb_build_primary_context_writer_v1"
     assert packet["exposure"]["saved_sections"] == [] and packet["artifact_under_edit"]["sections"]
     assert AgentConversationService().inspect_turn(world_id=completed.envelope.world_id, turn_id=completed.envelope.turn_id) == completed
+
+
+def test_long_single_paragraph_without_rules_offers_still_completes_sources(build_case, tmp_path, monkeypatch, application_state_dsn):
+    question = "Discuss the source and suggest creative details. " * 30
+    decisions = RulesDecisionWire(query=False)
+    completed, adapter, decisions, writer, reads = run_parent(build_case, tmp_path, monkeypatch,
+        question=question, query=False, decision=decisions, dsn=application_state_dsn)
+    assert completed.status == "completed"
+    assert adapter.rules_runtime.offers == ()
+    assert adapter.rules_runtime.outputs == []
+    assert all(QUERY_CHOICE not in json.loads(call.content)["questions"] for call in decisions.calls)
+    assert len(writer.calls) == 1
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["user_question"] == question
+
+
+def test_long_creative_proposal_without_rules_offers_reaches_writer(build_case, tmp_path, monkeypatch):
+    case, reads = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    question = "Propose an Economy section with skilled crafts and marsh gardens. " * 20
+    request = request.model_copy(update={"message": question})
+    decisions, writer = DecisionWire(operation="propose_build_insertion"), WriterWire()
+    harness = PreparedBuildJevRuntime(accounting=counter(), unavailable_reason=None).create()
+    harness.decision_transport, harness.writer_transport = decisions, writer
+    result = execute((source, request, bootstrap), tmp_path, harness)
+    assert result.answer.status == "ok"
+    assert len(decisions.calls) == len(writer.calls) == 1
+    assert QUERY_CHOICE not in json.loads(decisions.calls[0].content)["questions"]
+    assert reads == {"graph": 0, "source": 0}
