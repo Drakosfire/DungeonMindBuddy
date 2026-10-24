@@ -19,6 +19,14 @@ RULE = (
 )
 
 
+DRAFT_ALIAS_POLICY = "exact_draft_aliases_v1"
+DRAFT_RULE = (
+    " text_ref=working_draft_context uses its complete draft_markdown. "
+    "Each evidence ID, passage ID, source origin and receipt keeps its own authority; "
+    "identical text does not merge sources."
+)
+
+
 def _same(left, right):
     return json.dumps(
         left, sort_keys=True, ensure_ascii=False, allow_nan=False
@@ -107,6 +115,14 @@ def encode(state: dict) -> dict:
     projection = {k: decision[k] for k in ("scope", "evidence", "passages")}
     compact = encode_contained_passages(projection)
     decision.update(compact)
+    if "working_draft_context" in result:
+        from application_state.agent_conversation.build_draft_context import pack_body_aliases
+        aliased = pack_body_aliases(result)
+        if not _same(aliased,result):
+            result = aliased
+            result["draft_body_alias_policy"] = DRAFT_ALIAS_POLICY
+            result["interpretation"] += DRAFT_RULE
+            decision = result["decision"]["state"]
     decision["evidence"] = _pack(decision["evidence"])
     qualifications = result["observation_qualifications"]
     if not isinstance(qualifications, dict) or any(
@@ -138,6 +154,13 @@ def decode(state: dict) -> dict:
     result["interpretation"] = result["interpretation"][: -len(RULE)]
     decision = result["decision"]["state"]
     decision["evidence"] = _unpack(decision["evidence"])
+    if "draft_body_alias_policy" in result:
+        if result.pop("draft_body_alias_policy") != DRAFT_ALIAS_POLICY or not result["interpretation"].endswith(DRAFT_RULE):
+            raise ValueError("Draft assessment alias policy differs")
+        result["interpretation"] = result["interpretation"][:-len(DRAFT_RULE)]
+        from application_state.agent_conversation.build_draft_context import resolve_body_aliases
+        result = resolve_body_aliases(result)
+        decision = result["decision"]["state"]
     if CONTAINED_CODEC in decision:
         if not decision["rules"].endswith(CONTAINED_RULE):
             raise ValueError("contained interpretation differs")

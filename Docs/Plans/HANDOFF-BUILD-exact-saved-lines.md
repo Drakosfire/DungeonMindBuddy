@@ -1,8 +1,12 @@
 # Exact saved line ranges without a fixed paragraph limit
 
-ACTIVE serial PRIME implementation, branch codex/build-exact-saved-lines,
-base 7fe760d87e3f1c2297211e76e15897cd9af80eb3, existing buddy-context-loop checkout.
-One useful capability/PR; open hosted/Combat/Ingest lanes are disjoint.
+SETTLED #1692, merged c3f90d09cf39218fdf56203ede2cca3260d6852b.
+Independent Bugbot approved 2aa6483740fabae51c0189d472cb92f2d2e76d3d:
+27 draft/long-line,52 saved-read/inclusion and12 UI tests passed. A representative
+shared opener-fixture setup error reproduced with exact-base modules; no product
+finding. API/UI delivered together on5202 with APP0061/native0017 and all retained
+APP/native/source/mechanics state preserved. No active write lease remains.
+Live authoring/model/performance acceptance remains open.
 
 Failure: Build catalog construction refuses any saved line over12000 characters,
 before routing can use the already captured working draft. Explicit saved comparison

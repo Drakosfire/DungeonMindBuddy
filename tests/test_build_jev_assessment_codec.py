@@ -149,3 +149,43 @@ def test_malformed_encodings_fail_closed(mutation):
         compact["decision"]["state"]["passages"] = {"p1": 1}
     with pytest.raises((ValueError, KeyError, TypeError)):
         decode(compact)
+
+
+@pytest.mark.parametrize('same_passage',[False,True])
+def test_identical_working_draft_has_one_body_and_distinct_source_selectors(same_passage):
+    from application_state.agent_conversation.build_draft_context import POLICY
+    original=state();text='Captured exact body 🌸 '*700
+    original['working_draft_context']={'policy':POLICY,'draft_markdown':text}
+    original['decision']['state']['evidence'][1]['text']=text
+    if same_passage:original['decision']['state']['passages']['p1']=text
+    before=deepcopy(original);wire=encode(original)
+    assert json.dumps(wire,ensure_ascii=False).count(text)==1
+    assert decode(wire)==before and original==before
+    assert wire['draft_body_alias_policy']=='exact_draft_aliases_v1'
+    # Unequal source material and every original selector remain distinct.
+    assert decode(wire)['decision']['state']['evidence'][1]['id']=='b'
+    forged=deepcopy(wire);forged['draft_body_alias_policy']='unknown'
+    with pytest.raises(ValueError):decode(forged)
+    forged=deepcopy(wire)
+    group=next(g for g in forged['decision']['state']['evidence'] if 'text_ref' in g['constants'])
+    group['constants']['text']='Extra body alongside alias'
+    with pytest.raises(ValueError):decode(forged)
+    forged=deepcopy(wire)
+    group=next(g for g in forged['decision']['state']['evidence'] if 'text_ref' in g['constants'])
+    group['constants']['text_ref']='unknown-body'
+    with pytest.raises(ValueError):decode(forged)
+    if same_passage:
+        forged=deepcopy(wire);forged['decision']['state']['passages']['p1']={'text_ref':'unknown-body'}
+        with pytest.raises(ValueError):decode(forged)
+    invalid=deepcopy(original);invalid['working_draft_context'].pop('draft_markdown')
+    with pytest.raises(ValueError):encode(invalid)
+
+
+def test_unequal_draft_and_source_bodies_remain_literal():
+    from application_state.agent_conversation.build_draft_context import POLICY
+    original=state();original['working_draft_context']={'policy':POLICY,'draft_markdown':'An unsaved change'}
+    original['decision']['state']['evidence'][1]['text']='Saved original prose'
+    wire=encode(original)
+    assert 'draft_body_alias_policy' not in wire
+    assert 'Saved original prose' in json.dumps(wire)
+    assert decode(wire)==original

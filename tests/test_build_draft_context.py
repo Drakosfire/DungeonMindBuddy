@@ -352,7 +352,7 @@ def test_optional_write_target_does_not_impose_a_separate_text_limit_on_draft_di
     assert proposal.draft_markdown==text
 
 
-@pytest.mark.parametrize("compare_saved,repetitions,expect_veto", [(False,2000,False),(True,700,False),(True,2000,True)])
+@pytest.mark.parametrize("compare_saved,repetitions,expect_veto", [(False,2000,False),(True,700,False),(True,2000,False),(True,3000,True)])
 def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,expect_veto):
     import json
     import httpx
@@ -429,6 +429,16 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
         packet=json.loads(json.loads(writer.calls[0].content)["input"])
         assert packet["artifact_under_edit"]["sections"][0]["text_ref"]=="working_draft_context"
         assert json.dumps(packet).count("The marsh is quiet.")==repetitions
+        assessments=[json.loads(call.content)["state"] for call in harness.decision_transport.calls
+            if json.loads(call.content)["state"].get("assessment_codec")]
+        assert assessments
+        from apps.live_control_server.services.build_jev_assessment_codec import decode
+        for assessment in assessments:
+            assert assessment["draft_body_alias_policy"]=="exact_draft_aliases_v1"
+            assert json.dumps(assessment).count("The marsh is quiet.")==repetitions
+            restored=decode(assessment)
+            assert restored["decision"]["state"]["evidence"]
+            assert json.dumps(restored).count("The marsh is quiet.")>repetitions
         payload=turn.graph_context_execution.model_dump(mode="json",by_alias=True)
         payload["policy"]["saved_source_char_count"]=1
         payload["execution_policy_sha256"]=t.graph_execution_policy_digest_v3(payload["context_receipt_sha256"],t.BuildExactSavedLinesDraftPolicyV1.model_validate(payload["policy"]))
