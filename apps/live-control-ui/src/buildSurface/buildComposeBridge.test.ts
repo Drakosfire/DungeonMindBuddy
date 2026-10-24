@@ -287,3 +287,37 @@ it.each(['page','world','revision','generation','editor'])('rejects a changed %s
   await expect(pending).rejects.toThrow('working draft was captured');
  }finally{editor.destroy();replacement?.destroy();}
 });
+
+
+it('preserves an exact proposal across a save before preparation and insertion recovery',async()=>{
+ const {editor,state,bridge,changed}=setup();
+ try{
+  const captured=await bridge.capture();const before=editor.getJSON();
+  state.revision+=1;state.contentSha256=captured.basis.draft_sha256;
+  const prepared=await bridge.prepareProposal(captured,'Proposed after save');
+  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toBe('before');
+  const restored=await bridge.restore(captured.basis);
+  expect(restored.basis.registry_revision).toBe(captured.basis.registry_revision);
+  const reopened=await bridge.prepareProposal(restored,'Proposed after save');
+  expect(reopened.afterEditorSha256).toBe(prepared.afterEditorSha256);
+  bridge.applyPrepared(reopened);expect(changed).toHaveBeenCalledTimes(1);
+  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toBe('after');
+  expect(()=>bridge.applyPrepared(reopened)).toThrow('already');
+  editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+ }finally{editor.destroy();}
+});
+it.each(['older','same-revision','foreign-save','changed-format','changed-text','readonly'] as const)(
+ 'refuses %s even when proposal recovery follows a save',async scenario=>{
+ const {editor,state,bridge}=setup();
+ try{
+  const captured=await bridge.capture();state.revision+=1;state.contentSha256=captured.basis.draft_sha256;
+  if(scenario==='older')state.revision=0;
+  if(scenario==='same-revision')state.revision=captured.basis.registry_revision;
+  if(scenario==='foreign-save')state.contentSha256='c'.repeat(64);
+  if(scenario==='changed-format')editor.commands.setContent('<p><strong>Edge</strong></p>');
+  if(scenario==='changed-text')editor.commands.insertContent('New writing');
+  if(scenario==='readonly')state.canEdit=false;
+  const before=editor.getJSON();await expect(bridge.restore(captured.basis)).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(before);
+ }finally{editor.destroy();}
+});

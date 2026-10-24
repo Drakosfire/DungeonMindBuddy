@@ -1,11 +1,11 @@
 # Current working draft as authored discussion context
 
-ACTIVE serial PRIME implementation, branch codex/build-working-draft-runtime,
-base f7c3670e6335fa6e299bebf19cd83bc8120f47b9, existing buddy-context-loop checkout.
-Adopts the independently Bugbot-reviewed design merged in #1689. One cumulative
-implementation PR; incomplete commits remain draft and do not authorize deployment.
-Fetched open lanes are disjoint. PRIME owns API8000/UI5202; preserve the deployed
-df2f6fed8 API/UI and all retained APP/native/source/editor state until review/delivery.
+SETTLED implementation #1690, merged 2db5a66d9908d26897f85e2569b45770572d57b0.
+Independent Bugbot approved exact head 200efb51a60ef747b2e89aec0798789269ac77a3.
+API/UI delivered together on 5202, APP0061/native0017; retained APP/native rows,
+frozen sources and mechanics artifacts were preserved. Read-only rendered inspection
+reopened the retained Build page, image and conversation. Live model quality and
+ordinary authoring acceptance remain open. No active write lease remains here.
 
 ## Observed problem and owning boundary
 At this base the browser already captures draft_markdown and exact editor/draft
