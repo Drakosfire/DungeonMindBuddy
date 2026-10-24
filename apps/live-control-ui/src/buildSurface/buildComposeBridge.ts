@@ -17,6 +17,7 @@ export interface PreparedBuildProposal {
   captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
 }
 export interface BuildComposeBridge {
+  captureContext: () => Promise<WorldBuildDraftSnapshotV1>;
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
@@ -75,6 +76,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    captureContext: () => captureBuildDraftSnapshot(getCurrent),
     async capture() {
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Save and open an editable Build page first.');

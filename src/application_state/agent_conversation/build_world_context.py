@@ -420,6 +420,8 @@ def scope_presentation(scope):
 
 def verify_named_input(packet, turn, trace):
     """Display names come from protected read captures, never writer or caller text."""
+    from .build_draft_context import resolve_body_aliases
+    packet = resolve_body_aliases(packet)
     execution = turn.graph_context_execution
     if packet.get("world_context_policy") != getattr(
         execution.policy, "world_context_policy", None

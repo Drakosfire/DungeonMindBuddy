@@ -313,7 +313,7 @@ class BuildJevDriver:
             aid = f"saved:{start}:{end}"
             action = ReadAction(
                 id=aid,
-                label=f"Saved Build source, lines {start}–{end}",
+                label=f"{'Saved version comparison' if adapter.request.build_draft_context is not None else 'Saved Build source'}, lines {start}–{end}",
                 kind="saved_build_section",
                 unit_ids=(aid,),
             )
@@ -813,7 +813,9 @@ class BuildJevDriver:
             state["working_draft_context"] = writer_reference(draft_record)
             state["interpretation"] += (
                 " Current working_draft_context is the authored page captured on Send, not saved or World evidence. "
-                "Use it as primary writing context; source evidence retains its own authority.")
+                "Use it as primary writing context; source evidence retains its own authority. "
+                "This draft is already available without a read. Saved-section actions are for an explicit "
+                "comparison with the saved version, not for reopening the current page.")
         accounting = getattr(a, "_build_jev_accounting", None)
         initial_accounting = (a.budget.get("buildJevActions") or {}).get("controller_initial_accounting")
         if initial_accounting is not None and (accounting is None or initial_accounting != accounting.descriptor):

@@ -839,8 +839,9 @@ export interface WorldPlayAgentTurnRequestV1 {
   message: string;
 }
 
-/** Build uses only a server-verified saved source, never browser Markdown. */
+/** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
+  build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
   build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;

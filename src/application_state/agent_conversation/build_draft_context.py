@@ -180,3 +180,38 @@ class DraftReferenceClaimV1(_Frozen):
     kind: Literal["draft_reference_claim"]
     text: str = Field(min_length=1)
     draft_record_id: UUID
+
+
+def pack_body_aliases(packet):
+    """Omit only byte-identical bodies; keep every authority/receipt selector."""
+    from copy import deepcopy
+    lane = packet.get("working_draft_context")
+    if not isinstance(lane, dict) or lane.get("policy") != POLICY:
+        raise ValueError("Draft aliases require their explicit authored context lane")
+    result = deepcopy(packet)
+    rows = [*result.get("opened_passages", []), *result.get("artifact_under_edit", {}).get("sections", [])]
+    for row in rows:
+        if isinstance(row, dict) and row.get("text") == lane.get("draft_markdown"):
+            row.pop("text")
+            row["text_ref"] = "working_draft_context"
+    return result
+
+
+def resolve_body_aliases(packet):
+    """Resolve exact carrier aliases before independent source-body comparison."""
+    from copy import deepcopy
+    rows = [*packet.get("opened_passages", []), *packet.get("artifact_under_edit", {}).get("sections", [])]
+    if not any(isinstance(row,dict) and "text_ref" in row for row in rows):
+        return packet
+    result = deepcopy(packet)
+    lane = result.get("working_draft_context")
+    rows = [*result.get("opened_passages", []), *result.get("artifact_under_edit", {}).get("sections", [])]
+    for row in rows:
+        if not isinstance(row, dict) or "text_ref" not in row:
+            continue
+        if ("text" in row or row["text_ref"] != "working_draft_context" or not isinstance(lane,dict)
+            or lane.get("policy") != POLICY or not isinstance(lane.get("draft_markdown"),str)):
+            raise ValueError("Source-body alias lacks its exact working-draft text")
+        row.pop("text_ref")
+        row["text"] = lane["draft_markdown"]
+    return result

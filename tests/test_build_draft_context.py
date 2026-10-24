@@ -96,8 +96,9 @@ def draft_build_case(tmp_path, monkeypatch, application_state_dsn):
     return build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
+@pytest.mark.parametrize("same_as_saved", [False,True,"world"])
 def test_actual_governed_turn_freezes_read_only_draft_with_request_identity(
-    draft_build_case, monkeypatch, tmp_path,
+    draft_build_case, monkeypatch, tmp_path, same_as_saved,
 ):
     from uuid import uuid4
     from application_state.agent_conversation import AgentConversationService, types as t
@@ -113,7 +114,7 @@ def test_actual_governed_turn_freezes_read_only_draft_with_request_identity(
     service = AgentConversationService()
     conversation = _new(service, "elderwyld")
     pointer = service.get_world_pointer("elderwyld")
-    text = "New unsaved prose not in the stored page."
+    text = "Frank believes the western gate is haunted." if same_as_saved=="world" else source.markdown if same_as_saved else "New unsaved prose not in the stored page."
     snap = BuildDraftSnapshotV1(world_id="elderwyld", document_id=source.record.document_id,
         registry_revision=source.loaded_revision, content_sha256=source.content_sha256,
         visibility="internal", draft_markdown=text, draft_sha256=sha256(text.encode()).hexdigest(),
@@ -130,7 +131,12 @@ def test_actual_governed_turn_freezes_read_only_draft_with_request_identity(
     import json
     packet = json.loads(json.loads(harness.writer_transport.calls[0].content)["input"])
     assert packet["working_draft_context"]["draft_markdown"] == text
-    assert json.dumps(packet, ensure_ascii=False).count(text) == 1
+    assert json.dumps(packet, ensure_ascii=False).count(json.dumps(text, ensure_ascii=False)[1:-1]) == 1
+    if same_as_saved is True:
+        assert any(row.get("text_ref")=="working_draft_context" and "text" not in row
+            for row in packet["artifact_under_edit"]["sections"])
+    if same_as_saved=="world":
+        assert any(row.get("text_ref")=="working_draft_context" for row in packet["opened_passages"])
     (turn,) = service.list_turns("elderwyld", conversation.conversation_id)
     events = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildDraftContextCapturedV1)]
     assert len(events) == 1
@@ -192,7 +198,8 @@ def test_actual_governed_turn_freezes_read_only_draft_with_request_identity(
     assert stale_failure.value.code == "build_editor_context_changed"
     assert stale_failure.value.provider_dispatched is False
     assert (len(harness.decision_transport.calls), len(harness.writer_transport.calls)) == before_calls
-    assert source.markdown != text
+    if same_as_saved is not True:
+        assert source.markdown != text
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
     assert get_workspace_document_snapshot(tmp_path, source.record.document_id).markdown == source.markdown
 
@@ -232,7 +239,8 @@ def test_draft_context_does_not_replace_the_existing_proposal_authority(draft_bu
         AgentTurnRequest.model_validate(payload)
 
 
-def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_build_case, monkeypatch, tmp_path):
+@pytest.mark.parametrize("invalid_reference", [False,True])
+def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_build_case, monkeypatch, tmp_path, invalid_reference):
     import json
     import httpx
     from application_state.agent_conversation import AgentConversationService, types as t
@@ -251,8 +259,8 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
             data = response.json()
             data["output"][0]["content"][0]["text"] = json.dumps({
                 "answer_context_status":"authored_grounded", "limitations":[], "requested_detail_gaps":[],
-                "answer_segments":[{"kind":"draft_reference_claim", "draft_record_id":lane["record_id"],
-                    "text":"Your current draft describes the orchid keepers' midnight lantern custom."}]})
+                "answer_segments":[{"kind":"draft_reference_claim", "draft_record_id":"00000000-0000-4000-8000-000000000000" if invalid_reference else lane["record_id"],
+                    "text":"Your current draft says: "+lane["draft_markdown"]}]})
             return httpx.Response(200, request=request, json=data)
 
     (source, request, bootstrap), reads = ordinary_case(draft_build_case, monkeypatch, authoring=True)
@@ -270,6 +278,18 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
     writer = DraftWriter()
     harness = BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),
         decision_transport=SelectionWire("empty"),writer_transport=writer)
+    if invalid_reference:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):
+            execute((source,request,bootstrap),tmp_path,harness)
+        service=AgentConversationService()
+        failed=service.list_turns("elderwyld",cap.conversation_id)[0]
+        assert failed.status=="interrupted" and failed.completion is None
+        traces=service.list_context_trace_attempts(world_id="elderwyld",turn_id=failed.turn_id)
+        raw=[m.get("text","") for trace in traces for o in trace.model_dump(mode="json",by_alias=True)["observations"]
+            if o["kind"]=="context_snapshot" for m in o.get("materials",[]) if m.get("role")=="assistant"]
+        assert any('00000000-0000-4000-8000-000000000000' in value for value in raw)
+        return
     response = execute((source,request,bootstrap),tmp_path,harness)
     completion = response.knowledge_context.completion
     assert isinstance(completion,t.BuildDraftContextCompletionV1)
@@ -284,11 +304,29 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
     assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown == source.markdown
 
+    # A new user turn captures newer prose without mutating the first turn's snapshot.
+    from uuid import uuid4
+    later_text=text+" The keepers now trade copper lanterns."
+    later_payload=request.model_dump(mode="json",by_alias=True)
+    later_payload["turn_id"]=str(uuid4())
+    later_payload["message"]="What does the newer draft say?"
+    later_payload["build_draft_context"]["snapshot"].update(draft_markdown=later_text,
+        draft_sha256=sha256(later_text.encode()).hexdigest(),draft_generation=2)
+    later_request=AgentTurnRequest.model_validate(later_payload)
+    later_runtime=BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),
+        decision_transport=SelectionWire("empty"),writer_transport=DraftWriter())
+    later=execute((source,later_request,bootstrap),tmp_path,later_runtime)
+    assert "trade copper lanterns" in later.answer.text
+    assert later.knowledge_context.completion.source_citations==[]
+    retained=AgentConversationService().list_turns("elderwyld",cap.conversation_id)
+    snapshots=[e.record.snapshot.draft_markdown for row in retained for e in row.graph_context_execution.events if isinstance(e,t.BuildDraftContextCapturedV1)]
+    assert set(snapshots)=={text,later_text}
+    assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==source.markdown
     from alembic import command
     from application_state.cli import alembic_config
     with pytest.raises(RuntimeError, match="retained working-draft"):
         command.downgrade(alembic_config(), "20261023_0060")
-    assert AgentConversationService().list_turns("elderwyld",cap.conversation_id)[0].completion == completion
+    assert any(row.completion==completion for row in AgentConversationService().list_turns("elderwyld",cap.conversation_id))
 
 
 def test_draft_answer_does_not_force_an_evidence_gap_into_a_creative_proposal():

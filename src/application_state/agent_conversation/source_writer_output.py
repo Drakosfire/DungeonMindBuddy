@@ -473,6 +473,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
 
     execution = turn.graph_context_execution
     receipt_sha = turn.graph_context_receipt.context_receipt_sha256
+    from .build_draft_context import resolve_body_aliases
+    packet = resolve_body_aliases(packet)
     if "requested_detail_gap_policy" in packet and packet.get("user_question") != turn.user_text:
         raise ValueError("Writer gap question differs from its exact original turn")
     candidate = normalize(raw_output, packet)

@@ -5,7 +5,7 @@ from pydantic import Field, model_validator
 from typing import Literal
 
 from .build_draft_context import (
-    _Frozen, DraftReferenceClaimV1, context_record, validate_writer_reference,
+    _Frozen, DraftReferenceClaimV1, context_record, validate_writer_reference, resolve_body_aliases,
 )
 from .source_writer_output import (
     PassageFact, SavedFact, Suggestion, RequestedDetailGap, strict_json, gap_messages,
@@ -55,7 +55,7 @@ def output_schema(packet):
     if not isinstance(lane, dict):
         raise ValueError("Draft output requires its captured working context")
     record_id = str(UUID(lane["record_id"]))
-    source_packet = {key: value for key, value in packet.items() if key != "working_draft_context"}
+    source_packet = {key: value for key, value in resolve_body_aliases(packet).items() if key != "working_draft_context"}
     source_schema = finite_output_schema(source_packet, requested_detail_gaps=True)
     schema = DraftWriterAnswerV1.model_json_schema()
     schema["$defs"]["DraftReferenceClaimV1"]["properties"]["draft_record_id"] = {
