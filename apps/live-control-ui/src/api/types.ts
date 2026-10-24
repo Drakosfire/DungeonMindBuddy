@@ -6059,3 +6059,18 @@ export interface ActionTerminalDiagnosticRead {
     };
   };
 }
+
+
+/** Exact authored working copy; carries no insertion or World evidence authority. */
+export interface WorldBuildDraftSnapshotV1 {
+  schema: 'dmb_build_draft_snapshot_v1';
+  world_id: string;
+  document_id: string;
+  registry_revision: number;
+  content_sha256: string;
+  visibility: 'internal' | 'player_safe';
+  draft_markdown: string;
+  draft_sha256: string;
+  editor_sha256: string;
+  draft_generation: number;
+}

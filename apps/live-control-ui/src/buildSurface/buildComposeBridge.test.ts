@@ -3,7 +3,7 @@ import { webcrypto } from 'node:crypto';
 import { describe,it,expect,vi } from 'vitest';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { createBuildComposeBridge,type BuildComposeEditorState } from './buildComposeBridge';
+import { captureBuildDraftSnapshot, createBuildComposeBridge,type BuildComposeEditorState } from './buildComposeBridge';
 import { mediaMarkdown } from '../media/mediaReferences';
 vi.stubGlobal('crypto',webcrypto);
 const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
@@ -249,4 +249,41 @@ it.each(['New wording','**New wording**'])('revises selected heading text inline
   if(markdown.startsWith('**'))expect(editor.state.doc.child(0).child(1).marks[0].type.name).toBe('bold');
   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
  }finally{editor.destroy();}
+});
+
+
+it('captures unsaved discussion context without write permission or a usable insertion target',async()=>{
+ const {editor,state}=setup();
+ try{
+  editor.commands.setContent('<h2>Unsaved orchid keepers</h2><p>A newer paragraph.</p>');
+  editor.commands.setTextSelection({from:1,to:8});state.canEdit=false;
+  const before=editor.getJSON();
+  const captured=await captureBuildDraftSnapshot(()=>state);
+  expect(captured.draft_markdown).toContain('Unsaved orchid keepers');
+  expect(captured.draft_markdown).toContain('A newer paragraph.');
+  expect(captured).not.toHaveProperty('caret');expect(captured).not.toHaveProperty('selection');
+  expect(captured).not.toHaveProperty('allowed_operations');
+  expect(editor.getJSON()).toEqual(before);
+  expect(Object.isFrozen(captured)).toBe(true);
+  editor.commands.insertContent('My next edit');state.draftGeneration++;
+  const next=await captureBuildDraftSnapshot(()=>state);
+  expect(next.draft_sha256).not.toBe(captured.draft_sha256);
+  expect(captured.draft_markdown).not.toContain('My next edit');
+ }finally{editor.destroy();}
+});
+
+it.each(['page','world','revision','generation','editor'])('rejects a changed %s during async draft capture',async changed=>{
+ const {editor,state}=setup();let replacement:Editor|undefined;
+ try{
+  const pending=captureBuildDraftSnapshot(()=>state);
+  if(changed==='page')state.documentId='other-page';
+  if(changed==='world')state.worldId='other-world';
+  if(changed==='revision')state.revision++;
+  if(changed==='generation')state.draftGeneration++;
+  if(changed==='editor'){
+   replacement=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:editor.getJSON()});
+   state.editor=replacement;
+  }
+  await expect(pending).rejects.toThrow('working draft was captured');
+ }finally{editor.destroy();replacement?.destroy();}
 });
