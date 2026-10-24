@@ -990,7 +990,6 @@
 }
 
 .world-plan-agent-conversation__turn-details,
-.world-plan-agent-conversation__earlier,
 .world-plan-agent-conversation__local-activity,
 .world-plan-agent-conversation__recovery-details {
   min-inline-size: 0;
@@ -1009,7 +1008,6 @@
 }
 
 .world-plan-agent-conversation__turn-details > summary,
-.world-plan-agent-conversation__earlier > summary,
 .world-plan-agent-conversation__local-activity > summary,
 .world-plan-agent-conversation__recovery-details > summary {
   width: fit-content;
@@ -1025,19 +1023,16 @@
   margin: 0.35rem 0 0;
 }
 
-.world-plan-agent-conversation__earlier,
 .world-plan-agent-conversation__local-activity,
 .world-plan-agent-conversation__recovery-details {
   padding-block-start: 0.45rem;
   border-block-start: 1px solid var(--ui-border-subtle, #343d4d);
 }
 
-.world-plan-agent-conversation__earlier > article,
 .world-plan-agent-conversation__local-activity > article {
   margin-block-start: 0.35rem;
 }
 
-.world-plan-agent-conversation__earlier > button,
 .world-plan-agent-conversation__recovery-details > button {
   margin-block-start: 0.4rem;
 }
@@ -1234,3 +1229,5 @@
 .conversation-recovery__retry { color:var(--ui-text-danger,#ffb6a6); display:inline-flex; align-items:center; justify-content:center; inline-size:2rem; block-size:2rem; padding:.3rem; border-radius:50%; vertical-align:middle; }
 .conversation-recovery__retry[aria-busy="true"] svg { opacity:.5; }
 .conversation-recovery__retry:focus-visible { outline:2px solid var(--ui-accent-action,#d9a441); outline-offset:2px; }
+
+.world-plan-agent-conversation__older-page { align-self: center; margin-block: .35rem .75rem; }

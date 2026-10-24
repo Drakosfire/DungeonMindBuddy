@@ -2482,7 +2482,7 @@ describe("World Plan conversation consumer", () => {
     view.unmount();
   });
 
-  it("keeps only the newest saved exchange in the reading path and folds prior turns", async () => {
+  it("shows all loaded exchanges in one continuous reading path", async () => {
     setupApi(history("conversation-a", 2, [
       makeTurn(1, "turn-1", "Earlier question", "Earlier answer"),
       makeTurn(2, "turn-2", "Latest question", "Latest answer"),
@@ -2492,10 +2492,9 @@ describe("World Plan conversation consumer", () => {
     const transcript = await screen.findByRole("region", { name: "World conversation transcript" });
     expect(within(transcript).getByText("Latest question")).toBeInTheDocument();
     expect(within(transcript).getByText("Latest answer")).toBeInTheDocument();
-    const earlier = within(transcript).getByText("Earlier conversation · 1").closest("details")!;
-    expect(earlier).not.toHaveAttribute("open");
-    expect(within(earlier).getByText("Earlier question")).toBeInTheDocument();
-    expect(within(earlier).getByText("Earlier answer")).toBeInTheDocument();
+    expect(within(transcript).getByText("Earlier question")).toBeVisible();
+    expect(within(transcript).getByText("Earlier answer")).toBeVisible();
+    expect(within(transcript).queryByText(/Earlier conversation/)).toBeNull();
   });
 
   it("accepts a question beyond the retired character allowance", async () => {
@@ -5202,11 +5201,9 @@ describe("World Plan conversation consumer", () => {
 
     mountComponent();
     expect(await screen.findByText("Newest question")).toBeInTheDocument();
-    const earlier = screen.getByText(/Earlier conversation/).closest("details")!;
-    fireEvent.click(earlier.querySelector("summary")!);
     expect(screen.getByText(/Historical surface: build/)).toBeInTheDocument();
 
-    fireEvent.click(within(earlier).getByRole("button", { name: "Load earlier messages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     expect(await screen.findByText("Oldest question")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Middle question")).toHaveLength(1));
     expect(api.historyCalls).toEqual([
@@ -5219,7 +5216,7 @@ describe("World Plan conversation consumer", () => {
     expect(renderedTurns).toEqual(["1", "2", "3"]);
   });
 
-  it("keeps the reader anchored when older turns are prepended inside the expanded history", async () => {
+  it("keeps the reader anchored when older turns are prepended to the continuous transcript", async () => {
     const api = setupApi(history("conversation-a", 5, [
       makeTurn(2, "turn-2", "Middle question", "Middle answer"),
       makeTurn(3, "turn-3", "Newest question", "Newest answer", "build"),
@@ -5251,12 +5248,10 @@ describe("World Plan conversation consumer", () => {
       presentationHosts: { header: null, context: null, messages: messageHost, composer: null },
     }));
     expect(await screen.findByText("Newest question")).toBeInTheDocument();
-    const earlier = screen.getByText(/Earlier conversation/).closest("details")!;
-    fireEvent.click(earlier.querySelector("summary")!);
     viewport.scrollTop = 40;
     const beforeScrollHeight = viewport.scrollHeight;
 
-    fireEvent.click(within(earlier).getByRole("button", { name: "Load earlier messages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     expect(await screen.findByText("Oldest question")).toBeInTheDocument();
     const addedHeight = viewport.scrollHeight - beforeScrollHeight;
     expect(addedHeight).toBe(80);
@@ -5650,9 +5645,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(messageBox, { target: { value: "What follows the opening now?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText("The saved Plan discussion continues after the proposals.")).toBeInTheDocument();
-    const earlier = screen.getByText(/Earlier conversation/).closest("details")!;
-    fireEvent.click(earlier.querySelector("summary")!);
-    fireEvent.click(within(earlier).getByRole("button", { name: "Load earlier messages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     expect(await screen.findByText("What is in the opening?")).toBeInTheDocument();
 
     const transcriptArticles = Array.from(screen.getByRole("region", { name: "World conversation transcript" }).querySelectorAll("article"));
@@ -5670,9 +5663,7 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     mountComponent(7, bridge);
     expect(await screen.findByText("The saved Plan discussion continues after the proposals.")).toBeInTheDocument();
-    const earlierAfterReload = screen.getByText(/Earlier conversation/).closest("details")!;
-    fireEvent.click(earlierAfterReload.querySelector("summary")!);
-    fireEvent.click(within(earlierAfterReload).getByRole("button", { name: "Load earlier messages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     expect(await screen.findByText("What is in the opening?")).toBeInTheDocument();
     const reloadedArticles = Array.from(screen.getByRole("region", { name: "World conversation transcript" }).querySelectorAll("article"));
     expect(reloadedArticles.map((article) => article.hasAttribute("data-sequence")

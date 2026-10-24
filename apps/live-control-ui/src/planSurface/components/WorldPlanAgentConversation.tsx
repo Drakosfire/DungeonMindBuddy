@@ -4053,7 +4053,7 @@ export function WorldPlanAgentConversation({
         next_before_sequence: page.next_before_sequence,
       };
       historySnapshotRef.current = merged;
-      const viewport = presentationHosts?.messages?.parentElement;
+      const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
       if (viewport) {
         olderPageScrollAnchorRef.current = {
           viewport,
@@ -5670,8 +5670,6 @@ export function WorldPlanAgentConversation({
       })),
     ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
   ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);
-  const latestConversationEvent = displayedConversation.at(-1)?.element ?? null;
-  const earlierConversationEvents = displayedConversation.slice(0, -1);
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
   const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
@@ -6086,22 +6084,12 @@ export function WorldPlanAgentConversation({
             <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
           </div>
         ) : null}
-        {earlierConversationEvents.length ? (
-          <details className="world-plan-agent-conversation__earlier">
-            <summary>Earlier conversation · {earlierConversationEvents.length}</summary>
-            {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
-                {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
-              </button>
-            ) : null}
-            {earlierConversationEvents.map(item => item.element)}
-          </details>
-        ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-          <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+        {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+          <button type="button" className="world-plan-agent-conversation__older-page" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent}
+        {displayedConversation.map(item => item.element)}
         {playMode ? playCompose.review : null}
         {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
