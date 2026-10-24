@@ -1,6 +1,6 @@
 # Original Build proposal anchor
 
-ACTIVE serial PRIME slice, base af77b2984f1c9444bdd4322d4156eeacfad86fec,
+SETTLED serial PRIME slice, base af77b2984f1c9444bdd4322d4156eeacfad86fec,
 branch codex/build-original-proposal-anchor; reuse buddy-context-loop. The operator
 has authorized page-centered authoring. PRIME owns implementation and delivery;
 independent Bugbot reviews the exact cumulative head. Relevant open PRs do not
@@ -47,3 +47,9 @@ no generation. Typecheck/build and independent Bugbot. Protected API/UI adoption
 preserves retained stores. Ordinary synthetic proposal reopen/insertion/Undo
 proof without changing the operator's page. Settle predecessor only from actual
 merged and live evidence.
+
+Merged15919026f23a66848a2083fe70c2b342e88ef901 after independent Bugbot
+approval of ebfef008ee57f1782fc1b2315041d3230ccbbe6b. Protected paired
+delivery preserved retained state. Ordinary proposal reload, caret movement,
+original-end insertion and one Undo passed; synthetic source bytes restored.
+Existing Build autosave was observed and remains owned by the editor workflow.

@@ -1965,3 +1965,7 @@ def report_build_document_proposal_inserted(world_id: str, action_id: UUID, requ
         return {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().report_inserted(verified, action_id, expected_revision=expected_revision))}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_insert_status_unavailable"}) from exc
+
+# Review is a separate owner from immutable generated proposal/provider evidence.
+from .build_proposal_reviews import router as build_proposal_review_router
+router.include_router(build_proposal_review_router)

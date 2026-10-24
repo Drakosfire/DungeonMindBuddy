@@ -7,7 +7,7 @@ import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/sem
 
 /** Generated content is inert Markdown. Existing document identities remain untouched. */
 export function admitMarkdownInsertion(markdown: string): { content: JSONContent[]; markdown: string } {
-  if (!markdown.trim() || markdown.length > 12000
+  if (!markdown.trim()
     || /<\/?[A-Za-z][^>]*>|<!--[\s\S]*?-->|dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+/i.test(markdown)
     || /^---\s*$/m.test(markdown)
     || /\[[^\]]*\]\((?:file:|\.{1,2}\/|\/)/i.test(markdown)) {
@@ -42,6 +42,17 @@ export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number, co
     || !Number.isInteger(caret) || caret < 0 || caret > editor.state.doc.content.size) {
     throw new Error('The page or original insertion point changed. Ask again before inserting.');
   }
+  const result = prepareReviewedMarkdownAtAnchor(editor, caret, content, expectedJson);
+  editor.view.dispatch(closeHistory(editor.state.tr));
+  if (!editor.commands.insertContentAt(caret, content)) throw new Error('The editor could not insert this proposal.');
+  if (JSON.stringify(editor.getJSON()) !== JSON.stringify(result)) throw new Error('The insertion result needs inspection before continuing.');
+}
+
+export function prepareReviewedMarkdownAtAnchor(editor: Editor, caret: number, content: JSONContent[], expectedJson: string): JSONContent {
+  if (editor.isDestroyed || JSON.stringify(editor.getJSON()) !== expectedJson
+    || !Number.isInteger(caret) || caret < 0 || caret > editor.state.doc.content.size) {
+    throw new Error('The page or original insertion point changed.');
+  }
   const simulated = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: editor.getJSON() });
   try {
     if (!simulated.commands.insertContentAt(caret, content)) throw new Error('Cannot insert at this position.');
@@ -53,7 +64,6 @@ export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number, co
       || tiptapJsonToSemanticMarkdown(reopened.doc) !== markdown) {
       throw new Error('Inserting here would prevent the page from saving safely.');
     }
+    return result;
   } finally { simulated.destroy(); }
-  editor.view.dispatch(closeHistory(editor.state.tr));
-  if (!editor.commands.insertContentAt(caret, content)) throw new Error('The editor could not insert this proposal.');
 }
