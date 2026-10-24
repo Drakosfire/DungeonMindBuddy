@@ -1,7 +1,11 @@
 # Build named source citations
 
-ACTIVE serial PRIME slice on codex/build-named-citations, based on
-origin/main a0437bc0de5b7659ff74d4a56803dbf4b2309864. Reuse buddy-context-loop;
+SETTLED predecessor: PR1671 merged as1dfbc8dfb09e769019b24458b14f64aa44039ced.
+Exact cumulative Bugbot approval at174696ab227c56a465192bd507541b1cbac49a3b;
+protected APP0058/API/UI delivery and ordinary fresh named citation tooltip,
+passage open and reload/reopen passed without source changes. Response repetition
+and equivalent anchor exposure remain open. Original serial PRIME slice was based
+on a0437bc0de5b7659ff74d4a56803dbf4b2309864. Reuse buddy-context-loop;
 no other open product implementation lane overlaps these paths. Existing API8000
 and UI5202 remain owned by PRIME; retained database/corpus/drafts are protected.
 Operator goal authorizes named citations and continuing evidence foundations.

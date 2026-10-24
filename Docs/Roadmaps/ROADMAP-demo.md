@@ -1,32 +1,39 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-23.
-**Evidence anchor:** remote main/UI `4d0344c12636ca60e8647c1830db752ddccd9070`
-(#1670), API `a0437bc0de5b7659ff74d4a56803dbf4b2309864` (#1669), ports8000/5202,
-APP0057/native0017, Core617635c.
+**Evidence anchor:** remote main/API/UI `1dfbc8dfb09e769019b24458b14f64aa44039ced`
+(#1671), ports8000/5202, APP0058/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
 
 Deliver a dependable local Build→Plan→Play→Combat→memory loop on5202, using
 shared Surface components, exact source/mechanics identities and recoverable
-user work. The operator's2026-10-22 refinement selects this next milestone:
+user work. The operator's2026-10-23 refinement prioritizes ordinary authoring:
 
-**Open the scene → open its encounter → revise an enemy and save a new version
-→ explicitly use that version in this encounter → run it in Play → reload and resume.**
+**Discuss the current page → request a draft or revision → see it staged at the
+intended page location → edit, keep or discard it → save → reload and continue.**
 
-Use Of Conks and Cons for the first connected witness and A Wild Sheep Chase
-for generality. This changes the next execution priority; it does not award or
-remove unfinished grounding/image, memory, J1–J6, performance or operator acceptance.
-The bounded design is [scene/encounter/mechanics revision](../Plans/HANDOFF-COMBAT-scene-encounter-revision.md).
-No new implementation lease or historical prototype activation is inferred from
-this roadmap. Detailed chronology and superseded checkpoints remain in Git/PRs.
+The authored working page is primary context; retrieved World evidence and played
+facts retain separate authority. Page results belong in a shared on-page proposal
+host; conversation carries concise discussion/acknowledgments and compact named
+citations. Floating conversation design follows that ownership. Preserve original
+provider output and independently recover edited proposal/review state. Never
+silently substitute a discussion answer when a requested page operation is blocked.
+The current prerequisite slice is [explicit placement failure](../Plans/HANDOFF-BUILD-explicit-placement-failure.md).
+Shared staged proposal/anchor/review persistence remains subsequent design work.
+
+Preserve and verify the shipped scene→encounter→immutable mechanics successor→
+explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep
+Chase for generality; full journeys remain unaccepted. This priority update does
+not remove unfinished grounding/image, memory, repeated J1–J6, performance or
+operator acceptance. Detailed chronology remains in Git/PRs.
 
 ## Current-state assessment
 
 | Goal area | Delivered or directly witnessed | Still open |
 |---|---|---|
-| Plan discovery and conversation | #1663 requested-detail relevance is merged/API-delivered; repeated ordinary grounding still leaves attribution and creative-framing quality open. #1664/#1665 retain exact acquired authored page context independently of evidence relevance, narrow writer status truthfully and capture actual output before terminal checks; ordinary saved-page discussion and reload passed. #1666 keeps drafting available during pending recovery and hides readiness under options. #1667 classifies unadmitted stale editor context; #1668 fixes empty optional Rules choices. Ordinary exact Retry now produces a retained reviewable proposal without changing its source. #1670 settles confirmed requests removed by another tab; ordinary two-tab completion preserves the next draft and unlocks Send. #1669 adds governed related World retrieval within the existing Build machine, preserving authored page context; ordinary synthetic two-source answer, citation reopening and reload passed. Named Build citation presentation is the active bounded successor; source alias exposure deduplication and private-page discussion remain open.  #1661 repairs rejected valid Build discussion routing; #1662 shared terminal-question restoration, compact resize and local configuration readiness passed ordinary checks without touching the active user draft. Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
+| Plan discovery and conversation | #1663 requested-detail relevance is merged/API-delivered; repeated ordinary grounding still leaves attribution and creative-framing quality open. #1664/#1665 retain exact acquired authored page context independently of evidence relevance, narrow writer status truthfully and capture actual output before terminal checks; ordinary saved-page discussion and reload passed. #1666 keeps drafting available during pending recovery and hides readiness under options. #1667 classifies unadmitted stale editor context; #1668 fixes empty optional Rules choices. Ordinary exact Retry now produces a retained reviewable proposal without changing its source. #1670 settles confirmed requests removed by another tab; ordinary two-tab completion preserves the next draft and unlocks Send. #1669 adds governed related World retrieval within the existing Build machine, preserving authored page context; ordinary synthetic two-source answer, citation reopening and reload passed. #1671 delivers verified Build source names through the shared citation tooltip/open/reload path. Explicit placement-preparation failure is the active authoring prerequisite; shared on-page staging, source alias exposure deduplication and current-draft discussion remain open.  #1661 repairs rejected valid Build discussion routing; #1662 shared terminal-question restoration, compact resize and local configuration readiness passed ordinary checks without touching the active user draft. Root inventory/composer/recovery repairs; ordinary Elderwyld selector opens Session29 and survives reload; named citations, exact lazy Debug prompts and actual per-call usage | Representative fresh multi-turn quality and original swamp/Edge repeated roughly10-second acceptance |
 | Evidence efficiency and exact excerpts | Retained-source reuse; #1640–#1643 exact native source navigation and acquisition progress; #1644 request-local authored selectors with canonical saved excerpts. Original swamp queries completed in13.4s/14.8s; #1647 shared registered naming measured10.26s/12.36s with named exact citations. #1648 removes ineligible catalog calls; repeated13.43s/12.10s runs still make4 decisions with peripheral entity exploration; named sources and exact session review reopened after reload. #1649 guidance and #1652 typed entity navigation are merged/API-delivered. Authorized original-query repeats completed in10.85s/11.78s before types; afterward12.58s completed and17.07s interrupted. Types reach actual requests, but an incidental entity is still read; #1653 now retains failed writer text and rejecting phase in Debug; an ordinary10.82s interruption exposed an empty support list, correctly refused. Strict finite current writer output shipped #1654 with unchanged host truth checks. #1660 claim-local attribution guidance is present in actual captured requests; original repeats14.20s/12.57s remain above target. Exact citation inspection found a passage claim borrowing a Graph-only detail; its subsequent repeat used the Graph record correctly. Quality acceptance remains open. Fresh original14.51s completed; follow-up image prompt7.09s completed with6 source reuses and exact Debug schema inspected. Prompt staged in Image Studio; real generation remains unproved. No speed/quality acceptance claim | Repeated roughly10-second quality/latency acceptance, remaining unavailable reads and complete image journey |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
 | Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witnesses passed twice (second Run preserved through navigation/reload/API restart; original versions/template/prior fight isolated). Sheep successor/adoption passed; save→Start canonical-byte correction shipped #1645. Sheep connected rehearsal passed once through restart and closing reflections; full repeated journey remains open |

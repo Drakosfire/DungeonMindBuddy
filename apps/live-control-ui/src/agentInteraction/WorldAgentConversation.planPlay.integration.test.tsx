@@ -1,3 +1,4 @@
+import type { BuildComposeBridge, CapturedBuildInsertion } from "../buildSurface/buildComposeBridge";
 import { nativePlayContextFixture, nativePlayProvenanceFixture, nativePlayRequestFixture, nativePlaySourceFixture } from '../test/nativePlayContextFixture';
 import { rulesAnswerFixture, rulesUnclaimedFixture, fixtureHash } from '../test/rulesAnswerFixture';
 import { rulesCanonical } from '../rulesLookup/rulesEvidence';
@@ -130,18 +131,18 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
 }
-function BuildPublisher({ admitted }: { admitted: boolean }) {
+function BuildPublisher({ admitted, bridge, sourceRevision = 2 }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number }) {
   const surface = useMemo(() => ({ surfaceId: "build" as const, label: "Build", campaignId: null,
     documentId: "source-one", sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), []);
-  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: 2,
-    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted]);
+  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: sourceRevision,
+    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision]);
   usePublishAgentSurfaceContext(surface);
   return <DocumentConversationDock surface="build" contextLabel="City of Mirathorn" reader={<div>Build source projection</div>}>
-    {hosts => <BuildHarnessBinding source={source} hosts={hosts} />}
+    {hosts => <BuildHarnessBinding source={source} hosts={hosts} bridge={bridge} />}
   </DocumentConversationDock>;
 }
-function BuildHarnessBinding({source, hosts}: {source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts}) {
-  usePublishWorldBuildConversation(source, hosts);
+function BuildHarnessBinding({source, hosts, bridge}: {source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; bridge?: BuildComposeBridge | null}) {
+  usePublishWorldBuildConversation(source, hosts, bridge);
   return null;
 }
 function ProposalFixture() {
@@ -172,8 +173,8 @@ function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: Play
   return <SurfaceContextProvider><PlaySessionContentEditor content={accepted} currentSceneId="scene:gate" runRevision={3}
     canPropose={allowed} originLabel="From Plan" onAcceptedContent={setAccepted} onUnsubmittedChange={onUnsubmitted} /></SurfaceContextProvider>;
 }
-function Harness({ initial = "plan", admitted = true, editBridge = null, editContent }: {
-  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent;
+function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision }: {
+  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
@@ -186,7 +187,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null, editCon
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
       {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
@@ -436,6 +437,12 @@ async function buildGraphContext(): Promise<WorldBuildKnowledgeContextV1> {
   };
 }
 
+
+function insertionCapture(): CapturedBuildInsertion {
+  return {editor:{} as CapturedBuildInsertion['editor'], editorJson:'{}', draftMarkdown:'# Unsaved page',
+    basis:{world_id:WORLD,document_id:'source-one',registry_revision:2,content_sha256:SHA,
+      visibility:'internal',draft_sha256:SHA,caret:1,draft_generation:0,selection_generation:0}};
+}
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -456,6 +463,69 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it.each(['rejected','undefined'] as const)('preserves a Build placement request before dispatch when capture is %s',async mode=>{
+    const capture=vi.fn(async()=>{throw new Error('Place the caret where the new text should go.');});
+    const bridge:BuildComposeBridge={capture,insert:vi.fn()};
+    if(mode==='undefined')vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),conversation_state:"absent",conversation_id:null,active_conversation_id:null,pointer_revision:0});
+    render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(()=>expect(input).toBeEnabled());
+    const message='Draft a section about Culture — keep the author’s wording.';
+    fireEvent.change(input,{target:{value:message}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await screen.findByRole('region',{name:'Page proposal unavailable'});
+    expect(input).toHaveValue(message);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(Object.keys(localStorage).filter(k=>k.startsWith('dmb:world-play-pending-turn:'))).toEqual([]);
+    expect(bridge.insert).not.toHaveBeenCalled();
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    fireEvent.click(screen.getByRole('button',{name:'Send as discussion',exact:true}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
+    expect(request.message).toBe(message);
+    expect(request).not.toHaveProperty('build_write_capability');
+    expect(bridge.insert).not.toHaveBeenCalled();
+  });
+
+  it.each(['message','source','bridge'] as const)('does not reuse a failed placement choice after the %s changes',async change=>{
+    let reject!:(reason:Error)=>void;
+    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise((_,fail)=>{reject=fail;})),insert:vi.fn()};
+    const view=render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Draft Culture'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
+    if(change==='message')fireEvent.change(input,{target:{value:'Keep this newer question'}});
+    else if(change==='source')view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+    else view.rerender(<Harness initial="build" buildBridge={{capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
+    await act(async()=>{reject(new Error('Old insertion point unavailable'));});
+    expect(screen.queryByRole('region',{name:'Page proposal unavailable'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Send as discussion'})).not.toBeInTheDocument();
+    expect(input).toHaveValue(change==='message'?'Keep this newer question':'Draft Culture');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it('prepares a fresh Build capability after the author corrects placement',async()=>{
+    const capture=vi.fn().mockRejectedValueOnce(new Error('Select an insertion point')).mockResolvedValueOnce(insertionCapture());
+    const bridge:BuildComposeBridge={capture,insert:vi.fn()};
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Draft Culture'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await screen.findByRole('region',{name:'Page proposal unavailable'});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0].build_write_capability?.draft_markdown).toBe('# Unsaved page');
+    expect(bridge.capture).toHaveBeenCalledTimes(2);
+    expect(bridge.insert).not.toHaveBeenCalled();
+  });
   it.each(["plan", "play", "build"] as const)("loads %s history only on opening Buddy and refreshes on reopening", async initial => {
     render(<Harness initial={initial} />);
     const open = await screen.findByRole("button", { name: "Open", exact: true });
