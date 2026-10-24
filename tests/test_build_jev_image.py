@@ -84,7 +84,7 @@ class ImageWire(httpx.AsyncBaseTransport):
         )
 
 
-def setup(build_case, monkeypatch, **wire_options):
+def setup(build_case, monkeypatch, *, world_context=False, **wire_options):
     case, reads = ordinary_case(build_case, monkeypatch, authoring=True)
     source, request, bootstrap = case
     request = request.model_copy(
@@ -96,6 +96,7 @@ def setup(build_case, monkeypatch, **wire_options):
     decision = DecisionWire(operation="prepare_build_image")
     wire = ImageWire(**wire_options)
     runtime = BuildJevHarness(
+        world_context=world_context,
         decision_transport=decision,
         writer_transport=wire,
         accounting=ExperimentalAccounting(
@@ -105,12 +106,15 @@ def setup(build_case, monkeypatch, **wire_options):
     return (source, request, bootstrap), reads, runtime, decision, wire
 
 
+@pytest.mark.parametrize("world_context", [False, True])
 @pytest.mark.parametrize("long_instruction", [False, True])
 @pytest.mark.parametrize("purpose", ["map", "illustration"])
 def test_image_operation_prepares_one_writer_and_reopens_without_generation(
-    build_case, monkeypatch, tmp_path, purpose, long_instruction
+    build_case, monkeypatch, tmp_path, purpose, long_instruction, world_context
 ):
-    case, reads, runtime, decisions, wire = setup(build_case, monkeypatch, purpose=purpose)
+    case, reads, runtime, decisions, wire = setup(
+        build_case, monkeypatch, purpose=purpose, world_context=world_context
+    )
     if long_instruction:
         source, request, bootstrap = case
         case = (source, request.model_copy(update={"message": request.message * 70}), bootstrap)

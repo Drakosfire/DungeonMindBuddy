@@ -462,6 +462,11 @@ def source_projection(
                     ).encode()
                 ).hexdigest()[:24]
             )
+            if getattr(execution.policy, "world_context_policy", None) is not None:
+                name = body.get("sourceName")
+                if name is not None and (not isinstance(name, str) or not name.strip()):
+                    raise ValueError("Invalid source owner display name")
+                passage["source_name"] = name
             if handle in passages and passages[handle] != passage:
                 raise ValueError("Source passage handle collision")
             passages[handle] = passage
@@ -490,6 +495,8 @@ def source_projection(
         packet["exposure"]["saved_sections"] = []
         if getattr(execution.policy, "writer_status_policy", None) is not None:
             packet["writer_status_policy"] = execution.policy.writer_status_policy
+    if getattr(execution.policy, "world_context_policy", None) is not None:
+        packet["world_context_policy"] = execution.policy.world_context_policy
     return WriterProjection(
         json.dumps(
             packet,

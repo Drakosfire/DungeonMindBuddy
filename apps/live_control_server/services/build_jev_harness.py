@@ -53,7 +53,8 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False):
+        self.world_context = world_context
         self.accounting = accounting
         self.rules_capability = rules_capability
         self.decision_transport, self.writer_transport = (
@@ -65,7 +66,7 @@ class BuildJevHarness:
         raise ValueError("Jev requires the trusted Buddy parent adapter")
 
     @staticmethod
-    def budget(request, *, accounting=None):
+    def budget(request, *, accounting=None, world_context=False):
         budget = decision_policy.request_budget()
         cap = request.build_write_capability
         from .build_initial_packet_codec import CODEC
@@ -109,10 +110,15 @@ class BuildJevHarness:
             from .build_image_writer import POLICY as IMAGE_POLICY
             budget["buildJevActions"]["image_preparation_policy"] = IMAGE_POLICY
             budget["buildJevActions"]["allowed_surface_operations"] = ["answer_from_sources", "prepare_build_image", "propose_build_insertion"]
+        if world_context:
+            if accounting is None:
+                raise ValueError("World context requires the prepared current Build runtime")
+            from application_state.agent_conversation.build_world_context import POLICY as WORLD_POLICY
+            budget["buildJevActions"]["world_context_policy"] = WORLD_POLICY
         return budget
 
     def configured_budget(self, request):
-        return self.budget(request, accounting=self.accounting)
+        return self.budget(request, accounting=self.accounting, world_context=self.world_context)
 
     def execute_response(self, adapter, *, owner, trace):
         from .agent_turn_service import (
@@ -388,14 +394,20 @@ class BuildJevHarness:
 
     @staticmethod
     def _acquire(adapter, driver):
+        from .build_jev_transitions import WorldReadAction
+        actions = [a for a in driver.step.actions if isinstance(a, WorldReadAction)]
+        world_bindings = driver._world.acquire(actions) if actions else {}
         with adapter.build_native_acquisition(driver):
-            return BuildJevHarness._acquire_in_wave(adapter, driver)
+            return BuildJevHarness._acquire_in_wave(adapter, driver, world_bindings)
 
     @staticmethod
-    def _acquire_in_wave(adapter, driver):
-        bindings, graph_reads = {}, {}
+    def _acquire_in_wave(adapter, driver, world_bindings=None):
+        from .build_jev_transitions import WorldReadAction
+        bindings, graph_reads = dict(world_bindings or {}), {}
         needed = set()
         for action in driver.step.actions:
+            if isinstance(action, WorldReadAction):
+                continue
             args = driver.action_arguments(action.id)
             if action.kind == "saved_build_section":
                 event = json.loads(adapter.read_build_section(**args))

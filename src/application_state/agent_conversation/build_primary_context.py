@@ -116,6 +116,8 @@ def validate_packet(packet, execution, basis):
     status_policy = getattr(execution.policy, "writer_status_policy", None)
     if packet.get("writer_status_policy") != status_policy:
         raise ValueError("Writer status capability differs from frozen policy")
+    if packet.get("world_context_policy") != getattr(execution.policy, "world_context_policy", None):
+        raise ValueError("World context capability differs from frozen policy")
     selected = packet.get("exposure", {}).get("saved_sections", [])
     if not enabled(execution.policy):
         if "artifact_under_edit" in packet or packet.get("schema") == SCHEMA:

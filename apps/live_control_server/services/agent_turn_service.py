@@ -1280,6 +1280,10 @@ def _freeze_policy_receipt(
                 policy_class = (graph_types.BuildPrimaryWorkStatusImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildPrimaryWorkStatusPolicyV1)
+            if (budget.get("buildJevActions") or {}).get("world_context_policy") is not None:
+                policy_class = (graph_types.BuildWorldContextImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildWorldContextPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2371,7 +2375,8 @@ class _PolicyExecutionAdapter:
         expected_budget = request_budget()
         if self.budget.get("buildJevActions") is not None:
             from .build_jev_harness import BuildJevHarness
-            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None))
+            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None),
+                world_context=getattr(self._broker_execution().policy, "world_context_policy", None) == "build_world_opened_source_context_v1")
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()
@@ -2829,13 +2834,13 @@ class _PolicyExecutionAdapter:
         scope = self.bootstrap.world_scope
         from .build_jev_transitions import SourceScope
         if (not source or source.get("status") not in {"complete", "partial"}
-                or not isinstance(driver._scope, SourceScope)
+                or not isinstance(driver._primary_scope, SourceScope)
                 or source.get("world_id") != scope.world_id
                 or source.get("graph_revision") != scope.revision_id
-                or source.get("source_artifact_id") != driver._scope.source_artifact_id
-                or source.get("source_revision_id") != driver._scope.source_revision_id
-                or scope.world_id != driver._scope.world_id
-                or scope.revision_id != driver._scope.graph_revision):
+                or source.get("source_artifact_id") != driver._primary_scope.source_artifact_id
+                or source.get("source_revision_id") != driver._primary_scope.source_revision_id
+                or scope.world_id != driver._primary_scope.world_id
+                or scope.revision_id != driver._primary_scope.graph_revision):
             raise ValueError("native acquisition source scope differs")
         request = WorldGraphObservationSelectionRequest.model_validate({
             "schema": "dmb_world_graph_observation_selection_v1",
@@ -3003,6 +3008,18 @@ class _PolicyExecutionAdapter:
                         raise ValueError("Plan decision does not authorize this Graph operation")
                 except ValueError:
                     return denied("plan_jev_acquisition_not_current", 409)
+            if (getattr(execution.policy, "world_context_policy", None)
+                    == "build_world_opened_source_context_v1"
+                    and request.operation != "observations"):
+                if self.failure is not None:
+                    return denied("build_world_acquisition_not_current", 409)
+                from application_state.agent_conversation.build_world_context import authorize_world_operation
+                try:
+                    authorize_world_operation(
+                        self.fence.turn, self.last_provider_attempt_id, normalized,
+                    )
+                except ValueError:
+                    return denied("build_world_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
             if request.retrieval_session_id != session.id or (
                 request.historical_revision_id is not None

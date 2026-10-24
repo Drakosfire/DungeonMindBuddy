@@ -2626,6 +2626,14 @@ class BuildPrimaryWorkStatusImagePolicyV1(BuildPrimaryWorkImagePolicyV1):
     writer_status_policy: Literal["host_retrieval_status_finite_output_v1"]
 
 
+class BuildWorldContextPolicyV1(BuildPrimaryWorkStatusPolicyV1):
+    world_context_policy: Literal["build_world_opened_source_context_v1"]
+
+
+class BuildWorldContextImagePolicyV1(BuildPrimaryWorkStatusImagePolicyV1):
+    world_context_policy: Literal["build_world_opened_source_context_v1"]
+
+
 class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
     evidence_codec: Literal["contained_passage_slices_v1"]
 
@@ -3604,7 +3612,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
-                BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+                BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
@@ -3846,6 +3854,25 @@ class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildWorldActionTargetV1(StrictModel):
+    action_id: str = Field(min_length=1)
+    operation: Literal["search", "object"]
+    node_id: str | None
+    request_arguments_sha256: Digest
+
+
+class BuildWorldReadSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_world_read_selected_v1"]
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    machine_request_id: str = Field(min_length=1)
+    scope_sha256: Digest
+    actions: list[BuildWorldActionTargetV1] = Field(min_length=1)
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
@@ -3853,7 +3880,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
@@ -3865,7 +3892,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3979,6 +4006,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         validate_build_section_inclusions(self)
         from .plan_jev_decision import validate_decision_phases
         validate_decision_phases(self)
+        from .build_world_context import validate_world_events
+        validate_world_events(self)
         return self
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:

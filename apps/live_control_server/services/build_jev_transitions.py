@@ -15,6 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .build_jev_accounting import ExperimentalAccounting
 from .build_jev_dispatch import MODEL, PHASE_POLICY
+from application_state.agent_conversation.build_world_context import (
+    BuildContextScope, SourceOrigin, PrimarySectionOrigin, PrimaryObservationOrigin, WorldPassageOrigin, scope_presentation,
+)
 
 
 class _Frozen(BaseModel):
@@ -45,6 +48,16 @@ class ReadAction(_Frozen):
     label: str = Field(min_length=1)
     kind: Literal["graph_observations", "saved_build_section"]
     unit_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class WorldReadAction(_Frozen):
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    kind: Literal["world_search", "world_object"]
+    unit_ids: tuple[str, ...] = ()
+
+
+Action = ReadAction | WorldReadAction
 
 
 class OpenedPassage(_Frozen):
@@ -81,6 +94,28 @@ class AcquiredEvidence(_Frozen):
         return self
 
 
+class ContextEvidence(AcquiredEvidence):
+    scope: BuildContextScope
+    origin: SourceOrigin
+    source_class: Literal["saved_build_world_reference", "admitted_graph_observation_and_opened_passages", "opened_world_source_passage"]
+
+    @model_validator(mode="after")
+    def graph_evidence_requires_admitted_source(self):
+        expected = {"saved_build_world_reference": PrimarySectionOrigin,
+                    "admitted_graph_observation_and_opened_passages": PrimaryObservationOrigin,
+                    "opened_world_source_passage": WorldPassageOrigin}
+        if not isinstance(self.origin, expected[self.source_class]):
+            raise ValueError("Build context source class differs from its explicit origin")
+        if isinstance(self.origin, (PrimarySectionOrigin, PrimaryObservationOrigin)) and self.origin.source_basis != self.scope.primary_basis:
+            raise ValueError("Primary context origin differs from current saved basis")
+        if isinstance(self.origin, WorldPassageOrigin) and self.origin.content_sha256 != self.content_sha256:
+            raise ValueError("World passage origin differs from exact acquired bytes")
+        return self
+
+
+Evidence = ContextEvidence | AcquiredEvidence
+
+
 class DecisionQuestion(_Frozen):
     name: str
     kind: Literal["binary", "choice"]
@@ -99,7 +134,7 @@ class DecisionIntent(_Frozen):
 
 class AcquisitionIntent(_Frozen):
     kind: Literal["acquire"] = "acquire"
-    actions: tuple[ReadAction, ...]
+    actions: tuple[Action, ...]
 
 
 class Disposition(_Frozen):
@@ -111,7 +146,7 @@ class Disposition(_Frozen):
         "refused",
     ]
     reason: str
-    evidence: tuple[AcquiredEvidence, ...]
+    evidence: tuple[Evidence, ...]
     relevant_ids: tuple[str, ...]
     acquired_action_ids: tuple[str, ...]
     excluded_unread_ids: tuple[str, ...]
@@ -184,8 +219,8 @@ class BuildJevTransitions:
     def __init__(
         self,
         question: str,
-        scope: SourceScope | SavedBuildSourceScope,
-        actions: tuple[ReadAction, ...],
+        scope: SourceScope | SavedBuildSourceScope | BuildContextScope,
+        actions: tuple[Action, ...],
         *,
         relevant_min: float = 0.5,
         exclusion_min: float = 0.9,
@@ -272,7 +307,7 @@ class BuildJevTransitions:
             a
             for key, a in self._actions.items()
             if key not in self._visited
-            and any(uid not in self._units for uid in a.unit_ids)
+            and (isinstance(a, WorldReadAction) or any(uid not in self._units for uid in a.unit_ids))
         ]
 
     def _basis(self) -> str:
@@ -372,7 +407,7 @@ class BuildJevTransitions:
         navigation = self._phase_input_policy and phase in {"navigate", "coverage"}
         presentation = (
             {
-                "scope": self._scope.model_dump(mode="json"),
+                "scope": scope_presentation(self._scope),
                 "acquired_discovery": [
                     {
                         "action_id": aid,
@@ -405,7 +440,8 @@ class BuildJevTransitions:
             "legal_next_actions": {a.id: a.label[:96] for a in available},
             "legal_action_kinds": {
                 kind: [a.id for a in available if a.kind == kind]
-                for kind in ("graph_observations", "saved_build_section")
+                for kind in ("graph_observations", "saved_build_section", "world_search", "world_object")
+                if kind in {"graph_observations", "saved_build_section"} or any(a.kind == kind for a in available)
             },
             "truncated_discovery_hints": [a.id for a in available if len(a.label) > 96],
             "rules": "In text/observation segment lists, strings are literal text and integer N inserts passages.pN. Expand "
@@ -763,7 +799,7 @@ class BuildJevTransitions:
         )
 
     def accept_acquisition(
-        self, deliveries: dict[str, tuple[AcquiredEvidence, ...]]
+        self, deliveries: dict[str, tuple[Evidence, ...]], *, discovered_actions: tuple[WorldReadAction, ...] = ()
     ) -> Step:
         intent = self._step
         if not isinstance(intent, AcquisitionIntent):
@@ -771,21 +807,29 @@ class BuildJevTransitions:
         try:
             if set(deliveries) != {a.id for a in intent.actions}:
                 raise ValueError("acquisition batch action identities differ")
+            if discovered_actions and not isinstance(self._scope, BuildContextScope):
+                raise ValueError("Dynamic World candidates require explicit Build context scope")
+            if (len({a.id for a in discovered_actions}) != len(discovered_actions)
+                    or any(not isinstance(a, WorldReadAction) or a.id == "none" or a.unit_ids for a in discovered_actions)):
+                raise ValueError("Invalid dynamic World candidate")
+            for candidate in discovered_actions:
+                if candidate.id in self._actions and self._actions[candidate.id] != candidate:
+                    raise ValueError("Dynamic World candidate identity changed")
             staged = dict(self._units)
             for action in intent.actions:
                 units = deliveries[action.id]
-                if len(units) != len(action.unit_ids) or {u.id for u in units} != set(
+                if not isinstance(action, WorldReadAction) and (len(units) != len(action.unit_ids) or {u.id for u in units} != set(
                     action.unit_ids
-                ):
+                )):
                     raise ValueError("acquisition unit identities differ")
                 for unit in units:
-                    if (action.kind == "graph_observations") != (
-                        unit.source_class
-                        == "admitted_graph_observation_and_opened_passages"
-                    ):
+                    if ((isinstance(action, WorldReadAction) and unit.source_class != "opened_world_source_passage")
+                            or not isinstance(action, WorldReadAction) and (action.kind == "graph_observations") != (
+                                unit.source_class == "admitted_graph_observation_and_opened_passages")):
                         raise ValueError("acquisition source class differs from action")
                     if (
                         unit.scope != self._scope
+                        or isinstance(self._scope, BuildContextScope) != isinstance(unit, ContextEvidence)
                         or not all(unit.provenance)
                         or hashlib.sha256(unit.text.encode()).hexdigest()
                         != unit.content_sha256
@@ -803,6 +847,7 @@ class BuildJevTransitions:
             newly_acquired = tuple(
                 u for uid, u in staged.items() if uid not in self._units
             )
+            self._actions.update((a.id, a.model_copy(deep=True)) for a in discovered_actions)
             self._units = staged
             self._visited.update(a.id for a in intent.actions)
             self._excluded.difference_update(a.id for a in intent.actions)
@@ -830,7 +875,10 @@ class BuildJevTransitions:
                     return self.step
                 self._step = self._retention_decision()
             else:
-                self._step = self._decision("assess")
+                # World search and unsuccessful/partial source attempts can add
+                # no evidence. Their visited frontier changed, but the evidence
+                # must not be reassessed as if new content had arrived.
+                self._step = self._decision("assess" if newly_acquired else "navigate")
         except Exception:
             self._step = self._finish("refused", "invalid_acquisition_do_not_replay")
             raise

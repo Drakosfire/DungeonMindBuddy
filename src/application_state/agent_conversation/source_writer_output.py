@@ -240,6 +240,10 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
     sections = exposure.get("saved_sections", [])
     if not isinstance(sections, list) or len(sections) > 128:
         raise ValueError("Malformed saved-section selector packet")
+    from .build_world_context import POLICY as WORLD_POLICY
+    world_policy = packet.get("world_context_policy")
+    if "world_context_policy" in packet and world_policy != WORLD_POLICY:
+        raise ValueError("Unknown Build World context capability")
     handles = set()
     for passage in passages:
         fields = (
@@ -250,8 +254,15 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
             "line_start",
             "line_end",
         )
-        if not isinstance(passage, dict) or set(passage) != {*fields, "handle"}:
+        expected_fields = {*fields, "handle"}
+        if world_policy == WORLD_POLICY:
+            expected_fields.add("source_name")
+        if not isinstance(passage, dict) or set(passage) != expected_fields:
             raise ValueError("Malformed passage selector identity")
+        if world_policy == WORLD_POLICY:
+            name = passage["source_name"]
+            if name is not None and (not isinstance(name, str) or not name.strip()):
+                raise ValueError("Malformed source owner display name")
         text = passage["text"]
         if (
             not isinstance(text, str)
@@ -421,6 +432,8 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
     if packet.get("source_writer_output_policy") != POLICY:
         raise ValueError("Source writer request lacks its frozen output policy")
     validate_writer_format(fmt, packet)
+    from .build_world_context import verify_named_input
+    verify_named_input(packet, turn, trace)
     expected, bindings = reconstruct(
         result.raw_provider_output_json, packet, turn, auth
     )

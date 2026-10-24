@@ -27,7 +27,7 @@ from .build_jev_transitions import (
     OpenedPassage,
     ReadAction,
     SourceScope,
-    SavedBuildSourceScope,
+    SavedBuildSourceScope, ContextEvidence, WorldReadAction,
 )
 
 
@@ -52,6 +52,7 @@ class AcquisitionBinding:
     graph_payloads: tuple[str, ...] = ()
     source_event_ids: tuple[str, ...] = ()
     section_read_id: str | None = None
+    world_operation_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -301,6 +302,19 @@ class BuildJevDriver:
             )
             self._catalog[aid] = (action, (start, end))
             actions.append(action)
+        self._primary_scope = self._scope
+        self._world = None
+        from application_state.agent_conversation.build_world_context import POLICY as WORLD_POLICY, BuildContextScope
+        if (adapter.budget.get("buildJevActions") or {}).get("world_context_policy") == WORLD_POLICY:
+            from .build_world_context import BuildWorldContext
+            graph = self._base["graph_scope"]
+            self._scope = BuildContextScope(managed_world_id=graph["managed_world_id"], world_id=graph["native_world_id"],
+                binding_version=graph["binding_version"], graph_revision=graph["graph_revision"], primary_basis=basis,
+                client_thread_id=adapter.request.client_thread_id, client_turn_id=adapter.request.turn_id)
+            self._world = BuildWorldContext(adapter)
+            for action in self._world.actions.values():
+                self._catalog[action.id] = (action, None)
+                actions.append(action)
         self._machine = BuildJevTransitions(
             adapter.request.message, self._scope, tuple(actions),
             frontier_policy=FRONTIER_POLICY if with_actions else None,
@@ -366,6 +380,8 @@ class BuildJevDriver:
             a.id for a in self.step.actions
         }:
             raise ValueError("Action is not currently requested")
+        if isinstance(action, WorldReadAction):
+            return self._world.arguments(action)
         if action.kind == "saved_build_section":
             return {"line_start": selector[0], "line_end": selector[1]}
         return {
@@ -381,6 +397,23 @@ class BuildJevDriver:
         a = self._adapter
         action, selector = self._catalog[action_id]
         execution = a._broker_execution()
+        if isinstance(action, WorldReadAction):
+            if binding.section_read_id or binding.graph_payloads:
+                raise ValueError("World context cannot borrow primary-source input")
+            if action.kind == "world_search":
+                if binding.source_event_ids:
+                    raise ValueError("World search metadata cannot become evidence")
+                return ()
+            from application_state.agent_conversation.build_world_context import opened_world_passages
+            rows = opened_world_passages(execution, binding.world_operation_ids, binding.source_event_ids,
+                a.operation_payloads, a.source_payloads)
+            return tuple(ContextEvidence(id="world:" + digest(origin.model_dump(mode="json"))[:24],
+                scope=self._scope, origin=origin, subject=name, text=text,
+                content_sha256=hashlib.sha256(text.encode()).hexdigest(), source_class="opened_world_source_passage",
+                provenance=({"world_origin": origin.model_dump(mode="json")},),
+) for origin, text, name in rows)
+        if binding.world_operation_ids:
+            raise ValueError("Primary source cannot borrow World acquisition provenance")
         if action.kind == "saved_build_section":
             if (
                 binding.graph_payloads
@@ -403,7 +436,9 @@ class BuildJevDriver:
             if event.source_basis.model_dump(mode="json") != self._base["source_basis"]:
                 raise ValueError("Saved section basis differs")
             return (
-                AcquiredEvidence(
+                (ContextEvidence if self._world is not None else AcquiredEvidence)(
+                    **({"origin": {"kind": "primary_saved_section", "source_basis": self._base["source_basis"],
+                        "section_event_id": event.event_id, "read_id": event.read_id}} if self._world is not None else {}),
                     id=action.unit_ids[0],
                     scope=self._scope,
                     subject=action.label,
@@ -414,7 +449,7 @@ class BuildJevDriver:
                 ),
             )
         if (
-            not isinstance(self._scope, SourceScope)
+            not isinstance(self._primary_scope, SourceScope)
             or binding.section_read_id
             or not binding.graph_payloads
             or not binding.source_event_ids
@@ -463,8 +498,8 @@ class BuildJevDriver:
         entry = self._observations[selector]
         if (
             row.subject_node_id != entry["subject_object_id"]
-            or row.source_artifact_id != self._scope.source_artifact_id
-            or row.source_revision_id != self._scope.source_revision_id
+            or row.source_artifact_id != self._primary_scope.source_artifact_id
+            or row.source_revision_id != self._primary_scope.source_revision_id
         ):
             raise ValueError("Observation identity differs from source discovery")
         anchors = {
@@ -490,12 +525,12 @@ class BuildJevDriver:
                     continue  # A shared batch may also support another acquired unit.
                 if (
                     receipt.evidence_ref_id not in row.evidence_ref_ids
-                    or receipt.source_artifact_id != self._scope.source_artifact_id
-                    or receipt.source_revision_id != self._scope.source_revision_id
+                    or receipt.source_artifact_id != self._primary_scope.source_artifact_id
+                    or receipt.source_revision_id != self._primary_scope.source_revision_id
                     or receipt.outcome != "enough"
                     or receipt.truncated
                     or receipt.evidence_sufficiency_status != "sufficient"
-                    or body.get("contentSha256") != self._scope.source_sha256
+                    or body.get("contentSha256") != self._primary_scope.source_sha256
                     or body.get("outcome") != receipt.outcome
                     or body.get("truncated", False) != receipt.truncated
                     or body.get("anchorId") != receipt.anchor_id
@@ -533,7 +568,13 @@ class BuildJevDriver:
             + "\n\n".join(p.text for p in passages)
         )
         return (
-            AcquiredEvidence(
+            (ContextEvidence if self._world is not None else AcquiredEvidence)(
+                **({"origin": {"kind": "primary_reviewed_observation", "source_basis": self._base["source_basis"],
+                    "operation_event_ids": [str(e.event_id) for e in execution.events
+                        if isinstance(e, ledger.ValidatedGraphOperationEventV3) and e.assertion_ids == [row.assertion_id]],
+                    "assertion_id": row.assertion_id, "source_artifact_id": row.source_artifact_id,
+                    "source_revision_id": row.source_revision_id, "evidence_ref_ids": tuple(sorted(row.evidence_ref_ids))}}
+                    if self._world is not None else {}),
                 id=action.unit_ids[0],
                 scope=self._scope,
                 subject=entry["subject_label"],
@@ -574,6 +615,12 @@ class BuildJevDriver:
             for unit in batch
             for p in unit.opened_passages
         }
+        from application_state.agent_conversation.build_world_context import WorldPassageOrigin
+        represented.update((unit.origin.source_artifact_id, unit.origin.source_revision_id,
+                            unit.origin.evidence_ref_id, unit.origin.line_start, unit.origin.line_end,
+                            unit.origin.content_sha256)
+                           for batch in units.values() for unit in batch
+                           if isinstance(unit, ContextEvidence) and isinstance(unit.origin, WorldPassageOrigin))
         event_ids = {
             eid for binding in bindings.values() for eid in binding.source_event_ids
         }
@@ -608,7 +655,12 @@ class BuildJevDriver:
             aid: self._derive_units(aid, binding) for aid, binding in bindings.items()
         }
         self._verify_source_coverage(self._units | units, self._bindings | bindings)
-        result = self._machine.accept_acquisition(units)
+        discovered = ()
+        if self._world is not None:
+            discovered = tuple(self._world.actions.values())
+            for action in discovered:
+                self._catalog.setdefault(action.id, (action, None))
+        result = self._machine.accept_acquisition(units, discovered_actions=discovered)
         self._bindings.update(bindings)
         self._units.update(units)
         return result
@@ -925,6 +977,11 @@ class BuildJevDriver:
         else:
             phase = self._machine.step.phase
             result = self._machine.accept_decision(plan.request_id, model, answers)
+            if self._world is not None and isinstance(result, AcquisitionIntent):
+                actions = [action for action in result.actions if isinstance(action, WorldReadAction)]
+                if actions:
+                    from .build_world_context import record_selection
+                    record_selection(self, plan, prepared, actual_response, actions)
             if self._machine._phase_input_policy and phase == "assess":
                 judgment = self._machine._assessment_judgment
                 self._assessment_receipt = {

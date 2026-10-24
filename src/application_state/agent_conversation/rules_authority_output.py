@@ -241,7 +241,7 @@ class BuildRulesOutputProofV1(ClosedRulesModel):
 
 
 def validate_build_base_completion(result, turn, *, rules_execution, output_proof,
-                                   answer: RulesWriterAnswerV1) -> None:
+                                   answer: RulesWriterAnswerV1, trace: dict) -> None:
     """Reconstruct actual mixed base output without fabricating a response capture.
 
     Caller already verified the actual outer request and raw captured response.
@@ -268,6 +268,8 @@ def validate_build_base_completion(result, turn, *, rules_execution, output_proo
             or auth.envelope_sha256 != sha256(output_proof.prepared_request_json.encode()).hexdigest()):
         raise ValueError("Mixed base differs from its actual Graph writer request")
     packet = base_writer.strict_json(base_writer.strict_json(output_proof.prepared_request_json)["input"])
+    from .build_world_context import verify_named_input
+    verify_named_input(packet, turn, trace)
     expected, bindings = base_writer.reconstruct(json.dumps(answer.base_output, ensure_ascii=False), packet, turn, auth)
     def citations(completion):
         return sorted(json.dumps(c.model_dump(mode="json"), sort_keys=True)

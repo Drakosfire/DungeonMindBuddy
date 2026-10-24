@@ -396,7 +396,8 @@ def test_default_build_rules_does_not_require_source_ingestion(
         scopes = [json.loads(call.content)["state"].get("decision", {}).get("state", {}).get("scope")
                   for call in decisions.calls]
         scopes = [scope for scope in scopes if scope is not None]
-        assert scopes and all(scope["kind"] == "saved_build_source" for scope in scopes)
+        assert scopes and all(scope["kind"] == "primary_authored_page_and_opened_world_sources" for scope in scopes)
+        assert all(scope["primary_role"] == "authored_reference_not_played_truth" for scope in scopes)
         assert all("source_revision_id" not in scope for scope in scopes)
     calls_before = len(decisions.calls)
     monkeypatch.setattr(PreparedBuildJevRuntime, "create", lambda self: pytest.fail("replay constructed runtime"))
