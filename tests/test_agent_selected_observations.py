@@ -99,6 +99,7 @@ def bounded_case(monkeypatch):
             )
 
     services = SimpleNamespace(
+        object_read_wave=None,
         binding=direct.DirectAuthorityBinding(
             world_id="world:test",
             dungeonmind_first_revision_id="rev:published",

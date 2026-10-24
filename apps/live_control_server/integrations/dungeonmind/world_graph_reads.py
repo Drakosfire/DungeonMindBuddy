@@ -77,6 +77,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Literal, Mapping, Sequence
 
 if TYPE_CHECKING:
+    from .object_read_wave import ObjectReadWave
     from .reviewed_source_wave import ReviewedSourceWave
     from .source_anchor_wave import SourceAnchorWave
     from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
@@ -312,6 +313,7 @@ class DirectWorldGraphReadServices:
     binding: DirectAuthorityBinding
     reviewed_source_wave: ReviewedSourceWave | None = None
     source_anchor_wave: SourceAnchorWave | None = None
+    object_read_wave: ObjectReadWave | None = None
 
 
 def _verified_authority_lookup(getter: Any, world_id: str, *, what: str) -> Any:
@@ -1982,7 +1984,8 @@ def _get_object_with_reviewed_sources_direct(
         native_request = _map_retrieval_context(request, services.binding)
         if native_request.revision_pin is None:
             raise ValueError("Harness object expansion requires an exact revision pin")
-        views = services.retrieval.get_object_views(
+        reader = services.object_read_wave or services.retrieval
+        views = reader.get_object_views(
             native_request,
             object_id=request.node_id,
             bounds=_retrieval_bounds(request.bounds),

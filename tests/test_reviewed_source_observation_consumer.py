@@ -212,6 +212,7 @@ def test_pinned_native_observation_reaches_ordinary_harness_claim_and_event(monk
             )
 
     services = SimpleNamespace(
+        object_read_wave=None,
         binding=direct.DirectAuthorityBinding(
             world_id="world:test",
             dungeonmind_first_revision_id="rev:published",
@@ -360,6 +361,7 @@ def test_missing_review_authority_is_reported_without_inventing_observation(monk
             )
 
     services = SimpleNamespace(
+        object_read_wave=None,
         binding=direct.DirectAuthorityBinding(
             world_id="world:test",
             dungeonmind_first_revision_id="rev:published",

@@ -61,3 +61,40 @@ def test_unacknowledged_or_failed_bind_never_leaves_active_lifetime(plan_adapter
         with plan_adapter.plan_graph_acquisition(("pond", "bridge")):
             plan_adapter._plan_graph_read_services.resolve()
     assert plan_adapter._plan_graph_read_services is None
+
+
+def test_two_objects_through_real_broker_share_native_context_and_keep_events(plan_adapter, monkeypatch):
+    from dataclasses import replace
+    from graph_memory.interaction.session import GraphReferent
+    from tests.test_world_graph_retrieval_contract import _selected_native_fixture
+    services, request, revision = _selected_native_fixture(unrelated=1)
+    a = plan_adapter
+    scope = replace(a.bootstrap.world_scope, world_id=request.world_id, revision_id=revision)
+    a.bootstrap.retrieval_session.snapshot = a.bootstrap.retrieval_session.snapshot.model_copy(update={
+        'world_id':request.world_id, 'revision_id':revision})
+    a.bootstrap.retrieval_session.referents = [GraphReferent(id=n, label=n) for n in ('obj:tavern','obj:noise:0')]
+    a.bootstrap = replace(a.bootstrap, world_scope=scope,
+        graph_envelope={**a.bootstrap.graph_envelope, 'world_id':request.world_id,'revision_id':revision})
+    candidates = tuple(RetrievalCandidate(handle=f'node:{n}',label=n,kind='location') for n in ('obj:tavern','obj:noise:0'))
+    asyncio.run(PlanJevDispatch(a,candidates).run(transport=Decisions(),api_key='synthetic-not-secret'))
+    from unittest.mock import Mock
+    opened = Mock(wraps=services.projection.open_read_context)
+    monkeypatch.setattr(services.projection,'open_read_context',opened)
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',lambda _:services)
+    with a.plan_graph_acquisition(('obj:tavern','obj:noise:0')):
+        lifetime = a._plan_graph_read_services
+        assert opened.call_count == 0 and a.authorize({}) is False
+        for node in ('obj:tavern','obj:noise:0'):
+            reply = a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
+                'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object',
+                'targets':[{'kind':'node','id':node}]}})
+            assert a.failure is None, reply
+        assert opened.call_count == 1
+        retained = lifetime.for_object(request)
+    assert a._plan_graph_read_services is None
+    with pytest.raises(RuntimeError,match='closed'):
+        lifetime.resolve()
+    assert retained.object_read_wave._native is None
+    events = [e for e in a._broker_execution().events if e.kind=='validated_graph_operation_v3']
+    assert len(events)==2 and len({e.operation_id for e in events})==2
+    assert all(e.graph_revision==revision and e.returned_source_pins for e in events)

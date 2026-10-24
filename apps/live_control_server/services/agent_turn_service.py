@@ -3114,6 +3114,8 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
+                if plan_services is not None:
+                    services = plan_services.for_object(effective_request)
                 if self._is_build_turn() or isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)):
                     reviewed = get_object_with_reviewed_sources_direct_v3(
                         services, effective_request,
