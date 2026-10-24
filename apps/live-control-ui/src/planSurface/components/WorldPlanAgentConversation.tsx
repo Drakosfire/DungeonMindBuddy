@@ -2627,7 +2627,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible, sourceKey: JSON.stringify([buildMode?.savedSource?.worldId, buildMode?.savedSource?.documentId, buildMode?.savedSource?.revision, buildMode?.savedSource?.contentSha256]),
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, pageDocumentId: buildMode?.savedSource?.documentId ?? null, sourceKey: JSON.stringify([buildMode?.savedSource?.worldId, buildMode?.savedSource?.documentId, buildMode?.savedSource?.revision, buildMode?.savedSource?.contentSha256]),
     onHistory: next => { historySnapshotRef.current = next; setHistory(next); } });
 
   const conversationDisplay = useMemo(
@@ -2861,7 +2861,7 @@ export function WorldPlanAgentConversation({
 
   const unresolvedPlanAskKey = pendingAsks.filter((item) => item.envelope
     && !isPendingAskFailureConfirmed(item)).map((item) => item.serialized).join("\u001f");
-  const historyRequested = agent.paneState.isOpen || sending || newConversationSending
+  const historyRequested = Boolean(isBuild && buildMode?.savedSource) || agent.paneState.isOpen || sending || newConversationSending
     || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn)
     || pendingAsks.some(item => item.envelope && !isPendingAskFailureConfirmed(item))
     || pendingCommands.some(item => item.envelope) || Boolean(confirmedAskNoticeRef.current);

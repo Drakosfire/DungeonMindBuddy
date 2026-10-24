@@ -28,7 +28,7 @@ let session: ReturnType<typeof useMarkdownCanvasSession>;
 function Controls() {
   session = useMarkdownCanvasSession();
   const registry = useWorldAgentConversationState()!;
-  const compose = useBuildCompose({ worldId: 'elderwyld', history,
+  const compose = useBuildCompose({ worldId: 'elderwyld', pageDocumentId:session.documentId, history,
     bridge: registry.build?.value.composeBridge ?? null, enabled: true, onHistory: () => undefined });
   return <><button onClick={() => { void compose.submit('Create NPCs and jobs as a table and add them to the page.'); }}>Request table</button>
     <button disabled={session.saveDisabled} onClick={() => { void session.saveMarkdown(); }}>Save test page</button>
@@ -214,4 +214,34 @@ it('reloads a proposal and inserts at its original position after the author mov
   expect(api.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   act(() => {session.editor!.commands.undo();});
   expect(session.editor!.getJSON()).toEqual(before);
+});
+
+let exposedBridge: import('./buildComposeBridge').BuildComposeBridge|null=null;
+function ExposeBuildBridge(){const registry=useWorldAgentConversationState();exposedBridge=registry?.build?.value.composeBridge??null;return null;}
+function ClosedPageHarness(){return <AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
+ <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell/><OpenConversation/><ExposeBuildBridge/></BuildCanvasTestProvider>
+ <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld"/>
+ </WorldAgentConversationProvider></AskPluginSlotProvider></AgentInteractionProvider>;}
+it('restores a saved on-page review with chat closed and does not reread history when chat opens',async()=>{
+ vi.mocked(api.getWorldAgentConversationHistory).mockResolvedValue(history);
+ let finish!:(records:proposals.BuildProposalRecord[])=>void;
+ vi.mocked(proposals.listBuildProposals).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ const view=render(<ClosedPageHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ await waitFor(()=>expect(finish).toBeTypeOf('function'));
+ expect(screen.queryByRole('textbox',{name:'Message DungeonBuddy',exact:true})).not.toBeInTheDocument();
+ const cap=await exposedBridge!.capture();
+ const record=await vi.mocked(proposals.composeBuildProposal).getMockImplementation()!({idempotency_key:'closed-page-review',conversation_id:history.conversation_id!,expected_pointer_revision:1,basis:cap.basis,draft_markdown:cap.draftMarkdown,instruction:'A table'});
+ await act(async()=>{finish([record]);});
+ await screen.findByRole('region',{name:'Proposed page change'});
+ expect(session.dirty).toBe(false);expect(api.getWorldAgentConversationHistory).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Open conversation'}));
+ await screen.findByLabelText('Message DungeonBuddy');
+ expect(api.getWorldAgentConversationHistory).toHaveBeenCalledTimes(1);
+ view.unmount();
+ vi.mocked(proposals.listBuildProposals).mockResolvedValue([record]);
+ render(<ClosedPageHarness/>);
+ await screen.findByRole('region',{name:'Proposed page change'});
+ expect(screen.queryByRole('textbox',{name:'Message DungeonBuddy',exact:true})).not.toBeInTheDocument();
+ expect(session.dirty).toBe(false);expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
 });

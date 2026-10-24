@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 it('does not refetch conversation sidecars for turn lifecycle changes, but refreshes on explicit request or conversation change', async () => {
   const firstHistory = { ...history, turns: [{ turn_id: 'turn-1', sequence: 1, lifecycle_status: 'running' }] } as WorldAgentConversationHistoryResponse;
-  const hook = renderHook(({ snapshot }) => useBuildCompose({ worldId: 'world', history: snapshot, bridge, enabled: true, onHistory: vi.fn() }),
+  const hook = renderHook(({ snapshot }) => useBuildCompose({ worldId: 'world', pageDocumentId:'doc', history: snapshot, bridge, enabled: true, onHistory: vi.fn() }),
     { initialProps: { snapshot: firstHistory } });
   await waitFor(() => {
     expect(api.listBuildProposals).toHaveBeenCalledTimes(1);
@@ -58,7 +58,7 @@ it('does not refetch conversation sidecars for turn lifecycle changes, but refre
   });
 });
 it('keeps generated prose out of conversation and exposes the page-owned review', async () => {
-  const hook = renderHook(() => useBuildCompose({worldId:'world',history,bridge,enabled:true,onHistory:vi.fn()}));
+  const hook = renderHook(() => useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
   await act(async()=>{await hook.result.current.submit('Create a table');});
   render(<>{hook.result.current.items.map(item=>item.element)}</>);
   expect(screen.getByRole('button',{name:'Review suggestion on page'})).toBeInTheDocument();
@@ -72,7 +72,7 @@ it('opens the first durable World conversation before composing', async () => {
   vi.mocked(live.getWorldAgentConversationHistory).mockResolvedValue(history);
   const hook = renderHook(() => {
     const [value, setValue] = useState<WorldAgentConversationHistoryResponse>({ ...history, conversation_id: null, active_conversation_id: null, pointer_revision: 0, conversation_state: 'absent' });
-    return useBuildCompose({ worldId: 'world', history: value, bridge, enabled: true, onHistory: setValue });
+    return useBuildCompose({ worldId: 'world', pageDocumentId:'doc', history: value, bridge, enabled: true, onHistory: setValue });
   });
   await act(async () => { await hook.result.current.submit('Create a table'); });
   expect(live.postWorldAgentNewConversation).toHaveBeenCalledTimes(1);
@@ -82,7 +82,7 @@ it('opens the first durable World conversation before composing', async () => {
 it('does not replay an uncertain provider operation', async () => {
   vi.mocked(api.composeBuildProposal).mockRejectedValue(new Error('Unknown outcome'));
   vi.mocked(api.getBuildProposal).mockResolvedValue({ ...receipt(), state: 'unknown', proposal: null });
-  const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
+  const hook = renderHook(() => useBuildCompose({ worldId: 'world', pageDocumentId:'doc', history, bridge, enabled: true, onHistory: vi.fn() }));
   await act(async () => { await hook.result.current.submit('Create a table'); });
   expect(api.composeBuildProposal).toHaveBeenCalledTimes(1);
   expect(api.getBuildProposal).toHaveBeenCalledTimes(1);
@@ -92,7 +92,7 @@ it('discards an old result after World A → B → A', async () => {
   let finish!: (value: api.BuildProposalRecord) => void;
   let request!: api.BuildProposalRequest;
   vi.mocked(api.composeBuildProposal).mockImplementation(value => { request = value; return new Promise(resolve => { finish = resolve; }); });
-  const hook = renderHook(({ world }) => useBuildCompose({ worldId: world, history: { ...history, world_id: world }, bridge, enabled: true, onHistory: vi.fn() }), { initialProps: { world: 'world' } });
+  const hook = renderHook(({ world }) => useBuildCompose({ worldId: world, pageDocumentId:'doc', history: { ...history, world_id: world }, bridge, enabled: true, onHistory: vi.fn() }), { initialProps: { world: 'world' } });
   let pending!: Promise<boolean>;
   act(() => { pending = hook.result.current.submit('Create a table'); });
   await waitFor(() => expect(api.composeBuildProposal).toHaveBeenCalledTimes(1));
@@ -113,7 +113,7 @@ it.each([true, false])('places a Harness proposal after its requesting turn when
     broker_operation_id: 'operation', arguments_sha256: 'a'.repeat(64)};
   vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
   const loaded = {...history, turns: [{turn_id: matching ? 'requesting-turn' : 'unrelated-turn', sequence: 5}]} as WorldAgentConversationHistoryResponse;
-  const hook = renderHook(() => useBuildCompose({worldId: 'world', history: loaded, bridge, enabled: true, onHistory: vi.fn()}));
+  const hook = renderHook(() => useBuildCompose({worldId: 'world', pageDocumentId:'doc', history: loaded, bridge, enabled: true, onHistory: vi.fn()}));
   await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
   expect(hook.result.current.items[0].afterSequence).toBe(matching ? 5 : 4);
   render(<>{hook.result.current.items[0].element}</>);
@@ -124,7 +124,7 @@ it.each([true, false])('places a Harness proposal after its requesting turn when
 it('keeps a historical proposal readable without manufacturing an original anchor', async () => {
   const old = receipt(); delete old.reservation.basis.editor_sha256;
   vi.mocked(api.listBuildProposals).mockResolvedValue([old]);
-  const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
+  const hook = renderHook(() => useBuildCompose({ worldId: 'world', pageDocumentId:'doc', history, bridge, enabled: true, onHistory: vi.fn() }));
   await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
   render(<>{hook.result.current.items.map(item => item.element)}</>);
   const details=screen.getByText('Earlier page suggestion').closest('details')!;
@@ -139,11 +139,26 @@ it('reopens the author-reviewed text separately from original generated prose',a
  vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
  vi.mocked(proposalReview).mockResolvedValue({schema:'dmb_build_proposal_review_v1',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,
   revision:4,state:'applied',markdown:'The author’s retained review edit.',markdown_sha256:'a'.repeat(64),apply:null,updated_at:''});
- const hook=renderHook(()=>useBuildCompose({worldId:'world',history,bridge,enabled:true,onHistory:vi.fn()}));
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
  await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
  render(<>{hook.result.current.items.map(item=>item.element)}</>);
  expect(hook.result.current.pageElement).toBeNull();expect(proposalReview).not.toHaveBeenCalled();
  const details=screen.getByText('Kept page suggestion').closest('details')!;details.open=true;fireEvent(details,new Event('toggle'));
  expect(await screen.findByText('The author’s retained review edit.')).toBeInTheDocument();
  expect(screen.queryByText('Authored suggestion for your page')).not.toBeInTheDocument();
+});
+
+it('stages only the current page and reuses the same World proposal read across page navigation',async()=>{
+ const first=receipt();first.action_id='first';first.created_at='2026-10-23T00:00:00Z';
+ const second=receipt();second.action_id='second';second.created_at='2026-10-23T00:01:00Z';second.reservation={...second.reservation,basis:{...second.reservation.basis,document_id:'other'}};
+ vi.mocked(api.listBuildProposals).mockResolvedValue([first,second]);
+ const hook=renderHook(({doc})=>useBuildCompose({worldId:'world',pageDocumentId:doc,history,bridge,enabled:true,onHistory:vi.fn()}),{initialProps:{doc:'doc' as string|null}});
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(2));
+ expect((hook.result.current.pageElement as React.ReactElement<{record:api.BuildProposalRecord}>).props.record.action_id).toBe('first');
+ const view=render(<>{hook.result.current.items.map(item=>item.element)}</>);
+ fireEvent.click(screen.getByRole('button',{name:'Review suggestion on page'}));
+ hook.rerender({doc:'other'});
+ expect((hook.result.current.pageElement as React.ReactElement<{record:api.BuildProposalRecord}>).props.record.action_id).toBe('second');
+ expect(api.listBuildProposals).toHaveBeenCalledTimes(1);
+ hook.rerender({doc:null});expect(hook.result.current.pageElement).toBeNull();view.unmount();
 });

@@ -14,9 +14,9 @@ import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
-export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, sourceKey = '' }: {
+export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
-  enabled: boolean; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
+  enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
@@ -30,7 +30,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
   const captures = useRef(new Map<string, CapturedBuildInsertion>());
-  const [opened,setOpened]=useState<{action:string;generation:number}|null>(null);
+  const [opened,setOpened]=useState<{action:string;generation:number;documentId:string}|null>(null);
   const [reviewStatus,setReviewStatus]=useState<Record<string,string>>({});
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -102,19 +102,20 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
   }
   const values=records.scope===scope?records.values:[];
-  const latest=[...values].reverse().find(record=>record.proposal&&record.reservation.basis.editor_sha256);
-  const active=values.find(record=>record.action_id===(opened?.action??latest?.action_id));
+  const selected=opened?.documentId===pageDocumentId?opened:null;
+  const latest=[...values].reverse().find(record=>record.proposal&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId);
+  const active=values.find(record=>record.action_id===(selected?.action??latest?.action_id)&&record.reservation.basis.document_id===pageDocumentId);
   return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
     pageElement: enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision
       ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={sourceKey}
-          requestKey={opened?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
+          requestKey={selected?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
           onComplete={state=>{if(state==='applied')setRecords(previous=>previous.scope===scope?{...previous,values:previous.values.map(value=>value.action_id===active.action_id?{...value,inserted_in_draft:true}:value)}:previous);}}/>:null,
     items: [...values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,
       history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
-      element:record.proposal&&bridge&&record.reservation.basis.editor_sha256&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'
-        ? <button type="button" key={record.action_id} onClick={()=>setOpened(previous=>({action:record.action_id,generation:(previous?.generation??0)+1}))}>
+      element:record.proposal&&bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'
+        ? <button type="button" key={record.action_id} onClick={()=>setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}))}>
             {reviewStatus[record.action_id]??(record.inserted_in_draft?'Kept on page':'Review suggestion on page')}
           </button>
         : <EarlierBuildProposal key={record.action_id} record={record} label={reviewStatus[record.action_id]}/>})),

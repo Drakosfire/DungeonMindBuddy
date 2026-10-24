@@ -1,6 +1,6 @@
 # Page proposal review
 
-ACTIVE serial PRIME slice on codex/build-page-proposal-review at
+MERGED — rendered reload correction active in HANDOFF-BUILD-review-page-reload.md. Serial PRIME slice on codex/build-page-proposal-review at
 15919026f23a66848a2083fe70c2b342e88ef901, existing buddy-context-loop checkout.
 Operator-authorized page-centered authoring; no overlapping open write lease.
 PRIME implements and delivers; independent Bugbot reviews the cumulative head.
@@ -54,3 +54,10 @@ Undo. Typecheck/build and exact independent Bugbot. Migration/delivery protects
 all old APP/native/product/corpus state. Ordinary synthetic rendered rehearsal
 through Keep/Discard/reload, preserving real user page. Settle predecessor from
 its exact merged/delivered evidence; keep full goal outstanding.
+
+Merged4b851a07a7cf5112a60a8439a93fa336f15a855d; Bugbot approved exact
+b3273c15890f583d81e4198caae14a58fad9fadb after authentication correction.
+Protected APP0059/API/UI delivery preserved existing state. Ordinary staged
+editing and saved review left source bytes/revision unchanged. Closed-drawer
+reload exposed the existing history activation gate; the consuming correction
+finishes that rendered gate before Keep/Discard/reload acceptance is claimed.
